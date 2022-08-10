@@ -175,6 +175,31 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
             makeNullableFlatVector<int16_t>({tzid}),
         })}));
   }
+
+  VectorPtr evaluateWithTimestampWithTimezone(
+      const std::string& expression,
+      std::optional<int64_t> timestamp,
+      const std::optional<std::string>& timeZoneName) {
+    if (!timestamp.has_value() || !timeZoneName.has_value()) {
+      return evaluate(
+          expression,
+          makeRowVector({makeRowVector(
+              {
+                  makeNullableFlatVector<int64_t>({std::nullopt}),
+                  makeNullableFlatVector<int16_t>({std::nullopt}),
+              },
+              [](vector_size_t /*row*/) { return true; })}));
+    }
+
+    const std::optional<int64_t> tzid =
+        util::getTimeZoneID(timeZoneName.value());
+    return evaluate(
+        expression,
+        makeRowVector({makeRowVector({
+            makeNullableFlatVector<int64_t>({timestamp}),
+            makeNullableFlatVector<int16_t>({tzid}),
+        })}));
+  }
 };
 
 bool operator==(
@@ -1180,6 +1205,101 @@ TEST_F(DateTimeFunctionsTest, dateTruncDate) {
   EXPECT_THROW(dateTrunc("second", Date(-18297)), VeloxUserError);
   EXPECT_THROW(dateTrunc("minute", Date(-18297)), VeloxUserError);
   EXPECT_THROW(dateTrunc("hour", Date(-18297)), VeloxUserError);
+}
+
+TEST_F(DateTimeFunctionsTest, dateTruncTimestampWithTimezone) {
+  const auto evaluateDateTrunc = [&](const std::string& truncUnit,
+                                     int64_t inputTimestamp,
+                                     const std::string& timeZone,
+                                     int64_t expectedTimestamp) {
+    assertEqualVectors(
+        makeRowVector(
+            {makeNullableFlatVector<int64_t>({expectedTimestamp}),
+             makeNullableFlatVector<int16_t>({util::getTimeZoneID(timeZone)})}),
+        evaluateWithTimestampWithTimezone(
+            fmt::format("date_trunc('{}', c0)", truncUnit),
+            inputTimestamp,
+            timeZone));
+  };
+
+  evaluateDateTrunc("second", 123, "+01:00", 0);
+  evaluateDateTrunc("second", 1123, "-03:00", 1000);
+  evaluateDateTrunc("second", -1123, "+03:00", -2000);
+  evaluateDateTrunc("second", 1234567000, "+14:00", 1234567000);
+  evaluateDateTrunc("second", -1234567000, "-09:00", -1234567000);
+
+  evaluateDateTrunc("minute", 123, "+01:00", 0);
+  evaluateDateTrunc("minute", 1123, "-03:00", 0);
+  evaluateDateTrunc("minute", -1123, "+03:00", -60000);
+  evaluateDateTrunc("minute", 1234567000, "+14:00", 1234560000);
+  evaluateDateTrunc("minute", -1234567000, "-09:00", -1234620000);
+
+  evaluateDateTrunc("hour", 123, "+01:00", 0);
+  evaluateDateTrunc("hour", 1123, "-03:00", 0);
+  evaluateDateTrunc("hour", -1123, "+05:30", -1800000);
+  evaluateDateTrunc("hour", 1234567000, "+14:00", 1231200000);
+  evaluateDateTrunc("hour", -1234567000, "-09:30", -1236600000);
+
+  evaluateDateTrunc("day", 123, "+01:00", -3600000);
+  evaluateDateTrunc("day", 1123, "-03:00", -86400000 + 3600000 * 3);
+  evaluateDateTrunc("day", -1123, "+05:30", 0 - 3600000 * 5 - 1800000);
+  evaluateDateTrunc("day", 1234567000, "+14:00", 1159200000);
+  evaluateDateTrunc("day", -1234567000, "-09:30", -1261800000);
+
+  evaluateDateTrunc("month", 123, "-01:00", -2674800000);
+  evaluateDateTrunc("month", 1234567000, "+14:00", -50400000);
+  evaluateDateTrunc("month", -1234567000, "-09:30", -2644200000);
+
+  evaluateDateTrunc("quarter", 123, "-01:00", -7945200000);
+  evaluateDateTrunc("quarter", 123456789000, "+14:00", 118231200000);
+  evaluateDateTrunc("quarter", -123456789000, "-09:30", -126196200000);
+
+  evaluateDateTrunc("year", 123, "-01:00", -31532400000);
+  evaluateDateTrunc("year", 123456789000, "+14:00", 94644000000);
+  evaluateDateTrunc("year", -123456789000, "-09:30", -126196200000);
+
+  const auto evaluateDateTruncFromStrings = [&](const std::string& truncUnit,
+                                                const std::string&
+                                                    inputTimestamp,
+                                                const std::string&
+                                                    expectedTimestamp) {
+    assertEqualVectors(
+        evaluate<RowVector>(
+            "parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ')",
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{expectedTimestamp}})})),
+        evaluate<RowVector>(
+            fmt::format(
+                "date_trunc('{}', parse_datetime(c0, 'YYYY-MM-dd+HH:mm:ssZZ'))",
+                truncUnit),
+            makeRowVector({makeNullableFlatVector<StringView>(
+                {StringView{inputTimestamp}})})));
+  };
+
+  evaluateDateTruncFromStrings(
+      "minute", "1972-05-20+23:01:02+14:00", "1972-05-20+23:01:00+14:00");
+  evaluateDateTruncFromStrings(
+      "minute", "1968-05-20+23:01:02+05:30", "1968-05-20+23:01:00+05:30");
+  evaluateDateTruncFromStrings(
+      "hour", "1972-05-20+23:01:02+03:00", "1972-05-20+23:00:00+03:00");
+  evaluateDateTruncFromStrings(
+      "hour", "1968-05-20+23:01:02-09:30", "1968-05-20+23:00:00-09:30");
+  evaluateDateTruncFromStrings(
+      "day", "1972-05-20+23:01:02-03:00", "1972-05-20+00:00:00-03:00");
+  evaluateDateTruncFromStrings(
+      "day", "1968-05-20+23:01:02+05:30", "1968-05-20+00:00:00+05:30");
+  evaluateDateTruncFromStrings(
+      "month", "1972-05-20+23:01:02-03:00", "1972-05-01+00:00:00-03:00");
+  evaluateDateTruncFromStrings(
+      "month", "1968-05-20+23:01:02+05:30", "1968-05-01+00:00:00+05:30");
+  evaluateDateTruncFromStrings(
+      "quarter", "1972-05-20+23:01:02-03:00", "1972-04-01+00:00:00-03:00");
+  evaluateDateTruncFromStrings(
+      "quarter", "1968-05-20+23:01:02+05:30", "1968-04-01+00:00:00+05:30");
+  evaluateDateTruncFromStrings(
+      "year", "1972-05-20+23:01:02-03:00", "1972-01-01+00:00:00-03:00");
+  evaluateDateTruncFromStrings(
+      "year", "1968-05-20+23:01:02+05:30", "1968-01-01+00:00:00+05:30");
 }
 
 TEST_F(DateTimeFunctionsTest, dateAddDate) {

@@ -37,7 +37,7 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 
 .. function:: date_trunc(unit, x) -> x
 
-    Returns ``x`` truncated to ``unit``. The supported types for ``x`` are TIMESTAMP and DATE.
+    Returns ``x`` truncated to ``unit``. The supported types for ``x`` are TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE.
 
 Interval Functions
 ------------------
@@ -141,7 +141,7 @@ pattern format. The symbols currently supported are ``y``, ``Y``, ``M`` , ``d``,
 Convenience Extraction Functions
 --------------------------------
 
-These functions are supported for TIMESTAMP, DATE, and Presto TIMESTAMPWITHTIMEZONE values.
+These functions support TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE input types.
 
 .. function:: day(x) -> bigint
 

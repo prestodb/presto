@@ -526,10 +526,22 @@ inline std::optional<DateTimeUnit> getDateUnit(
   return unit;
 }
 
+inline std::optional<DateTimeUnit> getTimestampUnit(
+    const StringView& unitString) {
+  std::optional<DateTimeUnit> unit =
+      fromDateTimeUnitString(unitString, false /*throwIfInvalid*/);
+  VELOX_USER_CHECK(
+      !(unit.has_value() && unit.value() == DateTimeUnit::kMillisecond),
+      "{} is not a valid TIMESTAMP field",
+      unitString);
+
+  return unit;
+}
+
 } // namespace
 
 template <typename T>
-struct DateTruncFunction {
+struct DateTruncFunction : public TimestampWithTimezoneSupport<T> {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
   const date::time_zone* timeZone_ = nullptr;
@@ -542,11 +554,7 @@ struct DateTruncFunction {
     timeZone_ = getTimeZoneFromConfig(config);
 
     if (unitString != nullptr) {
-      unit_ = fromDateTimeUnitString(*unitString, false /*throwIfInvalid*/);
-      VELOX_USER_CHECK(
-          !(unit_.has_value() && unit_.value() == DateTimeUnit::kMillisecond),
-          "{} is not a valid TIMESTAMP field",
-          *unitString);
+      unit_ = getTimestampUnit(*unitString);
     }
   }
 
@@ -556,6 +564,15 @@ struct DateTruncFunction {
       const arg_type<Date>* /*date*/) {
     if (unitString != nullptr) {
       unit_ = getDateUnit(*unitString, false);
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void initialize(
+      const core::QueryConfig& /*config*/,
+      const arg_type<Varchar>* unitString,
+      const arg_type<TimestampWithTimezone>* /*timestamp*/) {
+    if (unitString != nullptr) {
+      unit_ = getTimestampUnit(*unitString);
     }
   }
 
@@ -587,7 +604,7 @@ struct DateTruncFunction {
     }
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Timestamp>& result,
       const arg_type<Varchar>& unitString,
       const arg_type<Timestamp>& timestamp) {
@@ -595,17 +612,12 @@ struct DateTruncFunction {
     if (unit_.has_value()) {
       unit = unit_.value();
     } else {
-      unit =
-          fromDateTimeUnitString(unitString, true /*throwIfInvalid*/).value();
-      VELOX_USER_CHECK(
-          unit != DateTimeUnit::kMillisecond,
-          "{} is not a valid TIMESTAMP field",
-          unitString);
+      unit = getTimestampUnit(unitString).value();
     }
 
     if (unit == DateTimeUnit::kSecond) {
       result = Timestamp(timestamp.getSeconds(), 0);
-      return true;
+      return;
     }
 
     auto dateTime = getDateTime(timestamp, timeZone_);
@@ -615,10 +627,9 @@ struct DateTruncFunction {
     if (timeZone_ != nullptr) {
       result.toGMT(*timeZone_);
     }
-    return true;
   }
 
-  FOLLY_ALWAYS_INLINE bool call(
+  FOLLY_ALWAYS_INLINE void call(
       out_type<Date>& result,
       const arg_type<Varchar>& unitString,
       const arg_type<Date>& date) {
@@ -628,14 +639,44 @@ struct DateTruncFunction {
 
     if (unit == DateTimeUnit::kDay) {
       result = Date(date.days());
-      return true;
+      return;
     }
 
     auto dateTime = getDateTime(date);
     adjustDateTime(dateTime, unit);
 
     result = Date(timegm(&dateTime) / kSecondsInDay);
-    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE void call(
+      out_type<TimestampWithTimezone>& result,
+      const arg_type<Varchar>& unitString,
+      const arg_type<TimestampWithTimezone>& timestampWithTimezone) {
+    DateTimeUnit unit;
+    if (unit_.has_value()) {
+      unit = unit_.value();
+    } else {
+      unit = getTimestampUnit(unitString).value();
+    }
+
+    if (unit == DateTimeUnit::kSecond) {
+      auto utcTimestamp =
+          Timestamp::fromMillis(*timestampWithTimezone.template at<0>());
+      result.template get_writer_at<0>() = utcTimestamp.getSeconds() * 1000;
+      result.template get_writer_at<1>() =
+          *timestampWithTimezone.template at<1>();
+      return;
+    }
+
+    auto timestamp = this->toTimestamp(timestampWithTimezone);
+    auto dateTime = getDateTime(timestamp, nullptr);
+    adjustDateTime(dateTime, unit);
+    timestamp = Timestamp::fromMillis(timegm(&dateTime) * 1000);
+    timestamp.toGMT(*timestampWithTimezone.template at<1>());
+
+    result.template get_writer_at<0>() = timestamp.toMillis();
+    result.template get_writer_at<1>() =
+        *timestampWithTimezone.template at<1>();
   }
 };
 
