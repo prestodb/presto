@@ -371,4 +371,72 @@ inline int64_t IntDecoder<isSigned>::readLong() {
   }
 }
 
+template <>
+template <>
+inline void IntDecoder<false>::bulkRead(
+    uint64_t /*size*/,
+    double* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<false>::bulkReadRows(
+    RowSet /*rows*/,
+    double* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkRead(
+    uint64_t /*size*/,
+    double* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkReadRows(
+    RowSet /*rows*/,
+    double* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<false>::bulkRead(
+    uint64_t /*size*/,
+    float* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<false>::bulkReadRows(
+    RowSet /*rows*/,
+    float* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkRead(
+    uint64_t /*size*/,
+    float* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkReadRows(
+    RowSet /*rows*/,
+    float* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
 } // namespace facebook::velox::dwio::common

@@ -20,6 +20,7 @@
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/common/IntDecoder.h"
+#include "velox/dwio/common/TypeUtil.h"
 
 namespace facebook::velox::parquet {
 
@@ -246,6 +247,9 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
     auto numBits = bitOffset_ +
         (rows[rowIndex + numRows - 1] + 1 - currentRow) * bitWidth_;
 
+    using TValues = typename std::remove_reference<decltype(values[0])>::type;
+    using TIndex = typename std::make_signed_t<
+        typename dwio::common::make_index<TValues>::type>;
     super::decodeBitsLE(
         reinterpret_cast<const uint64_t*>(super::bufferStart),
         bitOffset_,
@@ -253,7 +257,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
         currentRow,
         bitWidth_,
         super::bufferEnd,
-        values + numValues);
+        reinterpret_cast<TIndex*>(values) + numValues);
     super::bufferStart += numBits >> 3;
     bitOffset_ = numBits & 7;
     visitor.template processRun<hasFilter, hasHook, scatter>(

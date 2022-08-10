@@ -34,18 +34,18 @@ inline const T load(const char* ptr) {
 template <typename T>
 inline std::optional<T> getMin(const thrift::Statistics& columnChunkStats) {
   return columnChunkStats.__isset.min_value
-      ? load<T>(columnChunkStats.min_value.c_str())
+      ? load<T>(columnChunkStats.min_value.data())
       : (columnChunkStats.__isset.min
-             ? std::optional<T>(load<T>(columnChunkStats.min.c_str()))
+             ? std::optional<T>(load<T>(columnChunkStats.min.data()))
              : std::nullopt);
 }
 
 template <typename T>
 inline std::optional<T> getMax(const thrift::Statistics& columnChunkStats) {
   return columnChunkStats.__isset.max_value
-      ? std::optional<T>(load<T>(columnChunkStats.max_value.c_str()))
+      ? std::optional<T>(load<T>(columnChunkStats.max_value.data()))
       : (columnChunkStats.__isset.max
-             ? std::optional<T>(load<T>(columnChunkStats.max.c_str()))
+             ? std::optional<T>(load<T>(columnChunkStats.max.data()))
              : std::nullopt);
 }
 

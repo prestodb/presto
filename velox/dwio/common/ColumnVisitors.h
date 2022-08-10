@@ -20,6 +20,7 @@
 #include "velox/common/base/SimdUtil.h"
 #include "velox/dwio/common/DecoderUtil.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
+#include "velox/dwio/common/TypeUtil.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -514,6 +515,13 @@ struct LoadIndices<int32_t, A> {
 };
 
 template <typename A>
+struct LoadIndices<float, A> {
+  static xsimd::batch<int32_t, A> apply(const float* values, const A&) {
+    return xsimd::load_unaligned<A>(reinterpret_cast<const int32_t*>(values));
+  }
+};
+
+template <typename A>
 struct LoadIndices<int16_t, A> {
   static xsimd::batch<int32_t, A> apply(
       const int16_t* values,
@@ -546,6 +554,16 @@ struct LoadIndices<int64_t, A> {
   }
 };
 
+template <typename A>
+struct LoadIndices<double, A> {
+  static xsimd::batch<int32_t, A> apply(const double* values, const A& arch) {
+    return simd::gather<int32_t, int32_t, 8>(
+        reinterpret_cast<const int32_t*>(values),
+        simd::iota<int32_t>(arch),
+        arch);
+  }
+};
+
 } // namespace detail
 
 template <typename T, typename A = xsimd::default_arch>
@@ -570,14 +588,22 @@ inline void storeTranslatePermute(
     int8_t numBits,
     const T* dict,
     T* values) {
+  using TIndex = typename make_index<T>::type;
   auto selectedIndices = simd::byteSetBits(selected);
   auto inDict = simd::toBitMask(dictMask);
   for (auto i = 0; i < numBits; ++i) {
-    auto value = input[inputIndex + selectedIndices[i]];
     if (inDict & (1 << selectedIndices[i])) {
-      value = dict[value];
+      auto index = reinterpret_cast<const TIndex*>(
+          input)[inputIndex + selectedIndices[i]];
+      if (sizeof(T) == 2) {
+        index &= 0xffff;
+      }
+      auto value = dict[index];
+      values[i] = value;
+    } else {
+      auto value = input[inputIndex + selectedIndices[i]];
+      values[i] = value;
     }
-    values[i] = value;
   }
 }
 
@@ -606,13 +632,16 @@ inline void storeTranslate(
     xsimd::batch_bool<int32_t> dictMask,
     const T* dict,
     T* values) {
+  using TIndex = typename make_index<T>::type;
   auto inDict = simd::toBitMask(dictMask);
   for (auto i = 0; i < dictMask.size; ++i) {
-    auto value = input[inputIndex + i];
     if (inDict & (1 << i)) {
-      value = dict[value];
+      auto index = reinterpret_cast<const TIndex*>(input)[inputIndex + i];
+      values[i] = dict[index];
+    } else {
+      auto value = input[inputIndex + i];
+      values[i] = value;
     }
-    values[i] = value;
   }
 }
 
@@ -673,45 +702,46 @@ class DictionaryColumnVisitor
     return true;
   }
 
-  FOLLY_ALWAYS_INLINE vector_size_t process(T value, bool& atEnd) {
+  FOLLY_ALWAYS_INLINE vector_size_t
+  process(typename make_index<T>::type value, bool& atEnd) {
     if (!isInDict()) {
       // If reading fixed width values, the not in dictionary value will be read
       // as unsigned at the width of the type. Integer columns are signed, so
       // sign extend the value here.
+      T signedValue;
       if (LIKELY(width_ == 8)) {
-        // No action. This should be the most common case.
+        signedValue = value;
       } else if (width_ == 4) {
-        value = static_cast<int32_t>(value);
+        signedValue = static_cast<int32_t>(value);
       } else {
-        value = static_cast<int16_t>(value);
+        signedValue = static_cast<int16_t>(value);
       }
-      return super::process(value, atEnd);
+      return super::process(signedValue, atEnd);
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    std::make_unsigned_t<T> index = value;
-    T valueInDictionary = dict()[index];
+    T valueInDictionary = dict()[value];
     if (std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
       super::filterPassed(valueInDictionary);
     } else {
       // check the dictionary cache
       if (TFilter::deterministic &&
-          filterCache()[index] == FilterResult::kSuccess) {
+          filterCache()[value] == FilterResult::kSuccess) {
         super::filterPassed(valueInDictionary);
       } else if (
           TFilter::deterministic &&
-          filterCache()[index] == FilterResult::kFailure) {
+          filterCache()[value] == FilterResult::kFailure) {
         super::filterFailed();
       } else {
-        if (super::filter_.testInt64(valueInDictionary)) {
+        if (velox::common::applyFilter(super::filter_, valueInDictionary)) {
           super::filterPassed(valueInDictionary);
           if (TFilter::deterministic) {
-            filterCache()[index] = FilterResult::kSuccess;
+            filterCache()[value] = FilterResult::kSuccess;
           }
         } else {
           super::filterFailed();
           if (TFilter::deterministic) {
-            filterCache()[index] = FilterResult::kFailure;
+            filterCache()[value] = FilterResult::kFailure;
           }
         }
       }
@@ -815,9 +845,10 @@ class DictionaryColumnVisitor
         uint16_t bits = unknowns;
         // Ranges only over inputs that are in dictionary, the not in dictionary
         // were masked off in 'dictMask'.
+        using TIndex = typename make_index<T>::type;
         while (bits) {
           int index = bits::getAndClearLastSetBit(bits);
-          auto value = input[i + index];
+          auto value = reinterpret_cast<const TIndex*>(input)[i + index];
           if (applyFilter(super::filter_, dict()[value])) {
             filterCache()[value] = FilterResult::kSuccess;
             passed |= 1 << index;
@@ -938,17 +969,20 @@ class DictionaryColumnVisitor
       const int32_t* scatterRows,
       int32_t numValues,
       T* values) {
+    using TIndex = typename make_index<T>::type;
+
     for (int32_t i = numInput - 1; i >= 0; --i) {
-      using U = typename std::make_unsigned<T>::type;
-      T value = input[i];
+      T value;
       if (hasInDict) {
         if (bits::isBitSet(inDict(), super::rows_[super::rowIndex_ + i])) {
-          value = dict()[static_cast<U>(value)];
+          value = dict()[reinterpret_cast<const TIndex*>(input)[i]];
         } else if (!scatter) {
           continue;
+        } else {
+          value = input[i];
         }
       } else {
-        value = dict()[static_cast<U>(value)];
+        value = dict()[reinterpret_cast<const TIndex*>(input)[i]];
       }
       if (scatter) {
         values[scatterRows[super::rowIndex_ + i]] = value;
@@ -979,9 +1013,10 @@ class DictionaryColumnVisitor
   }
 
   void translateByDict(const T* values, int numValues, T* out) {
+    using TIndex = typename make_index<T>::type;
     if (!inDict()) {
       for (auto i = 0; i < numValues; ++i) {
-        out[i] = dict()[values[i]];
+        out[i] = dict()[reinterpret_cast<const TIndex*>(values)[i]];
       }
     } else if (super::dense) {
       bits::forEachSetBit(
@@ -990,13 +1025,14 @@ class DictionaryColumnVisitor
           super::rowIndex_ + numValues,
           [&](int row) {
             auto valueIndex = row - super::rowIndex_;
-            out[valueIndex] = dict()[values[valueIndex]];
+            out[valueIndex] =
+                dict()[reinterpret_cast<const TIndex*>(values)[valueIndex]];
             return true;
           });
     } else {
       for (auto i = 0; i < numValues; ++i) {
         if (bits::isBitSet(inDict(), super::rows_[super::rowIndex_ + i])) {
-          out[i] = dict()[values[i]];
+          out[i] = dict()[reinterpret_cast<const TIndex*>(values)[i]];
         }
       }
     }

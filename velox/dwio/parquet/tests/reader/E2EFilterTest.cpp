@@ -130,3 +130,27 @@ TEST_F(E2EFilterTest, integerDictionary) {
       20,
       true);
 }
+
+TEST_F(E2EFilterTest, floatAndDouble) {
+  // float_val and double_val are expected to be direct since the
+  // values are random.float_val2 and double_val2 are expected to be
+  // dictionaries since the values are quantized.
+  testWithTypes(
+      "float_val:float,"
+      "double_val:double,"
+      "float_val2:float,"
+      "double_val2:double,"
+
+      "long_val:bigint,"
+      "float_null:float",
+      [&]() {
+        makeAllNulls("float_null");
+        makeQuantizedFloat<float>(Subfield("float_val2"), 200, true);
+        makeQuantizedFloat<double>(Subfield("double_val2"), 522, true);
+      },
+      false,
+      {"float_val", "double_val", "float_val2", "double_val2", "float_null"},
+      20,
+      true,
+      false);
+}

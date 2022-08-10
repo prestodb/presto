@@ -168,6 +168,24 @@ class E2EFilterTestBase : public testing::Test {
     }
   }
 
+  template <typename T>
+  void makeQuantizedFloat(
+      const common::Subfield& field,
+      int64_t buckets,
+      bool keepNulls) {
+    for (RowVectorPtr batch : batches_) {
+      auto numbers =
+          common::getChildBySubfield(batch.get(), field)->as<FlatVector<T>>();
+      for (auto row = 0; row < numbers->size(); ++row) {
+        if (keepNulls && numbers->isNullAt(row)) {
+          continue;
+        }
+        T value = numbers->valueAt(row);
+        numbers->set(row, ceil(value * buckets) / buckets);
+      }
+    }
+  }
+
   // Makes strings with an ascending sequence of S<n>, followed by
   // random values with the given cardinality, then repeated
   // values. This is intended to hit different RLE encodings,
