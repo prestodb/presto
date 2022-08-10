@@ -17,6 +17,7 @@
 #include "velox/dwio/dwrf/common/Config.h"
 
 #include "folly/String.h"
+#include "folly/dynamic.h"
 
 namespace facebook::velox::dwrf {
 
@@ -146,27 +147,35 @@ Config::Entry<const std::vector<std::vector<std::string>>>
         "orc.map.flat.cols.struct.keys",
         {},
         [](const std::vector<std::vector<std::string>>& val) {
-          std::vector<std::string> columns;
+          std::vector<folly::dynamic> columns;
           columns.reserve(val.size());
           std::transform(
               val.cbegin(),
               val.cend(),
               std::back_inserter(columns),
-              [](const auto& v) { return folly::join(",", v); });
-          return folly::join(";", columns);
+              [](const auto& v) {
+                return folly::dynamic::array(v.cbegin(), v.cend());
+              });
+          return folly::toJson(
+              folly::dynamic::array(columns.cbegin(), columns.cend()));
         },
         [](const std::string& val) {
-          std::vector<std::string> partialResult;
-          folly::split(";", val, partialResult);
+          folly::dynamic columns = folly::parseJson(val);
           std::vector<std::vector<std::string>> result;
+          result.reserve(columns.size());
           std::transform(
-              partialResult.cbegin(),
-              partialResult.cend(),
+              columns.begin(),
+              columns.end(),
               std::back_inserter(result),
-              [](const auto& str) {
-                std::vector<std::string> res;
-                folly::split(",", str, res);
-                return res;
+              [](const auto& keys) {
+                std::vector<std::string> intermediateResult;
+                intermediateResult.reserve(keys.size());
+                std::transform(
+                    keys.begin(),
+                    keys.end(),
+                    std::back_inserter(intermediateResult),
+                    [](const auto& str) { return str.asString(); });
+                return intermediateResult;
               });
           return result;
         });

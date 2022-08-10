@@ -1283,6 +1283,17 @@ TEST(ColumnWriterTests, TestMapWriterBigBatch) {
       /* useFlatMap */ true);
 }
 
+TEST(ColumnWriterTests, TestStructKeysConfigSerializationDeserialization) {
+  const std::vector<std::vector<std::string>> columns{
+      {"1.45", "hi, you;", "29102819", "1e-4"},
+      {"291", "world"},
+      {},
+      {"one", ", more", "\"two'three$"}};
+  const auto config = std::make_shared<Config>();
+  config->set<decltype(columns)>(Config::MAP_FLAT_COLS_STRUCT_KEYS, columns);
+  EXPECT_EQ(config->get(Config::MAP_FLAT_COLS_STRUCT_KEYS), columns);
+}
+
 std::unique_ptr<DwrfReader> getDwrfReader(
     MemoryPool& pool,
     const std::shared_ptr<const RowType> type,
