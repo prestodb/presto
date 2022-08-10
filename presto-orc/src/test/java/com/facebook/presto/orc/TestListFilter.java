@@ -224,9 +224,9 @@ public class TestListFilter
         OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
         OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
 
-        StreamDescriptor streamDescriptor = new StreamDescriptor("a", 0, "a", intType, orcDataSource, ImmutableList.of());
+        StreamDescriptor streamDescriptor = new StreamDescriptorWithoutSequence("a", 0, "a", intType, orcDataSource, ImmutableList.of());
         for (int i = 0; i < levels; i++) {
-            streamDescriptor = new StreamDescriptor("a", 0, "a", listType, orcDataSource, ImmutableList.of(streamDescriptor));
+            streamDescriptor = new StreamDescriptorWithoutSequence("a", 0, "a", listType, orcDataSource, ImmutableList.of(streamDescriptor));
         }
 
         return streamDescriptor;

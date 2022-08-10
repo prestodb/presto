@@ -287,8 +287,9 @@ public class TestLongDictionaryProvider
 
     private StreamDescriptor createFlatStreamDescriptor(StreamId streamId)
     {
-        return new StreamDescriptor("test_dictionary_stream", streamId.getColumn(),
-                String.format("field_%d", streamId.getColumn()), LONG_TYPE, DUMMY_ORC_DATA_SOURCE, ImmutableList.of(), streamId.getSequence());
+        StreamDescriptor streamDescriptor = new StreamDescriptorWithoutSequence("test_dictionary_stream", streamId.getColumn(),
+                String.format("field_%d", streamId.getColumn()), LONG_TYPE, DUMMY_ORC_DATA_SOURCE, ImmutableList.of());
+        return new StreamDescriptorWithSequence(streamDescriptor, streamId.getSequence());
     }
 
     private InputStreamSources createLongDictionaryStreamSources(Map<NodeId, long[]> streams, OrcAggregatedMemoryContext aggregatedMemoryContext)

@@ -15,99 +15,34 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.facebook.presto.orc.metadata.ColumnEncoding.DEFAULT_SEQUENCE_ID;
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
-
-public final class StreamDescriptor
+public interface StreamDescriptor
 {
-    private final String streamName;
-    private final int streamId;
-    private final int sequence;
-    private final OrcType orcType;
-    private final String fieldName;
-    private final OrcDataSource orcDataSource;
-    private final List<StreamDescriptor> nestedStreams;
+    StreamDescriptor duplicate(int sequence);
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcType orcType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams)
+    String getStreamName();
+
+    int getStreamId();
+
+    int getSequence();
+
+    default OrcTypeKind getOrcTypeKind()
     {
-        this(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, DEFAULT_SEQUENCE_ID);
+        return getOrcType().getOrcTypeKind();
     }
 
-    public StreamDescriptor(String streamName, int streamId, String fieldName, OrcType orcType, OrcDataSource orcDataSource, List<StreamDescriptor> nestedStreams, int sequence)
+    OrcType getOrcType();
+
+    String getFieldName();
+
+    default OrcDataSourceId getOrcDataSourceId()
     {
-        this.streamName = requireNonNull(streamName, "streamName is null");
-        this.streamId = streamId;
-        this.sequence = sequence;
-        this.fieldName = requireNonNull(fieldName, "fieldName is null");
-        this.orcType = requireNonNull(orcType, "orcType is null");
-        this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
-        this.nestedStreams = ImmutableList.copyOf(requireNonNull(nestedStreams, "nestedStreams is null"));
+        return getOrcDataSource().getId();
     }
 
-    public StreamDescriptor duplicate(int sequence)
-    {
-        return new StreamDescriptor(streamName, streamId, fieldName, orcType, orcDataSource, nestedStreams, sequence);
-    }
+    OrcDataSource getOrcDataSource();
 
-    public String getStreamName()
-    {
-        return streamName;
-    }
-
-    public int getStreamId()
-    {
-        return streamId;
-    }
-
-    public int getSequence()
-    {
-        return sequence;
-    }
-
-    public OrcTypeKind getOrcTypeKind()
-    {
-        return orcType.getOrcTypeKind();
-    }
-
-    public OrcType getOrcType()
-    {
-        return this.orcType;
-    }
-
-    public String getFieldName()
-    {
-        return fieldName;
-    }
-
-    public OrcDataSourceId getOrcDataSourceId()
-    {
-        return orcDataSource.getId();
-    }
-
-    public OrcDataSource getOrcDataSource()
-    {
-        return orcDataSource;
-    }
-
-    public List<StreamDescriptor> getNestedStreams()
-    {
-        return nestedStreams;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("streamName", streamName)
-                .add("streamId", streamId)
-                .add("sequence", sequence)
-                .add("orcType", orcType)
-                .add("dataSource", orcDataSource.getId())
-                .toString();
-    }
+    List<StreamDescriptor> getNestedStreams();
 }

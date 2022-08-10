@@ -785,7 +785,7 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
             nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
             nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
         }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type, dataSource, nestedStreams.build());
+        return new StreamDescriptorWithoutSequence(parentStreamName, typeId, fieldName, type, dataSource, nestedStreams.build());
     }
 
     protected boolean shouldValidateWritePageChecksum()
