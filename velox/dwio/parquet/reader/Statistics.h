@@ -49,6 +49,24 @@ inline std::optional<T> getMax(const thrift::Statistics& columnChunkStats) {
              : std::nullopt);
 }
 
+template <>
+inline std::optional<std::string> getMin(
+    const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.min_value
+      ? std::optional(columnChunkStats.min_value)
+      : (columnChunkStats.__isset.min ? std::optional(columnChunkStats.min)
+                                      : std::nullopt);
+}
+
+template <>
+inline std::optional<std::string> getMax(
+    const thrift::Statistics& columnChunkStats) {
+  return columnChunkStats.__isset.max_value
+      ? std::optional(columnChunkStats.max_value)
+      : (columnChunkStats.__isset.max ? std::optional(columnChunkStats.max)
+                                      : std::nullopt);
+}
+
 std::unique_ptr<dwio::common::ColumnStatistics> buildColumnStatisticsFromThrift(
     const thrift::Statistics& columnChunkStats,
     const velox::Type& type,

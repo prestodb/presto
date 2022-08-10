@@ -17,10 +17,12 @@
 #include "velox/dwio/parquet/reader/PageReader.h"
 #include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/ColumnVisitors.h"
+#include "velox/dwio/parquet/reader/StringColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
 
 #include <arrow/util/rle_encoding.h>
 #include <thrift/protocol/TCompactProtocol.h> //@manual
+#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::parquet {
 
@@ -240,6 +242,10 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       dictionaryEncoding_ == Encoding::PLAIN_DICTIONARY ||
       dictionaryEncoding_ == Encoding::PLAIN);
 
+  if (pageHeader.compressed_page_size != pageHeader.uncompressed_page_size) {
+    VELOX_NYI("Compressed dictionary");
+  }
+
   auto parquetType = type_->parquetType_.value();
   switch (parquetType) {
     case thrift::Type::INT32:
@@ -260,8 +266,25 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
           bufferEnd_);
       break;
     }
+    case thrift::Type::BYTE_ARRAY: {
+      dictionary_.values =
+          AlignedBuffer::allocate<StringView>(dictionary_.numValues, &pool_);
+      auto numBytes = pageHeader.uncompressed_page_size;
+      auto values = dictionary_.values->asMutable<StringView>();
+      dictionary_.strings = AlignedBuffer::allocate<char>(numBytes, &pool_);
+      auto strings = dictionary_.strings->asMutable<char>();
+      dwio::common::readBytes(
+          numBytes, inputStream_.get(), strings, bufferStart_, bufferEnd_);
+      auto header = strings;
+      for (auto i = 0; i < dictionary_.numValues; ++i) {
+        auto length = *reinterpret_cast<const int32_t*>(header);
+        values[i] = StringView(header + sizeof(int32_t), length);
+        header += length + sizeof(int32_t);
+      }
+      VELOX_CHECK_EQ(header, strings + numBytes);
+      break;
+    }
     case thrift::Type::INT96:
-    case thrift::Type::BYTE_ARRAY:
     case thrift::Type::FIXED_LEN_BYTE_ARRAY:
     default:
       VELOX_UNSUPPORTED(
@@ -296,6 +319,7 @@ int32_t parquetTypeBytes(thrift::Type::type type) {
 } // namespace
 
 void PageReader::makeDecoder() {
+  auto parquetType = type_->parquetType_.value();
   switch (encoding_) {
     case Encoding::RLE_DICTIONARY:
     case Encoding::PLAIN_DICTIONARY:
@@ -303,11 +327,18 @@ void PageReader::makeDecoder() {
           pageData_ + 1, pageData_ + encodedDataSize_, pageData_[0]);
       break;
     case Encoding::PLAIN:
-      directDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
-          std::make_unique<dwio::common::SeekableArrayInputStream>(
-              pageData_, encodedDataSize_),
-          false,
-          parquetTypeBytes(type_->parquetType_.value()));
+      switch (parquetType) {
+        case thrift::Type::BYTE_ARRAY:
+          stringDecoder_ = std::make_unique<StringDecoder>(
+              pageData_, pageData_ + encodedDataSize_);
+          break;
+        default:
+          directDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
+              std::make_unique<dwio::common::SeekableArrayInputStream>(
+                  pageData_, encodedDataSize_),
+              false,
+              parquetTypeBytes(type_->parquetType_.value()));
+      }
       break;
     case Encoding::DELTA_BINARY_PACKED:
     default:
@@ -335,6 +366,8 @@ void PageReader::skip(int64_t numRows) {
     rleDecoder_->skip(toSkip);
   } else if (directDecoder_) {
     directDecoder_->skip(toSkip);
+  } else if (stringDecoder_) {
+    stringDecoder_->skip(toSkip);
   } else {
     VELOX_FAIL("No decoder to skip");
   }
@@ -418,6 +451,7 @@ void PageReader::startVisit(folly::Range<const vector_size_t*> rows) {
 
 bool PageReader::rowsForPage(
     dwio::common::SelectiveColumnReader& reader,
+    bool hasFilter,
     folly::Range<const vector_size_t*>& rows,
     const uint64_t* FOLLY_NULLABLE& nulls) {
   if (currentVisitorRow_ == numVisitorRows_) {
@@ -430,6 +464,22 @@ bool PageReader::rowsForPage(
   if (rowZero >= rowOfPage_ + numRowsInPage_) {
     readNextPage(rowZero);
   }
+  auto& scanState = reader.scanState();
+  if (isDictionary()) {
+    if (scanState.dictionary.values != dictionary_.values) {
+      scanState.dictionary = dictionary_;
+      if (hasFilter) {
+        makeFilterCache(scanState);
+      }
+      scanState.updateRawState();
+    }
+  } else {
+    if (scanState.dictionary.values) {
+      reader.dedictionarize();
+      scanState.dictionary.clear();
+    }
+  }
+
   // Then check how many of the rows to visit are on the same page as the
   // current one.
   int32_t firstOnNextPage = rowOfPage_ + numRowsInPage_ - visitBase_;
@@ -474,6 +524,19 @@ bool PageReader::rowsForPage(
   currentVisitorRow_ += numToVisit;
   firstUnvisited_ = visitBase_ + visitorRows_[currentVisitorRow_ - 1] + 1;
   return true;
+}
+
+const VectorPtr& PageReader::dictionaryValues() {
+  if (!dictionaryValues_) {
+    dictionaryValues_ = std::make_shared<FlatVector<StringView>>(
+        &pool_,
+        VARCHAR(),
+        nullptr,
+        dictionary_.numValues,
+        dictionary_.values,
+        std::vector<BufferPtr>{dictionary_.strings});
+  }
+  return dictionaryValues_;
 }
 
 } // namespace facebook::velox::parquet
