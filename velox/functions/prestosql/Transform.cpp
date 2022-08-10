@@ -26,7 +26,7 @@ class TransformFunction : public exec::VectorFunction {
  public:
   bool isDefaultNullBehavior() const override {
     // transform is null preserving for the array. But since an
-    // expr tree witht a lambda depends on all named fields, including
+    // expr tree with a lambda depends on all named fields, including
     // captures, a null in a capture does not automatically make a
     // null result.
     return false;

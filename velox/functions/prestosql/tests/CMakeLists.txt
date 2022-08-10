@@ -59,6 +59,8 @@ add_executable(
   SplitTest.cpp
   StringFunctionsTest.cpp
   TransformTest.cpp
+  TransformKeysTest.cpp
+  TransformValuesTest.cpp
   URLFunctionsTest.cpp
   WidthBucketArrayTest.cpp
   GreatestLeastTest.cpp

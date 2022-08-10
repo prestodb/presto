@@ -20,6 +20,8 @@
 namespace facebook::velox::functions {
 void registerMapFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_filter, "map_filter");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform_keys, "transform_keys");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_transform_values, "transform_values");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map, "map");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_concat, "map_concat");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_entries, "map_entries");

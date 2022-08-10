@@ -44,6 +44,8 @@ add_library(
   Subscript.cpp
   ToUtf8.cpp
   Transform.cpp
+  TransformKeys.cpp
+  TransformValues.cpp
   URLFunctions.cpp
   VectorArithmetic.cpp
   WidthBucketArray.cpp
