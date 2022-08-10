@@ -764,30 +764,6 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         return systemMemoryUsage.getBytes();
     }
 
-    protected static StreamDescriptor createStreamDescriptor(String parentStreamName, String fieldName, int typeId, List<OrcType> types, OrcDataSource dataSource)
-    {
-        OrcType type = types.get(typeId);
-
-        if (!fieldName.isEmpty()) {
-            parentStreamName += "." + fieldName;
-        }
-
-        ImmutableList.Builder<StreamDescriptor> nestedStreams = ImmutableList.builder();
-        if (type.getOrcTypeKind() == STRUCT) {
-            for (int i = 0; i < type.getFieldCount(); ++i) {
-                nestedStreams.add(createStreamDescriptor(parentStreamName, type.getFieldName(i), type.getFieldTypeIndex(i), types, dataSource));
-            }
-        }
-        else if (type.getOrcTypeKind() == OrcType.OrcTypeKind.LIST) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "item", type.getFieldTypeIndex(0), types, dataSource));
-        }
-        else if (type.getOrcTypeKind() == OrcType.OrcTypeKind.MAP) {
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "key", type.getFieldTypeIndex(0), types, dataSource));
-            nestedStreams.add(createStreamDescriptor(parentStreamName, "value", type.getFieldTypeIndex(1), types, dataSource));
-        }
-        return new StreamDescriptor(parentStreamName, typeId, fieldName, type, dataSource, nestedStreams.build());
-    }
-
     protected boolean shouldValidateWritePageChecksum()
     {
         return writeChecksumBuilder.isPresent();

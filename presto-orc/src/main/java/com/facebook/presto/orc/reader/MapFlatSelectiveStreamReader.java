@@ -73,7 +73,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -673,7 +672,7 @@ public class MapFlatSelectiveStreamReader
 
             inMapStreamSources.add(getBooleanMissingStreamSource());
 
-            StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
+            StreamDescriptor valueStreamDescriptor = baseValueStreamDescriptor.duplicate(sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
             SelectiveStreamReader valueStreamReader = SelectiveStreamReaders.createStreamReader(
@@ -705,26 +704,6 @@ public class MapFlatSelectiveStreamReader
         }
 
         return requiredStringKeys.isEmpty() || requiredStringKeys.contains(value.getKey().getBytesKey().toStringUtf8());
-    }
-
-    /**
-     * Creates StreamDescriptor which is a copy of this one with the value of sequence changed to
-     * the value passed in.  Recursively calls itself on the nested streams.
-     */
-    private static StreamDescriptor copyStreamDescriptorWithSequence(StreamDescriptor streamDescriptor, int sequence)
-    {
-        List<StreamDescriptor> streamDescriptors = streamDescriptor.getNestedStreams().stream()
-                .map(stream -> copyStreamDescriptorWithSequence(stream, sequence))
-                .collect(toImmutableList());
-
-        return new StreamDescriptor(
-                streamDescriptor.getStreamName(),
-                streamDescriptor.getStreamId(),
-                streamDescriptor.getFieldName(),
-                streamDescriptor.getOrcType(),
-                streamDescriptor.getOrcDataSource(),
-                streamDescriptors,
-                sequence);
     }
 
     private Block getKeysBlock(List<DwrfSequenceEncoding> sequenceEncodings)
