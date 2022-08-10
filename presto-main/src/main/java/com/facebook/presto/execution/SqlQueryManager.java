@@ -19,6 +19,8 @@ import com.facebook.presto.ExceededCpuLimitException;
 import com.facebook.presto.ExceededOutputSizeLimitException;
 import com.facebook.presto.ExceededScanLimitException;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
@@ -34,6 +36,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import org.jheaps.annotations.VisibleForTesting;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -91,8 +94,10 @@ public class SqlQueryManager
 
     private final QueryManagerStats stats = new QueryManagerStats();
 
+    private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
+
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory, HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -107,6 +112,8 @@ public class SqlQueryManager
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
+        requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
+        this.historyBasedPlanStatisticsTracker = historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsTracker();
     }
 
     @PostConstruct
@@ -273,6 +280,8 @@ public class SqlQueryManager
         });
 
         stats.trackQueryStats(queryExecution);
+        // TODO(pranjalssh): Support plan statistics tracking for other query managers
+        historyBasedPlanStatisticsTracker.trackStatistics(queryExecution);
 
         embedVersion.embedVersion(queryExecution::start).run();
     }
@@ -331,6 +340,12 @@ public class SqlQueryManager
     public long getQueriesKilledDueToTooManyTask()
     {
         return queryTracker.getQueriesKilledDueToTooManyTask();
+    }
+
+    @VisibleForTesting
+    public HistoryBasedPlanStatisticsTracker getHistoryBasedPlanStatisticsTracker()
+    {
+        return historyBasedPlanStatisticsTracker;
     }
 
     /**

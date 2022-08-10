@@ -88,6 +88,7 @@ public class FeaturesConfig
     private PartialMergePushdownStrategy partialMergePushdownStrategy = PartialMergePushdownStrategy.NONE;
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
+    private boolean trackHistoryBasedPlanStatistics;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -739,6 +740,18 @@ public class FeaturesConfig
     public FeaturesConfig setUseHistoryBasedPlanStatistics(boolean useHistoryBasedPlanStatistics)
     {
         this.useHistoryBasedPlanStatistics = useHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    public boolean isTrackHistoryBasedPlanStatistics()
+    {
+        return trackHistoryBasedPlanStatistics;
+    }
+
+    @Config("optimizer.track-history-based-plan-statistics")
+    public FeaturesConfig setTrackHistoryBasedPlanStatistics(boolean trackHistoryBasedPlanStatistics)
+    {
+        this.trackHistoryBasedPlanStatistics = trackHistoryBasedPlanStatistics;
         return this;
     }
 
