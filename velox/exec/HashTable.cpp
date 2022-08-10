@@ -23,15 +23,6 @@
 
 namespace facebook::velox::exec {
 
-template <TypeKind Kind>
-static int32_t kindSize() {
-  return sizeof(typename KindToFlatVector<Kind>::HashRowType);
-}
-
-static int32_t typeKindSize(TypeKind kind) {
-  return VELOX_DYNAMIC_TYPE_DISPATCH(kindSize, kind);
-}
-
 template <bool ignoreNullKeys>
 HashTable<ignoreNullKeys>::HashTable(
     std::vector<std::unique_ptr<VectorHasher>>&& hashers,
