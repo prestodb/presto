@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.orc.StreamDescriptorFactory.createStreamDescriptor;
+
 public class OrcBatchRecordReader
         extends AbstractOrcRecordReader<BatchStreamReader>
 {
@@ -157,7 +159,7 @@ public class OrcBatchRecordReader
             OrcAggregatedMemoryContext systemMemoryContext)
             throws OrcCorruptionException
     {
-        List<StreamDescriptor> streamDescriptors = createStreamDescriptor("", "", 0, types, orcDataSource).getNestedStreams();
+        List<StreamDescriptor> streamDescriptors = createStreamDescriptor(types, orcDataSource).getNestedStreams();
 
         OrcType rowType = types.get(0);
         BatchStreamReader[] streamReaders = new BatchStreamReader[rowType.getFieldCount()];
