@@ -56,7 +56,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
 import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -257,7 +256,7 @@ public class MapFlatBatchStreamReader
         for (int sequence : additionalSequenceEncodings.keySet()) {
             inMapStreamSources.add(getBooleanMissingStreamSource());
 
-            StreamDescriptor valueStreamDescriptor = copyStreamDescriptorWithSequence(baseValueStreamDescriptor, sequence);
+            StreamDescriptor valueStreamDescriptor = baseValueStreamDescriptor.duplicate(sequence);
             valueStreamDescriptors.add(valueStreamDescriptor);
 
             BatchStreamReader valueStreamReader = BatchStreamReaders.createStreamReader(type.getValueType(), valueStreamDescriptor, hiveStorageTimeZone, options, systemMemoryContext);
@@ -272,26 +271,6 @@ public class MapFlatBatchStreamReader
         presentStream = null;
 
         rowGroupOpen = false;
-    }
-
-    /**
-     * Creates StreamDescriptor which is a copy of this one with the value of sequence changed to
-     * the value passed in.  Recursively calls itself on the nested streams.
-     */
-    private static StreamDescriptor copyStreamDescriptorWithSequence(StreamDescriptor streamDescriptor, int sequence)
-    {
-        List<StreamDescriptor> streamDescriptors = streamDescriptor.getNestedStreams().stream()
-                .map(stream -> copyStreamDescriptorWithSequence(stream, sequence))
-                .collect(toImmutableList());
-
-        return new StreamDescriptor(
-                streamDescriptor.getStreamName(),
-                streamDescriptor.getStreamId(),
-                streamDescriptor.getFieldName(),
-                streamDescriptor.getOrcType(),
-                streamDescriptor.getOrcDataSource(),
-                streamDescriptors,
-                sequence);
     }
 
     private Block getKeyBlockTemplate(Collection<DwrfSequenceEncoding> sequenceEncodings)

@@ -17,20 +17,22 @@ import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.predicate.TupleDomainFilter.BigintRange;
 import com.facebook.presto.common.predicate.TupleDomainFilter.PositionalFilter;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.orc.reader.ListFilter;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.INT;
-import static com.facebook.presto.orc.metadata.OrcType.OrcTypeKind.LIST;
+import static com.facebook.presto.orc.StreamDescriptorFactory.createStreamDescriptor;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -221,15 +223,13 @@ public class TestListFilter
     {
         NoopOrcDataSource orcDataSource = NoopOrcDataSource.INSTANCE;
 
-        OrcType intType = new OrcType(INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
-        OrcType listType = new OrcType(LIST, ImmutableList.of(1), ImmutableList.of("item"), Optional.empty(), Optional.empty(), Optional.empty());
-
-        StreamDescriptor streamDescriptor = new StreamDescriptor("a", 0, "a", intType, orcDataSource, ImmutableList.of());
+        Type elementType = IntegerType.INTEGER;
         for (int i = 0; i < levels; i++) {
-            streamDescriptor = new StreamDescriptor("a", 0, "a", listType, orcDataSource, ImmutableList.of(streamDescriptor));
+            elementType = new ArrayType(elementType);
         }
+        List<OrcType> orcTypes = OrcType.toOrcType(0, elementType);
 
-        return streamDescriptor;
+        return createStreamDescriptor(orcTypes, orcDataSource);
     }
 
     private static Subfield toSubfield(RowAndColumn indices)
