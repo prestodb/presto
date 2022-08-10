@@ -243,48 +243,55 @@ int64_t parseTimezoneOffset(const char* cur, const char* end, Date& date) {
   //    "+00:00"
   // 3. '+' or '-' followed by four digits:
   //    "+0000"
-  if (cur < end && (*cur == '-' || *cur == '+')) {
-    // Long format: "+00:00"
-    if ((end - cur) >= 6 && *(cur + 3) == ':') {
-      // Fast path for the common case ("+00:00" or "-00:00"), to prevent
-      // calling getTimeZoneID(), which does a map lookup.
-      if (std::strncmp(cur + 1, "00:00", 5) == 0) {
-        date.timezoneId = 0;
-      } else {
-        date.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+  if (cur < end) {
+    if (*cur == '-' || *cur == '+') {
+      // Long format: "+00:00"
+      if ((end - cur) >= 6 && *(cur + 3) == ':') {
+        // Fast path for the common case ("+00:00" or "-00:00"), to prevent
+        // calling getTimeZoneID(), which does a map lookup.
+        if (std::strncmp(cur + 1, "00:00", 5) == 0) {
+          date.timezoneId = 0;
+        } else {
+          date.timezoneId = util::getTimeZoneID(std::string_view(cur, 6));
+        }
+        return 6;
       }
-      return 6;
-    }
-    // Long format without colon: "+0000"
-    else if ((end - cur) >= 5 && *(cur + 3) != ':') {
-      // Same fast path described above.
-      if (std::strncmp(cur + 1, "0000", 4) == 0) {
-        date.timezoneId = 0;
-      } else {
-        // We need to concatenate the 3 first chars with ":" followed by the
-        // last 2 chars before calling getTimeZoneID, so we use a static
-        // thread_local buffer to prevent extra allocations.
-        std::memcpy(&timezoneBuffer[0], cur, 3);
-        std::memcpy(&timezoneBuffer[4], cur + 3, 2);
+      // Long format without colon: "+0000"
+      else if ((end - cur) >= 5 && *(cur + 3) != ':') {
+        // Same fast path described above.
+        if (std::strncmp(cur + 1, "0000", 4) == 0) {
+          date.timezoneId = 0;
+        } else {
+          // We need to concatenate the 3 first chars with ":" followed by the
+          // last 2 chars before calling getTimeZoneID, so we use a static
+          // thread_local buffer to prevent extra allocations.
+          std::memcpy(&timezoneBuffer[0], cur, 3);
+          std::memcpy(&timezoneBuffer[4], cur + 3, 2);
 
-        date.timezoneId = util::getTimeZoneID(timezoneBuffer);
+          date.timezoneId = util::getTimeZoneID(timezoneBuffer);
+        }
+        return 5;
       }
-      return 5;
+      // Short format: "+00"
+      else if ((end - cur) >= 3) {
+        // Same fast path described above.
+        if (std::strncmp(cur + 1, "00", 2) == 0) {
+          date.timezoneId = 0;
+        } else {
+          // We need to concatenate the 3 first chars with a trailing ":00"
+          // before calling getTimeZoneID, so we use a static thread_local
+          // buffer to prevent extra allocations.
+          std::memcpy(&timezoneBuffer[0], cur, 3);
+          std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
+          date.timezoneId = util::getTimeZoneID(timezoneBuffer);
+        }
+        return 3;
+      }
     }
-    // Short format: "+00"
-    else if ((end - cur) >= 3) {
-      // Same fast path described above.
-      if (std::strncmp(cur + 1, "00", 2) == 0) {
-        date.timezoneId = 0;
-      } else {
-        // We need to concatenate the 3 first chars with a trailing ":00" before
-        // calling getTimeZoneID, so we use a static thread_local buffer to
-        // prevent extra allocations.
-        std::memcpy(&timezoneBuffer[0], cur, 3);
-        std::memcpy(&timezoneBuffer[4], defaultTrailingOffset, 2);
-        date.timezoneId = util::getTimeZoneID(timezoneBuffer);
-      }
-      return 3;
+    // Single 'Z' character maps to GMT
+    else if (*cur == 'Z') {
+      date.timezoneId = 0;
+      return 1;
     }
   }
   throw std::runtime_error("Unable to parse timezone offset id.");

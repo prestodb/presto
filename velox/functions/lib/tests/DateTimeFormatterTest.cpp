@@ -833,10 +833,14 @@ TEST_F(JodaDateTimeFormatterTest, parseTimezone) {
   EXPECT_THROW(parse("+00:", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("+00:0", "ZZ"), VeloxUserError);
   EXPECT_THROW(parse("12", "YYZZ"), VeloxUserError);
+  EXPECT_THROW(parse("ZZ", "Z"), VeloxUserError);
+  EXPECT_THROW(parse("ZZ", "ZZ"), VeloxUserError);
 
   // GMT
   EXPECT_EQ("+00:00", parseTZ("+00:00", "ZZ"));
   EXPECT_EQ("+00:00", parseTZ("-00:00", "ZZ"));
+  EXPECT_EQ("+00:00", parseTZ("Z", "Z"));
+  EXPECT_EQ("+00:00", parseTZ("Z", "ZZ"));
 
   // Valid long format:
   EXPECT_EQ("+00:01", parseTZ("+00:01", "ZZ"));
@@ -910,6 +914,11 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedYMDFormat) {
   result = parseAll("+01332022-03-08+13:00", "ZZYYYY-MM-dd+HH:mm");
   EXPECT_EQ(util::fromTimestampString("2022-03-08 13:00:00"), result.timestamp);
   EXPECT_EQ("+01:33", util::getTimeZoneName(result.timezoneId));
+
+  // Z in the input means GMT in Joda.
+  EXPECT_EQ(
+      util::fromTimestampString("2022-07-29 20:03:54.667"),
+      parse("2022-07-29T20:03:54.667Z", "yyyy-MM-dd'T'HH:mm:ss.SSSZ"));
 }
 
 TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
