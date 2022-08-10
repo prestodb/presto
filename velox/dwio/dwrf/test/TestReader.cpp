@@ -1382,3 +1382,12 @@ TEST(TestReader, testOrcReaderSimple) {
   }
   EXPECT_EQ(rowNumber, 32768);
 }
+
+TEST(TestReader, testFooterWrapper) {
+  proto::Footer impl;
+  Footer wrapper(&impl);
+  EXPECT_FALSE(wrapper.hasNumberOfRows());
+  impl.set_numberofrows(0);
+  ASSERT_TRUE(wrapper.hasNumberOfRows());
+  EXPECT_EQ(wrapper.numberOfRows(), 0);
+}

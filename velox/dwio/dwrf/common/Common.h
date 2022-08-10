@@ -375,7 +375,8 @@ class Footer {
   }
 
   bool hasHeaderLength() const {
-    return true;
+    VELOX_DCHECK(dwrfFooter_);
+    return dwrfFooter_->has_headerlength();
   }
 
   uint64_t headerLength() const {
@@ -383,7 +384,8 @@ class Footer {
   }
 
   bool hasContentLength() const {
-    return true;
+    VELOX_DCHECK(dwrfFooter_);
+    return dwrfFooter_->has_contentlength();
   }
 
   uint64_t contentLength() const {
@@ -437,7 +439,8 @@ class Footer {
   }
 
   bool hasNumberOfRows() const {
-    return numberOfRows_ != 0;
+    VELOX_DCHECK(dwrfFooter_);
+    return dwrfFooter_->has_numberofrows();
   }
 
   uint64_t numberOfRows() const {
@@ -463,7 +466,8 @@ class Footer {
   }
 
   bool hasRowIndexStride() const {
-    return true;
+    VELOX_DCHECK(dwrfFooter_);
+    return dwrfFooter_->has_rowindexstride();
   }
 
   uint32_t rowIndexStride() const {
@@ -491,7 +495,8 @@ class Footer {
   }
 
   bool hasChecksumAlgorithm() const {
-    return true;
+    VELOX_DCHECK(dwrfFooter_);
+    return dwrfFooter_->has_checksumalgorithm();
   }
 
   const proto::ChecksumAlgorithm& checksumAlgorithm() const {
