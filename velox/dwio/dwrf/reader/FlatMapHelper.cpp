@@ -181,6 +181,7 @@ void initializeMapVector(
   std::vector<const BaseVector*> keys;
   std::vector<const BaseVector*> values;
   for (auto vec : vectors) {
+    VELOX_CHECK_NOT_NULL(vec);
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
     auto& map = dynamic_cast<const MapVector&>(*vec);
