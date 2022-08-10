@@ -228,13 +228,6 @@ class Aggregate {
     return numNulls_ && (group[nullByte_] & nullMask_);
   }
 
-  void incrementRowSize(char* row, uint64_t bytes) {
-    VELOX_DCHECK(rowSizeOffset_);
-    uint32_t* ptr = reinterpret_cast<uint32_t*>(row + rowSizeOffset_);
-    uint64_t size = *ptr + bytes;
-    *ptr = std::min<uint64_t>(size, std::numeric_limits<uint32_t>::max());
-  }
-
   // Sets null flag for all specified groups to true.
   // For any given group, this method can be called at most once.
   void setAllNulls(char** groups, folly::Range<const vector_size_t*> indices) {
