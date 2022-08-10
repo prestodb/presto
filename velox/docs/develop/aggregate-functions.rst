@@ -100,8 +100,10 @@ To add an aggregate function,
 * Prepare:
     * Figure out what are the input, intermediate and final types.
     * Figure out what are partial and final calculations.
-    * Design the accumulator.
-    * Create a new class that extends velox::exec::Aggregate base class (see velox/exec/Aggregate.h) and implement virtual methods.
+    * Design the accumulator. Make sure the same accumulator can accept both raw
+      inputs and intermediate results.
+    * Create a new class that extends velox::exec::Aggregate base class
+      (see velox/exec/Aggregate.h) and implement virtual methods.
 * Register the new function using exec::registerAggregateFunction(...).
 * Add tests.
 * Write documentation.
@@ -182,16 +184,62 @@ GroupBy aggregation
 
 At this point you have accumulatorFixedWidthSize() and initializeNewGroups() methods implemented. Now, we can proceed to implementing the end-to-end group-by aggregation. We need the following pieces:
 
-* Logic for adding raw input to the partial accumulator:
+* Logic for adding raw input to the accumulator:
     * addRawInput() method.
-* Logic for producing intermediate results from the partial accumulator:
+* Logic for producing intermediate results from the accumulator:
     * extractAccumulators() method.
-* Logic for adding intermediate results to the final accumulator:
+* Logic for adding intermediate results to the accumulator:
     * addIntermediateResults() method.
-* Logic for producing final results from the final accumulator:
+* Logic for producing final results from the accumulator:
     * extractValues() method.
+* Logic for adding previously spilled data back to the accumulator:
+    * addSingleGroupIntermediateResults() method.
 
-We start with the addRawInput() method which receives raw input vectors and adds the data to partial accumulators.
+Some methods are only used in a subset of aggregation workflows. The following
+tables shows which methods are used in which workflows.
+
+.. list-table::
+   :widths: 50 25 25 25 25 25
+   :header-rows: 1
+
+   * - Method
+     - Partial
+     - Final
+     - Single
+     - Intermediate
+     - Streaming
+   * - addRawInput
+     - Y
+     - N
+     - Y
+     - N
+     - Y
+   * - extractAccumulators
+     - Y
+     - Y (used for spilling)
+     - Y (used for spilling)
+     - Y
+     - Y
+   * - addIntermediateResults
+     - N
+     - Y
+     - N
+     - Y
+     - Y
+   * - extractValues
+     - N
+     - Y
+     - Y
+     - N
+     - Y
+   * - addSingleGroupIntermediateResults
+     - N
+     - Y
+     - Y
+     - N
+     - N
+
+We start with the addRawInput() method which receives raw input vectors and adds the data to accumulators.
 
 .. code-block:: c++
 
@@ -213,7 +261,7 @@ We start with the addRawInput() method which receives raw input vectors and adds
           const std::vector<VectorPtr>& args,
           bool mayPushdown = false) = 0;
 
-addRawInput() method would use DecodedVector’s to decode the input data. Then, loop over rows to update the accumulators. I recommend defining a member variable of type DecodedVector for each input vector. This allows for reusing the memory needed to decode the inputs between batches of input.
+addRawInput() method would use DecodedVector’s to decode the input data. Then, loop over rows to update the accumulators. It is a good practice to define a member variable of type DecodedVector for each input vector. This allows for reusing the memory needed to decode the inputs between batches of input.
 
 After implementing the addRawInput() method, we proceed to adding logic for extracting intermediate results.
 
@@ -226,7 +274,7 @@ After implementing the addRawInput() method, we proceed to adding logic for extr
       virtual void
       extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
-Next, we implement the addIntermediateResults() method that receives intermediate results and updates final accumulators.
+Next, we implement the addIntermediateResults() method that receives intermediate results and updates accumulators.
 
 .. code-block:: c++
 
@@ -236,7 +284,7 @@ Next, we implement the addIntermediateResults() method that receives intermediat
           const std::vector<VectorPtr>& args,
           bool mayPushdown = false) = 0;
 
-Finally we implement the extractValues() method that extracts final results from the accumulators.
+Next, we implement the extractValues() method that extracts final results from the accumulators.
 
 .. code-block:: c++
 
@@ -247,12 +295,32 @@ Finally we implement the extractValues() method that extracts final results from
       virtual void
       extractValues(char** groups, int32_t numGroups, VectorPtr* result) = 0;
 
+Finally, we implement the addSingleGroupIntermediateResults() method that is used to add previously spilled data back to the accumulator.
+
+.. code-block:: c++
+
+      // Updates the single final accumulator from intermediate results for global
+      // aggregation.
+      // @param group Pointer to the start of the group row.
+      // @param rows Rows of the 'args' to add to the accumulators. These may not
+      // be contiguous if the aggregation has mask. 'rows' is guaranteed to have at
+      // least one active row.
+      // @param args Intermediate results produced by extractAccumulators().
+      // @param mayPushdown True if aggregation can be pushdown down via LazyVector.
+      // The pushdown can happen only if this flag is true and 'args' is a single
+      // LazyVector.
+      virtual void addSingleGroupIntermediateResults(
+          char* group,
+          const SelectivityVector& rows,
+          const std::vector<VectorPtr>& args,
+          bool mayPushdown) = 0;
+
 GroupBy aggregation code path is done. We proceed to global aggregation.
 
 Global aggregation
 ------------------
 
-Global aggregation is similar to group-by aggregation, but there is only one group and one accumulator. After implementing group-by aggregation, the only thing needed to enable global aggregation is to implement addSingleGroupRawInput() and addSingleGroupIntermediateResults() methods.
+Global aggregation is similar to group-by aggregation, but there is only one group and one accumulator. After implementing group-by aggregation, the only thing needed to enable global aggregation is to implement addSingleGroupRawInput() method (addSingleGroupIntermediateResults() method is already implemented as it is used for spilling group by).
 
 .. code-block:: c++
 
@@ -268,6 +336,45 @@ Global aggregation is similar to group-by aggregation, but there is only one gro
           const SelectivityVector& allRows,
           const std::vector<VectorPtr>& args,
           bool mayPushdown) = 0;
+
+Spilling is not helpful for global aggregations, hence, it is not supported. The
+following table shows which methods are used in different global aggregation
+workflows.
+
+.. list-table::
+   :widths: 50 25 25 25 25 25
+   :header-rows: 1
+
+   * - Method
+     - Partial
+     - Final
+     - Single
+     - Intermediate
+     - Streaming
+   * - addSingleGroupRawInput
+     - Y
+     - N
+     - Y
+     - N
+     - Y
+   * - extractAccumulators
+     - Y
+     - N
+     - N
+     - Y
+     - Y
+   * - addSingleGroupIntermediateResults
+     - N
+     - Y
+     - N
+     - Y
+     - Y
+   * - extractValues
+     - N
+     - Y
+     - Y
+     - N
+     - Y
 
 Factory function
 ----------------
@@ -367,83 +474,67 @@ works.
 Use AggregationTestBase from velox/aggregates/tests/AggregationTestBase.h as a
 base class for the test.
 
-If the new aggregate function is supported by DuckDB, you can use DuckDB to
-check results. In this case you write a query plan with an aggregation node
-that uses the new function and compare the results of that plan with SQL query
-that runs on DuckDB.
+If the new aggregate function is supported by `DuckDB
+<https://duckdb.org/docs/sql/aggregates>`_, you can use DuckDB to check
+results. In this case you specify input data, grouping keys, a list of
+aggregates and a SQL query to run on DuckDB to calculate the expected results
+and call helper function testAggregates defined in AggregationTestBase class.
+Grouping keys can be empty for global aggregations.
 
 .. code-block:: c++
 
-      agg = PlanBuilder()
-                .values(vectors)
-                .partialAggregation({0}, {"sum(c1)"})
-                .finalAggregation()
-                .planNode();
-      assertQuery(agg, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
+    // Global aggregation.
+    testAggregations(vectors, {}, {"sum(c1)"}, "SELECT sum(c1) FROM tmp");
+
+    // Group by aggregation.
+    testAggregations(
+        vectors, {"c0"}, {"sum(c1)"}, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
 
 If the new function is not supported by DuckDB, you need to specify the expected
 results manually.
 
 .. code-block:: c++
 
-      void testGroupByAgg(
-          const VectorPtr& keys,
-          const VectorPtr& values,
-          double percentile,
-          const RowVectorPtr& expectedResult) {
-        auto rowVector = makeRowVector({keys, values});
+    // Global aggregation.
+    testAggregations(vectors, {}, {"map_union(c1)"}, expectedResult);
 
-        auto op =
-            PlanBuilder()
-                .values({rowVector})
-                .singleAggregation(
-                    {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-                .planNode();
+    // Group by aggregation.
+    testAggregations(vectors, {"c0"}, {"map_union(c1)"}, expectedResult);
 
-        assertQuery(op, expectedResult);
+Under the covers, testAggregations method generates multiple different but
+logically equivalent plans, executes these plans, verifies successful
+completion and compares the results with DuckDB or specified expected results.
 
-        op = PlanBuilder()
-                 .values({rowVector})
-                 .partialAggregation(
-                     {0}, {fmt::format("approx_percentile(c1, {})", percentile)})
-                 .finalAggregation()
-                 .planNode();
+The following query plans are being tested.
 
-        assertQuery(op, expectedResult);
-      }
+* Partial aggregation followed by final aggregation. Query runs
+  single-threaded.
+* Single aggregation. Query runs single-threaded.
+* Partial aggregation followed by intermediate aggregation followed by final
+  aggregation. Query runs single-threaded.
+* Partial aggregation followed by local exchange on the grouping keys followed
+  by final aggregation. Query runs using 4 threads.
+* Local exchange using round-robin repartitioning followed by partial
+  aggregation followed by local exchange on the grouping keys followed by
+  final aggregation with forced spilling. Query runs using 4 threads.
 
-As shown in the example above, you can use PlanBuilder to create aggregation plan nodes.
-
-* partialAggregation() creates plan node for a partial aggregation
-* finalAggregation() creates plan node for a final aggregation
-* singleAggregation() creates plan node for a single agg
-
-partialAggregation() and singleAggregation() methods take a list of grouping
-keys (as indices into the input RowVector) and a list of aggregate functions
-(as SQL strings). Testing framework parses SQL strings for the aggregate
-functions and infers the types of the results using signatures stored in the
-registry.
-
-finalAggregation() method doesn't take any parameters and infers grouping keys
-and aggregate functions from the preceding partial aggregation.
-
-When building a plan that includes final aggregation without the corresponding
-partial aggregation, use finalAggregation() variant that takes grouping keys,
-aggregate functions and aggregate functions result types.
-
-For example,
-
-.. code-block:: c++
-
-        PlanBuilder()
-            ...
-            .finalAggregation({0}, {"approx_percentile(a0)"}, {DOUBLE()})
-
-creates a final aggregation using an approx_percentile aggregate function with
-DOUBLE result type.
+Query run with forced spilling is enabled only for group-by aggregations and
+only if `allowInputShuffle_` flag is enabled by calling allowInputShuffle
+() method from the SetUp(). Spill testing requires multiple batches of input.
+To split input data into multiple batches we add local exchange with
+round-robin repartitioning before the partial aggregation. This changes the order
+in which aggregation inputs are processed, hence, query results with spilling
+are expected to be the same as without spilling only if aggregate functions used
+in the query are not sensitive to the order of inputs. Many functions produce
+the same results regardless of the order of inputs, but some functions may return
+different results if inputs are provided in a different order. For
+example, :func:`arbitrary`, :func:`array_agg`, :func:`map_agg` and
+:func:`map_union` functions are sensitive to the order of inputs,
+and :func:`min_by` and :func:`max_by` functions are sensitive to the order of
+inputs in the presence of ties.
 
 Function names
-------------
+--------------
 
 Same as scalar functions, aggregate function names are case insensitive. The names
 are converted to lower case automatically when the functions are registered and
