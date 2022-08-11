@@ -133,6 +133,22 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testGetScheme()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/table"), config);
+            assertEquals("s3a", fs.getScheme());
+        }
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3://test-bucket/table"), config);
+            assertEquals("s3", fs.getScheme());
+        }
+    }
+
     @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region")
     public void testEndpointWithPinToCurrentRegionConfiguration()
             throws Exception
