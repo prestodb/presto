@@ -111,7 +111,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     }
   }
 
-  void run(bool useOneHot) {
+  size_t run(bool useOneHot, size_t times) {
     folly::BenchmarkSuspender suspender;
 
     auto data = vectorMaker_.rowVector(
@@ -128,24 +128,24 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     std::vector<VectorPtr> results(exprSet.exprs().size());
     suspender.dismiss();
 
-    int cnt = 0;
-    for (auto i = 0; i < 1'000; i++) {
+    size_t cnt = 0;
+    for (auto i = 0; i < times * 1'000; i++) {
       exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
       exprSet.eval(rows, &evalCtx, &results);
       cnt += results[0]->size();
     }
-    folly::doNotOptimizeAway(cnt);
+    return cnt;
   }
 };
 
-BENCHMARK(original) {
+BENCHMARK_MULTI(original, n) {
   PreprocBenchmark benchmark;
-  benchmark.run(false /* useOneHot */);
+  return benchmark.run(false /* useOneHot */, n);
 }
 
-BENCHMARK(onehot) {
+BENCHMARK_MULTI(onehot, n) {
   PreprocBenchmark benchmark;
-  benchmark.run(true /* useOneHot */);
+  return benchmark.run(true /* useOneHot */, n);
 }
 
 } // namespace
