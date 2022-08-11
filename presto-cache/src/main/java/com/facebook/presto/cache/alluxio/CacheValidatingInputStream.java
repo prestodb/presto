@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.cache.alluxio;
 
-import alluxio.exception.ExceptionMessage;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.EOFException;
@@ -101,8 +100,7 @@ public class CacheValidatingInputStream
 
     @Override
     public boolean seekToNewSource(long target)
-            throws IOException
     {
-        throw new IOException(ExceptionMessage.NOT_SUPPORTED.getMessage());
+        throw new UnsupportedOperationException();
     }
 }
