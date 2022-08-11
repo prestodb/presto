@@ -15,6 +15,7 @@
  */
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
+#include <velox/common/base/Exceptions.h>
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -25,6 +26,182 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 
 namespace {
+template <typename T, typename Operation>
+class BaseFunction : public exec::VectorFunction {
+ public:
+  virtual bool supportsFlatNoNullsFastPath() const override {
+    return true;
+  }
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& args,
+      const TypePtr& resultType,
+      exec::EvalCtx* context,
+      VectorPtr* result) const override {
+    if (args[0]->isConstantEncoding() &&
+        args[1]->encoding() == VectorEncoding::Simple::FLAT) {
+      // Fast path for (flat, const).
+      auto constant = args[0]->asUnchecked<SimpleVector<T>>()->valueAt(0);
+      auto flatValues = args[1]->asUnchecked<FlatVector<T>>();
+      auto rawValues = flatValues->mutableRawValues();
+
+      auto rawResults =
+          getRawResults(rows, args[1], rawValues, resultType, context, result);
+
+      context->applyToSelectedNoThrow(rows, [&](auto row) {
+        rawResults[row] = Operation::apply(constant, rawValues[row]);
+      });
+    } else if (
+        args[0]->encoding() == VectorEncoding::Simple::FLAT &&
+        args[1]->isConstantEncoding()) {
+      // Fast path for (const, flat).
+      auto constant = args[1]->asUnchecked<SimpleVector<T>>()->valueAt(0);
+      auto flatValues = args[0]->asUnchecked<FlatVector<T>>();
+      auto rawValues = flatValues->mutableRawValues();
+
+      auto rawResults =
+          getRawResults(rows, args[0], rawValues, resultType, context, result);
+
+      context->applyToSelectedNoThrow(rows, [&](auto row) {
+        rawResults[row] = Operation::apply(rawValues[row], constant);
+      });
+    } else if (
+        args[0]->encoding() == VectorEncoding::Simple::FLAT &&
+        args[1]->encoding() == VectorEncoding::Simple::FLAT) {
+      // Fast path for (flat, flat).
+      auto flatA = args[0]->asUnchecked<FlatVector<T>>();
+      auto rawA = flatA->mutableRawValues();
+      auto flatB = args[1]->asUnchecked<FlatVector<T>>();
+      auto rawB = flatB->mutableRawValues();
+
+      T* rawResults = nullptr;
+      if (!(*result)) {
+        if (BaseVector::isReusableFlatVector(args[0])) {
+          rawResults = rawA;
+          *result = std::move(args[0]);
+        } else if (BaseVector::isReusableFlatVector(args[1])) {
+          rawResults = rawB;
+          *result = std::move(args[1]);
+        }
+      }
+      if (!rawResults) {
+        rawResults = prepareResults(rows, resultType, context, result);
+      }
+
+      context->applyToSelectedNoThrow(rows, [&](auto row) {
+        rawResults[row] = Operation::apply(rawA[row], rawB[row]);
+      });
+    } else {
+      exec::DecodedArgs decodedArgs(rows, args, context);
+
+      auto a = decodedArgs.at(0);
+      auto b = decodedArgs.at(1);
+
+      BaseVector::ensureWritable(rows, resultType, context->pool(), result);
+      auto rawResults =
+          (*result)->asUnchecked<FlatVector<T>>()->mutableRawValues();
+
+      context->applyToSelectedNoThrow(rows, [&](auto row) {
+        rawResults[row] =
+            Operation::apply(a->valueAt<T>(row), b->valueAt<T>(row));
+      });
+    }
+  }
+
+ private:
+  T* prepareResults(
+      const SelectivityVector& rows,
+      const TypePtr& resultType,
+      exec::EvalCtx* context,
+      VectorPtr* result) const {
+    BaseVector::ensureWritable(rows, resultType, context->pool(), result);
+    (*result)->clearNulls(rows);
+    return (*result)->asUnchecked<FlatVector<T>>()->mutableRawValues();
+  }
+
+  T* getRawResults(
+      const SelectivityVector& rows,
+      VectorPtr& flat,
+      T* rawValues,
+      const TypePtr& resultType,
+      exec::EvalCtx* context,
+      VectorPtr* result) const {
+    // Check if input can be reused for results.
+    T* rawResults;
+    if (!(*result) && BaseVector::isReusableFlatVector(flat)) {
+      rawResults = rawValues;
+      *result = std::move(flat);
+    } else {
+      rawResults = prepareResults(rows, resultType, context, result);
+    }
+
+    return rawResults;
+  }
+};
+
+class Multiplication {
+ public:
+  template <typename T>
+  static T apply(T left, T right) {
+    return left * right;
+  }
+};
+
+class Addition {
+ public:
+  template <typename T>
+  static T apply(T left, T right) {
+    return left + right;
+  }
+};
+
+template <typename Operation>
+std::shared_ptr<exec::VectorFunction> make(
+    const std::string& /*name*/,
+    const std::vector<exec::VectorFunctionArg>& inputArgs) {
+  auto typeKind = inputArgs[0].type->kind();
+  switch (typeKind) {
+    case TypeKind::TINYINT:
+      return std::make_shared<BaseFunction<int8_t, Operation>>();
+    case TypeKind::SMALLINT:
+      return std::make_shared<BaseFunction<int16_t, Operation>>();
+    case TypeKind::INTEGER:
+      return std::make_shared<BaseFunction<int32_t, Operation>>();
+    case TypeKind::BIGINT:
+      return std::make_shared<BaseFunction<int64_t, Operation>>();
+    case TypeKind::REAL:
+      return std::make_shared<BaseFunction<float, Operation>>();
+    case TypeKind::DOUBLE:
+      return std::make_shared<BaseFunction<double, Operation>>();
+    default:
+      VELOX_UNREACHABLE();
+  }
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+  for (auto type :
+       {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
+    signatures.push_back(exec::FunctionSignatureBuilder()
+                             .returnType(type)
+                             .argumentType(type)
+                             .argumentType(type)
+                             .build());
+  }
+  return signatures;
+}
+
+void registerPlus(const std::string& name) {
+  exec::registerStatefulVectorFunction(name, signatures(), make<Addition>);
+}
+
+void registerMultiply(const std::string& name) {
+  exec::registerStatefulVectorFunction(
+      name, signatures(), make<Multiplication>);
+}
+
+enum class RunConfig { Basic, OneHot, VectorAndOneHot };
 
 std::vector<float> kBenchmarkData{
     2.1476,  -1.3686, 0.7764,  -1.1965, 0.3452,  0.9735,  -1.5781, -1.4886,
@@ -53,7 +230,8 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   PreprocBenchmark() : FunctionBenchmarkBase() {
     functions::prestosql::registerAllScalarFunctions();
-
+    registerPlus("add_v");
+    registerMultiply("mult_v");
     registerFunction<OneHotFunction, float, float, float>({"one_hot"});
   }
 
@@ -69,27 +247,33 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     return exec::ExprSet(std::move(typedExprs), &execCtx_);
   }
 
-  std::string makeExpression(int n, bool useOneHot) {
-    if (useOneHot) {
-      return fmt::format(
-          "clamp(0.05::REAL * (20.5::REAL + one_hot(c0, {}::REAL)), (-10.0)::REAL, 10.0::REAL)",
-          n);
-    } else {
-      return fmt::format(
-          "clamp(0.05::REAL * (20.5::REAL + if(floor(c0) = {}::REAL, 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
-          n);
+  std::string makeExpression(int n, RunConfig config) {
+    switch (config) {
+      case RunConfig::Basic:
+        return fmt::format(
+            "clamp(0.05::REAL * (20.5::REAL + if(floor(c0) = {}::REAL, 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
+            n);
+      case RunConfig::OneHot:
+        return fmt::format(
+            "clamp(0.05::REAL * (20.5::REAL + one_hot(c0, {}::REAL)), (-10.0)::REAL, 10.0::REAL)",
+            n);
+      case RunConfig::VectorAndOneHot:
+        return fmt::format(
+            "clamp(mult_v(0.05::REAL, add_v(20.5::REAL, one_hot(c0, {}::REAL))), (-10.0)::REAL, 10.0::REAL)",
+            n);
     }
+    return "";
   }
 
-  std::vector<VectorPtr> evaluateOnce(bool useOneHot) {
+  std::vector<VectorPtr> evaluateOnce(RunConfig config) {
     auto data = vectorMaker_.rowVector(
         {vectorMaker_.flatVector<float>(kBenchmarkData)});
     auto exprSet = compile({
-        makeExpression(1, useOneHot),
-        makeExpression(2, useOneHot),
-        makeExpression(3, useOneHot),
-        makeExpression(4, useOneHot),
-        makeExpression(5, useOneHot),
+        makeExpression(1, config),
+        makeExpression(2, config),
+        makeExpression(3, config),
+        makeExpression(4, config),
+        makeExpression(5, config),
     });
 
     SelectivityVector rows(data->size());
@@ -102,26 +286,32 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
   // Verify that results of the calculation using one_hot function match the
   // results when using if+floor.
   void test() {
-    auto onehot = evaluateOnce(true);
-    auto original = evaluateOnce(false);
+    auto onehot = evaluateOnce(RunConfig::OneHot);
+    auto original = evaluateOnce(RunConfig::Basic);
+    auto vcectorAndOneHot = evaluateOnce(RunConfig::VectorAndOneHot);
 
     VELOX_CHECK_EQ(onehot.size(), original.size());
     for (auto i = 0; i < original.size(); ++i) {
       test::assertEqualVectors(onehot[i], original[i]);
     }
+
+    VELOX_CHECK_EQ(vcectorAndOneHot.size(), original.size());
+    for (auto i = 0; i < original.size(); ++i) {
+      test::assertEqualVectors(vcectorAndOneHot[i], original[i]);
+    }
   }
 
-  size_t run(bool useOneHot, size_t times) {
+  size_t run(RunConfig config, size_t times) {
     folly::BenchmarkSuspender suspender;
 
     auto data = vectorMaker_.rowVector(
         {vectorMaker_.flatVector<float>(kBenchmarkData)});
     auto exprSet = compile({
-        makeExpression(1, useOneHot),
-        makeExpression(2, useOneHot),
-        makeExpression(3, useOneHot),
-        makeExpression(4, useOneHot),
-        makeExpression(5, useOneHot),
+        makeExpression(1, config),
+        makeExpression(2, config),
+        makeExpression(3, config),
+        makeExpression(4, config),
+        makeExpression(5, config),
     });
 
     SelectivityVector rows(data->size());
@@ -140,12 +330,17 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
 
 BENCHMARK_MULTI(original, n) {
   PreprocBenchmark benchmark;
-  return benchmark.run(false /* useOneHot */, n);
+  return benchmark.run(RunConfig::Basic, n);
 }
 
-BENCHMARK_MULTI(onehot, n) {
+BENCHMARK_MULTI(oneHot, n) {
   PreprocBenchmark benchmark;
-  return benchmark.run(true /* useOneHot */, n);
+  return benchmark.run(RunConfig::OneHot, n);
+}
+
+BENCHMARK_MULTI(vectorAndOneHot, n) {
+  PreprocBenchmark benchmark;
+  return benchmark.run(RunConfig::VectorAndOneHot, n);
 }
 
 } // namespace
