@@ -76,6 +76,37 @@ constexpr std::string_view weekdaysFull[] = {
     "Saturday"};
 constexpr std::string_view weekdaysShort[] =
     {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+static std::
+    unordered_map<std::string_view, std::pair<std::string_view, int64_t>>
+        dayOfWeekMap{
+            // Capitalized.
+            {"Mon", {"day", 1}},
+            {"Tue", {"sday", 2}},
+            {"Wed", {"nesday", 3}},
+            {"Thu", {"rsday", 4}},
+            {"Fri", {"day", 5}},
+            {"Sat", {"urday", 6}},
+            {"Sun", {"day", 7}},
+
+            // Lower case.
+            {"mon", {"day", 1}},
+            {"tue", {"sday", 2}},
+            {"wed", {"nesday", 3}},
+            {"thu", {"rsday", 4}},
+            {"fri", {"day", 5}},
+            {"sat", {"urday", 6}},
+            {"sun", {"day", 7}},
+
+            // Upper case.
+            {"MON", {"DAY", 1}},
+            {"TUE", {"SDAY", 2}},
+            {"WED", {"NESDAY", 3}},
+            {"THU", {"RSDAY", 4}},
+            {"FRI", {"DAY", 5}},
+            {"SAT", {"URDAY", 6}},
+            {"SUN", {"DAY", 7}},
+        };
+
 constexpr std::string_view monthsFull[] = {
     "January",
     "February",
@@ -88,8 +119,7 @@ constexpr std::string_view monthsFull[] = {
     "September",
     "October",
     "November",
-    "December",
-};
+    "December"};
 constexpr std::string_view monthsShort[] = {
     "Jan",
     "Feb",
@@ -102,8 +132,52 @@ constexpr std::string_view monthsShort[] = {
     "Sep",
     "Oct",
     "Nov",
-    "Dec",
-};
+    "Dec"};
+static std::
+    unordered_map<std::string_view, std::pair<std::string_view, int64_t>>
+        monthMap{
+            // Capitalized.
+            {"Jan", {"uary", 1}},
+            {"Feb", {"ruary", 2}},
+            {"Mar", {"ch", 3}},
+            {"Apr", {"il", 4}},
+            {"May", {"", 5}},
+            {"Jun", {"e", 6}},
+            {"Jul", {"y", 7}},
+            {"Aug", {"ust", 8}},
+            {"Sep", {"tember", 9}},
+            {"Oct", {"ober", 10}},
+            {"Nov", {"ember", 11}},
+            {"Dec", {"ember", 12}},
+
+            // Lower case.
+            {"jan", {"uary", 1}},
+            {"feb", {"ruary", 2}},
+            {"mar", {"rch", 3}},
+            {"apr", {"il", 4}},
+            {"may", {"", 5}},
+            {"jun", {"e", 6}},
+            {"jul", {"y", 7}},
+            {"aug", {"ust", 8}},
+            {"sep", {"tember", 9}},
+            {"oct", {"ober", 10}},
+            {"nov", {"ember", 11}},
+            {"dec", {"ember", 12}},
+
+            // Upper case.
+            {"JAN", {"UARY", 1}},
+            {"FEB", {"RUARY", 2}},
+            {"MAR", {"RCH", 3}},
+            {"APR", {"IL", 4}},
+            {"MAY", {"", 5}},
+            {"JUN", {"E", 6}},
+            {"JUL", {"Y", 7}},
+            {"AUG", {"UST", 8}},
+            {"SEP", {"TEMBER", 9}},
+            {"OCT", {"OBER", 10}},
+            {"NOV", {"EMBER", 11}},
+            {"DEC", {"EMBER", 12}},
+        };
 constexpr int monthsFullLength[] = {7, 8, 5, 5, 3, 4, 4, 6, 9, 7, 8, 8};
 
 /// Pads the content with desired padding characters. E.g. if we need to pad 999
@@ -316,22 +390,41 @@ int64_t parseEra(const char* cur, const char* end, Date& date) {
 
 int64_t parseMonthText(const char* cur, const char* end, Date& date) {
   if ((end - cur) >= 3) {
-    for (int i = 0; i < 12; i++) {
-      if (std::strncmp(cur, monthsShort[i].data(), 3) == 0) {
-        auto length = monthsFullLength[i];
-        date.month = i + 1;
-        if ((end - cur) >= length &&
-            std::strncmp(cur, monthsFull[i].data(), length) == 0) {
-          return length;
-        } else {
-          return 3;
+    auto it = monthMap.find(std::string_view(cur, 3));
+    if (it != monthMap.end()) {
+      date.month = it->second.second;
+      if (end - cur >= it->second.first.size() + 3) {
+        if (std::strncmp(
+                cur + 3, it->second.first.data(), it->second.first.size()) ==
+            0) {
+          return it->second.first.size() + 3;
         }
       }
+      // If the suffix didn't match, still ok. Return a prefix match.
+      return 3;
     }
-    throw std::runtime_error("Unable to parse month.");
-  } else {
-    throw std::runtime_error("Unable to parse month.");
   }
+  throw std::runtime_error("Unable to parse month.");
+  return 0;
+}
+
+int64_t parseDayOfWeekText(const char* cur, const char* end, Date& date) {
+  if ((end - cur) >= 3) {
+    auto it = dayOfWeekMap.find(std::string_view(cur, 3));
+    if (it != dayOfWeekMap.end()) {
+      date.dayOfWeek = it->second.second;
+      if (end - cur >= it->second.first.size() + 3) {
+        if (std::strncmp(
+                cur + 3, it->second.first.data(), it->second.first.size()) ==
+            0) {
+          return it->second.first.size() + 3;
+        }
+      }
+      return 3;
+    }
+  }
+  throw std::runtime_error("Unable to parse day of week.");
+  return 0;
 }
 
 int64_t parseHalfDayOfDay(const char* cur, const char* end, Date& date) {
@@ -481,6 +574,19 @@ void parseFromPattern(
   } else if (curPattern.specifier == DateTimeFormatSpecifier::HALFDAY_OF_DAY) {
     try {
       cur += parseHalfDayOfDay(cur, end, date);
+    } catch (...) {
+      parseFail(input, cur, end);
+    }
+  } else if (
+      curPattern.specifier == DateTimeFormatSpecifier::DAY_OF_WEEK_TEXT) {
+    try {
+      cur += parseDayOfWeekText(cur, end, date);
+      date.weekDateFormat = true;
+      date.dayOfYearFormat = false;
+      if (!date.hasYear) {
+        date.hasYear = true;
+        date.year = 2000;
+      }
     } catch (...) {
       parseFail(input, cur, end);
     }
@@ -993,13 +1099,6 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
           util::isLeapYear(date.year) ? 366 : 365);
     }
   }
-
-  LOG(INFO) << "START LOG" << std::endl;
-  LOG(INFO) << "INPUT: " << input << std::endl;
-  LOG(INFO) << "YEAR: " << date.year << std::endl;
-  LOG(INFO) << "MONTH: " << date.month << std::endl;
-  LOG(INFO) << "DAY: " << date.day << std::endl;
-  LOG(INFO) << "END LOG" << std::endl << std::endl;
 
   // Convert the parsed date/time into a timestamp.
   int64_t daysSinceEpoch;

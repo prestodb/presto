@@ -935,6 +935,93 @@ TEST_F(JodaDateTimeFormatterTest, parseMixedWeekFormat) {
       util::fromTimestampString("2021-06-03 13:29:21.213"),
       parse("2021 22 4 13:29:21.213", "x w e HH:mm:ss.SSS"));
 
+  // Day of week short text normal capitlization
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 Mon 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 Mon 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 Thu 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  // Day of week long text normal capitlization
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 Monday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 Monday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 Thursday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  // Day of week short text upper case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 MON 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 MON 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 THU 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  // Day of week long text upper case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 MONDAY 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 MONDAY 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 THURSDAY 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  // Day of week short text lower case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 mon 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 mon 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 thu 13:29:21.213", "x w E HH:mm:ss.SSS"));
+
+  // Day of week long text lower case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 monday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 monday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 thursday 13:29:21.213", "x w EEE HH:mm:ss.SSS"));
+
+  // Invalid day of week throw cases
+  EXPECT_THROW(parse("mOn", "E"), VeloxUserError);
+  EXPECT_THROW(parse("tuE", "E"), VeloxUserError);
+  EXPECT_THROW(parse("WeD", "E"), VeloxUserError);
+  EXPECT_THROW(parse("WEd", "E"), VeloxUserError);
+  EXPECT_THROW(parse("MONday", "EEE"), VeloxUserError);
+  EXPECT_THROW(parse("monDAY", "EEE"), VeloxUserError);
+  EXPECT_THROW(parse("frIday", "EEE"), VeloxUserError);
+
   // Backwards, just for fun:
   EXPECT_EQ(
       util::fromTimestampString("2021-05-31 13:29:21.213"),
