@@ -121,7 +121,7 @@ class PageReader {
       uint32_t uncompressedSize);
 
   template <typename T>
-  T readField(const char*& ptr) {
+  T readField(const char* FOLLY_NONNULL& ptr) {
     T data = *reinterpret_cast<const T*>(ptr);
     ptr += sizeof(T);
     return data;
@@ -158,8 +158,10 @@ class PageReader {
       typename std::enable_if<
           !std::is_same<typename Visitor::DataType, folly::StringPiece>::value,
           int>::type = 0>
-  void
-  callDecoder(const uint64_t* nulls, bool& nullsFromFastPath, Visitor visitor) {
+  void callDecoder(
+      const uint64_t* FOLLY_NULLABLE nulls,
+      bool& nullsFromFastPath,
+      Visitor visitor) {
     if (nulls) {
       nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
       if (isDictionary()) {
@@ -183,8 +185,10 @@ class PageReader {
       typename std::enable_if<
           std::is_same<typename Visitor::DataType, folly::StringPiece>::value,
           int>::type = 0>
-  void
-  callDecoder(const uint64_t* nulls, bool& nullsFromFastPath, Visitor visitor) {
+  void callDecoder(
+      const uint64_t* FOLLY_NULLABLE nulls,
+      bool& nullsFromFastPath,
+      Visitor visitor) {
     if (nulls) {
       if (isDictionary()) {
         nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
@@ -212,8 +216,8 @@ class PageReader {
   const int32_t maxDefine_;
   const thrift::CompressionCodec::type codec_;
   const int64_t chunkSize_;
-  const char* bufferStart_{nullptr};
-  const char* bufferEnd_{nullptr};
+  const char* FOLLY_NULLABLE bufferStart_{nullptr};
+  const char* FOLLY_NULLABLE bufferEnd_{nullptr};
 
   BufferPtr tempNulls_;
   BufferPtr nullsInReadRange_;
@@ -238,7 +242,7 @@ class PageReader {
 
   // First byte of uncompressed encoded data. Contains the encoded data as a
   // contiguous run of bytes.
-  const char* pageData_{nullptr};
+  const char* FOLLY_NULLABLE pageData_{nullptr};
 
   // Dictionary contents.
   dwio::common::DictionaryValues dictionary_;

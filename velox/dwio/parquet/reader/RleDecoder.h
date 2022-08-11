@@ -45,9 +45,9 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   }
 
   void next(
-      int64_t* /*data*/,
+      int64_t* FOLLY_NONNULL /*data*/,
       uint64_t /*numValues*/,
-      const uint64_t* /*nulls*/) override {
+      const uint64_t* FOLLY_NULLABLE /*nulls*/) override {
     VELOX_UNREACHABLE();
   }
 
@@ -56,7 +56,10 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   }
 
   template <bool hasNulls>
-  inline void skip(int32_t numValues, int32_t current, const uint64_t* nulls) {
+  inline void skip(
+      int32_t numValues,
+      int32_t current,
+      const uint64_t* FOLLY_NULLABLE nulls) {
     if (hasNulls) {
       numValues = bits::countNonNulls(nulls, current, current + numValues);
     }
@@ -76,7 +79,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   }
 
   template <bool hasNulls, typename Visitor>
-  void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
+  void readWithVisitor(const uint64_t* FOLLY_NULLABLE nulls, Visitor visitor) {
     if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
@@ -129,7 +132,10 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   /// not copy them into 'buffer' but instead may set '*allOnes' to
   /// true. If allOnes is non-nullptr and not all bits are ones, then
   /// '*allOnes' is set to false and the bits are copied to 'buffer'.
-  void readBits(int32_t numValues, uint64_t* buffer, bool* allOnes = nullptr) {
+  void readBits(
+      int32_t numValues,
+      uint64_t* FOLLY_NONNULL buffer,
+      bool* FOLLY_NULLABLE allOnes = nullptr) {
     VELOX_CHECK_EQ(1, bitWidth_);
     auto toRead = numValues;
     int32_t numWritten = 0;
@@ -183,7 +189,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   }
 
   template <bool hasNulls, typename Visitor>
-  void fastPath(const uint64_t* nulls, Visitor& visitor) {
+  void fastPath(const uint64_t* FOLLY_NULLABLE nulls, Visitor& visitor) {
     constexpr bool hasFilter =
         !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
     constexpr bool hasHook =
@@ -235,13 +241,13 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
 
   template <bool hasFilter, bool hasHook, bool scatter, typename Visitor>
   void processRun(
-      const int32_t* rows,
+      const int32_t* FOLLY_NONNULL rows,
       int32_t rowIndex,
       int32_t currentRow,
       int32_t numRows,
-      const int32_t* scatterRows,
-      int32_t* filterHits,
-      typename Visitor::DataType* values,
+      const int32_t* FOLLY_NULLABLE scatterRows,
+      int32_t* FOLLY_NULLABLE filterHits,
+      typename Visitor::DataType* FOLLY_NONNULL values,
       int32_t& numValues,
       Visitor& visitor) {
     auto numBits = bitOffset_ +
@@ -274,7 +280,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   // last in rows that falls in the current run.
   template <bool dense>
   std::pair<int32_t, std::int32_t> findNumInRun(
-      const int32_t* rows,
+      const int32_t* FOLLY_NONNULL rows,
       int32_t rowIndex,
       int32_t numRows,
       int32_t currentRow) {
@@ -300,7 +306,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   template <bool hasFilter, bool hasHook, bool scatter, typename Visitor>
   void bulkScan(
       folly::Range<const int32_t*> nonNullRows,
-      const int32_t* scatterRows,
+      const int32_t* FOLLY_NULLABLE scatterRows,
       Visitor& visitor) {
     auto numAllRows = visitor.numRows();
     visitor.setRows(nonNullRows);
