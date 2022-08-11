@@ -74,14 +74,22 @@ class DateTimeFormatterTest : public testing::Test {
     }
   }
 
-  auto parseAll(const std::string_view& input, const std::string_view& format) {
-    return buildJodaDateTimeFormatter(format)->parse(input);
+  auto parseAll(
+      const std::string_view& input,
+      const std::string_view& format,
+      bool joda = true) {
+    if (joda) {
+      return buildJodaDateTimeFormatter(format)->parse(input);
+    } else {
+      return buildMysqlDateTimeFormatter(format)->parse(input);
+    }
   }
 
   Timestamp parse(
       const std::string_view& input,
-      const std::string_view& format) {
-    return parseAll(input, format).timestamp;
+      const std::string_view& format,
+      bool joda = true) {
+    return parseAll(input, format, joda).timestamp;
   }
 
   // Parses and returns the timezone converted back to string, to ease
@@ -1522,6 +1530,666 @@ TEST_F(MysqlDateTimeTest, formatCompositeTime) {
       buildMysqlDateTimeFormatter("%T")->format(
           util::fromTimestampString("2000-01-01 23:59:59"), timezone),
       "23:59:59");
+}
+
+// Same semantic as YEAR_OF_ERA, except that it accepts zero and negative years.
+TEST_F(MysqlDateTimeTest, parseFourDigitYear) {
+  EXPECT_EQ(util::fromTimestampString("123-01-01"), parse("123", "%Y", false));
+  EXPECT_EQ(util::fromTimestampString("321-01-01"), parse("321", "%Y", false));
+
+  EXPECT_EQ(util::fromTimestampString("0-01-01"), parse("0", "%Y", false));
+  EXPECT_EQ(util::fromTimestampString("-1-01-01"), parse("-1", "%Y", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1234-01-01"), parse("-1234", "%Y", false));
+
+  // Last token read overwrites:
+  EXPECT_EQ(
+      util::fromTimestampString("0-01-01"), parse("123 0", "%Y %Y", false));
+
+  // Plus sign consumption valid when %Y operator is not followed by another
+  // specifier
+  EXPECT_EQ(util::fromTimestampString("10-01-01"), parse("+10", "%Y", false));
+  EXPECT_EQ(
+      util::fromTimestampString("99-02-01"), parse("+99 02", "%Y %m", false));
+  EXPECT_EQ(
+      util::fromTimestampString("10-10-01"), parse("10 +10", "%m %Y", false));
+  EXPECT_EQ(
+      util::fromTimestampString("100-02-01"), parse("2+100", "%m%Y", false));
+  EXPECT_THROW(parse("+10001", "%Y%m", false), VeloxUserError);
+  EXPECT_THROW(parse("++100", "%Y", false), VeloxUserError);
+
+  // Probe the year range
+  EXPECT_THROW(parse("-10000", "%Y"), VeloxUserError);
+  EXPECT_THROW(parse("10000", "%Y"), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseTwoDigitYear) {
+  EXPECT_EQ(util::fromTimestampString("1970-01-01"), parse("70", "%y", false));
+  EXPECT_EQ(util::fromTimestampString("2069-01-01"), parse("69", "%y", false));
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("00", "%y", false));
+
+  // Last token read overwrites:
+  EXPECT_EQ(
+      util::fromTimestampString("2030-01-01"), parse("80 30", "%y %y", false));
+}
+
+TEST_F(MysqlDateTimeTest, parseWeekYear) {
+  // Covers entire range of possible week year start dates (12-29 to 01-04)
+  EXPECT_EQ(
+      util::fromTimestampString("1969-12-29 00:00:00"),
+      parse("1970", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2024-12-30 00:00:00"),
+      parse("2025", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1934-12-31 00:00:00"),
+      parse("1935", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1990-01-01 00:00:00"),
+      parse("1990", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("0204-01-02 00:00:00"),
+      parse("204", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-0102-01-03 00:00:00"),
+      parse("-102", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-0108-01-04 00:00:00"),
+      parse("-108", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1002-12-31 00:00:00"),
+      parse("-1001", "%x", false));
+
+  // Plus sign consumption valid when %x operator is not followed by another
+  // specifier
+  EXPECT_EQ(util::fromTimestampString("10-01-04"), parse("+10", "%x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("0098-12-29"), parse("+99 01", "%x %v", false));
+  EXPECT_EQ(
+      util::fromTimestampString("0099-01-05"), parse("+99 02", "%x %v", false));
+  EXPECT_EQ(
+      util::fromTimestampString("10-03-08"), parse("10 +10", "%v %x", false));
+  EXPECT_EQ(
+      util::fromTimestampString("100-01-11"), parse("2+100", "%v%x", false));
+  EXPECT_THROW(parse("+10001", "%x%m", false), VeloxUserError);
+  EXPECT_THROW(parse("++100", "%x", false), VeloxUserError);
+
+  // Probe week year range
+  EXPECT_THROW(parse("-292275055", "%x", false), VeloxUserError);
+  EXPECT_THROW(parse("292278994", "%x", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseMonth) {
+  // Joda has this weird behavior where if minute or hour is specified, year
+  // falls back to 2000, instead of epoch (1970)  ¯\_(ツ)_/¯
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "%m", false));
+  EXPECT_EQ(util::fromTimestampString("2000-07-01"), parse(" 7", " %m", false));
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("01", "%m", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-07-01"), parse(" 07", " %m", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-11-01"), parse("11-", "%m-", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-12-01"), parse("-12-", "-%m-", false));
+
+  EXPECT_THROW(parse("0", "%m", false), VeloxUserError);
+  EXPECT_THROW(parse("13", "%m", false), VeloxUserError);
+  EXPECT_THROW(parse("12345", "%m", false), VeloxUserError);
+
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "%c", false));
+  EXPECT_EQ(util::fromTimestampString("2000-07-01"), parse(" 7", " %c", false));
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("01", "%c", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-07-01"), parse(" 07", " %c", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-11-01"), parse("11-", "%c-", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-12-01"), parse("-12-", "-%c-", false));
+
+  EXPECT_THROW(parse("0", "%c", false), VeloxUserError);
+  EXPECT_THROW(parse("13", "%c", false), VeloxUserError);
+  EXPECT_THROW(parse("12345", "%c", false), VeloxUserError);
+
+  // Ensure %b and %M specifiers consume both short- and long-form month
+  // names
+  for (int i = 0; i < 12; i++) {
+    StringView buildString("2000-" + std::to_string(i + 1) + "-01");
+    EXPECT_EQ(
+        util::fromTimestampString(buildString),
+        parse(monthsShort[i], "%b", false));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString),
+        parse(monthsFull[i], "%b", false));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString),
+        parse(monthsShort[i], "%M", false));
+    EXPECT_EQ(
+        util::fromTimestampString(buildString),
+        parse(monthsFull[i], "%M", false));
+  }
+
+  // Month name invalid parse
+  EXPECT_THROW(parse("Decembr", "%b", false), VeloxUserError);
+  EXPECT_THROW(parse("Decembr", "%M", false), VeloxUserError);
+  EXPECT_THROW(parse("Decemberary", "%b", false), VeloxUserError);
+  EXPECT_THROW(parse("Decemberary", "%M", false), VeloxUserError);
+  EXPECT_THROW(parse("asdf", "%b", false), VeloxUserError);
+  EXPECT_THROW(parse("asdf", "%M", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseDayOfMonth) {
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "%d", false));
+  EXPECT_EQ(util::fromTimestampString("2000-01-07"), parse("7 ", "%d ", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-01-11"), parse("/11", "/%d", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-01-31"), parse("/31/", "/%d/", false));
+
+  EXPECT_THROW(parse("0", "%d", false), VeloxUserError);
+  EXPECT_THROW(parse("32", "%d", false), VeloxUserError);
+  EXPECT_THROW(parse("12345", "%d", false), VeloxUserError);
+
+  EXPECT_THROW(parse("02-31", "%m-%d", false), VeloxUserError);
+  EXPECT_THROW(parse("04-31", "%m-%d", false), VeloxUserError);
+
+  // Ensure all days of month are checked against final selected month
+  EXPECT_THROW(parse("1 31 20 2", "%m %d %d %m", false), VeloxUserError);
+  EXPECT_THROW(parse("2 31 20 4", "%m %d %d %m", false), VeloxUserError);
+  EXPECT_EQ(
+      util::fromTimestampString("2000-01-31"),
+      parse("2 31 1", "%m %d %m", false));
+
+  // Probe around leap year.
+  EXPECT_EQ(
+      util::fromTimestampString("2000-02-29"),
+      parse("2000-02-29", "%Y-%m-%d", false));
+  EXPECT_THROW(parse("2001-02-29", "%Y-%m-%d", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseDayOfYear) {
+  // Just day of year specifier should default to 2000. Also covers leap year
+  // case
+  EXPECT_EQ(util::fromTimestampString("2000-01-01"), parse("1", "%j", false));
+  EXPECT_EQ(util::fromTimestampString("2000-01-07"), parse("7 ", "%j ", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-01-11"), parse("/11", "/%j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("2000-01-31"), parse("/31/", "/%j/", false));
+  EXPECT_EQ(util::fromTimestampString("2000-02-01"), parse("32", "%j", false));
+  EXPECT_EQ(util::fromTimestampString("2000-02-29"), parse("60", "%j", false));
+  EXPECT_EQ(util::fromTimestampString("2000-12-30"), parse("365", "%j", false));
+  EXPECT_EQ(util::fromTimestampString("2000-12-31"), parse("366", "%j", false));
+
+  // Year specified cases
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-01"), parse("1950 1", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-07"),
+      parse("1950 7 ", "%Y %j ", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-11"),
+      parse("1950 /11", "%Y /%j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-01-31"),
+      parse("1950 /31/", "%Y /%j/", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-02-01"),
+      parse("1950 32", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-03-01"),
+      parse("1950 60", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1950-12-31"),
+      parse("1950 365", "%Y %j", false));
+  EXPECT_THROW(parse("1950 366", "%Y %j"), VeloxUserError);
+
+  // Negative year specified cases
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-01"),
+      parse("-1950 1", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-07"),
+      parse("-1950 7 ", "%Y %j ", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-11"),
+      parse("-1950 /11", "%Y /%j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-01-31"),
+      parse("-1950 /31/", "%Y /%j/", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-02-01"),
+      parse("-1950 32", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-03-01"),
+      parse("-1950 60", "%Y %j", false));
+  EXPECT_EQ(
+      util::fromTimestampString("-1950-12-31"),
+      parse("-1950 365", "%Y %j", false));
+  EXPECT_THROW(parse("-1950 366", "%Y %j", false), VeloxUserError);
+
+  // Ensure all days of year are checked against final selected year
+  EXPECT_THROW(parse("2000 366 2001", "%Y %j %Y", false), VeloxUserError);
+  EXPECT_EQ(
+      util::fromTimestampString("2000-12-31"),
+      parse("2001 366 2000", "%Y %j %Y", false));
+
+  EXPECT_THROW(parse("0", "%j", false), VeloxUserError);
+  EXPECT_THROW(parse("367", "%j", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseHourOfDay) {
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7", "%H", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 23:00:00"),
+      parse("23", "%H", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0", "%H", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "%H", false));
+
+  // Hour of day invalid
+  EXPECT_THROW(parse("24", "%H", false), VeloxUserError);
+  EXPECT_THROW(parse("-1", "%H", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%H", false), VeloxUserError);
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7", "%k", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 23:00:00"),
+      parse("23", "%k", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0", "%k", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "%k", false));
+
+  // Hour of day invalid
+  EXPECT_THROW(parse("24", "%k", false), VeloxUserError);
+  EXPECT_THROW(parse("-1", "%k", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%k", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseClockHourOfHalfDay) {
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7", "%h", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12", "%h", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1", "%h", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "%h", false));
+
+  // Clock hour of half day invalid
+  EXPECT_THROW(parse("13", "%h", false), VeloxUserError);
+  EXPECT_THROW(parse("0", "%h", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%h", false), VeloxUserError);
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7", "%I", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12", "%I", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1", "%I", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "%I", false));
+
+  // Clock hour of half day invalid
+  EXPECT_THROW(parse("13", "%l", false), VeloxUserError);
+  EXPECT_THROW(parse("0", "%l", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%l", false), VeloxUserError);
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7", "%l", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12", "%l", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1", "%l", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 10:00:00"),
+      parse("10", "%l", false));
+
+  // Clock hour of half day invalid
+  EXPECT_THROW(parse("13", "%l", false), VeloxUserError);
+  EXPECT_THROW(parse("0", "%l", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%l", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseHalfOfDay) {
+  // Half of day has no effect if hour of day is provided
+  // hour of day tests
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 PM", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 AM", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 pm", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 am", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 PM", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 AM", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 pm", "%H %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 am", "%H %p", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 PM", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 AM", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 pm", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 07:00:00"),
+      parse("7 am", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 PM", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 AM", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 pm", "%k %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0 am", "%k %p", false));
+
+  // Half of day has effect if clockhour of halfday is provided
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"),
+      parse("1 PM", "%h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1 AM", "%h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 18:00:00"),
+      parse("6 PM", "%h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 06:00:00"),
+      parse("6 AM", "%h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parse("12 PM", "%h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12 AM", "%h %p", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"),
+      parse("1 PM", "%I %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1 AM", "%I %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 18:00:00"),
+      parse("6 PM", "%I %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 06:00:00"),
+      parse("6 AM", "%I %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parse("12 PM", "%I %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12 AM", "%I %p", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"),
+      parse("1 PM", "%l %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("1 AM", "%l %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 18:00:00"),
+      parse("6 PM", "%l %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 06:00:00"),
+      parse("6 AM", "%l %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parse("12 PM", "%l %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("12 AM", "%l %p", false));
+
+  // time gives precendent to most recent time specifier
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 01:00:00"),
+      parse("0 1 AM", "%H %h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 13:00:00"),
+      parse("12 1 PM", "%H %h %p", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("1 AM 0", "%h %p %H", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 12:00:00"),
+      parse("1 AM 12", "%h %p %H", false));
+}
+
+TEST_F(MysqlDateTimeTest, parseMinute) {
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:08:00"),
+      parse("8", "%i", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:59:00"),
+      parse("59", "%i", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0/", "%i/", false));
+
+  EXPECT_THROW(parse("60", "%i", false), VeloxUserError);
+  EXPECT_THROW(parse("-1", "%i", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%i", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseSecond) {
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:09"),
+      parse("9", "%s", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:58"),
+      parse("58", "%s", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0/", "%s/", false));
+
+  EXPECT_THROW(parse("60", "%s", false), VeloxUserError);
+  EXPECT_THROW(parse("-1", "%s", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%s", false), VeloxUserError);
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:09"),
+      parse("9", "%S", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:58"),
+      parse("58", "%S", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00"),
+      parse("0/", "%S/", false));
+
+  EXPECT_THROW(parse("60", "%S", false), VeloxUserError);
+  EXPECT_THROW(parse("-1", "%S", false), VeloxUserError);
+  EXPECT_THROW(parse("123456789", "%S", false), VeloxUserError);
+}
+
+TEST_F(MysqlDateTimeTest, parseMixedYMDFormat) {
+  // Common patterns found.
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 23:00:00"),
+      parse("2021-01-04+23:00:00", "%Y-%m-%d+%H:%i:%s", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2019-07-03 11:04:10"),
+      parse("2019-07-03 11:04:10", "%Y-%m-%d %H:%i:%s", false));
+
+  // Backwards, just for fun:
+  EXPECT_EQ(
+      util::fromTimestampString("2019-07-03 11:04:10"),
+      parse("10:04:11 03-07-2019", "%s:%i:%H %d-%m-%Y", false));
+}
+
+TEST_F(MysqlDateTimeTest, parseMixedWeekFormat) {
+  // Common patterns found.
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 13:29:21.213", "%x %v %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 13:29:21.213", "%x %v %H:%i:%s.%f", false));
+
+  // Day of week short text normal capitlization
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 Mon 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 Mon 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 Thu 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Day of week long text normal capitlization
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 Monday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 Monday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 Thursday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Day of week short text upper case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 MON 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 MON 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 THU 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Day of week long text upper case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 MONDAY 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 MONDAY 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 THURSDAY 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Day of week short text lower case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 mon 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 mon 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 thu 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Day of week long text lower case
+  EXPECT_EQ(
+      util::fromTimestampString("2021-01-04 13:29:21.213"),
+      parse("2021 1 monday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("2021 22 monday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("2021-06-03 13:29:21.213"),
+      parse("2021 22 thursday 13:29:21.213", "%x %v %W %H:%i:%s.%f", false));
+
+  // Invalid day of week throw cases
+  EXPECT_THROW(parse("mOn", "E"), VeloxUserError);
+  EXPECT_THROW(parse("tuE", "E"), VeloxUserError);
+  EXPECT_THROW(parse("WeD", "E"), VeloxUserError);
+  EXPECT_THROW(parse("WEd", "E"), VeloxUserError);
+  EXPECT_THROW(parse("MONday", "EEE"), VeloxUserError);
+  EXPECT_THROW(parse("monDAY", "EEE"), VeloxUserError);
+  EXPECT_THROW(parse("frIday", "EEE"), VeloxUserError);
+
+  // Backwards, just for fun:
+  EXPECT_EQ(
+      util::fromTimestampString("2021-05-31 13:29:21.213"),
+      parse("213.21:29:13 22 2021", "%f.%s:%i:%H %v %x", false));
+}
+
+TEST_F(MysqlDateTimeTest, parseFractionOfSecond) {
+  // Assert on difference in milliseconds.
+  EXPECT_NE(
+      util::fromTimestampString("2022-02-23 12:15:00.223"),
+      parse("2022-02-23T12:15:00.776", "%Y-%m-%dT%H:%i:%s.%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.000"),
+      parse("000", "%f", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.001"),
+      parse("001", "%f", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.999"),
+      parse("999", "%f", false));
+
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.045"),
+      parse("045", "%f", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.450"),
+      parse("45", "%f", false));
+  EXPECT_EQ(
+      util::fromTimestampString("1970-01-01 00:00:00.450"),
+      parse("45", "%f", false));
+
+  EXPECT_THROW(parse("-1", "%f", false), VeloxUserError);
+  EXPECT_THROW(parse("9999999", "%f", false), VeloxUserError);
 }
 
 } // namespace facebook::velox::functions

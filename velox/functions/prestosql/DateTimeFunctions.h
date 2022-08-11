@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <velox/type/Timestamp.h>
+#include <string_view>
 #include "velox/core/QueryConfig.h"
 #include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
@@ -881,29 +882,19 @@ struct DateFormatFunction {
 template <typename T>
 struct DateParseFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
-  static constexpr folly::StringPiece supportedFormat{"%Y-%m-%d"};
-  static constexpr folly::StringPiece correspondingJodaFormat{"YYYY-MM-dd"};
 
-  std::optional<JodaFormatter> format_;
+  std::shared_ptr<DateTimeFormatter> format_;
   std::optional<int64_t> sessionTzID_;
-
-  void validateFormat(const velox::StringView& format) {
-    if (format != supportedFormat) {
-      VELOX_USER_FAIL(
-          "'date_parse' function currently only supports '%Y-%m-%d' format but "
-          "'",
-          format,
-          "' is provided");
-    }
-  }
+  bool isConstFormat_ = false;
 
   FOLLY_ALWAYS_INLINE void initialize(
       const core::QueryConfig& config,
       const arg_type<Varchar>* /*input*/,
       const arg_type<Varchar>* formatString) {
     if (formatString != nullptr) {
-      validateFormat(*formatString);
-      format_.emplace(correspondingJodaFormat.data());
+      format_ = buildMysqlDateTimeFormatter(
+          std::string_view(formatString->data(), formatString->size()));
+      isConstFormat_ = true;
     }
 
     auto sessionTzName = config.sessionTimezone();
@@ -913,17 +904,22 @@ struct DateParseFunction {
   }
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<Timestamp>& result,
+      out_type<TimestampWithTimezone>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
-    validateFormat(format);
-    if (!format_.has_value()) {
-      format_.emplace(correspondingJodaFormat.data());
+    if (!isConstFormat_) {
+      format_ = buildMysqlDateTimeFormatter(
+          std::string_view(format.data(), format.size()));
     }
-    auto jodaResult = format_->parse(input);
+
+    auto dateTimeResult =
+        format_->parse(std::string_view(input.data(), input.size()));
+
+    // Since MySql format has no timezone specifier, simply check if session
+    // timezone was provided. If not, fallback to 0 (GMT).
     int16_t timezoneId = sessionTzID_.value_or(0);
-    jodaResult.timestamp.toGMT(timezoneId);
-    result = jodaResult.timestamp;
+    dateTimeResult.timestamp.toGMT(timezoneId);
+    result = std::make_tuple(dateTimeResult.timestamp.toMillis(), timezoneId);
     return true;
   }
 };
