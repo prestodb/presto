@@ -159,7 +159,7 @@ class VectorFuzzer {
       bool rowHasNulls,
       bool flatEncoding = false);
 
-  // Generate a random null vector.
+  // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
 
   VectorFuzzer::Options opts_;

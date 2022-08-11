@@ -18,6 +18,7 @@
 #include <glog/logging.h>
 #include <exception>
 
+#include "velox/buffer/Buffer.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
@@ -26,6 +27,7 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/type/Type.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/VectorMaker.h"
 
@@ -509,6 +511,12 @@ class ExpressionFuzzer {
 
     VLOG(1) << "Starting common eval execution.";
     SelectivityVector rows{rowVector ? rowVector->size() : 1};
+
+    // Randomize initial result vector data to test for correct null and data
+    // setting in functions.
+    if (vectorFuzzer_.coinToss(0.5)) {
+      commonEvalResult[0] = vectorFuzzer_.fuzzFlat(plan->type());
+    }
 
     // Execute with common expression eval path.
     try {
