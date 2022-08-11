@@ -24,12 +24,10 @@
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 #include "velox/vector/ComplexVector.h"
 
-namespace facebook::velox::functions::sparksql::test {
-
 using namespace facebook::velox::test;
-namespace {
 
-using facebook::velox::functions::test::FunctionBaseTest;
+namespace facebook::velox::functions::sparksql::test {
+namespace {
 
 class SortArrayTest : public SparkFunctionBaseTest {
  protected:
@@ -38,19 +36,22 @@ class SortArrayTest : public SparkFunctionBaseTest {
       const VectorPtr& expectedAsc,
       const VectorPtr& expectedDesc) {
     // Verify that by default array is sorted in ascending order.
-    std::string expr = "sort_array(c0)";
-    auto result = evaluate<ArrayVector>(expr, makeRowVector({input}));
-    assertEqualVectors(expectedAsc, result, expr);
+    testSortArray("sort_array(c0)", input, expectedAsc);
 
     // Verify sort order with asc flag set to true.
-    expr = "sort_array(c0, true)";
-    auto resultAsc = evaluate<ArrayVector>(expr, makeRowVector({input}));
-    assertEqualVectors(expectedAsc, result, expr);
+    testSortArray("sort_array(c0, true)", input, expectedAsc);
 
     // Verify sort order with asc flag set to false.
-    expr = "sort_array(c0, false)";
-    auto resultDesc = evaluate<ArrayVector>(expr, makeRowVector({input}));
-    assertEqualVectors(expectedDesc, resultDesc, expr);
+    testSortArray("sort_array(c0, false)", input, expectedDesc);
+  }
+
+  void testSortArray(
+      const std::string& expr,
+      const VectorPtr& input,
+      const VectorPtr& expected) {
+    SCOPED_TRACE(expr);
+    auto result = evaluate<ArrayVector>(expr, makeRowVector({input}));
+    assertEqualVectors(expected, result);
   }
 
   template <typename T>

@@ -81,18 +81,15 @@ BufferPtr VectorTestBase::makeNulls(
   return nulls;
 }
 
-void assertEqualVectors(
-    const VectorPtr& expected,
-    const VectorPtr& actual,
-    const std::string& additionalContext) {
-  ASSERT_EQ(expected->size(), actual->size()) << additionalContext;
+void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
+  ASSERT_EQ(expected->size(), actual->size());
   ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
       << "Expected " << expected->type()->toString() << ", but got "
       << actual->type()->toString();
   for (auto i = 0; i < expected->size(); i++) {
     ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
         << "at " << i << ": expected " << expected->toString(i) << ", but got "
-        << actual->toString(i) << additionalContext;
+        << actual->toString(i);
   }
 }
 

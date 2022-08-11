@@ -79,6 +79,7 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
 
   auto seed = folly::Random::rand32();
   LOG(INFO) << "seed: " << seed;
+  SCOPED_TRACE(fmt::format("seed: {}", seed));
   VectorFuzzer fuzzer(opts, pool_.get(), seed);
 
   const auto iterations = 1000;
@@ -94,8 +95,7 @@ TEST_F(UnsafeRowFuzzTests, simpleTypeRoundTripTest) {
         UnsafeRowDynamicVectorBatchDeserializer::deserializeComplex(
             std::string_view(buffer_, rowSize.value()), rowType, pool_.get());
 
-    assertEqualVectors(
-        inputVector, outputVector, fmt::format(" (seed {}).", seed));
+    assertEqualVectors(inputVector, outputVector);
   }
 }
 
