@@ -384,5 +384,11 @@ public class TestSqlTaskManager
         {
             return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/memory");
         }
+
+        @Override
+        public URI createCPUInfoLocation(InternalNode node)
+        {
+            return URI.create("http://fake.invalid/" + node.getNodeIdentifier() + "/cpu");
+        }
     }
 }

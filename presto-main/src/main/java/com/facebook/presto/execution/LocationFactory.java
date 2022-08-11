@@ -39,4 +39,6 @@ public interface LocationFactory
     URI createTaskLocation(InternalNode node, TaskId taskId);
 
     URI createMemoryInfoLocation(InternalNode node);
+
+    URI createCPUInfoLocation(InternalNode node);
 }

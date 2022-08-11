@@ -133,4 +133,13 @@ public class DistributedClusterStatsResource
                 .entity(clusterStateProvider.getWorkerMemoryInfo())
                 .build();
     }
+
+    @GET
+    @Path("workerCPU")
+    public Response getWorkerCPUInfo()
+    {
+        return Response.ok()
+                .entity(clusterStateProvider.getWorkerCPUInfo())
+                .build();
+    }
 }

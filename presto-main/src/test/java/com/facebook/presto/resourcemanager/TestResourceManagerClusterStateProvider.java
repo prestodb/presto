@@ -21,6 +21,7 @@ import com.facebook.presto.memory.MemoryInfo;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.resourcemanager.cpu.CPUInfo;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.NodeStatus;
@@ -563,7 +564,8 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                new CPUInfo(1L));
     }
 
     private NodeStatus createCoordinatorNodeStatus(String nodeId)
@@ -582,7 +584,8 @@ public class TestResourceManagerClusterStateProvider
                 2.0,
                 1,
                 2,
-                3);
+                3,
+                new CPUInfo(1L));
     }
 
     private MemoryPoolInfo createMemoryPoolInfo(int maxBytes, int reservedBytes, int reservedRevocableBytes)

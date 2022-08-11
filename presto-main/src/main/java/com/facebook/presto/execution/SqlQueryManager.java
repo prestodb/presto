@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.memory.ClusterMemoryManager;
+import com.facebook.presto.resourcemanager.cpu.ClusterCPUManager;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -77,6 +78,7 @@ public class SqlQueryManager
     private static final Logger log = Logger.get(SqlQueryManager.class);
 
     private final ClusterMemoryManager memoryManager;
+    private final ClusterCPUManager cpuManager;
     private final QueryMonitor queryMonitor;
     private final EmbedVersion embedVersion;
     private final QueryTracker<QueryExecution> queryTracker;
@@ -92,7 +94,7 @@ public class SqlQueryManager
     private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
-    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory)
+    public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, EmbedVersion embedVersion, QueryManagerConfig queryManagerConfig, WarningCollectorFactory warningCollectorFactory, ClusterCPUManager clusterCPUManager)
     {
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
@@ -107,6 +109,7 @@ public class SqlQueryManager
         this.queryManagementExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) queryManagementExecutor);
 
         this.queryTracker = new QueryTracker<>(queryManagerConfig, queryManagementExecutor);
+        this.cpuManager = clusterCPUManager;
     }
 
     @PostConstruct
@@ -362,6 +365,7 @@ public class SqlQueryManager
                 query.fail(new ExceededCpuLimitException(queryMaxCpuTimeLimit.getLimit(), queryMaxCpuTimeLimit.getLimitSource().name()));
             }
         }
+        cpuManager.refresh();
     }
 
     /**

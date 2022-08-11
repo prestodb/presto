@@ -24,6 +24,7 @@ import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.resourcemanager.ResourceManagerProxy;
+import com.facebook.presto.resourcemanager.cpu.ClusterCPUManager;
 import com.facebook.presto.spi.NodeState;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -72,6 +73,7 @@ public class ClusterStatsResource
     private final Optional<ResourceManagerProxy> proxyHelper;
     private final InternalResourceGroupManager internalResourceGroupManager;
     private final ClusterTtlProviderManager clusterTtlProviderManager;
+    private final ClusterCPUManager clusterCPUManager;
 
     @Inject
     public ClusterStatsResource(
@@ -82,7 +84,8 @@ public class ClusterStatsResource
             ClusterMemoryManager clusterMemoryManager,
             Optional<ResourceManagerProxy> proxyHelper,
             InternalResourceGroupManager internalResourceGroupManager,
-            ClusterTtlProviderManager clusterTtlProviderManager)
+            ClusterTtlProviderManager clusterTtlProviderManager,
+            ClusterCPUManager clusterCPUManager)
     {
         this.isIncludeCoordinator = requireNonNull(nodeSchedulerConfig, "nodeSchedulerConfig is null").isIncludeCoordinator();
         this.resourceManagerEnabled = requireNonNull(serverConfig, "serverConfig is null").isResourceManagerEnabled();
@@ -92,6 +95,7 @@ public class ClusterStatsResource
         this.proxyHelper = requireNonNull(proxyHelper, "internalNodeManager is null");
         this.internalResourceGroupManager = requireNonNull(internalResourceGroupManager, "internalResourceGroupManager is null");
         this.clusterTtlProviderManager = requireNonNull(clusterTtlProviderManager, "clusterTtlProvider is null");
+        this.clusterCPUManager = clusterCPUManager;
     }
 
     @GET
@@ -178,6 +182,15 @@ public class ClusterStatsResource
     {
         return Response.ok()
                 .entity(clusterMemoryManager.getWorkerMemoryInfo())
+                .build();
+    }
+
+    @GET
+    @Path("workerCPU")
+    public Response getWorkerCPUInfo(@HeaderParam(X_FORWARDED_PROTO) String xForwardedProto, @Context UriInfo uriInfo)
+    {
+        return Response.ok()
+                .entity(clusterCPUManager.getWorkerCPUInfo())
                 .build();
     }
 

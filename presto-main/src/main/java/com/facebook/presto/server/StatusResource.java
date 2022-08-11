@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.node.NodeInfo;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.memory.LocalMemoryManager;
+import com.facebook.presto.resourcemanager.cpu.LocalCPUManager;
 import com.sun.management.OperatingSystemMXBean;
 
 import javax.annotation.security.RolesAllowed;
@@ -45,12 +46,13 @@ public class StatusResource
     private final long startTime = System.nanoTime();
     private final int logicalCores;
     private final LocalMemoryManager memoryManager;
+    private final LocalCPUManager localCPUManager;
     private final MemoryMXBean memoryMXBean;
 
     private OperatingSystemMXBean operatingSystemMXBean;
 
     @Inject
-    public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager)
+    public StatusResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, LocalMemoryManager memoryManager, LocalCPUManager localCPUManager)
     {
         this.nodeInfo = requireNonNull(nodeInfo, "nodeInfo is null");
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
@@ -59,6 +61,7 @@ public class StatusResource
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.memoryMXBean = ManagementFactory.getMemoryMXBean();
         this.logicalCores = Runtime.getRuntime().availableProcessors();
+        this.localCPUManager = requireNonNull(localCPUManager, "localCPUManager is null");
 
         if (ManagementFactory.getOperatingSystemMXBean() instanceof OperatingSystemMXBean) {
             // we want the com.sun.management sub-interface of java.lang.management.OperatingSystemMXBean
@@ -91,6 +94,7 @@ public class StatusResource
                 operatingSystemMXBean == null ? 0 : operatingSystemMXBean.getSystemCpuLoad(),
                 memoryMXBean.getHeapMemoryUsage().getUsed(),
                 memoryMXBean.getHeapMemoryUsage().getMax(),
-                memoryMXBean.getNonHeapMemoryUsage().getUsed());
+                memoryMXBean.getNonHeapMemoryUsage().getUsed(),
+                localCPUManager.getCPUInfo());
     }
 }
