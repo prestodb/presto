@@ -78,11 +78,14 @@ bool isMember(
 }
 
 void mergeFields(
-    std::vector<FieldReference*>& fields,
+    std::vector<FieldReference*>& distinctFields,
+    std::unordered_set<FieldReference*>& multiplyReferencedFields_,
     const std::vector<FieldReference*>& moreFields) {
   for (auto* newField : moreFields) {
-    if (!isMember(fields, *newField)) {
-      fields.emplace_back(newField);
+    if (isMember(distinctFields, *newField)) {
+      multiplyReferencedFields_.insert(newField);
+    } else {
+      distinctFields.emplace_back(newField);
     }
   }
 }
@@ -184,11 +187,13 @@ void Expr::computeMetadata() {
     propagatesNulls_ = vectorFunction_->isDefaultNullBehavior();
     deterministic_ = vectorFunction_->isDeterministic();
   }
+
   for (auto& input : inputs_) {
     input->computeMetadata();
     deterministic_ &= input->deterministic_;
     propagatesNulls_ &= input->propagatesNulls_;
-    mergeFields(distinctFields_, input->distinctFields_);
+    mergeFields(
+        distinctFields_, multiplyReferencedFields_, input->distinctFields_);
   }
   if (isSpecialForm()) {
     propagatesNulls_ = propagatesNulls();
@@ -368,6 +373,9 @@ void Expr::eval(
   // all the time. Therefore, we should delay loading lazy vectors until we
   // know the minimum subset of rows needed to be loaded.
   //
+  // Load fields multiply referenced by inputs unconditionally. It's hard to
+  // know the superset of rows the multiple inputs need to load.
+  //
   // If there is only one field, load it unconditionally. The very first IF,
   // AND or OR will have to load it anyway. Pre-loading enables peeling of
   // encodings at a higher level in the expression tree and avoids repeated
@@ -377,6 +385,12 @@ void Expr::eval(
   if (!hasConditionals_ || distinctFields_.size() == 1) {
     // Load lazy vectors if any.
     for (const auto& field : distinctFields_) {
+      context.ensureFieldLoaded(field->index(context), rows);
+    }
+  } else if (!propagatesNulls_) {
+    // Load multiply-referenced fields at common parent expr with "rows".
+    // Delay loading fields that are not in multiplyReferencedFields_.
+    for (const auto& field : multiplyReferencedFields_) {
       context.ensureFieldLoaded(field->index(context), rows);
     }
   }
@@ -1284,6 +1298,11 @@ ExprSet::ExprSet(
     : execCtx_(execCtx) {
   exprs_ = compileExpressions(
       std::move(sources), execCtx, this, enableConstantFolding);
+  std::vector<FieldReference*> allDistinctFields;
+  for (auto& expr : exprs_) {
+    mergeFields(
+        allDistinctFields, multiplyReferencedFields_, expr->distinctFields());
+  }
 }
 
 namespace {
@@ -1358,6 +1377,18 @@ void ExprSet::eval(
   if (initialize) {
     clearSharedSubexprs();
   }
+
+  // Make sure LazyVectors, referenced by multiple expressions, are loaded
+  // for all the "rows".
+  //
+  // Consider projection with 2 expressions: f(a) AND g(b), h(b)
+  // If b is a LazyVector and f(a) AND g(b) expression is evaluated first, it
+  // will load b only for rows where f(a) is true. However, h(b) projection
+  // needs all rows for "b".
+  for (const auto& field : multiplyReferencedFields_) {
+    context->ensureFieldLoaded(field->index(*context), rows);
+  }
+
   for (int32_t i = begin; i < end; ++i) {
     exprs_[i]->eval(rows, *context, (*result)[i]);
   }
@@ -1374,6 +1405,7 @@ void ExprSet::clear() {
   for (auto* memo : memoizingExprs_) {
     memo->clearMemo();
   }
+  multiplyReferencedFields_.clear();
 }
 
 void ExprSetSimplified::eval(

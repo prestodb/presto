@@ -159,19 +159,6 @@ RowVectorPtr FilterProject::getOutput() {
 }
 
 void FilterProject::project(const SelectivityVector& rows, EvalCtx* evalCtx) {
-  // Make sure LazyVectors are loaded for all the "rows".
-  //
-  // Consider projection with 2 expressions: f(a) AND g(b), h(b)
-  // If b is a LazyVector and f(a) AND g(b) expression is evaluated first, it
-  // will load b only for rows where f(a) is true. However, h(b) projection
-  // needs all rows for "b".
-  //
-  // This works, but may load more rows than necessary. E.g. if we only have
-  // f(a) AND g(b) expression and b is not used anywhere else, it is sufficient
-  // to load b for a subset of rows where f(a) is true.
-  *evalCtx->mutableIsFinalSelection() = false;
-  *evalCtx->mutableFinalSelection() = &rows;
-
   exprs_->eval(
       hasFilter_ ? 1 : 0, numExprs_, !hasFilter_, rows, evalCtx, &results_);
 }
