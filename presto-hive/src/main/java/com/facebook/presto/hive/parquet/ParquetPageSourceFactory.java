@@ -59,6 +59,7 @@ import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
+import org.apache.parquet.io.GroupColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -346,7 +347,15 @@ public class ParquetPageSourceFactory
                         List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield);
                         Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName()), nestedColumnPath);
                         if (columnIO.isPresent()) {
-                            fieldsBuilder.add(constructField(type, columnIO.get()));
+                            if (isPushedDownSubfield(column)) {
+                                Type nestedType = getNestedStructType(pushedDownSubfield, type);
+                                GroupColumnIO newColumn = (GroupColumnIO) lookupColumnByName(messageColumnIO, pushedDownSubfield.getRootName());
+                                Optional<Field> newfield = constructField(nestedType, newColumn, true);
+                                fieldsBuilder.add(newfield);
+                            }
+                            else {
+                                fieldsBuilder.add(constructField(type, columnIO.get(), true));
+                            }
                         }
                         else {
                             fieldsBuilder.add(Optional.empty());
@@ -355,7 +364,7 @@ public class ParquetPageSourceFactory
                 }
                 else if (getParquetType(type, fileSchema, useParquetColumnNames, column, tableName, path).isPresent()) {
                     String columnName = useParquetColumnNames ? name : fileSchema.getFields().get(column.getHiveColumnIndex()).getName();
-                    fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName)));
+                    fieldsBuilder.add(constructField(type, lookupColumnByName(messageColumnIO, columnName), false));
                 }
                 else {
                     fieldsBuilder.add(Optional.empty());
@@ -390,6 +399,17 @@ public class ParquetPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static Type getNestedStructType(Subfield subfield, Type leafType)
+    {
+        Type type = leafType;
+        List<Subfield.PathElement> elements = subfield.getPath();
+        for (int i = elements.size() - 1; i >= 0; i--) {
+            String field = ((Subfield.NestedField) elements.get(i)).getName();
+            type = RowType.from(ImmutableList.of(RowType.field(field, type)));
+        }
+        return type;
     }
 
     public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<HiveColumnHandle> effectivePredicate)

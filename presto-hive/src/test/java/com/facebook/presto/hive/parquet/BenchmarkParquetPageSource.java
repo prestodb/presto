@@ -287,7 +287,7 @@ public class BenchmarkParquetPageSource
             Type type = getTypeFromTypeSignature();
             List<Optional<Field>> fields = new ArrayList<>();
             for (int i = 0; i < channelCount; i++) {
-                fields.add(ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i)));
+                fields.add(ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i), false));
             }
 
             ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification, null, null, false, Optional.empty());

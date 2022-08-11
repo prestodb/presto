@@ -47,7 +47,7 @@ public class ColumnIOConverter
     {
     }
 
-    public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    public static Optional<Field> constructField(Type type, ColumnIO columnIO, boolean pushedDownSubfield)
     {
         if (columnIO == null) {
             return Optional.empty();
@@ -64,12 +64,12 @@ public class ColumnIOConverter
             for (int i = 0; i < fields.size(); i++) {
                 NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
                 String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
-                Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
+                Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name), false);
                 structHasParameters |= field.isPresent();
                 fieldsBuilder.add(field);
             }
             if (structHasParameters) {
-                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, pushedDownSubfield, fieldsBuilder.build()));
             }
             return Optional.empty();
         }
@@ -80,9 +80,9 @@ public class ColumnIOConverter
             if (keyValueColumnIO.getChildrenCount() != 2) {
                 return Optional.empty();
             }
-            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
+            Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0), false);
+            Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1), false);
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, pushedDownSubfield, ImmutableList.of(keyField, valueField)));
         }
         else if (ARRAY.equals(type.getTypeSignature().getBase())) {
             GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
@@ -90,12 +90,12 @@ public class ColumnIOConverter
             if (groupColumnIO.getChildrenCount() != 1) {
                 return Optional.empty();
             }
-            Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+            Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)), false);
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, pushedDownSubfield, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, pushedDownSubfield, column, primitiveColumnIO.getId()));
     }
 
     public static Optional<ColumnIO> findNestedColumnIO(ColumnIO columnIO, List<String> path)

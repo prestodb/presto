@@ -320,7 +320,7 @@ public class TestEncryption
                 fieldsBuilder.add(field);
             }
             if (structHasParameters) {
-                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, false, fieldsBuilder.build()));
             }
             return Optional.empty();
         }
@@ -333,7 +333,7 @@ public class TestEncryption
             }
             Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
             Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, false, ImmutableList.of(keyField, valueField)));
         }
         if (type instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) type;
@@ -342,10 +342,10 @@ public class TestEncryption
                 return Optional.empty();
             }
             Optional<Field> field = constructField(arrayType.getElementType(), getArrayElementColumn(groupColumnIO.getChild(0)));
-            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
+            return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, false, ImmutableList.of(field)));
         }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         RichColumnDescriptor column = new RichColumnDescriptor(primitiveColumnIO.getColumnDescriptor(), columnIO.getType().asPrimitiveType());
-        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
+        return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, false, column, primitiveColumnIO.getId()));
     }
 }

@@ -385,7 +385,7 @@ public class IcebergPageSourceProvider
                     internalFields.add(Optional.empty());
                 }
                 else {
-                    internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName())));
+                    internalFields.add(constructField(column.getType(), messageColumnIO.getChild(parquetField.getName()), false));
                 }
             }
 

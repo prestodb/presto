@@ -16,6 +16,7 @@ package com.facebook.presto.parquet.reader;
 import com.facebook.presto.common.block.ArrayBlock;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.block.ColumnarRow;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RowBlock;
@@ -37,6 +38,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.OffsetRange;
+import com.google.common.base.Preconditions;
 import io.airlift.units.DataSize;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
@@ -464,6 +466,94 @@ public class ParquetReader
             throws IOException
     {
         return readColumnChunk(field).getBlock();
+    }
+
+    int getLevel(Type rootType, Type leafType)
+    {
+        int level = 0;
+        Type currentType = rootType;
+        while (!currentType.equals(leafType)) {
+            currentType = currentType.getTypeParameters().get(0);
+            ++level;
+        }
+        return level;
+    }
+    /**
+     * Directly return a nested column as block. This is when subfield within a struct is pushed down
+     * to the reader. As we are reading the nested column, the column Reader only returns null or non-null
+     * values. If the parent of the subfield is null, the Block doesn't contain any values. We need to look
+     * at the definition levels to insert nulls in places where the parent of subfield is null.
+     * Ex:
+     *    Schema: struct(int a) msg
+     *    Values in File:
+     *            Rows: [msg(a=1)], [msg(a=2)], [msg(a=null)], [null]
+     *    Column reader returned ColumnChunk for `msg.a` contains
+     *        Block: count = 3, [1, 2, null] (even though there are 4 rows)
+     *        Definition Levels: count = 4, [2, 2, 1, 0]
+     *        Repetition Levels: count = 4, [0, 0, 0, 0]
+     *
+     *    This function converts the Block to: count = 4, [1, 2, null, null]
+     * @param field
+     * @return
+     * @throws IOException
+     */
+    public Block readPushedDownSubfieldBlock(Field field, Type type)
+            throws IOException
+    {
+        checkArgument(field.isPushedDownSubfield(), "input is expected to be a pushed down subfield");
+        ColumnChunk columnChunk = readColumnChunk(field);
+
+        String typeBase = field.getType().getTypeSignature().getBase();
+        if (ROW.equals(typeBase) || MAP.equals(typeBase) || ARRAY.equals(typeBase)) {
+            Block block = columnChunk.getBlock();
+
+            int size = block.getPositionCount();
+            int level = getLevel(field.getType(), type);
+            boolean[] isNulls = new boolean[size];
+
+            for (int currentLevel = 0; currentLevel < level; ++currentLevel) {
+                ColumnarRow rowBlock = ColumnarRow.toColumnarRow(block);
+                int index = 0;
+                for (int j = 0; j < size; ++j) {
+                    if (!isNulls[j]) {
+                        isNulls[j] = rowBlock.isNull(index);
+                        ++index;
+                    }
+                }
+                block = rowBlock.getField(0);
+            }
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, size);
+            int currentPosition = 0;
+            for (int i = 0; i < size; ++i) {
+                if (isNulls[i]) {
+                    blockBuilder.appendNull();
+                }
+                else {
+                    Preconditions.checkArgument(currentPosition < block.getPositionCount(), "current position cannot exceed total position count");
+                    type.appendTo(block, currentPosition, blockBuilder);
+                    currentPosition++;
+                }
+            }
+            return blockBuilder.build();
+        }
+
+        BlockBuilder blockBuilder = field.getType().createBlockBuilder(null, nextBatchSize);
+        int valueIndex = 0;
+        for (int i = 0; i < columnChunk.getDefinitionLevels().length; i++) {
+            int definitionLevel = columnChunk.getDefinitionLevels()[i];
+            if (definitionLevel < field.getDefinitionLevel()) {
+                blockBuilder.appendNull();
+                if (definitionLevel == field.getDefinitionLevel() - 1) {
+                    valueIndex++;
+                }
+            }
+            else {
+                field.getType().appendTo(columnChunk.getBlock(), valueIndex, blockBuilder);
+                valueIndex++;
+            }
+        }
+        Block block = blockBuilder.build();
+        return block;
     }
 
     private ColumnChunk readColumnChunk(Field field)

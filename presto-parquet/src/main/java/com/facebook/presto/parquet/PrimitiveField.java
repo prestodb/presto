@@ -23,9 +23,9 @@ public class PrimitiveField
     private final RichColumnDescriptor descriptor;
     private final int id;
 
-    public PrimitiveField(Type type, int repetitionLevel, int definitionLevel, boolean required, RichColumnDescriptor descriptor, int id)
+    public PrimitiveField(Type type, int repetitionLevel, int definitionLevel, boolean required, boolean pushedDownSubfield, RichColumnDescriptor descriptor, int id)
     {
-        super(type, repetitionLevel, definitionLevel, required);
+        super(type, repetitionLevel, definitionLevel, required, pushedDownSubfield);
         this.descriptor = requireNonNull(descriptor, "descriptor is required");
         this.id = id;
     }
