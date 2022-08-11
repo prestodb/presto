@@ -76,6 +76,7 @@ class SpillTest : public testing::Test,
           *mappedMemory_);
       EXPECT_EQ(targetFileSize, state.targetFileSize());
       EXPECT_EQ(numPartitions, state.maxPartitions());
+      EXPECT_EQ(0, state.spilledPartitions());
 
       for (auto partition = 0; partition < state.maxPartitions(); ++partition) {
         EXPECT_FALSE(state.isPartitionSpilled(partition));
@@ -111,6 +112,7 @@ class SpillTest : public testing::Test,
           EXPECT_TRUE(state.hasFiles(partition));
         }
       }
+      EXPECT_EQ(numPartitions, state.spilledPartitions());
       EXPECT_LT(
           2 * numPartitions * numBatches * sizeof(int64_t),
           state.spilledBytes());

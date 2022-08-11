@@ -73,6 +73,9 @@ GroupingSet::GroupingSet(
       constantLists_(std::move(constantLists)),
       intermediateTypes_(std::move(intermediateTypes)),
       ignoreNullKeys_(ignoreNullKeys),
+      spillableReservationGrowthPct_(operatorCtx->driverCtx()
+                                         ->queryConfig()
+                                         .spillableReservationGrowthPct()),
       spillPartitionBits_(
           operatorCtx->driverCtx()->queryConfig().spillPartitionBits()),
       spillFileSizeFactor_(
@@ -503,23 +506,21 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0) +
       tableIncrement;
   auto tracker = mappedMemory_->tracker();
-  assert(tracker);
   // There must be at least 2x the increment in reservation.
   if (tracker->getAvailableReservation() > 2 * increment) {
     return;
   }
-
   // Check if can increase reservation. The increment is the larger of
-  // twice the maximum increment from this input and 1/4 of the current
-  // reservation.
-  auto targetIncrement =
-      std::max<int64_t>(increment * 2, tracker->getCurrentUserBytes() / 4);
+  // twice the maximum increment from this input and
+  // 'spillableReservationGrowthPct_' of the current reservation.
+  auto targetIncrement = std::max<int64_t>(
+      increment * 2,
+      tracker->getCurrentUserBytes() * spillableReservationGrowthPct_ / 100);
   if (tracker->maybeReserve(targetIncrement)) {
     return;
   }
   auto rowsToSpill = std::max<int64_t>(
       1, targetIncrement / (rows->fixedRowSize() + outOfLineBytesPerRow));
-
   spill(
       std::max<int64_t>(0, numDistinct - rowsToSpill),
       std::max<int64_t>(

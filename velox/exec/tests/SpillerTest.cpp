@@ -131,6 +131,9 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     if (spillPct == 100) {
       EXPECT_TRUE(unspilledPartitionRows.empty());
       EXPECT_EQ(0, rowContainer_->numRows());
+      EXPECT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
+    } else {
+      EXPECT_GE(numPartitions_, spiller_->stats().spilledPartitions);
     }
 
     verifySpillData();
@@ -445,7 +448,7 @@ TEST_P(SpillerTest, spillWithEmptyPartitions) {
     // Expect no non-spilling partitions.
     EXPECT_TRUE(spiller_->finishSpill().empty());
     verifySpillData();
-    EXPECT_EQ(numRows, spiller_->spilledBytesAndRows().second);
+    EXPECT_EQ(numRows, spiller_->stats().spilledRows);
   }
 }
 
@@ -509,8 +512,8 @@ TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
     // Expect non-spilling partition.
     EXPECT_FALSE(spiller_->finishSpill().empty());
     verifySpillData();
-    EXPECT_LT(0, spiller_->spilledBytesAndRows().second);
-    EXPECT_GT(numRows, spiller_->spilledBytesAndRows().second);
+    EXPECT_LT(0, spiller_->stats().spilledRows);
+    EXPECT_GT(numRows, spiller_->stats().spilledRows);
   }
 }
 

@@ -326,6 +326,12 @@ void Spiller::spill(uint64_t targetRows, uint64_t targetBytes) {
     while (rowsLeft > 0 && (rowsLeft > targetRows || spaceLeft > targetBytes)) {
       const int32_t partition = pickNextPartitionToSpill();
       if (partition == -1) {
+        VELOX_FAIL(
+            "No partition has no spillable data but still doesn't reach the spill target, target rows {}, target bytes {}, rows left {}, bytes left {}",
+            targetRows,
+            targetBytes,
+            rowsLeft,
+            spaceLeft);
         break;
       }
       if (!state_.isPartitionSpilled(partition)) {

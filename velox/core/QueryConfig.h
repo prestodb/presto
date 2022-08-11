@@ -111,6 +111,9 @@ class QueryConfig {
   static constexpr const char* kSpillFileSizeFactor =
       "spiller-file-size-factor";
 
+  static constexpr const char* kSpillableReservationGrowthPct =
+      "spillable-reservation-growth-pct";
+
   uint64_t maxPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxPartialAggregationMemory, kDefault);
@@ -233,6 +236,15 @@ class QueryConfig {
   int32_t spillFileSizeFactor() const {
     constexpr int32_t kDefaultFactor = 4;
     return get<int32_t>(kSpillFileSizeFactor, kDefaultFactor);
+  }
+
+  /// Returns the spillable memory reservation growth percentage of the previous
+  /// memory reservation size. 25 means exponential growth along a series of
+  /// integer powers of 5/4. The reservation grows by this much until it no
+  /// longer can, after which it starts spilling.
+  int32_t spillableReservationGrowthPct() const {
+    constexpr int32_t kDefaultPct = 25;
+    return get<double>(kSpillableReservationGrowthPct, kDefaultPct);
   }
 
   bool exprTrackCpuUsage() const {

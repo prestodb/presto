@@ -281,7 +281,7 @@ class SpillFileList {
     return std::move(files_);
   }
 
-  int64_t spilledBytes() const;
+  uint64_t spilledBytes() const;
 
   int64_t spilledFiles() const {
     return files_.size();
@@ -379,7 +379,9 @@ class SpillState {
     return partition < files_.size() && files_[partition];
   }
 
-  int64_t spilledBytes() const;
+  uint64_t spilledBytes() const;
+
+  uint32_t spilledPartitions() const;
 
   int64_t spilledFiles() const;
 

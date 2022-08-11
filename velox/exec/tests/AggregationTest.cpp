@@ -1128,10 +1128,115 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
     auto stats = task->taskStats().pipelineStats;
     // Check spilled bytes.
     EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
+    EXPECT_GE(kNumPartitions - 1, stats[0].operatorStats[1].spilledPartitions);
   }
 }
 
-// TODO: add spill with unspilling partition test.
+TEST_F(AggregationTest, spillWithNonSpillingPartition) {
+  constexpr int32_t kNumDistinct = 100'000;
+  constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
+  rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
+  // Used to calculate the aggregation spilling partition number.
+  const int kPartitionsBits = 2;
+  const HashBitRange hashBits{29, 31};
+  const int kNumPartitions = hashBits.numPartitions();
+  std::vector<uint64_t> hashes(1);
+
+  // Build two partitions one with large amount of data and the other with a
+  // small amount of data (only one row).
+  const int kLargePartitionNum = 1;
+  const int kSmallPartitionNum = 0;
+  rng_.seed(1);
+  // The input batch has kNumDistinct distinct keys. The repeat count of a key
+  // is given by min(1, (k % 100) - 90). The batch is repeated 3 times, each
+  // time in a different order.
+  RowVectorPtr rowVector = std::static_pointer_cast<RowVector>(
+      BaseVector::create(rowType_, kNumDistinct, pool_.get()));
+  SelectivityVector allRows(kNumDistinct);
+  const TypePtr keyType = rowVector->type()->childAt(0);
+  const TypePtr valueType = rowVector->type()->childAt(1);
+  auto rowContainer = makeRowContainer({keyType}, {valueType});
+  // Used to check hash aggregation partition.
+  char* testRow = rowContainer->newRow();
+  std::vector<char*> testRows(1, testRow);
+  const auto testRowSet = folly::Range<char**>(testRows.data(), 1);
+
+  folly::F14FastSet<uint64_t> order1;
+  folly::F14FastSet<uint64_t> order2;
+  folly::F14FastSet<uint64_t> order3;
+
+  auto keyVector = rowVector->childAt(0)->as<FlatVector<int32_t>>();
+  keyVector->resize(kNumDistinct);
+  auto valueVector = rowVector->childAt(1)->as<FlatVector<StringView>>();
+  valueVector->resize(kNumDistinct);
+
+  DecodedVector decodedVector(*keyVector, allRows);
+  int32_t totalCount = 0;
+  int32_t numRowsFromSmallPartition = 0;
+  for (int key = 0, index = 0; index < kNumDistinct; ++key) {
+    keyVector->set(index, key);
+    // Skip the empty partition.
+    rowContainer->store(decodedVector, index, testRow, 0);
+    // Calculate hashes for this batch of spill candidates.
+    rowContainer->hash(0, testRowSet, false, hashes.data());
+    const int partitionNum = hashBits.partition(hashes[0], kNumPartitions);
+    if (partitionNum != kSmallPartitionNum &&
+        partitionNum != kLargePartitionNum) {
+      continue;
+    }
+    if (partitionNum == kSmallPartitionNum && numRowsFromSmallPartition > 0) {
+      continue;
+    }
+    numRowsFromSmallPartition += partitionNum == kSmallPartitionNum;
+    std::string str = fmt::format("{}{}", key, key);
+    valueVector->set(index, StringView(str));
+    const int numRepeats = std::max(1, (index % 100) - 90);
+    // We make random permutations of the data by adding the indices into a
+    // set with a random 6 high bits followed by a serial number. These are
+    // inlined in the F14FastSet in an order that depends on the hash number.
+    for (auto i = 0; i < numRepeats; ++i) {
+      ++totalCount;
+      insertRandomOrder(index, totalCount, order1);
+      insertRandomOrder(index, totalCount, order2);
+      insertRandomOrder(index, totalCount, order3);
+    }
+    ++index;
+  }
+  std::vector<RowVectorPtr> batches;
+  makeBatches(rowVector, order1, batches);
+  makeBatches(rowVector, order2, batches);
+  makeBatches(rowVector, order3, batches);
+  auto results =
+      AssertQueryBuilder(PlanBuilder()
+                             .values(batches)
+                             .singleAggregation({"c0"}, {"array_agg(c1)"})
+                             .planNode())
+          .copyResults(pool_.get());
+
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  auto queryCtx = core::QueryCtx::createForTest();
+  queryCtx->pool()->setMemoryUsageTracker(
+      velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
+
+  auto task =
+      AssertQueryBuilder(PlanBuilder()
+                             .values(batches)
+                             .singleAggregation({"c0"}, {"array_agg(c1)"})
+                             .planNode())
+          .queryCtx(queryCtx)
+          .config(QueryConfig::kSpillPath, tempDirectory->path)
+          .config(
+              QueryConfig::kSpillPartitionBits, std::to_string(kPartitionsBits))
+          // Set to increase the hash table a little bit to only trigger spill
+          // on the partition with most spillable data.
+          .config(QueryConfig::kSpillableReservationGrowthPct, "25")
+          .assertResults(results);
+
+  auto stats = task->taskStats().pipelineStats;
+  // Check spilled bytes.
+  EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
+  EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
+}
 
 /// Verify number of memory allocations in the HashAggregation operator.
 TEST_F(AggregationTest, memoryAllocations) {

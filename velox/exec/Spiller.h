@@ -117,9 +117,26 @@ class Spiller {
     return state_.startMerge(partition, spillStreamOverRows(partition));
   }
 
-  std::pair<int64_t, int64_t> spilledBytesAndRows() const {
-    return std::make_pair<int64_t, int64_t>(
-        state_.spilledBytes(), spilledRows_);
+  // Define the spiller stats.
+  struct Stats {
+    uint64_t spilledBytes = 0;
+    uint64_t spilledRows = 0;
+    uint32_t spilledPartitions = 0;
+
+    Stats(
+        uint64_t _spilledBytes,
+        uint64_t _spilledRows,
+        uint32_t _spilledPartitions)
+        : spilledBytes(_spilledBytes),
+          spilledRows(_spilledRows),
+          spilledPartitions(_spilledPartitions) {}
+
+    Stats() = default;
+  };
+
+  Stats stats() const {
+    return Stats{
+        state_.spilledBytes(), spilledRows_, state_.spilledPartitions()};
   }
 
   int64_t spilledFiles() const {

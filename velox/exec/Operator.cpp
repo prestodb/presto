@@ -306,6 +306,7 @@ void OperatorStats::add(const OperatorStats& other) {
   numDrivers += other.numDrivers;
   spilledBytes += other.spilledBytes;
   spilledRows += other.spilledRows;
+  spilledPartitions += other.spilledPartitions;
 }
 
 void OperatorStats::clear() {

@@ -128,8 +128,8 @@ void SpillFileList::finishFile() {
   }
 }
 
-int64_t SpillFileList::spilledBytes() const {
-  int64_t bytes = 0;
+uint64_t SpillFileList::spilledBytes() const {
+  uint64_t bytes = 0;
   for (auto& file : files_) {
     bytes += file->size();
   }
@@ -191,14 +191,24 @@ std::unique_ptr<TreeOfLosers<SpillStream>> SpillState::startMerge(
   return std::make_unique<TreeOfLosers<SpillStream>>(std::move(result));
 }
 
-int64_t SpillState::spilledBytes() const {
-  int64_t bytes = 0;
+uint64_t SpillState::spilledBytes() const {
+  uint64_t bytes = 0;
   for (auto& list : files_) {
     if (list) {
       bytes += list->spilledBytes();
     }
   }
   return bytes;
+}
+
+uint32_t SpillState::spilledPartitions() const {
+  uint32_t numSpilledPartitions = 0;
+  for (int i = 0; i < isPartitionSpilled_.size(); ++i) {
+    if (isPartitionSpilled_[i]) {
+      ++numSpilledPartitions;
+    }
+  }
+  return numSpilledPartitions;
 }
 
 int64_t SpillState::spilledFiles() const {

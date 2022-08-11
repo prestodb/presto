@@ -132,6 +132,9 @@ struct OperatorStats {
   // Total rows written for spilling.
   uint64_t spilledRows{0};
 
+  // Total spilled partitions.
+  uint32_t spilledPartitions{0};
+
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;

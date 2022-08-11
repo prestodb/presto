@@ -162,9 +162,10 @@ void HashAggregation::addInput(RowVectorPtr input) {
   }
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
-  auto spilled = groupingSet_->spilledBytesAndRows();
-  stats_.spilledBytes = spilled.first;
-  stats_.spilledRows = spilled.second;
+  auto spilledStats = groupingSet_->spilledStats();
+  stats_.spilledBytes = spilledStats.spilledBytes;
+  stats_.spilledRows = spilledStats.spilledRows;
+  stats_.spilledPartitions = spilledStats.spilledPartitions;
 
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the

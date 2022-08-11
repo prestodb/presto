@@ -74,10 +74,9 @@ class GroupingSet {
   /// of this will be in a paused state and off thread.
   void spill(int64_t targetRows, int64_t targetBytes);
 
-  /// Returns the total bytes and rows spilled so far.
-  std::pair<int64_t, int64_t> spilledBytesAndRows() const {
-    return spiller_ ? spiller_->spilledBytesAndRows()
-                    : std::pair<int64_t, int64_t>(0, 0);
+  /// Returns the spiller stats including total bytes and rows spilled so far.
+  Spiller::Stats spilledStats() const {
+    return spiller_ != nullptr ? spiller_->stats() : Spiller::Stats{};
   }
 
   /// Return the number of rows kept in memory.
@@ -174,7 +173,11 @@ class GroupingSet {
 
   const bool ignoreNullKeys_;
 
-  /// Parameters used for spilling control.
+  // The spillable memory reservation growth percentage of the current
+  // reservation size.
+  const double spillableReservationGrowthPct_;
+
+  // Parameters used for spilling control.
   const int32_t spillPartitionBits_;
   const int32_t spillFileSizeFactor_;
 
