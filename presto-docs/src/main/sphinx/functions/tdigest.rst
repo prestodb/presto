@@ -3,7 +3,7 @@ T-Digest Functions
 ==================
 
 Presto implements two algorithms for estimating rank-based metrics, `quantile
-digest <http://dx.doi.org/10.1145/347090.347195>`_ and `T-digest 
+digest <http://dx.doi.org/10.1145/347090.347195>`_ and `T-digest
 <https://doi.org/10.1016/j.simpa.2020.100049>`_.  T-digest has `better
 performance <https://arxiv.org/abs/1902.04023>`_ in general while the Presto
 implementation of quantile digests supports more numeric types. T-digest has
@@ -88,3 +88,11 @@ Functions
     its component parts. These include arrays of the centroid means and weights,
     the compression factor, and the maximum, minimum, sum and count of the
     values in the digest.
+
+.. function:: construct_tdigest(centroid_means array<double>, centroid_weights array<double>, compression double, min double, max double, sum double, count bigint) -> tdigest<double>
+
+    Returns the ``tdigest`` from its component parts (arrays of the centroid means
+    and weights, the compression factor, and the maximum, minimum, sum and count of the
+    values in the digest). This is an inverse of ``destructure_tdigest``.
+
+    This function is particularly useful for adding externally-created tdigests to Presto.
