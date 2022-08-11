@@ -15,6 +15,7 @@
  */
 #include "velox/expression/SwitchExpr.h"
 #include "velox/expression/BooleanMix.h"
+#include "velox/expression/ConstantExpr.h"
 #include "velox/expression/VarSetter.h"
 
 namespace facebook::velox::exec {
@@ -39,9 +40,42 @@ SwitchExpr::SwitchExpr(
       hasElseClause_{hasElseClause(inputs_)} {
   VELOX_CHECK_GT(numCases_, 0);
 
+  // Make sure all 'condition' expressions hae type BOOLEAN and all 'then' and
+  // an optional 'else' clause have the same type.
+
+  // Find first 'then' type that's not an UNKNOWN type.
+  TypePtr thenType;
+
   for (auto i = 0; i < numCases_; i++) {
     auto& condition = inputs_[i * 2];
     VELOX_CHECK_EQ(condition->type()->kind(), TypeKind::BOOLEAN);
+    auto& thenClause = inputs_[i * 2 + 1];
+    if (thenClause->type()->containsUnknown()) {
+      // Allow null expressions.
+    } else if (!thenType) {
+      thenType = thenClause->type();
+    } else {
+      VELOX_CHECK(
+          thenType->equivalent(*thenClause->type()),
+          "All then clauses of a SWITCH statement must have the same type. "
+          "Expected {}, but got {}.",
+          thenType->toString(),
+          thenClause->type()->toString());
+    }
+  }
+
+  if (hasElseClause_ && thenType) {
+    auto& elseClause = inputs_.back();
+    if (elseClause->type()->containsUnknown()) {
+      // Allow null expressions.
+    } else {
+      VELOX_CHECK(
+          thenType->equivalent(*elseClause->type()),
+          "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
+          "Expected {}, but got {}.",
+          thenType->toString(),
+          elseClause->type()->toString());
+    }
   }
 }
 

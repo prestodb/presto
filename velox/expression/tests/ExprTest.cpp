@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/functions/Udf.h"
@@ -1273,6 +1274,23 @@ TEST_F(ExprTest, switchExpr) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(ExprTest, swithExprSanityChecks) {
+  auto vector = makeRowVector({makeFlatVector<int32_t>({1, 2, 3})});
+
+  // Then clauses have different types.
+  VELOX_ASSERT_THROW(
+      evaluate(
+          "case c0 when 7 then 1 when 11 then 'welcome' else 0 end", vector),
+      "All then clauses of a SWITCH statement must have the same type. "
+      "Expected BIGINT, but got VARCHAR.");
+
+  // Else clause has different type.
+  VELOX_ASSERT_THROW(
+      evaluate("case c0 when 7 then 1 when 11 then 2 else 'hello' end", vector),
+      "Else clause of a SWITCH statement must have the same type as 'then' clauses. "
+      "Expected BIGINT, but got VARCHAR.");
+}
+
 TEST_F(ExprTest, switchExprWithNull) {
   vector_size_t size = 1'000;
   // Build an input with c0 column having nulls at odd row index.
@@ -2159,7 +2177,7 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
 
   // Switch expressions.
 
-  exprSet = compileExpression("if (a > 10::integer, 0, b)", rowType);
+  exprSet = compileExpression("if (a > 10::integer, 0::integer, b)", rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
   ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
