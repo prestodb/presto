@@ -38,6 +38,8 @@ inline constexpr char digits[36] = {
     'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
     'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
 
+namespace {
+
 template <typename T>
 struct PlusFunction {
   template <typename TInput>
@@ -482,4 +484,5 @@ struct EulerConstantFunction {
     result = M_E;
   }
 };
+} // namespace
 } // namespace facebook::velox::functions
