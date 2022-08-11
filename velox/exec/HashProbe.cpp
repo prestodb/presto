@@ -169,11 +169,12 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
       // Build side is empty. Inner, right and semi joins return nothing in this
       // case, hence, we can terminate the pipeline early.
       if (isInnerJoin(joinType_) || isLeftSemiJoin(joinType_) ||
-          isRightJoin(joinType_)) {
+          isRightJoin(joinType_) || isRightSemiJoin(joinType_)) {
         finished_ = true;
       }
     } else if (
-        (isInnerJoin(joinType_) || isLeftSemiJoin(joinType_)) &&
+        (isInnerJoin(joinType_) || isLeftSemiJoin(joinType_) ||
+         isRightSemiJoin(joinType_)) &&
         table_->hashMode() != BaseHashTable::HashMode::kHash) {
       // Find out whether there are any upstream operators that can accept
       // dynamic filters on all or a subset of the join keys. Create dynamic
@@ -360,17 +361,23 @@ void HashProbe::fillOutput(vector_size_t size) {
       output_);
 }
 
-RowVectorPtr HashProbe::getNonMatchingOutputForRightJoin() {
-  if (!lastRightJoinProbe_) {
-    return nullptr;
-  }
-
+RowVectorPtr HashProbe::getBuildSideOutput() {
   outputRows_.resize(outputBatchSize_);
-  auto numOut = table_->listNotProbedRows(
-      &rightJoinIterator_,
-      outputBatchSize_,
-      RowContainer::kUnlimited,
-      outputRows_.data());
+  int32_t numOut;
+  if (isRightSemiJoin(joinType_)) {
+    numOut = table_->listProbedRows(
+        &lastProbeIterator_,
+        outputBatchSize_,
+        RowContainer::kUnlimited,
+        outputRows_.data());
+  } else {
+    // Must be a right join or full join.
+    numOut = table_->listNotProbedRows(
+        &lastProbeIterator_,
+        outputBatchSize_,
+        RowContainer::kUnlimited,
+        outputRows_.data());
+  }
   if (!numOut) {
     return nullptr;
   }
@@ -404,8 +411,11 @@ void HashProbe::clearIdentityProjectedOutput() {
 RowVectorPtr HashProbe::getOutput() {
   clearIdentityProjectedOutput();
   if (!input_) {
-    if (noMoreInput_ && (isRightJoin(joinType_) || isFullJoin(joinType_))) {
-      auto output = getNonMatchingOutputForRightJoin();
+    if (noMoreInput_ &&
+        (isRightJoin(joinType_) || isFullJoin(joinType_) ||
+         isRightSemiJoin(joinType_)) &&
+        lastProbe_) {
+      auto output = getBuildSideOutput();
       if (output == nullptr) {
         finished_ = true;
       }
@@ -485,9 +495,17 @@ RowVectorPtr HashProbe::getOutput() {
       continue;
     }
 
-    if (isRightJoin(joinType_) || isFullJoin(joinType_)) {
+    if (isRightJoin(joinType_) || isFullJoin(joinType_) ||
+        isRightSemiJoin(joinType_)) {
       // Mark build-side rows that have a match on the join condition.
       table_->rows()->setProbedFlag(outputRows_.data(), numOut);
+    }
+
+    // Right semi join only returns the build side output when the probe side
+    // is fully complete. Do not return anything here.
+    if (isRightSemiJoin(joinType_)) {
+      input_ = nullptr;
+      return nullptr;
     }
 
     fillOutput(numOut);
@@ -622,18 +640,19 @@ void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
 
 void HashProbe::noMoreInput() {
   Operator::noMoreInput();
-  if (isRightJoin(joinType_) || isFullJoin(joinType_)) {
+  if (isRightJoin(joinType_) || isFullJoin(joinType_) ||
+      isRightSemiJoin(joinType_)) {
     std::vector<ContinuePromise> promises;
     std::vector<std::shared_ptr<Driver>> peers;
     // The last Driver to hit HashProbe::finish is responsible for producing
-    // non-matching build-side rows for the right join.
+    // build-side rows based on the join.
     ContinueFuture future;
     if (!operatorCtx_->task()->allPeersFinished(
             planNodeId(), operatorCtx_->driver(), &future, promises, peers)) {
       return;
     }
 
-    lastRightJoinProbe_ = true;
+    lastProbe_ = true;
   }
 }
 

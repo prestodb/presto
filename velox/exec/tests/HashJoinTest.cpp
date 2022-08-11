@@ -134,6 +134,22 @@ class HashJoinTest : public HiveConnectorTestBase {
     auto stats = task->taskStats().pipelineStats.front().operatorStats;
     return stats[operatorIndex].inputPositions;
   }
+
+  static uint64_t getOutputPositions(
+      const std::shared_ptr<Task>& task,
+      const core::PlanNodeId planId,
+      const std::string& operatorType) {
+    uint64_t count = 0;
+    for (const auto& pipelineStat : task->taskStats().pipelineStats) {
+      for (const auto& operatorStat : pipelineStat.operatorStats) {
+        if (operatorStat.planNodeId == planId &&
+            operatorStat.operatorType == operatorType) {
+          count += operatorStat.outputPositions;
+        }
+      }
+    }
+    return count;
+  }
 };
 
 TEST_F(HashJoinTest, bigintArray) {
@@ -586,6 +602,149 @@ TEST_F(HashJoinTest, leftSemiJoinWithFilter) {
       "SELECT t.* FROM t WHERE EXISTS (SELECT u0, u1 FROM u WHERE t0 = u0 AND t1 <> u1)");
 }
 
+TEST_F(HashJoinTest, rightSemiJoin) {
+  // leftVector size is greater than rightVector size.
+  auto leftVectors = makeRowVector(
+      {"u0", "u1"},
+      {
+          makeFlatVector<int32_t>(
+              1'234, [](auto row) { return row % 11; }, nullEvery(13)),
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+      });
+
+  auto rightVectors = makeRowVector(
+      {"t0", "t1"},
+      {
+          makeFlatVector<int32_t>(
+              123, [](auto row) { return row % 5; }, nullEvery(7)),
+          makeFlatVector<int32_t>(123, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable("u", {leftVectors});
+  createDuckDbTable("t", {rightVectors});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto op = PlanBuilder(planNodeIdGenerator)
+                .values({leftVectors})
+                .hashJoin(
+                    {"u0"},
+                    {"t0"},
+                    PlanBuilder(planNodeIdGenerator)
+                        .values({rightVectors})
+                        .planNode(),
+                    "",
+                    {"t1"},
+                    core::JoinType::kRightSemi)
+                .planNode();
+
+  assertQuery(op, "SELECT t.t1 FROM t WHERE t.t0 IN (SELECT u0 FROM u)");
+
+  // Make build side larger to test all rows are returned.
+  op =
+      PlanBuilder(planNodeIdGenerator)
+          .values({rightVectors})
+          .hashJoin(
+              {"t0"},
+              {"u0"},
+              PlanBuilder(planNodeIdGenerator).values({leftVectors}).planNode(),
+              "",
+              {"u1"},
+              core::JoinType::kRightSemi)
+          .planNode();
+
+  assertQuery(op, "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t)");
+
+  // Empty build side.
+  planNodeIdGenerator->reset();
+  op = PlanBuilder(planNodeIdGenerator)
+           .values({leftVectors})
+           .hashJoin(
+               {"u0"},
+               {"t0"},
+               PlanBuilder(planNodeIdGenerator)
+                   .values({rightVectors})
+                   .filter("t0 < 0")
+                   .planNode(),
+               "",
+               {"t1"},
+               core::JoinType::kRightSemi)
+           .planNode();
+
+  auto task = assertQuery(
+      op, "SELECT t.t1 FROM t WHERE t.t0 IN (SELECT u0 FROM u) AND t.t0 < 0");
+  EXPECT_EQ(getInputPositions(task, 1), 0);
+}
+
+TEST_F(HashJoinTest, rightSemiJoinWithFilter) {
+  auto leftVectors = makeRowVector(
+      {"u0", "u1"},
+      {
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row; }),
+      });
+
+  auto rightVectors = makeRowVector(
+      {"t0", "t1"},
+      {
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+      });
+
+  createDuckDbTable("u", {leftVectors});
+  createDuckDbTable("t", {rightVectors});
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId hashJoinId;
+  auto plan = [&](const std::string& filter) -> core::PlanNodePtr {
+    return PlanBuilder(planNodeIdGenerator)
+        .values({leftVectors})
+        .hashJoin(
+            {"u0"},
+            {"t0"},
+            PlanBuilder(planNodeIdGenerator).values({rightVectors}).planNode(),
+            filter,
+            {"t0", "t1"},
+            core::JoinType::kRightSemi)
+        .capturePlanNodeId(hashJoinId)
+        .planNode();
+  };
+  {
+    // Always true filter.
+    auto task = assertQuery(
+        plan("u1 > -1"),
+        "SELECT t.* FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0 AND u1 > -1)");
+    EXPECT_EQ(getOutputPositions(task, hashJoinId, "HashProbe"), 1'000);
+  }
+  {
+    // Always true filter.
+    auto task = assertQuery(
+        plan("t1 > -1"),
+        "SELECT t.* FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0 AND t1 > -1)");
+    EXPECT_EQ(getOutputPositions(task, hashJoinId, "HashProbe"), 1'000);
+  }
+  {
+    // Always false filter.
+    auto task = assertQuery(
+        plan("u1 > 100000"),
+        "SELECT t.* FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0 AND u1 > 100000)");
+    EXPECT_EQ(getOutputPositions(task, hashJoinId, "HashProbe"), 0);
+  }
+  {
+    // Always false filter.
+    auto task = assertQuery(
+        plan("t1 > 100000"),
+        "SELECT t.* FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0 AND t1 > 100000)");
+    EXPECT_EQ(getOutputPositions(task, hashJoinId, "HashProbe"), 0);
+  }
+  {
+    // Selective filter.
+    auto task = assertQuery(
+        plan("u1 % 5 = 0"),
+        "SELECT t.* FROM t WHERE EXISTS (SELECT u0, u1 FROM u WHERE t0 = u0 AND u1 % 5 = 0)");
+    EXPECT_EQ(getOutputPositions(task, hashJoinId, "HashProbe"), 200);
+  }
+}
+
 TEST_F(HashJoinTest, antiJoin) {
   auto leftVectors = makeRowVector({
       makeFlatVector<int32_t>(
@@ -805,8 +964,31 @@ TEST_F(HashJoinTest, dynamicFilters) {
     EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
     EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
     EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
-  }
 
+    // Right semi join.
+    op = PlanBuilder(planNodeIdGenerator)
+             .tableScan(probeType)
+             .capturePlanNodeId(leftScanId)
+             .hashJoin(
+                 {"c0"},
+                 {"u_c0"},
+                 buildSide,
+                 "",
+                 {"c0", "c1"},
+                 core::JoinType::kRightSemi)
+             .project({"c0", "c1 + 1"})
+             .planNode();
+
+    task =
+        AssertQueryBuilder(op, duckDbQueryRunner_)
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
+            .assertResults(
+                "SELECT t.c0, t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u)");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
+  }
   // Basic push-down with column names projected out of the table scan having
   // different names than column names in the files.
   {
@@ -955,6 +1137,30 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  "",
                  {"c1"},
                  core::JoinType::kLeftSemi)
+             .project({"c1 + 1"})
+             .planNode();
+
+    task =
+        AssertQueryBuilder(op, duckDbQueryRunner_)
+            .splits(leftScanId, makeHiveConnectorSplits(leftFiles))
+            .assertResults(
+                "SELECT t.c1 + 1 FROM t WHERE t.c0 IN (SELECT c0 FROM u) AND t.c0 < 200");
+    EXPECT_EQ(1, getFiltersProduced(task, 1).sum);
+    EXPECT_EQ(1, getFiltersAccepted(task, 0).sum);
+    EXPECT_GT(getReplacedWithFilterRows(task, 1).sum, 0);
+    EXPECT_LT(getInputPositions(task, 1), numRowsProbe * numSplits);
+
+    // Right semi join.
+    op = PlanBuilder(planNodeIdGenerator)
+             .tableScan(probeType, {"c0 < 200::INTEGER"})
+             .capturePlanNodeId(leftScanId)
+             .hashJoin(
+                 {"c0"},
+                 {"u_c0"},
+                 buildSide,
+                 "",
+                 {"c1"},
+                 core::JoinType::kRightSemi)
              .project({"c1 + 1"})
              .planNode();
 

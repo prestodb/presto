@@ -86,7 +86,7 @@ class BaseHashTable {
     vector_size_t lastRowIndex{0};
   };
 
-  struct NotProbedRowsIterator {
+  struct RowsIterator {
     int32_t hashTableIndex_{-1};
     RowContainerIterator rowContainerIterator_;
   };
@@ -126,9 +126,16 @@ class BaseHashTable {
       folly::Range<vector_size_t*> inputRows,
       folly::Range<char**> hits) = 0;
 
-  /// Returns rows with 'probed' flag unset. Used by the right join.
+  /// Returns rows with 'probed' flag unset. Used by the right/full join.
   virtual int32_t listNotProbedRows(
-      NotProbedRowsIterator* iter,
+      RowsIterator* iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char** rows) = 0;
+
+  /// Returns rows with 'probed' flag set. Used by the right semi join.
+  virtual int32_t listProbedRows(
+      RowsIterator* iter,
       int32_t maxRows,
       uint64_t maxBytes,
       char** rows) = 0;
@@ -291,7 +298,13 @@ class HashTable : public BaseHashTable {
       folly::Range<char**> hits) override;
 
   int32_t listNotProbedRows(
-      NotProbedRowsIterator* iter,
+      RowsIterator* iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char** rows) override;
+
+  int32_t listProbedRows(
+      RowsIterator* iter,
       int32_t maxRows,
       uint64_t maxBytes,
       char** rows) override;
@@ -354,6 +367,10 @@ class HashTable : public BaseHashTable {
     // This implements the F14 load factor: Resize if less than 1/8 unoccupied.
     return size_ - (size_ / 8);
   }
+
+  template <RowContainer::ProbeType probeType>
+  int32_t
+  listRows(RowsIterator* iter, int32_t maxRows, uint64_t maxBytes, char** rows);
 
   char*& nextRow(char* row) {
     return *reinterpret_cast<char**>(row + nextOffset_);

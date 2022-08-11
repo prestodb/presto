@@ -75,9 +75,10 @@ class HashProbe : public Operator {
   // producer.
   void clearIdentityProjectedOutput();
 
-  // Populate output columns with build-side rows that didn't match join
-  // condition.
-  RowVectorPtr getNonMatchingOutputForRightJoin();
+  /// Populate output columns with matching build-side rows
+  /// for the right semi join and non-matching build-side rows
+  /// for right join and full join.
+  RowVectorPtr getBuildSideOutput();
 
   // Populate filter input columns.
   void fillFilterInput(vector_size_t size);
@@ -216,10 +217,11 @@ class HashProbe : public Operator {
   };
 
   /// True if this is the last HashProbe operator in the pipeline. It is
-  /// responsible for producing non-matching build-side rows for the right join.
-  bool lastRightJoinProbe_{false};
+  /// responsible for producing matching build-side rows for the right semi
+  /// join and non-matching build-side rows for right join and full join.
+  bool lastProbe_{false};
 
-  BaseHashTable::NotProbedRowsIterator rightJoinIterator_;
+  BaseHashTable::RowsIterator lastProbeIterator_;
 
   /// For left and anti join with filter, tracks the probe side rows which had
   /// matches on the build side but didn't pass the filter.
