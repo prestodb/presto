@@ -96,7 +96,8 @@ class TransformKeysFunction : public exec::VectorFunction {
   void checkDuplicateKeys(
       const MapVectorPtr& mapVector,
       const SelectivityVector& rows) const {
-    static const char* kDuplicateKey = "Duplicate map keys are not allowed";
+    static const char* kDuplicateKey =
+        "Duplicate map keys ({}) are not allowed";
 
     MapVector::canonicalize(mapVector);
 
@@ -108,7 +109,9 @@ class TransformKeysFunction : public exec::VectorFunction {
       auto size = sizes[row];
       for (auto i = 1; i < size; i++) {
         if (mapKeys->equalValueAt(mapKeys.get(), offset + i, offset + i - 1)) {
-          VELOX_USER_FAIL("{}", kDuplicateKey);
+          auto duplicateKey = mapKeys->wrappedVector()->toString(
+              mapKeys->wrappedIndex(offset + i));
+          VELOX_USER_FAIL(kDuplicateKey, duplicateKey);
         }
       }
     });

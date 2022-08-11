@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
@@ -96,24 +97,18 @@ TEST_F(MapTest, duplicateKeys) {
 
   auto sizeAt = [](vector_size_t row) { return row % 7; };
   auto keys = makeArrayVector<int64_t>(
-      size, sizeAt, [](vector_size_t row) { return row % 3; });
+      size, sizeAt, [](vector_size_t row) { return 10 + row % 3; });
   auto values = makeArrayVector<int32_t>(
       size, sizeAt, [](vector_size_t row) { return row % 5; });
 
-  try {
-    evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
-    ASSERT_TRUE(false) << "Expected an error";
-  } catch (const VeloxUserError& e) {
-    ASSERT_EQ(e.message(), "Duplicate map keys are not allowed");
-  }
-  // Trying the map version with allowing duplicates
-  facebook::velox::functions::prestosql::registerMapAllowingDuplicates(
-      std::string("map2"));
-  try {
-    evaluate<MapVector>("map2(c0, c1)", makeRowVector({keys, values}));
-  } catch (const VeloxUserError& e) {
-    ASSERT_TRUE(false) << "No error expected";
-  }
+  VELOX_ASSERT_THROW(
+      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      "Duplicate map keys (10) are not allowed");
+
+  // Trying the map version with allowing duplicates.
+  functions::prestosql::registerMapAllowingDuplicates("map2");
+  ASSERT_NO_THROW(
+      evaluate<MapVector>("map2(c0, c1)", makeRowVector({keys, values})));
 }
 
 TEST_F(MapTest, differentArraySizes) {
@@ -128,13 +123,9 @@ TEST_F(MapTest, differentArraySizes) {
       [](vector_size_t row) { return row % 7; },
       [](vector_size_t row) { return row % 13; });
 
-  try {
-    evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values}));
-    ASSERT_TRUE(false) << "Expected an error";
-  } catch (const VeloxUserError& e) {
-    ASSERT_EQ(
-        e.message(), "(0 vs. 5) Key and value arrays must be the same length");
-  }
+  VELOX_ASSERT_THROW(
+      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      "(0 vs. 5) Key and value arrays must be the same length");
 }
 
 TEST_F(MapTest, encodings) {

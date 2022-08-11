@@ -39,7 +39,8 @@ class MapFunction : public exec::VectorFunction {
 
     static const char* kArrayLengthsMismatch =
         "Key and value arrays must be the same length";
-    static const char* kDuplicateKey = "Duplicate map keys are not allowed";
+    static const char* kDuplicateKey =
+        "Duplicate map keys ({}) are not allowed";
 
     MapVectorPtr mapVector;
     if (decodedKeys->isIdentityMapping() &&
@@ -150,7 +151,9 @@ class MapFunction : public exec::VectorFunction {
         for (vector_size_t i = 1; i < size; i++) {
           if (mapKeys->equalValueAt(
                   mapKeys.get(), offset + i, offset + i - 1)) {
-            VELOX_USER_FAIL("{}", kDuplicateKey);
+            auto duplicateKey = mapKeys->wrappedVector()->toString(
+                mapKeys->wrappedIndex(offset + i));
+            VELOX_USER_FAIL(kDuplicateKey, duplicateKey);
           }
         }
       });

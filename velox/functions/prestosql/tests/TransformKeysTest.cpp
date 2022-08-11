@@ -77,14 +77,15 @@ TEST_F(TransformKeysTest, duplicateKeys) {
           nullEvery(13)),
   });
   registerLambda(
-      "mod2",
+      "10_plus_mod2",
       rowType("x", BIGINT(), "unused", INTEGER()),
       input->type(),
-      "x % 2");
+      "10 + x % 2");
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>("transform_keys(c0, function('mod2'))", input),
-      "Duplicate map keys are not allowed");
+      evaluate<MapVector>(
+          "transform_keys(c0, function('10_plus_mod2'))", input),
+      "Duplicate map keys (11) are not allowed");
 }
 
 TEST_F(TransformKeysTest, differentResultType) {
