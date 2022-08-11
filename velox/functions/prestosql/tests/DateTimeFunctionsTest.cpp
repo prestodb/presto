@@ -15,6 +15,8 @@
  */
 
 #include <optional>
+#include <string>
+#include <string_view>
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
@@ -2346,6 +2348,163 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ("00", dateFormat(fromTimestampString("1900-06-20"), "%y"));
   EXPECT_EQ("01", dateFormat(fromTimestampString("1901-06-20"), "%y"));
   EXPECT_EQ("10", dateFormat(fromTimestampString("1910-06-20"), "%y"));
+
+  // Day of week cases
+  for (int i = 0; i < 8; i++) {
+    StringView date("1996-01-0" + std::to_string(i + 1));
+    // Full length name
+    EXPECT_EQ(daysLong[i % 7], dateFormat(fromTimestampString(date), "%W"));
+    // Abbreviated name
+    EXPECT_EQ(daysShort[i % 7], dateFormat(fromTimestampString(date), "%a"));
+  }
+
+  // Month cases
+  for (int i = 0; i < 12; i++) {
+    StringView date("1996-" + std::to_string(i + 1) + "-01");
+    std::string monthNum = std::to_string(i + 1);
+    // Full length name
+    EXPECT_EQ(monthsLong[i % 12], dateFormat(fromTimestampString(date), "%M"));
+    // Abbreviated name
+    EXPECT_EQ(monthsShort[i % 12], dateFormat(fromTimestampString(date), "%b"));
+    // Numeric
+    EXPECT_EQ(monthNum, dateFormat(fromTimestampString(date), "%c"));
+    // Numeric 0-padded
+    if (i + 1 < 10) {
+      EXPECT_EQ("0" + monthNum, dateFormat(fromTimestampString(date), "%m"));
+    } else {
+      EXPECT_EQ(monthNum, dateFormat(fromTimestampString(date), "%m"));
+    }
+  }
+
+  // Day of month cases
+  for (int i = 1; i <= 31; i++) {
+    std::string dayOfMonth = std::to_string(i);
+    StringView date("1970-01-" + dayOfMonth);
+    EXPECT_EQ(dayOfMonth, dateFormat(util::fromTimestampString(date), "%e"));
+    if (i < 10) {
+      EXPECT_EQ(
+          "0" + dayOfMonth, dateFormat(util::fromTimestampString(date), "%d"));
+    } else {
+      EXPECT_EQ(dayOfMonth, dateFormat(util::fromTimestampString(date), "%d"));
+    }
+  }
+
+  // Fraction of second cases
+  EXPECT_EQ(
+      "000000", dateFormat(fromTimestampString("2022-01-01 00:00:00.0"), "%f"));
+  EXPECT_EQ(
+      "100000", dateFormat(fromTimestampString("2022-01-01 00:00:00.1"), "%f"));
+  EXPECT_EQ(
+      "110000",
+      dateFormat(fromTimestampString("2022-01-01 01:01:01.11"), "%f"));
+  EXPECT_EQ(
+      "110000",
+      dateFormat(fromTimestampString("2022-01-01 02:10:10.11"), "%f"));
+  EXPECT_EQ(
+      "999000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.999"), "%f"));
+  EXPECT_EQ(
+      "999000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.999"), "%f"));
+  EXPECT_EQ(
+      "999000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.999"), "%f"));
+  EXPECT_EQ(
+      "123000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.123"), "%f"));
+
+  // Hour cases
+  for (int i = 0; i < 24; i++) {
+    std::string hour = std::to_string(i);
+    int clockHour = (i + 11) % 12 + 1;
+    std::string clockHourString = std::to_string(clockHour);
+    std::string toBuild = "1996-01-01 " + hour + ":00:00";
+    StringView date(toBuild);
+    EXPECT_EQ(hour, dateFormat(util::fromTimestampString(date), "%k"));
+    if (i < 10) {
+      EXPECT_EQ("0" + hour, dateFormat(util::fromTimestampString(date), "%H"));
+    } else {
+      EXPECT_EQ(hour, dateFormat(util::fromTimestampString(date), "%H"));
+    }
+
+    EXPECT_EQ(
+        clockHourString, dateFormat(util::fromTimestampString(date), "%l"));
+    if (clockHour < 10) {
+      EXPECT_EQ(
+          "0" + clockHourString,
+          dateFormat(util::fromTimestampString(date), "%h"));
+      EXPECT_EQ(
+          "0" + clockHourString,
+          dateFormat(util::fromTimestampString(date), "%I"));
+    } else {
+      EXPECT_EQ(
+          clockHourString, dateFormat(util::fromTimestampString(date), "%h"));
+      EXPECT_EQ(
+          clockHourString, dateFormat(util::fromTimestampString(date), "%I"));
+    }
+  }
+
+  // Minute cases
+  for (int i = 0; i < 60; i++) {
+    std::string minute = std::to_string(i);
+    std::string toBuild = "1996-01-01 00:" + minute + ":00";
+    StringView date(toBuild);
+    if (i < 10) {
+      EXPECT_EQ("0" + minute, dateFormat(fromTimestampString(date), "%i"));
+    } else {
+      EXPECT_EQ(minute, dateFormat(fromTimestampString(date), "%i"));
+    }
+  }
+
+  // Second cases
+  for (int i = 0; i < 60; i++) {
+    std::string second = std::to_string(i);
+    std::string toBuild = "1996-01-01 00:00:" + second;
+    StringView date(toBuild);
+    if (i < 10) {
+      EXPECT_EQ("0" + second, dateFormat(fromTimestampString(date), "%S"));
+      EXPECT_EQ("0" + second, dateFormat(fromTimestampString(date), "%s"));
+    } else {
+      EXPECT_EQ(second, dateFormat(fromTimestampString(date), "%S"));
+      EXPECT_EQ(second, dateFormat(fromTimestampString(date), "%s"));
+    }
+  }
+
+  // Day of year cases
+  EXPECT_EQ("001", dateFormat(fromTimestampString("2022-01-01"), "%j"));
+  EXPECT_EQ("010", dateFormat(fromTimestampString("2022-01-10"), "%j"));
+  EXPECT_EQ("100", dateFormat(fromTimestampString("2022-04-10"), "%j"));
+  EXPECT_EQ("365", dateFormat(fromTimestampString("2022-12-31"), "%j"));
+
+  // Halfday of day cases
+  EXPECT_EQ("AM", dateFormat(fromTimestampString("2022-01-01 00:00:00"), "%p"));
+  EXPECT_EQ("AM", dateFormat(fromTimestampString("2022-01-01 11:59:59"), "%p"));
+  EXPECT_EQ("PM", dateFormat(fromTimestampString("2022-01-01 12:00:00"), "%p"));
+  EXPECT_EQ("PM", dateFormat(fromTimestampString("2022-01-01 23:59:59"), "%p"));
+
+  // 12-hour time cases
+  EXPECT_EQ(
+      "12:00:00 AM",
+      dateFormat(fromTimestampString("2022-01-01 00:00:00"), "%r"));
+  EXPECT_EQ(
+      "11:59:59 AM",
+      dateFormat(fromTimestampString("2022-01-01 11:59:59"), "%r"));
+  EXPECT_EQ(
+      "12:00:00 PM",
+      dateFormat(fromTimestampString("2022-01-01 12:00:00"), "%r"));
+  EXPECT_EQ(
+      "11:59:59 PM",
+      dateFormat(fromTimestampString("2022-01-01 23:59:59"), "%r"));
+
+  // 24-hour time cases
+  EXPECT_EQ(
+      "00:00:00", dateFormat(fromTimestampString("2022-01-01 00:00:00"), "%T"));
+  EXPECT_EQ(
+      "11:59:59", dateFormat(fromTimestampString("2022-01-01 11:59:59"), "%T"));
+  EXPECT_EQ(
+      "12:00:00", dateFormat(fromTimestampString("2022-01-01 12:00:00"), "%T"));
+  EXPECT_EQ(
+      "23:59:59", dateFormat(fromTimestampString("2022-01-01 23:59:59"), "%T"));
 
   // Percent followed by non-existent specifier case
   EXPECT_EQ("q", dateFormat(fromTimestampString("1970-01-01"), "%q"));
