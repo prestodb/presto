@@ -70,6 +70,7 @@ class Spiller {
       RowContainer::Eraser eraser,
       RowTypePtr rowType,
       int32_t numSortingKeys,
+      const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
@@ -82,6 +83,7 @@ class Spiller {
       RowTypePtr rowType,
       HashBitRange bits,
       int32_t numSortingKeys,
+      const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
@@ -249,8 +251,8 @@ class Spiller {
   RowContainer& container_;
   const RowContainer::Eraser eraser_;
   const HashBitRange bits_;
+  const RowTypePtr rowType_;
 
-  RowTypePtr rowType_;
   SpillState state_;
 
   // Indices into 'spillRuns_' that are currently getting spilled.

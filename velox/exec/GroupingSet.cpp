@@ -549,6 +549,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         // number. Any from one to three bits would do.
         HashBitRange(29, 29 + spillPartitionBits_),
         rows->keyTypes().size(),
+        std::vector<CompareFlags>(),
         spillPath_.value(),
         fileSize,
         Spiller::spillPool(),

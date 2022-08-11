@@ -84,6 +84,7 @@ WriteFile& SpillFileList::currentOutput() {
     files_.push_back(std::make_unique<SpillFile>(
         type_,
         numSortingKeys_,
+        sortCompareFlags_,
         fmt::format("{}-{}", path_, files_.size()),
         pool_));
   }
@@ -136,10 +137,10 @@ uint64_t SpillFileList::spilledBytes() const {
   return bytes;
 }
 
-std::vector<std::string> SpillFileList::TEST_spilledFiles() const {
+std::vector<std::string> SpillFileList::testingSpilledFilePaths() const {
   std::vector<std::string> spilledFiles;
   for (auto& file : files_) {
-    spilledFiles.push_back(file->TEST_filePath());
+    spilledFiles.push_back(file->testingFilePath());
   }
   return spilledFiles;
 }
@@ -159,6 +160,7 @@ void SpillState::appendToPartition(
     files_[partition] = std::make_unique<SpillFileList>(
         std::static_pointer_cast<const RowType>(rows->type()),
         numSortingKeys_,
+        sortCompareFlags_,
         fmt::format("{}-spill-{}", path_, partition),
         targetFileSize_,
         pool_,
@@ -181,7 +183,7 @@ std::unique_ptr<TreeOfLosers<SpillStream>> SpillState::startMerge(
     }
   }
   VELOX_DCHECK_EQ(!result.empty(), isPartitionSpilled(partition));
-  if (extra) {
+  if (extra != nullptr) {
     result.push_back(std::move(extra));
   }
   // Check if the partition is empty or not.
@@ -221,11 +223,11 @@ int64_t SpillState::spilledFiles() const {
   return numFiles;
 }
 
-std::vector<std::string> SpillState::TEST_spilledFiles() const {
+std::vector<std::string> SpillState::testingSpilledFilePaths() const {
   std::vector<std::string> spilledFiles;
   for (const auto& list : files_) {
     if (list != nullptr) {
-      const auto spilledFilesFromList = list->TEST_spilledFiles();
+      const auto spilledFilesFromList = list->testingSpilledFilePaths();
       spilledFiles.insert(
           spilledFiles.end(),
           spilledFilesFromList.begin(),

@@ -33,6 +33,7 @@ Spiller::Spiller(
     RowContainer::Eraser eraser,
     RowTypePtr rowType,
     int32_t numSortingKeys,
+    const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     int64_t targetFileSize,
     memory::MemoryPool& pool,
@@ -44,6 +45,7 @@ Spiller::Spiller(
           std::move(rowType),
           HashBitRange{},
           numSortingKeys,
+          sortCompareFlags,
           path,
           targetFileSize,
           pool,
@@ -56,6 +58,7 @@ Spiller::Spiller(
     RowTypePtr rowType,
     HashBitRange bits,
     int32_t numSortingKeys,
+    const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
     int64_t targetFileSize,
     memory::MemoryPool& pool,
@@ -69,6 +72,7 @@ Spiller::Spiller(
           path,
           bits.numPartitions(),
           numSortingKeys,
+          sortCompareFlags,
           targetFileSize,
           pool,
           spillMappedMemory()),
@@ -145,10 +149,11 @@ class RowContainerSpillStream : public SpillStream {
   RowContainerSpillStream(
       RowTypePtr type,
       int32_t numSortingKeys,
+      const std::vector<CompareFlags>& sortCompareFlags,
       memory::MemoryPool& pool,
       Spiller::SpillRows&& rows,
       Spiller& spiller)
-      : SpillStream(std::move(type), numSortingKeys, pool),
+      : SpillStream(std::move(type), numSortingKeys, sortCompareFlags, pool),
         rows_(std::move(rows)),
         spiller_(spiller) {
     if (!rows_.empty()) {
@@ -196,6 +201,7 @@ std::unique_ptr<SpillStream> Spiller::spillStreamOverRows(int32_t partition) {
   return std::make_unique<RowContainerSpillStream>(
       rowType_,
       container_.keyTypes().size(),
+      state_.sortCompareFlags(),
       pool_,
       std::move(spillRuns_[partition].rows),
       *this);
@@ -208,7 +214,8 @@ void Spiller::ensureSorted(SpillRun& run) {
         run.rows.begin(),
         run.rows.end(),
         [&](const char* left, const char* right) {
-          return container_.compareRows(left, right) < 0;
+          return container_.compareRows(
+                     left, right, state_.sortCompareFlags()) < 0;
         });
     run.sorted = true;
   }

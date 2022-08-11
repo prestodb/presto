@@ -18,6 +18,7 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
 
 using namespace facebook::velox;
@@ -41,11 +42,11 @@ std::vector<TestParam> getTestParams() {
   std::vector<TestParam> params;
   for (int i = 0; i < Spiller::kNumTypes; ++i) {
     const auto type = static_cast<Spiller::Type>(i);
-    // TODO: add to test kHashJoin after it is supported.
+    // TODO: add to test kHashJoin after it is supported.g
     if (type == Spiller::Type::kHashJoin) {
       continue;
     }
-    for (int poolSize : {0, 8}) {
+    for (int poolSize : {0, 0}) {
       params.emplace_back(type, poolSize);
     }
   }
@@ -60,6 +61,14 @@ void setSequentialValue(
   auto valueVector = rowVector->childAt(childIndex)->as<FlatVector<int64_t>>();
   for (auto i = 0; i < valueVector->size(); ++i) {
     valueVector->set(i, value + i);
+  }
+}
+
+void resizeVector(RowVector& vector, vector_size_t size) {
+  vector.prepareForReuse();
+  vector.resize(size);
+  for (int32_t childIdx = 0; childIdx < vector.childrenSize(); ++childIdx) {
+    vector.childAt(childIdx)->resize(size);
   }
 }
 } // namespace
@@ -84,8 +93,20 @@ class SpillerTest : public exec::test::RowContainerTestBase,
   }
 
  protected:
-  void testSpill(int32_t spillPct, int numDuplicates, bool makeError = false) {
-    constexpr int32_t kNumRows = 100'000;
+  void testSpill(
+      int32_t spillPct,
+      int numDuplicates,
+      int32_t outputBatchSize = 0,
+      bool ascending = true,
+      bool makeError = false) {
+    SCOPED_TRACE(fmt::format(
+        "spillPct:{} numDuplicates:{} outputBatchSize:{} ascending:{} makeError:{}",
+        spillPct,
+        numDuplicates,
+        outputBatchSize,
+        ascending,
+        makeError));
+    constexpr int32_t kNumRows = 50'000;
     std::shared_ptr<const RowType> rowType = ROW({
         {"bool_val", BOOLEAN()},
         {"tiny_val", TINYINT()},
@@ -107,9 +128,9 @@ class SpillerTest : public exec::test::RowContainerTestBase,
       // Set ordinal so that the sorted order is unambiguous.
       setSequentialValue(rows, 5);
     });
-    sortSpillData();
+    sortSpillData(ascending);
 
-    setupSpiller(2'000'000, makeError);
+    setupSpiller(2'000'000, makeError, ascending);
 
     // We spill spillPct% of the data in 10% increments.
     runSpill(spillPct, 10, makeError);
@@ -119,7 +140,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     // Verify the spilled file exist on file system.
     const int numSpilledFiles = spiller_->spilledFiles();
     EXPECT_GT(numSpilledFiles, 0);
-    const auto spilledFileSet = spiller_->state().TEST_spilledFiles();
+    const auto spilledFileSet = spiller_->state().testingSpilledFilePaths();
     EXPECT_EQ(numSpilledFiles, spilledFileSet.size());
 
     for (auto spilledFile : spilledFileSet) {
@@ -136,7 +157,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
       EXPECT_GE(numPartitions_, spiller_->stats().spilledPartitions);
     }
 
-    verifySpillData();
+    verifySpillData(outputBatchSize);
 
     spiller_.reset();
     // Verify the spilled file has been removed from file system after spiller
@@ -228,7 +249,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     }
   }
 
-  void sortSpillData() {
+  void sortSpillData(bool ascending = true) {
     partitions_.clear();
     const auto numRows = rows_.size();
     ASSERT_EQ(numRows, rowContainer_->numRows());
@@ -246,18 +267,25 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     }
 
     // We sort the rows in each partition in key order.
+    compareFlags_.clear();
+    if (!ascending) {
+      for (int i = 0; i < rowContainer_->keyTypes().size(); ++i) {
+        compareFlags_.push_back({true, false});
+      }
+    }
     for (auto& partition : partitions_) {
       std::sort(
           partition.begin(),
           partition.end(),
           [&](int32_t leftIndex, int32_t rightIndex) {
             return rowContainer_->compareRows(
-                       rows_[leftIndex], rows_[rightIndex]) < 0;
+                       rows_[leftIndex], rows_[rightIndex], compareFlags_) < 0;
           });
     }
   }
 
-  void setupSpiller(int64_t targetFileSize, bool makeError) {
+  void
+  setupSpiller(int64_t targetFileSize, bool makeError, bool ascending = true) {
     // We spill 'data' in one partition in type of kOrderBy, otherwise in 4
     // partitions.
     spiller_ = std::make_unique<Spiller>(
@@ -267,6 +295,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
         asRowType(rowVector_->type()),
         hashBits_,
         rowContainer_->keyTypes().size(),
+        compareFlags_,
         makeError ? "/bad/path" : tempDirPath_->path,
         targetFileSize,
         *pool_,
@@ -293,7 +322,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     }
   }
 
-  void verifySpillData() {
+  void verifySpillData(int32_t outputBatchSize = 0) {
     // We read back the spilled and not spilled data in each of the
     // partitions. We check that the data comes back in key order.
     for (auto partitionIndex = 0; partitionIndex < numPartitions_;
@@ -308,15 +337,79 @@ class SpillerTest : public exec::test::RowContainerTestBase,
       // We read the spilled data back and check that it matches the sorted
       // order of the partition.
       auto& indices = partitions_[partitionIndex];
-      for (auto i = 0; i < indices.size(); ++i) {
-        auto stream = merge->next();
-        if (!stream) {
-          FAIL() << "Stream ends after " << i << " entries";
-          break;
+      if (outputBatchSize == 0) {
+        for (auto i = 0; i < indices.size(); ++i) {
+          auto stream = merge->next();
+          if (!stream) {
+            FAIL() << "Stream ends after " << i << " entries";
+            break;
+          }
+          ASSERT_TRUE(rowVector_->equalValueAt(
+              &stream->current(), indices[i], stream->currentIndex()));
+          stream->pop();
         }
-        EXPECT_TRUE(rowVector_->equalValueAt(
-            &stream->current(), indices[i], stream->currentIndex()));
-        stream->pop();
+      } else {
+        int nextBatchSize = std::min<int>(indices.size(), outputBatchSize);
+        auto outputVector = BaseVector::create<RowVector>(
+            rowVector_->type(), nextBatchSize, pool_.get());
+        resizeVector(*outputVector, nextBatchSize);
+
+        int i = 0;
+        int outputRow = 0;
+        int outputSize = 0;
+        std::vector<const RowVector*> sourceVectors(outputBatchSize);
+        std::vector<vector_size_t> sourceIndices(outputBatchSize);
+        for (;;) {
+          auto stream = merge->next();
+          if (stream == nullptr) {
+            for (int j = 0; j < outputVector->size(); ++j, ++i) {
+              ASSERT_TRUE(
+                  rowVector_->equalValueAt(outputVector.get(), indices[i], j))
+                  << j << ", " << i;
+            }
+            ASSERT_EQ(i, indices.size());
+            break;
+          }
+          sourceVectors[outputSize] = &stream->current();
+          bool isEndOfBatch = false;
+          sourceIndices[outputSize] = stream->currentIndex(&isEndOfBatch);
+          ++outputSize;
+          if (isEndOfBatch) {
+            // The stream is at end of input batch. Need to copy out the rows
+            // before fetching next batch in 'pop'.
+            gatherCopy(
+                outputVector.get(),
+                outputRow,
+                outputSize,
+                sourceVectors,
+                sourceIndices);
+            outputRow += outputSize;
+            outputSize = 0;
+          }
+
+          // Advance the stream.
+          stream->pop();
+
+          // The output buffer is full. Need to copy out the rows.
+          if (outputRow + outputSize == nextBatchSize) {
+            gatherCopy(
+                outputVector.get(),
+                outputRow,
+                outputSize,
+                sourceVectors,
+                sourceIndices);
+            for (int j = 0; j < outputVector->size(); ++j, ++i) {
+              ASSERT_TRUE(
+                  rowVector_->equalValueAt(outputVector.get(), indices[i], j))
+                  << outputVector->toString(0, nextBatchSize - 1) << i << ", "
+                  << j;
+            }
+            outputRow = 0;
+            outputSize = 0;
+            nextBatchSize = std::min<int>(indices.size() - i, outputBatchSize);
+            resizeVector(*outputVector, nextBatchSize);
+          }
+        }
       }
     }
   }
@@ -353,31 +446,51 @@ class SpillerTest : public exec::test::RowContainerTestBase,
   RowVectorPtr rowVector_;
   std::vector<char*> rows_;
   std::vector<std::vector<int32_t>> partitions_;
+  std::vector<CompareFlags> compareFlags_;
   std::unique_ptr<Spiller> spiller_;
 };
 
 TEST_P(SpillerTest, spilFew) {
   // Test with distinct sort keys.
-  testSpill(10, 1);
+  // testSpill(10, 1);
+  // testSpill(10, 1, 0, false);
+  testSpill(10, 1, 32);
+  testSpill(10, 1, 32, false);
   // Test with duplicate sort keys.
   testSpill(10, 10);
+  testSpill(10, 10, 0, false);
+  testSpill(10, 10, 32);
+  testSpill(10, 10, 32, false);
 }
 
 TEST_P(SpillerTest, spilMost) {
   // Test with distinct sort keys.
   testSpill(60, 1);
+  testSpill(60, 1, 0, false);
+  testSpill(60, 1, 32);
+  testSpill(60, 1, 32, false);
   // Test with duplicate sort keys.
   testSpill(60, 10);
+  testSpill(60, 10, 0, false);
+  testSpill(60, 10, 32);
+  testSpill(60, 10, 32, false);
 }
 
 TEST_P(SpillerTest, spillAll) {
   // Test with distinct sort keys.
   testSpill(100, 1);
+  testSpill(100, 1, 0, false);
+  testSpill(100, 1, 32);
+  testSpill(100, 1, 32, false);
+  // Test with duplicate sort keys.
   testSpill(100, 10);
+  testSpill(100, 10, 0, false);
+  testSpill(100, 10, 32);
+  testSpill(100, 10, 32, false);
 }
 
 TEST_P(SpillerTest, error) {
-  testSpill(100, 1, true);
+  testSpill(100, 1, 0, true);
 }
 
 TEST_P(SpillerTest, spillWithEmptyPartitions) {
