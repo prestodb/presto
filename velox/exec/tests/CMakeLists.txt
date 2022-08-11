@@ -25,6 +25,7 @@ add_executable(
   DriverTest.cpp
   EnforceSingleRowTest.cpp
   FilterProjectTest.cpp
+  FunctionResolutionTest.cpp
   FunctionSignatureBuilderTest.cpp
   HashJoinTest.cpp
   HashTableTest.cpp
@@ -42,7 +43,7 @@ add_executable(
   PrintPlanWithStatsTest.cpp
   RoundRobinPartitionFunctionTest.cpp
   RowContainerTest.cpp
-  FunctionResolutionTest.cpp
+  MemoryCapExceededTest.cpp
   SpillTest.cpp
   SpillerTest.cpp
   StreamingAggregationTest.cpp

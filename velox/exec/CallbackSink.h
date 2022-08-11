@@ -26,7 +26,7 @@ class CallbackSink : public Operator {
       int32_t operatorId,
       DriverCtx* driverCtx,
       std::function<BlockingReason(RowVectorPtr, ContinueFuture*)> callback)
-      : Operator(driverCtx, nullptr, operatorId, "N/A", "N/A"),
+      : Operator(driverCtx, nullptr, operatorId, "N/A", "CallbackSink"),
         callback_{callback} {}
 
   void addInput(RowVectorPtr input) override {

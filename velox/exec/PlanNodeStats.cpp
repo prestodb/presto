@@ -63,7 +63,7 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   // Populating number of drivers for plan nodes with multiple operators is not
   // useful. Each operator could have been executed in different pipelines with
   // different number of drivers.
-  if (!isMultiOperatorNode()) {
+  if (!isMultiOperatorTypeNode()) {
     numDrivers += stats.numDrivers;
   } else {
     numDrivers = 0;
@@ -203,7 +203,7 @@ std::string printPlanWithStats(
 
         // Include break down by operator type for plan nodes with multiple
         // operators. Print input rows and sizes for all such nodes.
-        if (stats.isMultiOperatorNode()) {
+        if (stats.isMultiOperatorTypeNode()) {
           for (const auto& entry : stats.operatorStats) {
             stream << std::endl;
             stream << indentation << entry.first << ": "

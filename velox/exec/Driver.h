@@ -253,6 +253,9 @@ class Driver : public std::enable_shared_from_this<Driver> {
   // build by id.
   Operator* FOLLY_NULLABLE findOperator(std::string_view planNodeId) const;
 
+  // Returns a list of all operators.
+  std::vector<Operator*> operators() const;
+
   void setError(std::exception_ptr exception);
 
   std::string toString();

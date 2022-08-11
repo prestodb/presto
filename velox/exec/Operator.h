@@ -251,14 +251,7 @@ class Operator {
       std::shared_ptr<const RowType> outputType,
       int32_t operatorId,
       std::string planNodeId,
-      std::string operatorType)
-      : operatorCtx_(std::make_unique<OperatorCtx>(driverCtx)),
-        stats_(
-            operatorId,
-            driverCtx->pipelineId,
-            std::move(planNodeId),
-            std::move(operatorType)),
-        outputType_(std::move(outputType)) {}
+      std::string operatorType);
 
   virtual ~Operator() = default;
 

@@ -590,6 +590,15 @@ Driver::findOperator(std::string_view planNodeId) const {
   return nullptr;
 }
 
+std::vector<Operator*> Driver::operators() const {
+  std::vector<Operator*> operators;
+  operators.reserve(operators_.size());
+  for (auto& op : operators_) {
+    operators.push_back(op.get());
+  }
+  return operators;
+}
+
 void Driver::setError(std::exception_ptr exception) {
   task()->setError(exception);
 }

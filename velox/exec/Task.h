@@ -568,6 +568,17 @@ class Task : public std::enable_shared_from_this<Task> {
 
   int getOutputPipelineId() const;
 
+  /// Callback function added to the MemoryUsageTracker to return a descriptive
+  /// message to be added to the error when a MEM_CAP_EXCEEDED error is
+  /// encountered.
+  /// Example Error Message generated:
+  /// Exceeded memory cap of 12.00MB when requesting 1.00MB. Task total: 8.00MB
+  /// Peak: 12.00MB. Top 3 Operators (by aggregate usage across all drivers):
+  /// Aggregation_#1_x6: 168.00KB Peak: 1.00MB, TableScan_#0_x6: 51.46KB
+  /// Peak: 1.00MB, CallbackSink_#2_x6: 0B Peak: 0B. Failed Operator:
+  /// Aggregation_#1: 0B
+  std::string getErrorMsgOnMemCapExceeded(memory::MemoryUsageTracker& tracker);
+
   // RAII helper class to satisfy 'stateChangePromises_' and notify listeners
   // that task is complete outside of the mutex. Inactive on creation. Must be
   // activated explicitly by calling 'activate'.
@@ -632,6 +643,9 @@ class Task : public std::enable_shared_from_this<Task> {
   mutable std::mutex mutex_;
 
   ConsumerSupplier consumerSupplier_;
+
+  // The function that is executed when the task encounters its first error,
+  // that is, serError() is called for the first time.
   std::function<void(std::exception_ptr)> onError_;
 
   std::vector<std::unique_ptr<DriverFactory>> driverFactories_;

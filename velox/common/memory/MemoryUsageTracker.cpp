@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/memory/MemoryUsageTracker.h"
+#include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox::memory {
 std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
@@ -56,11 +57,21 @@ void MemoryUsageTracker::checkAndPropagateReservationIncrement(
 
 void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
   // Update parent first. If one of the ancestor's limits are exceeded, it
-  // will throw VeloxMemoryCapExceeded exception.
+  // will throw MEM_CAP_EXCEEDED exception. This exception will be caught
+  // and re-thrown with an additional message appended to it if a
+  // makeMemoryCapExceededMessage_ is set.
   if (parent_) {
-    parent_->incrementUsage(type, size);
+    try {
+      parent_->incrementUsage(type, size);
+    } catch (const VeloxRuntimeError& e) {
+      if (!makeMemoryCapExceededMessage_) {
+        throw;
+      }
+      auto errorMessage =
+          e.message() + ". " + makeMemoryCapExceededMessage_(*this);
+      VELOX_MEM_CAP_EXCEEDED(errorMessage);
+    }
   }
-
   auto newUsage = usage(currentUsageInBytes_, type)
                       .fetch_add(size, std::memory_order_relaxed) +
       size;
@@ -72,8 +83,9 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
   // We track the peak usage of total memory independent of user and
   // system memory since freed user memory can be reallocated as system
   // memory and vice versa.
-  int64_t totalBytes = usage(currentUsageInBytes_, UsageType::kUserMem) +
-      usage(currentUsageInBytes_, UsageType::kSystemMem);
+  auto otherUsageType =
+      type == UsageType::kUserMem ? UsageType::kSystemMem : UsageType::kUserMem;
+  int64_t totalBytes = newUsage + usage(currentUsageInBytes_, otherUsageType);
 
   // Enforce the limit.
   if (newUsage > usage(maxMemory_, type) || totalBytes > total(maxMemory_)) {
@@ -81,8 +93,14 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
       // Exceeded the limit.  revert the change to current usage.
       decrementUsage(type, size);
       checkNonNegativeSizes("after exceeding cap");
-      VELOX_MEM_CAP_EXCEEDED(
-          std::min(total(maxMemory_), usage(maxMemory_, type)));
+      auto errorMessage = fmt::format(
+          MEM_CAP_EXCEEDED_ERROR_FORMAT,
+          succinctBytes(std::min(total(maxMemory_), usage(maxMemory_, type))),
+          succinctBytes(size));
+      if (makeMemoryCapExceededMessage_) {
+        errorMessage += ". " + makeMemoryCapExceededMessage_(*this);
+      }
+      VELOX_MEM_CAP_EXCEEDED(errorMessage);
     }
   }
   maySetMax(type, newUsage);

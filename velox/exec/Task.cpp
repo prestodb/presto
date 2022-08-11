@@ -18,6 +18,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "velox/codegen/Codegen.h"
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/CrossJoinBuild.h"
 #include "velox/exec/Exchange.h"
@@ -144,7 +145,16 @@ Task::Task(
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
       pool_(queryCtx_->pool()->addScopedChild("task_root")),
-      bufferManager_(PartitionedOutputBufferManager::getInstance()) {}
+      bufferManager_(PartitionedOutputBufferManager::getInstance()) {
+  auto memoryUsageTracker = pool_->getMemoryUsageTracker();
+  if (memoryUsageTracker) {
+    memoryUsageTracker->setMakeMemoryCapExceededMessage(
+        [&](memory::MemoryUsageTracker& tracker) {
+          VELOX_DCHECK_EQ(pool()->getMemoryUsageTracker().get(), &tracker);
+          return this->getErrorMsgOnMemCapExceeded(tracker);
+        });
+  }
+}
 
 Task::~Task() {
   try {
@@ -1643,5 +1653,88 @@ void Task::TaskCompletionNotifier::notify() {
 
     active_ = false;
   }
+}
+
+std::string Task::getErrorMsgOnMemCapExceeded(
+    memory::MemoryUsageTracker& tracker) {
+  std::stringstream out;
+  out << "Task total: " << succinctBytes(tracker.getCurrentTotalBytes())
+      << " Peak: " << succinctBytes(tracker.getPeakTotalBytes()) << ".";
+  // Aggregate relevant metrics for each operator across all drivers.
+  struct MemoryUsageStats {
+    int operatorId{0};
+    std::string operatorType;
+    int64_t cumulativeTotalBytes{0};
+    int64_t peakTotalBytes{0};
+    int numInstances{0};
+
+    MemoryUsageStats() = default;
+    explicit MemoryUsageStats(Operator* op) {
+      operatorId = op->stats().operatorId;
+      operatorType = op->stats().operatorType;
+    }
+
+    void add(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
+      this->cumulativeTotalBytes += tracker->getCurrentTotalBytes();
+      this->peakTotalBytes =
+          std::max(this->peakTotalBytes, tracker->getPeakTotalBytes());
+      this->numInstances++;
+    }
+  };
+  std::unordered_map<int32_t, MemoryUsageStats> operatorStats;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    for (auto& driver : drivers_) {
+      if (!driver) {
+        continue;
+      }
+      auto operators = driver->operators();
+      for (auto op : operators) {
+        auto it = operatorStats.find(op->stats().operatorId);
+        if (it == operatorStats.end()) {
+          it = operatorStats
+                   .insert({op->stats().operatorId, MemoryUsageStats(op)})
+                   .first;
+        }
+        it->second.add(op->pool()->getMemoryUsageTracker());
+      }
+    }
+  }
+  std::vector<MemoryUsageStats> operatorStatsArray;
+  operatorStatsArray.reserve(operatorStats.size());
+  for (auto& [operatorId, stats] : operatorStats) {
+    operatorStatsArray.push_back(std::move(stats));
+  }
+  static auto compareByCumulativeTotalBytes =
+      [](const MemoryUsageStats& left, const MemoryUsageStats& right) {
+        return left.cumulativeTotalBytes > right.cumulativeTotalBytes;
+      };
+  // Get the top 3.
+  if (operatorStatsArray.size() > 3) {
+    std::nth_element(
+        operatorStatsArray.begin(),
+        operatorStatsArray.begin() + 2,
+        operatorStatsArray.end(),
+        compareByCumulativeTotalBytes);
+    operatorStatsArray.resize(3);
+  }
+  std::sort(
+      operatorStatsArray.begin(),
+      operatorStatsArray.end(),
+      compareByCumulativeTotalBytes);
+  out << " Top " << operatorStatsArray.size()
+      << " Operators (by aggregate usage across all drivers): ";
+  int remainingStatsToAdd = operatorStatsArray.size();
+  for (auto& stats : operatorStatsArray) {
+    out << stats.operatorType << "_#" << stats.operatorId << "_x"
+        << stats.numInstances << ": "
+        << succinctBytes(stats.cumulativeTotalBytes)
+        << " Peak: " << succinctBytes(stats.peakTotalBytes);
+    remainingStatsToAdd--;
+    if (remainingStatsToAdd > 0) {
+      out << ", ";
+    }
+  }
+  return out.str();
 }
 } // namespace facebook::velox::exec

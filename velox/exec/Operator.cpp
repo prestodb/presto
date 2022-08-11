@@ -18,6 +18,7 @@
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 
+#include "velox/common/base/SuccinctPrinter.h"
 #include "velox/common/process/ProcessBase.h"
 #include "velox/expression/Expr.h"
 
@@ -79,6 +80,33 @@ OperatorCtx::createConnectorQueryCtx(
       expressionEvaluator_.get(),
       driverCtx_->task->queryCtx()->mappedMemory(),
       fmt::format("{}.{}", driverCtx_->task->taskId(), planNodeId));
+}
+
+Operator::Operator(
+    DriverCtx* driverCtx,
+    std::shared_ptr<const RowType> outputType,
+    int32_t operatorId,
+    std::string planNodeId,
+    std::string operatorType)
+    : operatorCtx_(std::make_unique<OperatorCtx>(driverCtx)),
+      stats_(
+          operatorId,
+          driverCtx->pipelineId,
+          std::move(planNodeId),
+          std::move(operatorType)),
+      outputType_(std::move(outputType)) {
+  auto memoryUsageTracker = pool()->getMemoryUsageTracker();
+  if (memoryUsageTracker) {
+    memoryUsageTracker->setMakeMemoryCapExceededMessage(
+        [&](memory::MemoryUsageTracker& tracker) {
+          VELOX_DCHECK_EQ(pool()->getMemoryUsageTracker().get(), &tracker);
+          std::stringstream out;
+          out << "Failed Operator: " << stats_.operatorType << "_#"
+              << stats_.operatorId << ": "
+              << succinctBytes(tracker.getCurrentTotalBytes());
+          return out.str();
+        });
+  }
 }
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&

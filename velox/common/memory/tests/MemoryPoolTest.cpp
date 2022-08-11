@@ -388,7 +388,9 @@ TEST(MemoryPoolTest, MemoryCapExceptions) {
       EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
       EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
       EXPECT_TRUE(ex.isRetriable());
-      EXPECT_EQ("Exceeded memory cap of 63 MB", ex.message());
+      EXPECT_EQ(
+          "Exceeded memory cap of 63.00MB when requesting 64.00MB",
+          ex.message());
     }
     ASSERT_FALSE(pool.isMemoryCapped());
   }
