@@ -21,13 +21,13 @@ import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -36,7 +36,6 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -48,7 +47,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.expressions.RowExpressionTreeRewriter.rewriteWith;
 import static com.facebook.presto.parquet.ParquetTypeUtils.pushdownColumnNameForSubfield;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +68,7 @@ public abstract class ParquetDereferencePushDown
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return maxSubplan.accept(new Visitor(session, variableAllocator, idAllocator), null);
+        return ConnectorPlanRewriter.rewriteWith(new Rewriter(session, variableAllocator, idAllocator), maxSubplan);
     }
 
     /**
@@ -296,14 +294,14 @@ public abstract class ParquetDereferencePushDown
      * pushes the dereferences down to TableScan and creates new project expressions with the pushed down column coming from the TableScan.
      * Returned plan nodes could contain unreferenced outputs which will be pruned later in the planning process.
      */
-    private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+    private class Rewriter
+            extends ConnectorPlanRewriter<Void>
     {
         private final ConnectorSession session;
         private final VariableAllocator variableAllocator;
         private final PlanNodeIdAllocator idAllocator;
 
-        Visitor(ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
+        Rewriter(ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
@@ -311,26 +309,7 @@ public abstract class ParquetDereferencePushDown
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
-        {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-            boolean changed = false;
-            for (PlanNode child : node.getSources()) {
-                PlanNode newChild = child.accept(this, null);
-                if (newChild != child) {
-                    changed = true;
-                }
-                children.add(newChild);
-            }
-
-            if (!changed) {
-                return node;
-            }
-            return node.replaceChildren(children.build());
-        }
-
-        @Override
-        public PlanNode visitProject(ProjectNode project, Void context)
+        public PlanNode visitProject(ProjectNode project, RewriteContext<Void> context)
         {
             if (!(project.getSource() instanceof TableScanNode)) {
                 return visitPlan(project, context);
@@ -396,7 +375,7 @@ public abstract class ParquetDereferencePushDown
 
             Assignments.Builder newProjectAssignmentBuilder = Assignments.builder();
             for (Map.Entry<VariableReferenceExpression, RowExpression> entry : project.getAssignments().entrySet()) {
-                RowExpression newExpression = rewriteWith(new DereferenceExpressionRewriter(dereferenceToVariableMap), entry.getValue());
+                RowExpression newExpression = RowExpressionTreeRewriter.rewriteWith(new DereferenceExpressionRewriter(dereferenceToVariableMap), entry.getValue());
                 newProjectAssignmentBuilder.put(entry.getKey(), newExpression);
             }
 
