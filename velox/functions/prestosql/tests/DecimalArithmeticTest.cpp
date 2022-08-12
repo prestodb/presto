@@ -68,39 +68,39 @@ TEST_F(DecimalArithmeticTest, add) {
   auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(18, 3));
 
   // Add short and short, returning long.
-  testDecimalExpr<LongDecimal>(
+  testDecimalExpr<UnscaledLongDecimal>(
       expectedLongFlat, "plus(c0, c1)", {shortFlat, shortFlat});
 
   // Add short and long, returning long.
   auto longFlat = makeLongDecimalFlatVector({1000, 2000}, DECIMAL(19, 3));
   expectedLongFlat = makeLongDecimalFlatVector({2000, 4000}, DECIMAL(20, 3));
-  testDecimalExpr<LongDecimal>(
+  testDecimalExpr<UnscaledLongDecimal>(
       expectedLongFlat, "plus(c0, c1)", {shortFlat, longFlat});
 
   // Add short and long, returning long.
-  testDecimalExpr<LongDecimal>(
+  testDecimalExpr<UnscaledLongDecimal>(
       expectedLongFlat, "plus(c0, c1)", {longFlat, shortFlat});
 
   // Add long and long, returning long.
-  testDecimalExpr<LongDecimal>(
+  testDecimalExpr<UnscaledLongDecimal>(
       expectedLongFlat, "c0 + c1", {longFlat, longFlat});
 
   // Add short and short, returning short.
   shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(10, 3));
   auto expectedShortFlat =
       makeShortDecimalFlatVector({2000, 4000}, DECIMAL(11, 3));
-  testDecimalExpr<ShortDecimal>(
+  testDecimalExpr<UnscaledShortDecimal>(
       expectedShortFlat, "c0 + c1", {shortFlat, shortFlat});
 
   auto expectedConstantFlat =
       makeShortDecimalFlatVector({2000, 3000}, DECIMAL(11, 3));
 
   // Constant and Flat arguments.
-  testDecimalExpr<ShortDecimal>(
+  testDecimalExpr<UnscaledShortDecimal>(
       expectedConstantFlat, "plus(1.00, c0)", {shortFlat});
 
   // Flat and Constant arguments.
-  testDecimalExpr<ShortDecimal>(
+  testDecimalExpr<UnscaledShortDecimal>(
       expectedConstantFlat, "plus(c0,1.00)", {shortFlat});
 
   auto shortWithNullsA = makeNullableShortDecimalFlatVector(
@@ -109,7 +109,7 @@ TEST_F(DecimalArithmeticTest, add) {
       {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3));
   auto expectedShortWithNulls = makeNullableShortDecimalFlatVector(
       {2, 4, std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 3));
-  testDecimalExpr<ShortDecimal>(
+  testDecimalExpr<UnscaledShortDecimal>(
       expectedShortWithNulls,
       "plus(c0, c1)",
       {shortWithNullsA, shortWithNullsB});

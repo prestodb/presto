@@ -31,11 +31,12 @@ constexpr int128_t buildInt128(uint64_t hi, uint64_t lo) {
   return (static_cast<__uint128_t>(hi) << 64) | lo;
 }
 
-struct LongDecimal {
+struct UnscaledLongDecimal {
  public:
   // Default required for creating vector with NULL values.
-  LongDecimal() = default;
-  constexpr explicit LongDecimal(int128_t value) : unscaledValue_(value) {}
+  UnscaledLongDecimal() = default;
+  constexpr explicit UnscaledLongDecimal(int128_t value)
+      : unscaledValue_(value) {}
 
   int128_t unscaledValue() const {
     return unscaledValue_;
@@ -45,31 +46,31 @@ struct LongDecimal {
     unscaledValue_ = unscaledValue;
   }
 
-  bool operator==(const LongDecimal& other) const {
+  bool operator==(const UnscaledLongDecimal& other) const {
     return unscaledValue_ == other.unscaledValue_;
   }
 
-  bool operator!=(const LongDecimal& other) const {
+  bool operator!=(const UnscaledLongDecimal& other) const {
     return unscaledValue_ != other.unscaledValue_;
   }
 
-  bool operator<(const LongDecimal& other) const {
+  bool operator<(const UnscaledLongDecimal& other) const {
     return unscaledValue_ < other.unscaledValue_;
   }
 
-  bool operator<=(const LongDecimal& other) const {
+  bool operator<=(const UnscaledLongDecimal& other) const {
     return unscaledValue_ <= other.unscaledValue_;
   }
 
  private:
   int128_t unscaledValue_;
-}; // struct LongDecimal
+}; // struct UnscaledLongDecimal
 } // namespace facebook::velox
 
 namespace folly {
 template <>
-struct hasher<::facebook::velox::LongDecimal> {
-  size_t operator()(const ::facebook::velox::LongDecimal& value) const {
+struct hasher<::facebook::velox::UnscaledLongDecimal> {
+  size_t operator()(const ::facebook::velox::UnscaledLongDecimal& value) const {
     auto upperHash = folly::hasher<uint64_t>{}(
         static_cast<uint64_t>(value.unscaledValue() >> 64));
     auto lowerHash =

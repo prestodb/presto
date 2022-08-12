@@ -142,7 +142,8 @@ std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name);
 
 /// Given name of vector function and argument types, returns
-/// the return type if function exists otherwise returns nullptr.
+/// the return type if function exists and have a signature that binds to the
+/// input types otherwise returns nullptr.
 std::shared_ptr<const Type> resolveVectorFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);

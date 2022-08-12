@@ -183,8 +183,8 @@ class SimpleVector : public BaseVector {
       if constexpr (std::is_same<T, std::shared_ptr<void>>::value) {
         out << "<opaque>";
       } else if constexpr (
-          std::is_same<T, ShortDecimal>::value ||
-          std::is_same<T, LongDecimal>::value) {
+          std::is_same<T, UnscaledShortDecimal>::value ||
+          std::is_same<T, UnscaledLongDecimal>::value) {
         out << DecimalUtil::toString(valueAt(index), type());
       } else {
         out << velox::to<std::string>(valueAt(index));

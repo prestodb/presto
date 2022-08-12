@@ -211,8 +211,8 @@ TEST_F(BaseDuckWrapperTest, tpchSF1) {
   // test TPC-H loading and querying SF0.01
   execute("CALL dbgen(sf=0.01)");
   // test conversion of date, decimal and string
-  verifyUnaryResult<ShortDecimal>(
-      "SELECT l_discount FROM lineitem LIMIT 1", {ShortDecimal(4)});
+  verifyUnaryResult<UnscaledShortDecimal>(
+      "SELECT l_discount FROM lineitem LIMIT 1", {UnscaledShortDecimal(4)});
   verifyUnaryResult<Date>(
       "SELECT l_shipdate FROM lineitem LIMIT 1", {Date(9568)});
   verifyUnaryResult<StringView>(
@@ -221,42 +221,43 @@ TEST_F(BaseDuckWrapperTest, tpchSF1) {
 }
 
 TEST_F(BaseDuckWrapperTest, duckToVeloxDecimal) {
-  // Test SMALLINT decimal to ShortDecimal conversion.
-  verifyDuckToVeloxDecimal<ShortDecimal>(
+  // Test SMALLINT decimal to UnscaledShortDecimal conversion.
+  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
       "select * from (values (NULL), ('1.2'::decimal(2,1)),"
       "('2.2'::decimal(2,1)),('-4.2'::decimal(2,1)), (NULL))",
       {std::nullopt,
-       ShortDecimal(12),
-       ShortDecimal(22),
-       ShortDecimal(-42),
+       UnscaledShortDecimal(12),
+       UnscaledShortDecimal(22),
+       UnscaledShortDecimal(-42),
        std::nullopt});
 
-  // Test INTEGER decimal to ShortDecimal conversion.
-  verifyDuckToVeloxDecimal<ShortDecimal>(
+  // Test INTEGER decimal to UnscaledShortDecimal conversion.
+  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
       "select * from (values ('1111.1111'::decimal(8,4)),"
       "('2222.2222'::decimal(8,4)),('-3333.3333'::decimal(8,4)))",
-      {ShortDecimal(11111111),
-       ShortDecimal(22222222),
-       ShortDecimal(-33333333)});
+      {UnscaledShortDecimal(11111111),
+       UnscaledShortDecimal(22222222),
+       UnscaledShortDecimal(-33333333)});
 
-  // Test BIGINT decimal to LongDecimal conversion.
-  verifyDuckToVeloxDecimal<ShortDecimal>(
+  // Test BIGINT decimal to UnscaledLongDecimal conversion.
+  verifyDuckToVeloxDecimal<UnscaledShortDecimal>(
       "select * from (values ('-111111.111111'::decimal(12,6)),"
       "('222222.222222'::decimal(12,6)),('333333.333333'::decimal(12,6)))",
-      {ShortDecimal(-111111111111),
-       ShortDecimal(222222222222),
-       ShortDecimal(333333333333)});
+      {UnscaledShortDecimal(-111111111111),
+       UnscaledShortDecimal(222222222222),
+       UnscaledShortDecimal(333333333333)});
 
-  verifyDuckToVeloxDecimal<LongDecimal>(
+  verifyDuckToVeloxDecimal<UnscaledLongDecimal>(
       "select * from (values (NULL),"
       "('12345678901234.789'::decimal(18,3) * 10000.555::decimal(20,3)),"
       "('-55555555555555.789'::decimal(18,3) * 10000.555::decimal(20,3)), (NULL),"
       "('-22222222222222.789'::decimal(18,3) * 10000.555::decimal(20,3)))",
       {std::nullopt,
-       LongDecimal(buildInt128(0X1a24, 0Xfa35bb8777ffff77)),
-       LongDecimal(buildInt128(0XFFFFFFFFFFFF8A59, 0X99FC706655BFAC11)),
+       UnscaledLongDecimal(buildInt128(0X1a24, 0Xfa35bb8777ffff77)),
+       UnscaledLongDecimal(buildInt128(0XFFFFFFFFFFFF8A59, 0X99FC706655BFAC11)),
        std::nullopt,
-       LongDecimal(buildInt128(0XFFFFFFFFFFFFD0F0, 0XA3FE935B081D8D69))});
+       UnscaledLongDecimal(
+           buildInt128(0XFFFFFFFFFFFFD0F0, 0XA3FE935B081D8D69))});
 }
 
 TEST_F(BaseDuckWrapperTest, decimalDictCoversion) {
@@ -282,16 +283,17 @@ TEST_F(BaseDuckWrapperTest, decimalDictCoversion) {
 
   auto decimalType = DECIMAL(4, 2);
   auto actual = toVeloxVector(size, data, decimalType, pool_.get());
-  std::vector<ShortDecimal> expectedData(
-      {ShortDecimal(1000),
-       ShortDecimal(2000),
-       ShortDecimal(5000),
-       ShortDecimal(2000),
-       ShortDecimal(1000),
-       ShortDecimal(5000)});
+  std::vector<UnscaledShortDecimal> expectedData(
+      {UnscaledShortDecimal(1000),
+       UnscaledShortDecimal(2000),
+       UnscaledShortDecimal(5000),
+       UnscaledShortDecimal(2000),
+       UnscaledShortDecimal(1000),
+       UnscaledShortDecimal(5000)});
 
   test::VectorMaker maker(pool_.get());
-  auto expectedFlatVector = maker.flatVector<ShortDecimal>(size, decimalType);
+  auto expectedFlatVector =
+      maker.flatVector<UnscaledShortDecimal>(size, decimalType);
 
   for (auto i = 0; i < expectedData.size(); ++i) {
     expectedFlatVector->set(i, expectedData[i]);

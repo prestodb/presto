@@ -18,9 +18,9 @@
 
 #include <string>
 #include "velox/common/base/Exceptions.h"
-#include "velox/type/LongDecimal.h"
-#include "velox/type/ShortDecimal.h"
 #include "velox/type/Type.h"
+#include "velox/type/UnscaledLongDecimal.h"
+#include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox {
 

@@ -579,7 +579,8 @@ VectorPtr newConstant(
       copy = StringView(value.value<kind>());
     }
   } else if constexpr (
-      std::is_same_v<T, ShortDecimal> || std::is_same_v<T, LongDecimal>) {
+      std::is_same_v<T, UnscaledShortDecimal> ||
+      std::is_same_v<T, UnscaledLongDecimal>) {
     const auto& decimal = value.value<kind>();
     type = DECIMAL(decimal.precision, decimal.scale);
     if (!value.isNull()) {
@@ -639,13 +640,13 @@ std::shared_ptr<BaseVector> BaseVector::createNullConstant(
   }
 
   if (type->kind() == TypeKind::SHORT_DECIMAL) {
-    return std::make_shared<ConstantVector<ShortDecimal>>(
-        pool, size, true, type, ShortDecimal());
+    return std::make_shared<ConstantVector<UnscaledShortDecimal>>(
+        pool, size, true, type, UnscaledShortDecimal());
   }
 
   if (type->kind() == TypeKind::LONG_DECIMAL) {
-    return std::make_shared<ConstantVector<LongDecimal>>(
-        pool, size, true, type, LongDecimal());
+    return std::make_shared<ConstantVector<UnscaledLongDecimal>>(
+        pool, size, true, type, UnscaledLongDecimal());
   }
 
   return BaseVector::createConstant(variant(type->kind()), size, pool);

@@ -740,18 +740,18 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
 };
 
 template <>
-ShortDecimal VectorTest::testValue<ShortDecimal>(
+UnscaledShortDecimal VectorTest::testValue<UnscaledShortDecimal>(
     int32_t i,
     BufferPtr& /*space*/) {
-  return ShortDecimal(i);
+  return UnscaledShortDecimal(i);
 }
 
 template <>
-LongDecimal VectorTest::testValue<LongDecimal>(
+UnscaledLongDecimal VectorTest::testValue<UnscaledLongDecimal>(
     int32_t i,
     BufferPtr& /*space*/) {
   int128_t value = buildInt128(i % 2 ? (i * -1) : i, 0xAAAAAAAAAAAAAAAA);
-  return LongDecimal(value);
+  return UnscaledLongDecimal(value);
 }
 
 template <>
@@ -1268,9 +1268,9 @@ class VectorCreateConstantTest : public VectorTest {
       const TypePtr& type = Type::create<KIND>()) {
     using TCpp = typename TypeTraits<KIND>::NativeType;
     variant var;
-    if constexpr (std::is_same_v<TCpp, ShortDecimal>) {
+    if constexpr (std::is_same_v<TCpp, UnscaledShortDecimal>) {
       var = variant::shortDecimal(val.unscaledValue(), type);
-    } else if constexpr (std::is_same_v<TCpp, LongDecimal>) {
+    } else if constexpr (std::is_same_v<TCpp, UnscaledLongDecimal>) {
       var = variant::longDecimal(val.unscaledValue(), type);
     } else {
       var = variant::create<KIND>(val);
@@ -1289,8 +1289,8 @@ class VectorCreateConstantTest : public VectorTest {
         ASSERT_EQ(
             var.template value<KIND>(), std::string(simpleVector->valueAt(i)));
       } else if constexpr (
-          std::is_same<TCpp, ShortDecimal>::value ||
-          std::is_same<TCpp, LongDecimal>::value) {
+          std::is_same<TCpp, UnscaledShortDecimal>::value ||
+          std::is_same<TCpp, UnscaledLongDecimal>::value) {
         const auto& value = var.template value<KIND>().value();
         ASSERT_EQ(value, simpleVector->valueAt(i));
       } else {
@@ -1373,9 +1373,9 @@ TEST_F(VectorCreateConstantTest, scalar) {
   testPrimitiveConstant<TypeKind::REAL>(99.98);
   testPrimitiveConstant<TypeKind::DOUBLE>(12.345);
   testPrimitiveConstant<TypeKind::SHORT_DECIMAL>(
-      ShortDecimal(12345), DECIMAL(5, 4));
+      UnscaledShortDecimal(12345), DECIMAL(5, 4));
   testPrimitiveConstant<TypeKind::LONG_DECIMAL>(
-      LongDecimal(12345), DECIMAL(20, 4));
+      UnscaledLongDecimal(12345), DECIMAL(20, 4));
 
   testPrimitiveConstant<TypeKind::VARCHAR>(StringView("hello world"));
   testPrimitiveConstant<TypeKind::VARBINARY>(StringView("my binary buffer"));

@@ -164,8 +164,8 @@ struct DecimalCapsule {
   }
 };
 
-using ShortDecimalCapsule = DecimalCapsule<ShortDecimal>;
-using LongDecimalCapsule = DecimalCapsule<LongDecimal>;
+using ShortDecimalCapsule = DecimalCapsule<UnscaledShortDecimal>;
+using LongDecimalCapsule = DecimalCapsule<UnscaledLongDecimal>;
 
 template <>
 struct VariantTypeTraits<TypeKind::SHORT_DECIMAL> {
@@ -371,12 +371,12 @@ class variant {
   static variant shortDecimal(
       const std::optional<int64_t> input,
       const TypePtr& type) {
-    VELOX_CHECK(type->isShortDecimal(), "Not a ShortDecimal type");
+    VELOX_CHECK(type->isShortDecimal(), "Not a UnscaledShortDecimal type");
     auto decimalType = type->asShortDecimal();
     return {
         TypeKind::SHORT_DECIMAL,
         new detail::ShortDecimalCapsule{
-            std::optional<ShortDecimal>(input),
+            std::optional<UnscaledShortDecimal>(input),
             decimalType.precision(),
             decimalType.scale()}};
   }
@@ -384,12 +384,12 @@ class variant {
   static variant longDecimal(
       const std::optional<int128_t> input,
       const TypePtr& type) {
-    VELOX_CHECK(type->isLongDecimal(), "Not a LongDecimal type");
+    VELOX_CHECK(type->isLongDecimal(), "Not a UnscaledLongDecimal type");
     auto decimalType = type->asLongDecimal();
     return {
         TypeKind::LONG_DECIMAL,
         new detail::LongDecimalCapsule{
-            std::optional<LongDecimal>(input),
+            std::optional<UnscaledLongDecimal>(input),
             decimalType.precision(),
             decimalType.scale()}};
   }

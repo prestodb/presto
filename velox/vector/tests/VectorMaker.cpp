@@ -193,56 +193,56 @@ FlatVectorPtr<T> makeDecimalFlatVectorNullable(
 } // namespace
 
 template <>
-FlatVectorPtr<ShortDecimal> VectorMaker::shortDecimalFlatVector(
+FlatVectorPtr<UnscaledShortDecimal> VectorMaker::shortDecimalFlatVector(
     const std::vector<int64_t>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isShortDecimal());
-  return makeDecimalFlatVector<ShortDecimal, int64_t>(
+  return makeDecimalFlatVector<UnscaledShortDecimal, int64_t>(
       unscaledValues, type, pool_);
 }
 
 template <>
-FlatVectorPtr<LongDecimal> VectorMaker::longDecimalFlatVector(
+FlatVectorPtr<UnscaledLongDecimal> VectorMaker::longDecimalFlatVector(
     const std::vector<int64_t>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isLongDecimal());
-  return makeDecimalFlatVector<LongDecimal, int64_t>(
+  return makeDecimalFlatVector<UnscaledLongDecimal, int64_t>(
       unscaledValues, type, pool_);
 }
 
 template <>
-FlatVectorPtr<LongDecimal> VectorMaker::longDecimalFlatVector(
+FlatVectorPtr<UnscaledLongDecimal> VectorMaker::longDecimalFlatVector(
     const std::vector<int128_t>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isLongDecimal());
-  return makeDecimalFlatVector<LongDecimal, int128_t>(
+  return makeDecimalFlatVector<UnscaledLongDecimal, int128_t>(
       unscaledValues, type, pool_);
 }
 
 template <>
-FlatVectorPtr<ShortDecimal> VectorMaker::shortDecimalFlatVectorNullable(
+FlatVectorPtr<UnscaledShortDecimal> VectorMaker::shortDecimalFlatVectorNullable(
     const std::vector<std::optional<int64_t>>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isShortDecimal());
-  return makeDecimalFlatVectorNullable<ShortDecimal, int64_t>(
+  return makeDecimalFlatVectorNullable<UnscaledShortDecimal, int64_t>(
       unscaledValues, type, pool_);
 }
 
 template <>
-FlatVectorPtr<LongDecimal> VectorMaker::longDecimalFlatVectorNullable(
+FlatVectorPtr<UnscaledLongDecimal> VectorMaker::longDecimalFlatVectorNullable(
     const std::vector<std::optional<int64_t>>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isLongDecimal());
-  return makeDecimalFlatVectorNullable<LongDecimal, int64_t>(
+  return makeDecimalFlatVectorNullable<UnscaledLongDecimal, int64_t>(
       unscaledValues, type, pool_);
 }
 
 template <>
-FlatVectorPtr<LongDecimal> VectorMaker::longDecimalFlatVectorNullable(
+FlatVectorPtr<UnscaledLongDecimal> VectorMaker::longDecimalFlatVectorNullable(
     const std::vector<std::optional<int128_t>>& unscaledValues,
     const TypePtr& type) {
   VELOX_CHECK(type->isLongDecimal());
-  return makeDecimalFlatVectorNullable<LongDecimal, int128_t>(
+  return makeDecimalFlatVectorNullable<UnscaledLongDecimal, int128_t>(
       unscaledValues, type, pool_);
 }
 

@@ -193,29 +193,29 @@ class VectorMaker {
     return flatVector;
   }
 
-  /// Create a ShortDecimal FlatVector from unscaled values, type.
+  /// Create a UnscaledShortDecimal FlatVector from unscaled values, type.
   ///
   /// Elements are not nullable.
   ///
   /// Examples:
   ///  auto flatVector = shortDecimalFlatVector({1, 2, 3}, DECIMAL(8, 1));
   template <typename T>
-  FlatVectorPtr<ShortDecimal> shortDecimalFlatVector(
+  FlatVectorPtr<UnscaledShortDecimal> shortDecimalFlatVector(
       const std::vector<T>& unscaledValues,
       const TypePtr& ptr);
 
-  /// Create a LongDecimal FlatVector from unscaled values, type.
+  /// Create a UnscaledLongDecimal FlatVector from unscaled values, type.
   ///
   /// Elements are not nullable.
   ///
   /// Examples:
   ///  auto flatVector = longDecimalFlatVector({1, 2, 3}, DECIMAL(20, 4));
   template <typename T>
-  FlatVectorPtr<LongDecimal> longDecimalFlatVector(
+  FlatVectorPtr<UnscaledLongDecimal> longDecimalFlatVector(
       const std::vector<T>& unscaledValues,
       const TypePtr& ptr);
 
-  /// Create a ShortDecimal FlatVector from values, type.
+  /// Create a UnscaledShortDecimal FlatVector from values, type.
   ///
   /// Elements are nullable.
   ///
@@ -223,11 +223,11 @@ class VectorMaker {
   ///  auto flatVector = shortDecimalFlatVectorNullable({1, std::nullopt, 3},
   ///  DECIMAL(8, 1));
   template <typename T>
-  FlatVectorPtr<ShortDecimal> shortDecimalFlatVectorNullable(
+  FlatVectorPtr<UnscaledShortDecimal> shortDecimalFlatVectorNullable(
       const std::vector<std::optional<T>>& data,
       const TypePtr& ptr);
 
-  /// Create a LongDecimal FlatVector from values, type.
+  /// Create a UnscaledLongDecimal FlatVector from values, type.
   ///
   /// Elements are nullable.
   ///
@@ -235,7 +235,7 @@ class VectorMaker {
   ///  auto flatVector = longDecimalFlatVectorNullable({1, std::nullopt, 3},
   ///  DECIMAL(20, 4));
   template <typename T>
-  FlatVectorPtr<LongDecimal> longDecimalFlatVectorNullable(
+  FlatVectorPtr<UnscaledLongDecimal> longDecimalFlatVectorNullable(
       const std::vector<std::optional<T>>& data,
       const TypePtr& ptr);
 

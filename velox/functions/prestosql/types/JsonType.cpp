@@ -56,12 +56,12 @@ void generateJsonTyped(
         std::is_same_v<T, Date> || std::is_same_v<T, Timestamp> ||
         std::is_same_v<T, IntervalDayTime>) {
       result.append(std::to_string(value));
-    } else if constexpr (std::is_same_v<T, ShortDecimal>) {
-      // ShortDecimal doesn't include precision and scale information
+    } else if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
+      // UnscaledShortDecimal doesn't include precision and scale information
       // to serialize into JSON.
       VELOX_UNSUPPORTED();
-    } else if constexpr (std::is_same_v<T, LongDecimal>) {
-      // LongDecimal doesn't include precision and scale information
+    } else if constexpr (std::is_same_v<T, UnscaledLongDecimal>) {
+      // UnscaledLongDecimal doesn't include precision and scale information
       // to serialize into JSON.
       VELOX_UNSUPPORTED();
     } else {

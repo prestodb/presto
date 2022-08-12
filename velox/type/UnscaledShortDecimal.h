@@ -23,11 +23,12 @@
 
 namespace facebook::velox {
 
-struct ShortDecimal {
+struct UnscaledShortDecimal {
  public:
   // Default required for creating vector with NULL values.
-  ShortDecimal() = default;
-  constexpr explicit ShortDecimal(int64_t value) : unscaledValue_(value) {}
+  UnscaledShortDecimal() = default;
+  constexpr explicit UnscaledShortDecimal(int64_t value)
+      : unscaledValue_(value) {}
 
   int64_t unscaledValue() const {
     return unscaledValue_;
@@ -37,27 +38,27 @@ struct ShortDecimal {
     unscaledValue_ = unscaledValue;
   }
 
-  bool operator==(const ShortDecimal& other) const {
+  bool operator==(const UnscaledShortDecimal& other) const {
     return unscaledValue_ == other.unscaledValue_;
   }
 
-  bool operator!=(const ShortDecimal& other) const {
+  bool operator!=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ != other.unscaledValue_;
   }
 
-  bool operator<(const ShortDecimal& other) const {
+  bool operator<(const UnscaledShortDecimal& other) const {
     return unscaledValue_ < other.unscaledValue_;
   }
 
-  bool operator<=(const ShortDecimal& other) const {
+  bool operator<=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ <= other.unscaledValue_;
   }
 
-  bool operator>(const ShortDecimal& other) const {
+  bool operator>(const UnscaledShortDecimal& other) const {
     return unscaledValue_ > other.unscaledValue_;
   }
 
-  bool operator>=(const ShortDecimal& other) const {
+  bool operator>=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ >= other.unscaledValue_;
   }
 
@@ -68,8 +69,9 @@ struct ShortDecimal {
 
 namespace folly {
 template <>
-struct hasher<::facebook::velox::ShortDecimal> {
-  size_t operator()(const ::facebook::velox::ShortDecimal& value) const {
+struct hasher<::facebook::velox::UnscaledShortDecimal> {
+  size_t operator()(
+      const ::facebook::velox::UnscaledShortDecimal& value) const {
     return std::hash<int64_t>{}(value.unscaledValue());
   }
 };

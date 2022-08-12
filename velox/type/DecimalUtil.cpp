@@ -91,16 +91,16 @@ const int128_t DecimalUtil::kPowersOfTen[]{
     1000000000000000000 * (int128_t)1000000000000000000 * (int128_t)10};
 
 template <>
-std::string DecimalUtil::toString<LongDecimal>(
-    const LongDecimal& value,
+std::string DecimalUtil::toString<UnscaledLongDecimal>(
+    const UnscaledLongDecimal& value,
     const TypePtr& type) {
   auto decimalType = type->asLongDecimal();
   return formatDecimal(decimalType.scale(), value.unscaledValue());
 }
 
 template <>
-std::string DecimalUtil::toString<ShortDecimal>(
-    const ShortDecimal& value,
+std::string DecimalUtil::toString<UnscaledShortDecimal>(
+    const UnscaledShortDecimal& value,
     const TypePtr& type) {
   auto decimalType = type->asShortDecimal();
   return formatDecimal(decimalType.scale(), value.unscaledValue());

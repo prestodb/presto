@@ -38,11 +38,11 @@
 #include "velox/common/serialization/Serializable.h"
 #include "velox/type/Date.h"
 #include "velox/type/IntervalDayTime.h"
-#include "velox/type/LongDecimal.h"
-#include "velox/type/ShortDecimal.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Timestamp.h"
 #include "velox/type/Tree.h"
+#include "velox/type/UnscaledLongDecimal.h"
+#include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox {
 
@@ -297,7 +297,7 @@ struct TypeTraits<TypeKind::INTERVAL_DAY_TIME> {
 template <>
 struct TypeTraits<TypeKind::SHORT_DECIMAL> {
   using ImplType = DecimalType<TypeKind::SHORT_DECIMAL>;
-  using NativeType = ShortDecimal;
+  using NativeType = UnscaledShortDecimal;
   using DeepCopiedType = NativeType;
   static constexpr uint32_t minSubTypes = 0;
   static constexpr uint32_t maxSubTypes = 0;
@@ -310,7 +310,7 @@ struct TypeTraits<TypeKind::SHORT_DECIMAL> {
 template <>
 struct TypeTraits<TypeKind::LONG_DECIMAL> {
   using ImplType = DecimalType<TypeKind::LONG_DECIMAL>;
-  using NativeType = LongDecimal;
+  using NativeType = UnscaledLongDecimal;
   using DeepCopiedType = NativeType;
   static constexpr uint32_t minSubTypes = 0;
   static constexpr uint32_t maxSubTypes = 0;
@@ -1703,16 +1703,20 @@ struct CppToType<DynamicRow> : public TypeTraits<TypeKind::ROW> {
 };
 
 template <>
-struct CppToType<ShortDecimal> : public TypeTraits<TypeKind::SHORT_DECIMAL> {
+struct CppToType<UnscaledShortDecimal>
+    : public TypeTraits<TypeKind::SHORT_DECIMAL> {
   static std::shared_ptr<const Type> create() {
-    throw std::logic_error{"can't determine exact type for ShortDecimal"};
+    throw std::logic_error{
+        "can't determine exact type for UnscaledShortDecimal"};
   }
 };
 
 template <>
-struct CppToType<LongDecimal> : public TypeTraits<TypeKind::LONG_DECIMAL> {
+struct CppToType<UnscaledLongDecimal>
+    : public TypeTraits<TypeKind::LONG_DECIMAL> {
   static std::shared_ptr<const Type> create() {
-    throw std::logic_error{"can't determine exact type for LongDecimal"};
+    throw std::logic_error{
+        "can't determine exact type for UnscaledLongDecimal"};
   }
 };
 
@@ -1744,12 +1748,12 @@ inline Timestamp to(const std::string& value) {
 }
 
 template <>
-inline ShortDecimal to(const std::string& value) {
+inline UnscaledShortDecimal to(const std::string& value) {
   VELOX_UNSUPPORTED();
 }
 
 template <>
-inline LongDecimal to(const std::string& value) {
+inline UnscaledLongDecimal to(const std::string& value) {
   VELOX_UNSUPPORTED();
 }
 
@@ -1764,15 +1768,15 @@ inline std::string to(const Timestamp& value) {
 }
 
 template <>
-inline std::string to(const ShortDecimal& value) {
-  // ShortDecimal doesn't have precision and scale information to
+inline std::string to(const UnscaledShortDecimal& value) {
+  // UnscaledShortDecimal doesn't have precision and scale information to
   // be serialized into string.
   VELOX_UNSUPPORTED();
 }
 
 template <>
-inline std::string to(const LongDecimal& value) {
-  // LongDecimal doesn't have precision and scale information to
+inline std::string to(const UnscaledLongDecimal& value) {
+  // UnscaledLongDecimal doesn't have precision and scale information to
   // be serialized into string.
   VELOX_UNSUPPORTED();
 }

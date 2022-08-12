@@ -22,7 +22,7 @@ add_library(
   DecimalUtil.cpp
   Filter.cpp
   IntervalDayTime.cpp
-  LongDecimal.cpp
+  UnscaledLongDecimal.cpp
   StringView.h
   Subfield.cpp
   Timestamp.cpp

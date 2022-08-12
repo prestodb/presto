@@ -156,40 +156,40 @@ std::shared_ptr<exec::VectorFunction> createDecimalFunction(
       if (rPrecision > DecimalType<TypeKind::SHORT_DECIMAL>::kMaxPrecision) {
         // Arguments are short decimals and result is a long decimal.
         return std::make_shared<DecimalBaseFunction<
-            LongDecimal /*result*/,
-            ShortDecimal,
-            ShortDecimal,
+            UnscaledLongDecimal /*result*/,
+            UnscaledShortDecimal,
+            UnscaledShortDecimal,
             Operation>>(aRescale, bRescale);
       } else {
         // Arguments are short decimals and result is a short decimal.
         return std::make_shared<DecimalBaseFunction<
-            ShortDecimal /*result*/,
-            ShortDecimal,
-            ShortDecimal,
+            UnscaledShortDecimal /*result*/,
+            UnscaledShortDecimal,
+            UnscaledShortDecimal,
             Operation>>(aRescale, bRescale);
       }
     } else {
       // LHS is short decimal and rhs is a long decimal, result is long decimal.
       return std::make_shared<DecimalBaseFunction<
-          LongDecimal /*result*/,
-          ShortDecimal,
-          LongDecimal,
+          UnscaledLongDecimal /*result*/,
+          UnscaledShortDecimal,
+          UnscaledLongDecimal,
           Operation>>(aRescale, bRescale);
     }
   } else {
     if (bType->kind() == TypeKind::SHORT_DECIMAL) {
       // LHS is long decimal and rhs is short decimal, result is a long decimal.
       return std::make_shared<DecimalBaseFunction<
-          LongDecimal /*result*/,
-          LongDecimal,
-          ShortDecimal,
+          UnscaledLongDecimal /*result*/,
+          UnscaledLongDecimal,
+          UnscaledShortDecimal,
           Operation>>(aRescale, bRescale);
     } else {
       // Arguments and result are all long decimals.
       return std::make_shared<DecimalBaseFunction<
-          LongDecimal /*result*/,
-          LongDecimal,
-          LongDecimal,
+          UnscaledLongDecimal /*result*/,
+          UnscaledLongDecimal,
+          UnscaledLongDecimal,
           Operation>>(aRescale, bRescale);
     }
   }

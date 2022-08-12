@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/type/LongDecimal.h"
+#include "velox/type/UnscaledLongDecimal.h"
 
 namespace std {
 
