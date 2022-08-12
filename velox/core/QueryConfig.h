@@ -231,11 +231,11 @@ class QueryConfig {
 
   /// Returns the factor used to determine the target spill file size based on
   /// the spilling operator's memory usage. For instance, if the spilling
-  /// operator has used 1GB memory and this factor is 2, then the target spill
+  /// operator has used 1GB memory and this factor is 0.5, then the target spill
   /// file size will be set to 512MB.
-  int32_t spillFileSizeFactor() const {
-    constexpr int32_t kDefaultFactor = 4;
-    return get<int32_t>(kSpillFileSizeFactor, kDefaultFactor);
+  double spillFileSizeFactor() const {
+    constexpr double kDefaultFactor = 0.25;
+    return get<double>(kSpillFileSizeFactor, kDefaultFactor);
   }
 
   /// Returns the spillable memory reservation growth percentage of the previous

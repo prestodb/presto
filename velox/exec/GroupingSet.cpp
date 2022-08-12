@@ -539,7 +539,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
     }
     assert(mappedMemory_->tracker()); // lint
     const auto fileSize =
-        mappedMemory_->tracker()->getCurrentUserBytes() / spillFileSizeFactor_;
+        mappedMemory_->tracker()->getCurrentUserBytes() * spillFileSizeFactor_;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregate,
         *rows,
