@@ -122,7 +122,6 @@ public class ListSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
     {
@@ -211,7 +210,6 @@ public class ListSelectiveStreamReader
                 elementSubfields,
                 hiveStorageTimeZone,
                 options,
-                legacyMapSubscript,
                 systemMemoryContext,
                 isLowMemory);
         this.systemMemoryContext = systemMemoryContext.newOrcLocalMemoryContext(ListSelectiveStreamReader.class.getSimpleName());

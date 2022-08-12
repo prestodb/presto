@@ -155,7 +155,6 @@ public class TestOrcFileIntrospection
                 0,
                 dataSource.getSize(),
                 DateTimeZone.UTC,
-                false,
                 NOOP_ORC_AGGREGATED_MEMORY_CONTEXT,
                 Optional.empty(),
                 1000);
