@@ -177,7 +177,6 @@ public class OrcSelectiveRecordReader
             int rowsInRowGroup,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
             PostScript.HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             Map<String, Slice> userMetadata,
@@ -196,7 +195,6 @@ public class OrcSelectiveRecordReader
                         types,
                         hiveStorageTimeZone,
                         options,
-                        legacyMapSubscript,
                         includedColumns,
                         outputColumns,
                         filters,
@@ -583,7 +581,6 @@ public class OrcSelectiveRecordReader
             List<OrcType> types,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
             Map<Integer, Type> includedColumns,
             List<Integer> outputColumns,
             Map<Integer, Map<Subfield, TupleDomainFilter>> filters,
@@ -616,7 +613,6 @@ public class OrcSelectiveRecordReader
                         Optional.ofNullable(requiredSubfields.get(columnId)).orElse(ImmutableList.of()),
                         hiveStorageTimeZone,
                         options,
-                        legacyMapSubscript,
                         systemMemoryContext,
                         false);
             }

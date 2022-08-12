@@ -109,7 +109,6 @@ public class StructSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
     {
@@ -188,7 +187,6 @@ public class StructSelectiveStreamReader
                                 nestedRequiredSubfields,
                                 hiveStorageTimeZone,
                                 options,
-                                legacyMapSubscript,
                                 systemMemoryContext.newOrcAggregatedMemoryContext(),
                                 isLowMemory);
                         nestedReaders.put(fieldName, nestedReader);
