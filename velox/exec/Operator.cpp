@@ -99,7 +99,7 @@ Operator::Operator(
   if (memoryUsageTracker) {
     memoryUsageTracker->setMakeMemoryCapExceededMessage(
         [&](memory::MemoryUsageTracker& tracker) {
-          VELOX_DCHECK_EQ(pool()->getMemoryUsageTracker().get(), &tracker);
+          VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
           std::stringstream out;
           out << "Failed Operator: " << stats_.operatorType << "_#"
               << stats_.operatorId << ": "

@@ -150,7 +150,7 @@ Task::Task(
   if (memoryUsageTracker) {
     memoryUsageTracker->setMakeMemoryCapExceededMessage(
         [&](memory::MemoryUsageTracker& tracker) {
-          VELOX_DCHECK_EQ(pool()->getMemoryUsageTracker().get(), &tracker);
+          VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
           return this->getErrorMsgOnMemCapExceeded(tracker);
         });
   }
