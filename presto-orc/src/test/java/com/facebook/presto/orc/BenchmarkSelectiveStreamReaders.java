@@ -309,7 +309,6 @@ public class BenchmarkSelectiveStreamReaders
                     0,
                     dataSource.getSize(),
                     UTC, // arbitrary
-                    true,
                     new TestingHiveOrcAggregatedMemoryContext(),
                     Optional.empty(),
                     INITIAL_BATCH_SIZE);

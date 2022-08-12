@@ -380,7 +380,6 @@ public class OrcReader
             long offset,
             long length,
             DateTimeZone hiveStorageTimeZone,
-            boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryUsage,
             Optional<OrcWriteValidation> writeValidation,
             int initialBatchSize)
@@ -410,7 +409,6 @@ public class OrcReader
                 footer.getRowsInRowGroup(),
                 hiveStorageTimeZone,
                 new OrcRecordReaderOptions(orcReaderOptions),
-                legacyMapSubscript,
                 hiveWriterVersion,
                 metadataReader,
                 footer.getUserMetadata(),

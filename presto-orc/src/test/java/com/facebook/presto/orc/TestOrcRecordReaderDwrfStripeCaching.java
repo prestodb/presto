@@ -207,7 +207,6 @@ public class TestOrcRecordReaderDwrfStripeCaching
                 0,
                 orcDataSource.getSize(),
                 HIVE_STORAGE_TIME_ZONE,
-                false,
                 new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
                 MAX_BATCH_SIZE);

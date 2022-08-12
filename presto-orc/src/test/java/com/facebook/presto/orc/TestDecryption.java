@@ -761,7 +761,6 @@ public class TestDecryption
                 offset,
                 orcDataSource.getSize(),
                 HIVE_STORAGE_TIME_ZONE,
-                false,
                 new TestingHiveOrcAggregatedMemoryContext(),
                 Optional.empty(),
                 MAX_BATCH_SIZE);
