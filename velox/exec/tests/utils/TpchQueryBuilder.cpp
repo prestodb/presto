@@ -139,6 +139,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ14Plan();
     case 15:
       return getQ15Plan();
+    case 16:
+      return getQ16Plan();
     case 18:
       return getQ18Plan();
     case 19:
@@ -972,6 +974,89 @@ TpchPlan TpchQueryBuilder::getQ15Plan() const {
   context.dataFiles[lineitemScanNodeIdSubQuery] = getTableFilePaths(kLineitem);
   context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
   context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ16Plan() const {
+  std::vector<std::string> partColumns = {
+      "p_brand", "p_type", "p_size", "p_partkey"};
+  std::vector<std::string> supplierColumns = {"s_suppkey", "s_comment"};
+  std::vector<std::string> partsuppColumns = {"ps_partkey", "ps_suppkey"};
+
+  const auto partSelectedRowType = getRowType(kPart, partColumns);
+  const auto& partFileColumns = getFileColumnNames(kPart);
+  const auto supplierSelectedRowType = getRowType(kSupplier, supplierColumns);
+  const auto& supplierFileColumns = getFileColumnNames(kSupplier);
+  const auto partsuppSelectedRowType = getRowType(kPartsupp, partsuppColumns);
+  const auto& partsuppFileColumns = getFileColumnNames(kPartsupp);
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId partScanNodeId;
+  core::PlanNodeId supplierScanNodeId;
+  core::PlanNodeId partsuppScanNodeId;
+
+  auto part = PlanBuilder(planNodeIdGenerator, pool_.get())
+                  .tableScan(
+                      kPart,
+                      partSelectedRowType,
+                      partFileColumns,
+                      {"p_size in (49, 14, 23, 45, 19, 3, 36, 9)"},
+                      "p_type NOT LIKE 'MEDIUM POLISHED%'")
+                  .capturePlanNodeId(partScanNodeId)
+                  // Neq is unsupported as a tableScan subfield filter for
+                  // Parquet source.
+                  .filter("p_brand <> 'Brand#45'")
+                  .planNode();
+
+  auto supplier = PlanBuilder(planNodeIdGenerator)
+                      .tableScan(
+                          kSupplier,
+                          supplierSelectedRowType,
+                          supplierFileColumns,
+                          {},
+                          "s_comment LIKE '%Customer%Complaints%'")
+                      .capturePlanNodeId(supplierScanNodeId)
+                      .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kPartsupp, partsuppSelectedRowType, partsuppFileColumns)
+          .capturePlanNodeId(partsuppScanNodeId)
+          .hashJoin(
+              {"ps_partkey"},
+              {"p_partkey"},
+              part,
+              "",
+              {"ps_suppkey", "p_brand", "p_type", "p_size"})
+          .hashJoin(
+              {"ps_suppkey"},
+              {"s_suppkey"},
+              supplier,
+              "",
+              {"ps_suppkey", "p_brand", "p_type", "p_size"},
+              core::JoinType::kAnti)
+          // Empty aggregate is used here to get the distinct count of
+          // ps_suppkey.
+          // approx_distinct could be used instead for getting the count of
+          // distinct ps_suppkey but since approx_distinct is non deterministic
+          // and the standard error can not be set to 0, it is not used here.
+          .partialAggregation({"p_brand", "p_type", "p_size", "ps_suppkey"}, {})
+          .localPartition({"p_brand", "p_type", "p_size", "ps_suppkey"})
+          .finalAggregation()
+          .partialAggregation(
+              {"p_brand", "p_type", "p_size"},
+              {"count(ps_suppkey) as supplier_cnt"})
+          .localPartition({})
+          .finalAggregation()
+          .orderBy({"supplier_cnt DESC", "p_brand", "p_type", "p_size"}, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
+  context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
+  context.dataFiles[partsuppScanNodeId] = getTableFilePaths(kPartsupp);
   context.dataFileFormat = format_;
   return context;
 }

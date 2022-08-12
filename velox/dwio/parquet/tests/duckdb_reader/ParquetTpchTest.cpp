@@ -214,6 +214,11 @@ TEST_F(ParquetTpchTest, Q15) {
   assertQuery(15, std::move(sortingKeys));
 }
 
+TEST_F(ParquetTpchTest, Q16) {
+  std::vector<uint32_t> sortingKeys{0, 1, 2, 3};
+  assertQuery(16, std::move(sortingKeys));
+}
+
 TEST_F(ParquetTpchTest, Q18) {
   assertQuery(18);
 }
