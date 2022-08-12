@@ -608,6 +608,8 @@ class VectorTestBase {
   static VectorPtr
   wrapInDictionary(BufferPtr indices, vector_size_t size, VectorPtr vector);
 
+  static VectorPtr wrapInDictionary(BufferPtr indices, VectorPtr vector);
+
   static VectorPtr flatten(const VectorPtr& vector) {
     return velox::test::VectorMaker::flatten(vector);
   }

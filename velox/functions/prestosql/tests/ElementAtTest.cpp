@@ -106,6 +106,62 @@ void ElementAtTest::testVariableInputMap<StringView>() {
 
 } // namespace
 
+TEST_F(ElementAtTest, mapWithDictionaryKeys) {
+  {
+    auto keyIndices = makeIndices({6, 5, 4, 3, 2, 1, 0});
+    auto keys = wrapInDictionary(
+        keyIndices, makeFlatVector<int64_t>({0, 1, 2, 3, 4, 5, 6}));
+
+    // values vector is [100, 200, 300, 400, 500, 600, 0].
+    auto valuesIndices = makeIndices({1, 2, 3, 4, 5, 6, 0});
+    auto values = wrapInDictionary(
+        valuesIndices,
+        makeFlatVector<int64_t>({0, 100, 200, 300, 400, 500, 600}));
+
+    // map vector is [{6->100, 5->200, 4->300}, {3->400, 2->500, 1->600},
+    // {0->0}].
+    auto inputMap = makeMapVector({0, 3, 6}, keys, values);
+
+    auto inputIndices = makeFlatVector<int64_t>({5, 2, 3});
+    auto expected = makeNullableFlatVector<int64_t>({200, 500, std::nullopt});
+
+    auto result =
+        evaluate("element_at(c0, c1)", makeRowVector({inputMap, inputIndices}));
+    test::assertEqualVectors(expected, result);
+  }
+
+  {
+    auto result = evaluateOnce<int64_t>(
+        "element_at(map(array_constructor(85,22,79,76,10,80,57,31),array_constructor(14,10,16,15,12,11,17,13)),85)",
+        makeRowVector({}));
+    ASSERT_EQ(result, 14);
+  }
+}
+
+TEST_F(ElementAtTest, arrayWithDictionaryElements) {
+  {
+    auto elementsIndices = makeIndices({6, 5, 4, 3, 2, 1, 0});
+    auto elements = wrapInDictionary(
+        elementsIndices, makeFlatVector<int64_t>({0, 1, 2, 3, 4, 5, 6}));
+
+    // array vector is [[6, 5, 4], [3, 2, 1], [0]].
+    auto inputArray = makeArrayVector({0, 3, 6}, elements);
+    auto inputIndices = makeFlatVector<int32_t>({3, -3, 1});
+    auto expected = makeFlatVector<int64_t>({4, 3, 0});
+
+    auto result = evaluate(
+        "element_at(c0, c1)", makeRowVector({inputArray, inputIndices}));
+    test::assertEqualVectors(expected, result);
+  }
+
+  {
+    auto result = evaluateOnce<int64_t>(
+        "element_at(array_constructor(14,10,16,15,12,11,17,13), -3)",
+        makeRowVector({}));
+    ASSERT_EQ(result, 11);
+  }
+}
+
 TEST_F(ElementAtTest, constantInputArray) {
   {
     auto arrayVector = makeArrayVector<int64_t>({

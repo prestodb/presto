@@ -36,6 +36,14 @@ VectorPtr VectorTestBase::wrapInDictionary(
       BufferPtr(nullptr), indices, size, vector);
 }
 
+// static
+VectorPtr VectorTestBase::wrapInDictionary(
+    BufferPtr indices,
+    VectorPtr vector) {
+  return wrapInDictionary(
+      indices, indices->size() / sizeof(vector_size_t), vector);
+}
+
 BufferPtr VectorTestBase::makeOddIndices(vector_size_t size) {
   return makeIndices(size, [](vector_size_t i) { return 2 * i + 1; });
 }
