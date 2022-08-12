@@ -81,12 +81,17 @@ class TestStripeStreams : public StripeStreamsBase {
       WriterContext& context,
       const proto::StripeFooter& footer,
       const std::shared_ptr<const RowType>& rowType,
-      bool returnFlatVector = false)
+      bool returnFlatVector = false,
+      std::unordered_map<uint32_t, std::vector<std::string>>
+          structReaderContext = {})
       : StripeStreamsBase{&memory::getProcessDefaultMemoryManager().getRoot()},
         context_{context},
         footer_{footer},
         selector_{rowType} {
     options_.setReturnFlatVector(returnFlatVector);
+    if (!structReaderContext.empty()) {
+      options_.setFlatmapNodeIdsAsStruct(structReaderContext);
+    }
   }
 
   std::unique_ptr<SeekableInputStream> getStream(
@@ -675,6 +680,21 @@ void printMap(const std::string& title, const VectorPtr& batch) {
   }
 }
 
+void printRow(const std::string& title, const VectorPtr& batch) {
+  auto row = std::dynamic_pointer_cast<RowVector>(batch);
+  if (!row) {
+    VLOG(3) << "To be implemented for encoded vector";
+    return;
+  }
+
+  VLOG(3) << "*******" << title << "*******";
+  VLOG(3) << "Size: " << row->size()
+          << ", Null count: " << getNullCountStr(*row);
+  for (int i = 0; i < row->size(); i++) {
+    VLOG(3) << "[" << i << "]: " << row->toString(i);
+  }
+}
+
 VectorPtr
 wrapInDictionary(const VectorPtr& batch, size_t stride, MemoryPool& pool) {
   VectorPtr ret = batch;
@@ -758,36 +778,39 @@ void mapToStruct(
     std::vector<VectorPtr>& batches,
     const std::vector<TKEY>& uniqueKeys) {
   std::unordered_map<TKEY, int> keyColIndex;
-  for (int i = 0; i < uniqueKeys.size(); i++) {
+  for (auto i = 0; i < uniqueKeys.size(); i++) {
     keyColIndex[uniqueKeys[i]] = i; // lookup from key -> column#
   }
 
   for (size_t i = 0; i < batches.size(); i++) {
-    auto batch = batches[i];
+    auto origBatch = batches[i];
     std::vector<VectorPtr> childrenVectors(uniqueKeys.size());
     // initialize children of batch size filled with nulls
     VectorMaker maker{&pool};
-    for (int column = 0; column < uniqueKeys.size(); column++) {
-      childrenVectors[column] = maker.allNullFlatVector<TVALUE>(batch->size());
+    for (auto column = 0; column < uniqueKeys.size(); column++) {
+      childrenVectors[column] =
+          maker.allNullFlatVector<TVALUE>(origBatch->size());
+      // only flat for scalar types
+      // create function to handle nested complex types
     }
     batches[i] = maker.rowVector(childrenVectors);
     auto batchStruct = std::dynamic_pointer_cast<RowVector>(batches[i]);
 
-    auto map = std::dynamic_pointer_cast<MapVector>(batch);
-    ASSERT_TRUE(map);
+    auto mapBatch = std::dynamic_pointer_cast<MapVector>(origBatch);
+    ASSERT_TRUE(mapBatch);
 
-    auto keys = map->mapKeys();
+    auto keys = mapBatch->mapKeys();
     auto flatKeys = std::dynamic_pointer_cast<FlatVector<TKEY>>(keys);
     ASSERT_TRUE(flatKeys);
-    auto values = map->mapValues();
+    auto values = mapBatch->mapValues();
     auto flatValues = std::dynamic_pointer_cast<FlatVector<TVALUE>>(values);
     ASSERT_TRUE(flatValues);
 
-    auto offsets = map->offsets()->as<vector_size_t>();
-    auto sizes = map->sizes()->as<vector_size_t>();
+    auto offsets = mapBatch->offsets()->as<vector_size_t>();
+    auto sizes = mapBatch->sizes()->as<vector_size_t>();
 
     // for each row in current batch
-    for (vector_size_t row = 0; row < map->size(); row++) {
+    for (vector_size_t row = 0; row < mapBatch->size(); row++) {
       // for each key in row (single map)
       for (vector_size_t index = offsets[row],
                          endOffset = offsets[row] + sizes[row];
@@ -826,13 +849,18 @@ void testMapWriter(
           << (useFlatMap && useStruct ? " - Struct" : "");
 
   const auto config = std::make_shared<Config>();
+  auto* pBatches = &batches;
+  std::vector<VectorPtr> structs;
+  std::unordered_map<uint32_t, std::vector<std::string>> structReaderContext;
   if (useFlatMap) {
     if (useStruct) {
-      auto structs = batches;
+      structs = batches;
+      pBatches = &structs;
       std::vector<TKEY> uniqueKeys;
       ASSERT_NO_FATAL_FAILURE(getUniqueKeys<TKEY>(uniqueKeys, batches));
       ASSERT_NO_FATAL_FAILURE(
           (mapToStruct<TKEY, TVALUE>(pool, structs, uniqueKeys)));
+
       std::vector<std::string> uniqueKeysString;
       uniqueKeysString.reserve(uniqueKeys.size());
       std::transform(
@@ -842,6 +870,7 @@ void testMapWriter(
           [](const auto& e) { return folly::to<std::string>(e); });
       ASSERT_EQ(writerDataTypeWithId->column, 0);
       config->set(Config::MAP_FLAT_COLS_STRUCT_KEYS, {uniqueKeysString});
+      structReaderContext[writerDataTypeWithId->id] = uniqueKeysString;
     }
 
     config->set(Config::FLATTEN_MAP, true);
@@ -859,20 +888,23 @@ void testMapWriter(
   size_t strideCount = testEncoded ? 4 : 2;
 
   // Each batch represents an input for a separate stripe
-  for (auto batch : batches) {
-    // TODO: branch between flatmap and flatmap struct encoding using isStruct
+  for (auto batch : *pBatches) {
     auto isStruct = useFlatMap && useStruct;
     if (printMaps) {
-      printMap<TKEY, TVALUE>("Input", batch);
+      if (isStruct) {
+        printRow("Input", batch);
+      } else {
+        printMap<TKEY, TVALUE>("Input", batch);
+      }
     }
 
     proto::StripeFooter sf;
     std::vector<VectorPtr> writtenBatches;
 
-    // Write map
+    // Write map/row
     for (auto strideI = 0; strideI < strideCount; ++strideI) {
       auto toWrite = batch;
-      if (testEncoded) {
+      if (testEncoded && !isStruct) {
         toWrite = wrapInDictionary(toWrite, strideI, pool);
       }
       // if (testEncoded) {
@@ -892,18 +924,23 @@ void testMapWriter(
     });
 
     auto validate = [&](bool returnFlatVector = false) {
-      TestStripeStreams streams(context, sf, rowType, returnFlatVector);
+      TestStripeStreams streams(
+          context, sf, rowType, returnFlatVector, structReaderContext);
       const auto reader =
           ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
       VectorPtr out;
 
-      // Read map
+      // Read map/row
       for (auto& writtenBatch : writtenBatches) {
         reader->next(writtenBatch->size(), out);
         ASSERT_EQ(out->size(), writtenBatch->size()) << "Batch size mismatch";
 
         if (printMaps) {
-          printMap<TKEY, TVALUE>("Result", out);
+          if (isStruct) {
+            printRow("Result", batch);
+          } else {
+            printMap<TKEY, TVALUE>("Result", out);
+          }
         }
 
         for (int32_t i = 0; i < writtenBatch->size(); ++i) {
@@ -1046,7 +1083,7 @@ TEST(ColumnWriterTests, TestMapWriterStringKey) {
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
   testMapWriter<keyType, valueType>(
-      pool, batch, /* useFlatMap */ true, /* useStruct */ true);
+      pool, batch, /* useFlatMap */ true, true, /* useStruct */ true);
 }
 
 TEST(ColumnWriterTests, TestMapWriterDifferentNumericKeyValue) {
@@ -1127,7 +1164,8 @@ TEST(ColumnWriterTests, TestMapWriterBinaryKey) {
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
-  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, true);
+  testMapWriter<keyType, valueType>(
+      pool, batch, /* useFlatMap */ true, true, /* useStruct */ true);
 }
 
 template <typename keyType, typename valueType>
@@ -1140,7 +1178,8 @@ void testMapWriterImpl() {
 
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ false);
   testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true);
-  testMapWriter<keyType, valueType>(pool, batch, /* useFlatMap */ true, true);
+  // testMapWriter<keyType, valueType>(
+  //     pool, batch, /* useFlatMap */ true, true, /* useStruct */ true);
 }
 
 TEST(ColumnWriterTests, TestMapWriterNestedMap) {

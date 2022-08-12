@@ -293,6 +293,12 @@ class FlatMapColumnWriter : public BaseColumnWriter {
   std::unique_ptr<typename TypeInfo<K>::StatisticsBuilder> keyFileStatsBuilder_;
   std::unique_ptr<const ValueStatisticsBuilder> valueFileStatsBuilder_;
   const uint32_t maxKeyCount_;
+
+  // Stores column keys as string in case of StringView pointers
+  std::vector<std::string> stringKeys_;
+
+  // Stores column keys if writing with RowVector input
+  std::vector<KeyType> structKeys_;
 };
 
 template <>

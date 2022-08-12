@@ -25,12 +25,25 @@ namespace {
 
 template <typename T>
 T getKey(const std::string& val) {
-  return folly::to<T>(val);
+  try {
+    return folly::to<T>(val);
+  } catch (const folly::ConversionError& e) {
+    DWIO_RAISE(e.what());
+  }
 }
 
 template <>
 StringView getKey<StringView>(const std::string& val) {
   return StringView(val);
+}
+
+template <typename KeyType>
+std::vector<KeyType> parseKeys(const std::vector<std::string>& stringKeys) {
+  std::vector<KeyType> keys(stringKeys.size());
+  for (auto i = 0; i < stringKeys.size(); i++) {
+    keys[i] = getKey<KeyType>(stringKeys[i]);
+  }
+  return keys;
 }
 
 } // namespace
@@ -54,6 +67,17 @@ FlatMapColumnWriter<K>::FlatMapColumnWriter(
               StatisticsBuilder::create(*keyType_.type, options).release()));
   valueFileStatsBuilder_ = ValueStatisticsBuilder::create(context_, valueType_);
   reset();
+  const auto structColumnKeys =
+      context.getConfig(Config::MAP_FLAT_COLS_STRUCT_KEYS);
+  if (!structColumnKeys.empty()) {
+    if constexpr (std::is_same_v<KeyType, StringView>) {
+      const auto& keys = structColumnKeys[type.column];
+      std::copy(keys.cbegin(), keys.cend(), std::back_inserter(stringKeys_));
+      structKeys_ = parseKeys<KeyType>(stringKeys_);
+    } else {
+      structKeys_ = parseKeys<KeyType>(structColumnKeys[type.column]);
+    }
+  }
 }
 
 template <TypeKind K>
@@ -302,22 +326,19 @@ template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::write(
     const VectorPtr& slice,
     const Ranges& ranges) {
-  return writeMap(slice, ranges);
-
-  // enable once writeRow() is tested
-
-  // switch (slice->typeKind()) {
-  //   case TypeKind::MAP:
-  //     return writeMap(slice, ranges);
-  //     break;
-  //   case TypeKind::ROW:
-  //     // fail if missing keys
-  //     return writeRow(slice, ranges);
-  //     break;
-  //   default:
-  //     DWIO_ENSURE(slice->as<MapVector>(), "unexpected vector type");
-  //     return -1; // error
-  // }
+  switch (slice->typeKind()) {
+    case TypeKind::MAP:
+      return writeMap(slice, ranges);
+    case TypeKind::ROW:
+      if (!structKeys_.empty()) {
+        return writeRow(slice, ranges);
+      }
+      DWIO_RAISE(
+          "Writing RowVector as flatmap with empty keys. Keys must be specified on writer creation.");
+    default:
+      DWIO_RAISE(
+          "Unexpected vector type. Should be MapVector or RowVector (can be encoded)");
+  }
 }
 
 template <TypeKind K>
@@ -443,7 +464,6 @@ uint64_t FlatMapColumnWriter<K>::writeRow(
   uint64_t rawSize = 0;
   Ranges nonNullRanges;
 
-  // #1, 2 - writeNulls() & count non-null rows
   const RowVector* rowSlice = slice->as<RowVector>();
   if (rowSlice) {
     // Row is flat
@@ -458,36 +478,27 @@ uint64_t FlatMapColumnWriter<K>::writeRow(
     DWIO_ENSURE(rowSlice, "unexpected vector type");
     nonNullRanges = getNonNullRanges(ranges, Decoded{decodedRow});
   }
+  DWIO_ENSURE(
+      structKeys_.size() == rowSlice->childrenSize(),
+      "Writing RowVector as flatmap with mismatched number of keys and columns.");
 
-  // #3 - create Buffer filled with 1 to reuse for all columns
   BufferPtr inMapBuffer = AlignedBuffer::allocate<char>(
       nonNullRanges.size(),
       &context_.getMemoryPool(MemoryUsageCategory::GENERAL),
       1);
 
-  // #4 - for each column
-  auto row = std::dynamic_pointer_cast<RowVector>(slice);
-  const auto& stringKeys =
-      std::dynamic_pointer_cast<const RowType>(slice->type())->names();
-  DWIO_ENSURE(stringKeys.size() == row->childrenSize());
-  for (size_t i = 0; i < stringKeys.size(); i++) {
-    // A, B - retrieve keys from type_ and convert string->KeyType
-    if (stringKeys[i].empty()) {
-      continue;
-    }
-
-    auto key = getKey<KeyType>(stringKeys[i]);
-    // C, D - update key statistics & rawSize
+  for (size_t i = 0; i < structKeys_.size(); i++) {
     // looping each non-null row for now; no batch updateKeyStatistics()
     for (size_t j = 0; j < nonNullRanges.size(); j++) {
-      auto keySize = updateKeyStatistics<K>(*keyFileStatsBuilder_, key);
+      auto keySize =
+          updateKeyStatistics<K>(*keyFileStatsBuilder_, structKeys_[i]);
       keyFileStatsBuilder_->increaseRawSize(keySize);
       rawSize += keySize;
     }
 
-    // E, F - getValueWriter() & writeBuffers()
-    ValueWriter& valueWriter = getValueWriter(key, nonNullRanges.size());
-    valueWriter.writeBuffers(row->childAt(i), nonNullRanges, inMapBuffer);
+    ValueWriter& valueWriter =
+        getValueWriter(structKeys_[i], nonNullRanges.size());
+    valueWriter.writeBuffers(rowSlice->childAt(i), nonNullRanges, inMapBuffer);
   }
 
   size_t numNullRows = ranges.size() - nonNullRanges.size();

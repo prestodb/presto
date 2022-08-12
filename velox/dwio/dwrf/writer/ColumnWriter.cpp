@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/writer/ColumnWriter.h"
+#include <velox/dwio/common/exception/Exception.h>
 #include "velox/dwio/common/ChainedBuffer.h"
 #include "velox/dwio/dwrf/common/EncoderUtil.h"
 #include "velox/dwio/dwrf/writer/DictionaryEncodingUtils.h"
@@ -1947,15 +1948,29 @@ std::unique_ptr<BaseColumnWriter> BaseColumnWriter::create(
   // When flat map is enabled, all columns provided in the MAP_FLAT_COLS config,
   // must be of MAP type. We only check top level columns (columns which are
   // direct children of the root node).
-  if (flatMapEnabled && type.parent != nullptr && type.parent->id == 0 &&
-      type.type->kind() != TypeKind::MAP &&
-      std::find(flatMapCols.begin(), flatMapCols.end(), type.column) !=
-          flatMapCols.end()) {
-    DWIO_RAISE(fmt::format(
-        "MAP_FLAT_COLS contains column {}, but the root type of this column is {}."
-        " Column root types must be of type MAP",
-        type.column,
-        mapTypeKindToName(type.type->kind())));
+  if (flatMapEnabled && type.parent != nullptr && type.parent->id == 0) {
+    if (type.type->kind() != TypeKind::MAP &&
+        std::find(flatMapCols.begin(), flatMapCols.end(), type.column) !=
+            flatMapCols.end()) {
+      DWIO_RAISE(fmt::format(
+          "MAP_FLAT_COLS contains column {}, but the root type of this column is {}."
+          " Column root types must be of type MAP",
+          type.column,
+          mapTypeKindToName(type.type->kind())));
+    }
+    const auto structColumnKeys =
+        context.getConfig(Config::MAP_FLAT_COLS_STRUCT_KEYS);
+    if (!structColumnKeys.empty()) {
+      DWIO_ENSURE(
+          type.parent->size() == structColumnKeys.size(),
+          "MAP_FLAT_COLS_STRUCT_KEYS size must match number of columns.");
+      if (!structColumnKeys[type.column].empty()) {
+        DWIO_ENSURE(
+            std::find(flatMapCols.begin(), flatMapCols.end(), type.column) !=
+                flatMapCols.end(),
+            "Struct input found in MAP_FLAT_COLS_STRUCT_KEYS. Column must also be in MAP_FLAT_COLS.");
+      }
+    }
   }
 
   switch (type.type->kind()) {
