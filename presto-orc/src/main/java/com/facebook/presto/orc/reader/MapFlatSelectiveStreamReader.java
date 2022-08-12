@@ -83,7 +83,6 @@ public class MapFlatSelectiveStreamReader
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapFlatSelectiveStreamReader.class).instanceSize();
 
     private final StreamDescriptor streamDescriptor;
-    private final boolean legacyMapSubscript;
 
     // This is the StreamDescriptor for the value stream with sequence ID 0, it is used to derive StreamDescriptors for the
     // value streams with other sequence IDs
@@ -143,7 +142,6 @@ public class MapFlatSelectiveStreamReader
             Optional<Type> outputType,
             DateTimeZone hiveStorageTimeZone,
             OrcRecordReaderOptions options,
-            boolean legacyMapSubscript,
             OrcAggregatedMemoryContext systemMemoryContext)
     {
         this.options = requireNonNull(options);
@@ -151,7 +149,6 @@ public class MapFlatSelectiveStreamReader
         checkArgument(streamDescriptor.getNestedStreams().size() == 2, "there must be exactly 2 nested stream descriptor");
 
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.legacyMapSubscript = legacyMapSubscript;
         this.keyOrcTypeKind = streamDescriptor.getNestedStreams().get(0).getOrcTypeKind();
         this.baseValueStreamDescriptor = streamDescriptor.getNestedStreams().get(1);
         this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
@@ -682,7 +679,6 @@ public class MapFlatSelectiveStreamReader
                     ImmutableList.of(),
                     hiveStorageTimeZone,
                     options,
-                    legacyMapSubscript,
                     systemMemoryContext.newOrcAggregatedMemoryContext(),
                     true);
             valueStreamReader.startStripe(stripe);
