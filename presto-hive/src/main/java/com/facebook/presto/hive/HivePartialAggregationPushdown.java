@@ -16,6 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
@@ -28,7 +29,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
@@ -56,9 +56,9 @@ import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class HivePartialAggregationPushdown
@@ -107,17 +107,17 @@ public class HivePartialAggregationPushdown
         if (!isPartialAggregationPushdownEnabled(session)) {
             return maxSubplan;
         }
-        return maxSubplan.accept(new Visitor(variableAllocator, session, idAllocator), null);
+        return rewriteWith(new Rewriter(variableAllocator, session, idAllocator), maxSubplan);
     }
 
-    private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+    private class Rewriter
+            extends ConnectorPlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
         private final ConnectorSession session;
         private final VariableAllocator variableAllocator;
 
-        public Visitor(VariableAllocator variableAllocator, ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        public Rewriter(VariableAllocator variableAllocator, ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = session;
             this.idAllocator = idAllocator;
@@ -284,12 +284,9 @@ public class HivePartialAggregationPushdown
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
+        public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
-            Optional<PlanNode> pushedDownPlan = tryPartialAggregationPushdown(node);
-            return pushedDownPlan.orElseGet(() -> replaceChildren(
-                    node,
-                    node.getSources().stream().map(source -> source.accept(this, null)).collect(toImmutableList())));
+            return tryPartialAggregationPushdown(node).orElse(node);
         }
     }
 }
