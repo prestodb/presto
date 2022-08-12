@@ -19,7 +19,10 @@ import com.facebook.presto.common.block.ClosingBlockLease;
 import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.ShortArrayBlock;
+import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.orc.OrcAggregatedMemoryContext;
+import com.facebook.presto.orc.StreamDescriptor;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -31,6 +34,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.toIntExact;
@@ -41,9 +45,7 @@ abstract class AbstractLongSelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractLongSelectiveStreamReader.class).instanceSize();
 
-    protected final boolean outputRequired;
-    @Nullable
-    protected final Type outputType;
+    protected final LongSelectiveReaderContext context;
 
     @Nullable
     protected long[] values;
@@ -61,17 +63,16 @@ abstract class AbstractLongSelectiveStreamReader
 
     private boolean valuesInUse;
 
-    protected AbstractLongSelectiveStreamReader(Optional<Type> outputType)
+    protected AbstractLongSelectiveStreamReader(LongSelectiveReaderContext context)
     {
-        this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
-        this.outputType = outputType.orElse(null);
+        this.context = requireNonNull(context, "context is null");
     }
 
     protected void prepareNextRead(int positionCount, boolean withNulls)
     {
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
-        if (outputRequired) {
+        if (context.isOutputRequired()) {
             ensureValuesCapacity(positionCount, withNulls);
         }
         intValuesPopulated = false;
@@ -104,6 +105,7 @@ abstract class AbstractLongSelectiveStreamReader
     {
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
+        Type outputType = context.getOutputType();
         if (outputType == BIGINT) {
             if (positionCount < outputPositionCount) {
                 compactValues(positions, positionCount, includeNulls);
@@ -158,6 +160,7 @@ abstract class AbstractLongSelectiveStreamReader
     {
         checkState(!valuesInUse, "BlockLease hasn't been closed yet");
 
+        Type outputType = context.getOutputType();
         if (outputType == BIGINT) {
             return getLongArrayBlock(positions, positionCount, includeNulls);
         }
@@ -334,5 +337,81 @@ abstract class AbstractLongSelectiveStreamReader
         }
 
         outputPositionCount = positionCount;
+    }
+
+    public static class LongSelectiveReaderContext
+    {
+        private final StreamDescriptor streamDescriptor;
+        private final boolean outputRequired;
+        @Nullable
+        private final Type outputType;
+
+        @Nullable
+        private final TupleDomainFilter filter;
+        private final boolean nonDeterministicFilter;
+        private final boolean nullsAllowed;
+
+        private final OrcAggregatedMemoryContext systemMemoryContext;
+        private final boolean isLowMemory;
+
+        public LongSelectiveReaderContext(
+                StreamDescriptor streamDescriptor,
+                Optional<Type> outputType,
+                Optional<TupleDomainFilter> filter,
+                OrcAggregatedMemoryContext systemMemoryContext,
+                boolean isLowMemory)
+        {
+            this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
+            this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
+            this.outputType = outputType.orElse(null);
+            checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
+            this.filter = requireNonNull(filter, "filter is null").orElse(null);
+            this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+            this.isLowMemory = isLowMemory;
+            this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
+            this.nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
+        }
+
+        public StreamDescriptor getStreamDescriptor()
+        {
+            return streamDescriptor;
+        }
+
+        public boolean isOutputRequired()
+        {
+            return outputRequired;
+        }
+
+        @Nullable
+        public Type getOutputType()
+        {
+            return outputType;
+        }
+
+        @Nullable
+        public TupleDomainFilter getFilter()
+        {
+            return filter;
+        }
+
+        public OrcAggregatedMemoryContext getSystemMemoryContext()
+        {
+            return systemMemoryContext;
+        }
+
+        public boolean isLowMemory()
+        {
+            return isLowMemory;
+        }
+
+        public boolean isNonDeterministicFilter()
+        {
+            return nonDeterministicFilter;
+        }
+
+        public boolean isNullsAllowed()
+        {
+            return nullsAllowed;
+        }
     }
 }

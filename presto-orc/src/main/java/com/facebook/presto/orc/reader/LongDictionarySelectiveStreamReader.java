@@ -16,9 +16,7 @@ package com.facebook.presto.orc.reader;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
-import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.reader.LongDictionaryProvider.DictionaryResult;
 import com.facebook.presto.orc.stream.BooleanInputStream;
@@ -31,7 +29,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Optional;
 
 import static com.facebook.presto.common.array.Arrays.ensureCapacity;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
@@ -44,7 +41,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.util.Objects.requireNonNull;
 
 public class LongDictionarySelectiveStreamReader
         extends AbstractLongSelectiveStreamReader
@@ -56,13 +52,7 @@ public class LongDictionarySelectiveStreamReader
     private static final byte FILTER_PASSED = 1;
     private static final byte FILTER_FAILED = 2;
 
-    private final StreamDescriptor streamDescriptor;
-    @Nullable
-    private final TupleDomainFilter filter;
-    private final boolean nonDeterministicFilter;
-    private final boolean nullsAllowed;
     private final OrcLocalMemoryContext systemMemoryContext;
-    private final boolean isLowMemory;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
@@ -86,24 +76,13 @@ public class LongDictionarySelectiveStreamReader
     private boolean rowGroupOpen;
     private int readOffset;
 
-    public LongDictionarySelectiveStreamReader(
-            StreamDescriptor streamDescriptor,
-            Optional<TupleDomainFilter> filter,
-            Optional<Type> outputType,
-            OrcLocalMemoryContext systemMemoryContext,
-            boolean isLowMemory)
+    public LongDictionarySelectiveStreamReader(LongSelectiveReaderContext context)
     {
-        super(outputType);
-        requireNonNull(filter, "filter is null");
-        checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
-        this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.filter = filter.orElse(null);
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.isDictionaryOwner = true;
-        this.isLowMemory = isLowMemory;
+        super(context);
 
-        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
-        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
+        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(
+                LongSelectiveStreamReader.class.getSimpleName());
+        this.isDictionaryOwner = true;
     }
 
     @Override
@@ -116,7 +95,7 @@ public class LongDictionarySelectiveStreamReader
             openRowGroup();
         }
 
-        prepareNextRead(positionCount, presentStream != null && nullsAllowed);
+        prepareNextRead(positionCount, presentStream != null && context.isNullsAllowed());
 
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
@@ -129,7 +108,7 @@ public class LongDictionarySelectiveStreamReader
 
         // TODO In case of all nulls, the stream type will be LongDirect
         int streamPosition;
-        if (filter == null) {
+        if (context.getFilter() == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -180,6 +159,7 @@ public class LongDictionarySelectiveStreamReader
     {
         outputPositionCount = 0;
         int streamPosition = 0;
+        TupleDomainFilter filter = context.getFilter();
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
             if (position > streamPosition) {
@@ -188,8 +168,8 @@ public class LongDictionarySelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
-                    if (outputRequired) {
+                if ((context.isNonDeterministicFilter() && context.getFilter().testNull()) || context.isNullsAllowed()) {
+                    if (context.isOutputRequired()) {
                         nulls[outputPositionCount] = true;
                         values[outputPositionCount] = 0;
                     }
@@ -223,9 +203,9 @@ public class LongDictionarySelectiveStreamReader
                     filterPassed = filter.testLong(value);
                 }
                 if (filterPassed) {
-                    if (outputRequired) {
+                    if (context.isOutputRequired()) {
                         values[outputPositionCount] = value;
-                        if (presentStream != null && nullsAllowed) {
+                        if (presentStream != null && context.isNullsAllowed()) {
                             nulls[outputPositionCount] = false;
                         }
                     }
@@ -279,10 +259,10 @@ public class LongDictionarySelectiveStreamReader
     {
         // read the dictionary
         if (!dictionaryOpen && dictionarySize > 0) {
-            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(streamDescriptor, dictionary, dictionarySize);
+            DictionaryResult dictionaryResult = dictionaryProvider.getDictionary(context.getStreamDescriptor(), dictionary, dictionarySize);
             dictionary = dictionaryResult.dictionaryBuffer();
             isDictionaryOwner = dictionaryResult.isBufferOwner();
-            if (!isLowMemory && filter != null && !nonDeterministicFilter) {
+            if (!context.isLowMemory() && context.getFilter() != null && !context.isNonDeterministicFilter()) {
                 dictionaryFilterStatus = ensureCapacity(dictionaryFilterStatus, dictionarySize);
                 Arrays.fill(dictionaryFilterStatus, 0, dictionarySize, FILTER_NOT_EVALUATED);
             }
@@ -303,28 +283,28 @@ public class LongDictionarySelectiveStreamReader
     public Block getBlock(int[] positions, int positionCount)
     {
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
-        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(context.isOutputRequired(), "This stream reader doesn't produce output");
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
-        return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
+        return buildOutputBlock(positions, positionCount, context.isNullsAllowed() && presentStream != null);
     }
 
     @Override
     public BlockLease getBlockView(int[] positions, int positionCount)
     {
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
-        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(context.isOutputRequired(), "This stream reader doesn't produce output");
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
-        return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);
+        return buildOutputBlockView(positions, positionCount, context.isNullsAllowed() && presentStream != null);
     }
 
     @Override
     public void startStripe(Stripe stripe)
     {
         dictionaryProvider = stripe.getLongDictionaryProvider();
-        dictionarySize = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
-                .getColumnEncoding(streamDescriptor.getSequence())
+        dictionarySize = stripe.getColumnEncodings().get(context.getStreamDescriptor().getStreamId())
+                .getColumnEncoding(context.getStreamDescriptor().getSequence())
                 .getDictionarySize();
         dictionaryOpen = false;
 
@@ -344,9 +324,9 @@ public class LongDictionarySelectiveStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        inDictionaryStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, IN_DICTIONARY, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(context.getStreamDescriptor(), PRESENT, BooleanInputStream.class);
+        inDictionaryStreamSource = dataStreamSources.getInputStreamSource(context.getStreamDescriptor(), IN_DICTIONARY, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(context.getStreamDescriptor(), DATA, LongInputStream.class);
 
         readOffset = 0;
         presentStream = null;
@@ -360,7 +340,7 @@ public class LongDictionarySelectiveStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(context.getStreamDescriptor())
                 .toString();
     }
 
