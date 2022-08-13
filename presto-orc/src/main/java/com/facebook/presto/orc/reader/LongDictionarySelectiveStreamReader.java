@@ -80,8 +80,7 @@ public class LongDictionarySelectiveStreamReader
     {
         super(context);
 
-        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(
-                LongDictionarySelectiveStreamReader.class.getSimpleName());
+        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(this.getClass().getSimpleName());
         this.isDictionaryOwner = true;
     }
 
