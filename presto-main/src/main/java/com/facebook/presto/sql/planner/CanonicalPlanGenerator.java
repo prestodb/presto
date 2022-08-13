@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -33,8 +34,12 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.TreeMultimap;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -60,25 +65,27 @@ public class CanonicalPlanGenerator
     private final PlanNodeIdAllocator planNodeidAllocator = new PlanNodeIdAllocator();
     private final PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
     private final PlanCanonicalizationStrategy strategy;
+    private final ObjectMapper objectMapper;
 
-    public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy)
+    public CanonicalPlanGenerator(PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper)
     {
-        this.strategy = strategy;
+        this.strategy = requireNonNull(strategy, "strategy is null");
+        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
-    public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme)
+    public static Optional<CanonicalPlanFragment> generateCanonicalPlanFragment(PlanNode root, PartitioningScheme partitioningScheme, ObjectMapper objectMapper)
     {
         Context context = new Context();
-        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(PlanCanonicalizationStrategy.DEFAULT), context);
+        Optional<PlanNode> canonicalPlan = root.accept(new CanonicalPlanGenerator(PlanCanonicalizationStrategy.DEFAULT, objectMapper), context);
         if (!context.getExpressions().keySet().containsAll(partitioningScheme.getOutputLayout())) {
             return Optional.empty();
         }
         return canonicalPlan.map(planNode -> new CanonicalPlanFragment(new CanonicalPlan(planNode, DEFAULT), getCanonicalPartitioningScheme(partitioningScheme, context.getExpressions())));
     }
 
-    public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy)
+    public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper)
     {
-        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy), new CanonicalPlanGenerator.Context());
+        Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy, objectMapper), new CanonicalPlanGenerator.Context());
         return canonicalPlanNode.map(planNode -> new CanonicalPlan(planNode, strategy));
     }
 
@@ -86,6 +93,61 @@ public class CanonicalPlanGenerator
     public Optional<PlanNode> visitPlan(PlanNode node, Context context)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<PlanNode> visitUnion(UnionNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        // We want to order sources in a consistent manner. Variable names and plan node ids can mess with that because of
+        // our stateful canonicalization using `variableAllocator` and `planNodeIdAllocator`.
+        // So, we first try to canonicalize each source independently. They may have conflicting variable names, but we only use it
+        // to decide order, and then canonicalize them properly again.
+        // This can lead to O(n * h) time complexity, where n is number of plan nodes, and h is height of plan tree. This
+        // is at par with other pieces like hashing each plan node.
+        Multimap<String, Integer> sourceToPosition = TreeMultimap.create();
+        for (int i = 0; i < node.getSources().size(); ++i) {
+            PlanNode source = node.getSources().get(i);
+            Optional<CanonicalPlan> canonicalSource = generateCanonicalPlan(source, strategy, objectMapper);
+            if (!canonicalSource.isPresent()) {
+                return Optional.empty();
+            }
+            sourceToPosition.put(canonicalSource.get().toString(objectMapper), i);
+        }
+
+        ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
+        ImmutableList.Builder<VariableReferenceExpression> outputVariables = ImmutableList.builder();
+        ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> outputsToInputs = ImmutableMap.builder();
+
+        sourceToPosition.forEach((ignored, index) -> {
+            PlanNode canonicalSource = node.getSources().get(index).accept(this, context).get();
+            sources.add(canonicalSource);
+        });
+
+        node.getVariableMapping().forEach((outputVariable, sourceVariables) -> {
+            ImmutableList.Builder<VariableReferenceExpression> newSourceVariablesBuilder = ImmutableList.builder();
+            sourceToPosition.forEach((ignored, index) -> {
+                newSourceVariablesBuilder.add(inlineAndCanonicalize(context.getExpressions(), sourceVariables.get(index)));
+            });
+            ImmutableList<VariableReferenceExpression> newSourceVariables = newSourceVariablesBuilder.build();
+            VariableReferenceExpression newVariable = variableAllocator.newVariable(newSourceVariables.get(0));
+            outputVariables.add(newVariable);
+            context.mapExpression(outputVariable, newVariable);
+            outputsToInputs.put(newVariable, newSourceVariables);
+        });
+
+        PlanNode result = new UnionNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                sources.build(),
+                outputVariables.build().stream().sorted().collect(toImmutableList()),
+                ImmutableSortedMap.copyOf(outputsToInputs.build()));
+
+        context.addPlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
     }
 
     @Override
@@ -395,19 +457,19 @@ public class CanonicalPlanGenerator
         return Optional.of(canonicalPlan);
     }
 
-    private static RowExpression inlineAndCanonicalize(
+    private static <T extends RowExpression> T inlineAndCanonicalize(
             Map<VariableReferenceExpression, VariableReferenceExpression> context,
-            RowExpression expression)
+            T expression)
     {
-        return canonicalizeRowExpression(inlineVariables(context::get, expression), false);
+        return (T) canonicalizeRowExpression(inlineVariables(context::get, expression), false);
     }
 
-    private static RowExpression inlineAndCanonicalize(
+    private static <T extends RowExpression> T inlineAndCanonicalize(
             Map<VariableReferenceExpression, VariableReferenceExpression> context,
-            RowExpression expression,
+            T expression,
             boolean removeConstants)
     {
-        return canonicalizeRowExpression(inlineVariables(context::get, expression), removeConstants);
+        return (T) canonicalizeRowExpression(inlineVariables(context::get, expression), removeConstants);
     }
 
     private static class ColumnReference
