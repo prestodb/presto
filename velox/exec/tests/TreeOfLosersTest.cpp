@@ -100,3 +100,144 @@ TEST_F(TreeOfLosersTest, singleWithEquals) {
     result.first->pop();
   }
 }
+
+TEST_F(TreeOfLosersTest, allDuplicates) {
+  const int kNumsPerStream = 40;
+  const int kNumStreams = 20;
+  const uint32_t kValue = 10;
+  for (bool testNextEqual : {false, true}) {
+    SCOPED_TRACE(fmt::format("testNextEqual: {}", testNextEqual));
+    std::vector<std::unique_ptr<TestingStream>> mergeStreams;
+    for (int i = 0; i < kNumStreams; ++i) {
+      std::vector<uint32_t> streamNumbers;
+      for (int j = 0; j < kNumsPerStream; ++j) {
+        streamNumbers.push_back(kValue);
+      }
+      mergeStreams.push_back(
+          std::make_unique<TestingStream>(std::move(streamNumbers)));
+    }
+    TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+    for (auto i = 0; i < kNumStreams * kNumsPerStream; ++i) {
+      TestingStream* stream;
+      if (testNextEqual) {
+        auto result = merge.nextWithEquals();
+        stream = result.first;
+        // NOTE: the last stream has no other stream with equal value.
+        if (i < (kNumStreams - 1) * kNumsPerStream) {
+          ASSERT_TRUE(result.second) << i;
+        } else {
+          ASSERT_FALSE(result.second) << i;
+        }
+      } else {
+        stream = merge.next();
+      }
+      ASSERT_TRUE(stream != nullptr) << i;
+      ASSERT_EQ(stream->current()->value(), kValue) << i;
+      stream->pop();
+    }
+  }
+}
+
+TEST_F(TreeOfLosersTest, allSorted) {
+  const int kNumsPerStream = 40;
+  const int kNumStreams = 20;
+  const uint32_t kStartValue = 10;
+  for (bool testNextEqual : {false, true}) {
+    SCOPED_TRACE(fmt::format("testNextEqual: {}", testNextEqual));
+    std::vector<std::unique_ptr<TestingStream>> mergeStreams;
+    for (int i = 0; i < kNumStreams; ++i) {
+      std::vector<uint32_t> streamNumbers;
+      for (int j = 0; j < kNumsPerStream; ++j) {
+        streamNumbers.push_back(kStartValue + i * kNumsPerStream + j);
+      }
+      std::reverse(streamNumbers.begin(), streamNumbers.end());
+      mergeStreams.push_back(
+          std::make_unique<TestingStream>(std::move(streamNumbers)));
+    }
+    TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+    for (auto i = 0; i < kNumStreams * kNumsPerStream; ++i) {
+      TestingStream* stream;
+      if (testNextEqual) {
+        auto result = merge.nextWithEquals();
+        stream = result.first;
+        ASSERT_FALSE(result.second) << i;
+      } else {
+        stream = merge.next();
+      }
+      ASSERT_TRUE(stream != nullptr) << i;
+      EXPECT_EQ(stream->current()->value(), kStartValue + i) << i;
+      stream->pop();
+    }
+  }
+}
+
+TEST_F(TreeOfLosersTest, allEmpty) {
+  for (bool testNextEqual : {false, true}) {
+    for (int numStreams : {0, 1, 5, 100}) {
+      SCOPED_TRACE(fmt::format(
+          "numStreams: {}, testNextEqual", numStreams, testNextEqual));
+      std::vector<std::unique_ptr<TestingStream>> mergeStreams;
+      for (int i = 0; i < numStreams; ++i) {
+        mergeStreams.push_back(
+            std::make_unique<TestingStream>(std::vector<uint32_t>{}));
+      }
+      if (numStreams == 0) {
+        EXPECT_ANY_THROW(
+            TreeOfLosers<TestingStream> merge(std::move(mergeStreams)));
+        continue;
+      }
+      TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+      if (testNextEqual) {
+        ASSERT_TRUE(merge.nextWithEquals().first == nullptr);
+      } else {
+        ASSERT_TRUE(merge.next() == nullptr);
+      }
+    }
+  }
+}
+
+TEST_F(TreeOfLosersTest, randomWithDuplicates) {
+  rng_.seed(1);
+  for (bool testNextEqual : {false, true}) {
+    for (int iter = 0; iter < 10; ++iter) {
+      const int numCount = std::max<int>(1, folly::Random::rand32(1000'000));
+      const int numStreams = std::max<int>(3, folly::Random::rand32(100));
+      SCOPED_TRACE(fmt::format(
+          "iter: {}, testNextEqual: {}, numCount: {}, numStreams: {}",
+          iter,
+          testNextEqual,
+          numCount,
+          numStreams));
+      std::vector<std::vector<uint32_t>> streamNumVectors(numStreams);
+      for (int i = 0; i < numCount; ++i) {
+        const int streamIndex = folly::Random::rand32(numStreams);
+        streamNumVectors[streamIndex].push_back(numCount - i);
+        streamNumVectors[(streamIndex + 1) % numStreams].push_back(
+            numCount - i);
+        streamNumVectors[(streamIndex + 2) % numStreams].push_back(
+            numCount - i);
+      }
+      std::vector<std::unique_ptr<TestingStream>> mergeStreams;
+      for (int i = 0; i < numStreams; ++i) {
+        mergeStreams.push_back(
+            std::make_unique<TestingStream>(std::move(streamNumVectors[i])));
+      }
+      TreeOfLosers<TestingStream> merge(std::move(mergeStreams));
+      for (auto i = 3; i <= 3 * numCount; ++i) {
+        TestingStream* stream;
+        if (testNextEqual) {
+          auto result = merge.nextWithEquals();
+          stream = result.first;
+          // ASSERT_FALSE(result.second) << i;
+          //  We duplicate each number once on different stream.
+          ASSERT_EQ(result.second, i % 3 != 2) << i;
+        } else {
+          stream = merge.next();
+        }
+        ASSERT_TRUE(stream != nullptr);
+        ASSERT_EQ(stream->current()->value(), i / 3);
+        stream->pop();
+      }
+    }
+  }
+}

@@ -146,7 +146,6 @@ class TreeOfLosers {
     return lastIndex_ == kEmpty
         ? std::make_pair(nullptr, false)
         : std::make_pair(streams_[lastIndex_].get(), result.second);
-    ;
   }
 
  private:
