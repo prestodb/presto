@@ -47,11 +47,11 @@ public class SelectiveReaderContext
             OrcAggregatedMemoryContext systemMemoryContext,
             boolean isLowMemory)
     {
+        this.filter = requireNonNull(filter, "filter is null").orElse(null);
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
         this.outputRequired = requireNonNull(outputType, "outputType is null").isPresent();
         this.outputType = outputType.orElse(null);
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
-        this.filter = requireNonNull(filter, "filter is null").orElse(null);
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.isLowMemory = isLowMemory;
         this.nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
