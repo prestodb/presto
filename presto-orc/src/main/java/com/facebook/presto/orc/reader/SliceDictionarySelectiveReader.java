@@ -102,7 +102,10 @@ public class SliceDictionarySelectiveReader
     private VariableWidthBlock dictionary = new VariableWidthBlock(1, wrappedBuffer(EMPTY_DICTIONARY_DATA), EMPTY_DICTIONARY_OFFSETS, Optional.of(new boolean[] {true}));
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
+    @Nullable
     private BooleanInputStream presentStream;
+    @Nullable
+    private TupleDomainFilter rowGroupFilter;
 
     private BooleanInputStream inDictionaryStream;
 
@@ -173,7 +176,7 @@ public class SliceDictionarySelectiveReader
         if (dataStream == null && presentStream != null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
-        else if (context.getFilter() == null) {
+        else if (rowGroupFilter == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -222,7 +225,7 @@ public class SliceDictionarySelectiveReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((context.isNonDeterministicFilter() && context.getFilter().testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
                     if (context.isOutputRequired()) {
                         values[outputPositionCount] = currentDictionarySize - 1;
                     }
@@ -269,9 +272,9 @@ public class SliceDictionarySelectiveReader
             }
             streamPosition++;
 
-            if (context.getFilter() != null) {
-                outputPositionCount -= context.getFilter().getPrecedingPositionsToFail();
-                int succeedingPositionsToFail = context.getFilter().getSucceedingPositionsToFail();
+            if (rowGroupFilter != null) {
+                outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+                int succeedingPositionsToFail = rowGroupFilter.getSucceedingPositionsToFail();
                 if (succeedingPositionsToFail > 0) {
                     int positionsToSkip = 0;
                     for (int j = 0; j < succeedingPositionsToFail; j++) {
@@ -289,7 +292,7 @@ public class SliceDictionarySelectiveReader
 
     private byte evaluateFilter(int position, int index, int length)
     {
-        if (!context.getFilter().testLength(length)) {
+        if (!rowGroupFilter.testLength(length)) {
             return FILTER_FAILED;
         }
 
@@ -297,11 +300,11 @@ public class SliceDictionarySelectiveReader
         if (isCharType && length != currentLength) {
             System.arraycopy(dictionaryData, dictionaryOffsetVector[index], valueWithPadding, 0, currentLength);
             Arrays.fill(valueWithPadding, currentLength, length, (byte) ' ');
-            if (!context.getFilter().testBytes(valueWithPadding, 0, length)) {
+            if (!rowGroupFilter.testBytes(valueWithPadding, 0, length)) {
                 return FILTER_FAILED;
             }
         }
-        else if (!context.getFilter().testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
+        else if (!rowGroupFilter.testBytes(dictionaryData, dictionaryOffsetVector[index], length)) {
             return FILTER_FAILED;
         }
 
@@ -318,16 +321,15 @@ public class SliceDictionarySelectiveReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        TupleDomainFilter filter = context.getFilter();
         if (context.isNonDeterministicFilter()) {
             outputPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                if (filter.testNull()) {
+                if (rowGroupFilter.testNull()) {
                     outputPositionCount++;
                 }
                 else {
-                    outputPositionCount -= filter.getPrecedingPositionsToFail();
-                    i += filter.getSucceedingPositionsToFail();
+                    outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+                    i += rowGroupFilter.getSucceedingPositionsToFail();
                 }
             }
         }
@@ -476,6 +478,9 @@ public class SliceDictionarySelectiveReader
     private void openRowGroup()
             throws IOException
     {
+        presentStream = presentStreamSource.openStream();
+        rowGroupFilter = context.getRowGroupFilter(presentStream);
+
         // read the dictionary
         if (!stripeDictionaryOpen) {
             if (stripeDictionarySize > 0) {
@@ -554,7 +559,6 @@ public class SliceDictionarySelectiveReader
 
         dictionaryOffsetVector[currentDictionarySize] = dictionaryOffsetVector[currentDictionarySize - 1];
         stripeDictionaryOpen = true;
-        presentStream = presentStreamSource.openStream();
         inDictionaryStream = inDictionaryStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
 
@@ -623,6 +627,7 @@ public class SliceDictionarySelectiveReader
         readOffset = 0;
 
         presentStream = null;
+        rowGroupFilter = null;
         inDictionaryStream = null;
         dataStream = null;
 
@@ -644,6 +649,7 @@ public class SliceDictionarySelectiveReader
         readOffset = 0;
 
         presentStream = null;
+        rowGroupFilter = null;
         inDictionaryStream = null;
         dataStream = null;
 
