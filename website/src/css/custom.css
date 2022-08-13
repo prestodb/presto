@@ -1,0 +1,45 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+:root {
+  --ifm-color-primary: #284294;
+  --ifm-color-primary-dark: #243b85;
+  --ifm-color-primary-darker: #22387e;
+  --ifm-color-primary-darkest: #1c2e68;
+  --ifm-color-primary-light: #2c49a3;
+  --ifm-color-primary-lighter: #2e4caa;
+  --ifm-color-primary-lightest: #3456c2;
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #6897e0;
+  --ifm-color-primary-dark: #4d84da;
+  --ifm-color-primary-darker: #3f7bd8;
+  --ifm-color-primary-darkest: #2762be;
+  --ifm-color-primary-light: #83aae6;
+  --ifm-color-primary-lighter: #91b3e8;
+  --ifm-color-primary-lightest: #bcd1f1;
+}
+
+.jumbotron {
+  background: url("../../static/img/dark_blue_dots.jpg") no-repeat center center;
+    background-size: cover;
+    color: white;
+}
+
+.hero__title {
+  text-align: left;
+  margin-top: 2rem !important;
+}
+
+.hero__subtitle {
+  text-align: left;
+}
+
+.button-wrapper {
+  text-align: left;
+  margin-top: 2rem !important;
+}
