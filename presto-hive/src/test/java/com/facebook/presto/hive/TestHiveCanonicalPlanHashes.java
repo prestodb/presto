@@ -161,8 +161,9 @@ public class TestHiveCanonicalPlanHashes
     {
         Session session = createSession();
         PlanNode plan = plan(sql, session).getRoot();
+        ObjectMapper objectMapper = createObjectMapper();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return createObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy).get());
+        return objectMapper.writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, objectMapper).get());
     }
 
     private List<PlanNode> getStatsEquivalentPlanHashes(String sql)

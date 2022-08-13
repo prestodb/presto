@@ -14,12 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Objects;
 
+import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -76,5 +80,15 @@ public class CanonicalPlan
                 .add("plan", plan)
                 .add("strategy", strategy)
                 .toString();
+    }
+
+    public String toString(ObjectMapper objectMapper)
+    {
+        try {
+            return objectMapper.writeValueAsString(this);
+        }
+        catch (JsonProcessingException e) {
+            throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
+        }
     }
 }
