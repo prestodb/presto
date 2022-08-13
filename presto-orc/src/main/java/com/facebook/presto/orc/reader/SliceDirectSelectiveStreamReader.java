@@ -35,6 +35,8 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Optional;
 
@@ -74,7 +76,11 @@ public class SliceDirectSelectiveStreamReader
     private int readOffset;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
+    @Nullable
     private BooleanInputStream presentStream;
+    @Nullable
+    private TupleDomainFilter rowGroupFilter;
+
     private InputStreamSource<ByteArrayInputStream> dataStreamSource = getByteArrayMissingStreamSource();
     private ByteArrayInputStream dataStream;
     private InputStreamSource<LongInputStream> lengthStreamSource = getLongMissingStreamSource();
@@ -130,7 +136,7 @@ public class SliceDirectSelectiveStreamReader
         if (lengthStream == null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
-        else if (context.getFilter() == null) {
+        else if (rowGroupFilter == null) {
             streamPosition = readNoFilter(positions, positionCount, dataLength);
         }
         else {
@@ -214,7 +220,6 @@ public class SliceDirectSelectiveStreamReader
             throws IOException
     {
         boolean outputRequired = context.isOutputRequired();
-        TupleDomainFilter filter = context.getFilter();
 
         int totalPositionCount = positions[positionCount - 1] + 1;
         if (useBatchMode(positionCount, totalPositionCount)) {
@@ -262,7 +267,7 @@ public class SliceDirectSelectiveStreamReader
 
             int offset = outputRequired ? offsets[outputPositionCount] : 0;
             if (presentStream != null && isNullVector[position]) {
-                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
                     if (outputRequired) {
                         offsets[outputPositionCount + 1] = offset;
                         nulls[outputPositionCount] = true;
@@ -274,12 +279,12 @@ public class SliceDirectSelectiveStreamReader
             else {
                 int length = lengthVector[lengthIndex];
                 int dataOffset = outputRequired ? offset : 0;
-                if (filter.testLength(length)) {
+                if (rowGroupFilter.testLength(length)) {
                     if (dataStream != null) {
                         dataStream.skip(dataToSkip);
                         dataToSkip = 0;
                         dataStream.next(data, dataOffset, dataOffset + length);
-                        if (filter.testBytes(data, dataOffset, length)) {
+                        if (rowGroupFilter.testBytes(data, dataOffset, length)) {
                             if (outputRequired) {
                                 int truncatedLength = computeTruncatedLength(dataAsSlice, dataOffset, length, maxCodePointCount, isCharType);
                                 offsets[outputPositionCount + 1] = offset + truncatedLength;
@@ -293,7 +298,7 @@ public class SliceDirectSelectiveStreamReader
                     }
                     else {
                         assert length == 0;
-                        if (filter.testBytes("".getBytes(), 0, 0)) {
+                        if (rowGroupFilter.testBytes("".getBytes(), 0, 0)) {
                             if (outputRequired) {
                                 offsets[outputPositionCount + 1] = offset;
                                 if (context.isNullsAllowed() && presentStream != null) {
@@ -313,9 +318,9 @@ public class SliceDirectSelectiveStreamReader
 
             streamPosition++;
 
-            if (filter != null) {
-                outputPositionCount -= filter.getPrecedingPositionsToFail();
-                int succeedingPositionsToFail = filter.getSucceedingPositionsToFail();
+            if (rowGroupFilter != null) {
+                outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+                int succeedingPositionsToFail = rowGroupFilter.getSucceedingPositionsToFail();
                 if (succeedingPositionsToFail > 0) {
                     int positionsToSkip = 0;
                     for (int j = 0; j < succeedingPositionsToFail; j++) {
@@ -339,12 +344,12 @@ public class SliceDirectSelectiveStreamReader
         if (context.isNonDeterministicFilter()) {
             outputPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
-                if (context.getFilter().testNull()) {
+                if (rowGroupFilter.testNull()) {
                     outputPositionCount++;
                 }
                 else {
-                    outputPositionCount -= context.getFilter().getPrecedingPositionsToFail();
-                    i += context.getFilter().getSucceedingPositionsToFail();
+                    outputPositionCount -= rowGroupFilter.getPrecedingPositionsToFail();
+                    i += rowGroupFilter.getSucceedingPositionsToFail();
                 }
             }
         }
@@ -400,12 +405,12 @@ public class SliceDirectSelectiveStreamReader
         int positionsIndex = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
-            if (context.getFilter().testLength(lengthVector[position])) {
+            if (rowGroupFilter.testLength(lengthVector[position])) {
                 outputPositions[positionsIndex++] = position;  // compact positions on the fly
             }
             else {
-                i += context.getFilter().getSucceedingPositionsToFail();
-                positionsIndex -= context.getFilter().getPrecedingPositionsToFail();
+                i += rowGroupFilter.getSucceedingPositionsToFail();
+                positionsIndex -= rowGroupFilter.getPrecedingPositionsToFail();
             }
         }
 
@@ -432,29 +437,28 @@ public class SliceDirectSelectiveStreamReader
         }
 
         int positionsIndex = 0;
-        TupleDomainFilter filter = context.getFilter();
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
 
             if (isNullVector[position]) {
-                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
+                if ((context.isNonDeterministicFilter() && rowGroupFilter.testNull()) || context.isNullsAllowed()) {
                     outputPositions[positionsIndex++] = position;
                 }
                 else {
-                    i += filter.getSucceedingPositionsToFail();
-                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                    i += rowGroupFilter.getSucceedingPositionsToFail();
+                    positionsIndex -= rowGroupFilter.getPrecedingPositionsToFail();
                 }
             }
             else {
                 int dataOffset = offsets[position];
                 int length = offsets[position + 1] - dataOffset;
 
-                if (filter.testLength(length) && filter.testBytes(data, dataOffset, length)) {
+                if (rowGroupFilter.testLength(length) && rowGroupFilter.testBytes(data, dataOffset, length)) {
                     outputPositions[positionsIndex++] = position;  // compact positions on the fly
                 }
                 else {
-                    i += filter.getSucceedingPositionsToFail();
-                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                    i += rowGroupFilter.getSucceedingPositionsToFail();
+                    positionsIndex -= rowGroupFilter.getPrecedingPositionsToFail();
                 }
             }
         }
@@ -464,24 +468,23 @@ public class SliceDirectSelectiveStreamReader
 
     private int testEmptyStrings(int[] positions, int positionCount)
     {
-        TupleDomainFilter filter = context.getFilter();
         if (context.isNonDeterministicFilter()) {
             int positionsIndex = 0;
             for (int i = 0; i < positionCount; i++) {
                 int position = positions[i];
 
-                if (filter.testBytes("".getBytes(), 0, 0)) {
+                if (rowGroupFilter.testBytes("".getBytes(), 0, 0)) {
                     positions[positionsIndex++] = position;
                 }
                 else {
-                    i += filter.getSucceedingPositionsToFail();
-                    positionsIndex -= filter.getPrecedingPositionsToFail();
+                    i += rowGroupFilter.getSucceedingPositionsToFail();
+                    positionsIndex -= rowGroupFilter.getPrecedingPositionsToFail();
                 }
             }
             return positionsIndex;
         }
 
-        if (filter.testBytes("".getBytes(), 0, 0)) {
+        if (rowGroupFilter.testBytes("".getBytes(), 0, 0)) {
             return positionCount;
         }
 
@@ -490,19 +493,18 @@ public class SliceDirectSelectiveStreamReader
 
     private int testBytes(int[] positions, int positionCount)
     {
-        TupleDomainFilter filter = context.getFilter();
         int positionsIndex = 0;
         for (int i = 0; i < positionCount; i++) {
             int position = positions[i];
 
             int dataOffset = offsets[position];
             int length = offsets[position + 1] - dataOffset;
-            if (filter.testBytes(data, dataOffset, length)) {
+            if (rowGroupFilter.testBytes(data, dataOffset, length)) {
                 positions[positionsIndex++] = position;
             }
             else {
-                i += filter.getSucceedingPositionsToFail();
-                positionsIndex -= filter.getPrecedingPositionsToFail();
+                i += rowGroupFilter.getSucceedingPositionsToFail();
+                positionsIndex -= rowGroupFilter.getPrecedingPositionsToFail();
             }
         }
         return positionsIndex;
@@ -617,6 +619,7 @@ public class SliceDirectSelectiveStreamReader
             throws IOException
     {
         presentStream = presentStreamSource.openStream();
+        rowGroupFilter = context.getRowGroupFilter(presentStream);
         lengthStream = lengthStreamSource.openStream();
         dataStream = dataStreamSource.openStream();
 
@@ -633,6 +636,7 @@ public class SliceDirectSelectiveStreamReader
         readOffset = 0;
 
         presentStream = null;
+        rowGroupFilter = null;
         lengthStream = null;
         dataStream = null;
 
@@ -650,6 +654,7 @@ public class SliceDirectSelectiveStreamReader
         readOffset = 0;
 
         presentStream = null;
+        rowGroupFilter = null;
         lengthStream = null;
         dataStream = null;
 
@@ -735,7 +740,7 @@ public class SliceDirectSelectiveStreamReader
         else {
             if (useBatchMode(positionCount, totalPositions)) {
                 dataLength = totalLength;
-                if (context.getFilter() != null) {
+                if (rowGroupFilter != null) {
                     offsets = ensureCapacity(offsets, totalPositions + 1, SMALL, INITIALIZE);
                 }
             }
@@ -759,7 +764,7 @@ public class SliceDirectSelectiveStreamReader
         }
 
         double inputFilterRate = (double) (totalPositionCount - positionCount) / totalPositionCount;
-        if (context.getFilter() == null) {  // readNoFilter
+        if (rowGroupFilter == null) {  // readNoFilter
             // When there is no filter, batch mode performs better for almost all inputFilterRate.
             // But to limit data buffer size, we enable it for the range of [0.0f, 0.5f]
             if (inputFilterRate >= 0.0f && inputFilterRate <= 0.5f) {
