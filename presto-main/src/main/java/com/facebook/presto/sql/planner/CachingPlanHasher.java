@@ -14,9 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.PlanNode;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
@@ -28,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -64,7 +61,7 @@ public class CachingPlanHasher
         }
 
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
-        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy()), context);
+        key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper), context);
         context.getCanonicalPlans().forEach((plan, canonicalPlan) -> {
             String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
             cache.put(new CacheKey(plan, strategy), hashValue);
@@ -80,12 +77,7 @@ public class CachingPlanHasher
 
     private String hashCanonicalPlan(CanonicalPlan plan, ObjectMapper objectMapper)
     {
-        try {
-            return sha256().hashString(objectMapper.writeValueAsString(plan), UTF_8).toString();
-        }
-        catch (JsonProcessingException e) {
-            throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
-        }
+        return sha256().hashString(plan.toString(objectMapper), UTF_8).toString();
     }
 
     private static class CacheKey
