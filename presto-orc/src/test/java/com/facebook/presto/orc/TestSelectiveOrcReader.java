@@ -1010,16 +1010,42 @@ public class TestSelectiveOrcReader
     public void testOutputNotRequired()
             throws Exception
     {
+        List<String> inputValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
+        Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C"));
+        verifyOutputNotRequired(inputValues, filters, inputValues);
+    }
+
+    @Test
+    public void testOutputNotRequiredNonNullFilterNulls()
+            throws Exception
+    {
+        List<String> inputValues = newArrayList(limit(cycle(Arrays.asList("A", null)), NUM_ROWS));
+        List<String> expectedValues = newArrayList(limit(cycle(Arrays.asList("A")), (NUM_ROWS + 1) / 2));
+
+        Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), IS_NOT_NULL);
+        verifyOutputNotRequired(inputValues, filters, expectedValues);
+    }
+
+    @Test
+    public void testOutputNotRequiredNonNullFilterNoNulls()
+            throws Exception
+    {
+        List<String> inputValues = newArrayList(limit(cycle(Arrays.asList("A", "B", "C")), NUM_ROWS));
+
+        Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), IS_NOT_NULL);
+        verifyOutputNotRequired(inputValues, filters, inputValues);
+    }
+
+    private void verifyOutputNotRequired(List<String> inputValues, Map<Subfield, TupleDomainFilter> filters, List<String> expectedValues)
+            throws Exception
+    {
         List<Type> types = ImmutableList.of(VARCHAR, VARCHAR);
         TempFile tempFile = new TempFile();
 
-        List<String> varcharDirectValues = newArrayList(limit(cycle(ImmutableList.of("A", "B", "C")), NUM_ROWS));
-        List<List<?>> values = ImmutableList.of(varcharDirectValues, varcharDirectValues);
-
+        List<List<?>> values = ImmutableList.of(inputValues, inputValues);
         writeOrcColumnsPresto(tempFile.getFile(), DWRF, NONE, Optional.empty(), types, values, NOOP_WRITER_STATS);
 
         OrcPredicate orcPredicate = createOrcPredicate(types, values, DWRF, false);
-        Map<Subfield, TupleDomainFilter> filters = ImmutableMap.of(new Subfield("c"), stringIn(true, "A", "B", "C")); //ImmutableMap.of(1, stringIn(true, "10", "11"));
         Map<Integer, Type> includedColumns = IntStream.range(0, types.size())
                 .boxed()
                 .collect(toImmutableMap(Function.identity(), types::get));
@@ -1062,11 +1088,11 @@ public class TestSelectiveOrcReader
                 page.getLoadedPage();
 
                 // The output block should be the second block
-                assertBlockPositions(page.getBlock(0), varcharDirectValues.subList(rowsProcessed, rowsProcessed + positionCount));
+                assertBlockPositions(page.getBlock(0), expectedValues.subList(rowsProcessed, rowsProcessed + positionCount));
 
                 rowsProcessed += positionCount;
             }
-            assertEquals(rowsProcessed, NUM_ROWS);
+            assertEquals(rowsProcessed, expectedValues.size());
         }
     }
 
@@ -1416,7 +1442,12 @@ public class TestSelectiveOrcReader
     {
         assertEquals(block.getPositionCount(), expectedValues.size());
         for (int position = 0; position < block.getPositionCount(); position++) {
-            assertEquals(block.getSlice(position, 0, block.getSliceLength(position)), Slices.wrappedBuffer(expectedValues.get(position).getBytes()));
+            if (expectedValues.get(position) == null) {
+                assertTrue(block.isNull(position));
+            }
+            else {
+                assertEquals(block.getSlice(position, 0, block.getSliceLength(position)), Slices.wrappedBuffer(expectedValues.get(position).getBytes()));
+            }
         }
     }
 }
