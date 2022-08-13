@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.TupleDomainFilter;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.StreamDescriptor;
+import com.facebook.presto.orc.stream.BooleanInputStream;
 
 import javax.annotation.Nullable;
 
@@ -75,8 +76,14 @@ public class SelectiveReaderContext
     }
 
     @Nullable
-    public TupleDomainFilter getFilter()
+    public TupleDomainFilter getRowGroupFilter(BooleanInputStream presentStream)
     {
+        if (isOutputRequired() && presentStream == null && filter == TupleDomainFilter.IS_NOT_NULL) {
+            // Readers don't handle the outputRequired == false and filter = null. When that is fixed
+            // outputRequired can be removed from the above condition.
+            // When present stream is null, there are no nulls in the Column. The filter is no-op
+            return null;
+        }
         return filter;
     }
 
