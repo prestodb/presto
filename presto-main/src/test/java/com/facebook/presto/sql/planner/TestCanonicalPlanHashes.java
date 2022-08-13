@@ -146,6 +146,24 @@ public class TestCanonicalPlanHashes
         assertEquals(nodes.size(), 6);
     }
 
+    @Test
+    public void testUnion()
+            throws Exception
+    {
+        assertSamePlanHash(
+                "SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000",
+                CONNECTOR);
+        assertDifferentPlanHash(
+                "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
+                CONNECTOR);
+        assertSamePlanHash(
+                "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
+                REMOVE_SAFE_CONSTANTS);
+    }
+
     private Session createSession()
     {
         return testSessionBuilder()
@@ -191,6 +209,6 @@ public class TestCanonicalPlanHashes
         Session session = createSession();
         PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy).get());
+        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, getObjectMapper()).get());
     }
 }
