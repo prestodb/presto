@@ -60,8 +60,7 @@ public class LongDirectSelectiveStreamReader
     public LongDirectSelectiveStreamReader(SelectiveReaderContext context)
     {
         super(context);
-        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(
-                LongDirectSelectiveStreamReader.class.getSimpleName());
+        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(this.getClass().getSimpleName());
     }
 
     @Override
