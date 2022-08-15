@@ -21,7 +21,8 @@ import static java.util.Collections.unmodifiableList;
 public enum PlanCanonicalizationStrategy
 {
     /**
-     * DEFAULT strategy is used to canonicalize plans with minimal changes.
+     * DEFAULT strategy is used to canonicalize plans with minimal changes. It only processes
+     * following basic plan nodes: Scan, Filter, Project, Aggregation, Unnest.
      *
      * We remove any unimportant information like source location, make the variable
      * names consistent, and order them.
@@ -33,7 +34,8 @@ public enum PlanCanonicalizationStrategy
     DEFAULT,
     /**
      * CONNECTOR strategy will canonicalize plan according to DEFAULT strategy, and additionally
-     * canoncialize `TableScanNode` by giving a connector specific implementation.
+     * canoncialize `TableScanNode` by giving a connector specific implementation. Unlike DEFAULT strategy,
+     * it supports all Plan nodes(like union, join etc.)
      *
      * With this approach, we call ConnectorTableLayoutHandle.getIdentifier() for all `TableScanNode`.
      * Each connector can have a specific implementation to canonicalize table layout handles however they want.
