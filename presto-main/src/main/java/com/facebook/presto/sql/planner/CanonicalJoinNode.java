@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
@@ -35,8 +36,8 @@ public class CanonicalJoinNode
 {
     private final List<PlanNode> sources;
     private final JoinNode.Type type;
-    private final List<JoinNode.EquiJoinClause> criteria;
-    private final List<RowExpression> filters;
+    private final Set<JoinNode.EquiJoinClause> criteria;
+    private final Set<RowExpression> filters;
     private final List<VariableReferenceExpression> outputVariables;
 
     @JsonCreator
@@ -44,8 +45,8 @@ public class CanonicalJoinNode
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("sources") List<PlanNode> sources,
             @JsonProperty("type") JoinNode.Type type,
-            @JsonProperty("criteria") List<JoinNode.EquiJoinClause> criteria,
-            @JsonProperty("filter") List<RowExpression> filters,
+            @JsonProperty("criteria") Set<JoinNode.EquiJoinClause> criteria,
+            @JsonProperty("filter") Set<RowExpression> filters,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
         super(Optional.empty(), id, Optional.empty());
@@ -70,13 +71,13 @@ public class CanonicalJoinNode
     }
 
     @JsonProperty
-    public List<JoinNode.EquiJoinClause> getCriteria()
+    public Set<JoinNode.EquiJoinClause> getCriteria()
     {
         return criteria;
     }
 
     @JsonProperty
-    public List<RowExpression> getFilters()
+    public Set<RowExpression> getFilters()
     {
         return filters;
     }

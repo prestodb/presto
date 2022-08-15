@@ -58,7 +58,10 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
-            return context.defaultRewrite(node.assignStatsEquivalentPlanNode(Optional.of(node)), context.get());
+            if (!node.getStatsEquivalentPlanNode().isPresent()) {
+                node = node.assignStatsEquivalentPlanNode(Optional.of(node));
+            }
+            return context.defaultRewrite(node, context.get());
         }
     }
 }

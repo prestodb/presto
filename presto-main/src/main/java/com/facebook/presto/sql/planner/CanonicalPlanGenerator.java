@@ -32,6 +32,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,23 +42,30 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.Set;
+import java.util.Stack;
 
+import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.DEFAULT;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
+import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.facebook.presto.sql.planner.CanonicalPartitioningScheme.getCanonicalPartitioningScheme;
 import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.getCanonicalTableHandle;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toCollection;
 
 public class CanonicalPlanGenerator
         extends InternalPlanVisitor<Optional<PlanNode>, CanonicalPlanGenerator.Context>
@@ -83,6 +91,7 @@ public class CanonicalPlanGenerator
         return canonicalPlan.map(planNode -> new CanonicalPlanFragment(new CanonicalPlan(planNode, DEFAULT), getCanonicalPartitioningScheme(partitioningScheme, context.getExpressions())));
     }
 
+    // Returns `CanonicalPlan`. If we encounter a `PlanNode` with unimplemented canonicalization, we return `Optional.empty()`
     public static Optional<CanonicalPlan> generateCanonicalPlan(PlanNode root, PlanCanonicalizationStrategy strategy, ObjectMapper objectMapper)
     {
         Optional<PlanNode> canonicalPlanNode = root.accept(new CanonicalPlanGenerator(strategy, objectMapper), new CanonicalPlanGenerator.Context());
@@ -93,6 +102,84 @@ public class CanonicalPlanGenerator
     public Optional<PlanNode> visitPlan(PlanNode node, Context context)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<PlanNode> visitJoin(JoinNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+        if (node.getType().equals(JoinNode.Type.RIGHT)) {
+            return visitJoin(node.flipChildren(), context);
+        }
+        List<PlanNode> sources = new ArrayList<>();
+        ImmutableList.Builder<RowExpression> allFilters = ImmutableList.builder();
+        ImmutableList.Builder<JoinNode.EquiJoinClause> criterias = ImmutableList.builder();
+        Stack<JoinNode> stack = new Stack<>();
+
+        stack.push(node);
+        while (!stack.empty()) {
+            JoinNode top = stack.pop();
+            top.getCriteria().forEach(criterias::add);
+            // ReorderJoins can move predicates between `criteria` and `filters`, so we put all equalities
+            // in `criteria` to make it consistent.
+            if (top.getFilter().isPresent()) {
+                List<RowExpression> filters = extractConjuncts(top.getFilter().get());
+                filters.forEach(filter -> {
+                    Optional<JoinNode.EquiJoinClause> criteria = toEquiJoinClause(filter);
+                    criteria.ifPresent(criterias::add);
+                    allFilters.add(filter);
+                });
+            }
+            top.getSources().forEach(source -> {
+                if (source instanceof JoinNode
+                        && ((JoinNode) source).getType().equals(node.getType())
+                        && shouldMergeJoinNodes(node.getType())) {
+                    stack.push((JoinNode) source);
+                }
+                else {
+                    sources.add(source);
+                }
+            });
+        }
+
+        // Sort sources if all are INNER, or full outer join of 2 nodes
+        if (shouldMergeJoinNodes(node.getType()) || (node.getType().equals(JoinNode.Type.FULL) && sources.size() == 2)) {
+            Map<PlanNode, String> sourceKeys = new IdentityHashMap<>();
+            for (PlanNode source : sources) {
+                Optional<CanonicalPlan> canonicalSource = generateCanonicalPlan(source, strategy, objectMapper);
+                if (!canonicalSource.isPresent()) {
+                    return Optional.empty();
+                }
+                sourceKeys.put(source, canonicalSource.get().toString(objectMapper));
+            }
+            sources.sort(comparing(sourceKeys::get));
+        }
+
+        List<PlanNode> newSources = sources.stream().map(source -> source.accept(this, context).get()).collect(toImmutableList());
+        Set<JoinNode.EquiJoinClause> newCriterias = criterias.build().stream()
+                .map(criteria -> canonicalize(criteria, context))
+                .sorted(comparing(JoinNode.EquiJoinClause::toString))
+                .collect(toCollection(LinkedHashSet::new));
+        Set<RowExpression> newFilters = allFilters.build().stream()
+                .map(filter -> inlineAndCanonicalize(context.getExpressions(), filter))
+                .sorted(comparing(RowExpression::toString))
+                .collect(toCollection(LinkedHashSet::new));
+        List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted()
+                .collect(toImmutableList());
+
+        PlanNode result = new CanonicalJoinNode(
+                planNodeidAllocator.getNextId(),
+                newSources,
+                node.getType(),
+                newCriterias,
+                newFilters,
+                outputVariables);
+        context.addPlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
     }
 
     @Override
@@ -455,6 +542,38 @@ public class CanonicalPlanGenerator
 
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
+    }
+
+    private boolean shouldMergeJoinNodes(JoinNode.Type type)
+    {
+        return type.equals(JoinNode.Type.INNER);
+    }
+
+    private static JoinNode.EquiJoinClause canonicalize(JoinNode.EquiJoinClause criteria, Context context)
+    {
+        VariableReferenceExpression left = inlineAndCanonicalize(context.getExpressions(), criteria.getLeft());
+        VariableReferenceExpression right = inlineAndCanonicalize(context.getExpressions(), criteria.getRight());
+        return left.compareTo(right) > 0 ? new JoinNode.EquiJoinClause(left, right) : new JoinNode.EquiJoinClause(right, left);
+    }
+
+    private static Optional<JoinNode.EquiJoinClause> toEquiJoinClause(RowExpression expression)
+    {
+        if (!(expression instanceof CallExpression)) {
+            return Optional.empty();
+        }
+        CallExpression callExpression = (CallExpression) expression;
+        boolean isValid = callExpression.getDisplayName().equals(EQUAL.getFunctionName().getObjectName())
+                && callExpression.getArguments().size() == 2
+                && callExpression.getArguments().get(0) instanceof VariableReferenceExpression
+                && callExpression.getArguments().get(1) instanceof VariableReferenceExpression;
+
+        if (!isValid) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new JoinNode.EquiJoinClause(
+                (VariableReferenceExpression) callExpression.getArguments().get(0),
+                (VariableReferenceExpression) callExpression.getArguments().get(1)));
     }
 
     private static <T extends RowExpression> T inlineAndCanonicalize(
