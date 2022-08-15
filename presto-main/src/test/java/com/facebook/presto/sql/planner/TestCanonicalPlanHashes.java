@@ -199,6 +199,16 @@ public class TestCanonicalPlanHashes
                 CONNECTOR);
     }
 
+    @Test
+    public void testLimit()
+            throws Exception
+    {
+        assertSamePlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 1000", CONNECTOR);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation", CONNECTOR);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", CONNECTOR);
+        assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", REMOVE_SAFE_CONSTANTS);
+    }
+
     private Session createSession()
     {
         return testSessionBuilder()
