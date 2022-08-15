@@ -1830,28 +1830,6 @@ TEST_F(TableScanTest, structLazy) {
   assertQuery(op, {filePath}, "select c0 % 3 from tmp");
 }
 
-TEST_F(TableScanTest, lazyVectorAccessTwiceWithDifferentRows) {
-  auto data = makeRowVector({
-      makeNullableFlatVector<int64_t>({1, 1, 1, std::nullopt}),
-      makeNullableFlatVector<int64_t>({0, 1, 2, 3}),
-  });
-
-  auto filePath = TempFilePath::create();
-  writeToFile(filePath->path, {data});
-  createDuckDbTable({data});
-
-  auto plan =
-      PlanBuilder()
-          .tableScan(asRowType(data->type()))
-          .filter(
-              "element_at(array_constructor(c0 + c1, if(c1 >= 0, c1, 0)), 1) > 0")
-          .planNode();
-  assertQuery(
-      plan,
-      {filePath},
-      "SELECT c0, c1 from tmp where ([c0 + c1, if(c1 >= 0, c1, 0)])[1] > 0");
-}
-
 TEST_F(TableScanTest, structInArrayOrMap) {
   vector_size_t size = 1'000;
 
