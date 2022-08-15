@@ -92,10 +92,10 @@ class StripeStreams {
   virtual ~StripeStreams() = default;
 
   /**
-   * Get the FileFormat for the stream
-   * @return FileFormat
+   * Get the DwrfFormat for the stream
+   * @return DwrfFormat
    */
-  virtual dwio::common::FileFormat getFormat() const = 0;
+  virtual DwrfFormat format() const = 0;
 
   /**
    * get column selector for current stripe reading session
@@ -178,8 +178,8 @@ class StripeStreamsBase : public StripeStreams {
   }
 
   // For now just return DWRF, will refine when ORC has better support
-  virtual dwio::common::FileFormat getFormat() const override {
-    return dwio::common::FileFormat::DWRF;
+  virtual DwrfFormat format() const override {
+    return DwrfFormat::kDwrf;
   }
 
   std::function<BufferPtr()> getIntDictionaryInitializerForNode(
@@ -242,8 +242,8 @@ class StripeStreamsImpl : public StripeStreamsBase {
 
   ~StripeStreamsImpl() override = default;
 
-  dwio::common::FileFormat getFormat() const override {
-    return reader_.getReader().getFileFormat();
+  DwrfFormat format() const override {
+    return reader_.getReader().format();
   }
 
   const dwio::common::ColumnSelector& getColumnSelector() const override {

@@ -363,7 +363,7 @@ IntegerDirectColumnReader<ReqT>::IntegerDirectColumnReader(
   EncodingKey encodingKey{nodeType_->id, flatMapContext_.sequence};
   auto data = encodingKey.forKind(proto::Stream_Kind_DATA);
   bool dataVInts = stripe.getUseVInts(data);
-  if (stripe.getFormat() == dwio::common::FileFormat::DWRF) {
+  if (stripe.format() == DwrfFormat::kDwrf) {
     ints = createDirectDecoder</*isSigned*/ true>(
         stripe.getStream(data, true), dataVInts, numBytes);
   } else {

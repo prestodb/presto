@@ -22,6 +22,7 @@ add_library(
   Decryption.cpp
   Encryption.cpp
   EncryptionSpecification.cpp
+  FileMetadata.cpp
   IntEncoder.cpp
   OutputStream.cpp
   PagedInputStream.cpp

@@ -21,6 +21,7 @@
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/common/Compression.h"
+#include "velox/dwio/dwrf/common/FileMetadata.h"
 #include "velox/dwio/dwrf/common/Statistics.h"
 #include "velox/dwio/dwrf/reader/StripeMetadataCache.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
@@ -90,17 +91,18 @@ class ReaderBase {
       : pool_{pool},
         stream_{std::move(stream)},
         postScript_{std::move(ps)},
-        footer_{std::make_unique<Footer>(footer)},
+        footer_{std::make_unique<FooterWrapper>(footer)},
         cache_{std::move(cache)},
         handler_{std::move(handler)},
         input_{
             stream_
                 ? std::make_unique<dwio::common::BufferedInput>(*stream_, pool_)
                 : nullptr},
-        schema_{std::dynamic_pointer_cast<const RowType>(convertType(*footer))},
+        schema_{
+            std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         fileLength_{0},
         psLength_{0} {
-    DWIO_ENSURE(footer_->getDwrfFooter()->GetArena());
+    DWIO_ENSURE(footer_->getDwrfPtr()->GetArena());
     DWIO_ENSURE_NOT_NULL(schema_, "invalid schema");
     if (!handler_) {
       handler_ = encryption::DecryptionHandler::create(*footer);
@@ -128,7 +130,7 @@ class ReaderBase {
     return *postScript_;
   }
 
-  const Footer& getFooter() const {
+  const FooterWrapper& getFooter() const {
     return *footer_;
   }
 
@@ -173,14 +175,21 @@ class ReaderBase {
   }
 
   uint64_t getCompressionBlockSize() const {
-    return postScript_->compressionBlockSize();
+    return postScript_->hasCompressionBlockSize()
+        ? postScript_->compressionBlockSize()
+        : dwio::common::DEFAULT_COMPRESSION_BLOCK_SIZE;
   }
 
   dwio::common::CompressionKind getCompressionKind() const {
-    return postScript_->compression();
+    return postScript_->hasCompressionBlockSize()
+        ? postScript_->compression()
+        : dwio::common::CompressionKind::CompressionKind_NONE;
   }
 
   WriterVersion getWriterVersion() const {
+    if (!postScript_->hasWriterVersion()) {
+      return WriterVersion::ORIGINAL;
+    }
     auto version = postScript_->writerVersion();
     return version <= WriterVersion_CURRENT
         ? static_cast<WriterVersion>(version)
@@ -188,7 +197,8 @@ class ReaderBase {
   }
 
   const std::string& getWriterName() const {
-    for (auto& entry : footer_->metadata()) {
+    for (int32_t index = 0; index < footer_->metadataSize(); ++index) {
+      auto entry = footer_->metadata(index);
       if (entry.name() == WRITER_NAME_KEY) {
         return entry.value();
       }
@@ -230,20 +240,20 @@ class ReaderBase {
     return arena_.get();
   }
 
-  dwio::common::FileFormat getFileFormat() const {
-    return postScript_->fileFormat();
+  DwrfFormat format() const {
+    return postScript_->format();
   }
 
  private:
   static std::shared_ptr<const Type> convertType(
-      const proto::Footer& footer,
+      const FooterWrapper& footer,
       uint32_t index = 0);
 
   memory::MemoryPool& pool_;
   std::unique_ptr<dwio::common::InputStream> stream_;
   std::unique_ptr<google::protobuf::Arena> arena_;
   std::unique_ptr<PostScript> postScript_;
-  std::unique_ptr<Footer> footer_ = nullptr;
+  std::unique_ptr<FooterWrapper> footer_ = nullptr;
   uint64_t fileNum_;
   std::unique_ptr<StripeMetadataCache> cache_;
   // Keeps factory alive for possibly async prefetch.

@@ -53,8 +53,8 @@ DwrfRowReaderShared::DwrfRowReaderShared(
   firstRowOfStripe.reserve(numberOfStripes);
   for (uint32_t i = 0; i < numberOfStripes; ++i) {
     firstRowOfStripe.push_back(rowTotal);
-    proto::StripeInformation stripeInfo = footer.stripes(i);
-    rowTotal += stripeInfo.numberofrows();
+    auto stripeInfo = footer.stripes(i);
+    rowTotal += stripeInfo.numberOfRows();
     if ((stripeInfo.offset() >= opts.getOffset()) &&
         (stripeInfo.offset() < opts.getLimit())) {
       if (i < currentStripe) {
@@ -209,15 +209,14 @@ std::unique_ptr<StripeInformation> DwrfReaderShared::getStripe(
     uint32_t stripeIndex) const {
   DWIO_ENSURE_LT(
       stripeIndex, getNumberOfStripes(), "stripe index out of range");
-  proto::StripeInformation stripeInfo =
-      readerBase_->getFooter().stripes(stripeIndex);
+  auto stripeInfo = readerBase_->getFooter().stripes(stripeIndex);
 
   return std::make_unique<StripeInformationImpl>(
       stripeInfo.offset(),
-      stripeInfo.indexlength(),
-      stripeInfo.datalength(),
-      stripeInfo.footerlength(),
-      stripeInfo.numberofrows());
+      stripeInfo.indexLength(),
+      stripeInfo.dataLength(),
+      stripeInfo.footerLength(),
+      stripeInfo.numberOfRows());
 }
 
 std::vector<std::string> DwrfReaderShared::getMetadataKeys() const {
@@ -250,26 +249,53 @@ bool DwrfReaderShared::hasMetadataValue(const std::string& key) const {
   return false;
 }
 
-uint64_t maxStreamsForType(const proto::Type& type) {
-  switch (static_cast<int64_t>(type.kind())) {
-    case proto::Type_Kind_STRUCT:
+uint64_t maxStreamsForType(const TypeWrapper& type) {
+  if (type.format() == DwrfFormat::kOrc) {
+    switch (type.kind()) {
+      case TypeKind::ROW:
+        return 1;
+      case TypeKind::SMALLINT:
+      case TypeKind::INTEGER:
+      case TypeKind::BIGINT:
+      case TypeKind::REAL:
+      case TypeKind::DOUBLE:
+      case TypeKind::BOOLEAN:
+      case TypeKind::DATE:
+      case TypeKind::ARRAY:
+      case TypeKind::MAP:
+        return 2;
+      case TypeKind::VARBINARY:
+      case TypeKind::SHORT_DECIMAL:
+      case TypeKind::LONG_DECIMAL:
+      case TypeKind::TIMESTAMP:
+        return 3;
+      case TypeKind::TINYINT:
+      case TypeKind::VARCHAR:
+        return 4;
+      default:
+        return 0;
+    }
+  }
+
+  // DWRF
+  switch (type.kind()) {
+    case TypeKind::ROW:
       return 1;
-    case proto::Type_Kind_FLOAT:
-    case proto::Type_Kind_DOUBLE:
-    case proto::Type_Kind_BOOLEAN:
-    case proto::Type_Kind_BYTE:
-    case proto::Type_Kind_LIST:
-    case proto::Type_Kind_MAP:
-    case proto::Type_Kind_UNION:
+    case TypeKind::REAL:
+    case TypeKind::DOUBLE:
+    case TypeKind::BOOLEAN:
+    case TypeKind::TINYINT:
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
       return 2;
-    case proto::Type_Kind_BINARY:
-    case proto::Type_Kind_TIMESTAMP:
+    case TypeKind::VARBINARY:
+    case TypeKind::TIMESTAMP:
       return 3;
-    case proto::Type_Kind_INT:
-    case proto::Type_Kind_LONG:
-    case proto::Type_Kind_SHORT:
+    case TypeKind::SMALLINT:
+    case TypeKind::INTEGER:
+    case TypeKind::BIGINT:
       return 4;
-    case proto::Type_Kind_STRING:
+    case TypeKind::VARCHAR:
       return 7;
     default:
       return 0;
@@ -309,13 +335,13 @@ uint64_t DwrfReaderShared::getMemoryUse(
   uint64_t maxDataLength = 0;
   auto& footer = readerBase.getFooter();
   if (stripeIx >= 0 && stripeIx < footer.stripesSize()) {
-    uint64_t stripe = footer.stripes(stripeIx).datalength();
+    uint64_t stripe = footer.stripes(stripeIx).dataLength();
     if (maxDataLength < stripe) {
       maxDataLength = stripe;
     }
   } else {
     for (int32_t i = 0; i < footer.stripesSize(); i++) {
-      uint64_t stripe = footer.stripes(i).datalength();
+      uint64_t stripe = footer.stripes(i).dataLength();
       if (maxDataLength < stripe) {
         maxDataLength = stripe;
       }
@@ -326,11 +352,11 @@ uint64_t DwrfReaderShared::getMemoryUse(
   uint64_t nSelectedStreams = 0;
   for (int32_t i = 0; !hasStringColumn && i < footer.typesSize(); i++) {
     if (cs.shouldReadNode(i)) {
-      const proto::Type& type = footer.types(i);
+      const auto type = footer.types(i);
       nSelectedStreams += maxStreamsForType(type);
-      switch (static_cast<int64_t>(type.kind())) {
-        case proto::Type_Kind_STRING:
-        case proto::Type_Kind_BINARY: {
+      switch (type.kind()) {
+        case TypeKind::VARCHAR:
+        case TypeKind::VARBINARY: {
           hasStringColumn = true;
           break;
         }
@@ -368,7 +394,7 @@ uint64_t DwrfReaderShared::getMemoryUse(
   if (compression != dwio::common::CompressionKind_NONE) {
     for (int32_t i = 0; i < footer.typesSize(); i++) {
       if (cs.shouldReadNode(i)) {
-        const proto::Type& type = footer.types(i);
+        const auto type = footer.types(i);
         decompressorMemory +=
             maxStreamsForType(type) * readerBase.getCompressionBlockSize();
       }
@@ -388,8 +414,8 @@ void DwrfRowReaderShared::startNextStripe() {
 
   resetColumnReaderImpl();
   bool preload = options_.getPreloadStripe();
-  auto& currentStripeInfo = loadStripe(currentStripe, preload);
-  rowsInCurrentStripe = currentStripeInfo.numberofrows();
+  auto currentStripeInfo = loadStripe(currentStripe, preload);
+  rowsInCurrentStripe = currentStripeInfo.numberOfRows();
 
   StripeStreamsImpl stripeStreams(
       *this,
@@ -417,7 +443,7 @@ size_t DwrfRowReaderShared::estimatedReaderMemory() const {
 }
 
 std::optional<size_t> DwrfRowReaderShared::estimatedRowSizeHelper(
-    const Footer& footer,
+    const FooterWrapper& footer,
     const dwio::common::Statistics& stats,
     uint32_t nodeId) const {
   DWIO_ENSURE_LT(nodeId, footer.typesSize(), "Types missing in footer");
@@ -432,28 +458,31 @@ std::optional<size_t> DwrfRowReaderShared::estimatedRowSizeHelper(
     return 0;
   }
   switch (t.kind()) {
-    case proto::Type_Kind_BOOLEAN: {
+    case TypeKind::BOOLEAN: {
       return valueCount * sizeof(uint8_t);
     }
-    case proto::Type_Kind_BYTE: {
+    case TypeKind::TINYINT: {
       return valueCount * sizeof(uint8_t);
     }
-    case proto::Type_Kind_SHORT: {
+    case TypeKind::SMALLINT: {
       return valueCount * sizeof(uint16_t);
     }
-    case proto::Type_Kind_INT: {
+    case TypeKind::INTEGER: {
       return valueCount * sizeof(uint32_t);
     }
-    case proto::Type_Kind_LONG: {
+    case TypeKind::BIGINT: {
       return valueCount * sizeof(uint64_t);
     }
-    case proto::Type_Kind_FLOAT: {
+    case TypeKind::REAL: {
       return valueCount * sizeof(float);
     }
-    case proto::Type_Kind_DOUBLE: {
+    case TypeKind::DOUBLE: {
       return valueCount * sizeof(double);
     }
-    case proto::Type_Kind_STRING: {
+    case TypeKind::DATE: {
+      return valueCount * sizeof(uint32_t);
+    }
+    case TypeKind::VARCHAR: {
       auto stringStats =
           dynamic_cast<const dwio::common::StringColumnStatistics*>(&s);
       if (!stringStats) {
@@ -465,7 +494,7 @@ std::optional<size_t> DwrfRowReaderShared::estimatedRowSizeHelper(
       }
       return length.value();
     }
-    case proto::Type_Kind_BINARY: {
+    case TypeKind::VARBINARY: {
       auto binaryStats =
           dynamic_cast<const dwio::common::BinaryColumnStatistics*>(&s);
       if (!binaryStats) {
@@ -477,24 +506,21 @@ std::optional<size_t> DwrfRowReaderShared::estimatedRowSizeHelper(
       }
       return length.value();
     }
-    case proto::Type_Kind_TIMESTAMP: {
+    case TypeKind::TIMESTAMP: {
       return valueCount * sizeof(uint64_t) * 2;
     }
-    case proto::Type_Kind_LIST:
-    case proto::Type_Kind_MAP:
-    case proto::Type_Kind_STRUCT:
-    case proto::Type_Kind_UNION: {
+    case TypeKind::ARRAY:
+    case TypeKind::MAP:
+    case TypeKind::ROW: {
       // start the estimate with the offsets and hasNulls vectors sizes
       size_t totalEstimate = valueCount * (sizeof(uint8_t) + sizeof(uint64_t));
-      for (int32_t i = 0; i < t.subtypes_size() &&
+      for (int32_t i = 0; i < t.subtypesSize() &&
            columnSelector_->shouldReadNode(t.subtypes(i));
            ++i) {
         auto subtypeEstimate =
             estimatedRowSizeHelper(footer, stats, t.subtypes(i));
         if (subtypeEstimate.has_value()) {
-          totalEstimate = t.kind() == proto::Type_Kind_UNION
-              ? std::max(totalEstimate, subtypeEstimate.value())
-              : (totalEstimate + subtypeEstimate.value());
+          totalEstimate += subtypeEstimate.value();
         } else {
           return std::nullopt;
         }

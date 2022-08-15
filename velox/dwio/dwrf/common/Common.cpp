@@ -104,14 +104,4 @@ CompressionKind orcCompressionToCompressionKind(
   return CompressionKind::CompressionKind_NONE;
 }
 } // namespace
-
-PostScript::PostScript(const proto::orc::PostScript& ps)
-    : fileFormat_{dwio::common::FileFormat::ORC},
-      footerLength_{ps.footerlength()},
-      compression_{orcCompressionToCompressionKind(ps.compression())},
-      compressionBlockSize_{ps.compressionblocksize()},
-      writerVersion_{static_cast<WriterVersion>(ps.writerversion())},
-      metadataLength_{ps.metadatalength()},
-      stripeStatisticsLength_{ps.stripestatisticslength()} {}
-
 } // namespace facebook::velox::dwrf

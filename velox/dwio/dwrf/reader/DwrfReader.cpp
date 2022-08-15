@@ -87,7 +87,7 @@ uint64_t DwrfRowReader::next(uint64_t size, VectorPtr& result) {
     if (currentStripe >= lastStripe) {
       if (lastStripe > 0) {
         previousRow = firstRowOfStripe[lastStripe - 1] +
-            footer.stripes(lastStripe - 1).numberofrows();
+            footer.stripes(lastStripe - 1).numberOfRows();
       } else {
         previousRow = 0;
       }

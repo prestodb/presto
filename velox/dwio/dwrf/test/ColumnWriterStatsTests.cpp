@@ -118,7 +118,7 @@ void verifyStats(
   auto stripeInfo = rowReader.loadStripe(0, preload);
 
   // Verify Stripe content length + index length equals size of the column 0.
-  auto totalStreamSize = stripeInfo.datalength() + stripeInfo.indexlength();
+  auto totalStreamSize = stripeInfo.dataLength() + stripeInfo.indexLength();
   auto node_0_Size = rowReader.getReader().getColumnStatistics(0)->getSize();
 
   ASSERT_EQ(node_0_Size, totalStreamSize) << "Total size does not match";

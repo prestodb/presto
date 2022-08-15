@@ -97,7 +97,7 @@ class EncryptedStatsTest : public Test {
     reader_ = std::make_unique<ReaderBase>(
         *scopedPool_,
         std::make_unique<MemoryInputStream>(nullptr, 0),
-        std::make_unique<PostScript>(ps),
+        std::make_unique<PostScript>(std::move(ps)),
         footer,
         nullptr,
         std::move(handler));

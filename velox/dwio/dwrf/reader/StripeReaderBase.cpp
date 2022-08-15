@@ -20,18 +20,18 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::LogType;
 
-const proto::StripeInformation& StripeReaderBase::loadStripe(
+StripeInformationWrapper StripeReaderBase::loadStripe(
     uint32_t index,
     bool& preload) {
   auto& footer = reader_->getFooter();
   DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
-  auto& stripe = footer.stripes(index);
+  auto stripe = footer.stripes(index);
   auto& cache = reader_->getMetadataCache();
 
   stripeInput_.reset();
   uint64_t offset = stripe.offset();
   uint64_t length =
-      stripe.indexlength() + stripe.datalength() + stripe.footerlength();
+      stripe.indexLength() + stripe.dataLength() + stripe.footerLength();
   if (reader_->getBufferedInput().isBuffered(offset, length)) {
     // if file is preloaded, return stripe is preloaded
     preload = true;
@@ -44,11 +44,11 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
       // metadata sections
       if (cache) {
         if (cache->has(StripeCacheMode::INDEX, index)) {
-          offset += stripe.indexlength();
-          length -= stripe.indexlength();
+          offset += stripe.indexLength();
+          length -= stripe.indexLength();
         }
         if (cache->has(StripeCacheMode::FOOTER, index)) {
-          length -= stripe.footerlength();
+          length -= stripe.footerLength();
         }
       }
 
@@ -65,8 +65,8 @@ const proto::StripeInformation& StripeReaderBase::loadStripe(
 
   if (!stream) {
     stream = getStripeInput().read(
-        stripe.offset() + stripe.indexlength() + stripe.datalength(),
-        stripe.footerlength(),
+        stripe.offset() + stripe.indexLength() + stripe.dataLength(),
+        stripe.footerLength(),
         LogType::STRIPE_FOOTER);
   }
 
@@ -98,10 +98,10 @@ void StripeReaderBase::loadEncryptionKeys(uint32_t index) {
   auto& footer = reader_->getFooter();
   DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
 
-  auto& stripe = footer.stripes(index);
+  auto stripe = footer.stripes(index);
   // If current stripe has keys, load these keys.
-  if (stripe.keymetadata_size() > 0) {
-    handler_->setKeys(stripe.keymetadata());
+  if (stripe.keyMetadataSize() > 0) {
+    handler_->setKeys(stripe.keyMetadata());
   } else {
     // If current stripe doesn't have keys, then:
     //  1. If it's sequential read (ie. we've just finished reading one stripe
@@ -117,8 +117,8 @@ void StripeReaderBase::loadEncryptionKeys(uint32_t index) {
       uint32_t prevIndex = index - 1;
       while (true) {
         auto prev = footer.stripes(prevIndex);
-        if (prev.keymetadata_size() > 0) {
-          handler_->setKeys(prev.keymetadata());
+        if (prev.keyMetadataSize() > 0) {
+          handler_->setKeys(prev.keyMetadata());
           break;
         }
         DWIO_ENSURE_GE(prevIndex, 0, "key not found");

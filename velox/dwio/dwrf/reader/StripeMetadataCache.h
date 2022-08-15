@@ -27,7 +27,7 @@ class StripeMetadataCache {
  public:
   StripeMetadataCache(
       StripeCacheMode mode,
-      const Footer& footer,
+      const FooterWrapper& footer,
       std::shared_ptr<dwio::common::DataBuffer<char>> buffer)
       : StripeMetadataCache{mode, std::move(buffer), getOffsets(footer)} {}
 
@@ -39,7 +39,7 @@ class StripeMetadataCache {
 
   StripeMetadataCache(
       StripeCacheMode mode,
-      const Footer& footer,
+      const FooterWrapper& footer,
       std::unique_ptr<dwio::common::SeekableInputStream> input)
       : mode_(mode), input_(std::move(input)), offsets_(getOffsets(footer)) {
     VELOX_CHECK(dynamic_cast<dwio::common::CacheInputStream*>(input_.get()));
@@ -96,7 +96,7 @@ class StripeMetadataCache {
     return INVALID_INDEX;
   }
 
-  std::vector<uint32_t> getOffsets(const Footer& footer) {
+  std::vector<uint32_t> getOffsets(const FooterWrapper& footer) {
     std::vector<uint32_t> offsets;
     offsets.reserve(footer.stripeCacheOffsetsSize());
     const auto& from = footer.stripeCacheOffsets();

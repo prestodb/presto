@@ -49,7 +49,7 @@ class DwrfRowReaderShared : public StrideIndexProvider,
 
   // internal methods
   std::optional<size_t> estimatedRowSizeHelper(
-      const Footer& footer,
+      const FooterWrapper& footer,
       const dwio::common::Statistics& stats,
       uint32_t nodeId) const;
 
@@ -208,7 +208,7 @@ class DwrfReaderShared : public dwio::common::Reader {
     return readerBase_->getPostScript();
   }
 
-  const Footer& getFooter() const {
+  const FooterWrapper& getFooter() const {
     return readerBase_->getFooter();
   }
 
