@@ -15,6 +15,7 @@
 package com.facebook.presto.hudi;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,13 +23,18 @@ import java.util.Map;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class TestHudiConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(HudiConfig.class).setMetadataTableEnabled(false));
+        assertRecordedDefaults(recordDefaults(HudiConfig.class)
+                .setMetadataTableEnabled(false)
+                .setSizeBasedSplitWeightsEnabled(true)
+                .setStandardSplitWeightSize(new DataSize(128, MEGABYTE))
+                .setMinimumAssignedSplitWeight(0.05));
     }
 
     @Test
@@ -36,9 +42,16 @@ public class TestHudiConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hudi.metadata-table-enabled", "true")
+                .put("hudi.size-based-split-weights-enabled", "false")
+                .put("hudi.standard-split-weight-size", "500MB")
+                .put("hudi.minimum-assigned-split-weight", "0.1")
                 .build();
 
-        HudiConfig expected = new HudiConfig().setMetadataTableEnabled(true);
+        HudiConfig expected = new HudiConfig()
+                .setMetadataTableEnabled(true)
+                .setSizeBasedSplitWeightsEnabled(false)
+                .setStandardSplitWeightSize(new DataSize(500, MEGABYTE))
+                .setMinimumAssignedSplitWeight(0.1);
 
         assertFullMapping(properties, expected);
     }
