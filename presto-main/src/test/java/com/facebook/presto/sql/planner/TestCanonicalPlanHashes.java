@@ -209,6 +209,15 @@ public class TestCanonicalPlanHashes
         assertDifferentPlanHash("SELECT * from nation LIMIT 1000", "SELECT * from nation LIMIT 10000", REMOVE_SAFE_CONSTANTS);
     }
 
+    @Test
+    public void testInsert()
+            throws Exception
+    {
+        assertSamePlanHash("INSERT INTO nation SELECT * from nation",
+                "INSERT INTO nation SELECT * from nation",
+                CONNECTOR);
+    }
+
     private Session createSession()
     {
         return testSessionBuilder()
