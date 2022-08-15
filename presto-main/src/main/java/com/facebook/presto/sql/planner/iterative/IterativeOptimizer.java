@@ -112,7 +112,14 @@ public class IterativeOptimizer
         Matcher matcher = new PlanNodeMatcher(lookup);
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector);
+        StatsProvider statsProvider = new CachingStatsProvider(
+                statsCalculator,
+                Optional.of(memo),
+                lookup,
+                session,
+                variableAllocator.getTypes());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
+        Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector, costProvider, statsProvider);
         boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
         if (!planChanged) {
             return plan;
@@ -224,14 +231,6 @@ public class IterativeOptimizer
 
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(
-                statsCalculator,
-                Optional.of(context.memo),
-                context.lookup,
-                context.session,
-                context.variableAllocator.getTypes());
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session);
-
         return new Rule.Context()
         {
             @Override
@@ -261,13 +260,13 @@ public class IterativeOptimizer
             @Override
             public StatsProvider getStatsProvider()
             {
-                return statsProvider;
+                return context.statsProvider;
             }
 
             @Override
             public CostProvider getCostProvider()
             {
-                return costProvider;
+                return context.costProvider;
             }
 
             @Override
@@ -294,6 +293,8 @@ public class IterativeOptimizer
         private final long timeoutInMilliseconds;
         private final Session session;
         private final WarningCollector warningCollector;
+        private final CostProvider costProvider;
+        private final StatsProvider statsProvider;
 
         public Context(
                 Memo memo,
@@ -303,7 +304,9 @@ public class IterativeOptimizer
                 long startTimeInNanos,
                 long timeoutInMilliseconds,
                 Session session,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                CostProvider costProvider,
+                StatsProvider statsProvider)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
@@ -315,6 +318,8 @@ public class IterativeOptimizer
             this.timeoutInMilliseconds = timeoutInMilliseconds;
             this.session = session;
             this.warningCollector = warningCollector;
+            this.costProvider = costProvider;
+            this.statsProvider = statsProvider;
         }
 
         public void checkTimeoutNotExhausted()
