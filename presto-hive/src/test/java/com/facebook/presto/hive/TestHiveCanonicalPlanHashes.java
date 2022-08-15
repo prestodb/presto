@@ -111,6 +111,11 @@ public class TestHiveCanonicalPlanHashes
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-01' AND orderkey < 10",
                     "SELECT orderkey, CAST(1 AS VARCHAR) from test_orders where ds = '2020-09-02' AND orderkey < 20",
                     REMOVE_SAFE_CONSTANTS);
+
+            assertSamePlanHash(
+                    "INSERT INTO test_orders select * from test_orders",
+                    "INSERT INTO test_orders select * from test_orders",
+                    CONNECTOR);
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS test_orders");
