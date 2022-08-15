@@ -20,6 +20,7 @@ import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -102,6 +103,45 @@ public class CanonicalPlanGenerator
     public Optional<PlanNode> visitPlan(PlanNode node, Context context)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<PlanNode> visitStatsEquivalentPlanNodeWithLimit(StatsEquivalentPlanNodeWithLimit node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> limit = node.getLimit().accept(this, context);
+        if (!limit.isPresent()) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> plan = node.getPlan().accept(this, context);
+        if (!plan.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode result = new StatsEquivalentPlanNodeWithLimit(planNodeidAllocator.getNextId(), plan.get(), (LimitNode) limit.get());
+        context.addPlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
+    }
+
+    @Override
+    public Optional<PlanNode> visitLimit(LimitNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode result = new LimitNode(Optional.empty(), planNodeidAllocator.getNextId(), source.get(), node.getCount(), node.getStep());
+        context.addPlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
     }
 
     @Override
