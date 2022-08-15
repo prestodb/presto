@@ -472,8 +472,8 @@ public class ReorderJoins
                     new PlanNodeId(""),
                     sources.stream().collect(toImmutableList()),
                     INNER,
-                    ImmutableList.of(),
-                    ImmutableList.of(filter),
+                    ImmutableSet.of(),
+                    ImmutableSet.of(filter),
                     outputVariables);
 
             List<VariableReferenceExpression> inputVariables = sources.stream().flatMap(source -> source.getOutputVariables().stream()).collect(toImmutableList());
@@ -482,7 +482,7 @@ public class ReorderJoins
 
         public RowExpression getFilter()
         {
-            return node.getFilters().get(0);
+            return node.getFilters().stream().findAny().get();
         }
 
         public LinkedHashSet<PlanNode> getSources()

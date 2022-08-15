@@ -164,6 +164,41 @@ public class TestCanonicalPlanHashes
                 REMOVE_SAFE_CONSTANTS);
     }
 
+    @Test
+    public void testJoin()
+            throws Exception
+    {
+        assertSamePlanHash(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995",
+                "SELECT N.name, O.totalprice, C.name FROM nation N, orders O, customer C WHERE C.nationkey = N.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995",
+                CONNECTOR);
+        assertSamePlanHash(
+                "SELECT O.totalprice, C.name FROM orders O JOIN customer C ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
+                "SELECT O.totalprice, C.name FROM customer C JOIN orders O ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
+                CONNECTOR);
+        assertSamePlanHash(
+                "SELECT O.totalprice, C.name FROM orders O FULL OUTER JOIN customer C ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
+                "SELECT O.totalprice, C.name FROM customer C FULL OUTER JOIN orders O ON C.custkey = O.custkey WHERE year(O.orderdate) = 1995",
+                CONNECTOR);
+        assertSamePlanHash(
+                "SELECT O.totalprice, C.name FROM orders O LEFT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
+                "SELECT O.totalprice, C.name FROM customer C RIGHT JOIN orders O ON C.custkey = O.custkey and year(O.orderdate) = 1995",
+                CONNECTOR);
+
+        assertDifferentPlanHash(
+                "SELECT O.totalprice, C.name FROM orders O LEFT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
+                "SELECT O.totalprice, C.name FROM orders O RIGHT JOIN customer C ON C.custkey = O.custkey and year(O.orderdate) = 1995",
+                CONNECTOR);
+        assertDifferentPlanHash(
+                "SELECT * FROM orders O FULL OUTER JOIN customer C ON O.custkey = C.custkey FULL OUTER JOIN nation N ON C.nationkey = N.nationkey",
+                "SELECT * FROM nation N FULL OUTER JOIN customer C ON C.nationkey = N.nationkey FULL OUTER JOIN orders O ON O.custkey = C.custkey",
+                CONNECTOR);
+        assertDifferentPlanHash(
+                "SELECT * FROM orders O LEFT OUTER JOIN customer C ON O.custkey = C.custkey LEFT OUTER JOIN nation N ON C.nationkey = N.nationkey",
+                "SELECT * FROM nation N LEFT OUTER JOIN customer C ON C.nationkey = N.nationkey LEFT OUTER JOIN orders O ON O.custkey = C.custkey",
+                CONNECTOR);
+    }
+
     private Session createSession()
     {
         return testSessionBuilder()
