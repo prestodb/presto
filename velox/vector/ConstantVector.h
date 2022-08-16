@@ -237,7 +237,8 @@ class ConstantVector final : public SimpleVector<T> {
   }
 
   bool isScalar() const override {
-    return valueVector_ ? valueVector_->isScalar() : true;
+    return valueVector_ ? valueVector_->isScalar()
+                        : (this->typeKind() != TypeKind::UNKNOWN);
   }
 
   const BaseVector* wrappedVector() const override {

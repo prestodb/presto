@@ -280,7 +280,7 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   bool isScalar() const override {
-    return true;
+    return this->typeKind() != TypeKind::UNKNOWN;
   }
 
   uint64_t retainedSize() const override {

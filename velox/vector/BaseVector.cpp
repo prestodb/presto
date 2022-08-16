@@ -324,7 +324,7 @@ VectorPtr BaseVector::createInternal(
           0 /*nullCount*/);
     }
     case TypeKind::UNKNOWN: {
-      BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool, true);
+      BufferPtr nulls = AlignedBuffer::allocate<bool>(size, pool, bits::kNull);
       return std::make_shared<FlatVector<UnknownValue>>(
           pool,
           nulls,

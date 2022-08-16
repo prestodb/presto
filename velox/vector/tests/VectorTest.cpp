@@ -931,19 +931,55 @@ TEST_F(VectorTest, map) {
 }
 
 TEST_F(VectorTest, unknown) {
-  auto vector =
+  auto constUnknownVector =
       BaseVector::createConstant(variant(TypeKind::UNKNOWN), 123, pool_.get());
-  ASSERT_EQ(TypeKind::UNKNOWN, vector->typeKind());
-  ASSERT_EQ(123, vector->size());
-  for (auto i = 0; i < vector->size(); i++) {
-    ASSERT_TRUE(vector->isNullAt(i));
+  ASSERT_FALSE(constUnknownVector->isScalar());
+  ASSERT_EQ(TypeKind::UNKNOWN, constUnknownVector->typeKind());
+  ASSERT_EQ(123, constUnknownVector->size());
+  for (auto i = 0; i < constUnknownVector->size(); i++) {
+    ASSERT_TRUE(constUnknownVector->isNullAt(i));
   }
 
-  auto copy = BaseVector::create(BIGINT(), 10, pool_.get());
-  copy->copy(vector.get(), 0, 0, 1);
+  auto intVector = BaseVector::create(BIGINT(), 10, pool_.get());
+  ASSERT_FALSE(intVector->isNullAt(0));
+  ASSERT_FALSE(intVector->mayHaveNulls());
+  intVector->copy(constUnknownVector.get(), 0, 0, 1);
+  ASSERT_TRUE(intVector->isNullAt(0));
 
-  SelectivityVector rows(1);
-  copy->copy(vector.get(), rows, nullptr);
+  SelectivityVector rows(2);
+  intVector->copy(constUnknownVector.get(), rows, nullptr);
+  for (int i = 0; i < intVector->size(); ++i) {
+    if (i < 2) {
+      ASSERT_TRUE(intVector->isNullAt(i));
+    } else {
+      ASSERT_FALSE(intVector->isNullAt(i));
+    }
+  }
+
+  // Can't copy to constant.
+  EXPECT_ANY_THROW(constUnknownVector->copy(intVector.get(), rows, nullptr));
+
+  // Create a flat UNKNOWN vector.
+  auto unknownVector = BaseVector::create(UNKNOWN(), 10, pool_.get());
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, unknownVector->encoding());
+  ASSERT_FALSE(unknownVector->isScalar());
+  ASSERT_EQ(unknownVector->getNullCount().value(), 10);
+  for (int i = 0; i < unknownVector->size(); ++i) {
+    ASSERT_TRUE(unknownVector->isNullAt(i)) << i;
+  }
+  // Can't copy to UNKNOWN vector.
+  EXPECT_ANY_THROW(unknownVector->copy(intVector.get(), rows, nullptr));
+
+  // It is okay to copy to a non-constant UNKNOWN vector.
+  unknownVector->copy(constUnknownVector.get(), rows, nullptr);
+  ASSERT_EQ(unknownVector->getNullCount().value(), 10);
+  for (int i = 0; i < unknownVector->size(); ++i) {
+    ASSERT_TRUE(unknownVector->isNullAt(i)) << i;
+  }
+
+  // Can't copy to constant.
+  EXPECT_ANY_THROW(
+      constUnknownVector->copy(unknownVector.get(), rows, nullptr));
 }
 
 TEST_F(VectorTest, copyBoolAllNullFlatVector) {
