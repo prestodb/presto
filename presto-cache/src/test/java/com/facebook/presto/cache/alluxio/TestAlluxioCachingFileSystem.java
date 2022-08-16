@@ -116,7 +116,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory)
+                .setBaseDirectory(cacheDirectory.toString())
                 .setValidationEnabled(validationEnabled);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
@@ -190,7 +190,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory);
+                .setBaseDirectory(cacheDirectory.toString());
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig()
                 .setMaxCacheSize(new DataSize(10, KILOBYTE));
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
@@ -215,7 +215,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(badCacheDirectory);
+                .setBaseDirectory(badCacheDirectory.toString());
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         try {
@@ -235,7 +235,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(this.cacheDirectory);
+                .setBaseDirectory(this.cacheDirectory.toString());
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig();
         Configuration configuration = getHdfsConfiguration(cacheConfig, alluxioCacheConfig);
         configuration.set("alluxio.user.client.cache.async.restore.enabled", String.valueOf(true));
@@ -317,7 +317,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory)
+                .setBaseDirectory(cacheDirectory.toString())
                 .setValidationEnabled(false)
                 .setCacheQuotaScope(TABLE);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig().setCacheQuotaEnabled(true);
@@ -353,7 +353,7 @@ public class TestAlluxioCachingFileSystem
         CacheConfig cacheConfig = new CacheConfig()
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
-                .setBaseDirectory(cacheDirectory)
+                .setBaseDirectory(cacheDirectory.toString())
                 .setValidationEnabled(false)
                 .setCacheQuotaScope(TABLE);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig().setCacheQuotaEnabled(true);
@@ -391,7 +391,7 @@ public class TestAlluxioCachingFileSystem
                 .setCacheType(ALLUXIO)
                 .setCachingEnabled(true)
                 .setValidationEnabled(false)
-                .setBaseDirectory(cacheDirectory)
+                .setBaseDirectory(cacheDirectory.toString())
                 .setCacheQuotaScope(TABLE);
         AlluxioCacheConfig alluxioCacheConfig = new AlluxioCacheConfig()
                 .setMaxCacheSize(new DataSize(10, KILOBYTE))

@@ -159,7 +159,7 @@ public class TestFileMergeCacheManager
     public void testStress()
             throws ExecutionException, InterruptedException
     {
-        CacheConfig cacheConfig = new CacheConfig().setBaseDirectory(cacheDirectory);
+        CacheConfig cacheConfig = new CacheConfig().setBaseDirectory(cacheDirectory.toString());
         FileMergeCacheConfig fileMergeCacheConfig = new FileMergeCacheConfig().setCacheTtl(new Duration(10, MILLISECONDS));
 
         CacheManager cacheManager = fileMergeCacheManager(cacheConfig, fileMergeCacheConfig);
@@ -211,7 +211,7 @@ public class TestFileMergeCacheManager
     {
         CacheConfig cacheConfig = new CacheConfig();
         FileMergeCacheConfig fileMergeCacheConfig = new FileMergeCacheConfig();
-        return new FileMergeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory), fileMergeCacheConfig, cacheStats, flushExecutor, removeExecutor, cacheSizeCalculator);
+        return new FileMergeCacheManager(cacheConfig.setBaseDirectory(cacheDirectory.toString()), fileMergeCacheConfig, cacheStats, flushExecutor, removeExecutor, cacheSizeCalculator);
     }
 
     private boolean readFully(CacheManager cacheManager, CacheQuota cacheQuota, long position, byte[] buffer, int offset, int length)
