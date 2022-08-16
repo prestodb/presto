@@ -45,6 +45,7 @@ add_executable(
   InPredicateTest.cpp
   JsonCastTest.cpp
   JsonExtractScalarTest.cpp
+  JsonFunctionsTest.cpp
   MapConcatTest.cpp
   MapEntriesTest.cpp
   MapFilterTest.cpp

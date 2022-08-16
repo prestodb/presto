@@ -19,6 +19,17 @@
 
 namespace facebook::velox::functions {
 
+template <typename T>
+struct IsJsonScalarFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE void call(bool& result, const arg_type<Varchar>& json) {
+    auto parsedJson = folly::parseJson(json);
+    result = parsedJson.isNumber() || parsedJson.isString() ||
+        parsedJson.isBool() || parsedJson.isNull();
+  }
+};
+
 // jsonExtractScalar(json, json_path) -> varchar
 // Current implementation support UTF-8 in json, but not in json_path.
 // Like jsonExtract(), but returns the result value as a string (as opposed

@@ -15,10 +15,11 @@
  */
 
 #include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/JsonExtractScalar.h"
+#include "velox/functions/prestosql/JsonFunctions.h"
 
 namespace facebook::velox::functions {
 void registerJsonFunctions() {
+  registerFunction<IsJsonScalarFunction, bool, Varchar>({"is_json_scalar"});
   registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {"json_extract_scalar"});
 }

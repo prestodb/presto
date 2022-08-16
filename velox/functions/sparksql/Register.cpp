@@ -18,7 +18,7 @@
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
-#include "velox/functions/prestosql/JsonExtractScalar.h"
+#include "velox/functions/prestosql/JsonFunctions.h"
 #include "velox/functions/prestosql/Rand.h"
 #include "velox/functions/prestosql/StringFunctions.h"
 #include "velox/functions/sparksql/ArraySort.h"
