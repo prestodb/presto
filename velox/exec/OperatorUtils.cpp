@@ -101,7 +101,8 @@ void gatherCopy(
     const std::vector<const RowVector*>& sources,
     const std::vector<vector_size_t>& sourceIndices,
     column_index_t sourceChannel) {
-  if (target->isScalar()) {
+  // TODO: UNKNOWN is not a scalar type and will fix 'isScalar()' next.
+  if (target->isScalar() && target->typeKind() != TypeKind::UNKNOWN) {
     VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         scalarGatherCopy,
         target->type()->kind(),
@@ -321,6 +322,15 @@ void gatherCopy(
           i);
     }
   }
+}
+
+std::string makeOperatorSpillPath(
+    const std::string& spillPath,
+    const std::string& taskId,
+    int driverId,
+    int32_t operatorId) {
+  VELOX_CHECK(!spillPath.empty());
+  return fmt::format("{}/{}_{}_{}", spillPath, taskId, driverId, operatorId);
 }
 
 } // namespace facebook::velox::exec

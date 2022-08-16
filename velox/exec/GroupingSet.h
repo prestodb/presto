@@ -175,7 +175,7 @@ class GroupingSet {
 
   // The spillable memory reservation growth percentage of the current
   // reservation size.
-  const double spillableReservationGrowthPct_;
+  const int32_t spillableReservationGrowthPct_;
 
   // Parameters used for spilling control.
   const int32_t spillPartitionBits_;

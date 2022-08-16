@@ -17,12 +17,14 @@
 #include <gtest/gtest.h>
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/tests/utils/OperatorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::exec;
 
-class OperatorUtilsTest : public ::testing::Test {
+class OperatorUtilsTest
+    : public ::facebook::velox::exec::test::OperatorTestBase {
  protected:
   void gatherCopyTest(
       const std::shared_ptr<const RowType>& targetType,
@@ -170,4 +172,37 @@ TEST_F(OperatorUtilsTest, gatherCopy) {
   // Gather copy with non-identical column mapping.
   gatherCopyTest(rowType, reversedRowType, 1);
   gatherCopyTest(rowType, reversedRowType, 5);
+
+  // Test with UNKNOWN type.
+  int kNumRows = 100;
+  auto sourceVector = makeRowVector(
+      {makeFlatVector<int64_t>(kNumRows, [](auto row) { return row % 7; }),
+       BaseVector::createConstant(
+           variant(TypeKind::UNKNOWN), kNumRows, pool_.get())});
+  std::vector<const RowVector*> sourceVectors(kNumRows);
+  std::vector<vector_size_t> sourceIndices(kNumRows);
+  for (int i = 0; i < kNumRows; ++i) {
+    sourceVectors[i] = sourceVector.get();
+    sourceIndices[i] = kNumRows - i - 1;
+  }
+  auto targetVector = BaseVector::create<RowVector>(
+      sourceVector->type(), kNumRows, pool_.get());
+  for (int32_t childIdx = 0; childIdx < targetVector->childrenSize();
+       ++childIdx) {
+    targetVector->childAt(childIdx)->resize(kNumRows);
+  }
+
+  gatherCopy(targetVector.get(), 0, kNumRows, sourceVectors, sourceIndices);
+  // Verify the copied data in target.
+  for (int i = 0; i < targetVector->type()->size(); ++i) {
+    auto vector = targetVector->childAt(i);
+    for (int j = 0; j < kNumRows; ++j) {
+      auto source = sourceVectors[j]->childAt(i).get();
+      ASSERT_TRUE(vector->equalValueAt(source, j, sourceIndices[j]));
+    }
+  }
+}
+
+TEST_F(OperatorUtilsTest, makeOperatorSpillPath) {
+  EXPECT_EQ("spill/task_1_100", makeOperatorSpillPath("spill", "task", 1, 100));
 }

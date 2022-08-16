@@ -92,4 +92,14 @@ void gatherCopy(
     const std::vector<vector_size_t>& sourceIndices,
     const std::vector<IdentityProjection>& columnMap = {});
 
+/// Generate the system-wide unique disk spill file path for an operator. It
+/// will be the directory on fs with namespace support or common file prefix if
+/// not. It is assumed that the disk spilling file hierarchy for an operator is
+/// flat.
+std::string makeOperatorSpillPath(
+    const std::string& spillPath,
+    const std::string& taskId,
+    int driverId,
+    int32_t operatorId);
+
 } // namespace facebook::velox::exec
