@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <folly/init/Init.h>
 #include <vector>
 
 #include "velox/common/base/tests/Fs.h"
@@ -237,4 +238,10 @@ TEST_F(ParquetTpchTest, Q19) {
 TEST_F(ParquetTpchTest, Q22) {
   std::vector<uint32_t> sortingKeys{0};
   assertQuery(22, std::move(sortingKeys));
+}
+
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }
