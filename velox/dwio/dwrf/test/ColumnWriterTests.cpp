@@ -904,16 +904,13 @@ void testMapWriter(
     // Write map/row
     for (auto strideI = 0; strideI < strideCount; ++strideI) {
       auto toWrite = batch;
-      if (testEncoded && !isStruct) {
-        toWrite = wrapInDictionary(toWrite, strideI, pool);
+      if (testEncoded) {
+        if (isStruct) {
+          toWrite = wrapInDictionaryRow(toWrite, pool);
+        } else {
+          toWrite = wrapInDictionary(toWrite, strideI, pool);
+        }
       }
-      // if (testEncoded) {
-      //   if (isStruct) {
-      //     toWrite = wrapInDictionaryRow(toWrite, pool);
-      //   } else {
-      //     toWrite = wrapInDictionary(toWrite, strideI, pool);
-      //   }
-      // }
       writer->write(toWrite, Ranges::of(0, toWrite->size()));
       writer->createIndexEntry();
       writtenBatches.push_back(toWrite);
@@ -956,9 +953,9 @@ void testMapWriter(
       EXPECT_THROW({ reader->next(50, out); }, exception::LoggedException);
     };
 
-    validate();
+    ASSERT_NO_FATAL_FAILURE(validate());
     if (useFlatMap) {
-      validate(true);
+      ASSERT_NO_FATAL_FAILURE(validate(true));
     }
 
     context.nextStripe();
@@ -990,6 +987,155 @@ void testMapWriter(
           << "Expecting to find at least one regular map value stream";
     }
   }
+}
+
+template <typename TVALUE>
+void testMapWriterRow(
+    MemoryPool& pool,
+    const std::vector<VectorPtr>& batches,
+    bool disableDictionaryEncoding,
+    bool testEncoded,
+    bool printInput = true) {
+  const auto rowType = CppToType<Row<Map<int32_t, TVALUE>>>::create();
+  const auto dataType = rowType->childAt(0);
+  const auto rowTypeWithId = TypeWithId::create(rowType);
+  const auto dataTypeWithId = rowTypeWithId->childAt(0);
+  const auto writerSchema = TypeWithId::create(rowType);
+  const auto writerDataTypeWithId = writerSchema->childAt(0);
+
+  VLOG(2) << "Testing map writer struct input " << dataType->toString();
+
+  const auto config = std::make_shared<Config>();
+  std::unordered_map<uint32_t, std::vector<std::string>> structReaderContext;
+  ASSERT_TRUE(batches.size() > 0);
+  auto row = std::dynamic_pointer_cast<RowVector>(batches[0]);
+  ASSERT_TRUE(row);
+
+  // defaulting to int32_t keys
+  std::vector<std::string> uniqueKeysString;
+  uniqueKeysString.reserve(row->childrenSize());
+  for (auto i = 0; i < row->childrenSize(); i++) {
+    uniqueKeysString.push_back(folly::to<std::string>(i));
+  }
+
+  ASSERT_EQ(writerDataTypeWithId->column, 0);
+  config->set(Config::MAP_FLAT_COLS_STRUCT_KEYS, {uniqueKeysString});
+  structReaderContext[writerDataTypeWithId->id] = uniqueKeysString;
+
+  config->set(Config::FLATTEN_MAP, true);
+  config->set(Config::MAP_FLAT_COLS, {writerDataTypeWithId->column});
+  config->set(
+      Config::MAP_FLAT_DISABLE_DICT_ENCODING, disableDictionaryEncoding);
+
+  WriterContext context{config, getDefaultScopedMemoryPool()};
+  const auto writer = BaseColumnWriter::create(context, *writerDataTypeWithId);
+
+  // Each batch represents an input for a separate stripe
+  for (auto batch : batches) {
+    if (printInput) {
+      printRow("Input", batch);
+    }
+
+    proto::StripeFooter sf;
+    std::vector<VectorPtr> writtenBatches;
+
+    // Write map/row
+    auto toWrite = batch;
+    if (testEncoded) {
+      toWrite = wrapInDictionaryRow(toWrite, pool);
+    }
+    writer->write(toWrite, Ranges::of(0, toWrite->size()));
+    writer->createIndexEntry();
+    writtenBatches.push_back(toWrite);
+
+    writer->flush([&sf](uint32_t /* unused */) -> proto::ColumnEncoding& {
+      return *sf.add_encoding();
+    });
+
+    auto validate = [&](bool returnFlatVector = false) {
+      TestStripeStreams streams(
+          context, sf, rowType, returnFlatVector, structReaderContext);
+      const auto reader =
+          ColumnReader::build(dataTypeWithId, dataTypeWithId, streams);
+      VectorPtr out;
+
+      // Read map/row
+      for (auto& writtenBatch : writtenBatches) {
+        reader->next(writtenBatch->size(), out);
+        ASSERT_EQ(out->size(), writtenBatch->size()) << "Batch size mismatch";
+
+        if (printInput) {
+          printRow("Result", batch);
+        }
+
+        for (int32_t i = 0; i < writtenBatch->size(); ++i) {
+          ASSERT_TRUE(writtenBatch->equalValueAt(out.get(), i, i))
+              << "Row mismatch at index " << i;
+        }
+      }
+
+      // Reader API requires the caller to read the Stripe for number of
+      // values and iterate only until that number.
+      // It does not support hasNext/next protocol.
+      // Use a bigger number like 50, as some values may be bit packed.
+      EXPECT_THROW({ reader->next(50, out); }, exception::LoggedException);
+    };
+
+    ASSERT_NO_FATAL_FAILURE(validate());
+    ASSERT_NO_FATAL_FAILURE(validate(true));
+
+    context.nextStripe();
+
+    auto valueNodeId = dataTypeWithId->childAt(1)->id;
+    auto streamCount = 0;
+    context.iterateUnSuppressedStreams([&](auto& pair) {
+      if (pair.first.encodingKey().node == valueNodeId) {
+        ++streamCount;
+      }
+    });
+
+    ASSERT_GT(streamCount, 0) << "Expecting to find at least one value stream";
+
+    writer->reset();
+
+    streamCount = 0;
+    context.iterateUnSuppressedStreams([&](auto& pair) {
+      if (pair.first.encodingKey().node == valueNodeId) {
+        ++streamCount;
+      }
+    });
+
+    ASSERT_EQ(streamCount, 0)
+        << "Expecting all flat map value streams to be disposed";
+  }
+}
+
+template <typename TVALUE>
+void testMapWriterRowImpl() {
+  auto type = CppToType<Row<TVALUE, TVALUE>>::create();
+
+  std::unique_ptr<ScopedMemoryPool> scopedPool = getDefaultScopedMemoryPool();
+  auto& pool = *scopedPool;
+  auto batch = BatchMaker::createVector<TypeKind::ROW>(type, 10, pool);
+
+  std::vector<VectorPtr> batches{batch, batch};
+
+  testMapWriterRow<TVALUE>(pool, batches, true, false);
+  testMapWriterRow<TVALUE>(pool, batches, true, true);
+}
+
+TEST(ColumnWriterTests, TestMapWriterNestedRow) {
+  testMapWriterRowImpl<bool>();
+  testMapWriterRowImpl<Array<int32_t>>();
+  testMapWriterRowImpl<Array<bool>>();
+  testMapWriterRowImpl<Array<StringView>>();
+  testMapWriterRowImpl<Map<int32_t, bool>>();
+  testMapWriterRowImpl<Map<int32_t, int32_t>>();
+  testMapWriterRowImpl<Map<int32_t, StringView>>();
+  testMapWriterRowImpl<Map<int32_t, Array<int32_t>>>();
+  testMapWriterRowImpl<Map<int32_t, Map<int32_t, StringView>>>();
+  testMapWriterRowImpl<Map<int32_t, Row<int32_t, bool, StringView>>>();
+  testMapWriterRowImpl<Row<int32_t, bool, StringView>>();
 }
 
 template <typename TKEY, typename TVALUE>
