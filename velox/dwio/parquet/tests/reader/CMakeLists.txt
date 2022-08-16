@@ -33,3 +33,18 @@ target_link_libraries(
   ${ZSTD}
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_parquet_tpch_test ParquetTpchTest.cpp)
+add_test(
+  NAME velox_dwio_parquet_tpch_test
+  COMMAND velox_dwio_parquet_tpch_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  velox_dwio_parquet_tpch_test
+  velox_dwio_parquet_reader
+  velox_exec_test_util
+  velox_exec
+  velox_hive_connector
+  velox_aggregates
+  ${TEST_LINK_LIBS})
