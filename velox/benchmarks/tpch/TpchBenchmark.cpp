@@ -98,7 +98,7 @@ class TpchBenchmark {
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
-    parquet::registerParquetReaderFactory();
+    parquet::registerParquetReaderFactory(parquet::ParquetReaderType::NATIVE);
     dwrf::registerDwrfReaderFactory();
     auto hiveConnector =
         connector::getConnectorFactory(

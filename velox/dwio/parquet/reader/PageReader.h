@@ -218,7 +218,6 @@ class PageReader {
   const int64_t chunkSize_;
   const char* FOLLY_NULLABLE bufferStart_{nullptr};
   const char* FOLLY_NULLABLE bufferEnd_{nullptr};
-
   BufferPtr tempNulls_;
   BufferPtr nullsInReadRange_;
   BufferPtr multiPageNulls_;

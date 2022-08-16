@@ -151,7 +151,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
 
       if (repeating_) {
         if (allOnes && value_ && toRead == numValues &&
-            repeating_ >= numValues) {
+            remainingValues_ >= numValues) {
           // The whole read is covered by a RLE of ones and 'allOnes' is
           // provided, so we can shortcut the read.
           remainingValues_ -= toRead;

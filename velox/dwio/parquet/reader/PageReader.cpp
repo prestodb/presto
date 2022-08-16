@@ -19,10 +19,12 @@
 #include "velox/dwio/common/ColumnVisitors.h"
 #include "velox/dwio/parquet/reader/StringColumnReader.h"
 #include "velox/dwio/parquet/thrift/ThriftTransport.h"
+#include "velox/vector/FlatVector.h"
 
 #include <arrow/util/rle_encoding.h>
 #include <thrift/protocol/TCompactProtocol.h> //@manual
-#include "velox/vector/FlatVector.h"
+#include <zstd.h>
+#include <zstd_errors.h>
 
 namespace facebook::velox::parquet {
 
@@ -138,13 +140,26 @@ const char* PageReader::readBytes(int32_t size, BufferPtr& copy) {
 
 const char* FOLLY_NONNULL PageReader::uncompressData(
     const char* pageData,
-    uint32_t /*compressedSize*/,
-    uint32_t /*uncompressedSize*/) {
+    uint32_t compressedSize,
+    uint32_t uncompressedSize) {
   switch (codec_) {
     case thrift::CompressionCodec::UNCOMPRESSED:
       return pageData;
-    case thrift::CompressionCodec::GZIP:
-    case thrift::CompressionCodec::ZSTD:
+    case thrift::CompressionCodec::ZSTD: {
+      dwio::common::ensureCapacity<char>(
+          uncompressedData_, uncompressedSize, &pool_);
+
+      auto ret = ZSTD_decompress(
+          uncompressedData_->asMutable<char>(),
+          uncompressedSize,
+          pageData,
+          compressedSize);
+      VELOX_CHECK(
+          !ZSTD_isError(ret),
+          "ZSTD returned an error: ",
+          ZSTD_getErrorName(ret));
+      return uncompressedData_->as<char>();
+    }
     default:
       VELOX_FAIL("Unsupported Parquet compression type ", codec_);
   }
@@ -513,8 +528,16 @@ bool PageReader::rowsForPage(
     // We copy the rows to visit with a bias, so that the first to visit has
     // offset 0.
     rowsCopy_->resize(numToVisit);
-    for (auto i = 0; i < numToVisit; ++i) {
-      (*rowsCopy_)[i] = visitorRows_[i + currentVisitorRow_] - rowNumberBias_;
+    auto copy = rowsCopy_->data();
+    // Subtract 'rowNumberBias_' from the rows to visit on this page.
+    // 'copy' has a writable tail of SIMD width, so no special case for end of
+    // loop.
+    for (auto i = 0; i < numToVisit; i += xsimd::batch<int32_t>::size) {
+      auto numbers = xsimd::batch<int32_t>::load_unaligned(
+                         &visitorRows_[i + currentVisitorRow_]) -
+          rowNumberBias_;
+      numbers.store_unaligned(copy);
+      copy += xsimd::batch<int32_t>::size;
     }
     nulls = readNulls(rowsCopy_->back() + 1, reader.nullsInReadRange());
     rows = folly::Range<const vector_size_t*>(

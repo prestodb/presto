@@ -922,14 +922,15 @@ class DictionaryColumnVisitor
 
   template <bool hasFilter, bool hasHook, bool scatter>
   void processRle(
-      T value,
-      T delta,
+      typename make_index<T>::type value,
+      typename make_index<T>::type delta,
       int32_t numRows,
       int32_t currentRow,
       const int32_t* scatterRows,
       int32_t* filterHits,
       T* values,
       int32_t& numValues) {
+    auto indices = reinterpret_cast<typename make_index<T>::type*>(values);
     if (sizeof(T) == 8) {
       constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
       for (auto i = 0; i < numRows; i += kWidth) {
@@ -939,7 +940,7 @@ class DictionaryColumnVisitor
                            currentRow) *
                 delta +
             value;
-        numbers.store_unaligned(values + numValues + i);
+        numbers.store_unaligned(indices + numValues + i);
       }
     } else if (sizeof(T) == 4) {
       constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
@@ -949,11 +950,11 @@ class DictionaryColumnVisitor
              currentRow) *
                 static_cast<int32_t>(delta) +
             static_cast<int32_t>(value);
-        numbers.store_unaligned(values + numValues + i);
+        numbers.store_unaligned(indices + numValues + i);
       }
     } else {
       for (auto i = 0; i < numRows; ++i) {
-        values[numValues + i] =
+        indices[numValues + i] =
             (super::rows_[super::rowIndex_ + i] - currentRow) * delta + value;
       }
     }

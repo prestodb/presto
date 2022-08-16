@@ -131,8 +131,33 @@ TEST_F(E2EFilterTest, integerDictionary) {
       true);
 }
 
+TEST_F(E2EFilterTest, floatAndDoubleDirect) {
+  writerProperties_ = ::parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(4 * 1024)
+                          ->build();
+
+  testWithTypes(
+      "float_val:float,"
+      "double_val:double,"
+      "float_val2:float,"
+      "double_val2:double,"
+      "long_val:bigint,"
+      "float_null:float",
+      [&]() {
+        makeAllNulls("float_null");
+        makeQuantizedFloat<float>(Subfield("float_val2"), 200, true);
+        makeQuantizedFloat<double>(Subfield("double_val2"), 522, true);
+      },
+      false,
+      {"float_val", "double_val", "float_val2", "double_val2", "float_null"},
+      20,
+      true,
+      false);
+}
+
 TEST_F(E2EFilterTest, floatAndDouble) {
-  // float_val and double_val are expected to be direct since the
+  // float_val and double_val may be direct since the
   // values are random.float_val2 and double_val2 are expected to be
   // dictionaries since the values are quantized.
   testWithTypes(
@@ -147,6 +172,14 @@ TEST_F(E2EFilterTest, floatAndDouble) {
         makeAllNulls("float_null");
         makeQuantizedFloat<float>(Subfield("float_val2"), 200, true);
         makeQuantizedFloat<double>(Subfield("double_val2"), 522, true);
+        // Make sure there are RLE's.
+        auto floats = batches_[0]->childAt(2)->as<FlatVector<float>>();
+        auto doubles = batches_[0]->childAt(3)->as<FlatVector<double>>();
+        for (auto i = 100; i < 200; ++i) {
+          // This makes a RLE even if some nulls along the way.
+          floats->set(i, 0.66);
+          doubles->set(i, 0.66);
+        }
       },
       false,
       {"float_val", "double_val", "float_val2", "double_val2", "float_null"},
