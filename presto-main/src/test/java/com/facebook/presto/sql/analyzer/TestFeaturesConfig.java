@@ -203,7 +203,8 @@ public class TestFeaturesConfig
                 .setSegmentedAggregationEnabled(false)
                 .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
                 .setQuickDistinctLimitEnabled(false)
-                .setPushRemoteExchangeThroughGroupId(false));
+                .setPushRemoteExchangeThroughGroupId(false)
+                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true));
     }
 
     @Test
@@ -358,6 +359,7 @@ public class TestFeaturesConfig
                 .put("planner.query-analyzer-timeout", "10s")
                 .put("optimizer.quick-distinct-limit-enabled", "true")
                 .put("optimizer.push-remote-exchange-through-group-id", "true")
+                .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -509,7 +511,8 @@ public class TestFeaturesConfig
                 .setSegmentedAggregationEnabled(true)
                 .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
                 .setQuickDistinctLimitEnabled(true)
-                .setPushRemoteExchangeThroughGroupId(true);
+                .setPushRemoteExchangeThroughGroupId(true)
+                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false);
         assertFullMapping(properties, expected);
     }
 

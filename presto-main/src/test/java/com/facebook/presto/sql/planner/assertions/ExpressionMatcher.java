@@ -19,6 +19,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.tree.Expression;
@@ -39,18 +40,29 @@ public class ExpressionMatcher
         implements RvalueMatcher
 {
     private final String sql;
+    private final ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment;
     private final Expression expression;
 
     public ExpressionMatcher(String expression)
     {
         this.sql = requireNonNull(expression);
+        this.decimalLiteralTreatment = ParsingOptions.DecimalLiteralTreatment.REJECT;
+        this.expression = expression(requireNonNull(expression));
+    }
+
+    public ExpressionMatcher(String expression, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        this.sql = requireNonNull(expression);
+        this.decimalLiteralTreatment = decimalLiteralTreatment;
         this.expression = expression(requireNonNull(expression));
     }
 
     private Expression expression(String sql)
     {
         SqlParser parser = new SqlParser();
-        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql));
+        ParsingOptions.Builder builder = ParsingOptions.builder();
+        builder.setDecimalLiteralTreatment(decimalLiteralTreatment);
+        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, builder.build()));
     }
 
     @Override

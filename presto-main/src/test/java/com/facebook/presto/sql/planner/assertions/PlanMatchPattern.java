@@ -700,6 +700,11 @@ public final class PlanMatchPattern
         return new ExpressionMatcher(expression);
     }
 
+    public static ExpressionMatcher expression(String expression, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        return new ExpressionMatcher(expression, decimalLiteralTreatment);
+    }
+
     public PlanMatchPattern withOutputs(String... aliases)
     {
         return withOutputs(ImmutableList.copyOf(aliases));
