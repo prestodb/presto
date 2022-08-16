@@ -233,6 +233,7 @@ public class FeaturesConfig
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
     private boolean pushRemoteExchangeThroughGroupId;
+    private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2174,6 +2175,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushRemoteExchangeThroughGroupId(boolean value)
     {
         this.pushRemoteExchangeThroughGroupId = value;
+        return this;
+    }
+
+    public boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled()
+    {
+        return isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
+    }
+
+    @Config("optimizer.optimize-multiple-approx-percentile-on-same-field")
+    @ConfigDescription("Enable combining individual approx_percentile calls on the same individual field to evaluation on an array")
+    public FeaturesConfig setOptimizeMultipleApproxPercentileOnSameFieldEnabled(boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled)
+    {
+        this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
         return this;
     }
 }
