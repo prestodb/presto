@@ -904,7 +904,7 @@ struct DateParseFunction {
   }
 
   FOLLY_ALWAYS_INLINE bool call(
-      out_type<TimestampWithTimezone>& result,
+      out_type<Timestamp>& result,
       const arg_type<Varchar>& input,
       const arg_type<Varchar>& format) {
     if (!isConstFormat_) {
@@ -919,7 +919,7 @@ struct DateParseFunction {
     // timezone was provided. If not, fallback to 0 (GMT).
     int16_t timezoneId = sessionTzID_.value_or(0);
     dateTimeResult.timestamp.toGMT(timezoneId);
-    result = std::make_tuple(dateTimeResult.timestamp.toMillis(), timezoneId);
+    result = dateTimeResult.timestamp;
     return true;
   }
 };

@@ -97,7 +97,7 @@ void registerSimpleFunctions() {
       TimestampWithTimezone,
       Varchar,
       Varchar>({"parse_datetime"});
-  registerFunction<DateParseFunction, TimestampWithTimezone, Varchar, Varchar>(
+  registerFunction<DateParseFunction, Timestamp, Varchar, Varchar>(
       {"date_parse"});
 }
 } // namespace

@@ -114,7 +114,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
         rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
   }
 
-  std::optional<TimestampWithTimezone> dateParse(
+  std::optional<Timestamp> dateParse(
       const std::optional<std::string>& input,
       const std::optional<std::string>& format) {
     auto resultVector = evaluate(
@@ -127,10 +127,7 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     if (resultVector->isNullAt(0)) {
       return std::nullopt;
     }
-    auto rowVector = resultVector->as<RowVector>();
-    return TimestampWithTimezone{
-        rowVector->children()[0]->as<SimpleVector<int64_t>>()->valueAt(0),
-        rowVector->children()[1]->as<SimpleVector<int16_t>>()->valueAt(0)};
+    return resultVector->as<SimpleVector<Timestamp>>()->valueAt(0);
   }
 
   std::optional<std::string> dateFormat(
@@ -2567,45 +2564,36 @@ TEST_F(DateTimeFunctionsTest, dateParse) {
   EXPECT_EQ(std::nullopt, dateParse(std::nullopt, std::nullopt));
 
   // Simple tests. More exhaustive tests are provided in DateTimeFormatterTest.
-  EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), dateParse("1970-01-02", "%Y-%m-%d"));
-  EXPECT_EQ(TimestampWithTimezone(0, 0), dateParse("1970-01-01", "%Y-%m-%d"));
-  EXPECT_EQ(
-      TimestampWithTimezone(86400000, 0), dateParse("19700102", "%Y%m%d"));
+  EXPECT_EQ(Timestamp(86400, 0), dateParse("1970-01-02", "%Y-%m-%d"));
+  EXPECT_EQ(Timestamp(0, 0), dateParse("1970-01-01", "%Y-%m-%d"));
+  EXPECT_EQ(Timestamp(86400, 0), dateParse("19700102", "%Y%m%d"));
 
   // Tests for differing query timezones
   // 118860000 is the number of milliseconds since epoch at 1970-01-02
   // 09:01:00.000 UTC.
   EXPECT_EQ(
-      TimestampWithTimezone(118860000, 0),
-      dateParse("1970-01-02+09:01", "%Y-%m-%d+%H:%i"));
+      Timestamp(118860, 0), dateParse("1970-01-02+09:01", "%Y-%m-%d+%H:%i"));
 
   setQueryTimeZone("America/Los_Angeles");
   EXPECT_EQ(
-      TimestampWithTimezone(
-          118860000, util::getTimeZoneID("America/Los_Angeles")),
-      dateParse("1970-01-02+01:01", "%Y-%m-%d+%H:%i"));
+      Timestamp(118860, 0), dateParse("1970-01-02+01:01", "%Y-%m-%d+%H:%i"));
 
   setQueryTimeZone("America/Noronha");
   EXPECT_EQ(
-      TimestampWithTimezone(118860000, util::getTimeZoneID("America/Noronha")),
-      dateParse("1970-01-02+07:01", "%Y-%m-%d+%H:%i"));
+      Timestamp(118860, 0), dateParse("1970-01-02+07:01", "%Y-%m-%d+%H:%i"));
 
   setQueryTimeZone("+04:00");
   EXPECT_EQ(
-      TimestampWithTimezone(118860000, util::getTimeZoneID("+04:00")),
-      dateParse("1970-01-02+13:01", "%Y-%m-%d+%H:%i"));
+      Timestamp(118860, 0), dateParse("1970-01-02+13:01", "%Y-%m-%d+%H:%i"));
 
   setQueryTimeZone("Asia/Kolkata");
   // 66600000 is the number of millisecond since epoch at 1970-01-01
   // 18:30:00.000 UTC.
   EXPECT_EQ(
-      TimestampWithTimezone(66600000, util::getTimeZoneID("Asia/Kolkata")),
-      dateParse("1970-01-02+00:00", "%Y-%m-%d+%H:%i"));
+      Timestamp(66600, 0), dateParse("1970-01-02+00:00", "%Y-%m-%d+%H:%i"));
 
   // -66600000 is the number of millisecond since epoch at 1969-12-31
   // 05:30:00.000 UTC.
   EXPECT_EQ(
-      TimestampWithTimezone(-66600000, util::getTimeZoneID("Asia/Kolkata")),
-      dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
+      Timestamp(-66600, 0), dateParse("1969-12-31+11:00", "%Y-%m-%d+%H:%i"));
 }
