@@ -57,4 +57,21 @@ struct JsonExtractScalarFunction {
   }
 };
 
+template <typename T>
+struct JsonArrayLengthFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Varchar>& json) {
+    auto parsedJson = folly::parseJson(json);
+    if (!parsedJson.isArray()) {
+      return false;
+    }
+
+    result = parsedJson.size();
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions

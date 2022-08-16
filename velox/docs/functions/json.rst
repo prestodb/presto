@@ -109,6 +109,13 @@ JSON Functions
         SELECT is_json_scalar('1'); *-- true*
         SELECT is_json_scalar('[1, 2, 3]'); *-- false*
 
+.. function:: json_array_length(json) -> bigint
+
+    Returns the array length of ``json`` (a string containing a JSON
+    array). Returns NULL if ``json`` is not an array::
+
+        SELECT json_array_length('[1, 2, 3]');
+
 ============
 JSON Vectors
 ============

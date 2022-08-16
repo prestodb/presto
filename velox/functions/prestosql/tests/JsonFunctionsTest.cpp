@@ -26,6 +26,10 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
   std::optional<bool> is_json_scalar(std::optional<std::string> json) {
     return evaluateOnce<bool>("is_json_scalar(c0)", json);
   }
+
+  std::optional<int64_t> json_array_length(std::optional<std::string> json) {
+    return evaluateOnce<int64_t>("json_array_length(c0)", json);
+  }
 };
 
 TEST_F(JsonFunctionsTest, isJsonScalar) {
@@ -43,6 +47,24 @@ TEST_F(JsonFunctionsTest, isJsonScalar) {
   EXPECT_EQ(is_json_scalar(R"({"k1":"v1"})"), false);
   EXPECT_EQ(is_json_scalar(R"({"k1":[0,1,2]})"), false);
   EXPECT_EQ(is_json_scalar(R"({"k1":""})"), false);
+}
+
+TEST_F(JsonFunctionsTest, jsonArrayLength) {
+  EXPECT_EQ(json_array_length(R"([])"), 0);
+  EXPECT_EQ(json_array_length(R"([1])"), 1);
+  EXPECT_EQ(json_array_length(R"([1, 2, 3])"), 3);
+  EXPECT_EQ(
+      json_array_length(
+          R"([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])"),
+      20);
+
+  EXPECT_EQ(json_array_length(R"(1)"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"("hello")"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"("")"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"(true)"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"({"k1":"v1"})"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"({"k1":[0,1,2]})"), std::nullopt);
+  EXPECT_EQ(json_array_length(R"({"k1":[0,1,2], "k2":"v1"})"), std::nullopt);
 }
 
 } // namespace

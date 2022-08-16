@@ -22,6 +22,8 @@ void registerJsonFunctions() {
   registerFunction<IsJsonScalarFunction, bool, Varchar>({"is_json_scalar"});
   registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
       {"json_extract_scalar"});
+  registerFunction<JsonArrayLengthFunction, int64_t, Varchar>(
+      {"json_array_length"});
 }
 
 } // namespace facebook::velox::functions
