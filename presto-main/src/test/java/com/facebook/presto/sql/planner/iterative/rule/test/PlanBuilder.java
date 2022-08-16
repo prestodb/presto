@@ -256,6 +256,7 @@ public class PlanBuilder
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
                 false);
     }
+
     public OffsetNode offset(long rowCount, PlanNode source)
     {
         return new OffsetNode(source.getSourceLocation(), idAllocator.getNextId(), source, rowCount);
@@ -960,9 +961,35 @@ public class PlanBuilder
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
     }
 
+    public static Expression expression(String sql, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        ParsingOptions.Builder builder = ParsingOptions.builder();
+        builder.setDecimalLiteralTreatment(decimalLiteralTreatment);
+        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, builder.build()));
+    }
+
     public RowExpression rowExpression(String sql)
     {
         Expression expression = expression(sql);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                session,
+                metadata,
+                new SqlParser(),
+                getTypes(),
+                expression,
+                ImmutableMap.of(),
+                WarningCollector.NOOP);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionTypes,
+                ImmutableMap.of(),
+                metadata.getFunctionAndTypeManager(),
+                session);
+    }
+
+    public RowExpression rowExpression(String sql, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        Expression expression = expression(sql, decimalLiteralTreatment);
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
                 metadata,
