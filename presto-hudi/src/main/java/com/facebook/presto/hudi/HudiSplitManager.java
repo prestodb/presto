@@ -129,8 +129,7 @@ public class HudiSplitManager
             Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
             String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
             fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, timestamp, false)
-                    .map(fileSlice -> createHudiSplit(
-                            table, fileSlice, timestamp, hudiPartition, splitWeightProvider))
+                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition, splitWeightProvider))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .forEach(builder::add);
@@ -155,7 +154,10 @@ public class HudiSplitManager
     }
 
     private Optional<HudiSplit> createHudiSplit(
-            HudiTableHandle table, FileSlice slice, String timestamp, HudiPartition partition,
+            HudiTableHandle table,
+            FileSlice slice,
+            String timestamp,
+            HudiPartition partition,
             HudiSplitWeightProvider splitWeightProvider)
     {
         HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
