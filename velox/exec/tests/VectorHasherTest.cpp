@@ -860,3 +860,11 @@ TEST_F(VectorHasherTest, endOfRange) {
   }
   EXPECT_EQ(tinyData->size(), uniques.size());
 }
+
+TEST_F(VectorHasherTest, hashCollision) {
+  constexpr int kValue = 42;
+  UniqueValue x(kValue);
+  UniqueValue y(kValue | (1ull << 32));
+  UniqueValueHasher h;
+  EXPECT_NE(h(x), h(y));
+}

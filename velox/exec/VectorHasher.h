@@ -89,16 +89,16 @@ struct UniqueValueHasher {
   size_t operator()(const UniqueValue& value) const {
     auto size = value.size();
     if (size <= sizeof(int64_t)) {
-      return simd::crc32U64(value.data(), 1);
+      return simd::crc32U64(0, value.data());
     }
 
-    uint64_t hash = 1;
+    uint32_t hash = 0;
     auto data = reinterpret_cast<const uint64_t*>(value.data());
 
     size_t wordIndex = 0;
     auto numFullWords = size / 8;
     for (; wordIndex < numFullWords; ++wordIndex) {
-      hash = simd::crc32U64(*(data + wordIndex), hash);
+      hash = simd::crc32U64(hash, *(data + wordIndex));
     }
 
     auto numBytesRemaining = size - wordIndex * 8;
@@ -106,7 +106,7 @@ struct UniqueValueHasher {
       auto lastWord = bits::loadPartialWord(
           reinterpret_cast<const uint8_t*>(data + wordIndex),
           numBytesRemaining);
-      hash = simd::crc32U64(lastWord, hash);
+      hash = simd::crc32U64(hash, lastWord);
     }
 
     return hash;
