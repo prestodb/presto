@@ -135,26 +135,24 @@ class SumAggregate
   /// Update functions that check for overflows for integer types.
   /// For floating points, an overflow results in +/- infinity which is a
   /// valid output.
-  template <typename TOutput>
-  static void updateSingleValue(TOutput& result, TInput value) {
+  template <typename TData>
+  static void updateSingleValue(TData& result, TData value) {
     if constexpr (
-        std::is_same<TOutput, double>::value ||
-        std::is_same<TOutput, float>::value) {
+        std::is_same_v<TData, double> || std::is_same_v<TData, float>) {
       result += value;
     } else {
-      result = functions::checkedPlus<TOutput>(result, value);
+      result = functions::checkedPlus<TData>(result, value);
     }
   }
 
-  template <typename TOutput>
-  static void updateDuplicateValues(TOutput& result, TInput value, int n) {
+  template <typename TData>
+  static void updateDuplicateValues(TData& result, TData value, int n) {
     if constexpr (
-        std::is_same<TOutput, double>::value ||
-        std::is_same<TOutput, float>::value) {
+        std::is_same_v<TData, double> || std::is_same_v<TData, float>) {
       result += n * value;
     } else {
-      result = functions::checkedPlus<TOutput>(
-          result, functions::checkedMultiply<TOutput>(n, value));
+      result = functions::checkedPlus<TData>(
+          result, functions::checkedMultiply<TData>(n, value));
     }
   }
 };

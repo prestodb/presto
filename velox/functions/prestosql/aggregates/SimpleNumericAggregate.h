@@ -210,7 +210,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
       typename TDataType = TAccumulator,
       typename Update>
   inline void
-  updateNonNullValue(char* group, TInput value, Update updateValue) {
+  updateNonNullValue(char* group, TDataType value, Update updateValue) {
     if constexpr (tableHasNulls) {
       exec::Aggregate::clearNull(group);
     }
