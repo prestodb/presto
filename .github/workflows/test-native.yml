@@ -39,28 +39,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-presto-native-ccache-
 
-      - name: Get latest commit from presto-native-execution
+      - name: Initiate ccache
+        if: steps.presto_cpp_ccache.outputs.cache-hit != 'true'
         run: |
-          git log -n 1 --pretty=format:%H ${GITHUB_WORKSPACE}/presto-native-execution > ${GITHUB_WORKSPACE}/commit.txt
-          cat ${GITHUB_WORKSPACE}/commit.txt
-
-      - name: Setup binary cache
-        id: presto_cpp_bin
-        uses: actions/cache@v3
-        with:
-          path: ~/bin
-          key: ${{ runner.os }}-presto-native-bin-${{ hashFiles('commit.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-presto-native-bin-
-
-      - name: Initialize presto bin cache
-        if: steps.presto_cpp_bin.outputs.cache-hit != 'true'
-        run: |
-          mkdir ~/bin
+          mkdir -p ~/.ccache
+          export CCACHE_DIR=$(realpath ~/.ccache)
+          ccache -sz -M 5Gi
 
       - name: Build presto_cpp
         run: |
           source /opt/rh/gcc-toolset-9/enable
+          export CCACHE_DIR=$(realpath ~/.ccache)
+          ccache -s
           cd ${GITHUB_WORKSPACE}/presto-native-execution
           make velox-submodule
           cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
@@ -74,7 +64,7 @@ jobs:
 
       - name: Cache local Maven repository
         id: cache-maven
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-2-${{ hashFiles('**/pom.xml') }}
@@ -83,12 +73,12 @@ jobs:
 
       - name: Populate maven cache
         if: steps.cache-maven.outputs.cache-hit != 'true'
-        run: mvn clean install -DskipTests -T2C -pl -presto-docs
+        run: ./mvnw de.qaware.maven:go-offline-maven-plugin:resolve-dependencies
 
-      - name: Install presto-hive
+      - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          mvn install ${MAVEN_FAST_INSTALL} -am -pl presto-hive
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
       - name: Run e2e tests
-        run: mvn test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
+        run: ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
