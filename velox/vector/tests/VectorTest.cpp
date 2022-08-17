@@ -350,6 +350,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     }
 
     testCopy(flat, numIterations_);
+    testSlices(flat);
 
     // Check that type kind is preserved in cases where T is the same with.
     EXPECT_EQ(
@@ -374,7 +375,7 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     return odd;
   }
 
-  std::string printEncodings(const VectorPtr& vector) {
+  static std::string printEncodings(const VectorPtr& vector) {
     std::stringstream out;
     out << vector->encoding();
 
@@ -576,6 +577,99 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     testCopy(lazy, level - 1);
   }
 
+  static void testSlice(
+      const VectorPtr& vec,
+      int level,
+      vector_size_t offset,
+      vector_size_t length) {
+    SCOPED_TRACE(fmt::format(
+        "testSlice encoding={} offset={} length={}",
+        vec->encoding(),
+        offset,
+        length));
+    ASSERT_GE(vec->size(), offset + length);
+    auto slice = vec->loadedVector()->slice(offset, length);
+    ASSERT_EQ(slice->size(), length);
+    // Compare values and nulls directly.
+    for (int i = 0; i < length; ++i) {
+      EXPECT_TRUE(slice->equalValueAt(vec.get(), i, offset + i));
+    }
+    { // Check DecodedVector works on slice.
+      SelectivityVector allRows(length);
+      DecodedVector decoded(*slice, allRows);
+      auto base = decoded.base();
+      auto indices = decoded.indices();
+      for (int i = 0; i < length; ++i) {
+        auto j = offset + i;
+        if (vec->isNullAt(j)) {
+          EXPECT_TRUE(decoded.isNullAt(i));
+        } else {
+          ASSERT_FALSE(decoded.isNullAt(i));
+          auto ii = indices ? indices[i] : i;
+          EXPECT_TRUE(base->equalValueAt(vec.get(), ii, j));
+        }
+      }
+    }
+    if (level == 0) {
+      return;
+    }
+    // Add constant wrapping.
+    if (auto i = 3 + level; i < slice->size()) {
+      testSlices(BaseVector::wrapInConstant(123, i, slice), level - 1);
+    }
+    // Add constant wrapping using null row.
+    if (slice->mayHaveNulls() && !slice->isLazy()) {
+      for (int i = 0; i < slice->size(); ++i) {
+        if (slice->isNullAt(i)) {
+          testSlices(BaseVector::wrapInConstant(i + 123, i, slice), level - 1);
+          break;
+        }
+      }
+    }
+    {
+      // Add dictionary wrapping to put vectors elements in reverse order.  If
+      // 'source' has nulls, add more nulls every 11-th row starting with row #
+      // 'level'.
+      BufferPtr nulls;
+      uint64_t* rawNulls = nullptr;
+      if (slice->mayHaveNulls()) {
+        nulls = AlignedBuffer::allocate<bool>(
+            slice->size(), slice->pool(), bits::kNotNull);
+        rawNulls = nulls->asMutable<uint64_t>();
+      }
+      BufferPtr indices =
+          AlignedBuffer::allocate<vector_size_t>(slice->size(), slice->pool());
+      auto rawIndices = indices->asMutable<vector_size_t>();
+      for (vector_size_t i = 0; i < slice->size(); ++i) {
+        rawIndices[i] = slice->size() - i - 1;
+        if (rawNulls && (i + level) % 11 == 0) {
+          bits::setNull(rawNulls, i);
+        }
+      }
+      auto wrapped =
+          BaseVector::wrapInDictionary(nulls, indices, slice->size(), slice);
+      testSlices(wrapped, level - 1);
+    }
+    { // Add lazy wrapping.
+      auto wrapped = std::make_shared<LazyVector>(
+          slice->pool(),
+          slice->type(),
+          slice->size(),
+          std::make_unique<TestingLoader>(slice));
+      testSlices(wrapped, level - 1);
+    }
+  }
+
+  static void testSlices(const VectorPtr& slice, int level = 2) {
+    for (vector_size_t offset : {0, 16, 17}) {
+      for (vector_size_t length : {0, 1, 83}) {
+        if (offset + length <= slice->size()) {
+          testSlice(slice, level, offset, length);
+        }
+      }
+    }
+  }
+
   void prepareInput(ByteStream* input, std::string& string) {
     // Put 'string' in 'input' in many pieces.
     std::vector<ByteRange> ranges;
@@ -731,6 +825,18 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       EXPECT_TRUE(result->equalValueAt(source.get(), i, oddIndices[i].begin))
           << "at " << i << ", " << source->encoding();
     }
+  }
+
+  template <typename T>
+  static void testArrayOrMapSliceMutability(const std::shared_ptr<T>& vec) {
+    ASSERT_GE(vec->size(), 3);
+    auto slice = std::dynamic_pointer_cast<T>(vec->slice(0, 3));
+    auto offsets = slice->rawOffsets();
+    slice->mutableOffsets(slice->size());
+    EXPECT_NE(slice->rawOffsets(), offsets);
+    auto sizes = slice->rawSizes();
+    slice->mutableSizes(slice->size());
+    EXPECT_NE(slice->rawSizes(), sizes);
   }
 
   memory::MappedMemory* mappedMemory_;
@@ -892,42 +998,54 @@ TEST_F(VectorTest, bias) {
 TEST_F(VectorTest, row) {
   auto baseRow = createRow(vectorSize_, false);
   testCopy(baseRow, numIterations_);
+  testSlices(baseRow);
   baseRow = createRow(vectorSize_, true);
   testCopy(baseRow, numIterations_);
+  testSlices(baseRow);
   auto allNull =
       BaseVector::createNullConstant(baseRow->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
+  testSlices(allNull);
 }
 
 TEST_F(VectorTest, array) {
   auto baseArray = createArray(vectorSize_, false);
   testCopy(baseArray, numIterations_);
+  testSlices(baseArray);
   baseArray = createArray(vectorSize_, true);
   testCopy(baseArray, numIterations_);
+  testSlices(baseArray);
   auto allNull =
       BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
+  testSlices(allNull);
 }
 
 TEST_F(VectorTest, fixedSizeArray) {
   const int width = 7;
   auto baseArray = createFixedSizeArray(vectorSize_, false, width);
   testCopy(baseArray, numIterations_);
+  testSlices(baseArray);
   baseArray = createFixedSizeArray(vectorSize_, true, width);
   testCopy(baseArray, numIterations_);
+  testSlices(baseArray);
   auto allNull =
       BaseVector::createNullConstant(baseArray->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
+  testSlices(allNull);
 }
 
 TEST_F(VectorTest, map) {
   auto baseMap = createMap(vectorSize_, false);
   testCopy(baseMap, numIterations_);
+  testSlices(baseMap);
   baseMap = createRow(vectorSize_, true);
   testCopy(baseMap, numIterations_);
+  testSlices(baseMap);
   auto allNull =
       BaseVector::createNullConstant(baseMap->type(), 50, pool_.get());
   testCopy(allNull, numIterations_);
+  testSlices(allNull);
 }
 
 TEST_F(VectorTest, unknown) {
@@ -980,6 +1098,15 @@ TEST_F(VectorTest, unknown) {
   // Can't copy to constant.
   EXPECT_ANY_THROW(
       constUnknownVector->copy(unknownVector.get(), rows, nullptr));
+
+  for (auto& vec : {constUnknownVector, unknownVector}) {
+    auto slice = vec->slice(1, 3);
+    ASSERT_EQ(TypeKind::UNKNOWN, slice->typeKind());
+    ASSERT_EQ(3, slice->size());
+    for (auto i = 0; i < slice->size(); i++) {
+      ASSERT_TRUE(slice->isNullAt(i));
+    }
+  }
 }
 
 TEST_F(VectorTest, copyBoolAllNullFlatVector) {
@@ -1795,4 +1922,30 @@ TEST_F(VectorTest, dictionaryResize) {
   test::assertEqualVectors(expectedVector, dict);
   // Check to ensure that indices has not changed.
   ASSERT_EQ(indices->size(), size * sizeof(vector_size_t));
+}
+
+TEST_F(VectorTest, flatSliceMutability) {
+  auto vec = makeFlatVector<int64_t>(
+      10,
+      [](vector_size_t i) { return i; },
+      [](vector_size_t i) { return i % 3 == 0; });
+  auto slice = std::dynamic_pointer_cast<FlatVector<int64_t>>(vec->slice(0, 3));
+  ASSERT_TRUE(slice);
+  slice->setNull(0, false);
+  EXPECT_FALSE(slice->isNullAt(0));
+  EXPECT_TRUE(vec->isNullAt(0));
+  slice = std::dynamic_pointer_cast<FlatVector<int64_t>>(vec->slice(0, 3));
+  slice->mutableRawValues()[2] = -1;
+  EXPECT_EQ(slice->valueAt(2), -1);
+  EXPECT_EQ(vec->valueAt(2), 2);
+}
+
+TEST_F(VectorTest, arraySliceMutability) {
+  testArrayOrMapSliceMutability(
+      std::dynamic_pointer_cast<ArrayVector>(createArray(vectorSize_, false)));
+}
+
+TEST_F(VectorTest, mapSliceMutability) {
+  testArrayOrMapSliceMutability(
+      std::dynamic_pointer_cast<MapVector>(createMap(vectorSize_, false)));
 }

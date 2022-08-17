@@ -260,6 +260,8 @@ class LazyVector : public BaseVector {
     return loadedVector()->toString(index);
   }
 
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
+
   // Loads 'rows' of 'vector'. 'vector' may be an arbitrary wrapping
   // of a LazyVector. 'rows' are translated through the wrappers. If
   // there is no LazyVector inside 'vector', this has no

@@ -64,12 +64,23 @@ BaseVector::BaseVector(
   }
 }
 
-void BaseVector::allocateNulls() {
-  VELOX_CHECK(!nulls_);
-  int32_t bytes = byteSize<bool>(length_);
-  nulls_ = AlignedBuffer::allocate<char>(bytes, pool());
-  nulls_->setSize(bytes);
-  memset(nulls_->asMutable<uint8_t>(), bits::kNotNullByte, bytes);
+void BaseVector::ensureNullsCapacity(vector_size_t size, bool setNotNull) {
+  auto fill = setNotNull ? bits::kNotNull : bits::kNull;
+  if (nulls_ && nulls_->isMutable()) {
+    if (nulls_->capacity() >= bits::nbytes(size)) {
+      return;
+    }
+    AlignedBuffer::reallocate<bool>(&nulls_, size, fill);
+  } else {
+    auto newNulls = AlignedBuffer::allocate<bool>(size, pool_, fill);
+    if (nulls_) {
+      memcpy(
+          newNulls->asMutable<char>(),
+          nulls_->as<char>(),
+          byteSize<bool>(std::min(length_, size)));
+    }
+    nulls_ = std::move(newNulls);
+  }
   rawNulls_ = nulls_->as<uint64_t>();
 }
 
@@ -412,6 +423,19 @@ void BaseVector::clearNulls(vector_size_t begin, vector_size_t end) {
   nullCount_ = std::nullopt;
 }
 
+void BaseVector::setNulls(const BufferPtr& nulls) {
+  if (nulls) {
+    VELOX_DCHECK_GE(nulls->size(), bits::nbytes(length_));
+    nulls_ = nulls;
+    rawNulls_ = nulls->as<uint64_t>();
+    nullCount_ = std::nullopt;
+  } else {
+    nulls_ = nullptr;
+    rawNulls_ = nullptr;
+    nullCount_ = 0;
+  }
+}
+
 // static
 void BaseVector::resizeIndices(
     vector_size_t size,
@@ -419,10 +443,20 @@ void BaseVector::resizeIndices(
     velox::memory::MemoryPool* pool,
     BufferPtr* indices,
     const vector_size_t** raw) {
-  if (!indices->get()) {
-    *indices = AlignedBuffer::allocate<vector_size_t>(size, pool, initialValue);
-  } else if ((*indices)->size() < size * sizeof(vector_size_t)) {
-    AlignedBuffer::reallocate<vector_size_t>(indices, size, initialValue);
+  if (indices->get() && indices->get()->isMutable()) {
+    if (indices->get()->size() < size * sizeof(vector_size_t)) {
+      AlignedBuffer::reallocate<vector_size_t>(indices, size, initialValue);
+    }
+  } else {
+    auto newIndices =
+        AlignedBuffer::allocate<vector_size_t>(size, pool, initialValue);
+    if (indices->get()) {
+      auto dst = newIndices->asMutable<vector_size_t>();
+      auto src = indices->get()->as<vector_size_t>();
+      auto len = std::min(indices->get()->size(), size * sizeof(vector_size_t));
+      memcpy(dst, src, len);
+    }
+    *indices = newIndices;
   }
   *raw = indices->get()->asMutable<vector_size_t>();
 }
@@ -496,7 +530,7 @@ std::string BaseVector::toString(
 
 void BaseVector::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.size(), length_);
-  if (nulls_ && !nulls_->unique()) {
+  if (nulls_ && !(nulls_->unique() && nulls_->isMutable())) {
     BufferPtr newNulls = AlignedBuffer::allocate<bool>(newSize, pool_);
     auto rawNewNulls = newNulls->asMutable<uint64_t>();
     memcpy(rawNewNulls, rawNulls_, bits::nbytes(length_));
@@ -783,6 +817,70 @@ void BaseVector::prepareForReuse() {
       rawNulls_ = nullptr;
     }
   }
+}
+
+namespace {
+
+size_t typeSize(const Type& type) {
+  switch (type.kind()) {
+    case TypeKind::VARCHAR:
+    case TypeKind::VARBINARY:
+      return sizeof(StringView);
+    case TypeKind::OPAQUE:
+      return sizeof(std::shared_ptr<void>);
+    default:
+      VELOX_DCHECK(type.isPrimitiveType(), type.toString());
+      return type.cppSizeInBytes();
+  }
+}
+
+struct BufferReleaser {
+  explicit BufferReleaser(const BufferPtr& parent) : parent_(parent) {}
+  void addRef() const {}
+  void release() const {}
+
+ private:
+  BufferPtr parent_;
+};
+
+BufferPtr sliceBufferZeroCopy(
+    size_t typeSize,
+    bool podType,
+    const BufferPtr& buf,
+    vector_size_t offset,
+    vector_size_t length) {
+  // Cannot use `Buffer::as<uint8_t>()` here because Buffer::podType_ is false
+  // when type is OPAQUE.
+  auto data =
+      reinterpret_cast<const uint8_t*>(buf->as<void>()) + offset * typeSize;
+  return BufferView<BufferReleaser>::create(
+      data, length * typeSize, BufferReleaser(buf), podType);
+}
+
+} // namespace
+
+// static
+BufferPtr BaseVector::sliceBuffer(
+    const Type& type,
+    const BufferPtr& buf,
+    vector_size_t offset,
+    vector_size_t length,
+    memory::MemoryPool* pool) {
+  if (!buf) {
+    return nullptr;
+  }
+  if (type.kind() != TypeKind::BOOLEAN) {
+    return sliceBufferZeroCopy(
+        typeSize(type), type.isPrimitiveType(), buf, offset, length);
+  }
+  if (offset % 8 == 0) {
+    return sliceBufferZeroCopy(1, true, buf, offset / 8, (length + 7) / 8);
+  }
+  VELOX_DCHECK_NOT_NULL(pool);
+  auto ans = AlignedBuffer::allocate<bool>(length, pool);
+  bits::copyBits(
+      buf->as<uint64_t>(), offset, ans->asMutable<uint64_t>(), 0, length);
+  return ans;
 }
 
 } // namespace velox

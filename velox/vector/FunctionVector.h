@@ -169,6 +169,10 @@ class FunctionVector : public BaseVector {
     return Iterator(this, rows);
   }
 
+  VectorPtr slice(vector_size_t, vector_size_t) const override {
+    VELOX_NYI();
+  }
+
  private:
   std::vector<std::shared_ptr<Callable>> functions_;
   std::vector<SelectivityVector> rowSets_;

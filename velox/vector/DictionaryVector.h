@@ -115,7 +115,8 @@ class DictionaryVector : public SimpleVector<T> {
   }
 
   BufferPtr mutableIndices(vector_size_t size) {
-    if (indices_ && indices_->capacity() >= size * sizeof(vector_size_t)) {
+    if (indices_ && indices_->isMutable() &&
+        indices_->capacity() >= size * sizeof(vector_size_t)) {
       return indices_;
     }
 
@@ -206,6 +207,8 @@ class DictionaryVector : public SimpleVector<T> {
 
     BaseVector::resize(size, setNotNull);
   }
+
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
  private:
   // return the dictionary index for the specified vector index.

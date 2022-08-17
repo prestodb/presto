@@ -164,6 +164,8 @@ class RowVector : public BaseVector {
     return false;
   }
 
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
+
  private:
   vector_size_t childSize() const {
     bool allConstant = false;
@@ -336,19 +338,11 @@ class ArrayVector : public BaseVector {
   }
 
   BufferPtr mutableOffsets(size_t size) {
-    if (offsets_ && offsets_->capacity() >= size * sizeof(vector_size_t)) {
-      return offsets_;
-    }
-    resizeIndices(size, 0, &offsets_, &rawOffsets_);
-    return offsets_;
+    return ensureIndices(offsets_, rawOffsets_, size);
   }
 
   BufferPtr mutableSizes(size_t size) {
-    if (sizes_ && sizes_->capacity() >= size * sizeof(vector_size_t)) {
-      return sizes_;
-    }
-    resizeIndices(size, 0, &sizes_, &rawSizes_);
-    return sizes_;
+    return ensureIndices(sizes_, rawSizes_, size);
   }
 
   void copy(
@@ -380,6 +374,8 @@ class ArrayVector : public BaseVector {
     return BaseVector::mayHaveNullsRecursive() ||
         elements_->mayHaveNullsRecursive();
   }
+
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
  private:
   BufferPtr offsets_;
@@ -512,19 +508,11 @@ class MapVector : public BaseVector {
   }
 
   BufferPtr mutableOffsets(size_t size) {
-    if (offsets_ && offsets_->capacity() >= size * sizeof(vector_size_t)) {
-      return offsets_;
-    }
-    resizeIndices(size, 0, &offsets_, &rawOffsets_);
-    return offsets_;
+    return ensureIndices(offsets_, rawOffsets_, size);
   }
 
   BufferPtr mutableSizes(size_t size) {
-    if (sizes_ && sizes_->capacity() >= size * sizeof(vector_size_t)) {
-      return sizes_;
-    }
-    resizeIndices(size, 0, &sizes_, &rawSizes_);
-    return sizes_;
+    return ensureIndices(sizes_, rawSizes_, size);
   }
 
   void copy(
@@ -569,6 +557,8 @@ class MapVector : public BaseVector {
     return BaseVector::mayHaveNullsRecursive() ||
         keys_->mayHaveNullsRecursive() || values_->mayHaveNullsRecursive();
   }
+
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
  private:
   // Returns true if the keys for map at 'index' are sorted from first

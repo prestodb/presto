@@ -188,5 +188,18 @@ xsimd::batch<T> DictionaryVector<T>::loadSIMDValueBufferAt(
   }
 }
 
+template <typename T>
+VectorPtr DictionaryVector<T>::slice(vector_size_t offset, vector_size_t length)
+    const {
+  VELOX_DCHECK(initialized_);
+  return std::make_shared<DictionaryVector<T>>(
+      this->pool_,
+      this->sliceNulls(offset, length),
+      length,
+      valueVector(),
+      BaseVector::sliceBuffer(
+          *INTEGER(), indices_, offset, length, this->pool_));
+}
+
 } // namespace velox
 } // namespace facebook

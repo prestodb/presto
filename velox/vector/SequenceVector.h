@@ -173,6 +173,10 @@ class SequenceVector : public SimpleVector<T> {
     return out.str();
   }
 
+  VectorPtr slice(vector_size_t, vector_size_t) const override {
+    VELOX_NYI();
+  }
+
  private:
   // Prepares for use after construction.
   void setInternalState();

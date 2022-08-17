@@ -304,6 +304,15 @@ void RowVector::prepareForReuse() {
   }
 }
 
+VectorPtr RowVector::slice(vector_size_t offset, vector_size_t length) const {
+  std::vector<VectorPtr> children(children_.size());
+  for (int i = 0; i < children_.size(); ++i) {
+    children[i] = children_[i]->slice(offset, length);
+  }
+  return std::make_shared<RowVector>(
+      pool_, type_, sliceNulls(offset, length), length, std::move(children));
+}
+
 namespace {
 std::optional<int32_t> compareArrays(
     const BaseVector& left,
@@ -621,6 +630,17 @@ void ArrayVector::prepareForReuse() {
   }
 
   BaseVector::prepareForReuse(elements_, 0);
+}
+
+VectorPtr ArrayVector::slice(vector_size_t offset, vector_size_t length) const {
+  return std::make_shared<ArrayVector>(
+      pool_,
+      type_,
+      sliceNulls(offset, length),
+      length,
+      sliceBuffer(*INTEGER(), offsets_, offset, length, pool_),
+      sliceBuffer(*INTEGER(), sizes_, offset, length, pool_),
+      elements_);
 }
 
 std::optional<int32_t> MapVector::compare(
@@ -970,6 +990,18 @@ void MapVector::prepareForReuse() {
 
   BaseVector::prepareForReuse(keys_, 0);
   BaseVector::prepareForReuse(values_, 0);
+}
+
+VectorPtr MapVector::slice(vector_size_t offset, vector_size_t length) const {
+  return std::make_shared<MapVector>(
+      pool_,
+      type_,
+      sliceNulls(offset, length),
+      length,
+      sliceBuffer(*INTEGER(), offsets_, offset, length, pool_),
+      sliceBuffer(*INTEGER(), sizes_, offset, length, pool_),
+      keys_,
+      values_);
 }
 
 } // namespace velox

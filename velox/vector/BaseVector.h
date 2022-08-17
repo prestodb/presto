@@ -308,13 +308,10 @@ class BaseVector {
   // Sets the null indicator at 'idx'. 'true' means null.
   FOLLY_ALWAYS_INLINE virtual void setNull(vector_size_t idx, bool value) {
     VELOX_DCHECK(idx >= 0 && idx < length_);
-    if (!nulls_) {
-      if (!value) {
-        return;
-      }
-      allocateNulls();
+    if (!nulls_ && !value) {
+      return;
     }
-
+    ensureNulls();
     bits::setBit(
         nulls_->asMutable<uint64_t>(), idx, bits::kNull ? value : !value);
   }
@@ -382,6 +379,12 @@ class BaseVector {
       vector_size_t count) {
     VELOX_UNSUPPORTED("Only flat vectors support copy operation");
   }
+
+  // Construct a zero-copy slice of the vector with the indicated offset and
+  // length.
+  virtual std::shared_ptr<BaseVector> slice(
+      vector_size_t offset,
+      vector_size_t length) const = 0;
 
   // Returns a vector of the type of 'source' where 'indices' contains
   // an index into 'source' for each element of 'source'. The
@@ -524,9 +527,7 @@ class BaseVector {
     return vector ? vector : create(type, 0, pool);
   }
 
-  BufferPtr* mutableNulls() {
-    return &nulls_;
-  }
+  void setNulls(const BufferPtr& nulls);
 
   void resetNulls() {
     setNulls(nullptr);
@@ -669,19 +670,7 @@ class BaseVector {
    * Allocates or reallocates nulls_ with the given size if nulls_ hasn't
    * been allocated yet or has been allocated with a smaller capacity.
    */
-  void ensureNullsCapacity(vector_size_t size, bool setNotNull = false) {
-    if (nulls_ && nulls_->capacity() >= bits::nbytes(size)) {
-      return;
-    }
-    if (nulls_) {
-      AlignedBuffer::reallocate<bool>(
-          &nulls_, size, setNotNull ? bits::kNotNull : bits::kNull);
-    } else {
-      nulls_ = AlignedBuffer::allocate<bool>(
-          size, pool_, setNotNull ? bits::kNotNull : bits::kNull);
-    }
-    rawNulls_ = nulls_->as<uint64_t>();
-  }
+  void ensureNullsCapacity(vector_size_t size, bool setNotNull = false);
 
   FOLLY_ALWAYS_INLINE static std::optional<int32_t>
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
@@ -706,17 +695,33 @@ class BaseVector {
   }
 
   void ensureNulls() {
-    if (!nulls_) {
-      allocateNulls();
-    }
+    ensureNullsCapacity(length_, true);
   }
 
-  void allocateNulls();
+  // Slice a buffer with specific type.
+  //
+  // For boolean type and if the offset is not multiple of 8, return a shifted
+  // copy; otherwise return a BufferView into the original buffer (with shared
+  // ownership of original buffer).
+  static BufferPtr sliceBuffer(
+      const Type&,
+      const BufferPtr&,
+      vector_size_t offset,
+      vector_size_t length,
+      memory::MemoryPool*);
 
-  void setNulls(BufferPtr nulls) {
-    nulls_ = nulls;
-    rawNulls_ = nulls ? nulls->as<uint64_t>() : nullptr;
-    nullCount_ = std::nullopt;
+  BufferPtr sliceNulls(vector_size_t offset, vector_size_t length) const {
+    return sliceBuffer(*BOOLEAN(), nulls_, offset, length, pool_);
+  }
+
+  BufferPtr
+  ensureIndices(BufferPtr& buf, const vector_size_t*& raw, vector_size_t size) {
+    if (buf && buf->isMutable() &&
+        buf->capacity() >= size * sizeof(vector_size_t)) {
+      return buf;
+    }
+    resizeIndices(size, 0, &buf, &raw);
+    return buf;
   }
 
   const TypePtr type_;
@@ -753,6 +758,11 @@ class BaseVector {
 
 template <>
 uint64_t BaseVector::byteSize<bool>(vector_size_t count);
+
+template <>
+inline uint64_t BaseVector::byteSize<UnknownValue>(vector_size_t) {
+  return 0;
+}
 
 using VectorPtr = std::shared_ptr<BaseVector>;
 

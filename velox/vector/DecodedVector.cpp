@@ -279,7 +279,7 @@ void DecodedVector::fillInIndices() {
     if (size_ > zeroIndices().size() || constantIndex_ != 0) {
       copiedIndices_.resize(size_);
       std::fill(copiedIndices_.begin(), copiedIndices_.end(), constantIndex_);
-      indices_ = &copiedIndices_[0];
+      indices_ = copiedIndices_.data();
     } else {
       indices_ = zeroIndices().data();
     }

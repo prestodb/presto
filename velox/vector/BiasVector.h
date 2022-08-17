@@ -159,6 +159,10 @@ class BiasVector : public SimpleVector<T> {
     return true;
   }
 
+  VectorPtr slice(vector_size_t, vector_size_t) const override {
+    VELOX_NYI();
+  }
+
  private:
   template <typename U>
   inline xsimd::batch<T> loadSIMDInternal(size_t byteOffset) const {

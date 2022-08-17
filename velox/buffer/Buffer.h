@@ -642,8 +642,12 @@ class NonPODAlignedBuffer : public Buffer {
 template <typename Releaser>
 class BufferView : public Buffer {
  public:
-  static BufferPtr create(const uint8_t* data, size_t size, Releaser releaser) {
-    BufferView<Releaser>* view = new BufferView(data, size, releaser);
+  static BufferPtr create(
+      const uint8_t* data,
+      size_t size,
+      Releaser releaser,
+      bool podType = true) {
+    BufferView<Releaser>* view = new BufferView(data, size, releaser, podType);
     BufferPtr result(view);
     return result;
   }
@@ -660,13 +664,13 @@ class BufferView : public Buffer {
   }
 
  private:
-  BufferView(const uint8_t* data, size_t size, Releaser releaser)
+  BufferView(const uint8_t* data, size_t size, Releaser releaser, bool podType)
       // A BufferView must be created over the data held by a cache
       // pin, which is typically const. The Buffer enforces const-ness
       // when returning the pointer. We cast away the const here to
       // avoid a separate code path for const and non-const Buffer
       // payloads.
-      : Buffer(nullptr, const_cast<uint8_t*>(data), size, true /*podType*/),
+      : Buffer(nullptr, const_cast<uint8_t*>(data), size, podType),
         releaser_(releaser) {
     mutable_ = false;
     size_ = size;

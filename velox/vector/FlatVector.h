@@ -112,7 +112,7 @@ class FlatVector final : public SimpleVector<T> {
       return;
     }
     auto byteSize = BaseVector::byteSize<T>(BaseVector::length_);
-    VELOX_CHECK(values_->capacity() >= byteSize);
+    VELOX_CHECK_GE(values_->capacity(), byteSize);
     if (values_->size() < byteSize) {
       // If values_ is resized, this guarantees that elements below
       // 'length_' get preserved. If the size is already sufficient,
@@ -164,7 +164,8 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   BufferPtr mutableValues(vector_size_t size) {
-    if (values_ && values_->capacity() >= BaseVector::byteSize<T>(size)) {
+    if (values_ && values_->isMutable() &&
+        values_->capacity() >= BaseVector::byteSize<T>(size)) {
       return values_;
     }
 
@@ -190,8 +191,10 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   bool isRecyclable() const final {
-    return (!BaseVector::nulls_ || BaseVector::nulls_->unique()) &&
-        (values_ && values_->unique());
+    return (!BaseVector::nulls_ ||
+            (BaseVector::nulls_->unique() &&
+             BaseVector::nulls_->isMutable())) &&
+        (values_ && values_->unique() && values_->isMutable());
   }
 
   template <typename As>
@@ -202,7 +205,7 @@ class FlatVector final : public SimpleVector<T> {
   // Bool uses compact representation, use mutableRawValues<uint64_t> and
   // bits::setBit instead.
   T* mutableRawValues() {
-    if (!values_ || !values_->unique()) {
+    if (!(values_ && values_->unique() && values_->isMutable())) {
       BufferPtr newValues =
           AlignedBuffer::allocate<T>(BaseVector::length_, BaseVector::pool());
       if (values_) {
@@ -256,6 +259,8 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   void resize(vector_size_t size, bool setNotNull = true) override;
+
+  VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
 
   std::optional<int32_t> compare(
       const BaseVector* other,

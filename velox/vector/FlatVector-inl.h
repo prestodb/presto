@@ -297,12 +297,26 @@ void FlatVector<T>::copyValuesAndNulls(
 }
 
 template <typename T>
+VectorPtr FlatVector<T>::slice(vector_size_t offset, vector_size_t length)
+    const {
+  return std::make_shared<FlatVector<T>>(
+      this->pool_,
+      this->type_,
+      this->sliceNulls(offset, length),
+      length,
+      BaseVector::sliceBuffer(
+          *this->type_, values_, offset, length, this->pool_),
+      std::vector<BufferPtr>(stringBuffers_));
+}
+
+template <typename T>
 void FlatVector<T>::resize(vector_size_t size, bool setNotNull) {
   auto previousSize = BaseVector::length_;
   BaseVector::resize(size, setNotNull);
   if (!values_) {
     return;
   }
+  VELOX_DCHECK(values_->isMutable());
   const uint64_t minBytes = BaseVector::byteSize<T>(size);
   if (values_->capacity() < minBytes) {
     AlignedBuffer::reallocate<T>(&values_, size);
@@ -330,7 +344,7 @@ void FlatVector<T>::resize(vector_size_t size, bool setNotNull) {
 template <typename T>
 void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.size(), BaseVector::length_);
-  if (values_ && !values_->unique()) {
+  if (values_ && !(values_->unique() && values_->isMutable())) {
     BufferPtr newValues;
     if constexpr (std::is_same<T, StringView>::value) {
       // Make sure to initialize StringView values so they can be safely

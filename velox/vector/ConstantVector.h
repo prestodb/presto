@@ -273,6 +273,18 @@ class ConstantVector final : public SimpleVector<T> {
     BaseVector::length_ = size;
   }
 
+  VectorPtr slice(vector_size_t /*offset*/, vector_size_t length)
+      const override {
+    VELOX_DCHECK(initialized_);
+    if (valueVector_) {
+      return std::make_shared<ConstantVector<T>>(
+          this->pool_, length, index_, valueVector_);
+    } else {
+      return std::make_shared<ConstantVector<T>>(
+          this->pool_, length, isNull_, this->type_, T(value_));
+    }
+  }
+
   void addNulls(const uint64_t* /*bits*/, const SelectivityVector& /*rows*/)
       override {
     VELOX_FAIL("addNulls not supported");

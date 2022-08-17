@@ -85,6 +85,12 @@ void VectorLoader::loadInternal(
   load(positions, hook, result);
 }
 
+VectorPtr LazyVector::slice(vector_size_t offset, vector_size_t length) const {
+  VELOX_CHECK(isLoaded(), "Cannot take slice on unloaded lazy vector");
+  VELOX_DCHECK(vector_);
+  return vector_->slice(offset, length);
+}
+
 //   static
 void LazyVector::ensureLoadedRows(
     VectorPtr& vector,
