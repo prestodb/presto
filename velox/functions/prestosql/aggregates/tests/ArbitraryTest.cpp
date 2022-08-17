@@ -39,113 +39,49 @@ TEST_F(ArbitraryTest, noNulls) {
        makeFlatVector<double>(size, [](vector_size_t row) { return row; })})};
   createDuckDbTable(vectors);
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation(
-                     {},
-                     {"arbitrary(c1)",
-                      "arbitrary(c2)",
-                      "arbitrary(c3)",
-                      "arbitrary(c4)",
-                      "arbitrary(c5)",
-                      "arbitrary(c6)"})
-                 .planNode();
-  assertQuery(
-      agg,
-      "SELECT first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) "
-      "FROM tmp");
+  std::vector<std::string> aggregates = {
+      "arbitrary(c1)",
+      "arbitrary(c2)",
+      "arbitrary(c3)",
+      "arbitrary(c4)",
+      "arbitrary(c5)",
+      "arbitrary(c6)"};
 
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
-            .partialAggregation(
-                {"p0"},
-                {"arbitrary(c1)",
-                 "arbitrary(c2)",
-                 "arbitrary(c3)",
-                 "arbitrary(c4)",
-                 "arbitrary(c5)",
-                 "arbitrary(c6)"})
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0 % 10, first(c1), first(c2), first(c3), first(c4), "
-      "first(c5), first(c6) FROM tmp GROUP BY 1");
+  // Global aggregation.
+  testAggregations(
+      vectors,
+      {},
+      aggregates,
+      "SELECT first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) FROM tmp");
 
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation(
-                {},
-                {"arbitrary(c1)",
-                 "arbitrary(c2)",
-                 "arbitrary(c3)",
-                 "arbitrary(c4)",
-                 "arbitrary(c5)",
-                 "arbitrary(c6)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) "
-      "FROM tmp");
-
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
-            .partialAggregation(
-                {"p0"},
-                {"arbitrary(c1)",
-                 "arbitrary(c2)",
-                 "arbitrary(c3)",
-                 "arbitrary(c4)",
-                 "arbitrary(c5)",
-                 "arbitrary(c6)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0 % 10, first(c1), first(c2), first(c3), first(c4), "
-      "first(c5), first(c6) FROM tmp GROUP BY 1");
+  // Group by aggregation.
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors).project(
+            {"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"});
+      },
+      {"p0"},
+      aggregates,
+      "SELECT c0 % 10, first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) FROM tmp GROUP BY 1");
 
   // encodings: use filter to wrap aggregation inputs in a dictionary.
-  agg = PlanBuilder()
-            .values(vectors)
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors)
             .filter("c0 % 2 = 0")
-            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"})
-            .partialAggregation(
-                {"p0"},
-                {"arbitrary(c1)",
-                 "arbitrary(c2)",
-                 "arbitrary(c3)",
-                 "arbitrary(c4)",
-                 "arbitrary(c5)",
-                 "arbitrary(c6)"})
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT c0 % 10, first(c1), first(c2), first(c3), first(c4), "
-      "first(c5), first(c6) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+            .project({"c0 % 10", "c1", "c2", "c3", "c4", "c5", "c6"});
+      },
+      {"p0"},
+      aggregates,
+      "SELECT c0 % 10, first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
 
-  agg = PlanBuilder()
-            .values(vectors)
-            .filter("c0 % 2 = 0")
-            .partialAggregation(
-                {},
-                {"arbitrary(c1)",
-                 "arbitrary(c2)",
-                 "arbitrary(c3)",
-                 "arbitrary(c4)",
-                 "arbitrary(c5)",
-                 "arbitrary(c6)"})
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) "
-      "FROM tmp WHERE c0 % 2 = 0");
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0");
+      },
+      {},
+      aggregates,
+      "SELECT first(c1), first(c2), first(c3), first(c4), first(c5), first(c6) FROM tmp WHERE c0 % 2 = 0");
 }
 
 TEST_F(ArbitraryTest, nulls) {
@@ -165,38 +101,18 @@ TEST_F(ArbitraryTest, nulls) {
       }),
   };
 
-  // Global partial aggregation.
-  auto agg = PlanBuilder()
-                 .values(vectors)
-                 .partialAggregation({}, {"arbitrary(c1)", "arbitrary(c2)"})
-                 .planNode();
-  assertQuery(agg, "SELECT * FROM( VALUES (4, 0.50)) AS t");
+  // Global aggregation.
+  testAggregations(
+      vectors,
+      {},
+      {"arbitrary(c1)", "arbitrary(c2)"},
+      "SELECT * FROM( VALUES (4, 0.50)) AS t");
 
-  // Group by partial aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
-            .planNode();
-  assertQuery(
-      agg,
-      "SELECT * FROM(VALUES (1, NULL, 0.50), (2, 4, NULL), (3, 5, 0.25)) AS t");
-
-  // Global final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({}, {"arbitrary(c1)", "arbitrary(c2)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(agg, "SELECT * FROM( VALUES (4, 0.50)) AS t");
-
-  // Group by final aggregation.
-  agg = PlanBuilder()
-            .values(vectors)
-            .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
-            .finalAggregation()
-            .planNode();
-  assertQuery(
-      agg,
+  // Group by aggregation.
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"arbitrary(c1)", "arbitrary(c2)"},
       "SELECT * FROM(VALUES (1, NULL, 0.50), (2, 4, NULL), (3, 5, 0.25)) AS t");
 }
 
@@ -205,42 +121,36 @@ TEST_F(ArbitraryTest, varchar) {
   auto vectors = makeVectors(rowType, 1000, 10);
   createDuckDbTable(vectors);
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .project({"c0 % 11", "c1"})
-                .partialAggregation({"p0"}, {"arbitrary(c1)"})
-                .planNode();
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors).project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {"arbitrary(c1)"},
+      "SELECT c0 % 11, first(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY 1");
 
-  assertQuery(
-      op, "SELECT c0 % 11, first(c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY 1");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .partialAggregation({}, {"arbitrary(c1)"})
-           .planNode();
-
-  assertQuery(op, "SELECT first(c1) FROM tmp WHERE c1 IS NOT NULL");
+  testAggregations(
+      vectors,
+      {},
+      {"arbitrary(c1)"},
+      "SELECT first(c1) FROM tmp WHERE c1 IS NOT NULL");
 
   // encodings: use filter to wrap aggregation inputs in a dictionary.
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .project({"c0 % 11", "c1"})
-           .partialAggregation({"p0"}, {"arbitrary(c1)"})
-           .planNode();
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 11", "c1"});
+      },
+      {"p0"},
+      {"arbitrary(c1)"},
+      "SELECT c0 % 11, first(c1) FROM tmp WHERE c0 % 2 = 0 AND c1 IS NOT NULL GROUP BY 1");
 
-  assertQuery(
-      op,
-      "SELECT c0 % 11, first(c1) FROM tmp "
-      "WHERE c0 % 2 = 0 AND c1 IS NOT NULL GROUP BY 1");
-
-  op = PlanBuilder()
-           .values(vectors)
-           .filter("c0 % 2 = 0")
-           .partialAggregation({}, {"arbitrary(c1)"})
-           .planNode();
-  assertQuery(
-      op, "SELECT first(c1) FROM tmp WHERE c0 % 2 = 0 AND c1 IS NOT NULL");
+  testAggregations(
+      [&](PlanBuilder& builder) {
+        builder.values(vectors).filter("c0 % 2 = 0");
+      },
+      {},
+      {"arbitrary(c1)"},
+      "SELECT first(c1) FROM tmp WHERE c0 % 2 = 0 AND c1 IS NOT NULL");
 }
 
 TEST_F(ArbitraryTest, varcharConstAndNulls) {
@@ -252,19 +162,17 @@ TEST_F(ArbitraryTest, varcharConstAndNulls) {
 
   createDuckDbTable(vectors);
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .partialAggregation({}, {"arbitrary(c1)", "arbitrary(c2)"})
-                .finalAggregation()
-                .planNode();
-  assertQuery(op, "SELECT first(c1), first(c2) FROM tmp");
+  testAggregations(
+      vectors,
+      {},
+      {"arbitrary(c1)", "arbitrary(c2)"},
+      "SELECT first(c1), first(c2) FROM tmp");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(op, "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"arbitrary(c1)", "arbitrary(c2)"},
+      "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
 }
 
 TEST_F(ArbitraryTest, numericConstAndNulls) {
@@ -275,19 +183,17 @@ TEST_F(ArbitraryTest, numericConstAndNulls) {
 
   createDuckDbTable(vectors);
 
-  auto op = PlanBuilder()
-                .values(vectors)
-                .partialAggregation({}, {"arbitrary(c1)", "arbitrary(c2)"})
-                .finalAggregation()
-                .planNode();
-  assertQuery(op, "SELECT first(c1), first(c2) FROM tmp");
+  testAggregations(
+      vectors,
+      {},
+      {"arbitrary(c1)", "arbitrary(c2)"},
+      "SELECT first(c1), first(c2) FROM tmp");
 
-  op = PlanBuilder()
-           .values(vectors)
-           .partialAggregation({"c0"}, {"arbitrary(c1)", "arbitrary(c2)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(op, "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
+  testAggregations(
+      vectors,
+      {"c0"},
+      {"arbitrary(c1)", "arbitrary(c2)"},
+      "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
 }
 
 } // namespace
