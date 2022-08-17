@@ -1,15 +1,15 @@
 {
-  "rowCount" : 6001215,
+  "rowCount" : 600037902,
   "columns" : {
     "l_returnflag" : {
       "distinctValuesCount" : 3,
       "min" : "A",
       "max" : "R",
-      "dataSize" : 6001215
+      "dataSize" : 600037902
     },
     "l_receiptdate" : {
-      "distinctValuesCount" : 2554,
-      "min" : 8038,
+      "distinctValuesCount" : 2555,
+      "min" : 8037,
       "max" : 10591,
       "dataSize" : null
     },
@@ -23,12 +23,12 @@
       "distinctValuesCount" : 7,
       "min" : "AIR",
       "max" : "TRUCK",
-      "dataSize" : 25717034
+      "dataSize" : 2571562204
     },
     "l_suppkey" : {
-      "distinctValuesCount" : 10000,
+      "distinctValuesCount" : 1000029,
       "min" : 1,
-      "max" : 10000,
+      "max" : 1000000,
       "dataSize" : null
     },
     "l_shipdate" : {
@@ -44,15 +44,15 @@
       "dataSize" : null
     },
     "l_partkey" : {
-      "distinctValuesCount" : 200044,
+      "distinctValuesCount" : 20000911,
       "min" : 1,
-      "max" : 200000,
+      "max" : 20000000,
       "dataSize" : null
     },
     "l_orderkey" : {
-      "distinctValuesCount" : 1500254,
+      "distinctValuesCount" : 150095531,
       "min" : 1,
-      "max" : 6000000,
+      "max" : 600000000,
       "dataSize" : null
     },
     "l_quantity" : {
@@ -65,18 +65,18 @@
       "distinctValuesCount" : 2,
       "min" : "F",
       "max" : "O",
-      "dataSize" : 6001215
+      "dataSize" : 600037902
     },
     "l_comment" : {
-      "distinctValuesCount" : 4580252,
+      "distinctValuesCount" : 142684829,
       "min" : " Tiresias ",
-      "max" : "zzle? slyly final platelets sleep quickly. ",
-      "dataSize" : 158997209
+      "max" : "zzle? unusual",
+      "dataSize" : 15900892603
     },
     "l_extendedprice" : {
-      "distinctValuesCount" : 933985,
-      "min" : 901.0,
-      "max" : 104949.5,
+      "distinctValuesCount" : 3786171,
+      "min" : 900.05,
+      "max" : 104948.5,
       "dataSize" : null
     },
     "l_linenumber" : {
@@ -95,7 +95,7 @@
       "distinctValuesCount" : 4,
       "min" : "COLLECT COD",
       "max" : "TAKE BACK RETURN",
-      "dataSize" : 72006409
+      "dataSize" : 7200336912
     }
   }
 }
