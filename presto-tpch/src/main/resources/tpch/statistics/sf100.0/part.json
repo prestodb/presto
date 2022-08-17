@@ -1,53 +1,53 @@
 {
-  "rowCount" : 2000,
+  "rowCount" : 20000000,
   "columns" : {
     "p_partkey" : {
-      "distinctValuesCount" : 2000,
+      "distinctValuesCount" : 20000911,
       "min" : 1,
-      "max" : 2000,
+      "max" : 20000000,
       "dataSize" : null
     },
     "p_container" : {
       "distinctValuesCount" : 40,
       "min" : "JUMBO BAG",
       "max" : "WRAP PKG",
-      "dataSize" : 15221
+      "dataSize" : 151492985
     },
     "p_name" : {
-      "distinctValuesCount" : 2000,
-      "min" : "almond aquamarine mint misty red",
-      "max" : "yellow white puff orange rosy",
-      "dataSize" : 65314
+      "distinctValuesCount" : 19984907,
+      "min" : "almond antique aquamarine beige burlywood",
+      "max" : "yellow white wheat violet orchid",
+      "dataSize" : 654983885
     },
     "p_comment" : {
-      "distinctValuesCount" : 1959,
-      "min" : " about the furio",
-      "max" : "zzle among t",
-      "dataSize" : 27173
+      "distinctValuesCount" : 3945080,
+      "min" : " Tire",
+      "max" : "zzle? speci",
+      "dataSize" : 269975443
     },
     "p_brand" : {
       "distinctValuesCount" : 25,
       "min" : "Brand#11",
       "max" : "Brand#55",
-      "dataSize" : 16000
+      "dataSize" : 160000000
     },
     "p_type" : {
       "distinctValuesCount" : 150,
       "min" : "ECONOMY ANODIZED BRASS",
       "max" : "STANDARD POLISHED TIN",
-      "dataSize" : 41102
+      "dataSize" : 411999154
     },
     "p_retailprice" : {
-      "distinctValuesCount" : 1099,
-      "min" : 901.0,
-      "max" : 1900.99,
+      "distinctValuesCount" : 119899,
+      "min" : 900.01,
+      "max" : 2098.99,
       "dataSize" : null
     },
     "p_mfgr" : {
       "distinctValuesCount" : 5,
       "min" : "Manufacturer#1",
       "max" : "Manufacturer#5",
-      "dataSize" : 28000
+      "dataSize" : 280000000
     },
     "p_size" : {
       "distinctValuesCount" : 50,
