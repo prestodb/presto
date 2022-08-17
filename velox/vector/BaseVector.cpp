@@ -734,7 +734,15 @@ uint64_t BaseVector::estimateFlatSize() const {
   }
 
   auto leaf = wrappedVector();
-  VELOX_DCHECK_GT(leaf->size(), 0);
+  // If underlying vector is empty we should return the leaf's single element
+  // size times this vector's size plus any nulls of this vector.
+  if (UNLIKELY(leaf->size() == 0)) {
+    const auto& leafType = leaf->type();
+    return length_ *
+        (leafType->isFixedWidth() ? leafType->cppSizeInBytes() : 0) +
+        BaseVector::retainedSize();
+  }
+
   auto avgRowSize = 1.0 * leaf->retainedSize() / leaf->size();
   return length_ * avgRowSize;
 }

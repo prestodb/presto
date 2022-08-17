@@ -238,6 +238,30 @@ TEST_F(VectorEstimateFlatSizeTest, dictionaryFixedWidthExtraNulls) {
   EXPECT_EQ(608, dict->retainedSize());
   EXPECT_EQ(16, dict->estimateFlatSize());
   EXPECT_EQ(64, flatten(dict)->retainedSize());
+
+  // Dictionary vector with all nulls over an empty flat vector.
+  auto indicesAllZero = makeIndices(100, [](auto /*row*/) { return 0; });
+
+  auto dictAllNulls = AlignedBuffer::allocate<bool>(100, pool());
+  auto rawDictAllNulls = dictAllNulls->asMutable<uint64_t>();
+  for (auto i = 0; i < 100; i++) {
+    bits::setNull(rawDictAllNulls, i, true);
+  }
+
+  auto makeDictOverEmpty = [&](auto base) {
+    return BaseVector::wrapInDictionary(
+        dictAllNulls, indicesAllZero, 100, base);
+  };
+
+  dict = makeDictOverEmpty(makeFlatVector<int16_t>(0, int16At));
+  EXPECT_EQ(448, dict->retainedSize());
+  EXPECT_EQ(232, dict->estimateFlatSize());
+  EXPECT_EQ(320, flatten(dict)->retainedSize());
+
+  dict = makeDictOverEmpty(makeFlatVector<double>(0, doubleAt));
+  EXPECT_EQ(448, dict->retainedSize());
+  EXPECT_EQ(832, dict->estimateFlatSize());
+  EXPECT_EQ(960, flatten(dict)->retainedSize());
 }
 
 TEST_F(VectorEstimateFlatSizeTest, flatStrings) {
