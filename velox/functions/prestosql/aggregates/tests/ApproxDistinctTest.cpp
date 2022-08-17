@@ -30,68 +30,31 @@ class ApproxDistinctTest : public AggregationTestBase {
       const VectorPtr& values,
       double maxStandardError,
       int64_t expectedResult) {
-    auto op =
-        PlanBuilder()
-            .values({makeRowVector({values})})
-            .singleAggregation(
-                {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
-            .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
+    auto vectors = makeRowVector({values});
+    auto expected =
+        makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
 
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .partialAggregation(
-                 {}, {fmt::format("approx_distinct(c0, {})", maxStandardError)})
-             .finalAggregation()
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
-
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .singleAggregation(
-                 {}, {fmt::format("approx_set(c0, {})", maxStandardError)})
-             .project({"cardinality(a0)"})
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
-
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .partialAggregation(
-                 {}, {fmt::format("approx_set(c0, {})", maxStandardError)})
-             .finalAggregation()
-             .project({"cardinality(a0)"})
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
+    testAggregations(
+        {vectors},
+        {},
+        {fmt::format("approx_distinct(c0, {})", maxStandardError)},
+        {expected});
+    testAggregations(
+        {vectors},
+        {},
+        {fmt::format("approx_set(c0, {})", maxStandardError)},
+        {"cardinality(a0)"},
+        {expected});
   }
 
   void testGlobalAgg(const VectorPtr& values, int64_t expectedResult) {
-    auto op = PlanBuilder()
-                  .values({makeRowVector({values})})
-                  .singleAggregation({}, {"approx_distinct(c0)"})
-                  .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
+    auto vectors = makeRowVector({values});
+    auto expected =
+        makeRowVector({makeNullableFlatVector<int64_t>({expectedResult})});
 
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .partialAggregation({}, {"approx_distinct(c0)"})
-             .finalAggregation()
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
-
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .singleAggregation({}, {"approx_set(c0)"})
-             .project({"cardinality(a0)"})
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
-
-    op = PlanBuilder()
-             .values({makeRowVector({values})})
-             .partialAggregation({}, {"approx_set(c0)"})
-             .finalAggregation()
-             .project({"cardinality(a0)"})
-             .planNode();
-    EXPECT_EQ(readSingleValue(op), expectedResult);
+    testAggregations({vectors}, {}, {"approx_distinct(c0)"}, {expected});
+    testAggregations(
+        {vectors}, {}, {"approx_set(c0)"}, {"cardinality(a0)"}, {expected});
   }
 
   template <typename T, typename U>
@@ -113,35 +76,16 @@ class ApproxDistinctTest : public AggregationTestBase {
       const VectorPtr& keys,
       const VectorPtr& values,
       const std::unordered_map<int32_t, int64_t>& expectedResults) {
+    auto vectors = makeRowVector({keys, values});
     auto expected = toRowVector(expectedResults);
 
-    auto op = PlanBuilder()
-                  .values({makeRowVector({keys, values})})
-                  .singleAggregation({"c0"}, {"approx_distinct(c1)"})
-                  .planNode();
-    assertQuery(op, expected);
-
-    op = PlanBuilder()
-             .values({makeRowVector({keys, values})})
-             .partialAggregation({"c0"}, {"approx_distinct(c1)"})
-             .finalAggregation()
-             .planNode();
-    assertQuery(op, expected);
-
-    op = PlanBuilder()
-             .values({makeRowVector({keys, values})})
-             .singleAggregation({"c0"}, {"approx_set(c1)"})
-             .project({"c0", "cardinality(a0)"})
-             .planNode();
-    assertQuery(op, expected);
-
-    op = PlanBuilder()
-             .values({makeRowVector({keys, values})})
-             .partialAggregation({"c0"}, {"approx_set(c1)"})
-             .finalAggregation()
-             .project({"c0", "cardinality(a0)"})
-             .planNode();
-    assertQuery(op, expected);
+    testAggregations({vectors}, {"c0"}, {"approx_distinct(c1)"}, {expected});
+    testAggregations(
+        {vectors},
+        {"c0"},
+        {"approx_set(c1)"},
+        {"c0", "cardinality(a0)"},
+        {expected});
   }
 };
 
@@ -210,20 +154,10 @@ TEST_F(ApproxDistinctTest, groupByAllNulls) {
   auto values = makeFlatVector<int32_t>(
       size, [](auto row) { return row % 2 == 0 ? 27 : row % 3; }, nullEvery(2));
 
-  std::unordered_map<int32_t, int64_t> expectedResult = {{0, 0}, {1, 3}};
-  auto expected = toRowVector(expectedResult);
-  auto op = PlanBuilder()
-                .values({makeRowVector({keys, values})})
-                .singleAggregation({"c0"}, {"approx_distinct(c1)"})
-                .planNode();
-  assertQuery(op, expected);
+  auto vectors = makeRowVector({keys, values});
+  auto expected = toRowVector<int32_t, int64_t>({{0, 0}, {1, 3}});
 
-  op = PlanBuilder()
-           .values({makeRowVector({keys, values})})
-           .partialAggregation({"c0"}, {"approx_distinct(c1)"})
-           .finalAggregation()
-           .planNode();
-  assertQuery(op, expected);
+  testAggregations({vectors}, {"c0"}, {"approx_distinct(c1)"}, {expected});
 }
 
 TEST_F(ApproxDistinctTest, globalAggIntegers) {
