@@ -1,17 +1,17 @@
 {
-  "rowCount" : 38543,
+  "rowCount" : 3841445,
   "columns" : {
     "o_orderstatus" : {
       "distinctValuesCount" : 1,
       "min" : "P",
       "max" : "P",
-      "dataSize" : 38543
+      "dataSize" : 3841445
     },
     "o_clerk" : {
-      "distinctValuesCount" : 1000,
+      "distinctValuesCount" : 100000,
       "min" : "Clerk#000000001",
-      "max" : "Clerk#000001000",
-      "dataSize" : 578145
+      "max" : "Clerk#000100000",
+      "dataSize" : 57621675
     },
     "o_orderdate" : {
       "distinctValuesCount" : 120,
@@ -26,34 +26,34 @@
       "dataSize" : null
     },
     "o_custkey" : {
-      "distinctValuesCount" : 31310,
-      "min" : 2,
-      "max" : 149998,
+      "distinctValuesCount" : 3189881,
+      "min" : 1,
+      "max" : 14999999,
       "dataSize" : null
     },
     "o_totalprice" : {
-      "distinctValuesCount" : 38515,
-      "min" : 2933.43,
-      "max" : 491549.57,
+      "distinctValuesCount" : 3598530,
+      "min" : 1914.25,
+      "max" : 550128.18,
       "dataSize" : null
     },
     "o_orderkey" : {
-      "distinctValuesCount" : 38543,
+      "distinctValuesCount" : 3841500,
       "min" : 65,
-      "max" : 5999875,
+      "max" : 599999904,
       "dataSize" : null
     },
     "o_comment" : {
-      "distinctValuesCount" : 38531,
-      "min" : " Tiresias haggle slyly bli",
-      "max" : "zzle furiously. bold packa",
-      "dataSize" : 1870963
+      "distinctValuesCount" : 3748105,
+      "min" : " Tiresias about the blithely unusual packages are furiously carefully i",
+      "max" : "zzle? slyly even excuses haggle pe",
+      "dataSize" : 186277997
     },
     "o_orderpriority" : {
       "distinctValuesCount" : 5,
       "min" : "1-URGENT",
       "max" : "5-LOW",
-      "dataSize" : 323573
+      "dataSize" : 32264215
     }
   }
 }
