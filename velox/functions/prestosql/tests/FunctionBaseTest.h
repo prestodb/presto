@@ -45,6 +45,14 @@ class FunctionBaseTest : public testing::Test,
 
   using FloatingPointTypes = ::testing::Types<DoubleType, RealType>;
 
+  using FloatingPointAndIntegralTypes = ::testing::Types<
+      TinyintType,
+      SmallintType,
+      IntegerType,
+      BigintType,
+      DoubleType,
+      RealType>;
+
  protected:
   static void SetUpTestCase();
 

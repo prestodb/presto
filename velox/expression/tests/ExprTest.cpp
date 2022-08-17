@@ -2179,7 +2179,7 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
 
   exprSet = compileExpression("if (a > 10::integer, 0::integer, b)", rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
-  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
 
   // If statement with 'then' or 'else' branch that can return null does not
@@ -2193,7 +2193,7 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
       "case when a > 10::integer then 1 when b > 10::integer then 2 else 3 end",
       rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
-  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
 
   // Switch without an else clause doesn't support fast path.
@@ -2208,13 +2208,13 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
 
   exprSet = compileExpression("a > 10::integer AND b < 0::integer", rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
-  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
 
   exprSet = compileExpression(
       "a > 10::integer OR (b % 7::integer == 4::integer)", rowType);
   ASSERT_EQ(1, exprSet->exprs().size());
-  ASSERT_TRUE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
+  ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
 
   // Coalesce expression.
