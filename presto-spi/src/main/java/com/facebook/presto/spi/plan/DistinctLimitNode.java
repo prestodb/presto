@@ -48,7 +48,20 @@ public final class DistinctLimitNode
             @JsonProperty("distinctVariables") List<VariableReferenceExpression> distinctVariables,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, limit, partial, distinctVariables, hashVariable);
+    }
+
+    public DistinctLimitNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            long limit,
+            boolean partial,
+            List<VariableReferenceExpression> distinctVariables,
+            Optional<VariableReferenceExpression> hashVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         checkArgument(limit >= 0, "limit must be greater than or equal to zero");
         this.limit = limit;
@@ -116,10 +129,16 @@ public final class DistinctLimitNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new DistinctLimitNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, limit, partial, distinctVariables, hashVariable);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new DistinctLimitNode(getSourceLocation(), getId(), newChildren.get(0), limit, partial, distinctVariables, hashVariable);
+        return new DistinctLimitNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), limit, partial, distinctVariables, hashVariable);
     }
 
     private static void checkArgument(boolean condition, String message)

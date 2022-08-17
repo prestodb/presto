@@ -46,7 +46,18 @@ public class OutputNode
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, columnNames, outputVariables);
+    }
+
+    public OutputNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            List<String> columnNames,
+            List<VariableReferenceExpression> outputVariables)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -91,6 +102,12 @@ public class OutputNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new OutputNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), columnNames, outputVariables);
+        return new OutputNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), columnNames, outputVariables);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new OutputNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, columnNames, outputVariables);
     }
 }

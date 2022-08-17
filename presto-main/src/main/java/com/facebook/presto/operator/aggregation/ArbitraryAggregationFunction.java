@@ -90,7 +90,7 @@ public class ArbitraryAggregationFunction
         return generateAggregation(valueType);
     }
 
-    private static BuiltInAggregationFunctionImplementation generateAggregation(Type type)
+    private BuiltInAggregationFunctionImplementation generateAggregation(Type type)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ArbitraryAggregationFunction.class.getClassLoader());
 
@@ -133,7 +133,7 @@ public class ArbitraryAggregationFunction
         }
         inputFunction = inputFunction.bindTo(type);
 
-        Type intermediateType = stateSerializer.getSerializedType();
+        Type intermediateType = overrideIntermediateType(type, stateSerializer.getSerializedType());
         List<ParameterMetadata> inputParameterMetadata = createInputParameterMetadata(type);
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
@@ -157,6 +157,11 @@ public class ArbitraryAggregationFunction
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), type,
                 true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+    }
+
+    protected Type overrideIntermediateType(Type inputType, Type defaultIntermediateType)
+    {
+        return defaultIntermediateType;
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type value)

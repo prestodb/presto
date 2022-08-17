@@ -79,7 +79,20 @@ public class ApplyNode
             @JsonProperty("correlation") List<VariableReferenceExpression> correlation,
             @JsonProperty("originSubqueryError") String originSubqueryError)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), input, subquery, subqueryAssignments, correlation, originSubqueryError);
+    }
+
+    public ApplyNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode input,
+            PlanNode subquery,
+            Assignments subqueryAssignments,
+            List<VariableReferenceExpression> correlation,
+            String originSubqueryError)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         checkArgument(input.getOutputVariables().containsAll(correlation), "Input does not contain symbols from correlation");
         verifySubquerySupported(subqueryAssignments);
 
@@ -145,6 +158,12 @@ public class ApplyNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new ApplyNode(getSourceLocation(), getId(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
+        return new ApplyNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), newChildren.get(1), subqueryAssignments, correlation, originSubqueryError);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ApplyNode(getSourceLocation(), getId(), statsEquivalentPlanNode, input, subquery, subqueryAssignments, correlation, originSubqueryError);
     }
 }

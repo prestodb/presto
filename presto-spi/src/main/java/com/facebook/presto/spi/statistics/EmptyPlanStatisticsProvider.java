@@ -21,7 +21,7 @@ import java.util.Map;
 import static java.util.Collections.emptyMap;
 
 public class EmptyPlanStatisticsProvider
-        implements ExternalPlanStatisticsProvider
+        implements HistoryBasedPlanStatisticsProvider
 {
     private static final EmptyPlanStatisticsProvider SINGLETON = new EmptyPlanStatisticsProvider();
 

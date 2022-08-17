@@ -184,6 +184,9 @@ public class PrestoConnection
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
         }
+        if (transactionId.get() == null) {
+            return;
+        }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("COMMIT");
         }
@@ -196,6 +199,9 @@ public class PrestoConnection
         checkOpen();
         if (getAutoCommit()) {
             throw new SQLException("Connection is in auto-commit mode");
+        }
+        if (transactionId.get() == null) {
+            return;
         }
         try (PrestoStatement statement = new PrestoStatement(this)) {
             statement.internalExecute("ROLLBACK");

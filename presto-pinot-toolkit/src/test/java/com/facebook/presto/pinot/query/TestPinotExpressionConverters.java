@@ -171,6 +171,20 @@ public class TestPinotExpressionConverters
         testFilter("city is null", "(\"city\" IS NULL)", sessionHolder);
         testFilter("city is not null", "(\"city\" IS NOT NULL)", sessionHolder);
 
+        // functions
+        testFilter("LOWER(TRIM(city)) = 'campbell'", "(lower(trim(\"city\")) = 'campbell')", sessionHolder);
+        testFilter("CONCAT(city, ', CA', city) IN ('San Jose', 'Campbell')",
+                "(concat(concat(\"city\", ', CA', ''), \"city\", '') IN ('San Jose', 'Campbell'))", sessionHolder);
+
+        // case, coalesce, if
+        testFilter("CASE WHEN city = 'Campbell' THEN regionid ELSE 0 END",
+                "CASE true WHEN (\"city\" = 'Campbell') THEN \"regionId\" ELSE 0 END", sessionHolder);
+        testFilter("COALESCE(regionid, regionid, secondssinceepoch)",
+                "CASE TRUE WHEN \"regionId\" IS NOT NULL THEN \"regionId\" WHEN \"regionId\" IS NOT NULL THEN \"regionId\" ELSE \"secondsSinceEpoch\" END", sessionHolder);
+        testFilter("IF(city is null, secondssinceepoch, 0) > 1500000000",
+                "(CASE TRUE WHEN (\"city\" IS NULL) THEN \"secondsSinceEpoch\" ELSE 0 END > 1500000000)", sessionHolder);
+        testFilterUnsupported("COALESCE(trim_city, LOWER(city))", sessionHolder);
+
         // combinations
         testFilter("totalfare between 20 and 30 AND regionid > 20 OR city = 'Campbell'",
                 "((((\"fare\" + \"trip\") BETWEEN 20 AND 30) AND (\"regionId\" > 20)) OR (\"city\" = 'Campbell'))", sessionHolder);
@@ -179,6 +193,8 @@ public class TestPinotExpressionConverters
 
         testFilter("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
         testFilter("DATE '2019-11-15'", "18215", sessionHolder);
+        testFilter("COALESCE(LOWER(city), trim_city) = 'San Francisco, CA'",
+                "(CASE TRUE WHEN \"city\" IS NOT NULL THEN lower(\"city\") ELSE trim(city) END = 'San Francisco, CA')", sessionHolder);
     }
 
     private void testAggregationProject(String sqlExpression, String expectedPinotExpression, SessionHolder sessionHolder)

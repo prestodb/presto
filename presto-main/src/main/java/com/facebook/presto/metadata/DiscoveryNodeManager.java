@@ -443,18 +443,6 @@ public final class DiscoveryNodeManager
         return getAllNodes().getShuttingDownNodes().size();
     }
 
-    @Managed
-    public int getActiveResourceManagerCount()
-    {
-        return getAllNodes().getActiveResourceManagers().size();
-    }
-
-    @Managed
-    public int getActiveCoordinatorCount()
-    {
-        return getAllNodes().getActiveCoordinators().size();
-    }
-
     @Override
     public Set<InternalNode> getNodes(NodeState state)
     {
@@ -603,6 +591,8 @@ public final class DiscoveryNodeManager
             return service ->
                     !nodeStatusService.isPresent()
                             || nodeStatusService.get().isAllowed(service.getLocation())
+                            || isCoordinator(service)
+                            || isResourceManager(service)
                             || isCatalogServer(service);
         }
 

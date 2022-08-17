@@ -72,7 +72,26 @@ public class TableWriterNode
             @JsonProperty("preferredShufflePartitioningScheme") Optional<PartitioningScheme> preferredShufflePartitioningScheme,
             @JsonProperty("statisticsAggregation") Optional<StatisticAggregations> statisticsAggregation)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, target, rowCountVariable, fragmentVariable, tableCommitContextVariable, columns, columnNames, notNullColumnVariables, tablePartitioningScheme, preferredShufflePartitioningScheme, statisticsAggregation);
+    }
+
+    public TableWriterNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Optional<WriterTarget> target,
+            VariableReferenceExpression rowCountVariable,
+            VariableReferenceExpression fragmentVariable,
+            VariableReferenceExpression tableCommitContextVariable,
+            List<VariableReferenceExpression> columns,
+            List<String> columnNames,
+            Set<VariableReferenceExpression> notNullColumnVariables,
+            Optional<PartitioningScheme> tablePartitioningScheme,
+            Optional<PartitioningScheme> preferredShufflePartitioningScheme,
+            Optional<StatisticAggregations> statisticsAggregation)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(columns, "columns is null");
         requireNonNull(columnNames, "columnNames is null");
@@ -194,7 +213,28 @@ public class TableWriterNode
         return new TableWriterNode(
                 getSourceLocation(),
                 getId(),
+                getStatsEquivalentPlanNode(),
                 Iterables.getOnlyElement(newChildren),
+                target,
+                rowCountVariable,
+                fragmentVariable,
+                tableCommitContextVariable,
+                columns,
+                columnNames,
+                notNullColumnVariables,
+                tablePartitioningScheme,
+                preferredShufflePartitioningScheme,
+                statisticsAggregation);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new TableWriterNode(
+                getSourceLocation(),
+                getId(),
+                statsEquivalentPlanNode,
+                source,
                 target,
                 rowCountVariable,
                 fragmentVariable,

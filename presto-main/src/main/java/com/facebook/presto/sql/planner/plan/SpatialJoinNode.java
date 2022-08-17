@@ -95,7 +95,23 @@ public class SpatialJoinNode
             @JsonProperty("rightPartitionVariable") Optional<VariableReferenceExpression> rightPartitionVariable,
             @JsonProperty("kdbTree") Optional<String> kdbTree)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), type, left, right, outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+    }
+
+    public SpatialJoinNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            Type type,
+            PlanNode left,
+            PlanNode right,
+            List<VariableReferenceExpression> outputVariables,
+            RowExpression filter,
+            Optional<VariableReferenceExpression> leftPartitionVariable,
+            Optional<VariableReferenceExpression> rightPartitionVariable,
+            Optional<String> kdbTree)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.type = requireNonNull(type, "type is null");
         this.left = requireNonNull(left, "left is null");
@@ -197,6 +213,12 @@ public class SpatialJoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new SpatialJoinNode(getSourceLocation(), getId(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+        return new SpatialJoinNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), type, newChildren.get(0), newChildren.get(1), outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new SpatialJoinNode(getSourceLocation(), getId(), statsEquivalentPlanNode, type, left, right, outputVariables, filter, leftPartitionVariable, rightPartitionVariable, kdbTree);
     }
 }

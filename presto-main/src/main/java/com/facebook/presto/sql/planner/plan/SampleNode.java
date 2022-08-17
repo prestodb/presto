@@ -52,7 +52,18 @@ public class SampleNode
             @JsonProperty("sampleRatio") double sampleRatio,
             @JsonProperty("sampleType") Type sampleType)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, sampleRatio, sampleType);
+    }
+
+    public SampleNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            double sampleRatio,
+            Type sampleType)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
         checkArgument((sampleRatio <= 1.0), "sample ratio must be less than or equal to 1");
@@ -101,6 +112,12 @@ public class SampleNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new SampleNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
+        return new SampleNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), sampleRatio, sampleType);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new SampleNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, sampleRatio, sampleType);
     }
 }

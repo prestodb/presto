@@ -42,7 +42,8 @@ import static com.facebook.presto.orc.reader.BatchStreamReaders.createStreamRead
 import static com.facebook.presto.orc.reader.ReaderUtils.convertLengthVectorToOffsetVector;
 import static com.facebook.presto.orc.reader.ReaderUtils.unpackLengthNulls;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -60,11 +61,11 @@ public class ListBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> lengthStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> lengthStreamSource = getLongMissingStreamSource();
     @Nullable
     private LongInputStream lengthStream;
 
@@ -165,8 +166,8 @@ public class ListBatchStreamReader
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        lengthStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        lengthStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
         nextBatchSize = 0;

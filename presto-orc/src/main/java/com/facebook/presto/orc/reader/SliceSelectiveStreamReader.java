@@ -29,45 +29,65 @@ import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public class SliceSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceSelectiveStreamReader.class).instanceSize();
 
-    private final StreamDescriptor streamDescriptor;
-    private final SliceDirectSelectiveStreamReader directReader;
-    private final SliceDictionarySelectiveReader dictionaryReader;
+    private final SelectiveReaderContext context;
+
+    @Nullable
+    private SliceDirectSelectiveStreamReader directReader;
+    @Nullable
+    private SliceDictionarySelectiveReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
-    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext)
+    public SliceSelectiveStreamReader(StreamDescriptor streamDescriptor, Optional<TupleDomainFilter> filter, Optional<Type> outputType, OrcAggregatedMemoryContext systemMemoryContext, boolean isLowMemory)
     {
-        this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.directReader = new SliceDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDirectSelectiveStreamReader.class.getSimpleName()));
-        this.dictionaryReader = new SliceDictionarySelectiveReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(SliceDictionarySelectiveReader.class.getSimpleName()));
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory);
+    }
+
+    public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
+    {
+        if (isCharType) {
+            // truncate the characters and then remove the trailing white spaces
+            return Chars.byteCountWithoutTrailingSpace(slice, offset, length, maxCodePointCount);
+        }
+        if (maxCodePointCount >= 0 && length > maxCodePointCount) {
+            return Varchars.byteCount(slice, offset, length, maxCodePointCount);
+        }
+        return length;
     }
 
     @Override
     public void startStripe(Stripe stripe)
             throws IOException
     {
-        ColumnEncoding.ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
-                .getColumnEncoding(streamDescriptor.getSequence())
+        ColumnEncoding.ColumnEncodingKind kind = stripe.getColumnEncodings().get(context.getStreamDescriptor().getStreamId())
+                .getColumnEncoding(context.getStreamDescriptor().getSequence())
                 .getColumnEncodingKind();
         switch (kind) {
             case DIRECT:
             case DIRECT_V2:
             case DWRF_DIRECT:
+                if (directReader == null) {
+                    directReader = new SliceDirectSelectiveStreamReader(context);
+                }
                 currentReader = directReader;
                 break;
             case DICTIONARY:
             case DICTIONARY_V2:
+                if (dictionaryReader == null) {
+                    dictionaryReader = new SliceDictionarySelectiveReader(context);
+                }
                 currentReader = dictionaryReader;
                 break;
             default:
@@ -88,7 +108,7 @@ public class SliceSelectiveStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(context.getStreamDescriptor())
                 .toString();
     }
 
@@ -96,8 +116,12 @@ public class SliceSelectiveStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(directReader::close);
-            closer.register(dictionaryReader::close);
+            if (directReader != null) {
+                closer.register(directReader::close);
+            }
+            if (dictionaryReader != null) {
+                closer.register(dictionaryReader::close);
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -107,7 +131,9 @@ public class SliceSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + dictionaryReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE +
+                (directReader == null ? 0L : directReader.getRetainedSizeInBytes()) +
+                (dictionaryReader == null ? 0L : dictionaryReader.getRetainedSizeInBytes());
     }
 
     @Override
@@ -141,22 +167,14 @@ public class SliceSelectiveStreamReader
         currentReader.throwAnyError(positions, positionCount);
     }
 
-    public static int computeTruncatedLength(Slice slice, int offset, int length, int maxCodePointCount, boolean isCharType)
-    {
-        if (isCharType) {
-            // truncate the characters and then remove the trailing white spaces
-            return Chars.byteCountWithoutTrailingSpace(slice, offset, length, maxCodePointCount);
-        }
-        if (maxCodePointCount >= 0 && length > maxCodePointCount) {
-            return Varchars.byteCount(slice, offset, length, maxCodePointCount);
-        }
-        return length;
-    }
-
     @VisibleForTesting
     public void resetDataStream()
     {
-        ((SliceDirectSelectiveStreamReader) directReader).resetDataStream();
-        ((SliceDictionarySelectiveReader) dictionaryReader).resetDataStream();
+        if (directReader != null) {
+            directReader.resetDataStream();
+        }
+        if (dictionaryReader != null) {
+            dictionaryReader.resetDataStream();
+        }
     }
 }

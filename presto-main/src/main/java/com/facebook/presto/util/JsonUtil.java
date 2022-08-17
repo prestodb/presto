@@ -45,6 +45,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -112,9 +113,15 @@ public final class JsonUtil
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
     {
+        return createJsonParser(factory, json.getInput());
+    }
+
+    public static JsonParser createJsonParser(JsonFactory factory, InputStream json)
+            throws IOException
+    {
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
-        return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+        return factory.createParser(new InputStreamReader(json, UTF_8));
     }
 
     public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)

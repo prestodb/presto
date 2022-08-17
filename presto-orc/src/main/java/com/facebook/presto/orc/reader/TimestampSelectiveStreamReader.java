@@ -43,7 +43,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
 import static com.facebook.presto.orc.reader.ApacheHiveTimestampDecoder.decodeTimestamp;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,9 +66,9 @@ public class TimestampSelectiveStreamReader
     private final boolean nonDeterministicFilter;
     private final DecodeTimestampOptions decodeTimestampOptions;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
-    private InputStreamSource<LongInputStream> secondsStreamSource = missingStreamSource(LongInputStream.class);
-    private InputStreamSource<LongInputStream> nanosStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
+    private InputStreamSource<LongInputStream> secondsStreamSource = getLongMissingStreamSource();
+    private InputStreamSource<LongInputStream> nanosStreamSource = getLongMissingStreamSource();
 
     @Nullable
     private BooleanInputStream presentStream;
@@ -109,9 +110,9 @@ public class TimestampSelectiveStreamReader
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        secondsStreamSource = missingStreamSource(LongInputStream.class);
-        nanosStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        secondsStreamSource = getLongMissingStreamSource();
+        nanosStreamSource = getLongMissingStreamSource();
         readOffset = 0;
         presentStream = null;
         secondsStream = null;

@@ -79,8 +79,6 @@ public class TestClusterManager
         prestoServers = builder.build();
         configFile = getConfigFile(prestoServers);
 
-        System.out.println(configFile.getAbsolutePath());
-
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule("test"),
                 new TestingHttpServerModule(), new JsonModule(),
