@@ -314,16 +314,16 @@ class SimpleFunctionAdapter : public VectorFunction {
     }
 
     std::vector<std::optional<LocalDecodedVector>> decoded;
-    decoded.resize(args.size());
-
     if (allPrimitiveArgsFlatConstant(args)) {
       if constexpr (
           allArgsFlatConstantFastPathEligible() && specializeForAllEncodings) {
         unpackSpecializeForAllEncodings<0>(applyContext, args);
       } else {
+        decoded.resize(args.size());
         unpack<0, true>(applyContext, decoded, args);
       }
     } else {
+      decoded.resize(args.size());
       unpack<0, false>(applyContext, decoded, args);
     }
     if constexpr (
@@ -338,7 +338,7 @@ class SimpleFunctionAdapter : public VectorFunction {
     if (reuseStringsFromArg >= 0) {
       VELOX_CHECK_LT(reuseStringsFromArg, args.size());
       VELOX_CHECK_EQ(args[reuseStringsFromArg]->typeKind(), TypeKind::VARCHAR);
-      if (!decoded.at(reuseStringsFromArg).has_value()) {
+      if (decoded.size() == 0 || !decoded.at(reuseStringsFromArg).has_value()) {
         // If we're here, we're guaranteed the argument is either a Flat
         // or Constant vector so no decoding is necessary.
         tryAcquireStringBuffer(
