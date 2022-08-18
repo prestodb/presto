@@ -347,12 +347,10 @@ void read<StringView>(
   readNulls(source, size, flatResult);
 
   int32_t dataSize = source->read<int32_t>();
-  auto& stringBuffers = flatResult->stringBuffers();
+  const auto& stringBuffers = flatResult->stringBuffers();
   BufferPtr strings = findOrAllocateStringBuffer(dataSize, stringBuffers, pool);
+  flatResult->setStringBuffers({strings});
   auto rawStrings = strings->asMutable<uint8_t>();
-
-  stringBuffers.resize(1);
-  stringBuffers[0] = std::move(strings);
 
   source->readBytes(rawStrings, dataSize);
   int32_t previousOffset = 0;

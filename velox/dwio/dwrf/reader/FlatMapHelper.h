@@ -56,7 +56,7 @@ void initializeFlatVector(
     auto& flatVector = dynamic_cast<FlatVector<T>&>(*vector);
     detail::resetIfNotWritable(vector, flatVector.nulls(), flatVector.values());
     if (vector) {
-      flatVector.stringBuffers() = stringBuffers;
+      flatVector.setStringBuffers(stringBuffers);
     }
   }
 

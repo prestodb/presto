@@ -16,6 +16,7 @@
 #pragma once
 
 #include <folly/container/F14Map.h>
+#include <folly/container/F14Set.h>
 #include <folly/dynamic.h>
 #include <gflags/gflags_declare.h>
 
@@ -103,8 +104,10 @@ class FlatVector final : public SimpleVector<T> {
             representedBytes,
             storageByteCount),
         values_(std::move(values)),
-        rawValues_(values_.get() ? const_cast<T*>(values_->as<T>()) : nullptr),
-        stringBuffers_(std::move(stringBuffers)) {
+        rawValues_(values_.get() ? const_cast<T*>(values_->as<T>()) : nullptr) {
+    setStringBuffers(std::move(stringBuffers));
+    VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
+
     VELOX_CHECK(
         values_ || BaseVector::nulls_,
         "FlatVector needs to either have values or nulls");
@@ -307,16 +310,43 @@ class FlatVector final : public SimpleVector<T> {
    * buffers are append only. It is allowed to append data, but it is prohibited
    * to modify already written data.
    */
-  std::vector<BufferPtr>& stringBuffers() {
-    return stringBuffers_;
-  }
-
   const std::vector<BufferPtr>& stringBuffers() const {
     return stringBuffers_;
   }
 
+  /// Used for vectors of type VARCHAR and VARBINARY to replace the old data
+  /// buffers with 'buffers' which are referenced by StringView's.
   void setStringBuffers(std::vector<BufferPtr> buffers) {
+    VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
+
     stringBuffers_ = std::move(buffers);
+    stringBufferSet_.clear();
+    stringBufferSet_.reserve(stringBuffers_.size());
+    for (const auto& bufferPtr : stringBuffers_) {
+      stringBufferSet_.insert(bufferPtr.get());
+    }
+  }
+
+  /// Used for vectors of type VARCHAR and VARBINARY to release the data buffers
+  /// referenced by StringView's.
+  void clearStringBuffers() {
+    VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
+
+    stringBuffers_.clear();
+    stringBufferSet_.clear();
+  }
+
+  /// Used for vectors of type VARCHAR and VARBINARY to hold a reference on
+  /// 'buffer'. The function returns false if 'buffer' has already been
+  /// referenced by this vector.
+  bool addStringBuffer(const BufferPtr& buffer) {
+    VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
+
+    if (FOLLY_UNLIKELY(!stringBufferSet_.insert(buffer.get()).second)) {
+      return false;
+    }
+    stringBuffers_.push_back(buffer);
+    return true;
   }
 
   void acquireSharedStringBuffers(const BaseVector* source);
@@ -356,6 +386,13 @@ class FlatVector final : public SimpleVector<T> {
   // If T is velox::StringView, the referenced is held by
   // one of these.
   std::vector<BufferPtr> stringBuffers_;
+
+  // Used by 'acquireSharedStringBuffers()' to fast check if a buffer to share
+  // has already been referenced by 'stringBuffers_'.
+  //
+  // NOTE: we need to ensure 'stringBuffers_' and 'stringBufferSet_' are always
+  // consistent.
+  folly::F14FastSet<const Buffer*> stringBufferSet_;
 };
 
 template <>

@@ -330,7 +330,7 @@ void FlatVector<T>::resize(vector_size_t size, bool setNotNull) {
       vector->invalidateIsAscii();
     }
     if (size == 0) {
-      stringBuffers_.clear();
+      clearStringBuffers();
     }
     if (size > previousSize) {
       auto stringViews = reinterpret_cast<StringView*>(rawValues_);

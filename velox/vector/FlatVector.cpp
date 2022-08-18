@@ -197,6 +197,8 @@ void FlatVector<bool>::copyValuesAndNulls(
 
 template <>
 Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size) {
+  VELOX_DCHECK_GE(stringBuffers_.size(), stringBufferSet_.size());
+
   // Check if the last buffer is uniquely referenced and has enough space.
   Buffer* buffer =
       stringBuffers_.empty() ? nullptr : stringBuffers_.back().get();
@@ -209,8 +211,8 @@ Buffer* FlatVector<StringView>::getBufferWithSpace(vector_size_t size) {
   int32_t newSize = std::max(kInitialStringSize, size);
   BufferPtr newBuffer = AlignedBuffer::allocate<char>(newSize, pool());
   newBuffer->setSize(0);
-  stringBuffers_.push_back(newBuffer);
-  return stringBuffers_.back().get();
+  addStringBuffer(newBuffer);
+  return newBuffer.get();
 }
 
 template <>
@@ -231,9 +233,9 @@ void FlatVector<StringView>::prepareForReuse() {
     if (firstBuffer->unique() && firstBuffer->isMutable() &&
         firstBuffer->capacity() <= kMaxStringSizeForReuse) {
       firstBuffer->setSize(0);
-      stringBuffers_.resize(1);
+      setStringBuffers({firstBuffer});
     } else {
-      stringBuffers_.clear();
+      clearStringBuffers();
     }
   }
 
@@ -292,9 +294,7 @@ void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
     case VectorEncoding::Simple::FLAT: {
       auto* flat = leaf->asUnchecked<FlatVector<StringView>>();
       for (auto& buffer : flat->stringBuffers_) {
-        if (std::find(stringBuffers_.begin(), stringBuffers_.end(), buffer) ==
-            stringBuffers_.end())
-          stringBuffers_.push_back(buffer);
+        addStringBuffer(buffer);
       }
       break;
     }
@@ -302,10 +302,9 @@ void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
       if (!leaf->isNullAt(0)) {
         auto* constant = leaf->asUnchecked<ConstantVector<StringView>>();
         auto buffer = constant->getStringBuffer();
-        if (buffer &&
-            std::find(stringBuffers_.begin(), stringBuffers_.end(), buffer) ==
-                stringBuffers_.end())
-          stringBuffers_.push_back(buffer);
+        if (buffer != nullptr) {
+          addStringBuffer(buffer);
+        }
       }
       break;
     }

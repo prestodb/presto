@@ -1924,6 +1924,54 @@ TEST_F(VectorTest, dictionaryResize) {
   ASSERT_EQ(indices->size(), size * sizeof(vector_size_t));
 }
 
+TEST_F(VectorTest, acquireSharedStringBuffers) {
+  const int numBuffers = 10;
+  std::vector<BufferPtr> buffers;
+  const int bufferSize = 100;
+  for (int i = 0; i < numBuffers; ++i) {
+    buffers.push_back(AlignedBuffer::allocate<char>(bufferSize, pool_.get()));
+  }
+  auto vector = BaseVector::create(VARCHAR(), 100, pool_.get());
+  auto flatVector = vector->as<FlatVector<StringView>>();
+  EXPECT_EQ(0, flatVector->stringBuffers().size());
+
+  flatVector->setStringBuffers(buffers);
+  EXPECT_EQ(numBuffers, flatVector->stringBuffers().size());
+  for (int i = 0; i < numBuffers; ++i) {
+    EXPECT_EQ(buffers[i], flatVector->stringBuffers()[i]);
+  }
+
+  flatVector->setStringBuffers({});
+  EXPECT_EQ(0, flatVector->stringBuffers().size());
+
+  int numSourceVectors = 2;
+  std::vector<VectorPtr> sourceVectors;
+  for (int i = 0; i < numSourceVectors; ++i) {
+    sourceVectors.push_back(BaseVector::create(VARCHAR(), 100, pool_.get()));
+    sourceVectors.back()->asFlatVector<StringView>()->setStringBuffers(
+        {buffers[i]});
+  }
+  flatVector->setStringBuffers({buffers[0]});
+  EXPECT_EQ(1, flatVector->stringBuffers().size());
+  flatVector->acquireSharedStringBuffers(sourceVectors[0].get());
+  EXPECT_EQ(1, flatVector->stringBuffers().size());
+  flatVector->acquireSharedStringBuffers(sourceVectors[1].get());
+  EXPECT_EQ(2, flatVector->stringBuffers().size());
+
+  flatVector->acquireSharedStringBuffers(sourceVectors[0].get());
+  flatVector->acquireSharedStringBuffers(sourceVectors[1].get());
+  EXPECT_EQ(2, flatVector->stringBuffers().size());
+  for (int i = 0; i < numSourceVectors; ++i) {
+    EXPECT_EQ(buffers[i], flatVector->stringBuffers()[i]);
+  }
+
+  // insert with duplicate buffers and expect an exception.
+  flatVector->setStringBuffers({buffers[0], buffers[0]});
+  EXPECT_EQ(2, flatVector->stringBuffers().size());
+  flatVector->acquireSharedStringBuffers(sourceVectors[0].get());
+  EXPECT_EQ(2, flatVector->stringBuffers().size());
+}
+
 TEST_F(VectorTest, flatSliceMutability) {
   auto vec = makeFlatVector<int64_t>(
       10,
