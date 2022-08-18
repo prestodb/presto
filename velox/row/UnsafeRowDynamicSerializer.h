@@ -288,6 +288,248 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
 
     return row.size();
   }
+
+  /*
+   * Utility functions for return an unsafe row size
+   * before serializing it
+   */
+
+  /// Gets the size of a group of primitives in a vector
+  /// \param Kind The kind of the elements
+  /// \param size The number of elements
+  /// \param data The elements vector
+  /// \return
+  template <TypeKind Kind>
+  inline static size_t getSizeSimpleVector(
+      size_t size,
+      const BaseVector* data) {
+    using NativeType = typename TypeTraits<Kind>::NativeType;
+    size_t dataSize = size * sizeof(NativeType);
+    return UnsafeRow::alignToFieldWidth(dataSize + UnsafeRow::kFieldWidthBytes);
+  }
+
+  /// Extracts and returns size for StringView fields
+  ///
+  /// \param data the vector containing the element
+  /// \param idx the index of the element in the vector
+  /// \return
+  inline static size_t getSizeStringView(const VectorPtr& data, size_t idx) {
+    const auto& simple = static_cast<const SimpleVector<StringView>&>(*data);
+    if (simple.isNullAt(idx)) {
+      return 0;
+    }
+    auto stringSize = simple.valueAt(idx).size();
+    return stringSize;
+  }
+
+  /// Gets the size of a range of elements in an array
+  /// \param elementsType type of elements
+  /// \param offset the starting offset of elements
+  /// \param size the size of elements
+  /// \param elementsVector element vector
+  /// \return
+  inline static size_t getSizeArray(
+      const TypePtr& elementsType,
+      int32_t offset,
+      vector_size_t size,
+      const VectorPtr& elementsVector) {
+    // Adding null bitset and also the size of the array first before adding
+    // the elements
+    // Check specs at
+    // https://github.com/apache/spark/blob/master/sql/catalyst/src/main/java/org/apache/spark/sql/catalyst/expressions/UnsafeArrayData.java
+    size_t result = 1 * UnsafeRow::kFieldWidthBytes;
+    size_t nullLength = UnsafeRow::getNullLength(size);
+
+    result +=
+        nullLength + getSizeVector(elementsType, offset, size, elementsVector);
+    return result;
+  }
+
+  /// Gets the size of an element in a vector
+  /// \tparam DataType type of element
+  /// \param type vector type
+  /// \param data vecotr
+  /// \param idx element index
+  /// \return
+  template <typename DataType>
+  static size_t
+  getSizeElementAt(const TypePtr& type, const DataType& data, size_t idx) {
+    auto serializedSize = getSize(type, data, idx);
+    // Every variable size value must be aligned to field width
+    return UnsafeRow::alignToFieldWidth(serializedSize);
+  }
+
+  /// Gets the size of a range of elements in a vector
+  /// \param type type of the elements
+  /// \param offset start of the range
+  /// \param size number of elements in the range
+  /// \param vector the vector containing the range
+  /// \return
+  inline static size_t getSizeVector(
+      const TypePtr& type,
+      int32_t offset,
+      vector_size_t size,
+      const VectorPtr& vector) {
+    if (!type->isFixedWidth()) {
+      // Complex elements take fixed block entry plus their variable size
+      size_t fieldsSize = size * UnsafeRow::kFieldWidthBytes;
+      size_t elementsSize = 0;
+      for (int i = 0; i < size; i++) {
+        elementsSize += getSizeElementAt(type, vector, i + offset);
+      }
+      return fieldsSize + UnsafeRow::alignToFieldWidth(elementsSize);
+    } else {
+      size_t serializedDataSize = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          getSizeSimpleVector, type->kind(), size, vector.get());
+      return serializedDataSize;
+    }
+  }
+
+  /// Gets the size of an element in a vector
+  /// \param type the of the element
+  /// \param data the vector
+  /// \param idx the index of the element in the vector
+  /// \return
+  inline static size_t
+  getSizeArray(const TypePtr& type, const ArrayVector* data, size_t idx) {
+    VELOX_CHECK(data->isIndexInRange(idx));
+
+    if (data->isNullAt(idx)) {
+      return 0;
+    }
+
+    int32_t offset = data->offsetAt(idx);
+    vector_size_t size = data->sizeAt(idx);
+
+    auto arrayTypePtr = std::dynamic_pointer_cast<const ArrayType>(type);
+
+    return getSizeArray(
+        arrayTypePtr->elementType(), offset, size, data->elements());
+  }
+
+  /// Gets a size of an elememnt in map column
+  /// \param type type of the element
+  /// \param data map vector
+  /// \param idx the element index in the map vector
+  /// \return
+  inline static size_t
+  getSizeMap(const TypePtr& type, const MapVector* data, size_t idx) {
+    // Spec for Unsafe maps is defined here:
+    // https://github.com/apache/spark/blob/master/sql/catalyst/src/main/java/org/apache/spark/sql/catalyst/expressions/UnsafeMapData.java
+    // It consists of two arrays, one for keys and one for values also at
+    // the very beginning the map start the size of the first array in 8 bytes
+    VELOX_CHECK(data->isIndexInRange(idx));
+    if (data->isNullAt(idx)) {
+      return 0;
+    }
+    auto* mapTypePtr = static_cast<const MapType*>(type.get());
+    // Based on Spark definition to a serialized map
+    // we serialize keys and values arrays back to back
+    // And only add the size (in bytes) of serialized keys
+    int32_t offset = data->offsetAt(idx);
+    vector_size_t size = data->sizeAt(idx);
+
+    auto keysArrayByteSize =
+        getSizeArray(mapTypePtr->keyType(), offset, size, data->mapKeys());
+
+    auto valuesArrayByteSize =
+        getSizeArray(mapTypePtr->valueType(), offset, size, data->mapValues());
+    return keysArrayByteSize + valuesArrayByteSize +
+        UnsafeRow::kFieldWidthBytes;
+  }
+
+ public:
+  /// Returns size of a given element in a vector identified by i///
+  /// \param type type of the element
+  /// \param data the vector
+  /// \param idx index of the element
+  /// \return
+  static size_t
+  getSize(const TypePtr& type, const VectorPtr& data, size_t idx = 0) {
+    switch (type->kind()) {
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+        return getSizeStringView(data, idx);
+      case TypeKind::ARRAY:
+        return getSizeArray(
+            type,
+            data->wrappedVector()->template asUnchecked<ArrayVector>(),
+            data->wrappedIndex(idx));
+      case TypeKind::MAP:
+        return getSizeMap(
+            type,
+            data->wrappedVector()->template asUnchecked<MapVector>(),
+            data->wrappedIndex(idx));
+      case TypeKind::ROW:
+        return getSizeRow(
+            type,
+            data->wrappedVector()->template asUnchecked<RowVector>(),
+            data->wrappedIndex(idx));
+      default:
+        return UnsafeRow::kFieldWidthBytes;
+    }
+  }
+
+  /// This function prepares the vector hierarchy for serialization or size
+  /// calculation
+  /// \param data the vector data
+  inline static void preloadVector(const VectorPtr data) {
+    switch (data->typeKind()) {
+      case TypeKind::ROW: {
+        auto rowVector =
+            data->wrappedVector()->template asUnchecked<RowVector>();
+        for (int fieldIdx = 0; fieldIdx < rowVector->childrenSize();
+             fieldIdx++) {
+          preloadVector(rowVector->childAt(fieldIdx));
+        }
+      } break;
+      case TypeKind::ARRAY: {
+        auto arrayVector =
+            data->wrappedVector()->template asUnchecked<ArrayVector>();
+        preloadVector(arrayVector->elements());
+      } break;
+      case TypeKind::MAP: {
+        auto mapVector =
+            data->wrappedVector()->template asUnchecked<MapVector>();
+        preloadVector(mapVector->mapKeys());
+        preloadVector(mapVector->mapValues());
+      } break;
+      case TypeKind::VARCHAR:
+      case TypeKind::VARBINARY:
+        data->loadedVector();
+        break;
+      default: {
+        // No action needed
+      }
+    }
+  }
+
+  /// Gets a size of a row in a row vector
+  /// \param type type of the row
+  /// \param data row vector
+  /// \param idx in dex of the row in the row vector
+  /// \return
+  inline static size_t
+  getSizeRow(const TypePtr& type, const RowVector* data, size_t idx) {
+    if (data == nullptr || data->isNullAt(idx)) {
+      return 0;
+    }
+    const size_t numFields = data->childrenSize();
+    size_t nullLength = UnsafeRow::getNullLength(numFields);
+
+    size_t elementsSize = 0;
+    for (int fieldIdx = 0; fieldIdx < numFields; fieldIdx++) {
+      auto elementType = type->childAt(fieldIdx);
+      elementsSize += getSizeElementAt(
+          elementType,
+          data->childAt(fieldIdx),
+          /*the row number=*/idx);
+      if (!elementType->isFixedWidth()) {
+        elementsSize += UnsafeRow::kFieldWidthBytes;
+      }
+    }
+    return nullLength + elementsSize;
+  }
 };
 
 } // namespace facebook::velox::row
