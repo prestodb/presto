@@ -28,6 +28,7 @@ static const char* kByteArray = "BYTE_ARRAY";
 static const char* kVariableWidth = "VARIABLE_WIDTH";
 static const char* kRle = "RLE";
 static const char* kArray = "ARRAY";
+static const char* kMap = "MAP";
 static const char* kInt128Array = "INT128_ARRAY";
 
 struct ByteStream {
@@ -277,6 +278,37 @@ void unpackTimestampWithTimeZone(
   timezone = packed & 0xfff;
 }
 
+// Common code to read number of rows, nulls and offsets for ARRAY and MAP.
+auto readArrayOrMapFinalPart(
+    ByteStream& stream,
+    velox::memory::MemoryPool* pool) {
+  auto positionCount = stream.read<int32_t>();
+
+  velox::BufferPtr offsets =
+      velox::AlignedBuffer::allocate<int32_t>(positionCount + 1, pool);
+  auto rawOffsets = offsets->asMutable<int32_t>();
+  for (auto i = 0; i < positionCount + 1; i++) {
+    rawOffsets[i] = stream.read<int32_t>();
+  }
+
+  velox::BufferPtr nulls = readNulls(positionCount, stream, pool);
+
+  velox::BufferPtr sizes =
+      velox::AlignedBuffer::allocate<int32_t>(positionCount, pool);
+  auto rawSizes = sizes->asMutable<int32_t>();
+  for (auto i = 0; i < positionCount; i++) {
+    rawSizes[i] = rawOffsets[i + 1] - rawOffsets[i];
+  }
+
+  struct result {
+    velox::BufferPtr nulls;
+    int32_t positionCount;
+    velox::BufferPtr offsets;
+    velox::BufferPtr sizes;
+  };
+  return result{nulls, positionCount, offsets, sizes};
+}
+
 velox::VectorPtr readBlockInt(
     const velox::TypePtr& type,
     ByteStream& stream,
@@ -288,33 +320,28 @@ velox::VectorPtr readBlockInt(
   if (encoding == kArray) {
     auto elements = readBlockInt(type->asArray().elementType(), stream, pool);
 
-    auto positionCount = stream.read<int32_t>();
-
-    velox::BufferPtr offsets =
-        velox::AlignedBuffer::allocate<int32_t>(positionCount + 1, pool);
-    auto rawOffsets = offsets->asMutable<int32_t>();
-    for (auto i = 0; i < positionCount + 1; i++) {
-      rawOffsets[i] = stream.read<int32_t>();
-    }
-
-    bool mayHaveNulls = stream.read<bool>();
-    VELOX_CHECK(!mayHaveNulls, "Nulls are not supported yet");
-
-    velox::BufferPtr sizes =
-        velox::AlignedBuffer::allocate<int32_t>(positionCount, pool);
-    auto rawSizes = sizes->asMutable<int32_t>();
-    for (auto i = 0; i < positionCount; i++) {
-      rawSizes[i] = rawOffsets[i + 1] - rawOffsets[i];
-    }
-
+    auto [nulls, positionCount, offsets, sizes] =
+        readArrayOrMapFinalPart(stream, pool);
+    const auto arrayType = ARRAY(elements->type());
     return std::make_shared<velox::ArrayVector>(
-        pool,
-        ARRAY(elements->type()),
-        velox::BufferPtr(nullptr),
-        positionCount,
-        offsets,
-        sizes,
-        elements);
+        pool, arrayType, nulls, positionCount, offsets, sizes, elements);
+  }
+
+  if (encoding == kMap) {
+    auto keys = readBlockInt(type->asMap().keyType(), stream, pool);
+    auto values = readBlockInt(type->asMap().valueType(), stream, pool);
+
+    // We aren't using hashtable.
+    auto hashtableSize = stream.read<int32_t>();
+    for (auto i = 0; i < hashtableSize; i++) {
+      stream.read<int32_t>();
+    }
+
+    auto [nulls, positionCount, offsets, sizes] =
+        readArrayOrMapFinalPart(stream, pool);
+    const auto mapType = MAP(keys->type(), values->type());
+    return std::make_shared<velox::MapVector>(
+        pool, mapType, nulls, positionCount, offsets, sizes, keys, values);
   }
 
   if (encoding == kRle) {

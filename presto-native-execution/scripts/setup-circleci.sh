@@ -14,7 +14,7 @@
 set -e
 set -x
 
-export FB_OS_VERSION=v2022.03.14.00
+export FB_OS_VERSION=v2022.07.11.00
 export nproc=$(getconf _NPROCESSORS_ONLN)
 
 dnf install -y maven

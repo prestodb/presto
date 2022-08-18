@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/http/HttpClient.h"
+#include <velox/common/base/Exceptions.h>
 
 namespace facebook::presto::http {
 HttpClient::HttpClient(
@@ -34,6 +35,40 @@ HttpClient::~HttpClient() {
     eventBase_->runImmediatelyOrRunInEventBaseThreadAndWait(
         [this] { sessionPool_.reset(); });
   }
+}
+
+HttpResponse::~HttpResponse() {
+  // Clear out any leftover iobufs if not consumed.
+  for (auto& buf : bodyChain_) {
+    if (buf) {
+      mappedMemory_->freeBytes(buf->writableData(), buf->length());
+    }
+  }
+}
+
+void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
+  VELOX_CHECK(!iobuf->isChained());
+  uint64_t dataLength = iobuf->length();
+
+  void* buf = mappedMemory_->allocateBytes(dataLength);
+  if (buf == nullptr) {
+    VELOX_FAIL(
+        "Cannot spare enough system memory to receive more HTTP response.");
+  }
+  memcpy(buf, iobuf->data(), dataLength);
+  bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(buf, dataLength));
+}
+
+std::string HttpResponse::dumpBodyChain() const {
+  std::string responseBody;
+  if (!bodyChain_.empty()) {
+    std::ostringstream oss;
+    for (auto& buf : bodyChain_) {
+      oss << std::string((const char*)buf->data(), buf->length());
+    }
+    responseBody = oss.str();
+  }
+  return responseBody;
 }
 
 class ResponseHandler : public proxygen::HTTPTransactionHandler {
@@ -62,7 +97,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onBody(std::unique_ptr<folly::IOBuf> chain) noexcept override {
     if (chain) {
-      response_->bodyChain.emplace_back(std::move(chain));
+      response_->append(std::move(chain));
     }
   }
 
