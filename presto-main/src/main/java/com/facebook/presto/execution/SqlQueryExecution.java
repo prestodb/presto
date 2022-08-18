@@ -479,6 +479,7 @@ public class SqlQueryExecution
                 LOGICAL_PLANNER_TIME_NANOS,
                 () -> logicalPlanner.plan(analysis));
         queryPlan.set(plan);
+        stateMachine.setPlanStatsAndCosts(plan.getStatsAndCosts());
 
         // extract inputs
         List<Input> inputs = new InputExtractor(metadata, stateMachine.getSession()).extractInputs(plan.getRoot());

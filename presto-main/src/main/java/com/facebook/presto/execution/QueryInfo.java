@@ -14,6 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.SessionRepresentation;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoWarning;
@@ -87,6 +88,7 @@ public class QueryInfo
     private final Optional<List<StageId>> runtimeOptimizedStages;
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions;
     private final Set<SqlFunctionId> removedSessionFunctions;
+    private final StatsAndCosts planStatsAndCosts;
 
     @JsonCreator
     public QueryInfo(
@@ -123,7 +125,8 @@ public class QueryInfo
             @JsonProperty("failedTasks") Optional<List<TaskId>> failedTasks,
             @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
             @JsonProperty("addedSessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions,
-            @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions)
+            @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
+            @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -151,6 +154,7 @@ public class QueryInfo
         requireNonNull(runtimeOptimizedStages, "runtimeOptimizedStages is null");
         requireNonNull(addedSessionFunctions, "addedSessionFunctions is null");
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
+        requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -191,6 +195,7 @@ public class QueryInfo
         this.runtimeOptimizedStages = runtimeOptimizedStages;
         this.addedSessionFunctions = ImmutableMap.copyOf(addedSessionFunctions);
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
+        this.planStatsAndCosts = planStatsAndCosts;
     }
 
     @JsonProperty
@@ -411,6 +416,12 @@ public class QueryInfo
     public Set<SqlFunctionId> getRemovedSessionFunctions()
     {
         return removedSessionFunctions;
+    }
+
+    @JsonProperty
+    public StatsAndCosts getPlanStatsAndCosts()
+    {
+        return planStatsAndCosts;
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.DDLDefinitionTask;
 import com.facebook.presto.execution.DataDefinitionTask;
@@ -742,7 +743,8 @@ public class PrestoSparkQueryExecutionFactory
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                StatsAndCosts.empty());
     }
 
     private static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
