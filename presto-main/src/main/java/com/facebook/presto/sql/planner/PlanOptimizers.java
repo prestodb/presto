@@ -553,7 +553,7 @@ public class PlanOptimizers
 
         // We do a single pass, and assign `statsEquivalentPlanNode` to each node.
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
-        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer()));
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
         builder.add(new IterativeOptimizer(
                 // Because ReorderJoins runs only once,
@@ -567,7 +567,7 @@ public class PlanOptimizers
 
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.
-        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer()));
+        builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,

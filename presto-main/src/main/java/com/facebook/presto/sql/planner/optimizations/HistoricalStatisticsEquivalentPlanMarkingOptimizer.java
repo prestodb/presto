@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -34,7 +35,12 @@ import static java.util.Objects.requireNonNull;
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         implements PlanOptimizer
 {
-    public HistoricalStatisticsEquivalentPlanMarkingOptimizer() {}
+    private final StatsCalculator statsCalculator;
+
+    public HistoricalStatisticsEquivalentPlanMarkingOptimizer(StatsCalculator statsCalculator)
+    {
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -52,7 +58,8 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         // Assign 'statsEquivalentPlanNode' to plan nodes
         plan = SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, new Context());
 
-        // TODO: Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
+        // Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
+        statsCalculator.registerPlan(plan, session);
         return plan;
     }
 
