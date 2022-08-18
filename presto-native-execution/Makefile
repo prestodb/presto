@@ -76,24 +76,24 @@ presto_protocol:		#: Build the presto_protocol serde library
 TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
-format-fix: 			#: Fix formatting issues in the main branch
-	velox/scripts/check.py format main --fix
+format-fix: 			#: Fix formatting issues in the master branch
+	velox/scripts/check.py format master --fix
 
-format-check: 			#: Check for formatting issues on the main branch
+format-check: 			#: Check for formatting issues on the master branch
 	clang-format --version
-	velox/scripts/check.py format main
+	velox/scripts/check.py format master
 
-header-fix:				#: Fix license header issues in the main branch
-	velox/scripts/check.py header main --fix
+header-fix:				#: Fix license header issues in the master branch
+	velox/scripts/check.py header master --fix
 
 header-check:			#: Check for license header issues on the man branch
-	velox/scripts/check.py header main
+	velox/scripts/check.py header master
 
-tidy-fix: cmake			#: Fix clang-tidy issues in the main branch
-	velox/scripts/check.py tidy main --fix
+tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
+	velox/scripts/check.py tidy master --fix
 
-tidy-check: cmake		#: Check clang-tidy issues in the main branch
-	velox/scripts/check.py tidy main
+tidy-check: cmake		#: Check clang-tidy issues in the master branch
+	velox/scripts/check.py tidy master
 
 circleci-container:			#: Build the linux container for CircleCi
 	$(MAKE) linux-container CONTAINER_NAME=circleci
