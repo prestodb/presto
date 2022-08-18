@@ -104,8 +104,13 @@ class VectorFuzzer {
   VectorPtr fuzzConstant(const TypePtr& type);
 
   // Wraps `vector` using a randomized indices vector, returning a
-  // DictionaryVector.
+  // DictionaryVector which has same number of indices as the underlying
+  // `vector` size.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
+
+  // Wraps `vector` using a randomized indices vector, returning a
+  // DictionaryVector which has `size` indices.
+  VectorPtr fuzzDictionary(const VectorPtr& vector, vector_size_t size);
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);

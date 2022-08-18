@@ -243,30 +243,51 @@ VectorPtr
 VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding) {
   VectorPtr vector;
 
+  vector_size_t vectorSize = size;
+  if (coinToss(0.1)) {
+    // Extend the underlying vector to allow slicing later.
+    vectorSize += folly::Random::rand32(8, rng_);
+  }
+
   // 20% chance of adding a constant vector.
   if (!flatEncoding && coinToss(0.2)) {
     // If adding a constant vector, 50% of chance between:
     // - generate a regular constant vector (only for primitive types).
     // - generate a random vector and wrap it using a constant vector.
     if (type->isPrimitiveType() && coinToss(0.5)) {
-      vector = fuzzConstant(type, size);
+      vector = fuzzConstant(type, vectorSize);
     } else {
       // Vector size can't be zero.
       auto innerVectorSize =
           folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
       auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
       vector = BaseVector::wrapInConstant(
-          size, constantIndex, fuzz(type, innerVectorSize, flatEncoding));
+          vectorSize, constantIndex, fuzz(type, innerVectorSize, flatEncoding));
     }
   } else {
-    vector = type->isPrimitiveType() ? fuzzFlat(type, size)
-                                     : fuzzComplex(type, size, flatEncoding);
+    vector = type->isPrimitiveType()
+        ? fuzzFlat(type, vectorSize)
+        : fuzzComplex(type, vectorSize, flatEncoding);
+  }
+
+  if (vectorSize > size) {
+    auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+    vector = vector->slice(offset, size);
   }
 
   // Toss a coin and add dictionary indirections.
   while (!flatEncoding && coinToss(0.5)) {
-    vector = fuzzDictionary(vector);
+    vectorSize = size;
+    if (vectorSize > 0 && coinToss(0.05)) {
+      vectorSize += folly::Random::rand32(8, rng_);
+    }
+    vector = fuzzDictionary(vector, vectorSize);
+    if (vectorSize > size) {
+      auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+      vector = vector->slice(offset, size);
+    }
   }
+  VELOX_DCHECK_EQ(vector->size(), size);
   return vector;
 }
 
@@ -364,16 +385,25 @@ VectorPtr VectorFuzzer::fuzzComplex(
 }
 
 VectorPtr VectorFuzzer::fuzzDictionary(const VectorPtr& vector) {
+  return fuzzDictionary(vector, vector->size());
+}
+
+VectorPtr VectorFuzzer::fuzzDictionary(
+    const VectorPtr& vector,
+    vector_size_t size) {
   const size_t vectorSize = vector->size();
-  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(vectorSize, pool_);
+  VELOX_CHECK(
+      vectorSize > 0 || size == 0,
+      "Cannot build a non-empty dictionary on an empty underlying vector");
+  BufferPtr indices = AlignedBuffer::allocate<vector_size_t>(size, pool_);
   auto rawIndices = indices->asMutable<vector_size_t>();
 
-  for (size_t i = 0; i < vectorSize; ++i) {
+  for (size_t i = 0; i < size; ++i) {
     rawIndices[i] = rand<vector_size_t>(rng_) % vectorSize;
   }
 
-  auto nulls = opts_.dictionaryHasNulls ? fuzzNulls(vectorSize) : nullptr;
-  return BaseVector::wrapInDictionary(nulls, indices, vectorSize, vector);
+  auto nulls = opts_.dictionaryHasNulls ? fuzzNulls(size) : nullptr;
+  return BaseVector::wrapInDictionary(nulls, indices, size, vector);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
