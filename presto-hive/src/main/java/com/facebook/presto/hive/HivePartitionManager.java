@@ -79,6 +79,7 @@ public class HivePartitionManager
     private final TypeManager typeManager;
     private final int maxPartitionsPerScan;
     private final int domainCompactionThreshold;
+    private final boolean partitionFilteringFromMetastoreEnabled;
 
     @Inject
     public HivePartitionManager(
@@ -90,7 +91,8 @@ public class HivePartitionManager
                 hiveClientConfig.getDateTimeZone(),
                 hiveClientConfig.isAssumeCanonicalPartitionKeys(),
                 hiveClientConfig.getMaxPartitionsPerScan(),
-                hiveClientConfig.getDomainCompactionThreshold());
+                hiveClientConfig.getDomainCompactionThreshold(),
+                hiveClientConfig.isPartitionFilteringFromMetastoreEnabled());
     }
 
     public HivePartitionManager(
@@ -98,7 +100,8 @@ public class HivePartitionManager
             DateTimeZone timeZone,
             boolean assumeCanonicalPartitionKeys,
             int maxPartitionsPerScan,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            boolean partitionFilteringFromMetastoreEnabled)
     {
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
@@ -106,6 +109,7 @@ public class HivePartitionManager
         this.maxPartitionsPerScan = maxPartitionsPerScan;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
     }
 
     public Iterable<HivePartition> getPartitionsIterator(
@@ -138,8 +142,8 @@ public class HivePartitionManager
         }
         else {
             return () -> {
-                List<String> filteredPartitionNames = getFilteredPartitionNames(session, metastore, tableName, effectivePredicate);
-                return filteredPartitionNames.stream()
+                List<String> partitionNames = partitionFilteringFromMetastoreEnabled ? getFilteredPartitionNames(session, metastore, tableName, effectivePredicate) : getAllPartitionNames(session, metastore, tableName, constraint);
+                return partitionNames.stream()
                         // Apply extra filters which could not be done by getFilteredPartitionNames
                         .map(partitionName -> parseValuesAndFilterPartition(tableName, partitionName, partitionColumns, partitionTypes, constraint))
                         .filter(Optional::isPresent)
@@ -399,6 +403,16 @@ public class HivePartitionManager
 
         // fetch the partition names
         return metastore.getPartitionNamesByFilter(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName(), partitionPredicates)
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+    }
+
+    private List<String> getAllPartitionNames(ConnectorSession session, SemiTransactionalHiveMetastore metastore, SchemaTableName tableName, Constraint<ColumnHandle> constraint)
+    {
+        if (constraint.getSummary().isNone()) {
+            return ImmutableList.of();
+        }
+        // fetch the partition names
+        return metastore.getPartitionNames(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 

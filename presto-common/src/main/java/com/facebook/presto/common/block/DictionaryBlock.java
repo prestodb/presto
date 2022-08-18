@@ -47,10 +47,11 @@ public class DictionaryBlock
     private final int idsOffset;
     private final int[] ids;
     private final long retainedSizeInBytes;
+    private final DictionaryId dictionarySourceId;
+
     private volatile long sizeInBytes = -1;
     private volatile long logicalSizeInBytes = -1;
     private volatile int uniqueIds = -1;
-    private final DictionaryId dictionarySourceId;
 
     public DictionaryBlock(Block dictionary, int[] ids)
     {
@@ -683,28 +684,24 @@ public class DictionaryBlock
             return false;
         }
         DictionaryBlock other = (DictionaryBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes, uniqueIds as it makes the implementation non-deterministic.
         return this.positionCount == other.positionCount &&
                 Objects.equals(this.dictionary, other.dictionary) &&
                 this.idsOffset == other.idsOffset &&
                 Arrays.equals(this.ids, other.ids) &&
                 this.retainedSizeInBytes == other.retainedSizeInBytes &&
-                this.sizeInBytes == other.sizeInBytes &&
-                this.logicalSizeInBytes == other.logicalSizeInBytes &&
-                this.uniqueIds == other.uniqueIds &&
                 Objects.equals(this.dictionarySourceId, other.dictionarySourceId);
     }
 
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes, uniqueIds as it makes the implementation non-deterministic.
         return Objects.hash(positionCount,
                 dictionary,
                 idsOffset,
                 Arrays.hashCode(ids),
                 retainedSizeInBytes,
-                sizeInBytes,
-                logicalSizeInBytes,
-                uniqueIds,
                 dictionarySourceId);
     }
 }

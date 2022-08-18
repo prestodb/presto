@@ -37,12 +37,14 @@ import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableNotFoundException;
@@ -53,7 +55,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.ConstantExpression;
@@ -86,8 +87,10 @@ import static com.facebook.presto.expressions.LogicalRowExpressions.extractConju
 import static com.facebook.presto.expressions.RowExpressionNodeInliner.replaceExpression;
 import static com.facebook.presto.hive.HiveSessionProperties.isParquetPushdownFilterEnabled;
 import static com.facebook.presto.hive.HiveTableProperties.getHiveStorageFormat;
+import static com.facebook.presto.hive.HiveWarningCode.HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeaders;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
+import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -101,6 +104,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
@@ -146,7 +150,7 @@ public class HiveFilterPushdown
     @Override
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
-        return maxSubplan.accept(new Visitor(session, idAllocator), null);
+        return rewriteWith(new Rewriter(session, idAllocator), maxSubplan);
     }
 
     protected ConnectorPushdownFilterResult pushdownFilter(
@@ -321,39 +325,20 @@ public class HiveFilterPushdown
         }
     }
 
-    private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+    private class Rewriter
+            extends ConnectorPlanRewriter<Void>
     {
         private final ConnectorSession session;
         private final PlanNodeIdAllocator idAllocator;
 
-        Visitor(ConnectorSession session, PlanNodeIdAllocator idAllocator)
+        Rewriter(ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         }
 
         @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
-        {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-            boolean changed = false;
-            for (PlanNode child : node.getSources()) {
-                PlanNode newChild = child.accept(this, null);
-                if (newChild != child) {
-                    changed = true;
-                }
-                children.add(newChild);
-            }
-
-            if (!changed) {
-                return node;
-            }
-            return node.replaceChildren(children.build());
-        }
-
-        @Override
-        public PlanNode visitFilter(FilterNode filter, Void context)
+        public PlanNode visitFilter(FilterNode filter, RewriteContext<Void> context)
         {
             if (!(filter.getSource() instanceof TableScanNode)) {
                 return visitPlan(filter, context);
@@ -376,7 +361,8 @@ public class HiveFilterPushdown
             RowExpression replacedExpression = replaceExpression(expression, symbolToColumnMapping);
             // replaceExpression() may further optimize the expression; if the resulting expression is always false, then return empty Values node
             if (FALSE_CONSTANT.equals(replacedExpression)) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add((new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName()))));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
             ConnectorPushdownFilterResult pushdownFilterResult = pushdownFilter(
                     session,
@@ -387,7 +373,8 @@ public class HiveFilterPushdown
 
             ConnectorTableLayout layout = pushdownFilterResult.getLayout();
             if (layout.getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add((new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName()))));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
 
             TableScanNode node = new TableScanNode(
@@ -409,7 +396,7 @@ public class HiveFilterPushdown
         }
 
         @Override
-        public PlanNode visitTableScan(TableScanNode tableScan, Void context)
+        public PlanNode visitTableScan(TableScanNode tableScan, RewriteContext<Void> context)
         {
             if (!isPushdownFilterSupported(session, tableScan.getTable())) {
                 return tableScan;
@@ -423,7 +410,8 @@ public class HiveFilterPushdown
                     TRUE_CONSTANT,
                     handle.getLayout());
             if (pushdownFilterResult.getLayout().getPredicate().isNone()) {
-                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of());
+                session.getWarningCollector().add(new PrestoWarning(HIVE_TABLESCAN_CONVERTED_TO_VALUESNODE, format("Table '%s' returns 0 rows, and is converted to an empty %s by %s", tableScan.getTable().getConnectorHandle(), ValuesNode.class.getSimpleName(), HiveFilterPushdown.class.getSimpleName())));
+                return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
 
             return new TableScanNode(

@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.router.spec;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.router.scheduler.SchedulerType;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.router.scheduler.SchedulerType.RANDOM_CHOICE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -28,17 +33,22 @@ public class RouterSpec
 {
     private final List<GroupSpec> groups;
     private final List<SelectorRuleSpec> selectors;
-    private final SchedulerType schedulerType;
+    private final Optional<SchedulerType> schedulerType;
+    private final Optional<URI> predictorUri;
+
+    private static final Logger log = Logger.get(RouterSpec.class);
 
     @JsonCreator
     public RouterSpec(
             @JsonProperty("groups") List<GroupSpec> groups,
             @JsonProperty("selectors") List<SelectorRuleSpec> selectors,
-            @JsonProperty("scheduler") SchedulerType schedulerType)
+            @JsonProperty("scheduler") Optional<SchedulerType> schedulerType,
+            @JsonProperty("predictor") Optional<URI> predictorUri)
     {
         this.groups = ImmutableList.copyOf(requireNonNull(groups, "groups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
-        this.schedulerType = requireNonNull(schedulerType, "scheduler is null");
+        this.schedulerType = requireNonNull(schedulerType, "scheduleType is null");
+        this.predictorUri = requireNonNull(predictorUri, "predictorUri is null");
 
         // make sure no duplicate names in group definition
         checkArgument(groups.stream()
@@ -61,6 +71,18 @@ public class RouterSpec
     @JsonProperty
     public SchedulerType getSchedulerType()
     {
-        return schedulerType;
+        return schedulerType.orElse(RANDOM_CHOICE);
+    }
+
+    @JsonProperty
+    public Optional<URI> getPredictorUri()
+    {
+        try {
+            return Optional.of(predictorUri.orElse(new URI("http://127.0.0.1:8000/v1")));
+        }
+        catch (URISyntaxException e) {
+            log.error("Error in getting the predictor's URI");
+        }
+        return Optional.empty();
     }
 }

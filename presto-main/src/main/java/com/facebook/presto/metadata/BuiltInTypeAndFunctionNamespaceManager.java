@@ -30,6 +30,15 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UserDefinedType;
 import com.facebook.presto.expressions.DynamicFilters.DynamicFilterPlaceholderFunction;
+import com.facebook.presto.geospatial.BingTileFunctions;
+import com.facebook.presto.geospatial.BingTileOperators;
+import com.facebook.presto.geospatial.GeoFunctions;
+import com.facebook.presto.geospatial.KdbTreeCasts;
+import com.facebook.presto.geospatial.SpatialPartitioningAggregateFunction;
+import com.facebook.presto.geospatial.SpatialPartitioningInternalAggregateFunction;
+import com.facebook.presto.geospatial.SphericalGeoFunctions;
+import com.facebook.presto.geospatial.aggregation.ConvexHullAggregation;
+import com.facebook.presto.geospatial.aggregation.GeometryUnionAgg;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -274,6 +283,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.HyperLogLogType.HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.KdbTreeType.KDB_TREE;
 import static com.facebook.presto.common.type.P4HyperLogLogType.P4_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.QuantileDigestParametricType.QDIGEST;
 import static com.facebook.presto.common.type.RealType.REAL;
@@ -288,7 +298,11 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharEnumParametricType.VARCHAR_ENUM;
+import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
+import static com.facebook.presto.operator.aggregation.AlternativeArbitraryAggregationFunction.ALTERNATIVE_ARBITRARY_AGGREGATION;
 import static com.facebook.presto.operator.aggregation.AlternativeMaxAggregationFunction.ALTERNATIVE_MAX;
 import static com.facebook.presto.operator.aggregation.AlternativeMinAggregationFunction.ALTERNATIVE_MIN;
 import static com.facebook.presto.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
@@ -584,6 +598,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(IPADDRESS);
         addType(IPPREFIX);
         addType(UUID);
+        addType(GEOMETRY);
+        addType(BING_TILE);
+        addType(KDB_TREE);
+        addType(SPHERICAL_GEOGRAPHY);
         addParametricType(VarcharParametricType.VARCHAR);
         addParametricType(CharParametricType.CHAR);
         addParametricType(DecimalParametricType.DECIMAL);
@@ -615,6 +633,10 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregate(DefaultApproximateCountDistinctAggregation.class)
                 .aggregate(SumDataSizeForStats.class)
                 .aggregate(MaxDataSizeForStats.class)
+                .aggregate(ConvexHullAggregation.class)
+                .aggregate(GeometryUnionAgg.class)
+                .aggregate(SpatialPartitioningAggregateFunction.class)
+                .aggregate(SpatialPartitioningInternalAggregateFunction.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
@@ -683,6 +705,12 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(JsonFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(ColorOperators.class)
+                .scalars(GeoFunctions.class)
+                .scalars(BingTileFunctions.class)
+                .scalars(BingTileOperators.class)
+                .scalar(BingTileFunctions.BingTileCoordinatesFunction.class)
+                .scalars(SphericalGeoFunctions.class)
+                .scalars(KdbTreeCasts.class)
                 .scalar(ColorOperators.ColorDistinctFromOperator.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
@@ -898,6 +926,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
 
         // Replace some aggregations for Velox to override intermediate aggregation type.
         if (featuresConfig.isUseAlternativeFunctionSignatures()) {
+            builder.override(ARBITRARY_AGGREGATION, ALTERNATIVE_ARBITRARY_AGGREGATION);
             builder.override(MAX_AGGREGATION, ALTERNATIVE_MAX);
             builder.override(MIN_AGGREGATION, ALTERNATIVE_MIN);
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);

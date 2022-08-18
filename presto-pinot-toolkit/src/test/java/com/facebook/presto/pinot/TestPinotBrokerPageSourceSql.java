@@ -16,6 +16,8 @@ package com.facebook.presto.pinot;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -180,7 +182,8 @@ public class TestPinotBrokerPageSourceSql
                 ImmutableList.of(),
                 ImmutableList.of(),
                 new MockPinotClusterInfoFetcher(pinotConfig),
-                objectMapper);
+                objectMapper,
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable\"}");
 
         generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
@@ -219,7 +222,8 @@ public class TestPinotBrokerPageSourceSql
                 actualHandles,
                 actualHandles,
                 new MockPinotClusterInfoFetcher(pinotConfig),
-                objectMapper);
+                objectMapper,
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
         PinotBrokerPageSourceBase.BlockAndTypeBuilder blockAndTypeBuilder = pageSource.buildBlockAndTypeBuilder(actualHandles, generatedSql);
         List<BlockBuilder> columnBlockBuilders = blockAndTypeBuilder.getColumnBlockBuilders();
         List<Type> columnTypes = blockAndTypeBuilder.getColumnTypes();

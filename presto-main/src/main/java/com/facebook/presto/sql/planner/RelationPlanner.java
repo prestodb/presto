@@ -699,7 +699,7 @@ class RelationPlanner
             rowsBuilder.add(values.build());
         }
 
-        ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build());
+        ValuesNode valuesNode = new ValuesNode(getSourceLocation(node), idAllocator.getNextId(), outputVariablesBuilder.build(), rowsBuilder.build(), Optional.empty());
         return new RelationPlan(valuesNode, scope, outputVariablesBuilder.build());
     }
 
@@ -773,7 +773,8 @@ class RelationPlanner
                 getSourceLocation(node),
                 idAllocator.getNextId(),
                 argumentVariables.build(),
-                ImmutableList.of(values.build()));
+                ImmutableList.of(values.build()),
+                Optional.empty());
 
         UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), valuesNode, ImmutableList.of(), unnestVariables.build(), ordinalityVariable);
         return new RelationPlan(unnestNode, scope, unnestedVariables);

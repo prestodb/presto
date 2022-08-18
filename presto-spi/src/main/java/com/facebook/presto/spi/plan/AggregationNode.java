@@ -66,7 +66,22 @@ public final class AggregationNode
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable,
             @JsonProperty("groupIdVariable") Optional<VariableReferenceExpression> groupIdVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+    }
+
+    public AggregationNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Map<VariableReferenceExpression, Aggregation> aggregations,
+            GroupingSetDescriptor groupingSets,
+            List<VariableReferenceExpression> preGroupedVariables,
+            Step step,
+            Optional<VariableReferenceExpression> hashVariable,
+            Optional<VariableReferenceExpression> groupIdVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.source = source;
         this.aggregations = unmodifiableMap(new LinkedHashMap<>(requireNonNull(aggregations, "aggregations is null")));
@@ -89,11 +104,11 @@ public final class AggregationNode
         checkArgument(preGroupedVariables.isEmpty() || groupingSets.getGroupingKeys().containsAll(preGroupedVariables), "Pre-grouped variables must be a subset of the grouping keys");
         this.preGroupedVariables = unmodifiableList(new ArrayList<>(preGroupedVariables));
 
-        ArrayList<VariableReferenceExpression> outputs = new ArrayList<>(groupingSets.getGroupingKeys());
-        hashVariable.ifPresent(outputs::add);
-        outputs.addAll(new ArrayList<>(aggregations.keySet()));
+        ArrayList<VariableReferenceExpression> keys = new ArrayList<>(groupingSets.getGroupingKeys());
+        hashVariable.ifPresent(keys::add);
+        keys.addAll(new ArrayList<>(aggregations.keySet()));
 
-        this.outputs = unmodifiableList(outputs);
+        this.outputs = unmodifiableList(keys);
     }
 
     /**
@@ -143,7 +158,7 @@ public final class AggregationNode
     @Override
     public List<PlanNode> getSources()
     {
-        return unmodifiableList(Collections.singletonList(source));
+        return Collections.singletonList(source);
     }
 
     @Override
@@ -219,10 +234,16 @@ public final class AggregationNode
     }
 
     @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new AggregationNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+    }
+
+    @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 1, "Unexpected number of elements in list newChildren");
-        return new AggregationNode(getSourceLocation(), getId(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
+        return new AggregationNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newChildren.get(0), aggregations, groupingSets, preGroupedVariables, step, hashVariable, groupIdVariable);
     }
 
     public boolean isStreamable()
@@ -269,17 +290,17 @@ public final class AggregationNode
 
     public static GroupingSetDescriptor globalAggregation()
     {
-        return singleGroupingSet(unmodifiableList(emptyList()));
+        return singleGroupingSet(emptyList());
     }
 
     public static GroupingSetDescriptor singleGroupingSet(List<VariableReferenceExpression> groupingKeys)
     {
         Set<Integer> globalGroupingSets;
         if (groupingKeys.isEmpty()) {
-            globalGroupingSets = unmodifiableSet(Collections.singleton(0));
+            globalGroupingSets = Collections.singleton(0);
         }
         else {
-            globalGroupingSets = unmodifiableSet(emptySet());
+            globalGroupingSets = emptySet();
         }
 
         return new GroupingSetDescriptor(groupingKeys, 1, globalGroupingSets);

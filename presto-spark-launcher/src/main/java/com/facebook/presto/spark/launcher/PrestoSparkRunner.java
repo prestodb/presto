@@ -142,8 +142,7 @@ public class PrestoSparkRunner
                 Optional.empty(),
                 prestoSparkRunnerContext.getSessionProperties(),
                 prestoSparkRunnerContext.getCatalogSessionProperties(),
-                prestoSparkRunnerContext.getTraceToken(),
-                prestoSparkRunnerContext.getRetryExecutionStrategy());
+                prestoSparkRunnerContext.getTraceToken());
 
         IPrestoSparkQueryExecution queryExecution = queryExecutionFactory.create(
                 distribution.getSparkContext(),
@@ -155,7 +154,8 @@ public class PrestoSparkRunner
                 prestoSparkRunnerContext.getSparkQueueName(),
                 new DistributionBasedPrestoSparkTaskExecutorFactoryProvider(distribution),
                 prestoSparkRunnerContext.getQueryStatusInfoOutputLocation(),
-                prestoSparkRunnerContext.getQueryDataOutputLocation());
+                prestoSparkRunnerContext.getQueryDataOutputLocation(),
+                prestoSparkRunnerContext.getRetryExecutionStrategy());
 
         List<List<Object>> results = queryExecution.execute();
 

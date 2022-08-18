@@ -110,6 +110,12 @@ public final class TestingSession
         {
             return Optional.empty();
         }
+
+        @Override
+        public WarningCollector getWarningCollector()
+        {
+            return WarningCollector.NOOP;
+        }
     };
 
     private TestingSession() {}

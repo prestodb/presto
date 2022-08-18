@@ -19,8 +19,8 @@ import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.CharMatcher;
-import org.joda.time.chrono.ISOChronology;
 
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -45,6 +45,7 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.plugin.clickhouse.ClickHouseErrorCode.JDBC_ERROR;
+import static com.facebook.presto.plugin.clickhouse.DateTimeUtil.getMillisOfDay;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.longReadMapping;
 import static com.facebook.presto.plugin.clickhouse.ReadMapping.sliceReadMapping;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -53,14 +54,10 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.joda.time.DateTimeZone.UTC;
 
 public final class StandardReadMappings
 {
     private StandardReadMappings() {}
-
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
 
     public static ReadMapping booleanReadMapping()
     {
@@ -126,9 +123,8 @@ public final class StandardReadMappings
     public static ReadMapping dateReadMapping()
     {
         return longReadMapping(DATE, (resultSet, columnIndex) -> {
-            long localMillis = resultSet.getDate(columnIndex).getTime();
-            long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(UTC, localMillis);
-            return MILLISECONDS.toDays(utcMillis);
+            Date date = resultSet.getDate(columnIndex);
+            return DateTimeUtil.convertDateToZonedDays(date);
         });
     }
 
@@ -136,7 +132,7 @@ public final class StandardReadMappings
     {
         return longReadMapping(TIME, (resultSet, columnIndex) -> {
             Time time = resultSet.getTime(columnIndex);
-            return UTC_CHRONOLOGY.millisOfDay().get(time.getTime());
+            return getMillisOfDay(time);
         });
     }
 

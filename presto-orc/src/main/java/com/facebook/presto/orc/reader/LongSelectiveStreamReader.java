@@ -25,38 +25,42 @@ import com.facebook.presto.orc.stream.InputStreamSources;
 import com.google.common.io.Closer;
 import org.openjdk.jol.info.ClassLayout;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static java.util.Objects.requireNonNull;
 
 public class LongSelectiveStreamReader
         implements SelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongSelectiveStreamReader.class).instanceSize();
 
-    private final StreamDescriptor streamDescriptor;
-    private final LongDirectSelectiveStreamReader directReader;
-    private final LongDictionarySelectiveStreamReader dictionaryReader;
+    private final SelectiveReaderContext context;
+
+    @Nullable
+    private LongDirectSelectiveStreamReader directReader;
+    @Nullable
+    private LongDictionarySelectiveStreamReader dictionaryReader;
     private SelectiveStreamReader currentReader;
 
     public LongSelectiveStreamReader(
             StreamDescriptor streamDescriptor,
             Optional<TupleDomainFilter> filter,
             Optional<Type> outputType,
-            OrcAggregatedMemoryContext systemMemoryContext)
+            OrcAggregatedMemoryContext systemMemoryContext,
+            boolean isLowMemory)
     {
-        this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        directReader = new LongDirectSelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
-        dictionaryReader = new LongDictionarySelectiveStreamReader(streamDescriptor, filter, outputType, systemMemoryContext.newOrcLocalMemoryContext(LongSelectiveStreamReader.class.getSimpleName()));
+        this.context = new SelectiveReaderContext(streamDescriptor, outputType, filter, systemMemoryContext, isLowMemory);
     }
 
     @Override
     public void startStripe(Stripe stripe)
             throws IOException
     {
+        StreamDescriptor streamDescriptor = context.getStreamDescriptor();
         ColumnEncoding.ColumnEncodingKind kind = stripe.getColumnEncodings().get(streamDescriptor.getStreamId())
                 .getColumnEncoding(streamDescriptor.getSequence())
                 .getColumnEncodingKind();
@@ -64,9 +68,15 @@ public class LongSelectiveStreamReader
             case DIRECT:
             case DIRECT_V2:
             case DWRF_DIRECT:
+                if (directReader == null) {
+                    directReader = new LongDirectSelectiveStreamReader(context);
+                }
                 currentReader = directReader;
                 break;
             case DICTIONARY:
+                if (dictionaryReader == null) {
+                    dictionaryReader = new LongDictionarySelectiveStreamReader(context);
+                }
                 currentReader = dictionaryReader;
                 break;
             default:
@@ -87,7 +97,7 @@ public class LongSelectiveStreamReader
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(streamDescriptor)
+                .addValue(context.getStreamDescriptor())
                 .toString();
     }
 
@@ -95,8 +105,12 @@ public class LongSelectiveStreamReader
     public void close()
     {
         try (Closer closer = Closer.create()) {
-            closer.register(directReader::close);
-            closer.register(dictionaryReader::close);
+            if (directReader != null) {
+                closer.register(directReader::close);
+            }
+            if (dictionaryReader != null) {
+                closer.register(dictionaryReader::close);
+            }
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -106,7 +120,9 @@ public class LongSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + directReader.getRetainedSizeInBytes() + dictionaryReader.getRetainedSizeInBytes();
+        return INSTANCE_SIZE +
+                (directReader == null ? 0L : directReader.getRetainedSizeInBytes()) +
+                (dictionaryReader == null ? 0L : dictionaryReader.getRetainedSizeInBytes());
     }
 
     @Override

@@ -132,11 +132,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
         implements ConnectorPageSourceProvider

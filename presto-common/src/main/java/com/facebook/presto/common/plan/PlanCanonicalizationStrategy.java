@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.common.plan;
 
+import java.util.List;
+
+import static java.util.Arrays.asList;
+import static java.util.Collections.unmodifiableList;
+
 public enum PlanCanonicalizationStrategy
 {
     /**
@@ -54,5 +59,14 @@ public enum PlanCanonicalizationStrategy
      *
      * This is used in context of history based optimizations.
      */
-    REMOVE_SAFE_CONSTANTS,
+    REMOVE_SAFE_CONSTANTS;
+
+    /**
+     * Creates a list of PlanCanonicalizationStrategy to be used for history based optimizations.
+     * Output is ordered by decreasing accuracy of statistics, at benefit of more coverage.
+     */
+    public static List<PlanCanonicalizationStrategy> historyBasedPlanCanonicalizationStrategyList()
+    {
+        return unmodifiableList(asList(CONNECTOR, REMOVE_SAFE_CONSTANTS));
+    }
 }

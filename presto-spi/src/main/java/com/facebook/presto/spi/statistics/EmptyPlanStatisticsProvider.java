@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.plan.PlanNode;
-import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.PlanNodeWithHash;
 
-import java.util.function.Function;
+import java.util.List;
+import java.util.Map;
+
+import static java.util.Collections.emptyMap;
 
 public class EmptyPlanStatisticsProvider
-        implements ExternalPlanStatisticsProvider
+        implements HistoryBasedPlanStatisticsProvider
 {
     private static final EmptyPlanStatisticsProvider SINGLETON = new EmptyPlanStatisticsProvider();
 
@@ -30,9 +32,15 @@ public class EmptyPlanStatisticsProvider
     }
 
     @Override
-    public PlanStatistics getStats(PlanNode plan, Function<PlanNode, String> planPrinter, Function<TableScanNode, TableStatistics> tableStatisticsProvider)
+    public Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodeHashes)
     {
-        return PlanStatistics.empty();
+        return emptyMap();
+    }
+
+    @Override
+    public void putStats(Map<PlanNodeWithHash, HistoricalPlanStatistics> hashesAndStatistics)
+    {
+        // no op
     }
 
     public static EmptyPlanStatisticsProvider getInstance()

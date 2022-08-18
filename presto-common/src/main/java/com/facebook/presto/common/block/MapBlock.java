@@ -316,28 +316,26 @@ public class MapBlock
             return false;
         }
         MapBlock other = (MapBlock) obj;
+        // Do not use mutable fields sizeInBytes, hashtables as it makes the implementation non-deterministic.
         return this.startOffset == other.startOffset &&
                 this.positionCount == other.positionCount &&
                 Arrays.equals(this.mapIsNull, other.mapIsNull) &&
                 Arrays.equals(this.offsets, other.offsets) &&
                 Objects.equals(this.keyBlock, other.keyBlock) &&
                 Objects.equals(this.valueBlock, other.valueBlock) &&
-                Objects.equals(this.hashTables, other.hashTables) &&
-                this.retainedSizeInBytesExceptHashtable == other.retainedSizeInBytesExceptHashtable &&
-                this.sizeInBytes == other.sizeInBytes;
+                this.retainedSizeInBytesExceptHashtable == other.retainedSizeInBytesExceptHashtable;
     }
 
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, hashtables as it makes the implementation non-deterministic.
         return Objects.hash(startOffset,
                 positionCount,
                 Arrays.hashCode(mapIsNull),
                 Arrays.hashCode(offsets),
                 keyBlock,
                 valueBlock,
-                hashTables,
-                retainedSizeInBytesExceptHashtable,
-                sizeInBytes);
+                retainedSizeInBytesExceptHashtable);
     }
 }

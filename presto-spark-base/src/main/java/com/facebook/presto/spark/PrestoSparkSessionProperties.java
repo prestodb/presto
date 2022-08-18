@@ -15,20 +15,26 @@ package com.facebook.presto.spark;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Map;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
+import static com.google.common.base.Strings.nullToEmpty;
 
 public class PrestoSparkSessionProperties
 {
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings().withKeyValueSeparator('=');
+
     public static final String SPARK_PARTITION_COUNT_AUTO_TUNE_ENABLED = "spark_partition_count_auto_tune_enabled";
     public static final String MIN_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE = "min_spark_input_partition_count_for_auto_tune";
     public static final String MAX_SPARK_INPUT_PARTITION_COUNT_FOR_AUTO_TUNE = "max_spark_input_partition_count_for_auto_tune";
@@ -42,6 +48,16 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MEMORY_REVOKING_THRESHOLD = "spark_memory_revoking_threshold";
     public static final String SPARK_MEMORY_REVOKING_TARGET = "spark_memory_revoking_target";
     public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED = "spark_retry_on_out_of_memory_broadcast_join_enabled";
+    public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED = "spark_retry_on_out_of_memory_with_increased_memory_settings_enabled";
+    public static final String OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES = "out_of_memory_retry_presto_session_properties";
+    public static final String OUT_OF_MEMORY_RETRY_SPARK_CONFIGS = "out_of_memory_retry_spark_configs";
+    public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR = "spark_average_input_data_size_per_executor";
+    public static final String SPARK_MAX_EXECUTOR_COUNT = "spark_max_executor_count";
+    public static final String SPARK_MIN_EXECUTOR_COUNT = "spark_min_executor_count";
+    public static final String SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION = "spark_average_input_data_size_per_partition";
+    public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
+    public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
+    public static final String SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED = "spark_resource_allocation_strategy_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -113,6 +129,64 @@ public class PrestoSparkSessionProperties
                         SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED,
                         "Disable broadcast join on broadcast OOM and re-submit the query again within the same spark session",
                         prestoSparkConfig.isRetryOnOutOfMemoryBroadcastJoinEnabled(),
+                        false),
+                booleanProperty(
+                        SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED,
+                        "Retry OOMs with increased memory settings and re-submit the query again within the same spark session",
+                        prestoSparkConfig.isRetryOnOutOfMemoryWithIncreasedMemorySettingsEnabled(),
+                        false),
+                new PropertyMetadata<>(
+                        OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES,
+                        "Presto session properties to use on OOM query retry, if spark_retry_on_out_of_memory_with_increased_memory_settings_enabled",
+                        VARCHAR,
+                        Map.class,
+                        prestoSparkConfig.getOutOfMemoryRetryPrestoSessionProperties(),
+                        true,
+                        value -> MAP_SPLITTER.split(nullToEmpty((String) value)),
+                        value -> value),
+                new PropertyMetadata<>(
+                        OUT_OF_MEMORY_RETRY_SPARK_CONFIGS,
+                        "Spark Configs to use on OOM query retry, if spark_retry_on_out_of_memory_with_increased_memory_settings_enabled",
+                        VARCHAR,
+                        Map.class,
+                        prestoSparkConfig.getOutOfMemoryRetrySparkConfigs(),
+                        true,
+                        value -> MAP_SPLITTER.split(nullToEmpty((String) value)),
+                        value -> value),
+                dataSizeProperty(
+                        SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR,
+                        "Average input data size per executor",
+                        prestoSparkConfig.getAverageInputDataSizePerExecutor(),
+                       false),
+                integerProperty(
+                        SPARK_MAX_EXECUTOR_COUNT,
+                        "Maximum count of executors to run a query",
+                        prestoSparkConfig.getMaxExecutorCount(),
+                        false),
+                integerProperty(
+                        SPARK_MIN_EXECUTOR_COUNT,
+                        "Minimum count of executors to run a query",
+                        prestoSparkConfig.getMinExecutorCount(),
+                        false),
+                dataSizeProperty(
+                        SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION,
+                        "Average input data size per partition",
+                        prestoSparkConfig.getAverageInputDataSizePerPartition(),
+                        false),
+                integerProperty(
+                        SPARK_MAX_HASH_PARTITION_COUNT,
+                        "Maximum hash partition count required by the query",
+                        prestoSparkConfig.getMaxHashPartitionCount(),
+                        false),
+                integerProperty(
+                        SPARK_MIN_HASH_PARTITION_COUNT,
+                        "Minimum hash partition count required by the query",
+                        prestoSparkConfig.getMinHashPartitionCount(),
+                        false),
+                booleanProperty(
+                        SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED,
+                        "Flag to enable optimized resource allocation strategy",
+                        prestoSparkConfig.isSparkResourceAllocationStrategyEnabled(),
                         false));
     }
 
@@ -184,5 +258,54 @@ public class PrestoSparkSessionProperties
     public static boolean isRetryOnOutOfMemoryBroadcastJoinEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED, Boolean.class);
+    }
+
+    public static Map<String, String> getOutOfMemoryRetryPrestoSessionProperties(Session session)
+    {
+        return session.getSystemProperty(OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES, Map.class);
+    }
+
+    public static Map<String, String> getOutOfMemoryRetrySparkConfigs(Session session)
+    {
+        return session.getSystemProperty(OUT_OF_MEMORY_RETRY_SPARK_CONFIGS, Map.class);
+    }
+
+    public static DataSize getAverageInputDataSizePerExecutor(Session session)
+    {
+        return session.getSystemProperty(SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR, DataSize.class);
+    }
+
+    public static int getMaxExecutorCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static int getMinExecutorCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MIN_EXECUTOR_COUNT, Integer.class);
+    }
+
+    public static DataSize getAverageInputDataSizePerPartition(Session session)
+    {
+        return session.getSystemProperty(SPARK_AVERAGE_INPUT_DATA_SIZE_PER_PARTITION, DataSize.class);
+    }
+
+    public static int getMaxHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MAX_HASH_PARTITION_COUNT, Integer.class);
+    }
+    public static int getMinHashPartitionCount(Session session)
+    {
+        return session.getSystemProperty(SPARK_MIN_HASH_PARTITION_COUNT, Integer.class);
+    }
+
+    public static boolean isSparkResourceAllocationStrategyEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, Boolean.class);
     }
 }

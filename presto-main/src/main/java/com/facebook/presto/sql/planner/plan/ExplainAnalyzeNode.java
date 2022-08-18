@@ -45,7 +45,18 @@ public class ExplainAnalyzeNode
             @JsonProperty("outputVariable") VariableReferenceExpression outputVariable,
             @JsonProperty("verbose") boolean verbose)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, outputVariable, verbose);
+    }
+
+    public ExplainAnalyzeNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            VariableReferenceExpression outputVariable,
+            boolean verbose)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
         this.outputVariable = requireNonNull(outputVariable, "outputVariable is null");
         this.verbose = verbose;
@@ -90,6 +101,12 @@ public class ExplainAnalyzeNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new ExplainAnalyzeNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), outputVariable, isVerbose());
+        return new ExplainAnalyzeNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), outputVariable, isVerbose());
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new ExplainAnalyzeNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, outputVariable, isVerbose());
     }
 }

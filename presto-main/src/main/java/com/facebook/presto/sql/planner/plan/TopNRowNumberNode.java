@@ -54,7 +54,21 @@ public final class TopNRowNumberNode
             @JsonProperty("partial") boolean partial,
             @JsonProperty("hashVariable") Optional<VariableReferenceExpression> hashVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+    }
+
+    public TopNRowNumberNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            Specification specification,
+            VariableReferenceExpression rowNumberVariable,
+            int maxRowCountPerPartition,
+            boolean partial,
+            Optional<VariableReferenceExpression> hashVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         requireNonNull(source, "source is null");
         requireNonNull(specification, "specification is null");
@@ -143,6 +157,12 @@ public final class TopNRowNumberNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new TopNRowNumberNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+        return new TopNRowNumberNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new TopNRowNumberNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, specification, rowNumberVariable, maxRowCountPerPartition, partial, hashVariable);
     }
 }

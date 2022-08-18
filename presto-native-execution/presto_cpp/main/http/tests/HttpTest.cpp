@@ -72,9 +72,20 @@ void blackhole(
     std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
     proxygen::ResponseHandler* downstream) {}
 
-std::string toString(std::vector<std::unique_ptr<folly::IOBuf>>& body) {
+std::string bodyAsString(http::HttpResponse& response) {
   std::ostringstream oss;
-  for (auto& buf : body) {
+  auto iobufs = response.consumeBody();
+  for (auto& body : iobufs) {
+    oss << std::string((const char*)body->data(), body->length());
+    response.mappedMemory()->freeBytes(body->writableData(), body->length());
+  }
+  EXPECT_EQ(response.mappedMemory()->numAllocated(), 0);
+  return oss.str();
+}
+
+std::string toString(std::vector<std::unique_ptr<folly::IOBuf>>& bufs) {
+  std::ostringstream oss;
+  for (auto& buf : bufs) {
     oss << std::string((const char*)buf->data(), buf->length());
   }
   return oss.str();
@@ -148,36 +159,37 @@ TEST(HttpTest, basic) {
   auto client =
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
 
-  auto response = sendGet(client.get(), "/ping").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
+  {
+    auto response = sendGet(client.get(), "/ping").get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
-  response = sendGet(client.get(), "/echo/good-morning").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(toString(response->bodyChain), "/echo/good-morning");
+    response = sendGet(client.get(), "/echo/good-morning").get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+    ASSERT_EQ(bodyAsString(*response), "/echo/good-morning");
 
-  response = http::RequestBuilder()
-                 .method(proxygen::HTTPMethod::POST)
-                 .url("/echo")
-                 .send(client.get(), "Good morning!")
-                 .get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(toString(response->bodyChain), "Good morning!");
+    response = http::RequestBuilder()
+                   .method(proxygen::HTTPMethod::POST)
+                   .url("/echo")
+                   .send(client.get(), "Good morning!")
+                   .get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+    ASSERT_EQ(bodyAsString(*response), "Good morning!");
 
-  response = sendGet(client.get(), "/wrong/path").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpNotFound);
+    response = sendGet(client.get(), "/wrong/path").get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpNotFound);
 
-  auto tryResponse = sendGet(client.get(), "/blackhole").getTry();
-  ASSERT_TRUE(tryResponse.hasException());
-  auto httpException = dynamic_cast<proxygen::HTTPException*>(
-      tryResponse.tryGetExceptionObject());
-  ASSERT_EQ(httpException->getProxygenError(), proxygen::kErrorTimeout);
+    auto tryResponse = sendGet(client.get(), "/blackhole").getTry();
+    ASSERT_TRUE(tryResponse.hasException());
+    auto httpException = dynamic_cast<proxygen::HTTPException*>(
+        tryResponse.tryGetExceptionObject());
+    ASSERT_EQ(httpException->getProxygenError(), proxygen::kErrorTimeout);
 
-  response = sendGet(client.get(), "/ping").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
-
+    response = sendGet(client.get(), "/ping").get();
+    ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  }
   wrapper.stop();
 
-  tryResponse = sendGet(client.get(), "/ping").getTry();
+  auto tryResponse = sendGet(client.get(), "/ping").getTry();
   ASSERT_TRUE(tryResponse.hasException());
 
   auto socketException = dynamic_cast<folly::AsyncSocketException*>(
@@ -198,7 +210,7 @@ TEST(HttpTest, serverRestart) {
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
 
   auto response = sendGet(client.get(), "/ping").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
 
   wrapper->stop();
 
@@ -212,7 +224,7 @@ TEST(HttpTest, serverRestart) {
   client =
       clientFactory.newClient(serverAddress, std::chrono::milliseconds(1'000));
   response = sendGet(client.get(), "/ping").get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
   wrapper->stop();
 }
 
@@ -318,8 +330,8 @@ TEST(HttpTest, asyncRequests) {
     msgPromise->promise.setValue("Success");
   }
   auto response = std::move(responseFuture).get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(toString(response->bodyChain), "Success");
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  ASSERT_EQ(bodyAsString(*response), "Success");
 
   ASSERT_EQ(request->requestStatus, kStatusValid);
   wrapper.stop();
@@ -349,8 +361,8 @@ TEST(HttpTest, timedOutRequests) {
   // Wait until the request reaches to the server.
   std::move(reqFuture).wait();
   auto response = std::move(responseFuture).get();
-  ASSERT_EQ(response->headers->getStatusCode(), http::kHttpOk);
-  ASSERT_EQ(toString(response->bodyChain), "Timedout");
+  ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
+  ASSERT_EQ(bodyAsString(*response), "Timedout");
 
   ASSERT_EQ(request->requestStatus, kStatusValid);
   wrapper.stop();

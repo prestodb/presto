@@ -21,6 +21,8 @@ import com.facebook.airlift.http.client.StringResponseHandler;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecBinder;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.PinotControllerAuthenticationProvider;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
@@ -57,6 +59,7 @@ import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_BROK
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNABLE_TO_FIND_INSTANCE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.spi.utils.builder.TableNameBuilder.extractRawTableName;
@@ -101,11 +104,15 @@ public class PinotClusterInfoFetcher
     private final JsonCodec<RoutingTablesV2> routingTablesV2JsonCodec;
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
     private final JsonCodec<Instance> instanceJsonCodec;
+    private final PinotControllerAuthenticationProvider controllerAuthenticationProvider;
+    private final PinotBrokerAuthenticationProvider brokerAuthenticationProvider;
 
     @Inject
     public PinotClusterInfoFetcher(
             PinotConfig pinotConfig,
             PinotMetrics pinotMetrics,
+            PinotControllerAuthenticationProvider controllerAuthenticationProvider,
+            PinotBrokerAuthenticationProvider brokerAuthenticationProvider,
             @ForPinot HttpClient httpClient,
             JsonCodec<GetTables> tablesJsonCodec,
             JsonCodec<BrokersForTable> brokersForTableJsonCodec,
@@ -131,6 +138,8 @@ public class PinotClusterInfoFetcher
         this.instanceConfigCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(cacheExpiryMs, TimeUnit.MILLISECONDS)
                 .build((CacheLoader.from(this::getInstance)));
+        this.controllerAuthenticationProvider = controllerAuthenticationProvider;
+        this.brokerAuthenticationProvider = brokerAuthenticationProvider;
     }
 
     public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -203,8 +212,10 @@ public class PinotClusterInfoFetcher
                 .hostAndPort(HostAndPort.fromString(pinotConfig.getControllerUrl()))
                 .appendPath(path)
                 .build();
+        Request.Builder builder = Request.builder().prepareGet().setUri(controllerPathUri);
+        controllerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
         return doHttpActionWithHeaders(
-                Request.builder().prepareGet().setUri(controllerPathUri),
+                builder,
                 Optional.empty(),
                 Optional.ofNullable(pinotConfig.getControllerRestService()));
     }
@@ -218,8 +229,10 @@ public class PinotClusterInfoFetcher
                 .hostAndPort(HostAndPort.fromString(hostPort))
                 .appendPath(path)
                 .build();
+        Request.Builder builder = Request.builder().prepareGet().setUri(brokerPathUri);
+        brokerAuthenticationProvider.getAuthenticationToken().ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
         return doHttpActionWithHeaders(
-                Request.builder().prepareGet().setUri(brokerPathUri),
+                builder,
                 Optional.empty(),
                 Optional.empty());
     }

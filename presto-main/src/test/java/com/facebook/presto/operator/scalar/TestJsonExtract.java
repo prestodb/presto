@@ -14,8 +14,6 @@
 package com.facebook.presto.operator.scalar;
 
 import com.facebook.presto.spi.PrestoException;
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -348,10 +346,7 @@ public class TestJsonExtract
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
-        JsonFactory jsonFactory = new JsonFactory();
-        JsonParser jsonParser = jsonFactory.createParser(json);
-        jsonParser.nextToken(); // Advance to the first token
-        Slice extract = jsonExtractor.extract(jsonParser);
+        Slice extract = jsonExtractor.extract(Slices.utf8Slice(json).getInput());
         return (extract == null) ? null : extract.toStringUtf8();
     }
 

@@ -197,16 +197,34 @@ public class TestMaterializedViewQueryOptimizer
     public void testWithWhereCondition()
     {
         String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", VIEW_1);
+        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 123", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         originalViewSql = format("SELECT a as mv_a, b, c, d as mv_d FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
-        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = '2000-01-01'", VIEW_1);
+        baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = 456", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT mv_a as a, b FROM %s WHERE mv_a < 10 AND c > 10 or mv_d = 456", VIEW_1);
 
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testMismatchingColumnTypes()
+    {
+        // d is registered as bigint- expect optimization to fail
+        String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, b FROM %s WHERE a < 10 AND c > 10 or d = '2000-01-01'", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testColumnsNotInTable()
+    {
+        String originalViewSql = format("SELECT  a, b, c, d, not_a_column FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c, not_a_column FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = not_a_column AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test
@@ -277,9 +295,9 @@ public class TestMaterializedViewQueryOptimizer
     @Test
     public void testIdentifiersInDifferentNodes()
     {
-        String originalViewSql = format("SELECT a, b, c, d, e FROM %s", BASE_TABLE_1);
-        String baseQuerySql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
-        String expectedRewrittenSql = format("SELECT a, c, e FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = e AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1);
+        String originalViewSql = format("SELECT a, b, c, d FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT a, c FROM %s WHERE a > 5 OR IF(b > 4, c, 2) = 7 AND d IN (1, 2, 3) AND NOT (a IS NULL)", VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT a, c FROM %s WHERE x = 4", BASE_TABLE_1);
@@ -319,10 +337,11 @@ public class TestMaterializedViewQueryOptimizer
         expectedRewrittenSql = format("SELECT SUM(a), SUM(bc), d, e FROM %s GROUP BY d, e", VIEW_1);
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
-        baseQuerySql = format("SELECT d, e FROM %s", BASE_TABLE_1);
-        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
-
         baseQuerySql = format("SELECT SUM(d) FROM %s GROUP BY e", BASE_TABLE_1);
+        expectedRewrittenSql = format("SELECT SUM(d) FROM %s GROUP BY e", VIEW_1);
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        baseQuerySql = format("SELECT d, e FROM %s", BASE_TABLE_1);
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
         baseQuerySql = format("SELECT SUM(a) FROM %s WHERE x > 10", BASE_TABLE_1);
@@ -370,13 +389,27 @@ public class TestMaterializedViewQueryOptimizer
     @Test
     public void testWithUnsupportedFunction()
     {
+        String originalViewSql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT GEOMETRIC_MEAN(a) FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testAssociativeRewriteOfNonAssociativeFunctions()
+    {
         String originalViewSql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
         String baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
 
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
 
-        originalViewSql = format("SELECT a FROM %s", BASE_TABLE_1);
-        baseQuerySql = format("SELECT AVG(a) FROM %s", BASE_TABLE_1);
+        originalViewSql = format("SELECT APPROX_DISTINCT(a) FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT APPROX_DISTINCT(a) FROM %s", BASE_TABLE_1);
 
         assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
@@ -1120,6 +1153,82 @@ public class TestMaterializedViewQueryOptimizer
         assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, ImmutableMap.of(
                 BASE_TABLE_1, ImmutableMap.of(VIEW_1, viewSql1),
                 BASE_TABLE_2, ImmutableMap.of(VIEW_2, viewSql2)));
+    }
+
+    @Test
+    public void testAvgRewriteWithSumAndCount()
+    {
+        String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT AVG(a) AS base_avg FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT SUM(a, b) AS mv_sum, COUNT(a, b) AS mv_count FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT AVG(a, b) AS base_avg FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT SUM(a+b) AS mv_sum, COUNT(a+b) AS mv_count FROM %s", BASE_TABLE_1);
+        baseQuerySql = format("SELECT AVG(a+b) AS base_avg FROM %s", BASE_TABLE_1);
+
+        assertOptimizedQuery(baseQuerySql, baseQuerySql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testAvgRewriteWithSumAndCountC()
+    {
+        String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT AVG(a) AS base_avg FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testAvgRewriteWithSumAndCountGroupByJoin()
+    {
+        String originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count, b, c FROM %s GROUP BY b, c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT AVG(a), b FROM %s GROUP BY b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT (SUM(mv_sum) / SUM(mv_count)), b FROM %s GROUP BY b", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+
+        originalViewSql = format("SELECT SUM(a) AS mv_sum, COUNT(a) AS mv_count, b FROM %s GROUP BY b", BASE_TABLE_1);
+
+        baseQuerySql = format("SELECT filtered_avg, b, a_count FROM " +
+                "(SELECT base_avg as filtered_avg, b FROM (SELECT AVG(a) AS base_avg, b FROM %s GROUP BY b ORDER BY b) WHERE base_avg < 5.25) s1 " +
+                "INNER JOIN " +
+                "(SELECT COUNT(a) AS a_count, b FROM %s GROUP BY b) s2 " +
+                "ON s1.b = s2.b", BASE_TABLE_1, BASE_TABLE_1);
+
+        expectedRewrittenSql = format("SELECT filtered_avg, b, a_count FROM " +
+                "(SELECT base_avg as filtered_avg, b FROM (SELECT (SUM(mv_sum) / SUM(mv_count)) AS base_avg, b FROM %s GROUP BY b ORDER BY b) WHERE base_avg < 5.25) s1 " +
+                "INNER JOIN " +
+                "(SELECT SUM(mv_count) AS a_count, b FROM %s GROUP BY b) s2 " +
+                "ON s1.b = s2.b", VIEW_1, VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testApproxDistinctRewrite()
+    {
+        String originalViewSql = format("SELECT cast(APPROX_SET(a) as varbinary) AS mv_approx_set FROM %s", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT APPROX_DISTINCT(a) AS base_approx_distinct FROM %s", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct FROM %s", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
+    }
+
+    @Test
+    public void testApproxDistinctRewriteGroupBy()
+    {
+        String originalViewSql = format("SELECT cast(APPROX_SET(a) as varbinary) AS mv_approx_set, b, c FROM %s GROUP BY b, c", BASE_TABLE_1);
+        String baseQuerySql = format("SELECT APPROX_DISTINCT(a) AS base_approx_distinct, b FROM %s GROUP BY b", BASE_TABLE_1);
+        String expectedRewrittenSql = format("SELECT (CARDINALITY(MERGE(CAST(mv_approx_set AS hyperloglog)))) AS base_approx_distinct, b FROM %s GROUP BY b", VIEW_1);
+
+        assertOptimizedQuery(baseQuerySql, expectedRewrittenSql, originalViewSql, BASE_TABLE_1, VIEW_1);
     }
 
     @Test

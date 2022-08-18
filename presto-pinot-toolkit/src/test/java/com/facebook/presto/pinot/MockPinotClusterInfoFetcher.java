@@ -14,6 +14,9 @@
 package com.facebook.presto.pinot;
 
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.PinotControllerAuthenticationProvider;
+import com.facebook.presto.pinot.auth.none.PinotEmptyAuthenticationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.pinot.spi.data.Schema;
@@ -39,6 +42,8 @@ public class MockPinotClusterInfoFetcher
         super(
                 pinotConfig,
                 new PinotMetrics(),
+                PinotControllerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
+                PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()),
                 new TestingHttpClient(request -> null),
                 TABLES_JSON_CODEC,
                 BROKERS_FOR_TABLE_JSON_CODEC,

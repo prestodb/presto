@@ -202,6 +202,7 @@ public class PinotQueryGeneratorContext
         if (!useSqlSyntax) {
             checkSupported(!hasGroupBy(), "Pinot doesn't yet support new selections on top of the grouped by data");
         }
+        checkSupported(!newOutputs.isEmpty(), "Missing output expression in Pinot query context");
         return new PinotQueryGeneratorContext(
                 newSelections,
                 newOutputs,
@@ -340,7 +341,7 @@ public class PinotQueryGeneratorContext
                 .collect(Collectors.joining(", "));
 
         if (expressions.isEmpty()) {
-            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Empty PQL expressions: " + toString());
+            throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Empty PQL expressions: " + this);
         }
         String tableName = from.orElseThrow(() -> new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Table name not encountered yet"));
         // Rules for limit:
@@ -385,7 +386,7 @@ public class PinotQueryGeneratorContext
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(false);
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.PQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.PQL, indices, groupByColumns.size(), filter.isPresent(), forBroker);
     }
 
     // Generate Pinot query:
@@ -424,10 +425,13 @@ public class PinotQueryGeneratorContext
     {
         int nonAggregateShortQueryLimit = PinotSessionProperties.getNonAggregateLimitForBrokerQueries(session);
         boolean isQueryShort = (hasAggregation() || hasGroupBy()) || limit.orElse(Integer.MAX_VALUE) < nonAggregateShortQueryLimit;
-        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && isQueryShort;
+        boolean attemptBrokerQueries = PinotSessionProperties.isAttemptBrokerQueries(session) || isQueryShort;
+        boolean forBroker = !PinotSessionProperties.isForbidBrokerQueries(session) && attemptBrokerQueries;
         String groupByExpressions = groupByColumns.stream()
                 .map(x -> selections.get(x).getDefinition())
                 .collect(Collectors.joining(", "));
+
+        checkSupported(!outputs.isEmpty(), "Unable to generate Pinot query without output expression");
         String selectExpressions = outputs.stream()
                 .filter(o -> !groupByColumns.contains(o))
                 .map(o -> updateSelection(selections.get(o).getDefinition(), session))
@@ -449,7 +453,7 @@ public class PinotQueryGeneratorContext
         // - Fail if limit is invalid
         int queryLimit = -1;
         if (!hasAggregation() && !hasGroupBy()) {
-            if (!limit.isPresent() && forBroker) {
+            if (!limit.isPresent() && forBroker && !attemptBrokerQueries) {
                 throw new PinotException(PINOT_QUERY_GENERATOR_FAILURE, Optional.empty(), "Broker non aggregate queries have to have a limit");
             }
             else {
@@ -471,7 +475,7 @@ public class PinotQueryGeneratorContext
         String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments(true);
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
-        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), isQueryShort);
+        return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, PinotQueryGenerator.PinotQueryFormat.SQL, indices, groupByColumns.size(), filter.isPresent(), forBroker);
     }
 
     private String updateSelection(String definition, ConnectorSession session)
@@ -517,7 +521,7 @@ public class PinotQueryGeneratorContext
         else {
             checkSupported(
                     assignments.size() == expressionsInPinotOrder.keySet().stream()
-                        .filter(key -> !hiddenColumnSet.contains(key)).count(),
+                            .filter(key -> !hiddenColumnSet.contains(key)).count(),
                     "Expected returned expressions %s to match selections %s",
                     Joiner.on(",").withKeyValueSeparator(":").join(expressionsInPinotOrder),
                     Joiner.on(",").withKeyValueSeparator("=").join(assignments));

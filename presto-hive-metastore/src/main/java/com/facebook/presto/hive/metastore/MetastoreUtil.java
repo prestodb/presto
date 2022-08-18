@@ -114,6 +114,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.padEnd;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.String.format;
@@ -166,6 +167,7 @@ public class MetastoreUtil
     // rather than copying the old transient_lastDdlTime to hive partition.
     private static final String TRANSIENT_LAST_DDL_TIME = "transient_lastDdlTime";
     private static final Set<String> STATS_PROPERTIES = ImmutableSet.of(NUM_FILES, NUM_ROWS, RAW_DATA_SIZE, TOTAL_SIZE, TRANSIENT_LAST_DDL_TIME);
+    private static final Set<ColumnStatisticType> ORDERABLE_STATS = ImmutableSet.of(MIN_VALUE, MAX_VALUE);
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
@@ -890,7 +892,11 @@ public class MetastoreUtil
             return getSupportedColumnStatistics(((TypeWithName) type).getType());
         }
         if (type instanceof DistinctType) {
-            return getSupportedColumnStatistics(((DistinctType) type).getBaseType());
+            Set<ColumnStatisticType> stats = getSupportedColumnStatistics(((DistinctType) type).getBaseType());
+            if (!type.isOrderable()) {
+                stats = stats.stream().filter(stat -> !ORDERABLE_STATS.contains(stat)).collect(toImmutableSet());
+            }
+            return stats;
         }
         if (type instanceof EnumType) {
             return getSupportedColumnStatistics(((EnumType) type).getValueType());

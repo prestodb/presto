@@ -43,7 +43,17 @@ public class MetadataDeleteNode
             @JsonProperty("target") TableHandle tableHandle,
             @JsonProperty("output") VariableReferenceExpression output)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), tableHandle, output);
+    }
+
+    public MetadataDeleteNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            TableHandle tableHandle,
+            VariableReferenceExpression output)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
 
         this.tableHandle = requireNonNull(tableHandle, "target is null");
         this.output = requireNonNull(output, "output is null");
@@ -82,6 +92,12 @@ public class MetadataDeleteNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new MetadataDeleteNode(getSourceLocation(), getId(), tableHandle, output);
+        return new MetadataDeleteNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), tableHandle, output);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new MetadataDeleteNode(getSourceLocation(), getId(), statsEquivalentPlanNode, tableHandle, output);
     }
 }

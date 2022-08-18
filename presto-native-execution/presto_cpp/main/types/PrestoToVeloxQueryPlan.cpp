@@ -14,6 +14,7 @@
 
 // clang-format off
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include <velox/type/Filter.h>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -335,6 +336,16 @@ std::unique_ptr<common::Filter> combineIntegerRanges(
     return common::createBigintValues(values, nullAllowed);
   }
 
+  if (bigintFilters.size() == 2 &&
+      bigintFilters[0]->lower() == std::numeric_limits<int64_t>::min() &&
+      bigintFilters[1]->upper() == std::numeric_limits<int64_t>::max()) {
+    assert(bigintFilters[0]->upper() + 1 <= bigintFilters[1]->lower() - 1);
+    return std::make_unique<common::NegatedBigintRange>(
+        bigintFilters[0]->upper() + 1,
+        bigintFilters[1]->lower() - 1,
+        nullAllowed);
+  }
+
   bool allNegatedValues = true;
   bool foundMaximum = false;
   assert(bigintFilters.size() > 1); // true by size checks on ranges
@@ -428,6 +439,19 @@ std::unique_ptr<common::Filter> combineBytesRanges(
       return std::make_unique<common::NegatedBytesValues>(
           rejectedValues, nullAllowed);
     }
+  }
+
+  if (bytesFilters.size() == 2 && bytesFilters[0]->isLowerUnbounded() &&
+      bytesFilters[1]->isUpperUnbounded()) {
+    // create a negated bytes range instead
+    return std::make_unique<common::NegatedBytesRange>(
+        bytesFilters[0]->upper(),
+        false,
+        !bytesFilters[0]->upperExclusive(),
+        bytesFilters[1]->lower(),
+        false,
+        !bytesFilters[1]->lowerExclusive(),
+        nullAllowed);
   }
 
   std::vector<std::unique_ptr<common::Filter>> bytesGeneric;
@@ -669,6 +693,39 @@ void setCellFromVariant(
   }
   VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       setCellFromVariantByKind, data->typeKind(), data, row, value);
+}
+
+void setCellFromConstantVector(
+    const RowVectorPtr& data,
+    vector_size_t row,
+    vector_size_t column,
+    VectorPtr valueVector) {
+  auto columnVector = data->childAt(column);
+  if (valueVector->isNullAt(0)) {
+    // This is a constant vector and will have only one element.
+    columnVector->setNull(row, true);
+    return;
+  }
+  switch (valueVector->typeKind()) {
+    case TypeKind::SHORT_DECIMAL: {
+      auto flatVector =
+          columnVector->as<FlatVector<velox::UnscaledShortDecimal>>();
+      flatVector->set(
+          row,
+          valueVector->as<ConstantVector<velox::UnscaledShortDecimal>>()
+              ->valueAt(0));
+    } break;
+    case TypeKind::LONG_DECIMAL: {
+      auto flatVector =
+          columnVector->as<FlatVector<velox::UnscaledLongDecimal>>();
+      flatVector->set(
+          row,
+          valueVector->as<ConstantVector<velox::UnscaledLongDecimal>>()
+              ->valueAt(0));
+    } break;
+    default:
+      VELOX_UNSUPPORTED();
+  }
 }
 
 velox::core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
@@ -1231,8 +1288,8 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         if (!constantExpr->hasValueVector()) {
           setCellFromVariant(rowVector, row, column, constantExpr->value());
         } else {
-          VELOX_UNSUPPORTED(
-              "Values node with complex type values is not supported yet");
+          setCellFromConstantVector(
+              rowVector, row, column, constantExpr->valueVector());
         }
       } else {
         VELOX_FAIL("Expected constant expression");

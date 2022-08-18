@@ -50,6 +50,9 @@ abstract class TestHiveQueries
         // "SELECT * FROM nation WHERE nationkey NOT IN (2, 33, " + Long.MAX_VALUE + ")"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", 2, 33)"
         // "SELECT * FROM nation WHERE nationkey NOT IN (" + Long.MIN_VALUE + ", " + Long.MAX_VALUE + ")"
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN 3 AND 7");
+        assertQuery("SELECT * FROM nation WHERE nationkey NOT BETWEEN -10 AND 5");
+        assertQuery("SELECT * FROM nation WHERE nationkey < 5 OR nationkey > 10");
         assertQuery("SELECT nationkey * 10, nationkey % 5, -nationkey, nationkey / 3 FROM nation");
         assertQuery("SELECT *, nationkey / 3 FROM nation");
         assertQuery("SELECT nationkey IS NULL FROM nation");
@@ -57,7 +60,8 @@ abstract class TestHiveQueries
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('RUSSIA', 'UNITED STATES', 'CHINA')");
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('aaa', 'UniteD StateS', 'UNITED STATEs', 'uNITED STATES')");
         assertQuery("SELECT * FROM nation WHERE name NOT IN ('', ';', 'new country w1th $p3c1@l ch@r@c73r5')");
-        assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should not produce NegatedBytesValues
+        assertQuery("SELECT * FROM nation WHERE name NOT BETWEEN 'A' AND 'K'"); // should produce NegatedBytesRange
+        assertQuery("SELECT * FROM nation WHERE name <= 'B' OR 'G' <= name");
         assertQuery("SELECT * FROM lineitem WHERE shipmode <> 'FOB'");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('RAIL', 'AIR')");
         assertQuery("SELECT * FROM lineitem WHERE shipmode NOT IN ('', 'TRUCK', 'FOB', 'RAIL')");
@@ -215,7 +219,7 @@ abstract class TestHiveQueries
 
         // Round-trip tests of casts for Json.
         assertQuery("SELECT cast(cast(name as JSON) as VARCHAR), cast(cast(size as JSON) as INTEGER), cast(cast(size + 0.01 as JSON) as DOUBLE), cast(cast(size > 5 as JSON) as BOOLEAN) FROM part");
-        assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)) from supplier");
+        assertQuery("SELECT cast(cast(array[suppkey, nationkey] as JSON) as ARRAY(INTEGER)), cast(cast(map(array[name, address, phone], array[1.1, 2.2, 3.3]) as JSON) as MAP(VARCHAR(40), DOUBLE)), cast(cast(map(array[name], array[phone]) as JSON) as MAP(VARCHAR(25), JSON)), cast(cast(array[array[suppkey], array[nationkey]] as JSON) as ARRAY(JSON)) from supplier");
     }
 
     @Test
@@ -326,6 +330,33 @@ abstract class TestHiveQueries
                 "        '2021-09-20::2021-09-23'\n" +
                 "    ][linenumber]\n" +
                 "FROM lineitem");
+    }
+
+    @Test
+    public void testDecimalLiterals()
+    {
+        Session enableDecimalParsing = enableDecimalParsing();
+        // Single SHORT_DECIMAL literal.
+        assertQuery(enableDecimalParsing, "SELECT CAST('123.1234' as DECIMAL(8,4))");
+        // Single LONG_DECIMAL literal.
+        assertQuery(enableDecimalParsing, "SELECT CAST('123456789012345.123456' as DECIMAL(22,6))");
+        // Multiple SHORT_DECIMAL literals with NULLs.
+        assertQuery(enableDecimalParsing, "SELECT * from (values decimal'123.12', decimal'-0.0004', NULL," +
+                "CAST('922337203685477580' as DECIMAL(18,0)), decimal'1123', NULL)");
+        // Multiple SHORT_DECIMAL and LONG_DECIMAL literals with NULLs.
+        assertQuery(enableDecimalParsing, "SELECT * from (values CAST('-123456789012345.123456' as DECIMAL(21,6))," +
+                "NULL, CAST('9999999999999999999999999' as DECIMAL(25, 0))," +
+                "CAST('-999999999.999999' as DECIMAL(15, 6)), NULL)");
+        // Array of decimals.
+        assertQuery(enableDecimalParsing, "SELECT ARRAY[decimal'1.2', decimal'123.123'," +
+                    "decimal'100000000.0', NULL, NULL]");
+    }
+
+    private Session enableDecimalParsing()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty("parse_decimal_literals_as_double", "false")
+                .build();
     }
 
     @Test
@@ -572,6 +603,7 @@ abstract class TestHiveQueries
         assertQuery("SELECT ARRAY[timestamp '2018-02-06 23:00:00.000 Australia/Melbourne', null, timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles']");
 
         assertQuery("SELECT orderkey, year(from_unixtime(orderkey, '+01:00')), quarter(from_unixtime(orderkey, '-07:00')), month(from_unixtime(orderkey, '+00:00')), day(from_unixtime(orderkey, '-13:00')), day_of_week(from_unixtime(orderkey, '+03:00')), day_of_year(from_unixtime(orderkey, '-13:00')), year_of_week(from_unixtime(orderkey, '+14:00')), hour(from_unixtime(orderkey, '+01:00')), minute(from_unixtime(orderkey, '+01:00')), second(from_unixtime(orderkey, '-07:00')), millisecond(from_unixtime(orderkey, '+03:00')) FROM orders");
+        assertQuery("SELECT orderkey, date_trunc('year', from_unixtime(orderkey, '-03:00')), date_trunc('quarter', from_unixtime(orderkey, '+14:00')), date_trunc('month', from_unixtime(orderkey, '+03:00')), date_trunc('day', from_unixtime(orderkey, '-07:00')), date_trunc('hour', from_unixtime(orderkey, '-09:30')), date_trunc('minute', from_unixtime(orderkey, '+05:30')), date_trunc('second', from_unixtime(orderkey, '+00:00')) FROM orders");
     }
 
     @Test

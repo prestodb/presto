@@ -21,30 +21,47 @@ using namespace facebook::velox;
 using namespace facebook::presto;
 
 TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
-  VeloxUserError userException(
-      "file_name",
-      1,
-      "function_name()",
-      "operator()",
-      "test message",
-      "",
-      error_code::kArithmeticError,
-      false);
+  FLAGS_velox_exception_user_stacktrace_enabled = true;
+  for (const bool withContext : {false, true}) {
+    SCOPED_TRACE(fmt::format("withContext: {}", withContext));
+    // Setup context based on 'withContext' flag.
+    auto contextMessageFunction = [](auto* arg) {
+      return std::string(static_cast<char*>(arg));
+    };
+    std::string contextMessage = "context message";
+    facebook::velox::ExceptionContextSetter contextSetter(
+        withContext
+            ? ExceptionContext{contextMessageFunction, contextMessage.data()}
+            : ExceptionContext{});
+    VeloxUserError userException(
+        "file_name",
+        1,
+        "function_name()",
+        "operator()",
+        "test message",
+        "",
+        error_code::kArithmeticError,
+        false);
 
-  EXPECT_THROW({ throw userException; }, VeloxException);
-  try {
-    throw userException;
-  } catch (const VeloxException& e) {
-    EXPECT_EQ(e.exceptionName(), "VeloxUserError");
-    EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
-    EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
+    EXPECT_THROW({ throw userException; }, VeloxException);
+    try {
+      throw userException;
+    } catch (const VeloxException& e) {
+      EXPECT_EQ(e.exceptionName(), "VeloxUserError");
+      EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
+      EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
 
-    auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
-    EXPECT_EQ(failureInfo.type, e.exceptionName());
-    EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
-    EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
-    EXPECT_EQ(failureInfo.errorCode.code, 0x00000000);
-    EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::USER_ERROR);
+      auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+      EXPECT_EQ(failureInfo.type, e.exceptionName());
+      EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
+      EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
+      EXPECT_EQ(failureInfo.errorCode.code, 0x00000000);
+      EXPECT_EQ(
+          failureInfo.message,
+          withContext ? "operator() test message context message"
+                      : "operator() test message");
+      EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::USER_ERROR);
+    }
   }
 
   VeloxRuntimeError runtimeException(

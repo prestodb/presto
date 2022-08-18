@@ -73,6 +73,7 @@
         <dep.hudi.version>0.11.0</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
+        <dep.jayway.version>2.6.0</dep.jayway.version>
         <dep.ratis.version>2.2.0</dep.ratis.version>
         <!--
           America/Bahia_Banderas has:
@@ -132,7 +133,6 @@
         <module>presto-parser</module>
         <module>presto-main</module>
         <module>presto-ml</module>
-        <module>presto-geospatial</module>
         <module>presto-geospatial-toolkit</module>
         <module>presto-benchmark</module>
         <module>presto-tests</module>
@@ -533,12 +533,6 @@
 
             <dependency>
                 <groupId>com.facebook.presto</groupId>
-                <artifactId>presto-geospatial</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-geospatial-toolkit</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -734,6 +728,22 @@
             </dependency>
 
             <dependency>
+                <groupId>com.jayway.jsonpath</groupId>
+                <artifactId>json-path</artifactId>
+                <version>${dep.jayway.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>com.facebook.presto.hadoop</groupId>
                 <artifactId>hadoop-apache2</artifactId>
                 <version>2.7.4-9</version>
@@ -743,6 +753,26 @@
                 <groupId>com.facebook.presto.hive</groupId>
                 <artifactId>hive-apache</artifactId>
                 <version>3.0.0-8</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hive</groupId>
+                <artifactId>hive-llap-common</artifactId>
+                <version>2.3.4</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.hive</groupId>
+                        <artifactId>hive-common</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.hive</groupId>
+                        <artifactId>hive-serde</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2319,7 +2349,7 @@
 
                 java \
                   -cp ./presto-geospatial/target/presto-geospatial-*-tests-with-dependencies.jar \
-                  com.facebook.presto.plugin.geospatial.BenchmarkSTIntersects
+                  com.facebook.presto.geospatial.BenchmarkSTIntersects
             -->
             <build>
                 <plugins>

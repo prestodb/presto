@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>0.13.2</dep.iceberg.version>
+        <dep.iceberg.version>0.14.0</dep.iceberg.version>
         <dep.nessie.version>0.30.0</dep.nessie.version>
     </properties>
 
@@ -225,11 +225,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
         <!-- Iceberg -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>
@@ -291,6 +286,14 @@
                     <groupId>org.roaringbitmap</groupId>
                     <artifactId>RoaringBitmap</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -330,6 +333,14 @@
                 <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -463,6 +474,8 @@
                             <ignoredResourcePattern>parquet.thrift</ignoredResourcePattern>
                             <ignoredResourcePattern>about.html</ignoredResourcePattern>
                             <ignoredResourcePattern>org.apache.avro.data/Json.avsc</ignoredResourcePattern>
+                            <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                            <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         </ignoredResourcePatterns>
                         <ignoredClassPatterns>
                             <ignoredClassPattern>shaded.parquet.it.unimi.dsi.fastutil.*</ignoredClassPattern>

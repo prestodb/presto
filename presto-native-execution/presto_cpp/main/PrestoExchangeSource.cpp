@@ -95,7 +95,7 @@ void PrestoExchangeSource::doRequest() {
       .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([path, self](std::unique_ptr<http::HttpResponse> response) {
-        auto* headers = response->headers.get();
+        auto* headers = response->headers();
         if (headers->getStatusCode() != http::kHttpOk &&
             headers->getStatusCode() != http::kHttpNoContent) {
           self->processDataError(
@@ -117,8 +117,7 @@ void PrestoExchangeSource::doRequest() {
 
 void PrestoExchangeSource::processDataResponse(
     std::unique_ptr<http::HttpResponse> response) {
-  auto* headers = response->headers.get();
-  auto& bodyChain = response->bodyChain;
+  auto* headers = response->headers();
   VELOX_CHECK(
       !headers->getIsChunked(),
       "Chunked http transferring encoding is not supported.")
@@ -143,21 +142,29 @@ void PrestoExchangeSource::processDataResponse(
                .c_str());
 
   std::unique_ptr<exec::SerializedPage> page;
-  bool empty = bodyChain.empty();
   std::unique_ptr<folly::IOBuf> singleChain;
+  bool empty = response->empty();
   if (!empty) {
-    for (auto i = 0; i < bodyChain.size(); ++i) {
-      auto& buf = bodyChain[i];
-      if (!buf->isManaged()) {
-        LOG(FATAL) << "Expecting managed IOBufs from exchange";
-      }
+    auto iobufs = response->consumeBody();
+    for (auto& buf : iobufs) {
       if (!singleChain) {
         singleChain = std::move(buf);
       } else {
         singleChain->prev()->appendChain(std::move(buf));
       }
     }
-    page = std::make_unique<exec::SerializedPage>(std::move(singleChain));
+    page = std::make_unique<exec::SerializedPage>(
+        std::move(singleChain),
+        pool_,
+        [mappedMemory = response->mappedMemory()](folly::IOBuf& iobuf) {
+          // Free the backed memory from MappedMemory on page dtor
+          folly::IOBuf* start = &iobuf;
+          auto curr = start;
+          do {
+            mappedMemory->freeBytes(curr->writableData(), curr->length());
+            curr = curr->next();
+          } while (curr != start);
+        });
   }
 
   {
@@ -227,7 +234,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
       .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([self](std::unique_ptr<http::HttpResponse> response) {
-        VLOG(1) << "Ack " << response->headers->getStatusCode();
+        VLOG(1) << "Ack " << response->headers()->getStatusCode();
       })
       .thenError(
           folly::tag_t<std::exception>{}, [self](const std::exception& e) {
@@ -246,7 +253,7 @@ void PrestoExchangeSource::abortResults() {
       .send(httpClient_.get())
       .via(driverCPUExecutor())
       .thenValue([queue, self](std::unique_ptr<http::HttpResponse> response) {
-        auto statusCode = response->headers->getStatusCode();
+        auto statusCode = response->headers()->getStatusCode();
         if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {
           const std::string errMsg = fmt::format(
               "Abort results failed: {}, path {}", statusCode, self->basePath_);

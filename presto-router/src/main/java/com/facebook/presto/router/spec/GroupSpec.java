@@ -18,22 +18,28 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class GroupSpec
 {
     private final String name;
     private final List<URI> members;
+    private final Optional<List<Integer>> weights;
 
     @JsonCreator
     public GroupSpec(
             @JsonProperty("name") String name,
-            @JsonProperty("members") List<URI> members)
+            @JsonProperty("members") List<URI> members,
+            @JsonProperty("weights") Optional<List<Integer>> weights)
     {
         this.name = requireNonNull(name, "name is null");
         this.members = ImmutableList.copyOf(requireNonNull(members, "members is null"));
+        this.weights = requireNonNull(weights, "weights is null");
     }
 
     @JsonProperty
@@ -46,5 +52,11 @@ public class GroupSpec
     public List<URI> getMembers()
     {
         return members;
+    }
+
+    @JsonProperty
+    public List<Integer> getWeights()
+    {
+        return weights.orElseGet(() -> new ArrayList<>(nCopies(members.size(), 1)));
     }
 }

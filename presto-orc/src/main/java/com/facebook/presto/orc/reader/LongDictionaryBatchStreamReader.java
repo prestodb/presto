@@ -39,7 +39,8 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.IN_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.ReaderUtils.verifyStreamType;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
@@ -56,7 +57,7 @@ public class LongDictionaryBatchStreamReader
     private int readOffset;
     private int nextBatchSize;
 
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
@@ -64,7 +65,7 @@ public class LongDictionaryBatchStreamReader
     private boolean isDictionaryOwner;
     private long[] dictionary;
 
-    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> inDictionaryStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream inDictionaryStream;
 
@@ -209,9 +210,9 @@ public class LongDictionaryBatchStreamReader
                 .getDictionarySize();
         dictionaryOpen = false;
 
-        inDictionaryStreamSource = missingStreamSource(BooleanInputStream.class);
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(LongInputStream.class);
+        inDictionaryStreamSource = getBooleanMissingStreamSource();
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
         nextBatchSize = 0;

@@ -17,9 +17,7 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockLease;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.predicate.TupleDomainFilter;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.orc.OrcLocalMemoryContext;
-import com.facebook.presto.orc.StreamDescriptor;
 import com.facebook.presto.orc.Stripe;
 import com.facebook.presto.orc.stream.BooleanInputStream;
 import com.facebook.presto.orc.stream.InputStreamSource;
@@ -30,33 +28,27 @@ import org.openjdk.jol.info.ClassLayout;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.facebook.presto.common.block.ClosingBlockLease.newLease;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.DATA;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.reader.SelectiveStreamReaders.initializeOutputPositions;
-import static com.facebook.presto.orc.stream.MissingInputStreamSource.missingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getBooleanMissingStreamSource;
+import static com.facebook.presto.orc.stream.MissingInputStreamSource.getLongMissingStreamSource;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.util.Objects.requireNonNull;
 
 public class LongDirectSelectiveStreamReader
         extends AbstractLongSelectiveStreamReader
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongDirectSelectiveStreamReader.class).instanceSize();
+    private final OrcLocalMemoryContext systemMemoryContext;
 
-    private final StreamDescriptor streamDescriptor;
-    @Nullable
-    private final TupleDomainFilter filter;
-    private final boolean nonDeterministicFilter;
-    private final boolean nullsAllowed;
-
-    private InputStreamSource<BooleanInputStream> presentStreamSource = missingStreamSource(BooleanInputStream.class);
+    private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
     @Nullable
     private BooleanInputStream presentStream;
 
-    private InputStreamSource<LongInputStream> dataStreamSource = missingStreamSource(LongInputStream.class);
+    private InputStreamSource<LongInputStream> dataStreamSource = getLongMissingStreamSource();
     @Nullable
     private LongInputStream dataStream;
 
@@ -65,23 +57,10 @@ public class LongDirectSelectiveStreamReader
 
     private boolean allNulls;
 
-    private OrcLocalMemoryContext systemMemoryContext;
-
-    public LongDirectSelectiveStreamReader(
-            StreamDescriptor streamDescriptor,
-            Optional<TupleDomainFilter> filter,
-            Optional<Type> outputType,
-            OrcLocalMemoryContext systemMemoryContext)
+    public LongDirectSelectiveStreamReader(SelectiveReaderContext context)
     {
-        super(outputType);
-        requireNonNull(filter, "filter is null");
-        checkArgument(filter.isPresent() || outputRequired, "filter must be present if output is not required");
-        this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
-        this.filter = filter.orElse(null);
-        this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-
-        nonDeterministicFilter = this.filter != null && !this.filter.isDeterministic();
-        nullsAllowed = this.filter == null || nonDeterministicFilter || this.filter.testNull();
+        super(context);
+        this.systemMemoryContext = context.getSystemMemoryContext().newOrcLocalMemoryContext(this.getClass().getSimpleName());
     }
 
     @Override
@@ -94,7 +73,7 @@ public class LongDirectSelectiveStreamReader
             openRowGroup();
         }
 
-        prepareNextRead(positionCount, nullsAllowed && presentStream != null);
+        prepareNextRead(positionCount, context.isNullsAllowed() && presentStream != null);
 
         allNulls = false;
 
@@ -112,7 +91,7 @@ public class LongDirectSelectiveStreamReader
         if (dataStream == null && presentStream != null) {
             streamPosition = readAllNulls(positions, positionCount);
         }
-        else if (filter == null) {
+        else if (context.getFilter() == null) {
             streamPosition = readNoFilter(positions, positionCount);
         }
         else {
@@ -129,7 +108,8 @@ public class LongDirectSelectiveStreamReader
     {
         presentStream.skip(positions[positionCount - 1]);
 
-        if (nonDeterministicFilter) {
+        TupleDomainFilter filter = context.getFilter();
+        if (context.isNonDeterministicFilter()) {
             outputPositionCount = 0;
             for (int i = 0; i < positionCount; i++) {
                 if (filter.testNull()) {
@@ -141,7 +121,7 @@ public class LongDirectSelectiveStreamReader
                 }
             }
         }
-        else if (nullsAllowed) {
+        else if (context.isNullsAllowed()) {
             outputPositionCount = positionCount;
         }
         else {
@@ -214,11 +194,12 @@ public class LongDirectSelectiveStreamReader
     private int readWithFilter(int[] positions, int positionCount)
             throws IOException
     {
+        TupleDomainFilter filter = context.getFilter();
         if (positions[positionCount - 1] == positionCount - 1) {
             // no skipping
             if (presentStream == null) {
                 // no nulls
-                if (!outputRequired && !filter.isPositionalFilter()) {
+                if (!context.isOutputRequired() && !filter.isPositionalFilter()) {
                     // no output; just filter
                     for (int i = 0; i < positionCount; i++) {
                         long value = dataStream.next();
@@ -242,8 +223,8 @@ public class LongDirectSelectiveStreamReader
             }
 
             if (presentStream != null && !presentStream.nextBit()) {
-                if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
-                    if (outputRequired) {
+                if ((context.isNonDeterministicFilter() && filter.testNull()) || context.isNullsAllowed()) {
+                    if (context.isOutputRequired()) {
                         nulls[outputPositionCount] = true;
                         values[outputPositionCount] = 0;
                     }
@@ -254,9 +235,9 @@ public class LongDirectSelectiveStreamReader
             else {
                 long value = dataStream.next();
                 if (filter.testLong(value)) {
-                    if (outputRequired) {
+                    if (context.isOutputRequired()) {
                         values[outputPositionCount] = value;
-                        if (nullsAllowed && presentStream != null) {
+                        if (context.isNullsAllowed() && presentStream != null) {
                             nulls[outputPositionCount] = false;
                         }
                     }
@@ -313,35 +294,35 @@ public class LongDirectSelectiveStreamReader
     public Block getBlock(int[] positions, int positionCount)
     {
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
-        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(context.isOutputRequired(), "This stream reader doesn't produce output");
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount);
+            return new RunLengthEncodedBlock(context.getOutputType().createBlockBuilder(null, 1).appendNull().build(), positionCount);
         }
 
-        return buildOutputBlock(positions, positionCount, nullsAllowed && presentStream != null);
+        return buildOutputBlock(positions, positionCount, context.isNullsAllowed() && presentStream != null);
     }
 
     @Override
     public BlockLease getBlockView(int[] positions, int positionCount)
     {
         checkArgument(outputPositionCount > 0, "outputPositionCount must be greater than zero");
-        checkState(outputRequired, "This stream reader doesn't produce output");
+        checkState(context.isOutputRequired(), "This stream reader doesn't produce output");
         checkState(positionCount <= outputPositionCount, "Not enough values");
 
         if (allNulls) {
-            return newLease(new RunLengthEncodedBlock(outputType.createBlockBuilder(null, 1).appendNull().build(), positionCount));
+            return newLease(new RunLengthEncodedBlock(context.getOutputType().createBlockBuilder(null, 1).appendNull().build(), positionCount));
         }
 
-        return buildOutputBlockView(positions, positionCount, nullsAllowed && presentStream != null);
+        return buildOutputBlockView(positions, positionCount, context.isNullsAllowed() && presentStream != null);
     }
 
     @Override
     public void startStripe(Stripe stripe)
     {
-        presentStreamSource = missingStreamSource(BooleanInputStream.class);
-        dataStreamSource = missingStreamSource(LongInputStream.class);
+        presentStreamSource = getBooleanMissingStreamSource();
+        dataStreamSource = getLongMissingStreamSource();
 
         readOffset = 0;
 
@@ -354,8 +335,8 @@ public class LongDirectSelectiveStreamReader
     @Override
     public void startRowGroup(InputStreamSources dataStreamSources)
     {
-        presentStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, PRESENT, BooleanInputStream.class);
-        dataStreamSource = dataStreamSources.getInputStreamSource(streamDescriptor, DATA, LongInputStream.class);
+        presentStreamSource = dataStreamSources.getInputStreamSource(context.getStreamDescriptor(), PRESENT, BooleanInputStream.class);
+        dataStreamSource = dataStreamSources.getInputStreamSource(context.getStreamDescriptor(), DATA, LongInputStream.class);
 
         readOffset = 0;
 

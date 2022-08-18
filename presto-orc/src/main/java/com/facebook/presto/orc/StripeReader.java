@@ -157,6 +157,7 @@ public class StripeReader
 
         // read the stripe footer
         StripeFooter stripeFooter = readStripeFooter(stripeId, stripe, systemMemoryUsage);
+        fileIntrospector.ifPresent(introspector -> introspector.onStripeFooter(stripe, stripeFooter));
 
         // get streams for selected columns
         List<List<Stream>> allStreams = new ArrayList<>();

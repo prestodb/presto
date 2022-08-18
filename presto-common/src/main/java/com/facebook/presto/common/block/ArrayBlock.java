@@ -37,10 +37,10 @@ public class ArrayBlock
     private final boolean[] valueIsNull;
     private final Block values;
     private final int[] offsets;
+    private final long retainedSizeInBytes;
 
     private volatile long sizeInBytes;
     private volatile long logicalSizeInBytes;
-    private final long retainedSizeInBytes;
 
     /**
      * Create an array block directly from columnar nulls, values, and offsets into the values.
@@ -253,26 +253,24 @@ public class ArrayBlock
             return false;
         }
         ArrayBlock other = (ArrayBlock) obj;
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return this.arrayOffset == other.arrayOffset &&
                 this.positionCount == other.positionCount &&
                 Arrays.equals(this.valueIsNull, other.valueIsNull) &&
                 Objects.equals(this.values, other.values) &&
                 Arrays.equals(this.offsets, other.offsets) &&
-                this.sizeInBytes == other.sizeInBytes &&
-                this.logicalSizeInBytes == other.logicalSizeInBytes &&
                 this.retainedSizeInBytes == other.retainedSizeInBytes;
     }
 
     @Override
     public int hashCode()
     {
+        // Do not use mutable fields sizeInBytes, logicalSizeInBytes as it makes the implementation non-deterministic.
         return Objects.hash(arrayOffset,
                 positionCount,
                 Arrays.hashCode(valueIsNull),
                 values,
                 Arrays.hashCode(offsets),
-                sizeInBytes,
-                logicalSizeInBytes,
                 retainedSizeInBytes);
     }
 }

@@ -312,6 +312,7 @@ public class TestPinotQueryGenerator
                         .generate(approxPlanNode, defaultSessionHolder.getConnectorSession());
         assertFalse(generatedQuery.isPresent());
     }
+
     @Test
     public void testAggWithUDFInGroupBy()
     {
@@ -493,6 +494,49 @@ public class TestPinotQueryGenerator
                 distinctLimitNode,
                 String.format("SELECT %s FROM realtimeOnly GROUP BY \"regionId\", \"city\" %s 50", getExpectedDistinctOutput("\"regionId\", \"city\""), getGroupByLimitKey()),
                 defaultSessionHolder,
+                ImmutableMap.of());
+    }
+
+    @Test
+    public void testAttemptBrokerPushdown()
+    {
+        Function<PlanBuilder, PlanNode> plan = planBuilder -> project(planBuilder,
+                filter(planBuilder,
+                        tableScan(planBuilder, pinotTable, regionId, city, fare),
+                        getRowExpression("\"fare\" > 100", defaultSessionHolder)),
+                ImmutableList.of("regionid", "city", "fare"));
+
+        testPinotQuery(
+                pinotConfig,
+                buildPlan(plan),
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly__TABLE_NAME_SUFFIX_TEMPLATE__ WHERE (\"fare\" > 100)__TIME_BOUNDARY_FILTER_TEMPLATE__ LIMIT 2147483647");
+
+        testPinotQuery(
+                pinotConfig,
+                buildPlan(planBuilder -> limit(planBuilder, 500L, plan.apply(planBuilder))),
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly WHERE (\"fare\" > 100) LIMIT 500");
+
+        pinotConfig.setAttemptBrokerQueries(true);
+        testPinotQuery(
+                pinotConfig,
+                plan,
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly WHERE (\"fare\" > 100) LIMIT 2147483647",
+                new SessionHolder(pinotConfig),
+                ImmutableMap.of());
+
+        pinotConfig.setLimitLargeForSegment(100000);
+        testPinotQuery(
+                pinotConfig,
+                plan,
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly WHERE (\"fare\" > 100) LIMIT 100000",
+                new SessionHolder(pinotConfig),
+                ImmutableMap.of());
+
+        testPinotQuery(
+                pinotConfig,
+                planBuilder -> limit(planBuilder, 500000L, plan.apply(planBuilder)),
+                "SELECT \"regionId\", \"city\", \"fare\" FROM realtimeOnly WHERE (\"fare\" > 100) LIMIT 500000",
+                new SessionHolder(pinotConfig),
                 ImmutableMap.of());
     }
 

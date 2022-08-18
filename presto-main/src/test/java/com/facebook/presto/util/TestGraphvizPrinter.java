@@ -21,10 +21,13 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.SubPlan;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -33,6 +36,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
@@ -60,7 +64,8 @@ public class TestGraphvizPrinter
             TupleDomain.all(),
             TupleDomain.all());
     private static final String TEST_TABLE_SCAN_NODE_INNER_OUTPUT = format(
-            "label=\"{TableScan[TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",
+            "label=\"{TableScan | [TableHandle \\{connectorId='%s', connectorHandle='%s', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                    "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue",
             TEST_CONNECTOR_ID,
             TEST_CONNECTOR_TABLE_HANDLE);
 
@@ -110,6 +115,50 @@ public class TestGraphvizPrinter
                 "}",
                 "");
         assertEquals(actualNestedSubPlan, expectedNestedSubPlan);
+    }
+
+    @Test
+    public void testPrintLogicalForJoinNode()
+    {
+        ValuesNode valuesNode = new ValuesNode(Optional.empty(), new PlanNodeId("right"), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+
+        PlanNode node = new JoinNode(
+                Optional.empty(),
+                new PlanNodeId("join"),
+                JoinNode.Type.INNER,
+                TEST_TABLE_SCAN_NODE, //Left : Probe side
+                valuesNode, //Right : Build side
+                Collections.emptyList(), //No Criteria
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(TEST_TABLE_SCAN_NODE.getOutputVariables())
+                        .addAll(valuesNode.getOutputVariables())
+                        .build(),
+                Optional.empty(), //NO filter
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(JoinNode.DistributionType.REPLICATED),
+                ImmutableMap.of());
+
+        String actual = printLogical(
+                ImmutableList.of(createTestPlanFragment(0, node)),
+                testSessionBuilder().build(),
+                createTestFunctionAndTypeManager());
+
+        String expected = "digraph logical_plan {\n" +
+                "subgraph cluster_0 {\n" +
+                "label = \"SOURCE\"\n" +
+                "plannode_1[label=\"{CrossJoin[REPLICATED]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=orange];\n" +
+                "plannode_2[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "plannode_3[label=\"{Values|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "}\n" +
+                "plannode_1 -> plannode_3 [label = \"Build\"];\n" + //valuesNode should be the Build side
+                "plannode_1 -> plannode_2 [label = \"Probe\"];\n" + //TEST_TABLE_SCAN_NODE should be the Probe side
+                "}\n";
+
+        assertEquals(actual, expected);
     }
 
     private static PlanFragment createTestPlanFragment(int id, PlanNode node)

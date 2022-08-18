@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.orc.StreamDescriptorFactory.AllStreams;
+import com.facebook.presto.orc.StreamDescriptorFactory.StreamProperty;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.OrcType;
@@ -287,8 +289,12 @@ public class TestLongDictionaryProvider
 
     private StreamDescriptor createFlatStreamDescriptor(StreamId streamId)
     {
-        return new StreamDescriptor("test_dictionary_stream", streamId.getColumn(),
-                String.format("field_%d", streamId.getColumn()), LONG_TYPE, DUMMY_ORC_DATA_SOURCE, ImmutableList.of(), streamId.getSequence());
+        Map<Integer, StreamProperty> streamProperties = ImmutableMap.of(
+                streamId.getColumn(),
+                new StreamProperty("test_dictionary_stream", LONG_TYPE, "field_" + streamId.getColumn(), ImmutableList.of()));
+        AllStreams allStreams = new AllStreams(DUMMY_ORC_DATA_SOURCE, streamProperties);
+
+        return new StreamDescriptor(streamId.getColumn(), streamId.getSequence(), allStreams);
     }
 
     private InputStreamSources createLongDictionaryStreamSources(Map<NodeId, long[]> streams, OrcAggregatedMemoryContext aggregatedMemoryContext)

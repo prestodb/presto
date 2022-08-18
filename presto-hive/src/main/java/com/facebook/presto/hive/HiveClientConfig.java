@@ -221,6 +221,10 @@ public class HiveClientConfig
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
 
+    private boolean copyOnFirstWriteConfigurationEnabled = true;
+
+    private boolean partitionFilteringFromMetastoreEnabled = true;
+
     @Min(0)
     public int getMaxInitialSplits()
     {
@@ -1853,6 +1857,32 @@ public class HiveClientConfig
     public HiveClientConfig setThriftBufferSize(DataSize thriftBufferSize)
     {
         this.thriftBufferSize = thriftBufferSize;
+        return this;
+    }
+
+    @Config("hive.copy-on-first-write-configuration-enabled")
+    @ConfigDescription("Optimize the number of configuration copies by enabling copy-on-write technique")
+    public HiveClientConfig setCopyOnFirstWriteConfigurationEnabled(boolean copyOnFirstWriteConfigurationEnabled)
+    {
+        this.copyOnFirstWriteConfigurationEnabled = copyOnFirstWriteConfigurationEnabled;
+        return this;
+    }
+
+    public boolean isCopyOnFirstWriteConfigurationEnabled()
+    {
+        return copyOnFirstWriteConfigurationEnabled;
+    }
+
+    public boolean isPartitionFilteringFromMetastoreEnabled()
+    {
+        return partitionFilteringFromMetastoreEnabled;
+    }
+
+    @Config("hive.partition-filtering-from-metastore-enabled")
+    @ConfigDescription("When enabled attempts to retrieve partition metadata only for partitions that satisfy the query predicates")
+    public HiveClientConfig setPartitionFilteringFromMetastoreEnabled(boolean partitionFilteringFromMetastoreEnabled)
+    {
+        this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
         return this;
     }
 }

@@ -66,7 +66,20 @@ public class GroupIdNode
             @JsonProperty("aggregationArguments") List<VariableReferenceExpression> aggregationArguments,
             @JsonProperty("groupIdVariable") VariableReferenceExpression groupIdVariable)
     {
-        super(sourceLocation, id);
+        this(sourceLocation, id, Optional.empty(), source, groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
+    }
+
+    public GroupIdNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            Optional<PlanNode> statsEquivalentPlanNode,
+            PlanNode source,
+            List<List<VariableReferenceExpression>> groupingSets,
+            Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns,
+            List<VariableReferenceExpression> aggregationArguments,
+            VariableReferenceExpression groupIdVariable)
+    {
+        super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source);
         this.groupingSets = listOfListsCopy(requireNonNull(groupingSets, "groupingSets is null"));
         this.groupingColumns = ImmutableMap.copyOf(requireNonNull(groupingColumns));
@@ -155,7 +168,13 @@ public class GroupIdNode
     @Override
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
-        return new GroupIdNode(getSourceLocation(), getId(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
+        return new GroupIdNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), Iterables.getOnlyElement(newChildren), groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
+    }
+
+    @Override
+    public PlanNode assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        return new GroupIdNode(getSourceLocation(), getId(), statsEquivalentPlanNode, source, groupingSets, groupingColumns, aggregationArguments, groupIdVariable);
     }
 
     @Override

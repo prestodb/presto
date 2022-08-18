@@ -124,7 +124,8 @@ public class LimitPushDown
                         node.getSourceLocation(),
                         idAllocator.getNextId(),
                         node.getOutputVariables(),
-                        ImmutableList.of());
+                        ImmutableList.of(),
+                        Optional.empty());
             }
 
             // default visitPlan logic will insert the limit node
