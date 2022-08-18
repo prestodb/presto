@@ -708,16 +708,20 @@ void setCellFromConstantVector(
   }
   switch (valueVector->typeKind()) {
     case TypeKind::SHORT_DECIMAL: {
-      auto flatVector = columnVector->as<FlatVector<velox::ShortDecimal>>();
+      auto flatVector =
+          columnVector->as<FlatVector<velox::UnscaledShortDecimal>>();
       flatVector->set(
           row,
-          valueVector->as<ConstantVector<velox::ShortDecimal>>()->valueAt(0));
+          valueVector->as<ConstantVector<velox::UnscaledShortDecimal>>()
+              ->valueAt(0));
     } break;
     case TypeKind::LONG_DECIMAL: {
-      auto flatVector = columnVector->as<FlatVector<velox::LongDecimal>>();
+      auto flatVector =
+          columnVector->as<FlatVector<velox::UnscaledLongDecimal>>();
       flatVector->set(
           row,
-          valueVector->as<ConstantVector<velox::LongDecimal>>()->valueAt(0));
+          valueVector->as<ConstantVector<velox::UnscaledLongDecimal>>()
+              ->valueAt(0));
     } break;
     default:
       VELOX_UNSUPPORTED();

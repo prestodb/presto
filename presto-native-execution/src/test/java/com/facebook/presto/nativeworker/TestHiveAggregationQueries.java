@@ -166,6 +166,9 @@ public class TestHiveAggregationQueries
         assertQuery("SELECT min(quantity), max(quantity) FROM lineitem");
         // timestamp
         assertQuery("SELECT min(from_unixtime(orderkey)), max(from_unixtime(orderkey)) FROM lineitem");
+        // Commitdate is cast to date here since the original commitdate column read from lineitem in dwrf format is
+        // of type char. The cast to date can be removed for Parquet which has date support.
+        assertQuery("SELECT min(cast(commitdate as date)), max(cast(commitdate as date)) FROM lineitem");
     }
 
     @Test

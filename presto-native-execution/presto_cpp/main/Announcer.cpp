@@ -139,7 +139,7 @@ void Announcer::makeAnnouncement() {
   client_->sendRequest(announcementRequest_, announcementBody_)
       .via(eventBaseThread_.getEventBase())
       .thenValue([](auto response) {
-        auto message = response->headers.get();
+        auto message = response->headers();
         if (message->getStatusCode() != http::kHttpAccepted) {
           LOG(WARNING) << "Announcement failed: HTTP "
                        << message->getStatusCode() << " - "

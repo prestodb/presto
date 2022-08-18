@@ -391,16 +391,11 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::ConstantExpression> pexpr) const {
   const auto type = parseTypeSignature(pexpr->type);
   switch (type->kind()) {
-    case TypeKind::ROW: {
-      if (isTimestampWithTimeZoneType(type)) {
-        auto valueVector =
-            protocol::readBlock(type, pexpr->valueBlock.data, pool_);
-        return std::make_shared<ConstantTypedExpr>(
-            std::make_shared<velox::ConstantVector<velox::ComplexType>>(
-                pool_, 1, 0, valueVector));
-      }
-    }
-    case TypeKind::ARRAY: {
+    case TypeKind::ROW:
+      FOLLY_FALLTHROUGH;
+    case TypeKind::ARRAY:
+      FOLLY_FALLTHROUGH;
+    case TypeKind::MAP: {
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(

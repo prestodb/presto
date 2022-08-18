@@ -29,6 +29,12 @@ message("Appending CMAKE_CXX_FLAGS with ${SCRIPT_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 if("${TREAT_WARNINGS_AS_ERRORS}")
   set(KNOWN_WARNINGS "-Wno-nullability-completeness")
+
+  # known warnings for MacOS
+  if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    set(KNOWN_WARNINGS "${KNOWN_WARNINGS} -Wno-deprecated-declarations")
+  endif()
+
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror ${KNOWN_WARNINGS}")
 endif()
 

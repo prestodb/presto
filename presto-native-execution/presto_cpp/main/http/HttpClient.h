@@ -16,28 +16,50 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
+#include <velox/common/memory/MappedMemory.h>
 #include "presto_cpp/main/http/HttpConstants.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::presto::http {
 
-struct HttpResponse {
-  std::unique_ptr<proxygen::HTTPMessage> headers;
-  std::vector<std::unique_ptr<folly::IOBuf>> bodyChain;
+class HttpResponse {
+ public:
+  explicit HttpResponse(std::unique_ptr<proxygen::HTTPMessage> headers)
+      : headers_(std::move(headers)),
+        mappedMemory_(velox::memory::MappedMemory::getInstance()) {}
 
-  explicit HttpResponse(std::unique_ptr<proxygen::HTTPMessage> _headers)
-      : headers(std::move(_headers)) {}
+  ~HttpResponse();
 
-  std::string dumpBodyChain() const {
-    std::string responseBody;
-    if (!bodyChain.empty()) {
-      std::ostringstream oss;
-      for (auto& buf : bodyChain) {
-        oss << std::string((const char*)buf->data(), buf->length());
-      }
-      responseBody = oss.str();
-    }
-    return responseBody;
+  proxygen::HTTPMessage* headers() {
+    return headers_.get();
   }
+
+  // Appends payload to the body of this HttpResponse.
+  void append(std::unique_ptr<folly::IOBuf>&& iobuf);
+
+  // Returns true if the body of this HttpResponse is empty.
+  bool empty() const {
+    return bodyChain_.empty();
+  }
+
+  // Consumes the response body. The caller is responsible for freeing the
+  // backed memory of this IOBuf from MappedMemory. Otherwise it could lead to
+  // memory leak.
+  std::vector<std::unique_ptr<folly::IOBuf>> consumeBody() {
+    return std::move(bodyChain_);
+  }
+
+  velox::memory::MappedMemory* FOLLY_NONNULL mappedMemory() {
+    return mappedMemory_;
+  }
+
+  std::string dumpBodyChain() const;
+
+ private:
+  const std::unique_ptr<proxygen::HTTPMessage> headers_;
+  velox::memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
+
+  std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
 };
 
 // HttpClient uses proxygen::SessionPool which must be destructed on the

@@ -15,11 +15,13 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 
+#include <velox/common/memory/MappedMemory.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/memory/MmapAllocator.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -299,6 +301,13 @@ class PrestoExchangeSourceTest : public testing::Test {
         dynamic_cast<memory::MemoryPoolImpl<memory::MemoryAllocator, 16>&>(
             defaultManager.getRoot());
     pool_ = &pool;
+    memory::MmapAllocatorOptions options = {1L << 30};
+    mappedMemory_ = std::make_unique<memory::MmapAllocator>(options);
+    memory::MappedMemory::setDefaultInstance(mappedMemory_.get());
+  }
+
+  void TearDown() override {
+    memory::MappedMemory::setDefaultInstance(nullptr);
   }
 
   void requestNextPage(
@@ -312,6 +321,7 @@ class PrestoExchangeSourceTest : public testing::Test {
   }
 
   memory::MemoryPool* pool_;
+  std::unique_ptr<memory::MappedMemory> mappedMemory_;
 };
 
 TEST_F(PrestoExchangeSourceTest, basic) {

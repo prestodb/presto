@@ -13,6 +13,8 @@ add_library(presto_http HttpClient.cpp HttpServer.cpp)
 
 target_link_libraries(
   presto_http
+  velox_memory
+  velox_exception
   ${PROXYGEN_LIBRARIES}
   ${LIBSODIUM_LIBRARY}
   ${OPENSSL_SSL_LIBRARY}

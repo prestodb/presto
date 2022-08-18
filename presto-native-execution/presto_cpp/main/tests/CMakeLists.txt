@@ -22,6 +22,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
   velox_exec_test_util
+  velox_dwio_common_test_utils
   velox_hive_connector
   velox_presto_serializer
   velox_functions_prestosql
