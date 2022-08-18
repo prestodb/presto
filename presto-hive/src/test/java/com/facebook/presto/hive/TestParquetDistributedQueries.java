@@ -46,7 +46,7 @@ public class TestParquetDistributedQueries
                 getTables(),
                 ImmutableMap.of(
                         "experimental.pushdown-subfields-enabled", "true",
-                        "experimental.pushdown-dereference-enabled", "true"),
+                        "optimizer.pushdown-dereference-enabled", "true"),
                 "sql-standard",
                 parquetProperties,
                 Optional.empty());

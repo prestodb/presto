@@ -48,7 +48,7 @@ public class TestHivePushdownIntegrationSmokeTest
         return HiveQueryRunner.createQueryRunner(
                 ImmutableList.of(ORDERS, CUSTOMER, LINE_ITEM, PART_SUPPLIER, NATION),
                 ImmutableMap.of("experimental.pushdown-subfields-enabled", "true",
-                        "experimental.pushdown-dereference-enabled", "true"),
+                        "optimizer.pushdown-dereference-enabled", "true"),
                 "sql-standard",
                 ImmutableMap.of("hive.pushdown-filter-enabled", "true",
                         "hive.enable-parquet-dereference-pushdown", "true",

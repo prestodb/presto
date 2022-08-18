@@ -191,7 +191,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
-    private boolean pushdownDereferenceEnabled;
+    private boolean pushdownDereferenceEnabled = true;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
     private boolean checkAccessControlWithSubfields;
@@ -1647,8 +1647,8 @@ public class FeaturesConfig
         return pushdownSubfieldsEnabled;
     }
 
-    @Config("experimental.pushdown-dereference-enabled")
-    @ConfigDescription("Experimental: enable dereference pushdown")
+    @Config("optimizer.pushdown-dereference-enabled")
+    @ConfigDescription("Enable pushing down field dereferences as low as possible")
     public FeaturesConfig setPushdownDereferenceEnabled(boolean pushdownDereferenceEnabled)
     {
         this.pushdownDereferenceEnabled = pushdownDereferenceEnabled;
