@@ -15,32 +15,77 @@ package com.facebook.presto.cost;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.PlanHasher;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.graph.Traverser.forTree;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HistoryBasedPlanStatisticsCalculator
         implements StatsCalculator
 {
+    private static final List<Class<? extends PlanNode>> PRECOMPUTE_PLAN_NODES = ImmutableList.of(JoinNode.class, SemiJoinNode.class, AggregationNode.class);
+    private static final DataSize CACHE_SIZE_BYTES = new DataSize(2, DataSize.Unit.MEGABYTE);
+
+    // For weight, we only consider size of hash, as PlanNodes are already in memory for running queries.
+    // We use length of hash + 20 bytes to account for stats.
+    private final LoadingCache<PlanNodeWithHash, HistoricalPlanStatistics> cache = CacheBuilder.newBuilder()
+            .maximumWeight(CACHE_SIZE_BYTES.toBytes())
+            .weigher((Weigher<PlanNodeWithHash, HistoricalPlanStatistics>) (key, statistics) -> key.getHash().orElse("").length() + 20)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build(new CacheLoader<PlanNodeWithHash, HistoricalPlanStatistics>()
+            {
+                @Override
+                public HistoricalPlanStatistics load(PlanNodeWithHash key)
+                {
+                    return loadAll(Collections.singleton(key)).values().stream().findAny().orElseGet(() -> new HistoricalPlanStatistics(PlanStatistics.empty()));
+                }
+
+                @Override
+                public Map<PlanNodeWithHash, HistoricalPlanStatistics> loadAll(Iterable<? extends PlanNodeWithHash> keys)
+                {
+                    Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = new HashMap<>(historyBasedPlanStatisticsProvider.get().getStats(ImmutableList.copyOf(keys)));
+                    // loadAll excepts all keys to be written
+                    for (PlanNodeWithHash key : keys) {
+                        statistics.putIfAbsent(key, new HistoricalPlanStatistics(PlanStatistics.empty()));
+                    }
+                    return ImmutableMap.copyOf(statistics);
+                }
+            });
+
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final StatsCalculator delegate;
     private final PlanHasher planHasher;
@@ -62,10 +107,54 @@ public class HistoryBasedPlanStatisticsCalculator
         return getStatistics(node, session, lookup, delegateStats);
     }
 
+    @Override
+    public void registerPlan(PlanNode root, Session session)
+    {
+        // Only precompute history based stats when plan has a join/aggregation.
+        if (!PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
+            return;
+        }
+        ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
+        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(plan -> {
+            if (plan.getStatsEquivalentPlanNode().isPresent()) {
+                planNodesWithHash.addAll(getPlanNodeHashes(plan, session).values());
+            }
+        });
+        try {
+            cache.getAll(planNodesWithHash.build());
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException("Unable to register plan: ", e.getCause());
+        }
+    }
+
     @VisibleForTesting
     public PlanHasher getPlanHasher()
     {
         return planHasher;
+    }
+
+    @VisibleForTesting
+    public void invalidateCache()
+    {
+        cache.invalidateAll();
+    }
+
+    private Map<PlanCanonicalizationStrategy, PlanNodeWithHash> getPlanNodeHashes(PlanNode plan, Session session)
+    {
+        if (!useHistoryBasedPlanStatisticsEnabled(session) || !plan.getStatsEquivalentPlanNode().isPresent()) {
+            return ImmutableMap.of();
+        }
+
+        PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+        ImmutableMap.Builder<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashesBuilder = ImmutableMap.builder();
+
+        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+            Optional<String> hash = planHasher.hash(statsEquivalentPlanNode, strategy);
+            allHashesBuilder.put(strategy, new PlanNodeWithHash(statsEquivalentPlanNode, hash));
+        }
+
+        return allHashesBuilder.build();
     }
 
     private PlanNodeStatsEstimate getStatistics(PlanNode planNode, Session session, Lookup lookup, PlanNodeStatsEstimate delegateStats)
@@ -75,37 +164,27 @@ public class HistoryBasedPlanStatisticsCalculator
             return delegateStats;
         }
 
-        ImmutableMap.Builder<PlanCanonicalizationStrategy, String> allHashesBuilder = ImmutableMap.builder();
+        Map<PlanCanonicalizationStrategy, PlanNodeWithHash> allHashes = getPlanNodeHashes(plan, session);
 
-        for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-            Optional<String> hash = plan.getStatsEquivalentPlanNode().flatMap(node -> planHasher.hash(node, strategy));
-            hash.ifPresent(string -> allHashesBuilder.put(strategy, string));
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = ImmutableMap.of();
+        try {
+            statistics = cache.getAll(allHashes.values().stream().distinct().collect(toImmutableList()));
         }
-
-        Map<PlanCanonicalizationStrategy, String> allHashes = allHashesBuilder.build();
-        List<PlanNodeWithHash> planNodeWithHashes = allHashes.values().stream()
-                .distinct()
-                .map(hash -> new PlanNodeWithHash(plan, Optional.of(hash)))
-                .collect(toImmutableList());
-
-        // If no hashes are found, try to fetch statistics without hash.
-        if (planNodeWithHashes.isEmpty()) {
-            planNodeWithHashes = ImmutableList.of(new PlanNodeWithHash(plan, Optional.empty()));
+        catch (ExecutionException e) {
+            throw new RuntimeException(format("Unable to get plan statistics for %s", planNode), e.getCause());
         }
-
-        Map<PlanNodeWithHash, HistoricalPlanStatistics> statistics = historyBasedPlanStatisticsProvider.get().getStats(planNodeWithHashes);
-
         // Return statistics corresponding to first strategy that we find, in order specified by `historyBasedPlanCanonicalizationStrategyList`
         for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
-                if (allHashes.containsKey(strategy) && Optional.of(allHashes.get(strategy)).equals(entry.getKey().getHash())) {
+                if (allHashes.containsKey(strategy) && entry.getKey().getHash().isPresent() && allHashes.get(strategy).equals(entry.getKey())) {
                     // TODO: Use better historical statistics
                     return delegateStats.combineStats(entry.getValue().getLastRunStatistics(), new HistoryBasedSourceInfo(entry.getKey().getHash()));
                 }
             }
         }
 
-        return Optional.ofNullable(statistics.get(new PlanNodeWithHash(plan, Optional.empty())))
+        return statistics.values().stream()
+                .findAny()
                 .map(HistoricalPlanStatistics::getLastRunStatistics)
                 .map(planStatistics -> delegateStats.combineStats(planStatistics, new HistoryBasedSourceInfo(Optional.empty())))
                 .orElse(delegateStats);
