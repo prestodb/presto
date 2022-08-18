@@ -18,6 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.server.SliceDeserializer;
@@ -180,6 +181,7 @@ public class TestQueryInfo
                 Optional.of(ImmutableList.of(new TaskId("0", 1, 1, 1))),
                 Optional.of(ImmutableList.of(new StageId("0", 1))),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                StatsAndCosts.empty());
     }
 }

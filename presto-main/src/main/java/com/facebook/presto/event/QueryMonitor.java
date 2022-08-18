@@ -21,6 +21,9 @@ import com.facebook.airlift.stats.Distribution.DistributionSnapshot;
 import com.facebook.presto.SessionRepresentation;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.Column;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -56,6 +59,7 @@ import com.facebook.presto.spi.eventlistener.QueryUpdatedEvent;
 import com.facebook.presto.spi.eventlistener.ResourceDistribution;
 import com.facebook.presto.spi.eventlistener.StageStatistics;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -94,6 +98,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionAndTypeManager functionAndTypeManager;
+    private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
     private final int maxJsonLimit;
 
     @Inject
@@ -106,7 +111,8 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
-            QueryMonitorConfig config)
+            QueryMonitorConfig config,
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
         this.stageInfoCodec = requireNonNull(stageInfoCodec, "stageInfoCodec is null");
@@ -117,6 +123,7 @@ public class QueryMonitor
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.functionAndTypeManager = requireNonNull(metadata, "metadata is null").getFunctionAndTypeManager();
+        this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -205,6 +212,8 @@ public class QueryMonitor
                 ofEpochMilli(queryInfo.getQueryStats().getEndTime().getMillis()),
                 ImmutableList.of(),
                 ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty()));
 
         logQueryTimeline(queryInfo);
@@ -235,9 +244,16 @@ public class QueryMonitor
                         ofEpochMilli(queryStats.getEndTime() != null ? queryStats.getEndTime().getMillis() : 0),
                         stageStatisticsBuilder.build(),
                         createOperatorStatistics(queryInfo),
+                        createPlanStatistics(queryInfo.getPlanStatsAndCosts()),
+                        historyBasedPlanStatisticsTracker.getQueryStats(queryInfo).values().stream().collect(toImmutableList()),
                         queryInfo.getExpandedQuery()));
 
         logQueryTimeline(queryInfo);
+    }
+
+    private List<PlanStatisticsWithSourceInfo> createPlanStatistics(StatsAndCosts planStatsAndCosts)
+    {
+        return planStatsAndCosts.getStats().entrySet().stream().map(entry -> entry.getValue().toPlanStatisticsWithSourceInfo(entry.getKey())).collect(toImmutableList());
     }
 
     private QueryMetadata createQueryMetadata(QueryInfo queryInfo)

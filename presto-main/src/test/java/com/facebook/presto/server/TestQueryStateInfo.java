@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStats;
@@ -296,6 +297,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                StatsAndCosts.empty());
     }
 }

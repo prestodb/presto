@@ -16,6 +16,7 @@ package com.facebook.presto.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryExecution.QueryOutputInfo;
 import com.facebook.presto.execution.StateMachine.StateChangeListener;
 import com.facebook.presto.memory.VersionedMemoryPoolId;
@@ -147,6 +148,7 @@ public class QueryStateMachine
 
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
+    private final AtomicReference<StatsAndCosts> planStatsAndCosts = new AtomicReference<>();
     private final AtomicReference<Set<Input>> inputs = new AtomicReference<>(ImmutableSet.of());
     private final AtomicReference<Optional<Output>> output = new AtomicReference<>(Optional.empty());
 
@@ -476,7 +478,8 @@ public class QueryStateMachine
                 failedTasks,
                 runtimeOptimizedStages.isEmpty() ? Optional.empty() : Optional.of(runtimeOptimizedStages),
                 addedSessionFunctions,
-                removedSessionFunctions);
+                removedSessionFunctions,
+                Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty));
     }
 
     private QueryStats getQueryStats(Optional<StageInfo> rootStage, List<StageInfo> allStages)
@@ -523,6 +526,12 @@ public class QueryStateMachine
     {
         requireNonNull(inputs, "inputs is null");
         this.inputs.set(ImmutableSet.copyOf(inputs));
+    }
+
+    public void setPlanStatsAndCosts(StatsAndCosts statsAndCosts)
+    {
+        requireNonNull(statsAndCosts, "statsAndCosts is null");
+        this.planStatsAndCosts.set(statsAndCosts);
     }
 
     public void setOutput(Optional<Output> output)
@@ -1037,7 +1046,8 @@ public class QueryStateMachine
                 queryInfo.getFailedTasks(),
                 queryInfo.getRuntimeOptimizedStages(),
                 queryInfo.getAddedSessionFunctions(),
-                queryInfo.getRemovedSessionFunctions());
+                queryInfo.getRemovedSessionFunctions(),
+                StatsAndCosts.empty());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }
 
