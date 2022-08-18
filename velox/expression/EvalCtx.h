@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "velox/common/base/Portability.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/vector/ComplexVector.h"
@@ -434,15 +436,20 @@ class LocalDecodedVector {
   LocalDecodedVector(LocalDecodedVector&& other) noexcept
       : context_{other.context_}, vector_{std::move(other.vector_)} {}
 
+  void operator=(LocalDecodedVector&& other) {
+    context_ = other.context_;
+    vector_ = std::move(other.vector_);
+  }
+
   ~LocalDecodedVector() {
     if (vector_) {
-      context_.releaseDecodedVector(std::move(vector_));
+      context_.get().releaseDecodedVector(std::move(vector_));
     }
   }
 
   DecodedVector* FOLLY_NONNULL get() {
     if (!vector_) {
-      vector_ = context_.getDecodedVector();
+      vector_ = context_.get().getDecodedVector();
     }
     return vector_.get();
   }
@@ -469,7 +476,7 @@ class LocalDecodedVector {
   }
 
  private:
-  core::ExecCtx& context_;
+  std::reference_wrapper<core::ExecCtx> context_;
   std::unique_ptr<DecodedVector> vector_;
 };
 

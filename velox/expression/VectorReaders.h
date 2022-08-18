@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <optional>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -98,6 +99,100 @@ struct VectorReader {
   const DecodedVector& decoded_;
 };
 
+// ConstantVectorReader and FlatVectorReader are optimized for primitive types
+// in constant or flat encoded vectors.  They operate directly on the vector's
+// content avoiding the need to go through the expensive decoding process.
+template <typename T>
+struct ConstantVectorReader {
+  using exec_in_t = typename VectorExec::template resolver<T>::in_type;
+
+  std::optional<exec_in_t> value;
+
+  explicit ConstantVectorReader<T>(ConstantVector<exec_in_t>& vector) {
+    if (!vector.isNullAt(0)) {
+      value = *vector.rawValues();
+    }
+  }
+
+  exec_in_t operator[](vector_size_t) const {
+    return *value;
+  }
+
+  exec_in_t readNullFree(vector_size_t) const {
+    return *value;
+  }
+
+  bool isSet(vector_size_t) const {
+    return value.has_value();
+  }
+
+  bool mayHaveNulls() const {
+    return !value.has_value();
+  }
+
+  bool containsNull(vector_size_t) const {
+    return !value.has_value();
+  }
+
+  bool containsNull(vector_size_t, vector_size_t) const {
+    return !value.has_value();
+  }
+
+  inline bool mayHaveNullsRecursive() const {
+    return !value.has_value();
+  }
+
+  // Scalars don't have children, so this is a no-op.
+  void setChildrenMayHaveNulls() {}
+};
+
+template <typename T>
+struct FlatVectorReader {
+  using exec_in_t = typename VectorExec::template resolver<T>::in_type;
+
+  const exec_in_t* values;
+  FlatVector<exec_in_t>* vector;
+
+  explicit FlatVectorReader<T>(FlatVector<exec_in_t>& baseVector)
+      : values(baseVector.rawValues()), vector(&baseVector) {}
+
+  exec_in_t operator[](vector_size_t offset) const {
+    return values[offset];
+  }
+
+  exec_in_t readNullFree(vector_size_t offset) const {
+    return operator[](offset);
+  }
+
+  bool isSet(vector_size_t offset) const {
+    return !vector->isNullAt(offset);
+  }
+
+  bool mayHaveNulls() const {
+    return vector->mayHaveNulls();
+  }
+
+  bool containsNull(vector_size_t index) const {
+    return !isSet(index);
+  }
+
+  bool containsNull(vector_size_t startIndex, vector_size_t endIndex) const {
+    for (auto index = startIndex; index < endIndex; ++index) {
+      if (containsNull(index)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool mayHaveNullsRecursive() const {
+    return mayHaveNulls();
+  }
+
+  // Scalars don't have children, so this is a no-op.
+  void setChildrenMayHaveNulls() {}
+};
+
 // This VectorReader is optimized for primitive types in constant or flat
 // encoded vectors.  It operates directly on the vector's content avoiding
 // the need to go through the expensive decoding process.
@@ -155,12 +250,13 @@ struct ConstantFlatVectorReader {
   // Scalars don't have children, so this is a no-op.
   void setChildrenMayHaveNulls() {}
 
+ private:
   const exec_in_t* rawValues_;
   const uint64_t* rawNulls_;
   // Flat Vectors use an identity mapping for indices, Constant Vectors map all
   // indices to 0.  This is the same as multiplying by 1 or 0 respectively.
   // We multiply the index by this value to get that mapping.
-  const vector_size_t indexMultiple_;
+  vector_size_t indexMultiple_;
 };
 
 namespace detail {
@@ -243,6 +339,10 @@ struct VectorReader<Map<K, V>> {
         "setChildrenMayHaveNulls() should be called before mayHaveNullsRecursive()");
     return decoded_.mayHaveNulls() || *keysMayHaveNulls_ ||
         *valuesMayHaveNulls_;
+  }
+
+  bool mayHaveNulls() const {
+    return decoded_.mayHaveNulls();
   }
 
   void setChildrenMayHaveNulls() {
@@ -332,6 +432,10 @@ struct VectorReader<Array<V>> {
     return decoded_.mayHaveNulls() || *valuesMayHaveNulls_;
   }
 
+  bool mayHaveNulls() const {
+    return decoded_.mayHaveNulls();
+  }
+
   void setChildrenMayHaveNulls() {
     childReader_.setChildrenMayHaveNulls();
 
@@ -410,6 +514,10 @@ struct VectorReader<Row<T...>> {
     return decoded_.mayHaveNullsRecursive();
   }
 
+  bool mayHaveNulls() const {
+    return decoded_.mayHaveNulls();
+  }
+
   void setChildrenMayHaveNulls() {
     std::apply(
         [](auto&... reader) { (reader->setChildrenMayHaveNulls(), ...); },
@@ -442,7 +550,7 @@ struct VectorReader<Variadic<T>> {
       typename VectorExec::template resolver<Variadic<T>>::null_free_in_type;
 
   explicit VectorReader(
-      std::vector<LocalDecodedVector>& decodedArgs,
+      std::vector<std::optional<LocalDecodedVector>>& decodedArgs,
       int32_t startPosition)
       : childReaders_{prepareChildReaders(decodedArgs, startPosition)} {}
 
@@ -490,6 +598,15 @@ struct VectorReader<Variadic<T>> {
     return false;
   }
 
+  bool mayHaveNulls() const {
+    for (const auto& childReader : childReaders_) {
+      if (childReader->mayHaveNulls()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void setChildrenMayHaveNulls() {
     for (auto& childReader : childReaders_) {
       childReader->setChildrenMayHaveNulls();
@@ -497,15 +614,15 @@ struct VectorReader<Variadic<T>> {
   }
 
  private:
-  std::vector<std::unique_ptr<VectorReader<T>>> prepareChildReaders(
-      std::vector<LocalDecodedVector>& decodedArgs,
+  auto prepareChildReaders(
+      std::vector<std::optional<LocalDecodedVector>>& decodedArgs,
       int32_t startPosition) {
     std::vector<std::unique_ptr<VectorReader<T>>> childReaders;
     childReaders.reserve(decodedArgs.size() - startPosition);
 
     for (int i = startPosition; i < decodedArgs.size(); ++i) {
       childReaders.emplace_back(
-          std::make_unique<VectorReader<T>>(decodedArgs.at(i).get()));
+          std::make_unique<VectorReader<T>>(decodedArgs.at(i).value().get()));
     }
 
     return childReaders;
@@ -559,6 +676,10 @@ struct VectorReader<Generic<T>> {
     // TODO (kevinwilfong): Add support for Generics in callNullFree.
     VELOX_UNSUPPORTED(
         "Calling callNullFree with Generic arguments is not yet supported.");
+  }
+
+  bool mayHaveNulls() const {
+    return decoded_.mayHaveNulls();
   }
 
   inline void setChildrenMayHaveNulls() {

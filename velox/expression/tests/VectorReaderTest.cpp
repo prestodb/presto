@@ -20,6 +20,7 @@
 #include "velox/expression/VectorReaders.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
+using facebook::velox::exec::LocalDecodedVector;
 namespace facebook::velox {
 
 DecodedVector* decode(DecodedVector& decoder, const BaseVector& vector) {
@@ -459,9 +460,9 @@ TEST_F(VectorReaderTest, variadicContainsNull) {
       [](vector_size_t row) { return row % 5 == 2; });
   SelectivityVector rows(10);
   exec::EvalCtx ctx(&execCtx_);
-  std::vector<facebook::velox::exec::LocalDecodedVector> args;
+  std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : {field1Vector, field2Vector, field3Vector}) {
-    args.emplace_back(&ctx, *vector, rows);
+    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
   }
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);
 
@@ -533,9 +534,9 @@ TEST_F(VectorReaderTest, dictionaryEncodedVariadicContainsNull) {
 
   SelectivityVector rows(10);
   exec::EvalCtx ctx(&execCtx_);
-  std::vector<facebook::velox::exec::LocalDecodedVector> args;
+  std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : {field1Vector, field2Vector, field3Vector}) {
-    args.emplace_back(&ctx, *vector, rows);
+    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
   }
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);
 

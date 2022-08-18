@@ -22,6 +22,7 @@
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
+using facebook::velox::exec::LocalDecodedVector;
 
 template <bool returnsOptionalValues>
 class VariadicViewTest : public functions::test::FunctionBaseTest {
@@ -61,9 +62,9 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(&ctx, *vector, rows);
+      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
     }
 
     size_t startIndex = additionalVectors.size();
@@ -137,9 +138,9 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(&ctx, *vector, rows);
+      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -167,9 +168,9 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(&ctx, *vector, rows);
+      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -200,9 +201,9 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(&ctx, *vector, rows);
+      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -232,9 +233,9 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     }
     SelectivityVector rows(vectors[0]->size());
     EvalCtx ctx(&execCtx_);
-    std::vector<facebook::velox::exec::LocalDecodedVector> args;
+    std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(&ctx, *vector, rows);
+      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -303,9 +304,9 @@ TEST_F(NullableVariadicViewTest, notNullContainer) {
   }
   SelectivityVector rows(vectors[0]->size());
   EvalCtx ctx(&execCtx_);
-  std::vector<facebook::velox::exec::LocalDecodedVector> args;
+  std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : vectors) {
-    args.emplace_back(&ctx, *vector, rows);
+    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
   }
 
   VectorReader<Variadic<int64_t>> reader(args, 0);
