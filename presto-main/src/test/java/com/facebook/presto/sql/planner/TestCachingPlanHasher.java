@@ -14,14 +14,12 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
-import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -32,10 +30,13 @@ public class TestCachingPlanHasher
     @Test
     public void testCache()
     {
-        getPlanHash("SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 GROUP BY orderkey", CONNECTOR);
+        Session session = createSession();
+        String sql = "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 GROUP BY orderkey";
+        PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
         PlanHasher planHasher = ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanHasher();
         // We cache hashes for all intermediate plan nodes
-        assertEquals(((CachingPlanHasher) planHasher).getCacheSize(), 6);
+        assertEquals(((CachingPlanHasher) planHasher).getCacheSize(), 12);
     }
 
     private Session createSession()
@@ -46,14 +47,5 @@ public class TestCachingPlanHasher
                 .setSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, "true")
                 .setSystemProperty("task_concurrency", "1")
                 .build();
-    }
-
-    private String getPlanHash(String sql, PlanCanonicalizationStrategy strategy)
-    {
-        Session session = createSession();
-        PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
-        assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        PlanHasher planHasher = ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanHasher();
-        return planHasher.hash(plan, strategy).get();
     }
 }
