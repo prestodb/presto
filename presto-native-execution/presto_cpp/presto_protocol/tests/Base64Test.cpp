@@ -240,6 +240,109 @@ TEST_F(Base64Test, arrayOfArrayOfInts) {
   ASSERT_EQ(6, elementsVector->valueAt(5));
 }
 
+TEST_F(Base64Test, arraySingleNullRow) {
+  // SELECT CAST(NULL AS ARRAY(VARCHAR));
+  const std::string data =
+      "BQAAAEFSUkFZDgAAAFZBUklBQkxFX1dJRFRIAAAAAAAAAAAAAQAAAAAAAAAAAAAAAYA=";
+  auto array = readBlock(ARRAY(VARCHAR()), data, pool_.get());
+
+  EXPECT_EQ(VectorEncoding::Simple::ARRAY, array->encoding());
+  EXPECT_EQ(1, array->size()); // Number of rows.
+
+  auto arrayVector = array->as<ArrayVector>();
+  EXPECT_EQ(true, arrayVector->isNullAt(0));
+}
+
+TEST_F(Base64Test, mapIntToVarchar) {
+  // SELECT MAP(ARRAY[1, 5], ARRAY['AAA', 'B']);
+  const std::string data =
+      "AwAAAE1BUAkAAABJTlRfQVJSQVkCAAAAAAEAAAAFAAAADgAAAFZBUklBQ"
+      "kxFX1dJRFRIAgAAAAMAAAAEAAAAAAQAAABBQUFCBAAAAP//////////AA"
+      "AAAAEAAAABAAAAAAAAAAIAAAABAA==";
+  auto map = readBlock(MAP(INTEGER(), VARCHAR()), data, pool_.get());
+
+  EXPECT_EQ(VectorEncoding::Simple::MAP, map->encoding());
+  EXPECT_EQ(1, map->size()); // Number of rows.
+
+  auto mapVector = map->as<MapVector>();
+  auto keysVector = mapVector->mapKeys()->as<SimpleVector<int32_t>>();
+  auto valuesVector = mapVector->mapValues()->as<SimpleVector<StringView>>();
+
+  EXPECT_EQ(TypeKind::INTEGER, keysVector->typeKind());
+  EXPECT_EQ(TypeKind::VARCHAR, valuesVector->typeKind());
+
+  EXPECT_EQ(2, keysVector->size());
+  EXPECT_EQ(2, valuesVector->size());
+  EXPECT_EQ(1, keysVector->valueAt(0));
+  EXPECT_EQ(5, keysVector->valueAt(1));
+  EXPECT_EQ("AAA", valuesVector->valueAt(0).str());
+  EXPECT_EQ("B", valuesVector->valueAt(1).str());
+}
+
+TEST_F(Base64Test, mapEmptyVarcharToBigint) {
+  // SELECT CAST(MAP(ARRAY[], ARRAY[]) AS MAP(VARCHAR, BIGINT));
+  const std::string data =
+      "AwAAAE1BUA4AAABWQVJJQUJMRV9XSURUSAAAAAAAAAAAAAMAAABSTEUAAAAACgAAA"
+      "ExPTkdfQVJSQVkBAAAAAYD/////AQAAAAAAAAAAAAAAAQA=";
+  auto map = readBlock(MAP(VARCHAR(), BIGINT()), data, pool_.get());
+
+  EXPECT_EQ(VectorEncoding::Simple::MAP, map->encoding());
+  EXPECT_EQ(1, map->size()); // Number of rows.
+
+  auto mapVector = map->as<MapVector>();
+  auto keysVector = mapVector->mapKeys()->as<SimpleVector<StringView>>();
+  auto valuesVector = mapVector->mapValues()->as<SimpleVector<int64_t>>();
+
+  EXPECT_EQ(TypeKind::VARCHAR, keysVector->typeKind());
+  EXPECT_EQ(TypeKind::BIGINT, valuesVector->typeKind());
+
+  EXPECT_EQ(0, keysVector->size());
+  EXPECT_EQ(0, valuesVector->size());
+}
+
+TEST_F(Base64Test, mapVarcharToIntWithNulls) {
+  // SELECT MAP(ARRAY['AAA', 'B', 'CCCCC'], ARRAY[NULL, 5, NULL]);
+  const std::string data =
+      "AwAAAE1BUA4AAABWQVJJQUJMRV9XSURUSAMAAAADAAAABAAAAAkAAAAACQAAAEFBQUJDQ"
+      "0NDQwkAAABJTlRfQVJSQVkDAAAAAaAFAAAABgAAAAAAAAACAAAAAQAAAP"
+      "///////////////wEAAAAAAAAAAwAAAAEA";
+  auto map = readBlock(MAP(VARCHAR(), INTEGER()), data, pool_.get());
+
+  EXPECT_EQ(VectorEncoding::Simple::MAP, map->encoding());
+  EXPECT_EQ(1, map->size()); // Number of rows.
+
+  auto mapVector = map->as<MapVector>();
+  auto keysVector = mapVector->mapKeys()->as<SimpleVector<StringView>>();
+  auto valuesVector = mapVector->mapValues()->as<SimpleVector<int32_t>>();
+
+  EXPECT_EQ(TypeKind::VARCHAR, keysVector->typeKind());
+  EXPECT_EQ(TypeKind::INTEGER, valuesVector->typeKind());
+
+  EXPECT_EQ(3, keysVector->size());
+  EXPECT_EQ(3, valuesVector->size());
+  EXPECT_EQ("AAA", keysVector->valueAt(0).str());
+  EXPECT_EQ("B", keysVector->valueAt(1).str());
+  EXPECT_EQ("CCCCC", keysVector->valueAt(2).str());
+  EXPECT_EQ(true, valuesVector->isNullAt(0));
+  EXPECT_EQ(false, valuesVector->isNullAt(1));
+  EXPECT_EQ(5, valuesVector->valueAt(1));
+  EXPECT_EQ(true, valuesVector->isNullAt(2));
+}
+
+TEST_F(Base64Test, mapSingleNullRow) {
+  // SELECT CAST(NULL AS MAP(VARCHAR, BIGINT));
+  const std::string data =
+      "AwAAAE1BUA4AAABWQVJJQUJMRV9XSURUSAAAAAAAAAAAAAMAAABSTEU"
+      "AAAAACgAAAExPTkdfQVJSQVkBAAAAAYD/////AQAAAAAAAAAAAAAAAYA=";
+  auto map = readBlock(MAP(VARCHAR(), BIGINT()), data, pool_.get());
+
+  EXPECT_EQ(VectorEncoding::Simple::MAP, map->encoding());
+  EXPECT_EQ(1, map->size()); // Number of rows.
+
+  auto mapVector = map->as<MapVector>();
+  EXPECT_EQ(true, mapVector->isNullAt(0));
+}
+
 TEST_F(Base64Test, timestampWithTimezone) {
   // Base64 encoding + serialization of time stamp '2020-10-31 01:00 UTC' AT
   // TIME ZONE 'America/Los_Angeles' Serialization info see
