@@ -15,6 +15,7 @@
  */
 
 #include "velox/dwio/dwrf/writer/WriterBase.h"
+#include "velox/common/process/ProcessBase.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
 
 namespace facebook::velox::dwrf {
@@ -81,6 +82,7 @@ void WriterBase::writeUserMetadata(uint32_t writerVersion) {
   userMetadata_[std::string{WRITER_NAME_KEY}] = kDwioWriter;
   userMetadata_[std::string{WRITER_VERSION_KEY}] =
       folly::to<std::string>(writerVersion);
+  userMetadata_[std::string{WRITER_HOSTNAME_KEY}] = process::getHostName();
   std::for_each(userMetadata_.begin(), userMetadata_.end(), [&](auto& pair) {
     auto item = footer_.add_metadata();
     item->set_name(pair.first);

@@ -32,6 +32,7 @@ target_link_libraries(
   velox_dwio_common
   velox_dwio_dwrf_common
   velox_dwio_dwrf_utils
+  velox_process
   velox_time
   velox_vector
   ${LZ4}

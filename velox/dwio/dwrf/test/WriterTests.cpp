@@ -136,7 +136,7 @@ TEST_F(WriterTest, WriteFooter) {
     ASSERT_EQ(stripe.numberOfRows(), 123);
   }
   ASSERT_EQ(footer.typesSize(), 4);
-  ASSERT_EQ(footer.metadataSize(), 4);
+  ASSERT_EQ(footer.metadataSize(), 5);
   for (size_t i = 0; i < 4; ++i) {
     auto item = footer.metadata(i);
     if (item.name() == WRITER_NAME_KEY) {
@@ -144,6 +144,8 @@ TEST_F(WriterTest, WriteFooter) {
     } else if (item.name() == WRITER_VERSION_KEY) {
       ASSERT_EQ(
           item.value(), folly::to<std::string>(reader->getWriterVersion()));
+    } else if (item.name() == WRITER_HOSTNAME_KEY) {
+      ASSERT_EQ(item.value(), process::getHostName());
     } else {
       ASSERT_EQ(
           folly::to<size_t>(item.name()) + 1, folly::to<size_t>(item.value()));

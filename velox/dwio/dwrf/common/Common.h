@@ -32,6 +32,7 @@ namespace facebook::velox::dwrf {
 // Writer version
 constexpr folly::StringPiece WRITER_NAME_KEY{"orc.writer.name"};
 constexpr folly::StringPiece WRITER_VERSION_KEY{"orc.writer.version"};
+constexpr folly::StringPiece WRITER_HOSTNAME_KEY{"orc.writer.host"};
 constexpr folly::StringPiece kDwioWriter{"dwio"};
 constexpr folly::StringPiece kPrestoWriter{"presto"};
 
