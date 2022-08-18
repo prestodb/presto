@@ -112,11 +112,11 @@ template <typename T>
 struct BitwiseLeftShiftFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput number, TInput shift) {
-    if constexpr (std::is_same<TInput, int8_t>::value) {
+    if constexpr (std::is_same_v<TInput, int8_t>) {
       return bitwiseLeftShift<TInput, 8>(result, number, shift);
-    } else if constexpr (std::is_same<TInput, int16_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int16_t>) {
       return bitwiseLeftShift<TInput, 16>(result, number, shift);
-    } else if constexpr (std::is_same<TInput, int32_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int32_t>) {
       return bitwiseLeftShift<TInput, 32>(result, number, shift);
     } else {
       return bitwiseLeftShift<TInput, 64>(result, number, shift);
@@ -140,11 +140,11 @@ template <typename T>
 struct BitwiseRightShiftFunction {
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool call(int64_t& result, TInput number, TInput shift) {
-    if constexpr (std::is_same<TInput, int8_t>::value) {
+    if constexpr (std::is_same_v<TInput, int8_t>) {
       return bitwiseRightShift<int8_t, uint8_t, 8>(result, number, shift);
-    } else if constexpr (std::is_same<TInput, int16_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int16_t>) {
       return bitwiseRightShift<int16_t, uint16_t, 16>(result, number, shift);
-    } else if constexpr (std::is_same<TInput, int32_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int32_t>) {
       return bitwiseRightShift<int32_t, uint32_t, 32>(result, number, shift);
     } else {
       return bitwiseRightShift<int64_t, uint64_t, 64>(result, number, shift);
@@ -177,12 +177,12 @@ struct BitwiseRightShiftArithmeticFunction {
     }
 
     // clang-format off
-    if constexpr (std::is_same<TInput, int8_t>::value) {
+    if constexpr (std::is_same_v<TInput, int8_t>) {
       result = preserveSign<int8_t, 0b11111111L, 0b10000000L>(number) >> shift;
-    } else if constexpr (std::is_same<TInput, int16_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int16_t>) {
       result = preserveSign<int16_t, 0b1111111111111111L, 0b1000000000000000L>(number)
                 >> shift;
-    } else if constexpr (std::is_same<TInput, int32_t>::value) {
+    } else if constexpr (std::is_same_v<TInput, int32_t>) {
       result = preserveSign<int32_t, 0x00000000ffffffffL, 0x000000000080000000L>(number)
                 >> shift;
     } else {

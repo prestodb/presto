@@ -295,8 +295,7 @@ class variant {
   template <
       typename T = long long,
       std::enable_if_t<
-          std::is_same<T, long long>::value &&
-              !std::is_same<long long, int64_t>::value,
+          std::is_same_v<T, long long> && !std::is_same_v<long long, int64_t>,
           bool> = true>
   /* implicit */ variant(const T& v) : variant(static_cast<int64_t>(v)) {}
 

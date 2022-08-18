@@ -63,7 +63,7 @@ class FloatingPointDecoder {
 
   template <bool hasNulls, typename Visitor>
   void readWithVisitor(const uint64_t* nulls, Visitor visitor) {
-    if (std::is_same<TData, TRequested>::value &&
+    if (std::is_same_v<TData, TRequested> &&
         dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
@@ -103,11 +103,11 @@ class FloatingPointDecoder {
   template <bool hasNulls, typename Visitor>
   void fastPath(const uint64_t* nulls, Visitor& visitor) {
     constexpr bool hasFilter =
-        !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
+        !std::is_same_v<typename Visitor::FilterType, common::AlwaysTrue>;
     constexpr bool filterOnly =
-        std::is_same<typename Visitor::Extract, DropValues>::value;
+        std::is_same_v<typename Visitor::Extract, DropValues>;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
+        !std::is_same_v<typename Visitor::HookType, dwio::common::NoHook>;
     int32_t numValues = 0;
     auto rows = visitor.rows();
     auto numRows = visitor.numRows();

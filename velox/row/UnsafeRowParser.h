@@ -39,7 +39,7 @@ struct UnsafeRowStaticUtilities {
    */
   template <typename SqlType>
   constexpr static inline TypeKind simpleSqlTypeToTypeKind() {
-    if constexpr (std::is_same<SqlType, BooleanType>::value) {
+    if constexpr (std::is_same_v<SqlType, BooleanType>) {
       return TypeKind::BOOLEAN;
     } else if constexpr (std::is_same_v<SqlType, TinyintType>) {
       return TypeKind::TINYINT;

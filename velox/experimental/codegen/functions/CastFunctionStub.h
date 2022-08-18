@@ -27,7 +27,7 @@ struct CodegenConversionStub {
 
   template <typename T>
   static ReturnType<T> cast(const T& arg) {
-    if constexpr (std::is_same<codegen::TempString<TempsAllocator>, T>::value) {
+    if constexpr (std::is_same_v<codegen::TempString<TempsAllocator>, T>) {
       return util::Converter<kind, void, castByTruncate>::cast(
           folly::StringPiece(arg.data(), arg.size()));
     } else {

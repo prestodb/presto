@@ -38,7 +38,7 @@ namespace facebook::velox::codegen {
 
 template <typename T>
 FOLLY_ALWAYS_INLINE int64_t computeHashStub(const T& arg) {
-  if constexpr (std::is_same<codegen::TempString<TempsAllocator>, T>::value) {
+  if constexpr (std::is_same_v<codegen::TempString<TempsAllocator>, T>) {
     //   std::cerr << std::string_view(arg.data(), arg.size());
     return functions::computeHash(std::string_view(arg.data(), arg.size()));
   } else {

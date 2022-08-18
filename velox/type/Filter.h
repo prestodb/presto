@@ -1025,8 +1025,8 @@ class FloatingPointRange final : public AbstractRange {
             upperUnbounded,
             upperExclusive,
             nullAllowed,
-            (std::is_same<T, double>::value) ? FilterKind::kDoubleRange
-                                             : FilterKind::kFloatRange),
+            (std::is_same_v<T, double>) ? FilterKind::kDoubleRange
+                                        : FilterKind::kFloatRange),
         lower_(lower),
         upper_(upper) {
     VELOX_CHECK(lowerUnbounded || !std::isnan(lower_));
@@ -1040,8 +1040,8 @@ class FloatingPointRange final : public AbstractRange {
             other.upperUnbounded_,
             other.upperExclusive_,
             nullAllowed,
-            (std::is_same<T, double>::value) ? FilterKind::kDoubleRange
-                                             : FilterKind::kFloatRange),
+            (std::is_same_v<T, double>) ? FilterKind::kDoubleRange
+                                        : FilterKind::kFloatRange),
         lower_(other.lower_),
         upper_(other.upper_) {
     VELOX_CHECK(lowerUnbounded_ || !std::isnan(lower_));
@@ -1662,14 +1662,14 @@ class MultiRange final : public Filter {
 // Helper for applying filters to different types
 template <typename TFilter, typename T>
 static inline bool applyFilter(TFilter& filter, T value) {
-  if (std::is_same<T, int8_t>::value || std::is_same<T, int16_t>::value ||
-      std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value) {
+  if (std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
+      std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>) {
     return filter.testInt64(value);
-  } else if (std::is_same<T, float>::value) {
+  } else if (std::is_same_v<T, float>) {
     return filter.testFloat(value);
-  } else if (std::is_same<T, double>::value) {
+  } else if (std::is_same_v<T, double>) {
     return filter.testDouble(value);
-  } else if (std::is_same<T, bool>::value) {
+  } else if (std::is_same_v<T, bool>) {
     return filter.testBool(value);
   } else {
     VELOX_CHECK(false, "Bad argument type to filter");

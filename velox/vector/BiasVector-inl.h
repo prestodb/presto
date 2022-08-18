@@ -111,7 +111,7 @@ const T BiasVector<T>::valueAtFast(vector_size_t idx) const {
 
 template <typename T>
 xsimd::batch<T> BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
-  if constexpr (std::is_same<T, int64_t>::value) {
+  if constexpr (std::is_same_v<T, int64_t>) {
     switch (valueType_) {
       case TypeKind::INTEGER:
         return biasBuffer_ + loadSIMDInternal<int32_t>(index);
@@ -122,7 +122,7 @@ xsimd::batch<T> BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
       default:
         VELOX_UNSUPPORTED("Invalid type");
     }
-  } else if constexpr (std::is_same<T, int32_t>::value) {
+  } else if constexpr (std::is_same_v<T, int32_t>) {
     switch (valueType_) {
       case TypeKind::SMALLINT:
         return biasBuffer_ + loadSIMDInternal<int16_t>(index);
@@ -131,7 +131,7 @@ xsimd::batch<T> BiasVector<T>::loadSIMDValueBufferAt(size_t index) const {
       default:
         VELOX_UNSUPPORTED("Invalid type");
     }
-  } else if constexpr (std::is_same<T, int16_t>::value) {
+  } else if constexpr (std::is_same_v<T, int16_t>) {
     switch (valueType_) {
       case TypeKind::TINYINT:
         return biasBuffer_ + loadSIMDInternal<int8_t>(index);

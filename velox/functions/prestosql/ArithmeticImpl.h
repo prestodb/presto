@@ -28,8 +28,7 @@ namespace facebook::velox::functions {
 template <typename TNum, typename TDecimals, bool alwaysRoundNegDec = false>
 FOLLY_ALWAYS_INLINE TNum
 round(const TNum& number, const TDecimals& decimals = 0) {
-  static_assert(
-      !std::is_same<TNum, bool>::value && "round not supported for bool");
+  static_assert(!std::is_same_v<TNum, bool> && "round not supported for bool");
 
   if constexpr (std::is_integral<TNum>::value) {
     if constexpr (alwaysRoundNegDec) {

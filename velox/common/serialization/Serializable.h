@@ -64,9 +64,9 @@ using objCreateType = T(const folly::dynamic&);
 template <class T>
 struct has_static_obj_create_type<
     T,
-    std::enable_if_t<std::is_same<
-        decltype(T::create(std::declval<folly::dynamic>())),
-        T>::value>> : std::true_type {};
+    std::enable_if_t<
+        std::is_same_v<decltype(T::create(std::declval<folly::dynamic>())), T>>>
+    : std::true_type {};
 
 template <class>
 struct vector_type {
@@ -90,9 +90,9 @@ struct has_serialize_type : std::false_type {};
 template <class T>
 struct has_serialize_type<
     T,
-    std::enable_if_t<std::is_same<
+    std::enable_if_t<std::is_same_v<
         decltype(std::declval<T>().serialize()),
-        serilizationformat>::value>> : std::true_type {};
+        serilizationformat>>> : std::true_type {};
 
 class ISerializable {
  public:
@@ -143,7 +143,7 @@ class ISerializable {
   template <
       class T,
       std::enable_if_t<
-          std::is_same<T, folly::Optional<typename T::value_type>>::value>>
+          std::is_same_v<T, folly::Optional<typename T::value_type>>>>
   static folly::dynamic serialize(const folly::Optional<T>& val) {
     if (!val.hasValue()) {
       return nullptr;
@@ -200,7 +200,7 @@ class ISerializable {
   template <
       class T,
       typename = std::enable_if_t<
-          std::is_integral<T>::value && !std::is_same<T, bool>::value>>
+          std::is_integral<T>::value && !std::is_same_v<T, bool>>>
   static T deserialize(const folly::dynamic& obj) {
     auto raw = obj.asInt();
     VELOX_USER_CHECK_GE(raw, std::numeric_limits<T>::min());
@@ -208,21 +208,19 @@ class ISerializable {
     return (T)raw;
   }
 
-  template <class T, typename = std::enable_if_t<std::is_same<T, bool>::value>>
+  template <class T, typename = std::enable_if_t<std::is_same_v<T, bool>>>
   static bool deserialize(const folly::dynamic& obj) {
     return obj.asBool();
   }
 
-  template <
-      class T,
-      typename = std::enable_if_t<std::is_same<T, double>::value>>
+  template <class T, typename = std::enable_if_t<std::is_same_v<T, double>>>
   static double deserialize(const folly::dynamic& obj) {
     return obj.asDouble();
   }
 
   template <
       class T,
-      typename = std::enable_if_t<std::is_same<T, std::string>::value>>
+      typename = std::enable_if_t<std::is_same_v<T, std::string>>>
   static std::string deserialize(const folly::dynamic& obj) {
     return obj.asString();
   }
@@ -230,7 +228,7 @@ class ISerializable {
   template <
       class T,
       typename = std::enable_if_t<
-          std::is_same<T, folly::Optional<typename T::value_type>>::value>>
+          std::is_same_v<T, folly::Optional<typename T::value_type>>>>
   static folly::Optional<
       decltype(ISerializable::deserialize<typename T::value_type>(
           std::declval<folly::dynamic>()))>
@@ -266,9 +264,9 @@ class ISerializable {
 
   template <
       class T,
-      typename = std::enable_if_t<std::is_same<
+      typename = std::enable_if_t<std::is_same_v<
           T,
-          std::map<typename T::key_type, typename T::mapped_type>>::value>>
+          std::map<typename T::key_type, typename T::mapped_type>>>>
   static std::map<
       decltype(ISerializable::deserialize<typename T::key_type>(
           std::declval<folly::dynamic>())),

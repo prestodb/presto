@@ -100,8 +100,7 @@ namespace {
 template <typename TOutput, typename TInput>
 inline void updateSingleValue(TOutput& result, TInput value) {
   if constexpr (
-      std::is_same<TOutput, double>::value ||
-      std::is_same<TOutput, float>::value) {
+      std::is_same_v<TOutput, double> || std::is_same_v<TOutput, float>) {
     result += value;
   } else {
     result = checkedPlus<TOutput>(result, value);
@@ -121,18 +120,18 @@ class SumHook final : public AggregationHook {
       : AggregationHook(offset, nullByte, nullMask, groups, numNulls) {}
 
   Kind kind() const override {
-    if (std::is_same<TAggregate, double>::value) {
-      if (std::is_same<TValue, double>::value) {
+    if (std::is_same_v<TAggregate, double>) {
+      if (std::is_same_v<TValue, double>) {
         return kSumDoubleToDouble;
       }
-      if (std::is_same<TValue, float>::value) {
+      if (std::is_same_v<TValue, float>) {
         return kSumFloatToDouble;
       }
-    } else if (std::is_same<TAggregate, int64_t>::value) {
-      if (std::is_same<TValue, int32_t>::value) {
+    } else if (std::is_same_v<TAggregate, int64_t>) {
+      if (std::is_same_v<TValue, int32_t>) {
         return kSumIntegerToBigint;
       }
-      if (std::is_same<TValue, int64_t>::value) {
+      if (std::is_same_v<TValue, int64_t>) {
         return kSumBigintToBigint;
       }
     }
@@ -190,23 +189,23 @@ class MinMaxHook final : public AggregationHook {
 
   Kind kind() const override {
     if (isMin) {
-      if (std::is_same<T, int64_t>::value) {
+      if (std::is_same_v<T, int64_t>) {
         return kBigintMin;
       }
-      if (std::is_same<T, float>::value) {
+      if (std::is_same_v<T, float>) {
         return kFloatMin;
       }
-      if (std::is_same<T, double>::value) {
+      if (std::is_same_v<T, double>) {
         return kDoubleMin;
       }
     } else {
-      if (std::is_same<T, int64_t>::value) {
+      if (std::is_same_v<T, int64_t>) {
         return kBigintMax;
       }
-      if (std::is_same<T, float>::value) {
+      if (std::is_same_v<T, float>) {
         return kFloatMax;
       }
-      if (std::is_same<T, double>::value) {
+      if (std::is_same_v<T, double>) {
         return kDoubleMax;
       }
     }

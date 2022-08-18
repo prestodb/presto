@@ -73,7 +73,7 @@ inline void swapWithNull(
     vector_size_t nullIndex) {
   // Values are already present in vector stringBuffers. Don't create additional
   // copy.
-  if constexpr (std::is_same<T, StringView>::value) {
+  if constexpr (std::is_same_v<T, StringView>) {
     vector->setNoCopy(nullIndex, vector->valueAt(index));
   } else {
     vector->set(nullIndex, vector->valueAt(index));

@@ -1448,12 +1448,12 @@ class VectorCreateConstantTest : public VectorTest {
     ASSERT_TRUE(simpleVector->isScalar());
 
     for (auto i = 0; i < simpleVector->size(); i++) {
-      if constexpr (std::is_same<TCpp, StringView>::value) {
+      if constexpr (std::is_same_v<TCpp, StringView>) {
         ASSERT_EQ(
             var.template value<KIND>(), std::string(simpleVector->valueAt(i)));
       } else if constexpr (
-          std::is_same<TCpp, UnscaledShortDecimal>::value ||
-          std::is_same<TCpp, UnscaledLongDecimal>::value) {
+          std::is_same_v<TCpp, UnscaledShortDecimal> ||
+          std::is_same_v<TCpp, UnscaledLongDecimal>) {
         const auto& value = var.template value<KIND>().value();
         ASSERT_EQ(value, simpleVector->valueAt(i));
       } else {

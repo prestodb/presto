@@ -36,9 +36,9 @@ template <typename T>
 class ConstantVector final : public SimpleVector<T> {
  public:
   static constexpr bool can_simd =
-      (std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
-       std::is_same<T, int16_t>::value || std::is_same<T, int8_t>::value ||
-       std::is_same<T, bool>::value || std::is_same<T, size_t>::value);
+      (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
+       std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||
+       std::is_same_v<T, bool> || std::is_same_v<T, size_t>);
 
   ConstantVector(
       velox::memory::MemoryPool* pool,
@@ -90,7 +90,7 @@ class ConstantVector final : public SimpleVector<T> {
       valueVector_ = BaseVector::create(type, 1, pool);
       valueVector_->setNull(0, true);
     }
-    if (!isNull_ && std::is_same<T, StringView>::value) {
+    if (!isNull_ && std::is_same_v<T, StringView>) {
       // Copy string value.
       StringView* valuePtr = reinterpret_cast<StringView*>(&value_);
       setValue(std::string(valuePtr->data(), valuePtr->size()));
@@ -344,7 +344,7 @@ class ConstantVector final : public SimpleVector<T> {
       isNull_ = simple->isNullAt(index_);
       if (!isNull_) {
         value_ = simple->valueAt(index_);
-        if constexpr (std::is_same<T, StringView>::value) {
+        if constexpr (std::is_same_v<T, StringView>) {
           // Copy string value.
           StringView* valuePtr = reinterpret_cast<StringView*>(&value_);
           setValue(std::string(valuePtr->data(), valuePtr->size()));

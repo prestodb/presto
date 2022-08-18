@@ -324,7 +324,7 @@ void FlatVector<T>::resize(vector_size_t size, bool setNotNull) {
   }
   values_->setSize(minBytes);
 
-  if (std::is_same<T, StringView>::value) {
+  if (std::is_same_v<T, StringView>) {
     if (size < previousSize) {
       auto vector = this->template asUnchecked<SimpleVector<StringView>>();
       vector->invalidateIsAscii();
@@ -346,7 +346,7 @@ void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
   auto newSize = std::max<vector_size_t>(rows.size(), BaseVector::length_);
   if (values_ && !(values_->unique() && values_->isMutable())) {
     BufferPtr newValues;
-    if constexpr (std::is_same<T, StringView>::value) {
+    if constexpr (std::is_same_v<T, StringView>) {
       // Make sure to initialize StringView values so they can be safely
       // accessed.
       newValues = AlignedBuffer::allocate<T>(newSize, BaseVector::pool_, T());

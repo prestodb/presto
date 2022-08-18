@@ -52,8 +52,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
   // For double, presto should throw error if input is Nan
   template <typename T>
   void checkNan(const T& value) const {
-    if constexpr (std::is_same<T, TypeTraits<TypeKind::DOUBLE>::NativeType>::
-                      value) {
+    if constexpr (std::is_same_v<T, TypeTraits<TypeKind::DOUBLE>::NativeType>) {
       if (std::isnan(value)) {
         VELOX_USER_FAIL(
             "Invalid argument to {}: NaN", isLeast ? "least()" : "greatest()");
@@ -95,8 +94,8 @@ class ExtremeValueFunction : public exec::VectorFunction {
       rawResult[row] = currentValue;
     });
 
-    if constexpr (std::is_same<T, TypeTraits<TypeKind::VARCHAR>::NativeType>::
-                      value) {
+    if constexpr (std::
+                      is_same_v<T, TypeTraits<TypeKind::VARCHAR>::NativeType>) {
       auto* flatResult = (*result)->as<FlatVector<T>>();
       for (auto index : usedInputs) {
         flatResult->acquireSharedStringBuffers(args[index].get());

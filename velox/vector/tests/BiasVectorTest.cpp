@@ -106,7 +106,7 @@ TYPED_TEST(BiasVectorOverflowTest, maxOverflowTest_delta_int8) {
 
 TYPED_TEST(BiasVectorOverflowTest, maxOverflowTest_delta_int16) {
   size_t delta = std::numeric_limits<int16_t>::max();
-  if constexpr (std::is_same<TypeParam, int16_t>::value) {
+  if constexpr (std::is_same_v<TypeParam, int16_t>) {
     delta = std::numeric_limits<int8_t>::max();
   }
   this->runMaxOverflowTest(delta);
@@ -115,11 +115,11 @@ TYPED_TEST(BiasVectorOverflowTest, maxOverflowTest_delta_int16) {
 TYPED_TEST(BiasVectorOverflowTest, maxOverflowTest_delta_int32) {
   using T = TypeParam;
   size_t delta = std::numeric_limits<int32_t>::max();
-  if constexpr (std::is_same<T, int16_t>::value) {
+  if constexpr (std::is_same_v<T, int16_t>) {
     delta = std::numeric_limits<int8_t>::max();
   }
 
-  if constexpr (std::is_same<T, int32_t>::value) {
+  if constexpr (std::is_same_v<T, int32_t>) {
     delta = std::numeric_limits<int16_t>::max();
   }
 
@@ -132,7 +132,7 @@ TYPED_TEST(BiasVectorOverflowTest, minOverflowTest_delta_int8) {
 
 TYPED_TEST(BiasVectorOverflowTest, minOverflowTest_delta_int16) {
   size_t delta = std::numeric_limits<int16_t>::max();
-  if constexpr (std::is_same<TypeParam, int16_t>::value) {
+  if constexpr (std::is_same_v<TypeParam, int16_t>) {
     delta = std::numeric_limits<int8_t>::max();
   }
   delta++;
@@ -142,11 +142,11 @@ TYPED_TEST(BiasVectorOverflowTest, minOverflowTest_delta_int16) {
 TYPED_TEST(BiasVectorOverflowTest, minOverflowTest_delta_int32) {
   using T = TypeParam;
   size_t delta = std::numeric_limits<int32_t>::max();
-  if constexpr (std::is_same<T, int16_t>::value) {
+  if constexpr (std::is_same_v<T, int16_t>) {
     delta = std::numeric_limits<int8_t>::max();
   }
   // delta++;
-  if constexpr (std::is_same<T, int32_t>::value) {
+  if constexpr (std::is_same_v<T, int32_t>) {
     delta = std::numeric_limits<int16_t>::max();
   }
   delta++;

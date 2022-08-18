@@ -528,7 +528,7 @@ class RowContainer {
       return;
     }
     *reinterpret_cast<T*>(row + offset) = decoded.valueAt<T>(index);
-    if constexpr (std::is_same<T, StringView>::value) {
+    if constexpr (std::is_same_v<T, StringView>) {
       RowSizeTracker tracker(row[rowSizeOffset_], stringAllocator_);
       stringAllocator_.copyMultipart(row, offset);
     }
@@ -542,7 +542,7 @@ class RowContainer {
       int32_t offset) {
     using T = typename TypeTraits<Kind>::NativeType;
     *reinterpret_cast<T*>(group + offset) = decoded.valueAt<T>(index);
-    if constexpr (std::is_same<T, StringView>::value) {
+    if constexpr (std::is_same_v<T, StringView>) {
       RowSizeTracker tracker(group[rowSizeOffset_], stringAllocator_);
       stringAllocator_.copyMultipart(group, offset);
     }

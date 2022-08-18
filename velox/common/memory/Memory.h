@@ -960,7 +960,7 @@ class Allocator {
 
   template <typename T1>
   bool operator==(const Allocator<T1>& rhs) const {
-    if constexpr (std::is_same<T, T1>::value) {
+    if constexpr (std::is_same_v<T, T1>) {
       return &this->pool == &rhs.pool;
     }
     return false;

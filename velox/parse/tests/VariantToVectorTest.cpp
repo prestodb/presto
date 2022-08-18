@@ -48,7 +48,7 @@ class VariantToVectorTest : public testing::Test {
       auto& var = inputArray[i];
       if (var.isNull()) {
         ASSERT_TRUE(elements->isNullAt(i));
-      } else if constexpr (std::is_same<TCpp, StringView>::value) {
+      } else if constexpr (std::is_same_v<TCpp, StringView>) {
         ASSERT_EQ(
             var.template value<KIND>(), std::string(elements->valueAt(i)));
       } else {

@@ -35,9 +35,9 @@ template <typename T>
 class SequenceVector : public SimpleVector<T> {
  public:
   static constexpr bool can_simd =
-      (std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
-       std::is_same<T, int16_t>::value || std::is_same<T, int8_t>::value ||
-       std::is_same<T, size_t>::value);
+      (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
+       std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||
+       std::is_same_v<T, size_t>);
 
   SequenceVector(
       velox::memory::MemoryPool* pool,

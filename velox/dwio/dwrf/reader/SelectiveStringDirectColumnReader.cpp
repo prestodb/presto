@@ -315,11 +315,10 @@ void SelectiveStringDirectColumnReader::readWithVisitor(
   vector_size_t numRows = rows.back() + 1;
   int32_t current = visitor.start();
   constexpr bool isExtract =
-      std::is_same<typename TVisitor::FilterType, common::AlwaysTrue>::value &&
-      std::is_same<
+      std::is_same_v<typename TVisitor::FilterType, common::AlwaysTrue> &&
+      std::is_same_v<
           typename TVisitor::Extract,
-          dwio::common::ExtractToReader<SelectiveStringDirectColumnReader>>::
-          value;
+          dwio::common::ExtractToReader<SelectiveStringDirectColumnReader>>;
   auto nulls = nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
 
   if (process::hasAvx2() && isExtract) {
@@ -385,12 +384,10 @@ void SelectiveStringDirectColumnReader::processFilter(
       break;
     case common::FilterKind::kIsNull:
       filterNulls<StringView>(
-          rows,
-          true,
-          !std::is_same<decltype(extractValues), DropValues>::value);
+          rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
       break;
     case common::FilterKind::kIsNotNull:
-      if (std::is_same<decltype(extractValues), DropValues>::value) {
+      if (std::is_same_v<decltype(extractValues), DropValues>) {
         filterNulls<StringView>(rows, false, false);
       } else {
         readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);

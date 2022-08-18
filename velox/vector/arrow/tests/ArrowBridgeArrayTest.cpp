@@ -700,7 +700,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
         nullCount++;
       } else {
         bits::clearNull(rawNulls, i);
-        if constexpr (std::is_same<T, bool>::value) {
+        if constexpr (std::is_same_v<T, bool>) {
           bits::setBit(rawValues, i, *inputValues[i]);
         } else {
           rawValues[i] = *inputValues[i];

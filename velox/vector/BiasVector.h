@@ -93,8 +93,8 @@ class BiasVector : public SimpleVector<T> {
 
  public:
   static constexpr bool can_simd =
-      (std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
-       std::is_same<T, int16_t>::value);
+      (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
+       std::is_same_v<T, int16_t>);
 
   BiasVector(
       velox::memory::MemoryPool* pool,

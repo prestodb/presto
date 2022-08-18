@@ -38,9 +38,9 @@ class FlatVector final : public SimpleVector<T> {
   using value_type = T;
 
   static constexpr bool can_simd =
-      (std::is_same<T, int64_t>::value || std::is_same<T, int32_t>::value ||
-       std::is_same<T, int16_t>::value || std::is_same<T, int8_t>::value ||
-       std::is_same<T, bool>::value || std::is_same<T, size_t>::value);
+      (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t> ||
+       std::is_same_v<T, int16_t> || std::is_same_v<T, int8_t> ||
+       std::is_same_v<T, bool> || std::is_same_v<T, size_t>);
 
   // Minimum size of a string buffer. 32 KB value is chosen to ensure that a
   // single buffer is sufficient for a "typical" vector: 1K rows, medium size

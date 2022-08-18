@@ -89,8 +89,8 @@ struct UnsafeRowSerializer {
           UnsafeRowStaticUtilities::simpleSqlTypeToTypeKind<SqlType>()>(
           data, buffer, idx);
     } else if constexpr (
-        std::is_same<SqlType, VarcharType>::value ||
-        std::is_same<SqlType, VarbinaryType>::value) {
+        std::is_same_v<SqlType, VarcharType> ||
+        std::is_same_v<SqlType, VarbinaryType>) {
       return serializeStringView(data, buffer, idx);
     } else {
       return ComplexTypeSerializer<SqlType>::serialize(data, buffer);
@@ -124,8 +124,8 @@ struct UnsafeRowSerializer {
   serializeComplexVectors(const DataType& data, char* buffer, size_t idx = 0) {
     if constexpr (
         UnsafeRowStaticUtilities::isFixedWidth<SqlType>() ||
-        std::is_same<SqlType, VarcharType>::value ||
-        std::is_same<SqlType, VarbinaryType>::value) {
+        std::is_same_v<SqlType, VarcharType> ||
+        std::is_same_v<SqlType, VarbinaryType>) {
       return serialize<SqlType, DataType>(data, buffer, idx);
     } else {
       /// Although we support Row<T...> in the static serializer, we do not

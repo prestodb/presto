@@ -235,7 +235,7 @@ static VectorPtr createEmpty(
   using T = typename TypeTraits<kind>::NativeType;
 
   BufferPtr values;
-  if constexpr (std::is_same<T, StringView>::value) {
+  if constexpr (std::is_same_v<T, StringView>) {
     // Make sure to initialize StringView values so they can be safely accessed.
     values = AlignedBuffer::allocate<T>(size, pool, T());
   } else {

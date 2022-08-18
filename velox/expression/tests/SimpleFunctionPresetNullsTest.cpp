@@ -47,9 +47,9 @@ class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {
     struct udf {
       VELOX_DEFINE_FUNCTION_TYPES(ExecEnv);
       bool call(out_type<T>& out, const arg_type<T>& in) {
-        if constexpr (std::is_same<T, Varchar>::value) {
+        if constexpr (std::is_same_v<T, Varchar>) {
           out.setEmpty();
-        } else if constexpr (std::is_same<T, Array<int64_t>>::value) {
+        } else if constexpr (std::is_same_v<T, Array<int64_t>>) {
           out.push_back(1);
         } else {
           out = in;
@@ -67,14 +67,14 @@ class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {
   // Create vector of type T as input with arbitrary data.
   template <typename T>
   RowVectorPtr createInput(vector_size_t size) {
-    if constexpr (std::is_same<T, Varchar>::value) {
+    if constexpr (std::is_same_v<T, Varchar>) {
       auto flatInput = makeFlatVector<StringView>(size);
 
       for (auto i = 0; i < flatInput->size(); i++) {
         flatInput->set(i, "test"_sv);
       }
       return makeRowVector({flatInput});
-    } else if constexpr (std::is_same<T, Array<int64_t>>::value) {
+    } else if constexpr (std::is_same_v<T, Array<int64_t>>) {
       std::vector<std::vector<int64_t>> arrayData{(unsigned int)size, {1}};
       auto input = vectorMaker_.arrayVector(arrayData);
       return makeRowVector({input});
@@ -91,9 +91,9 @@ class SimpleFunctionPresetNullsTest : public functions::test::FunctionBaseTest {
   template <typename T>
   VectorPtr createResults(vector_size_t size) {
     VectorPtr result;
-    if constexpr (std::is_same<T, Varchar>::value) {
+    if constexpr (std::is_same_v<T, Varchar>) {
       result = makeFlatVector<StringView>(size);
-    } else if constexpr (std::is_same<T, Array<int64_t>>::value) {
+    } else if constexpr (std::is_same_v<T, Array<int64_t>>) {
       std::vector<std::vector<int64_t>> arrayData{(unsigned int)size, {1}};
       result = vectorMaker_.arrayVector(arrayData);
     } else {

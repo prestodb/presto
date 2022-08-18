@@ -67,36 +67,33 @@ class VectorValueGenerator {
       std::optional<folly::Random::DefaultGenerator>& rng,
       StringViewBufferHolder& stringViewBufferHolder,
       std::optional<uint32_t> fixedWidthStringSize = std::nullopt) {
-    if constexpr (
-        std::is_same<T, int64_t>::value || std::is_same<T, uint64_t>::value) {
+    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>) {
       return useFullTypeRange ? getRand64(rng) : getRand32(rng);
     } else if constexpr (
-        std::is_integral<T>::value && !std::is_same<T, bool>::value) {
+        std::is_integral<T>::value && !std::is_same_v<T, bool>) {
       // The other integral cases, signed and unsigned
       auto max = std::numeric_limits<T>::max();
       if (!useFullTypeRange) {
         if constexpr (
-            std::is_same<T, int32_t>::value ||
-            std::is_same<T, uint32_t>::value) {
+            std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>) {
           max = std::numeric_limits<int16_t>::max();
         } else if constexpr (
-            std::is_same<T, int16_t>::value ||
-            std::is_same<T, uint16_t>::value) {
+            std::is_same_v<T, int16_t> || std::is_same_v<T, uint16_t>) {
           max = std::numeric_limits<int8_t>::max();
         } else {
           max = std::numeric_limits<int8_t>::max() / 2;
         }
       }
       return getRand32(rng, max);
-    } else if constexpr (std::is_same<T, double>::value) {
+    } else if constexpr (std::is_same_v<T, double>) {
       return getRandDouble(rng);
-    } else if constexpr (std::is_same<T, StringView>::value) {
+    } else if constexpr (std::is_same_v<T, StringView>) {
       auto str = std::string(
           fixedWidthStringSize.has_value() ? fixedWidthStringSize.value()
                                            : getRand32(rng) % 100 + 1,
           'a' + (getRand32(rng) % 26));
       return stringViewBufferHolder.getOwnedValue(StringView(str));
-    } else if constexpr (std::is_same<T, bool>::value) {
+    } else if constexpr (std::is_same_v<T, bool>) {
       return getRand32(rng) % 2 == 0;
     } else {
       VELOX_UNSUPPORTED("Invalid type");
@@ -108,7 +105,7 @@ class VectorValueGenerator {
     if constexpr (std::is_arithmetic<T>::value) {
       // integers, double and bool
       return T{};
-    } else if constexpr (std::is_same<T, StringView>::value) {
+    } else if constexpr (std::is_same_v<T, StringView>) {
       return StringView();
     } else {
       VELOX_UNSUPPORTED("Invalid type");

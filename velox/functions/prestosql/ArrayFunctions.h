@@ -219,7 +219,7 @@ struct CombinationsFunction {
         innerArray.add_null();
         continue;
       }
-      if constexpr (std::is_same<T, Varchar>::value) {
+      if constexpr (std::is_same_v<T, Varchar>) {
         innerArray.add_item().setNoCopy(array[idx].value());
       } else {
         innerArray.add_item() = array[idx].value();

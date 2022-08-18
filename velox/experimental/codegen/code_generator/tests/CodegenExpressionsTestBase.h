@@ -131,11 +131,11 @@ struct RowTypeTrait {
     if constexpr (index == sizeof...(T)) {
       return;
     } else {
-      if constexpr (std::is_same<
+      if constexpr (std::is_same_v<
                         TempStringNullable<TempsAllocator>,
                         typename std::tuple_element<
                             index,
-                            CodegenTupleWritersType>::type>::value) {
+                            CodegenTupleWritersType>::type>) {
         if (std::get<index>(viewTuple).has_value()) {
           std::get<index>(out) = InputReferenceStringNullable{
               InputReferenceString{*std::get<index>(viewTuple)}};
@@ -164,11 +164,11 @@ struct RowTypeTrait {
       return;
 
     } else {
-      if constexpr (std::is_same<
+      if constexpr (std::is_same_v<
                         TempStringNullable<TempsAllocator>,
                         typename std::tuple_element<
                             index,
-                            CodegenTupleWritersType>::type>::value) {
+                            CodegenTupleWritersType>::type>) {
         if (std::get<index>(writers).has_value()) {
           auto& tempString = *std::get<index>(writers);
           std::get<index>(out) = {

@@ -125,7 +125,7 @@ std::unique_ptr<SimpleVector<uint64_t>> SequenceVector<T>::hashAll() const {
 template <typename T>
 xsimd::batch<T> SequenceVector<T>::loadSIMDValueBufferAt(
     size_t byteOffset) const {
-  if constexpr (std::is_same<T, bool>::value) {
+  if constexpr (std::is_same_v<T, bool>) {
     throw std::runtime_error(
         "Sequence encoding only supports SIMD operations on integers");
   } else {

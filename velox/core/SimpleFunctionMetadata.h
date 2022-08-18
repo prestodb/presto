@@ -194,7 +194,7 @@ struct TypeAnalysis {
 template <typename T>
 struct TypeAnalysis<Generic<T>> {
   void run(TypeAnalysisResults& results) {
-    if constexpr (std::is_same<T, AnyType>::value) {
+    if constexpr (std::is_same_v<T, AnyType>) {
       results.out << "any";
     } else {
       auto variableType = fmt::format("__user_T{}", T::getId());
