@@ -112,7 +112,7 @@ public class DruidAggregationProjectConverter
         }
 
         inputColumn = timeConversion.getArguments().get(0).accept(this, context).getDefinition();
-        inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : TimeZone.getTimeZone(ZoneOffset.UTC).getID();
+        inputTimeZone = timeConversion.getArguments().size() > 1 ? getStringFromConstant(timeConversion.getArguments().get(1)) : "UTC";
         inputFormat = "seconds";
         RowExpression intervalParameter = function.getArguments().get(0);
         if (!(intervalParameter instanceof ConstantExpression)) {
