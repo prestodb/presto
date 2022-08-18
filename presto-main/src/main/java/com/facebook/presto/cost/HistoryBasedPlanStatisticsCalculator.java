@@ -19,7 +19,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
-import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.sql.planner.PlanHasher;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.Lookup;
@@ -58,8 +58,8 @@ public class HistoryBasedPlanStatisticsCalculator
     @Override
     public PlanNodeStatsEstimate calculateStats(PlanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
-        return delegate.calculateStats(node, sourceStats, lookup, session, types)
-                .combineStats(getStatistics(node, session, lookup));
+        PlanNodeStatsEstimate delegateStats = delegate.calculateStats(node, sourceStats, lookup, session, types);
+        return getStatistics(node, session, lookup, delegateStats);
     }
 
     @VisibleForTesting
@@ -68,11 +68,11 @@ public class HistoryBasedPlanStatisticsCalculator
         return planHasher;
     }
 
-    private PlanStatistics getStatistics(PlanNode planNode, Session session, Lookup lookup)
+    private PlanNodeStatsEstimate getStatistics(PlanNode planNode, Session session, Lookup lookup, PlanNodeStatsEstimate delegateStats)
     {
         PlanNode plan = resolveGroupReferences(planNode, lookup);
         if (!useHistoryBasedPlanStatisticsEnabled(session)) {
-            return PlanStatistics.empty();
+            return delegateStats;
         }
 
         ImmutableMap.Builder<PlanCanonicalizationStrategy, String> allHashesBuilder = ImmutableMap.builder();
@@ -100,13 +100,14 @@ public class HistoryBasedPlanStatisticsCalculator
             for (Map.Entry<PlanNodeWithHash, HistoricalPlanStatistics> entry : statistics.entrySet()) {
                 if (allHashes.containsKey(strategy) && Optional.of(allHashes.get(strategy)).equals(entry.getKey().getHash())) {
                     // TODO: Use better historical statistics
-                    return entry.getValue().getLastRunStatistics();
+                    return delegateStats.combineStats(entry.getValue().getLastRunStatistics(), new HistoryBasedSourceInfo(entry.getKey().getHash()));
                 }
             }
         }
 
         return Optional.ofNullable(statistics.get(new PlanNodeWithHash(plan, Optional.empty())))
                 .map(HistoricalPlanStatistics::getLastRunStatistics)
-                .orElseGet(PlanStatistics::empty);
+                .map(planStatistics -> delegateStats.combineStats(planStatistics, new HistoryBasedSourceInfo(Optional.empty())))
+                .orElse(delegateStats);
     }
 }

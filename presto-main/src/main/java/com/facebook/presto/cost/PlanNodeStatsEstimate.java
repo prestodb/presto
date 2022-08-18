@@ -16,8 +16,13 @@ package com.facebook.presto.cost;
 import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
+import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
+import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
+import com.facebook.presto.spi.statistics.SourceInfo;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
@@ -44,8 +49,11 @@ public class PlanNodeStatsEstimate
 
     private final double outputRowCount;
     private final double totalSize;
+    // TODO: Consider adding this in sourceInfo
     private final boolean confident;
     private final PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics;
+
+    private final SourceInfo sourceInfo;
 
     public static PlanNodeStatsEstimate unknown()
     {
@@ -64,11 +72,17 @@ public class PlanNodeStatsEstimate
 
     private PlanNodeStatsEstimate(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics)
     {
+        this(outputRowCount, totalSize, confident, variableStatistics, new CostBasedSourceInfo());
+    }
+
+    public PlanNodeStatsEstimate(double outputRowCount, double totalSize, boolean confident, PMap<VariableReferenceExpression, VariableStatsEstimate> variableStatistics, SourceInfo sourceInfo)
+    {
         checkArgument(isNaN(outputRowCount) || outputRowCount >= 0, "outputRowCount cannot be negative");
         this.outputRowCount = outputRowCount;
         this.totalSize = totalSize;
         this.confident = confident;
         this.variableStatistics = variableStatistics;
+        this.sourceInfo = requireNonNull(sourceInfo, "SourceInfo is null");
     }
 
     /**
@@ -91,6 +105,11 @@ public class PlanNodeStatsEstimate
     public boolean isConfident()
     {
         return confident;
+    }
+
+    public SourceInfo getSourceInfo()
+    {
+        return sourceInfo;
     }
 
     /**
@@ -178,14 +197,15 @@ public class PlanNodeStatsEstimate
         return isNaN(outputRowCount);
     }
 
-    public PlanNodeStatsEstimate combineStats(PlanStatistics planStatistics)
+    public PlanNodeStatsEstimate combineStats(PlanStatistics planStatistics, SourceInfo statsSourceInfo)
     {
         if (planStatistics.getConfidence() > 0) {
             return new PlanNodeStatsEstimate(
                     planStatistics.getRowCount().getValue(),
                     planStatistics.getOutputSize().getValue(),
                     true,
-                    variableStatistics);
+                    variableStatistics,
+                    statsSourceInfo);
         }
         return this;
     }
@@ -197,6 +217,7 @@ public class PlanNodeStatsEstimate
                 .add("outputRowCount", outputRowCount)
                 .add("totalSize", totalSize)
                 .add("variableStatistics", variableStatistics)
+                .add("sourceInfo", sourceInfo)
                 .toString();
     }
 
@@ -212,13 +233,25 @@ public class PlanNodeStatsEstimate
         PlanNodeStatsEstimate that = (PlanNodeStatsEstimate) o;
         return Double.compare(outputRowCount, that.outputRowCount) == 0 &&
                 Double.compare(totalSize, that.totalSize) == 0 &&
-                Objects.equals(variableStatistics, that.variableStatistics);
+                Objects.equals(variableStatistics, that.variableStatistics) &&
+                Objects.equals(sourceInfo, that.sourceInfo);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(outputRowCount, totalSize, variableStatistics);
+        return Objects.hash(outputRowCount, totalSize, variableStatistics, sourceInfo);
+    }
+
+    public PlanStatisticsWithSourceInfo toPlanStatisticsWithSourceInfo(PlanNodeId id)
+    {
+        return new PlanStatisticsWithSourceInfo(
+                id,
+                new PlanStatistics(
+                        Double.isNaN(outputRowCount) ? Estimate.unknown() : Estimate.of(outputRowCount),
+                        Double.isNaN(totalSize) ? Estimate.unknown() : Estimate.of(totalSize),
+                        confident ? 1 : 0),
+                sourceInfo);
     }
 
     public static Builder builder()
