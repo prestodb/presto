@@ -108,7 +108,7 @@ function get_cxx_flags {
     ;;
 
     "aarch64")
-      echo -n "-march=armv8-a+crc+crypto -std=c++17"
+      echo -n "-mcpu=neoverse-n1 -std=c++17"
     ;;
   *)
     echo -n "Architecture not supported!"

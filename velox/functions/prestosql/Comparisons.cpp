@@ -95,7 +95,8 @@ struct SimdComparator {
       TypeKind kind,
       typename std::enable_if_t<
           xsimd::has_simd_register<
-              typename TypeTraits<kind>::NativeType>::value,
+              typename TypeTraits<kind>::NativeType>::value &&
+              kind != TypeKind::BOOLEAN,
           int> = 0>
   void applyComparison(
       const SelectivityVector& rows,
@@ -142,7 +143,8 @@ struct SimdComparator {
       TypeKind kind,
       typename std::enable_if_t<
           !xsimd::has_simd_register<
-              typename TypeTraits<kind>::NativeType>::value,
+              typename TypeTraits<kind>::NativeType>::value ||
+              kind == TypeKind::BOOLEAN,
           int> = 0>
   void applyComparison(
       const SelectivityVector& rows,
