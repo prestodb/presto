@@ -429,15 +429,15 @@ class SimpleFunctionAdapter : public VectorFunction {
           typename VectorExec::template resolver<arg_at<POSITION>>::in_type;
       if (arg->isConstantEncoding()) {
         auto reader = ConstantVectorReader<arg_at<POSITION>>(
-            *(arg->as<ConstantVector<type>>()));
+            *(arg->asUnchecked<ConstantVector<type>>()));
         unpackSpecializeForAllEncodings<POSITION + 1>(
             applyContext, rawArgs, readers..., reader);
 
       } else {
         DCHECK(arg->isFlatEncoding());
         // Should be flat if not constant.
-        auto reader =
-            FlatVectorReader<arg_at<POSITION>>(*arg->as<FlatVector<type>>());
+        auto reader = FlatVectorReader<arg_at<POSITION>>(
+            *arg->asUnchecked<FlatVector<type>>());
         unpackSpecializeForAllEncodings<POSITION + 1>(
             applyContext, rawArgs, readers..., reader);
       }
