@@ -35,6 +35,12 @@ add_executable(velox_functions_prestosql_benchmarks_array_position
 target_link_libraries(velox_functions_prestosql_benchmarks_array_position
                       ${BENCHMARK_DEPENDENCIES})
 
+add_executable(velox_functions_prestosql_benchmarks_array_sum
+               ArraySumBenchmark.cpp)
+
+target_link_libraries(velox_functions_prestosql_benchmarks_array_sum
+                      ${BENCHMARK_DEPENDENCIES})
+
 add_executable(velox_functions_prestosql_benchmarks_width_bucket
                WidthBucketBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_width_bucket

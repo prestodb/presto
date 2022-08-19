@@ -24,6 +24,7 @@ add_library(
   ArrayIntersectExcept.cpp
   ArrayPosition.cpp
   ArraySort.cpp
+  ArraySum.cpp
   Comparisons.cpp
   DecimalArithmetic.cpp
   ElementAt.cpp

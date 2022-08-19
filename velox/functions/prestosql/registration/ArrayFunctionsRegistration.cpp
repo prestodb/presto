@@ -25,6 +25,11 @@ inline void registerArrayMinMaxFunctions() {
   registerFunction<ArrayMaxFunction, T, Array<T>>({"array_max"});
 }
 
+template <typename OT, typename IT>
+inline void registerArraySumFunction() {
+  registerFunction<ArraySumFunction, OT, IT>({"array_sum_alt"});
+}
+
 template <typename T>
 inline void registerArrayJoinFunctions() {
   registerFunction<
@@ -63,6 +68,7 @@ void registerArrayFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_zip, "zip");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_position, "array_position");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sort, "array_sort");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_sum, "array_sum");
 
   exec::registerStatefulVectorFunction(
       "width_bucket", widthBucketArraySignature(), makeWidthBucketArray);
@@ -88,6 +94,13 @@ void registerArrayFunctions() {
   registerArrayJoinFunctions<Varchar>();
   registerArrayJoinFunctions<Timestamp>();
   registerArrayJoinFunctions<Date>();
+
+  registerArraySumFunction<int64_t, Array<int8_t>>();
+  registerArraySumFunction<int64_t, Array<int16_t>>();
+  registerArraySumFunction<int64_t, Array<int32_t>>();
+  registerArraySumFunction<int64_t, Array<int64_t>>();
+  registerArraySumFunction<double, Array<float>>();
+  registerArraySumFunction<double, Array<double>>();
 
   registerArrayCombinationsFunctions<int8_t>();
   registerArrayCombinationsFunctions<int16_t>();

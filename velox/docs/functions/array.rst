@@ -74,6 +74,11 @@ Array Functions
         SELECT array_join(ARRAY [1, NULL, 2], ",") -- "1,2"
         SELECT array_join(ARRAY [1, NULL, 2], ",", "0") -- "1,0,2"
 
+.. function:: array_sum(array(T)) -> bigint/double
+
+    Returns the sum of all non-null elements of the array. If there is no non-null elements, returns 0. The behaviour is similar to aggregation function sum().
+    T must be coercible to double. Returns bigint if T is coercible to bigint. Otherwise, returns double.
+
 .. function:: cardinality(x) -> bigint
 
     Returns the cardinality (size) of the array ``x``.

@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/functions/Udf.h"
+#include "velox/functions/prestosql/CheckedArithmetic.h"
 #include "velox/type/Conversions.h"
 
 namespace facebook::velox::functions {
@@ -277,6 +278,41 @@ struct CombinationsFunction {
     do {
       appendEntryFromCombination(result, array, currentCombination);
     } while (nextCombination(currentCombination, arraySize));
+  }
+};
+
+template <typename T>
+struct ArraySumFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T)
+  template <typename TOutput, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TOutput& out, const TInput& array) {
+    TOutput sum = 0;
+    for (const auto& item : array) {
+      if (item.has_value()) {
+        if constexpr (std::is_same<TOutput, int64_t>::value) {
+          sum = checkedPlus<TOutput>(sum, *item);
+        } else {
+          sum += *item;
+        }
+      }
+    }
+    out = sum;
+    return;
+  }
+
+  template <typename TOutput, typename TInput>
+  FOLLY_ALWAYS_INLINE void callNullFree(TOutput& out, const TInput& array) {
+    // Not nulls path
+    TOutput sum = 0;
+    for (const auto& item : array) {
+      if constexpr (std::is_same<TOutput, int64_t>::value) {
+        sum = checkedPlus<TOutput>(sum, item);
+      } else {
+        sum += item;
+      }
+    }
+    out = sum;
+    return;
   }
 };
 
