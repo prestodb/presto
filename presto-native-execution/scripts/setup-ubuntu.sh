@@ -54,7 +54,9 @@ function install_antlr4 {
     mkdir antlr4-cpp-runtime-4.9.3-source && cd antlr4-cpp-runtime-4.9.3-source
     unzip ../antlr4-cpp-runtime-4.9.3-source.zip
     mkdir build && mkdir run && cd build
-    cmake .. && make "-j${NPROC}" install
+    cmake "${INSTALL_PREFIX+-DCMAKE_PREFIX_PATH=}${INSTALL_PREFIX-}" \
+          "${INSTALL_PREFIX+-DCMAKE_INSTALL_PREFIX=}${INSTALL_PREFIX-}" .. && make "-j${NPROC}" install
+
 }
 
 function install_presto_deps {
