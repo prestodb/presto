@@ -85,9 +85,8 @@ void ParquetData::enqueueRowGroup(
   }
   VELOX_CHECK_GE(chunkReadOffset, 0);
 
-  uint64_t readSize = (metaData.total_uncompressed_size > 0)
-      ? std::min(
-            metaData.total_compressed_size, metaData.total_uncompressed_size)
+  uint64_t readSize = (metaData.codec == thrift::CompressionCodec::UNCOMPRESSED)
+      ? metaData.total_uncompressed_size
       : metaData.total_compressed_size;
 
   auto id = dwio::common::StreamIdentifier(type_->column);

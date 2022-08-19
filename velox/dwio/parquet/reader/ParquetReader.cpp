@@ -504,26 +504,22 @@ ParquetRowReader::ParquetRowReader(
 
 //
 void ParquetRowReader::filterRowGroups() {
-  auto scanSpec = options_.getScanSpec();
   auto rowGroups = readerBase_->fileMetaData().row_groups;
-  int32_t rangeBegin = -1;
-  int32_t rangeEnd = -1;
-  for (auto i = 0; i < rowGroups_.size(); ++i) {
-    VELOX_CHECK(rowGroups_[i].__isset.file_offset);
-    auto fileOffset = rowGroups_[i].file_offset;
-    if (fileOffset >= options_.getOffset() &&
-        fileOffset < options_.getLimit()) {
-      if (rangeBegin == -1) {
-        rangeBegin = i;
-      }
-      rangeEnd = i + 1;
-    }
-  }
   rowGroupIds_.reserve(rowGroups.size());
   auto excluded =
       columnReader_->filterRowGroups(0, dwio::common::StatsContext());
+
   for (auto i = 0; i < rowGroups.size(); i++) {
-    if (i >= rangeBegin && i < rangeEnd) {
+    VELOX_CHECK_GT(rowGroups_[i].columns.size(), 0);
+    auto fileOffset = rowGroups_[i].__isset.file_offset
+        ? rowGroups_[i].file_offset
+        : rowGroups_[i].columns[0].file_offset;
+    VELOX_CHECK_GT(fileOffset, 0);
+    auto rowGroupInRange =
+        (fileOffset >= options_.getOffset() &&
+         fileOffset < options_.getLimit());
+    // A skipped row group is one that is in range and is in the excluded list.
+    if (rowGroupInRange) {
       if (std::find(excluded.begin(), excluded.end(), i) == excluded.end()) {
         rowGroupIds_.push_back(i);
       } else {
