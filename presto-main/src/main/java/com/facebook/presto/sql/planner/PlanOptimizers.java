@@ -257,13 +257,10 @@ public class PlanOptimizers
                 new PruneLimitColumns(),
                 new PruneTableScanColumns());
 
-        IterativeOptimizer inlineProjections = new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
+        Set<Rule<?>> inlineProjections =
                 ImmutableSet.of(
                         new InlineProjections(metadata.getFunctionAndTypeManager()),
-                        new RemoveRedundantIdentityProjections()));
+                        new RemoveRedundantIdentityProjections());
 
         IterativeOptimizer projectionPushDown = new IterativeOptimizer(
                 ruleStats,
@@ -370,12 +367,14 @@ public class PlanOptimizers
                 new ImplementIntersectAndExceptAsUnion(metadata.getFunctionAndTypeManager()),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
                 new PruneUnreferencedOutputs(),
-                inlineProjections,
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        columnPruningRules),
+                        ImmutableSet.<Rule<?>>builder()
+                                .addAll(inlineProjections)
+                                .addAll(columnPruningRules)
+                                .build()),
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -441,16 +440,18 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
-                        ImmutableSet.of(
-                                new RemoveRedundantDistinct(),
-                                new RemoveRedundantTopN(),
-                                new RemoveRedundantSort(),
-                                new RemoveRedundantLimit(),
-                                new RemoveRedundantDistinctLimit(),
-                                new RemoveRedundantAggregateDistinct(),
-                                new RemoveRedundantIdentityProjections(),
-                                new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))),
-                inlineProjections,
+                        ImmutableSet.<Rule<?>>builder()
+                                .add(
+                                        new RemoveRedundantDistinct(),
+                                        new RemoveRedundantTopN(),
+                                        new RemoveRedundantSort(),
+                                        new RemoveRedundantLimit(),
+                                        new RemoveRedundantDistinctLimit(),
+                                        new RemoveRedundantAggregateDistinct(),
+                                        new RemoveRedundantIdentityProjections(),
+                                        new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))
+                                .addAll(inlineProjections)
+                                .build()),
                 simplifyRowExpressionOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
                 new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager()), // Run again because predicate pushdown and projection pushdown might add more projections
@@ -471,8 +472,8 @@ public class PlanOptimizers
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
+                                .addAll(inlineProjections)
                                 .build()),
-                inlineProjections,
                 new PruneUnreferencedOutputs(), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         ruleStats,
@@ -496,6 +497,14 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(new PushDownDereferences(metadata).rules())
                                 .build()),
+                // inline projections cannot be in the same optimizer
+                // as PushDownDereferences because they can infinite loop
+                // splitting and combining projections
+                new IterativeOptimizer(
+                        ruleStats,
+                        statsCalculator,
+                        estimatedExchangesCostCalculator,
+                        inlineProjections),
                 new PruneUnreferencedOutputs());
 
         builder.add(new IterativeOptimizer(
@@ -610,7 +619,11 @@ public class PlanOptimizers
         builder.add(new RemoveUnsupportedDynamicFilters(metadata.getFunctionAndTypeManager()));
         builder.add(simplifyRowExpressionOptimizer); // Should be always run after PredicatePushDown
         builder.add(projectionPushDown);
-        builder.add(inlineProjections);
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                inlineProjections));
         builder.add(new UnaliasSymbolReferences(metadata.getFunctionAndTypeManager())); // Run unalias after merging projections to simplify projections more efficiently
         builder.add(new PruneUnreferencedOutputs());
         builder.add(new IterativeOptimizer(
