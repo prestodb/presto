@@ -29,10 +29,6 @@
             <outputDirectory>plugin/ml</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>${project.build.directory}/dependency/presto-geospatial-${project.version}</directory>
-            <outputDirectory>plugin/geospatial</outputDirectory>
-        </fileSet>
-        <fileSet>
             <directory>${project.build.directory}/dependency/presto-teradata-functions-${project.version}</directory>
             <outputDirectory>plugin/teradata-functions</outputDirectory>
         </fileSet>

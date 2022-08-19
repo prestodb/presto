@@ -22,13 +22,19 @@ import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
@@ -37,6 +43,7 @@ import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
+import static com.google.common.graph.Traverser.forTree;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
 import static io.airlift.tpch.TpchTable.ORDERS;
 import static org.testng.Assert.assertEquals;
@@ -110,6 +117,29 @@ public class TestHiveCanonicalPlanHashes
         }
     }
 
+    @Test
+    public void testStatsEquivalentNodeMarking()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+
+        try {
+            queryRunner.execute("CREATE TABLE test_orders_2 WITH (partitioned_by = ARRAY['ds', 'ts']) AS " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-01' as ds, '00:01' as ts FROM orders WHERE orderkey < 1000 " +
+                    "UNION ALL " +
+                    "SELECT orderkey, orderpriority, comment, custkey, '2020-09-02' as ds, '00:02' as ts FROM orders WHERE orderkey < 1000");
+
+            List<PlanNode> nodes = getStatsEquivalentPlanHashes("SELECT COUNT(comment) FROM test_orders_2 WHERE ds = '2020-09-01' and orderkey < 500 GROUP BY custkey");
+            assertTrue(nodes.stream().anyMatch(node -> node instanceof AggregationNode));
+            assertTrue(nodes.stream().anyMatch(node -> node instanceof TableScanNode));
+            assertTrue(nodes.stream().anyMatch(node -> node instanceof ProjectNode));
+            assertTrue(nodes.stream().noneMatch(node -> node instanceof FilterNode));
+            assertEquals(nodes.size(), 4);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS test_orders_2");
+        }
+    }
+
     private void assertSamePlanHash(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
@@ -131,8 +161,22 @@ public class TestHiveCanonicalPlanHashes
     {
         Session session = createSession();
         PlanNode plan = plan(sql, session).getRoot();
+        ObjectMapper objectMapper = createObjectMapper();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return createObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy).get());
+        return objectMapper.writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, objectMapper).get());
+    }
+
+    private List<PlanNode> getStatsEquivalentPlanHashes(String sql)
+    {
+        Session session = createSession();
+        PlanNode root = plan(sql, session).getRoot();
+        assertTrue(root.getStatsEquivalentPlanNode().isPresent());
+
+        ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
+        forTree(PlanNode::getSources)
+                .depthFirstPreOrder(root)
+                .forEach(node -> node.getStatsEquivalentPlanNode().ifPresent(result::add));
+        return result.build();
     }
 
     private Session createSession()

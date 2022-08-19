@@ -15,15 +15,23 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
+import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOVE_SAFE_CONSTANTS;
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.graph.Traverser.forTree;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -126,6 +134,36 @@ public class TestCanonicalPlanHashes
                 REMOVE_SAFE_CONSTANTS);
     }
 
+    @Test
+    public void testStatsEquivalentPlanNodesMarking()
+    {
+        List<PlanNode> nodes =
+                getStatsEquivalentPlanHashes("SELECT COUNT(totalprice) from orders WHERE custkey > 100 GROUP BY orderkey");
+        assertTrue(nodes.stream().anyMatch(node -> node instanceof AggregationNode));
+        assertTrue(nodes.stream().anyMatch(node -> node instanceof FilterNode));
+        assertTrue(nodes.stream().anyMatch(node -> node instanceof ProjectNode));
+        assertTrue(nodes.stream().anyMatch(node -> node instanceof TableScanNode));
+        assertEquals(nodes.size(), 6);
+    }
+
+    @Test
+    public void testUnion()
+            throws Exception
+    {
+        assertSamePlanHash(
+                "SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey FROM orders where orderkey >= 1000 and orderkey < 2000",
+                CONNECTOR);
+        assertDifferentPlanHash(
+                "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
+                CONNECTOR);
+        assertSamePlanHash(
+                "SELECT orderkey, custkey, 1 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 1000 and orderkey < 2000 UNION ALL SELECT orderkey, custkey, 1 as x FROM orders where orderkey >= 2000 and orderkey < 3000",
+                "SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 2000 and orderkey < 3000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey < 1000 UNION ALL SELECT orderkey, custkey, 2 as x FROM orders where orderkey >= 1000 and orderkey < 2000",
+                REMOVE_SAFE_CONSTANTS);
+    }
+
     private Session createSession()
     {
         return testSessionBuilder()
@@ -152,12 +190,25 @@ public class TestCanonicalPlanHashes
         assertNotEquals(hashes1, hashes2);
     }
 
+    private List<PlanNode> getStatsEquivalentPlanHashes(String sql)
+    {
+        Session session = createSession();
+        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        assertTrue(root.getStatsEquivalentPlanNode().isPresent());
+
+        ImmutableList.Builder<PlanNode> result = ImmutableList.builder();
+        forTree(PlanNode::getSources)
+                .depthFirstPreOrder(root)
+                .forEach(node -> node.getStatsEquivalentPlanNode().ifPresent(result::add));
+        return result.build();
+    }
+
     private String getPlanHash(String sql, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
         Session session = createSession();
         PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy).get());
+        return getObjectMapper().writeValueAsString(generateCanonicalPlan(plan.getStatsEquivalentPlanNode().get(), strategy, getObjectMapper()).get());
     }
 }

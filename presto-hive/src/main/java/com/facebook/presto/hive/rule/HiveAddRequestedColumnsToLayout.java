@@ -16,18 +16,18 @@ package com.facebook.presto.hive.rule;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
+import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.plan.PlanVisitor;
 import com.facebook.presto.spi.plan.TableScanNode;
-import com.google.common.collect.ImmutableList;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
@@ -38,33 +38,16 @@ public class HiveAddRequestedColumnsToLayout
     public PlanNode optimize(PlanNode maxSubplan, ConnectorSession session, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator)
     {
         requireNonNull(maxSubplan, "maxSubplan is null");
-        return maxSubplan.accept(new Visitor(), null);
+        return rewriteWith(new Rewriter(), maxSubplan);
     }
 
-    private class Visitor
-            extends PlanVisitor<PlanNode, Void>
+    private class Rewriter
+            extends ConnectorPlanRewriter<Void>
     {
-        @Override
-        public PlanNode visitPlan(PlanNode node, Void context)
-        {
-            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-            boolean changed = false;
-            for (PlanNode child : node.getSources()) {
-                PlanNode newChild = child.accept(this, null);
-                if (newChild != child) {
-                    changed = true;
-                }
-                children.add(newChild);
-            }
-
-            if (!changed) {
-                return node;
-            }
-            return node.replaceChildren(children.build());
-        }
+        public Rewriter() {}
 
         @Override
-        public PlanNode visitTableScan(TableScanNode tableScan, Void context)
+        public PlanNode visitTableScan(TableScanNode tableScan, RewriteContext<Void> context)
         {
             Optional<ConnectorTableLayoutHandle> layout = tableScan.getTable().getLayout();
             if (!layout.isPresent()) {

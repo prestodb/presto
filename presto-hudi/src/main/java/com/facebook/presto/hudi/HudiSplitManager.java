@@ -14,6 +14,7 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
@@ -21,6 +22,8 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.hudi.split.HudiSplitWeightProvider;
+import com.facebook.presto.hudi.split.SizeBasedSplitWeightProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
@@ -32,6 +35,7 @@ import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
+import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
@@ -55,7 +59,10 @@ import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_METADATA;
 import static com.facebook.presto.hudi.HudiMetadata.fromDataColumns;
 import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
+import static com.facebook.presto.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
+import static com.facebook.presto.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static com.facebook.presto.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
+import static com.facebook.presto.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -65,6 +72,7 @@ import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMe
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(HudiSplitManager.class);
     private final HdfsEnvironment hdfsEnvironment;
     private final HudiTransactionManager hudiTransactionManager;
     private final HudiPartitionManager hudiPartitionManager;
@@ -87,6 +95,7 @@ public class HudiSplitManager
             ConnectorTableLayoutHandle layoutHandle,
             SplitSchedulingContext splitSchedulingContext)
     {
+        HudiSplitWeightProvider splitWeightProvider = createSplitWeightProvider(session);
         ExtendedHiveMetastore metastore = ((HudiMetadata) hudiTransactionManager.get(transaction)).getMetastore();
         HudiTableLayoutHandle layout = (HudiTableLayoutHandle) layoutHandle;
         HudiTableHandle table = layout.getTable();
@@ -120,7 +129,7 @@ public class HudiSplitManager
             Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
             String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
             fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, timestamp, false)
-                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition))
+                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition, splitWeightProvider))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .forEach(builder::add);
@@ -144,7 +153,12 @@ public class HudiSplitManager
         }
     }
 
-    private Optional<HudiSplit> createHudiSplit(HudiTableHandle table, FileSlice slice, String timestamp, HudiPartition partition)
+    private Optional<HudiSplit> createHudiSplit(
+            HudiTableHandle table,
+            FileSlice slice,
+            String timestamp,
+            HudiPartition partition,
+            HudiSplitWeightProvider splitWeightProvider)
     {
         HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
         if (null == hudiFile && table.getTableType() == HudiTableType.COW) {
@@ -153,6 +167,9 @@ public class HudiSplitManager
         List<HudiFile> logFiles = slice.getLogFiles()
                 .map(logFile -> new HudiFile(logFile.getPath().toString(), 0, logFile.getFileSize()))
                 .collect(toImmutableList());
+        long sizeInBytes = hudiFile != null ? hudiFile.getLength()
+                : (logFiles.size() > 0 ? logFiles.stream().map(HudiFile::getLength).reduce(0L, Long::sum) : 0L);
+
         return Optional.of(new HudiSplit(
                 table,
                 timestamp,
@@ -160,7 +177,8 @@ public class HudiSplitManager
                 Optional.ofNullable(hudiFile),
                 logFiles,
                 ImmutableList.of(),
-                NodeSelectionStrategy.NO_PREFERENCE));
+                NodeSelectionStrategy.NO_PREFERENCE,
+                splitWeightProvider.calculateSplitWeight(sizeInBytes)));
     }
 
     public static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
@@ -193,5 +211,15 @@ public class HudiSplitManager
         Streams.forEachPair(partitionColumns.stream(), partitionValues.stream(),
                 (column, value) -> builder.put(column.getName(), value));
         return builder.build();
+    }
+
+    private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
+    {
+        if (isSizeBasedSplitWeightsEnabled(session)) {
+            DataSize standardSplitWeightSize = getStandardSplitWeightSize(session);
+            double minimumAssignedSplitWeight = getMinimumAssignedSplitWeight(session);
+            return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
+        }
+        return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
 }

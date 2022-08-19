@@ -257,7 +257,7 @@ public class TestCanonicalPlanGenerator
                 false);
         List<CanonicalPlanFragment> leafCanonicalPlans = getLeafSubPlans(subplan).stream()
                 .map(SubPlan::getFragment)
-                .map(fragment -> generateCanonicalPlanFragment(fragment.getRoot(), fragment.getPartitioningScheme()))
+                .map(fragment -> generateCanonicalPlanFragment(fragment.getRoot(), fragment.getPartitioningScheme(), objectMapper))
                 .map(Optional::get)
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
@@ -272,8 +272,8 @@ public class TestCanonicalPlanGenerator
     {
         PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
         PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
-        Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlanFragment(fragment1.getRoot(), fragment1.getPartitioningScheme());
-        Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlanFragment(fragment2.getRoot(), fragment2.getPartitioningScheme());
+        Optional<CanonicalPlanFragment> canonicalPlan1 = generateCanonicalPlanFragment(fragment1.getRoot(), fragment1.getPartitioningScheme(), objectMapper);
+        Optional<CanonicalPlanFragment> canonicalPlan2 = generateCanonicalPlanFragment(fragment2.getRoot(), fragment2.getPartitioningScheme(), objectMapper);
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
         assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
@@ -288,7 +288,7 @@ public class TestCanonicalPlanGenerator
                 false);
         List<CanonicalPlan> leafCanonicalPlans = getLeafSubPlans(subplan).stream()
                 .map(SubPlan::getFragment)
-                .map(fragment -> generateCanonicalPlan(fragment.getRoot(), strategy))
+                .map(fragment -> generateCanonicalPlan(fragment.getRoot(), strategy, objectMapper))
                 .map(Optional::get)
                 .collect(Collectors.toList());
         assertEquals(leafCanonicalPlans.size(), 2);
@@ -303,8 +303,8 @@ public class TestCanonicalPlanGenerator
     {
         PlanFragment fragment1 = getOnlyElement(getLeafSubPlans(subplan(sql1, OPTIMIZED_AND_VALIDATED, false))).getFragment();
         PlanFragment fragment2 = getOnlyElement(getLeafSubPlans(subplan(sql2, OPTIMIZED_AND_VALIDATED, false))).getFragment();
-        Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy);
-        Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy);
+        Optional<CanonicalPlan> canonicalPlan1 = generateCanonicalPlan(fragment1.getRoot(), strategy, objectMapper);
+        Optional<CanonicalPlan> canonicalPlan2 = generateCanonicalPlan(fragment2.getRoot(), strategy, objectMapper);
         assertTrue(canonicalPlan1.isPresent());
         assertTrue(canonicalPlan2.isPresent());
         assertNotEquals(objectMapper.writeValueAsString(canonicalPlan1), objectMapper.writeValueAsString(canonicalPlan2));
