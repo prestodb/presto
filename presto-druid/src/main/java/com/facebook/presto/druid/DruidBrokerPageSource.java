@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -130,29 +131,8 @@ public class DruidBrokerPageSource
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                         JsonNode value = rootNode.get(((DruidColumnHandle) columnHandles.get(i)).getColumnName());
-                        if (value == null) {
-                            blockBuilder.appendNull();
+                        if (writeValue(type, blockBuilder, value)) {
                             continue;
-                        }
-                        if (type instanceof BigintType) {
-                            type.writeLong(blockBuilder, value.longValue());
-                        }
-                        else if (type instanceof DoubleType) {
-                            type.writeDouble(blockBuilder, value.doubleValue());
-                        }
-                        else if (type instanceof RealType) {
-                            type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
-                        }
-                        else if (type instanceof TimestampType) {
-                            DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
-                                    .withChronology(ISOChronology.getInstanceUTC())
-                                    .withOffsetParsed();
-                            DateTime dateTime = formatter.parseDateTime(value.textValue());
-                            type.writeLong(blockBuilder, dateTime.getMillis());
-                        }
-                        else {
-                            Slice slice = Slices.utf8Slice(value.textValue());
-                            type.writeSlice(blockBuilder, slice);
                         }
                     }
                 }
@@ -185,6 +165,36 @@ public class DruidBrokerPageSource
         finally {
             readTimeNanos += System.nanoTime() - start;
         }
+    }
+
+    @VisibleForTesting
+    static boolean writeValue(Type type, BlockBuilder blockBuilder, JsonNode value)
+    {
+        if (value == null) {
+            blockBuilder.appendNull();
+            return true;
+        }
+        if (type instanceof BigintType) {
+            type.writeLong(blockBuilder, value.longValue());
+        }
+        else if (type instanceof DoubleType) {
+            type.writeDouble(blockBuilder, value.doubleValue());
+        }
+        else if (type instanceof RealType) {
+            type.writeLong(blockBuilder, floatToRawIntBits(value.floatValue()));
+        }
+        else if (type instanceof TimestampType) {
+            DateTimeFormatter formatter = ISODateTimeFormat.dateTimeParser()
+                    .withChronology(ISOChronology.getInstanceUTC())
+                    .withOffsetParsed();
+            DateTime dateTime = formatter.parseDateTime(value.textValue());
+            type.writeLong(blockBuilder, dateTime.getMillis());
+        }
+        else {
+            Slice slice = Slices.utf8Slice(value.textValue());
+            type.writeSlice(blockBuilder, slice);
+        }
+        return false;
     }
 
     @Override
