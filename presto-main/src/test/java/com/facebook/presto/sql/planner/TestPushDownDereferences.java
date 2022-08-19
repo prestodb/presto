@@ -201,4 +201,15 @@ public class TestPushDownDereferences
                                                         project(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
                                                                 values("msg"))))))));
     }
+
+    @Test
+    public void testFilterOverValuesDoesNotPushDown()
+    {
+        assertPlan("WITH t(msg) AS (SELECT * FROM (VALUES ROW(CAST(ROW(1, 2) AS ROW(x BIGINT, y BIGINT))))) " +
+                        "SELECT msg.x FROM t WHERE msg.y = 2",
+                output(
+                        project(
+                                filter("msg.y = 2",
+                                        values("msg")))));
+    }
 }

@@ -27,7 +27,9 @@ import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
+import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TopNNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -100,8 +102,8 @@ public class PushDownDereferences
                 new PushDownDereferenceThrough<>(RowNumberNode.class),
                 new PushDownDereferenceThrough<>(TopNRowNumberNode.class),
                 new PushDownDereferenceThrough<>(SortNode.class),
-                new PushDownDereferenceThrough<>(FilterNode.class),
                 new PushDownDereferenceThrough<>(LimitNode.class),
+                new PushDownDereferenceThroughFilter(),
                 new PushDownDereferenceThroughProject(),
                 new PushDownDereferenceThroughUnnest(),
                 new PushDownDereferenceThroughSemiJoin(),
@@ -165,6 +167,16 @@ public class PushDownDereferences
         ExtractFromFilter()
         {
             super(FilterNode.class);
+        }
+
+        @Override
+        public Pattern<FilterNode> getPattern()
+        {
+            // Don't extract dereferences for a Filter above a TableScan or ValuesNode
+            // It doesn't provide value, and for TableScan, it can interfere with
+            // filter pushdown in PickTableLayout
+            return Pattern.typeOf(FilterNode.class)
+                    .with(source().matching(node -> !(node instanceof TableScanNode) && !(node instanceof ValuesNode)));
         }
 
         @Override
@@ -309,7 +321,12 @@ public class PushDownDereferences
     {
         public PushDownDereferenceThrough(Class<N> planNodeClass)
         {
-            super(Pattern.typeOf(planNodeClass));
+            this(Pattern.typeOf(planNodeClass));
+        }
+
+        public PushDownDereferenceThrough(Pattern<N> pattern)
+        {
+            super(pattern);
         }
 
         @Override
@@ -327,6 +344,18 @@ public class PushDownDereferences
                             .putAll(dereferencesMap)
                             .build());
             return Result.ofPlanNode(targetNode.replaceChildren(ImmutableList.of(projectNode)));
+        }
+    }
+
+    public class PushDownDereferenceThroughFilter
+            extends PushDownDereferenceThrough<FilterNode>
+    {
+        public PushDownDereferenceThroughFilter()
+        {
+            // Don't extract dereferences for a Filter above a TableScan or ValuesNode
+            // It doesn't provide value, and for TableScan, it can interfere with
+            // filter pushdown in PickTableLayout
+            super(Pattern.typeOf(FilterNode.class).with(source().matching(node -> !(node instanceof TableScanNode) && !(node instanceof ValuesNode))));
         }
     }
 
