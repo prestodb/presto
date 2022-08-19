@@ -24,6 +24,14 @@ void registerJsonFunctions() {
       {"json_extract_scalar"});
   registerFunction<JsonArrayLengthFunction, int64_t, Varchar>(
       {"json_array_length"});
+  registerFunction<JsonArrayContainsFunction, bool, Varchar, bool>(
+      {"json_array_contains"});
+  registerFunction<JsonArrayContainsFunction, bool, Varchar, int64_t>(
+      {"json_array_contains"});
+  registerFunction<JsonArrayContainsFunction, bool, Varchar, double>(
+      {"json_array_contains"});
+  registerFunction<JsonArrayContainsFunction, bool, Varchar, Varchar>(
+      {"json_array_contains"});
 }
 
 } // namespace facebook::velox::functions

@@ -116,6 +116,14 @@ JSON Functions
 
         SELECT json_array_length('[1, 2, 3]');
 
+.. function:: json_array_contains(json, value) -> boolean
+
+    Determine if ``value`` exists in ``json`` (a string containing a JSON
+    array). ``value`` could be a boolean, bigint, double, or varchar.
+    Returns NULL if ``json`` is not an array::
+
+        SELECT json_array_contains('[1, 2, 3]', 2);
+
 ============
 JSON Vectors
 ============
