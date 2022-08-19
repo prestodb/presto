@@ -300,7 +300,12 @@ class SelectivityVector {
    * Iterate and count the number of selected values in this SelectivityVector
    */
   vector_size_t countSelected() const {
-    return bits::countBits(bits_.data(), begin_, end_);
+    if (allSelected_.has_value() && *allSelected_) {
+      return size();
+    }
+    auto count = bits::countBits(bits_.data(), begin_, end_);
+    allSelected_ = count == size();
+    return count;
   }
 
   vector_size_t size() const {
