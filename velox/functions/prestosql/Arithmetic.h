@@ -96,7 +96,7 @@ template <typename T>
 struct CeilFunction {
   template <typename TOutput, typename TInput = TOutput>
   FOLLY_ALWAYS_INLINE void call(TOutput& result, const TInput& a) {
-    if constexpr (std::is_integral<TInput>::value) {
+    if constexpr (std::is_integral_v<TInput>) {
       result = a;
     } else {
       result = ceil(a);
@@ -108,7 +108,7 @@ template <typename T>
 struct FloorFunction {
   template <typename TOutput, typename TInput = TOutput>
   FOLLY_ALWAYS_INLINE void call(TOutput& result, const TInput& a) {
-    if constexpr (std::is_integral<TInput>::value) {
+    if constexpr (std::is_integral_v<TInput>) {
       result = a;
     } else {
       result = floor(a);

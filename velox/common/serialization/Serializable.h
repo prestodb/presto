@@ -199,8 +199,8 @@ class ISerializable {
 
   template <
       class T,
-      typename = std::enable_if_t<
-          std::is_integral<T>::value && !std::is_same_v<T, bool>>>
+      typename =
+          std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>>
   static T deserialize(const folly::dynamic& obj) {
     auto raw = obj.asInt();
     VELOX_USER_CHECK_GE(raw, std::numeric_limits<T>::min());

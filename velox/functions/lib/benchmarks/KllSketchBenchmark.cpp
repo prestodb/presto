@@ -26,9 +26,7 @@
 namespace facebook::velox::functions::kll::test {
 namespace {
 
-template <
-    typename T,
-    typename std::enable_if_t<std::is_integral<T>::value, int> = 0>
+template <typename T, typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
 auto distribution(unsigned len) {
   return std::uniform_int_distribution<T>(0, len);
 }
