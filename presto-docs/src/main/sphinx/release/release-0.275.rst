@@ -24,6 +24,10 @@ Spark Changes
 ______________
 * Add support for setting session properties for presto on spark.
 
+Hive Changes
+____________
+* Add support for Apache Ranger based authorization to Hive connector in Presto. See :ref:`hive-ranger-based-authorization` for details.
+
 **Credits**
 ===========
 
