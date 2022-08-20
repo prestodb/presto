@@ -665,10 +665,11 @@ public class StructSelectiveStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + sizeOf(outputPositions) + sizeOf(nestedPositions) + sizeOf(nestedOutputPositions) + sizeOf(nulls) +
-                nestedReaders.values().stream()
-                        .mapToLong(SelectiveStreamReader::getRetainedSizeInBytes)
-                        .sum();
+        long size = INSTANCE_SIZE + sizeOf(outputPositions) + sizeOf(nestedPositions) + sizeOf(nestedOutputPositions) + sizeOf(nulls);
+        for (SelectiveStreamReader reader : nestedReaders.values()) {
+            size += reader.getRetainedSizeInBytes();
+        }
+        return size;
     }
 
     private static Optional<TupleDomainFilter> getTopLevelFilter(Map<Subfield, TupleDomainFilter> filters)
