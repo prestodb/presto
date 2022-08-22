@@ -292,6 +292,17 @@ public class HiveSplitManager
                 splitSchedulingContext.schedulerUsesHostAddresses(),
                 layout.isPartialAggregationsPushedDown());
 
+        HiveSplitSource splitSource = computeSplitSource(splitSchedulingContext, table, session, hiveSplitLoader);
+        hiveSplitLoader.start(splitSource);
+
+        return splitSource;
+    }
+
+    private HiveSplitSource computeSplitSource(SplitSchedulingContext splitSchedulingContext,
+                                               Table table,
+                                               ConnectorSession session,
+                                               HiveSplitLoader hiveSplitLoader)
+    {
         HiveSplitSource splitSource;
         CacheQuotaRequirement cacheQuotaRequirement = cacheQuotaRequirementProvider.getCacheQuotaRequirement(table.getDatabaseName(), table.getTableName());
         switch (splitSchedulingContext.getSplitSchedulingStrategy()) {
@@ -336,7 +347,6 @@ public class HiveSplitManager
             default:
                 throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingContext.getSplitSchedulingStrategy());
         }
-        hiveSplitLoader.start(splitSource);
 
         return splitSource;
     }
@@ -402,6 +412,23 @@ public class HiveSplitManager
         }
 
         Iterable<List<HivePartition>> partitionNameBatches = partitionExponentially(hivePartitions, minPartitionBatchSize, maxPartitionBatchSize);
+        Iterable<List<HivePartitionMetadata>> partitionBatches = computePartitionMetadata(partitionNameBatches, session, table, metastore,
+                tableName, predicateColumns, domains, allRequestedColumns, hiveBucketHandle, resolvedHiveStorageFormat, warningCollector);
+        return concat(partitionBatches);
+    }
+
+    private Iterable<List<HivePartitionMetadata>> computePartitionMetadata(Iterable<List<HivePartition>> partitionNameBatches,
+                                                                           ConnectorSession session,
+                                                                           Table table,
+                                                                           SemiTransactionalHiveMetastore metastore,
+                                                                           SchemaTableName tableName,
+                                                                           Map<String, HiveColumnHandle> predicateColumns,
+                                                                           Optional<Map<Subfield, Domain>> domains,
+                                                                           Optional<Set<HiveColumnHandle>> allRequestedColumns,
+                                                                           Optional<HiveBucketHandle> hiveBucketHandle,
+                                                                           Optional<HiveStorageFormat> resolvedHiveStorageFormat,
+                                                                           WarningCollector warningCollector)
+    {
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
             Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
             if (partitionBatch.size() != partitionSplitInfo.size()) {
@@ -507,7 +534,7 @@ public class HiveSplitManager
             }
             return results.build();
         });
-        return concat(partitionBatches);
+        return partitionBatches;
     }
 
     /**
