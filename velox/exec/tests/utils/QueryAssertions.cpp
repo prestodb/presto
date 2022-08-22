@@ -204,6 +204,7 @@ velox::variant rowVariantAt(
   for (size_t i = 0; i < structValue.size(); ++i) {
     auto currChild = structValue[i];
     auto currType = rowType->childAt(i)->kind();
+    // TODO: Add support for ARRAY and MAP children types.
     if (currChild.IsNull()) {
       values.push_back(variant(currType));
     } else if (currType == TypeKind::ROW) {
@@ -232,6 +233,8 @@ velox::variant mapVariantAt(
   const auto& valueList = ::duckdb::ListValue::GetChildren(mapValue[1]);
   VELOX_CHECK_EQ(keyList.size(), valueList.size());
   for (int i = 0; i < keyList.size(); i++) {
+    // TODO: Add support for complex key and value types. Also add support for
+    // NULL keys or values.
     auto variantKey =
         VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, keyType, keyList[i]);
     auto variantValue =
@@ -239,6 +242,31 @@ velox::variant mapVariantAt(
     map.insert({variantKey, variantValue});
   }
   return velox::variant::map(map);
+}
+
+velox::variant arrayVariantAt(
+    const ::duckdb::Value& vector,
+    const TypePtr& arrayType) {
+  std::vector<variant> array;
+
+  const auto& elementList = ::duckdb::ListValue::GetChildren(vector);
+
+  auto arrayTypePtr = dynamic_cast<const ArrayType*>(arrayType.get());
+  auto elementType = arrayTypePtr->elementType()->kind();
+  for (int i = 0; i < elementList.size(); i++) {
+    // TODO: Add support for MAP and ROW element types.
+    if (elementList[i].IsNull()) {
+      array.push_back(variant(elementType));
+    } else if (elementType == TypeKind::ARRAY) {
+      array.push_back(
+          arrayVariantAt(elementList[i], arrayTypePtr->elementType()));
+    } else {
+      auto variant = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+          variantAt, elementType, elementList[i]);
+      array.push_back(variant);
+    }
+  }
+  return velox::variant::array(std::move(array));
 }
 
 std::vector<MaterializedRow> materialize(
@@ -258,6 +286,9 @@ std::vector<MaterializedRow> materialize(
       auto typeKind = rowType->childAt(j)->kind();
       if (dataChunk->GetValue(j, i).IsNull()) {
         row.push_back(variant(typeKind));
+      } else if (typeKind == TypeKind::ARRAY) {
+        row.push_back(
+            arrayVariantAt(dataChunk->GetValue(j, i), rowType->childAt(j)));
       } else if (typeKind == TypeKind::MAP) {
         row.push_back(
             mapVariantAt(dataChunk->GetValue(j, i), rowType->childAt(j)));
