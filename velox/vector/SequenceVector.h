@@ -25,7 +25,7 @@ namespace facebook::velox {
 
 /**
  * Provides a vector type that enacts run-length encoding for vectors that have
- * repeated runs of the same value.  For example, this would be usefor for
+ * repeated runs of the same value.  For example, this would be useful for
  * {foo, foo, foo, foo, bar, bar, bar, foo, foo, foo, foo, foo} as it can be
  * reduced to {foo, bar, foo} along with run length information of {4, 3, 5}.
  *
