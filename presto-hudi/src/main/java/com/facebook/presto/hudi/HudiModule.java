@@ -40,6 +40,9 @@ import com.facebook.presto.hive.metastore.HiveMetastoreCacheStats;
 import com.facebook.presto.hive.metastore.HivePartitionMutator;
 import com.facebook.presto.hive.metastore.MetastoreCacheStats;
 import com.facebook.presto.hive.metastore.MetastoreConfig;
+import com.facebook.presto.hudi.split.ForHudiBackgroundSplitLoader;
+import com.facebook.presto.hudi.split.ForHudiSplitAsyncQueue;
+import com.facebook.presto.hudi.split.ForHudiSplitSource;
 import com.facebook.presto.plugin.base.security.AllowAllAccessControl;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
@@ -59,12 +62,15 @@ import javax.inject.Singleton;
 import javax.management.MBeanServer;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -130,6 +136,34 @@ public class HudiModule
         return newFixedThreadPool(
                 metastoreClientConfig.getMaxMetastoreRefreshThreads(),
                 daemonThreadsNamed("hive-metastore-hudi-%s"));
+    }
+
+    @ForHudiSplitAsyncQueue
+    @Singleton
+    @Provides
+    public ExecutorService createHudiSplitManagerExecutor()
+    {
+        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%s"));
+    }
+
+    @ForHudiSplitSource
+    @Singleton
+    @Provides
+    public ScheduledExecutorService createSplitLoaderExecutor(HudiConfig hudiConfig)
+    {
+        return newScheduledThreadPool(
+                hudiConfig.getSplitLoaderParallelism(),
+                daemonThreadsNamed("hudi-split-loader-%s"));
+    }
+
+    @ForHudiBackgroundSplitLoader
+    @Singleton
+    @Provides
+    public ExecutorService createSplitGeneratorExecutor(HudiConfig hudiConfig)
+    {
+        return newFixedThreadPool(
+                hudiConfig.getSplitGeneratorParallelism(),
+                daemonThreadsNamed("hudi-split-generator-%s"));
     }
 
     @Singleton
