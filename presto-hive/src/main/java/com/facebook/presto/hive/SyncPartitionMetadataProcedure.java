@@ -40,6 +40,8 @@ import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -54,6 +56,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeade
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Lists.partition;
 import static java.lang.Boolean.TRUE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -61,6 +64,8 @@ import static java.util.Objects.requireNonNull;
 public class SyncPartitionMetadataProcedure
         implements Provider<Procedure>
 {
+    private static final int GET_PARTITION_BY_NAMES_BATCH_SIZE = 1000;
+
     public enum SyncMode
     {
         ADD, DROP, FULL
@@ -114,7 +119,15 @@ public class SyncPartitionMetadataProcedure
         SemiTransactionalHiveMetastore metastore = hiveMetadataFactory.get().getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), schemaName, tableName)
+        MetastoreContext metastoreContext = new MetastoreContext(
+                session.getIdentity(),
+                session.getQueryId(),
+                session.getClientInfo(),
+                session.getSource(),
+                getMetastoreHeaders(session),
+                isUserDefinedTypeEncodingEnabled(session),
+                metastore.getColumnConverterProvider());
+        Table table = metastore.getTable(metastoreContext, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {
             throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
@@ -127,17 +140,26 @@ public class SyncPartitionMetadataProcedure
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, tableLocation);
-            List<String> partitionsInMetastore = metastore.getPartitionNames(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), schemaName, tableName)
+            List<String> partitionNamesInMetastore = metastore.getPartitionNames(metastoreContext, schemaName, tableName)
                     .orElseThrow(() -> new TableNotFoundException(schemaTableName));
+            ImmutableList.Builder<String> partitionsInMetastore = new ImmutableList.Builder<>();
+            for (List<String> batchPartitionNames : partition(partitionNamesInMetastore, GET_PARTITION_BY_NAMES_BATCH_SIZE)) {
+                Map<String, Optional<Partition>> partitionsOptionalMap = metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, batchPartitionNames);
+                for (Map.Entry<String, Optional<Partition>> entry : partitionsOptionalMap.entrySet()) {
+                    if (entry.getValue().isPresent()) {
+                        partitionsInMetastore.add(tableLocation.toUri().relativize(new Path(entry.getValue().get().getStorage().getLocation()).toUri()).getPath());
+                    }
+                }
+            }
             List<String> partitionsInFileSystem = listDirectory(fileSystem, fileSystem.getFileStatus(tableLocation), table.getPartitionColumns(), table.getPartitionColumns().size(), caseSensitive).stream()
                     .map(fileStatus -> fileStatus.getPath().toUri())
                     .map(uri -> tableLocation.toUri().relativize(uri).getPath())
                     .collect(toImmutableList());
 
             // partitions in file system but not in metastore
-            partitionsToAdd = difference(partitionsInFileSystem, partitionsInMetastore);
+            partitionsToAdd = difference(partitionsInFileSystem, partitionsInMetastore.build());
             // partitions in metastore but not in file system
-            partitionsToDrop = difference(partitionsInMetastore, partitionsInFileSystem);
+            partitionsToDrop = difference(partitionsInMetastore.build(), partitionsInFileSystem);
         }
         catch (IOException e) {
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
