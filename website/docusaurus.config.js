@@ -94,11 +94,23 @@ const config = {
         style: 'dark',
         links: [
           {
-            title: 'Docs',
+            title: 'Documentation',
             items: [
               {
-                label: 'Tutorial',
-                to: '/docs/intro',
+                label: 'Velox in 10 Minutes',
+                href: 'https://facebookincubator.github.io/velox/velox-in-10-min.html',
+              },
+              {
+                label: 'Developer Guides',
+                href: 'https://facebookincubator.github.io/velox/develop.html',
+              },
+              {
+                label: 'Presto Functions',
+                href: 'https://facebookincubator.github.io/velox/functions.html',
+              },
+              {
+                label: 'Monthly Updates',
+                href: 'https://facebookincubator.github.io/velox/monthly-updates.html',
               },
             ],
           },
