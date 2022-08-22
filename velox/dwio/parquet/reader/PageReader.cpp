@@ -188,6 +188,20 @@ const char* FOLLY_NONNULL PageReader::uncompressData(
           (ret == Z_OK),
           "zlib inflateInit failed: {}",
           stream.msg ? stream.msg : "");
+
+      struct InflateEndGuard {
+        explicit InflateEndGuard(z_stream* stream) : stream_(stream) {}
+        ~InflateEndGuard() {
+          if (inflateEnd(stream_) != Z_OK) {
+            LOG(WARNING) << "inflateEnd: "
+                         << (stream_->msg ? stream_->msg : "");
+          }
+        }
+
+       private:
+        z_stream* stream_;
+      } inflateEndGuard(&stream);
+
       // Decompress.
       stream.next_in =
           const_cast<Bytef*>(reinterpret_cast<const Bytef*>(pageData));
