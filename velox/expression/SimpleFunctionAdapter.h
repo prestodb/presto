@@ -304,13 +304,14 @@ class SimpleFunctionAdapter : public VectorFunction {
     // non-nulls in the result vector. The assumption is that the majority of
     // rows will return non-null values (and hence won't have to touch the
     // null buffer during iteration).
-    // If this function doesn't produce nulls, then one of its arguments may be
-    // used for storing results. In this case, do not clear the nulls before
-    // processing these.
-    if constexpr (
-        fastPathIteration &&
-        (FUNC::can_produce_null_output || FUNC::udf_has_callNullFree)) {
-      (*reusableResult)->clearNulls(rows);
+
+    if constexpr (fastPathIteration) {
+      // If result is resuing one of the inputs we do not clear nulls, instead
+      // we do that after the the input is read. It is safe because reuse only
+      // happens when the function does not generate null.
+      if (!isResultReused) {
+        (*reusableResult)->clearNulls(rows);
+      }
     }
 
     std::vector<std::optional<LocalDecodedVector>> decoded;
@@ -326,10 +327,11 @@ class SimpleFunctionAdapter : public VectorFunction {
       decoded.resize(args.size());
       unpack<0, false>(applyContext, decoded, args);
     }
-    if constexpr (
-        fastPathIteration && !FUNC::can_produce_null_output &&
-        !FUNC::udf_has_callNullFree) {
-      (*reusableResult)->clearNulls(rows);
+
+    if constexpr (fastPathIteration) {
+      if (isResultReused) {
+        (*reusableResult)->clearNulls(rows);
+      }
     }
 
     // Check if the function reuses input strings for the result, and add
