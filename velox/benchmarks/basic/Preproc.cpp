@@ -18,7 +18,9 @@
 #include <velox/common/base/Exceptions.h>
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
+#include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
+#include "velox/functions/prestosql/Comparisons.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/vector/tests/VectorTestBase.h"
 
@@ -201,7 +203,7 @@ void registerMultiply(const std::string& name) {
       name, signatures(), make<Multiplication>);
 }
 
-enum class RunConfig { Basic, OneHot, VectorAndOneHot };
+enum class RunConfig { Basic, OneHot, VectorAndOneHot, Simple };
 
 std::vector<float> kBenchmarkData{
     2.1476,  -1.3686, 0.7764,  -1.1965, 0.3452,  0.9735,  -1.5781, -1.4886,
@@ -230,6 +232,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   PreprocBenchmark() : FunctionBenchmarkBase() {
     functions::prestosql::registerAllScalarFunctions();
+    functions::registerBinaryScalar<functions::EqFunction, bool>({"simple_eq"});
     registerPlus("add_v");
     registerMultiply("mult_v");
     registerFunction<OneHotFunction, float, float, float>({"one_hot"});
@@ -252,6 +255,10 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
       case RunConfig::Basic:
         return fmt::format(
             "clamp(0.05::REAL * (20.5::REAL + if(floor(c0) = {}::REAL, 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
+            n);
+      case RunConfig::Simple:
+        return fmt::format(
+            "clamp(0.05::REAL * (20.5::REAL + if(simple_eq(floor(c0) ,{}::REAL), 1::REAL, 0::REAL)), (-10.0)::REAL, 10.0::REAL)",
             n);
       case RunConfig::OneHot:
         return fmt::format(
@@ -304,8 +311,16 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
   size_t run(RunConfig config, size_t times) {
     folly::BenchmarkSuspender suspender;
 
-    auto data = vectorMaker_.rowVector(
-        {vectorMaker_.flatVector<float>(kBenchmarkData)});
+    auto scaledData = std::vector<float>();
+    scaledData.reserve(kBenchmarkData.size() * scaleFactor_);
+
+    for (int i = 0; i < scaleFactor_; i++) {
+      scaledData.insert(
+          scaledData.end(), kBenchmarkData.begin(), kBenchmarkData.end());
+    }
+
+    auto data =
+        vectorMaker_.rowVector({vectorMaker_.flatVector<float>(scaledData)});
     auto exprSet = compile({
         makeExpression(1, config),
         makeExpression(2, config),
@@ -326,7 +341,15 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     }
     return cnt;
   }
+
+  /// Scale factor for the data.
+  static auto const scaleFactor_ = 1;
 };
+
+BENCHMARK_MULTI(simple, n) {
+  PreprocBenchmark benchmark;
+  return benchmark.run(RunConfig::Simple, n);
+}
 
 BENCHMARK_MULTI(original, n) {
   PreprocBenchmark benchmark;

@@ -39,8 +39,8 @@ struct SimdComparator {
 
   template <typename T, bool isLeftConstant, bool isRightConstant>
   void applySimdComparison(
-      vector_size_t begin,
-      vector_size_t end,
+      const vector_size_t begin,
+      const vector_size_t end,
       const T* rawLhs,
       const T* rawRhs,
       uint8_t* rawResult) {
@@ -81,7 +81,9 @@ struct SimdComparator {
 
     // Evaluate remaining values.
     for (auto i = vectorEnd; i < end; i++) {
-      if constexpr (isRightConstant) {
+      if constexpr (isRightConstant && isLeftConstant) {
+        bits::setBit(rawResult, i, ComparisonOp()(rawLhs[0], rawRhs[0]));
+      } else if constexpr (isRightConstant) {
         bits::setBit(rawResult, i, ComparisonOp()(rawLhs[i], rawRhs[0]));
       } else if constexpr (isLeftConstant) {
         bits::setBit(rawResult, i, ComparisonOp()(rawLhs[0], rawRhs[i]));
@@ -111,7 +113,8 @@ struct SimdComparator {
     auto resultVector = (*result)->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
-    auto isSimdizable = lhs.isIdentityMapping() && rhs.isIdentityMapping() &&
+    auto isSimdizable = (lhs.isConstantMapping() || lhs.isIdentityMapping()) &&
+        (rhs.isConstantMapping() || rhs.isIdentityMapping()) &&
         rows.isAllSelected();
 
     if (!isSimdizable) {
@@ -124,7 +127,10 @@ struct SimdComparator {
       return;
     }
 
-    if (lhs.isConstantMapping()) {
+    if (lhs.isConstantMapping() && rhs.isConstantMapping()) {
+      applySimdComparison<T, true, true>(
+          rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
+    } else if (lhs.isConstantMapping()) {
       applySimdComparison<T, true, false>(
           rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
     } else if (rhs.isConstantMapping()) {
@@ -135,8 +141,7 @@ struct SimdComparator {
           rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
     }
 
-    auto nullsBuffer = resultVector->mutableRawNulls();
-    bits::fillBits(nullsBuffer, rows.begin(), rows.end(), bits::kNotNull);
+    resultVector->clearNulls(rows);
   }
 
   template <
@@ -169,7 +174,7 @@ class ComparisonSimdFunction : public exec::VectorFunction {
     VELOX_CHECK_EQ(args[0]->typeKind(), args[1]->typeKind());
     VELOX_USER_CHECK_EQ(outputType, BOOLEAN());
 
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
+    context->ensureWritable(rows, outputType, *result);
 
     exec::LocalDecodedVector lhs(context, *args[0], rows);
     exec::LocalDecodedVector rhs(context, *args[1], rows);
@@ -198,6 +203,10 @@ class ComparisonSimdFunction : public exec::VectorFunction {
     }
 
     return signatures;
+  }
+
+  bool supportsFlatNoNullsFastPath() const override {
+    return true;
   }
 };
 
