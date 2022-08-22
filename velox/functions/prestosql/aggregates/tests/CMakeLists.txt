@@ -61,6 +61,7 @@ target_link_libraries(
   velox_functions_lib
   velox_hive_connector
   velox_type
+  velox_vector_fuzzer
   ${gflags_LIBRARIES}
   gtest
   gtest_main)

@@ -111,10 +111,15 @@ class AggregationTestBase : public exec::test::OperatorTestBase {
       const std::vector<std::string>& postAggregationProjections,
       const std::vector<RowVectorPtr>& expectedResult);
 
-  /// Specifies that all aggregate functions used in this test are not sensitive
+  /// Specifies that aggregate functions used in this test are not sensitive
   /// to the order of inputs.
   void allowInputShuffle() {
     allowInputShuffle_ = true;
+  }
+  /// Specifies that aggregate functions used in this test are sensitive
+  /// to the order of inputs.
+  void disallowInputShuffle() {
+    allowInputShuffle_ = false;
   }
 
  private:

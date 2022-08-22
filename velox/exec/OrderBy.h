@@ -100,7 +100,7 @@ class OrderBy : public Operator {
   // reservation size.
   const int32_t spillableReservationGrowthPct_;
 
-  const int32_t spillFileSizeFactor_;
+  const double spillFileSizeFactor_;
 
   // The map from column channel in 'output_' to the corresponding one stored in
   // 'data_'. The column channel might be reordered to ensure the sorting key

@@ -17,11 +17,12 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 #include <fmt/format.h>
 
 using namespace facebook::velox::exec::test;
-
+using facebook::velox::VectorFuzzer;
 namespace facebook::velox::aggregate::test {
 
 namespace {
@@ -52,29 +53,29 @@ std::vector<TestParam> getTestParams() {
   return params;
 }
 
-#define EXECUTE_TEST_BY_VALUE_TYPE(testFunc, valueType, isPartial)   \
+#define EXECUTE_TEST_BY_VALUE_TYPE(testFunc, valueType)              \
   do {                                                               \
     switch (GetParam().comparisonType) {                             \
       case TypeKind::TINYINT:                                        \
-        testFunc<valueType, int8_t>(isPartial);                      \
+        testFunc<valueType, int8_t>();                               \
         break;                                                       \
       case TypeKind::SMALLINT:                                       \
-        testFunc<valueType, int16_t>(isPartial);                     \
+        testFunc<valueType, int16_t>();                              \
         break;                                                       \
       case TypeKind::INTEGER:                                        \
-        testFunc<valueType, int32_t>(isPartial);                     \
+        testFunc<valueType, int32_t>();                              \
         break;                                                       \
       case TypeKind::BIGINT:                                         \
-        testFunc<valueType, int64_t>(isPartial);                     \
+        testFunc<valueType, int64_t>();                              \
         break;                                                       \
       case TypeKind::REAL:                                           \
-        testFunc<valueType, float>(isPartial);                       \
+        testFunc<valueType, float>();                                \
         break;                                                       \
       case TypeKind::DOUBLE:                                         \
-        testFunc<valueType, double>(isPartial);                      \
+        testFunc<valueType, double>();                               \
         break;                                                       \
       case TypeKind::VARCHAR:                                        \
-        testFunc<valueType, StringView>(isPartial);                  \
+        testFunc<valueType, StringView>();                           \
         break;                                                       \
       default:                                                       \
         LOG(FATAL) << "Unsupported comparison type of minmax_by(): " \
@@ -82,34 +83,34 @@ std::vector<TestParam> getTestParams() {
     }                                                                \
   } while (0);
 
-#define EXECUTE_TEST(testFunc, isPartial)                            \
-  do {                                                               \
-    switch (GetParam().valueType) {                                  \
-      case TypeKind::TINYINT:                                        \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int8_t, isPartial);     \
-        break;                                                       \
-      case TypeKind::SMALLINT:                                       \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int16_t, isPartial);    \
-        break;                                                       \
-      case TypeKind::INTEGER:                                        \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int32_t, isPartial);    \
-        break;                                                       \
-      case TypeKind::BIGINT:                                         \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int64_t, isPartial);    \
-        break;                                                       \
-      case TypeKind::REAL:                                           \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, float, isPartial);      \
-        break;                                                       \
-      case TypeKind::DOUBLE:                                         \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, double, isPartial);     \
-        break;                                                       \
-      case TypeKind::VARCHAR:                                        \
-        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, StringView, isPartial); \
-        break;                                                       \
-      default:                                                       \
-        LOG(FATAL) << "Unsupported value type of minmax_by(): "      \
-                   << mapTypeKindToName(GetParam().valueType);       \
-    }                                                                \
+#define EXECUTE_TEST(testFunc)                                  \
+  do {                                                          \
+    switch (GetParam().valueType) {                             \
+      case TypeKind::TINYINT:                                   \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int8_t);           \
+        break;                                                  \
+      case TypeKind::SMALLINT:                                  \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int16_t);          \
+        break;                                                  \
+      case TypeKind::INTEGER:                                   \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int32_t);          \
+        break;                                                  \
+      case TypeKind::BIGINT:                                    \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, int64_t);          \
+        break;                                                  \
+      case TypeKind::REAL:                                      \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, float);            \
+        break;                                                  \
+      case TypeKind::DOUBLE:                                    \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, double);           \
+        break;                                                  \
+      case TypeKind::VARCHAR:                                   \
+        EXECUTE_TEST_BY_VALUE_TYPE(testFunc, StringView);       \
+        break;                                                  \
+      default:                                                  \
+        LOG(FATAL) << "Unsupported value type of minmax_by(): " \
+                   << mapTypeKindToName(GetParam().valueType);  \
+    }                                                           \
   } while (0);
 
 class MinMaxByAggregationTestBase : public AggregationTestBase {
@@ -121,8 +122,15 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
   // Build a flat vector with numeric native type of T. The value in the
   // returned flat vector is in ascending order.
   template <typename T>
-  FlatVectorPtr<T> buildDataVector() {
-    return makeFlatVector<T>(numValues_, [](auto row) { return row - 3; });
+  FlatVectorPtr<T> buildDataVector(
+      vector_size_t size,
+      folly::Range<const int*> values = {}) {
+    if (values.empty()) {
+      return makeFlatVector<T>(size, [](auto row) { return row - 3; });
+    } else {
+      VELOX_CHECK_EQ(values.size(), size);
+      return makeFlatVector<T>(size, [&](auto row) { return values[row]; });
+    }
   }
 
   template <typename T>
@@ -135,31 +143,6 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
   T dataAt(vector_size_t index) {
     EXPECT_LT(index, numValues_);
     return getDataVector<T>()->valueAt(index);
-  }
-
-  void executeQuery(
-      const std::vector<RowVectorPtr>& values,
-      const std::string& aggregate,
-      bool isPartial,
-      const std::string& verifyDuckDbSql) {
-    executeQuery(values, aggregate, isPartial, {}, verifyDuckDbSql);
-  }
-
-  void executeQuery(
-      const std::vector<RowVectorPtr>& values,
-      const std::string& aggregate,
-      bool isPartial,
-      const std::vector<std::string>& groupByKeys,
-      const std::string& verifyDuckDbSql) {
-    if (isPartial) {
-      auto op = PlanBuilder()
-                    .values(values)
-                    .partialAggregation(groupByKeys, {aggregate})
-                    .planNode();
-      assertQuery(op, verifyDuckDbSql);
-    } else {
-      testAggregations(values, groupByKeys, {aggregate}, verifyDuckDbSql);
-    }
   }
 
   // Get the column name in 'rowType_' for the given 'kind'.
@@ -175,6 +158,11 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
         mapTypeKindToName(kind),
         rowType_->toString());
   }
+
+  VectorPtr buildDataVector(
+      TypeKind kind,
+      vector_size_t size,
+      folly::Range<const int*> values);
 
   const RowTypePtr rowType_{
       ROW({"c0", "c1", "c2", "c3", "c4", "c5", "c6"},
@@ -195,43 +183,79 @@ class MinMaxByAggregationTestBase : public AggregationTestBase {
 // Build a flat vector with StringView. The value in the returned flat vector
 // is in ascending order.
 template <>
-FlatVectorPtr<StringView> MinMaxByAggregationTestBase::buildDataVector() {
+FlatVectorPtr<StringView> MinMaxByAggregationTestBase::buildDataVector(
+    vector_size_t size,
+    folly::Range<const int*> values) {
   std::string value;
-  return makeFlatVector<StringView>(
-      numValues_,
-      [&, maxValueLen = (int)std::ceil((double)numValues_ / 26.0)](auto row) {
-        const int valueLen = row % maxValueLen + 1;
-        const char c = 'a' + row / maxValueLen;
-        value = std::string(valueLen, c);
-        return StringView(value);
-      });
+  if (values.empty()) {
+    return makeFlatVector<StringView>(
+        size, [&, maxValueLen = (int)std::ceil((double)size / 26.0)](auto row) {
+          const int valueLen = row % maxValueLen + 1;
+          const char c = 'a' + row / maxValueLen;
+          value = std::string(valueLen, c);
+          return StringView(value);
+        });
+  } else {
+    VELOX_CHECK_EQ(values.size(), size);
+    return makeFlatVector<StringView>(size, [&](auto row) {
+      value = std::to_string(values[row]);
+      return StringView(value);
+    });
+  }
+}
+
+VectorPtr MinMaxByAggregationTestBase::buildDataVector(
+    TypeKind kind,
+    vector_size_t size,
+    folly::Range<const int*> values) {
+  switch (kind) {
+    case TypeKind::TINYINT:
+      return buildDataVector<int8_t>(size, values);
+    case TypeKind::SMALLINT:
+      return buildDataVector<int16_t>(size, values);
+    case TypeKind::INTEGER:
+      return buildDataVector<int32_t>(size, values);
+    case TypeKind::BIGINT:
+      return buildDataVector<int64_t>(size, values);
+    case TypeKind::REAL:
+      return buildDataVector<float>(size, values);
+    case TypeKind::DOUBLE:
+      return buildDataVector<double>(size, values);
+    case TypeKind::VARCHAR:
+      return buildDataVector<StringView>(size, values);
+    default:
+      LOG(FATAL) << "Unsupported value/comparison type of minmax_by(): "
+                 << mapTypeKindToName(kind);
+  }
 }
 
 void MinMaxByAggregationTestBase::SetUp() {
   AggregationTestBase::SetUp();
+  AggregationTestBase::disallowInputShuffle();
 
   for (const TypeKind type : kSupportedTypes) {
     switch (type) {
       case TypeKind::TINYINT:
-        dataVectorsByType_.emplace(type, buildDataVector<int8_t>());
+        dataVectorsByType_.emplace(type, buildDataVector<int8_t>(numValues_));
         break;
       case TypeKind::SMALLINT:
-        dataVectorsByType_.emplace(type, buildDataVector<int16_t>());
+        dataVectorsByType_.emplace(type, buildDataVector<int16_t>(numValues_));
         break;
       case TypeKind::INTEGER:
-        dataVectorsByType_.emplace(type, buildDataVector<int32_t>());
+        dataVectorsByType_.emplace(type, buildDataVector<int32_t>(numValues_));
         break;
       case TypeKind::BIGINT:
-        dataVectorsByType_.emplace(type, buildDataVector<int64_t>());
+        dataVectorsByType_.emplace(type, buildDataVector<int64_t>(numValues_));
         break;
       case TypeKind::REAL:
-        dataVectorsByType_.emplace(type, buildDataVector<float>());
+        dataVectorsByType_.emplace(type, buildDataVector<float>(numValues_));
         break;
       case TypeKind::DOUBLE:
-        dataVectorsByType_.emplace(type, buildDataVector<double>());
+        dataVectorsByType_.emplace(type, buildDataVector<double>(numValues_));
         break;
       case TypeKind::VARCHAR:
-        dataVectorsByType_.emplace(type, buildDataVector<StringView>());
+        dataVectorsByType_.emplace(
+            type, buildDataVector<StringView>(numValues_));
         break;
       default:
         LOG(FATAL) << "Unsupported data type: " << mapTypeKindToName(type);
@@ -265,11 +289,11 @@ class MinMaxByGlobalByAggregationTest
         "{}({}, {})", aggName, valueColumnName, comparisonColumnName);
     SCOPED_TRACE(
         fmt::format("{}\nverifyDuckDbSql: {}", aggregate, verifyDuckDbSql));
-    executeQuery(vectors, aggregate, false, verifyDuckDbSql);
+    testAggregations(vectors, {}, {aggregate}, {}, verifyDuckDbSql);
   }
 
   template <typename T, typename U>
-  void minByGlobalByTest(bool isPartial) {
+  void minByGlobalByTest() {
     struct {
       const RowVectorPtr inputRowVector;
       const std::string verifyDuckDbSql;
@@ -286,21 +310,13 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 5),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt, dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         // All null cases.
         {makeRowVector(
@@ -311,10 +327,7 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeNullConstant(GetParam().valueType, 10),
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         // Regular cases.
         {makeRowVector(
@@ -322,69 +335,48 @@ class MinMaxByGlobalByAggregationTest
                   {std::nullopt, dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(4),
-                   dataAt<U>(0))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(0), dataAt<U>(3)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), std::nullopt, dataAt<T>(3), dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(0), dataAt<U>(3)})}),
-         isPartial ? fmt::format(
-                         "SELECT struct_pack(x => '{}', y => '{}')",
-                         dataAt<T>(3),
-                         dataAt<U>(0))
-                   : fmt::format(
-                         "SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
     for (const auto& testData : testSettings) {
-      SCOPED_TRACE(
-          fmt::format("{}\nisPartial:{}", testData.debugString(), isPartial));
-      executeQuery(
+      SCOPED_TRACE(testData.debugString());
+      testAggregations(
           {testData.inputRowVector},
-          "min_by(c0, c1)",
-          isPartial,
+          {},
+          {"min_by(c0, c1)"},
+          {},
           testData.verifyDuckDbSql);
     }
   }
 
   template <typename T, typename U>
-  void maxByGlobalByTest(bool isPartial) {
+  void maxByGlobalByTest() {
     struct {
       const RowVectorPtr inputRowVector;
       const std::string verifyDuckDbSql;
@@ -401,21 +393,13 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeConstant(std::optional<T>(dataAt<T>(0)), 5),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt, dataAt<T>(0), dataAt<T>(1), dataAt<T>(2)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 5)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         // All null cases.
         {makeRowVector(
@@ -426,10 +410,7 @@ class MinMaxByGlobalByAggregationTest
         {makeRowVector(
              {makeNullConstant(GetParam().valueType, 10),
               makeConstant(std::optional<U>(dataAt<U>(0)), 10)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(0))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         // Regular cases.
         {makeRowVector(
@@ -437,82 +418,53 @@ class MinMaxByGlobalByAggregationTest
                   {std::nullopt, dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(2))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(1), dataAt<U>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(0),
-                   dataAt<U>(2))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(0))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(0), std::nullopt, dataAt<U>(1), dataAt<U>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => '{}', y => '{}')",
-                   dataAt<T>(4),
-                   dataAt<U>(2))
-             : fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(4))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), dataAt<T>(3), std::nullopt, dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(3), dataAt<U>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT struct_pack(x => NULL, y => '{}')", dataAt<U>(3))
-             : "SELECT * FROM (VALUES (NULL)) AS t"},
+         "SELECT * FROM (VALUES (NULL)) AS t"},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {dataAt<T>(0), std::nullopt, dataAt<T>(3), dataAt<T>(4)}),
               makeNullableFlatVector<U>(
                   {dataAt<U>(2), std::nullopt, dataAt<U>(3), dataAt<U>(0)})}),
-         isPartial ? fmt::format(
-                         "SELECT struct_pack(x => '{}', y => '{}')",
-                         dataAt<T>(3),
-                         dataAt<U>(3))
-                   : fmt::format(
-                         "SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
+         fmt::format("SELECT * FROM (VALUES ('{}')) AS t", dataAt<T>(3))}};
     for (const auto& testData : testSettings) {
-      SCOPED_TRACE(
-          fmt::format("{}\nisPartial:{}", testData.debugString(), isPartial));
-      executeQuery(
+      SCOPED_TRACE(testData.debugString());
+      testAggregations(
           {testData.inputRowVector},
-          "max_by(c0, c1)",
-          isPartial,
+          {},
+          {"max_by(c0, c1)"},
+          {},
           testData.verifyDuckDbSql);
     }
   }
 };
 
-TEST_P(MinMaxByGlobalByAggregationTest, minByPartialGlobalBy) {
-  EXECUTE_TEST(minByGlobalByTest, true);
-}
-
-TEST_P(MinMaxByGlobalByAggregationTest, maxByPartialGlobalBy) {
-  EXECUTE_TEST(maxByGlobalByTest, true);
-}
-
 TEST_P(MinMaxByGlobalByAggregationTest, minByFinalGlobalBy) {
-  EXECUTE_TEST(minByGlobalByTest, false);
+  EXECUTE_TEST(minByGlobalByTest);
 }
 
 TEST_P(MinMaxByGlobalByAggregationTest, maxByFinalGlobalBy) {
-  EXECUTE_TEST(maxByGlobalByTest, false);
+  EXECUTE_TEST(maxByGlobalByTest);
 }
 
 TEST_P(MinMaxByGlobalByAggregationTest, randomMinByGlobalBy) {
@@ -529,6 +481,51 @@ TEST_P(MinMaxByGlobalByAggregationTest, randomMaxByGlobalBy) {
       kMaxBy,
       getColumnName(GetParam().valueType),
       getColumnName(GetParam().comparisonType));
+}
+
+TEST_P(
+    MinMaxByGlobalByAggregationTest,
+    randomMaxByGlobalByWithDistinctCompareValue) {
+  // Enable disk spilling test with distinct comparison values.
+  AggregationTestBase::allowInputShuffle();
+
+  auto rowType =
+      ROW({"c0", "c1"},
+          {fromKindToScalerType(GetParam().valueType),
+           fromKindToScalerType(GetParam().comparisonType)});
+
+  const bool isMallInt = GetParam().comparisonType == TypeKind::TINYINT ||
+      GetParam().comparisonType == TypeKind::SMALLINT;
+  const int kBatchSize = isMallInt ? 1 << 4 : 1 << 10;
+  const int kNumBatches = isMallInt ? 4 : 10;
+  const int kNumValues = kNumBatches * kBatchSize;
+  std::vector<int> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = i;
+  }
+  std::shuffle(values.begin(), values.end(), std::default_random_engine(1));
+  std::vector<RowVectorPtr> rowVectors;
+  const auto* rawValues = values.data();
+
+  VectorFuzzer::Options options;
+  options.nullRatio = 0;
+  options.vectorSize = kBatchSize;
+  VectorFuzzer fuzzer(options, pool_.get(), 0);
+
+  for (int i = 0; i < kNumBatches; ++i) {
+    auto valueVector = fuzzer.fuzz(fromKindToScalerType(GetParam().valueType));
+    auto comparisonVector = buildDataVector(
+        GetParam().comparisonType,
+        kBatchSize,
+        folly::range<const int*>(rawValues, rawValues + kBatchSize));
+    rawValues += kBatchSize;
+    rowVectors.push_back(makeRowVector({valueVector, comparisonVector}));
+  }
+  createDuckDbTable(rowVectors);
+
+  testGlobalAggregation(rowVectors, kMaxBy, "c0", "c1");
+
+  testGlobalAggregation(rowVectors, kMaxBy, "c0", "c1");
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
@@ -561,12 +558,12 @@ class MinMaxByGroupByAggregationTest
         aggregate,
         groupByColumnName,
         verifyDuckDbSql));
-    executeQuery(
-        vectors, aggregate, false, {groupByColumnName}, verifyDuckDbSql);
+    testAggregations(
+        vectors, {groupByColumnName}, {aggregate}, {}, verifyDuckDbSql);
   }
 
   template <typename T, typename U>
-  void testMinByGroupBy(bool isPartial) {
+  void testMinByGroupBy() {
     struct {
       const RowVectorPtr inputRowVector;
       const std::string verifyDuckDbSql;
@@ -584,16 +581,10 @@ class MinMaxByGroupByAggregationTest
              {makeConstant(std::optional<T>(dataAt<T>(0)), 6),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<T>(0))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -605,14 +596,8 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL)) AS t",
-                   dataAt<int32_t>(0))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<int32_t>(0))},
 
         // All null cases.
         {makeRowVector(
@@ -631,20 +616,11 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(4),
-                   dataAt<int32_t>(1),
-                   dataAt<U>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<int32_t>(2))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<int32_t>(2))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -691,24 +667,13 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0),
-                   dataAt<U>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<U>(2),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(1),
-                   dataAt<U>(1))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', '{}'), ('{}', NULL), ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(1))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', '{}'), ('{}', NULL), ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<T>(0),
+             dataAt<int32_t>(1),
+             dataAt<int32_t>(2),
+             dataAt<T>(1))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -732,38 +697,26 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(4),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(1),
-                   dataAt<U>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(0))}};
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<T>(1),
+             dataAt<int32_t>(2),
+             dataAt<T>(0))}};
     for (const auto& testData : testSettings) {
-      SCOPED_TRACE(
-          fmt::format("{}\nisPartial: {}", testData.debugString(), isPartial));
-      executeQuery(
+      SCOPED_TRACE(testData.debugString());
+      testAggregations(
           {testData.inputRowVector},
-          "min_by(c0, c1)",
-          isPartial,
           {"c2"},
+          {"min_by(c0, c1)"},
+          {},
           testData.verifyDuckDbSql);
     }
   }
 
   template <typename T, typename U>
-  void testMaxByGroupBy(bool isPartial) {
+  void testMaxByGroupBy() {
     struct {
       const RowVectorPtr inputRowVector;
       const std::string verifyDuckDbSql;
@@ -781,16 +734,10 @@ class MinMaxByGroupByAggregationTest
              {makeConstant(std::optional<T>(dataAt<T>(0)), 6),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<T>(0))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<T>(0))},
         {makeRowVector(
              {makeNullableFlatVector<T>(
                   {std::nullopt,
@@ -801,14 +748,8 @@ class MinMaxByGroupByAggregationTest
                    dataAt<T>(4)}),
               makeConstant(std::optional<U>(dataAt<U>(0)), 6),
               makeConstant(std::optional<int32_t>(dataAt<int32_t>(0)), 6)}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(0))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL)) AS t",
-                   dataAt<int32_t>(0))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL)) AS t", dataAt<int32_t>(0))},
 
         // All null cases.
         {makeRowVector(
@@ -827,20 +768,11 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => NULL, y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(5),
-                   dataAt<int32_t>(1),
-                   dataAt<U>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<U>(2))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<int32_t>(2))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL), ('{}', NULL), ('{}', NULL)) AS t",
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<int32_t>(2))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -887,24 +819,13 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(0)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(4),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(2),
-                   dataAt<U>(5),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(1),
-                   dataAt<U>(1))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(2),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(1))},
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<T>(2),
+             dataAt<int32_t>(2),
+             dataAt<T>(1))},
 
         {makeRowVector(
              {makeNullableFlatVector<T>(
@@ -928,51 +849,39 @@ class MinMaxByGroupByAggregationTest
                    dataAt<int32_t>(1),
                    dataAt<int32_t>(2),
                    dataAt<int32_t>(2)})}),
-         isPartial
-             ? fmt::format(
-                   "SELECT * FROM( VALUES ('{}', struct_pack(x => NULL, y => '{}')), ('{}', struct_pack(x => '{}', y => '{}')), ('{}', struct_pack(x => '{}', y => '{}'))) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<U>(5),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(1),
-                   dataAt<U>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(0),
-                   dataAt<U>(2))
-             : fmt::format(
-                   "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
-                   dataAt<int32_t>(0),
-                   dataAt<int32_t>(1),
-                   dataAt<T>(1),
-                   dataAt<int32_t>(2),
-                   dataAt<T>(0))}};
+         fmt::format(
+             "SELECT * FROM( VALUES ('{}', NULL), ('{}', '{}'), ('{}', '{}')) AS t",
+             dataAt<int32_t>(0),
+             dataAt<int32_t>(1),
+             dataAt<T>(1),
+             dataAt<int32_t>(2),
+             dataAt<T>(0))}};
     for (const auto& testData : testSettings) {
-      SCOPED_TRACE(
-          fmt::format("{}\nisPartial: {}", testData.debugString(), isPartial));
-      executeQuery(
+      SCOPED_TRACE(testData.debugString());
+      testAggregations(
           {testData.inputRowVector},
-          "max_by(c0, c1)",
-          isPartial,
           {"c2"},
+          {"max_by(c0, c1)"},
+          {},
           testData.verifyDuckDbSql);
     }
   }
 };
 
 TEST_P(MinMaxByGroupByAggregationTest, minByPartialGroupBy) {
-  EXECUTE_TEST(testMinByGroupBy, true);
+  EXECUTE_TEST(testMinByGroupBy);
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, maxByPartialGroupBy) {
-  EXECUTE_TEST(testMaxByGroupBy, true);
+  EXECUTE_TEST(testMaxByGroupBy);
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, minByFinalGroupBy) {
-  EXECUTE_TEST(testMinByGroupBy, false);
+  EXECUTE_TEST(testMinByGroupBy);
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, maxByFinalGroupBy) {
-  EXECUTE_TEST(testMaxByGroupBy, false);
+  EXECUTE_TEST(testMaxByGroupBy);
 }
 
 TEST_P(MinMaxByGroupByAggregationTest, randomMinByGroupBy) {
@@ -991,6 +900,54 @@ TEST_P(MinMaxByGroupByAggregationTest, randomMaxByGroupBy) {
       getColumnName(GetParam().valueType),
       getColumnName(GetParam().comparisonType),
       getColumnName(TypeKind::INTEGER));
+}
+
+TEST_P(
+    MinMaxByGroupByAggregationTest,
+    randomMinMaxByGroupByWithDistinctCompareValue) {
+  // Enable disk spilling test with distinct comparison values.
+  AggregationTestBase::allowInputShuffle();
+
+  auto rowType =
+      ROW({"c0", "c1", "c2"},
+          {fromKindToScalerType(GetParam().valueType),
+           fromKindToScalerType(GetParam().comparisonType),
+           INTEGER()});
+
+  const bool isMallInt = GetParam().comparisonType == TypeKind::TINYINT ||
+      GetParam().comparisonType == TypeKind::SMALLINT;
+  const int kBatchSize = isMallInt ? 1 << 4 : 1 << 10;
+  const int kNumBatches = isMallInt ? 3 : 10;
+  const int kNumValues = kNumBatches * kBatchSize;
+  std::vector<int> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    values[i] = i;
+  }
+  std::shuffle(values.begin(), values.end(), std::default_random_engine(1));
+  std::vector<RowVectorPtr> rowVectors;
+  const auto* rawValues = values.data();
+
+  VectorFuzzer::Options options;
+  options.nullRatio = 0;
+  options.vectorSize = kBatchSize;
+  VectorFuzzer fuzzer(options, pool_.get(), 0);
+
+  for (int i = 0; i < kNumBatches; ++i) {
+    auto valueVector = fuzzer.fuzz(fromKindToScalerType(GetParam().valueType));
+    auto groupByVector = makeFlatVector<int32_t>(kBatchSize);
+    auto comparisonVector = buildDataVector(
+        GetParam().comparisonType,
+        kBatchSize,
+        folly::range<const int*>(rawValues, rawValues + kBatchSize));
+    rawValues += kBatchSize;
+    rowVectors.push_back(
+        makeRowVector({valueVector, comparisonVector, groupByVector}));
+  }
+  createDuckDbTable(rowVectors);
+
+  testGroupByAggregation(rowVectors, kMaxBy, "c0", "c1", "c2");
+
+  testGroupByAggregation(rowVectors, kMaxBy, "c0", "c1", "c2");
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

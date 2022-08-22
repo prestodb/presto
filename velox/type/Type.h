@@ -1956,6 +1956,9 @@ struct CastTypeChecker<Row<T...>> {
   }
 };
 
+/// Return the scalar type for a given 'kind'.
+TypePtr fromKindToScalerType(TypeKind kind);
+
 } // namespace facebook::velox
 
 namespace folly {
