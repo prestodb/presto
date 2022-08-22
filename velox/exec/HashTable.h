@@ -399,7 +399,6 @@ class HashTable : public BaseHashTable {
   void clearUseRange(std::vector<bool>& useRange);
 
   void rehash();
-  void initializeNewGroups(HashLookup& lookup);
   void storeKeys(HashLookup& lookup, vector_size_t row);
 
   void storeRowPointer(int32_t index, uint64_t hash, char* row);
@@ -466,7 +465,6 @@ class HashTable : public BaseHashTable {
     return isJoinBuild_ ? 0 : 50;
   }
 
-  const std::vector<std::unique_ptr<Aggregate>>& aggregates_;
   int8_t sizeBits_;
   bool isJoinBuild_ = false;
 

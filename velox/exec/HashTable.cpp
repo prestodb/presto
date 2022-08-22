@@ -32,9 +32,7 @@ HashTable<ignoreNullKeys>::HashTable(
     bool isJoinBuild,
     bool hasProbedFlag,
     memory::MappedMemory* mappedMemory)
-    : BaseHashTable(std::move(hashers)),
-      aggregates_(aggregates),
-      isJoinBuild_(isJoinBuild) {
+    : BaseHashTable(std::move(hashers)), isJoinBuild_(isJoinBuild) {
   std::vector<TypePtr> keys;
   for (auto& hasher : hashers_) {
     keys.push_back(hasher->type());
@@ -391,7 +389,6 @@ void HashTable<ignoreNullKeys>::groupProbe(HashLookup& lookup) {
     state1.firstProbe(table_, 0);
     fullProbe<false>(lookup, state1, false);
   }
-  initializeNewGroups(lookup);
 }
 
 template <bool ignoreNullKeys>
@@ -443,7 +440,6 @@ void HashTable<ignoreNullKeys>::arrayGroupProbe(HashLookup& lookup) {
     groups[row] = group;
     lookup.hits[row] = group; // NOLINT
   }
-  initializeNewGroups(lookup);
 }
 
 template <bool ignoreNullKeys>
@@ -489,16 +485,6 @@ void HashTable<ignoreNullKeys>::joinProbe(HashLookup& lookup) {
     state1.preProbe(tags_, sizeMask_, lookup.hashes[row], row);
     state1.firstProbe(table_, 0);
     fullProbe<true>(lookup, state1, false);
-  }
-}
-
-template <bool ignoreNullKeys>
-void HashTable<ignoreNullKeys>::initializeNewGroups(HashLookup& lookup) {
-  if (lookup.newGroups.empty()) {
-    return;
-  }
-  for (auto& aggregate : aggregates_) {
-    aggregate->initializeNewGroups(lookup.hits.data(), lookup.newGroups);
   }
 }
 
