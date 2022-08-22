@@ -6,7 +6,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.276-SNAPSHOT</version>
+        <version>0.277-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-clickhouse</artifactId>
