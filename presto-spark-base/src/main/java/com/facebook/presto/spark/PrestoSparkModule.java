@@ -61,6 +61,7 @@ import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager
 import com.facebook.presto.execution.resourceGroups.LegacyResourceGroupConfigurationManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.index.IndexManager;
@@ -113,6 +114,7 @@ import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.node.PrestoSparkQueryManager;
 import com.facebook.presto.spark.node.PrestoSparkTaskManager;
+import com.facebook.presto.spark.planner.PrestoSparkLocalExecutionPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
@@ -155,7 +157,6 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.ConnectorPlanOptimizerManager;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -253,6 +254,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryStatusInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(PrestoSparkQueryData.class);
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
+        jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
@@ -385,7 +387,7 @@ public class PrestoSparkModule
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
-        binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoSparkLocalExecutionPlanner.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
         binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);

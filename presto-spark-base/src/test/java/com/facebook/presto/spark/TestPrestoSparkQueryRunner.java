@@ -40,6 +40,7 @@ import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoS
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_SPARK_CONFIGS;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_NATIVE_ENGINE_EXECUTION_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
@@ -86,38 +87,38 @@ public class TestPrestoSparkQueryRunner
                         "FROM orders",
                 30000);
 
-        assertQuery(
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM hive.hive_test.hive_orders",
-                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders " +
-                        "UNION ALL " +
-                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders " +
-                        "UNION ALL " +
-                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-                        "FROM orders");
-
-        // 3-way union all with potentially non-flattened plan
-        // See https://github.com/prestodb/presto/issues/12625
-        //
-        // CreateTable is not supported yet, use CreateTableAsSelect
-        assertUpdate(
-                "CREATE TABLE hive.hive_test.test_table_write_with_union AS " +
-                        "SELECT orderkey, 'dummy' AS dummy " +
-                        "FROM orders",
-                15000);
-        assertUpdate(
-                "INSERT INTO hive.hive_test.test_table_write_with_union " +
-                        "SELECT orderkey, dummy " +
-                        "FROM (" +
-                        "   SELECT orderkey, 'a' AS dummy FROM orders " +
-                        "UNION ALL" +
-                        "   SELECT orderkey, 'bb' AS dummy FROM orders " +
-                        "UNION ALL" +
-                        "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
-                        ")",
-                45000);
+//        assertQuery(
+//                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+//                        "FROM hive.hive_test.hive_orders",
+//                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+//                        "FROM orders " +
+//                        "UNION ALL " +
+//                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+//                        "FROM orders " +
+//                        "UNION ALL " +
+//                        "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
+//                        "FROM orders");
+//
+//        // 3-way union all with potentially non-flattened plan
+//        // See https://github.com/prestodb/presto/issues/12625
+//        //
+//        // CreateTable is not supported yet, use CreateTableAsSelect
+//        assertUpdate(
+//                "CREATE TABLE hive.hive_test.test_table_write_with_union AS " +
+//                        "SELECT orderkey, 'dummy' AS dummy " +
+//                        "FROM orders",
+//                15000);
+//        assertUpdate(
+//                "INSERT INTO hive.hive_test.test_table_write_with_union " +
+//                        "SELECT orderkey, dummy " +
+//                        "FROM (" +
+//                        "   SELECT orderkey, 'a' AS dummy FROM orders " +
+//                        "UNION ALL" +
+//                        "   SELECT orderkey, 'bb' AS dummy FROM orders " +
+//                        "UNION ALL" +
+//                        "   SELECT orderkey, 'ccc' AS dummy FROM orders " +
+//                        ")",
+//                45000);
     }
 
     @Test
@@ -1259,6 +1260,25 @@ public class TestPrestoSparkQueryRunner
         // 2 new partitions added
         assertEquals(actual.getOnlyValue().toString(), "5");
         assertQuerySucceeds("DROP TABLE test_partition_table");
+    }
+
+    @Test
+    public void testNativeEngineExeGggcution()
+    {
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_NATIVE_ENGINE_EXECUTION_ENABLED, "true")
+                .build();
+
+//        Session session = Session.builder(getSession()).build();
+
+        getQueryRunner().execute(session,
+                "SELECT id, name FROM (\n"
+                        + "    VALUES\n"
+                        + "        (1, 'a'),\n"
+                        + "        (2, 'b'),\n"
+                        + "        (3, 'c')\n"
+                        + ") AS t (id, name)\n");
     }
 
     private void assertBucketedQuery(String sql)

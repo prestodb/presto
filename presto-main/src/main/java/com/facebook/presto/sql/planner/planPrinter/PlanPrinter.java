@@ -77,6 +77,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -401,16 +402,16 @@ public class PlanPrinter
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
         builder.append(
-                textLogicalPlan(
-                        fragment.getRoot(),
-                        typeProvider,
-                        Optional.of(fragment.getStageExecutionDescriptor()),
-                        functionAndTypeManager,
-                        fragment.getStatsAndCosts(),
-                        session,
-                        planNodeStats,
-                        1,
-                        verbose))
+                        textLogicalPlan(
+                                fragment.getRoot(),
+                                typeProvider,
+                                Optional.of(fragment.getStageExecutionDescriptor()),
+                                functionAndTypeManager,
+                                fragment.getStatsAndCosts(),
+                                session,
+                                planNodeStats,
+                                1,
+                                verbose))
                 .append("\n");
 
         return builder.toString();
@@ -710,12 +711,12 @@ public class PlanPrinter
             if (node.getOrderingScheme().isPresent()) {
                 OrderingScheme orderingScheme = node.getOrderingScheme().get();
                 args.add(format("order by (%s)", Stream.concat(
-                        orderingScheme.getOrderByVariables().stream()
-                                .limit(node.getPreSortedOrderPrefix())
-                                .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
-                        orderingScheme.getOrderByVariables().stream()
-                                .skip(node.getPreSortedOrderPrefix())
-                                .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
+                                orderingScheme.getOrderByVariables().stream()
+                                        .limit(node.getPreSortedOrderPrefix())
+                                        .map(symbol -> "<" + symbol + " " + orderingScheme.getOrdering(symbol) + ">"),
+                                orderingScheme.getOrderByVariables().stream()
+                                        .skip(node.getPreSortedOrderPrefix())
+                                        .map(symbol -> symbol + " " + orderingScheme.getOrdering(symbol)))
                         .collect(Collectors.joining(", "))));
             }
 
@@ -1206,6 +1207,14 @@ public class PlanPrinter
         public Void visitLateralJoin(LateralJoinNode node, Void context)
         {
             addNode(node, "Lateral", format("[%s]", node.getCorrelation()));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitNativeEngine(NativeEngineNode node, Void context)
+        {
+            addNode(node, "NativeEngine");
 
             return processChildren(node, context);
         }

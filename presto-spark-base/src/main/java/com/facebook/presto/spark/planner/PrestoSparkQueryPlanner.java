@@ -24,6 +24,7 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spark.PhysicalResourceSettings;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.OutputExtractor;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
@@ -111,11 +113,12 @@ public class PrestoSparkQueryPlanner
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         Plan plan = logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED);
-        List<Input> inputs = new InputExtractor(metadata, session).extractInputs(plan.getRoot());
-        Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
+        PlanNode planNode = plan.getRoot() instanceof NativeEngineNode ? ((NativeEngineNode) plan.getRoot()).getSubPlan() : plan.getRoot();
+        List<Input> inputs = new InputExtractor(metadata, session).extractInputs(planNode);
+        Optional<Output> output = new OutputExtractor().extractOutput(planNode);
         Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
-        List<String> columnNames = ((OutputNode) plan.getRoot()).getColumnNames();
-        PhysicalResourceSettings physicalResourceSettings = new PrestoSparkPhysicalResourceCalculator().calculate(plan.getRoot(), metadata, session);
+        List<String> columnNames = ((OutputNode) planNode).getColumnNames();
+        PhysicalResourceSettings physicalResourceSettings = new PrestoSparkPhysicalResourceCalculator().calculate(planNode, metadata, session);
         return new PlanAndMore(
                 plan,
                 Optional.ofNullable(analysis.getUpdateType()),

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.Iterator;
@@ -95,12 +96,20 @@ public class PrestoSparkSourceStatsCollector
 
             return null;
         }
+
         @Override
         public Void visitPlan(PlanNode node, Void context)
         {
             for (PlanNode source : node.getSources()) {
                 source.accept(this, context);
             }
+            return null;
+        }
+
+        @Override
+        public Void visitNativeEngine(NativeEngineNode node, Void context)
+        {
+            node.accept(this, context);
             return null;
         }
     }
