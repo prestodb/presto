@@ -174,8 +174,9 @@ class ByteStream {
   // input is consecutive ByteRanges in 'ranges_' for the base class
   // but any view over external buffers can be made by specialization.
   virtual void next(bool throwIfPastEnd = true) {
+    VELOX_CHECK(current_ >= &ranges_[0]);
     size_t position = current_ - &ranges_[0];
-    VELOX_CHECK(position >= 0 && position < ranges_.size());
+    VELOX_CHECK(position < ranges_.size());
     if (position == ranges_.size() - 1) {
       if (throwIfPastEnd) {
         throw std::runtime_error("Reading past end of ByteStream");

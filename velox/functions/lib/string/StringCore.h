@@ -76,9 +76,10 @@ reverseUnicode(char* output, const char* input, size_t length) {
     // continue reverse invalid sequence byte by byte.
     assert(
         size > 0 && "UNLIKELY: could not get size of invalid utf8 code point");
+    assert(outputIdx >= size && "access out of bound");
     outputIdx -= size;
 
-    assert(outputIdx >= 0 && outputIdx < length && "access out of bound");
+    assert(outputIdx < length && "access out of bound");
     std::memcpy(&output[outputIdx], &input[inputIdx], size);
     inputIdx += size;
   }
