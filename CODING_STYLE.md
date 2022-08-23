@@ -189,7 +189,7 @@ About comment style:
 * As a general rule, do not use string literals without declaring a named
   constant for them.
   * The best way to make a constant string literal is to use constexpr
-    `std::string_view`/folly::StringPiece`
+    `std::string_view`/`folly::StringPiece`
   * **NEVER** use `std::string` - this makes your code more prone to SIOF bugs.
   * Avoid `const char* const` and `const char*` - these are less efficient to
     convert to `std::string` later on in your program if you ever need to
@@ -223,7 +223,7 @@ macro names are always upper-snake-case. Also:
   * Use clang-format to order your include and using directives.
 * Includes should always use the full path (relative to github’s root dir).
 * Whenever possible, try to forward-declare as much as possible in the .h and
-  only `#includ`e things you need the full implementation for. 
+  only `#include` things you need the full implementation for. 
   * For instance, if you just use a `Class*` or `Class&` in a header file,
     forward-declare `Class` instead of including the full header to minimize
     header dependencies.
