@@ -6,7 +6,7 @@ Presto router is a service sitting in front of Presto clusters. It routes reques
 
 After building Presto, you can load the project into your IDE and run the router. In IntelliJ IDEA, use the following options to create a run configuration:
 
-* Main Class: `com.facebook.presto.server.PrestoRouter`
+* Main Class: `com.facebook.presto.router.PrestoRouter`
 * VM Options: `-Drouter.config-file=etc/router-config.json -Dnode.environment=devel`
 * Working directory: `$MODULE_WORKING_DIR$` or `$MODULE_DIR$`(Depends your version of IntelliJ)
 * Use classpath of module: `presto-router`
