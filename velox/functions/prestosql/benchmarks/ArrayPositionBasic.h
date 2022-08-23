@@ -23,7 +23,7 @@ namespace {
 // Find the index of the first match for primitive types.
 template <
     TypeKind kind,
-    typename std::enable_if<TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<TypeTraits<kind>::isPrimitiveType, int> = 0>
 void applyTypedFirstMatch(
     const SelectivityVector& rows,
     DecodedVector& arrayDecoded,
@@ -60,7 +60,7 @@ void applyTypedFirstMatch(
 // Find the index of the first match for complex types.
 template <
     TypeKind kind,
-    typename std::enable_if<!TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<!TypeTraits<kind>::isPrimitiveType, int> = 0>
 void applyTypedFirstMatch(
     const SelectivityVector& rows,
     DecodedVector& arrayDecoded,
@@ -99,7 +99,7 @@ void applyTypedFirstMatch(
 // Find the index of the instance-th match for primitive types.
 template <
     TypeKind kind,
-    typename std::enable_if<TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<TypeTraits<kind>::isPrimitiveType, int> = 0>
 void applyTypedWithInstance(
     const SelectivityVector& rows,
     DecodedVector& arrayDecoded,
@@ -150,7 +150,7 @@ void applyTypedWithInstance(
 // Find the index of the instance-th match for complex types.
 template <
     TypeKind kind,
-    typename std::enable_if<!TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<!TypeTraits<kind>::isPrimitiveType, int> = 0>
 void applyTypedWithInstance(
     const SelectivityVector& rows,
     DecodedVector& arrayDecoded,

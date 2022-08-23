@@ -1992,8 +1992,7 @@ class FormatValue<facebook::velox::TypeKind> {
 template <typename T>
 class FormatValue<
     std::shared_ptr<T>,
-    typename std::enable_if<
-        std::is_base_of_v<facebook::velox::Type, T>>::type> {
+    typename std::enable_if_t<std::is_base_of_v<facebook::velox::Type, T>>> {
  public:
   explicit FormatValue(const std::shared_ptr<const facebook::velox::Type>& type)
       : type_(type) {}

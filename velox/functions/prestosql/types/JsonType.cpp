@@ -77,7 +77,7 @@ void generateJsonTyped(
 // Casts primitive-type input vectors to Json type.
 template <
     TypeKind kind,
-    typename std::enable_if<TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<TypeTraits<kind>::isPrimitiveType, int> = 0>
 void castToJson(
     const BaseVector& input,
     exec::EvalCtx* context,
@@ -137,7 +137,7 @@ void castToJsonFromRow(
 // Casts complex-type input vectors to Json type.
 template <
     TypeKind kind,
-    typename std::enable_if<!TypeTraits<kind>::isPrimitiveType, int>::type = 0>
+    typename std::enable_if_t<!TypeTraits<kind>::isPrimitiveType, int> = 0>
 void castToJson(
     const BaseVector& input,
     exec::EvalCtx* context,

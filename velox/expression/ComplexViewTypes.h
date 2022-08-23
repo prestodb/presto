@@ -394,9 +394,9 @@ class OptionalAccessor {
 };
 
 template <typename T, typename U>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator==(const std::optional<T>& lhs, const OptionalAccessor<U>& rhs) {
   if (lhs.has_value() != rhs.has_value()) {
     return false;
@@ -410,25 +410,25 @@ operator==(const std::optional<T>& lhs, const OptionalAccessor<U>& rhs) {
 }
 
 template <typename U, typename T>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator==(const OptionalAccessor<U>& lhs, const std::optional<T>& rhs) {
   return rhs == lhs;
 }
 
 template <typename T, typename U>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator!=(const std::optional<T>& lhs, const OptionalAccessor<U>& rhs) {
   return !(lhs == rhs);
 }
 
 template <typename U, typename T>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator!=(const OptionalAccessor<U>& lhs, const std::optional<T>& rhs) {
   return !(lhs == rhs);
 }
@@ -455,33 +455,33 @@ bool operator!=(const OptionalAccessor<T>& lhs, std::nullopt_t) {
 
 // Allow comparing OptionalAccessor<T> with T::exec_t.
 template <typename T, typename U>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator==(const T& lhs, const OptionalAccessor<U>& rhs) {
   return rhs.has_value() && (*rhs == lhs);
 }
 
 template <typename U, typename T>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator==(const OptionalAccessor<U>& lhs, const T& rhs) {
   return rhs == lhs;
 }
 
 template <typename T, typename U>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator!=(const T& lhs, const OptionalAccessor<U>& rhs) {
   return !(lhs == rhs);
 }
 
 template <typename U, typename T>
-typename std::enable_if<
+typename std::enable_if_t<
     std::is_trivially_constructible_v<typename VectorReader<U>::exec_in_t, T>,
-    bool>::type
+    bool>
 operator!=(const OptionalAccessor<U>& lhs, const T& rhs) {
   return !(lhs == rhs);
 }

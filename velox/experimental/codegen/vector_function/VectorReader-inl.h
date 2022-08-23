@@ -62,9 +62,9 @@ constexpr bool readableType = TypeTraits<SQLType>::isFixedWidth ||
 template <
     typename SQLType,
     typename Config,
-    class T = typename std::enable_if<
+    class T = typename std::enable_if_t<
         readableType<SQLType::NativeType::typeKind>,
-        typename TypeTraits<SQLType::NativeType::typeKind>::NativeType>::type>
+        typename TypeTraits<SQLType::NativeType::typeKind>::NativeType>>
 struct VectorReader {
   using NativeType = typename SQLType::NativeType::NativeType;
 

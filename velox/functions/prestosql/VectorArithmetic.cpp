@@ -270,14 +270,14 @@ class Addition {
 
   template <
       typename T,
-      typename std::enable_if<!std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<!std::is_integral_v<T>, int> = 0>
   static void apply(T& result, T left, T right) {
     result = left + right;
   }
 
   template <
       typename T,
-      typename std::enable_if<std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
   static void apply(T& result, T left, T right) {
     bool overflow = __builtin_add_overflow(left, right, &result);
     if (UNLIKELY(overflow)) {
@@ -294,14 +294,14 @@ class Subtraction {
 
   template <
       typename T,
-      typename std::enable_if<!std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<!std::is_integral_v<T>, int> = 0>
   static void apply(T& result, T left, T right) {
     result = left - right;
   }
 
   template <
       typename T,
-      typename std::enable_if<std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
   static void apply(T& result, T left, T right) {
     bool overflow = __builtin_sub_overflow(left, right, &result);
     if (UNLIKELY(overflow)) {
@@ -318,7 +318,7 @@ class Multiplication {
 
   template <
       typename T,
-      typename std::enable_if<!std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<!std::is_integral_v<T>, int> = 0>
 
   static void apply(T& result, T left, T right) {
     result = left * right;
@@ -326,7 +326,7 @@ class Multiplication {
 
   template <
       typename T,
-      typename std::enable_if<std::is_integral_v<T>, int>::type = 0>
+      typename std::enable_if_t<std::is_integral_v<T>, int> = 0>
   static void apply(T& result, T left, T right) {
     bool overflow = __builtin_mul_overflow(left, right, &result);
     if (UNLIKELY(overflow)) {

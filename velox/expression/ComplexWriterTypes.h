@@ -170,14 +170,14 @@ class ArrayWriter {
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface<T>, PrimitiveWriter<T>>::type
+  typename std::enable_if_t<provide_std_interface<T>, PrimitiveWriter<T>>
   operator[](vector_size_t index) {
     VELOX_DCHECK_LT(index, length_, "out of bound access");
     return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + index};
   }
 
   template <typename T = V>
-  typename std::enable_if<provide_std_interface<T>, PrimitiveWriter<T>>::type
+  typename std::enable_if_t<provide_std_interface<T>, PrimitiveWriter<T>>
   back() {
     return PrimitiveWriter<V>{elementsVector_, valuesOffset_ + length_ - 1};
   }

@@ -100,7 +100,7 @@ class exception_error;
 template <class E>
 class exception_error<
     E,
-    typename std::enable_if<std::is_base_of_v<std::exception, E>>::type> {
+    typename std::enable_if_t<std::is_base_of_v<std::exception, E>>> {
  public:
   explicit exception_error(std::string fmt...) {
     va_list ap;
