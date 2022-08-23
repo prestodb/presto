@@ -110,7 +110,7 @@ class ParquetTableScanTest : public HiveConnectorTestBase {
 
   std::string getExampleFilePath(const std::string& fileName) {
     return facebook::velox::test::getDataFilePath(
-        "", "../examples/" + fileName);
+        "velox/dwio/parquet/tests/duckdb_reader", "../examples/" + fileName);
   }
 
   std::shared_ptr<connector::hive::HiveConnectorSplit> makeSplit(
