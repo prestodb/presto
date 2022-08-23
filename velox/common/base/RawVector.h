@@ -22,11 +22,9 @@
 
 namespace facebook::velox {
 
-///
-// Class template similar to std::vector with no default constructionand a SIMD
-// load worth of padding below and above the data. The idea is that one can
-// access the data at full SIMD width at both ends.
-///
+/// Class template similar to std::vector with no default construction and a
+/// SIMD load worth of padding below and above the data. The idea is that one
+/// can access the data at full SIMD width at both ends.
 template <typename T>
 class raw_vector {
  public:

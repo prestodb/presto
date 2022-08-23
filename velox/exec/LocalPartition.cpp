@@ -47,8 +47,7 @@ void LocalExchangeMemoryManager::decreaseMemoryUsage(int64_t removed) {
     std::lock_guard<std::mutex> l(mutex_);
     bufferedBytes_ -= removed;
 
-    if (bufferedBytes_ < maxBufferSize_ &&
-        bufferedBytes_ + removed >= maxBufferSize_) {
+    if (bufferedBytes_ < maxBufferSize_) {
       promises = std::move(promises_);
     }
   }

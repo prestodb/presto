@@ -48,6 +48,38 @@ std::shared_ptr<const RowType> makeTableType(
   }
   return std::make_shared<RowType>(std::move(names), std::move(types));
 }
+
+// Copy values from 'rows' of 'table' according to 'projections' in
+// 'result'. Reuses 'result' children where possible.
+void extractColumns(
+    BaseHashTable* table,
+    folly::Range<char**> rows,
+    folly::Range<const IdentityProjection*> projections,
+    memory::MemoryPool* pool,
+    const RowVectorPtr& result) {
+  for (auto projection : projections) {
+    auto& child = result->childAt(projection.outputChannel);
+    // TODO: Consider reuse of complex types.
+    if (!child || !BaseVector::isReusableFlatVector(child)) {
+      child = BaseVector::create(
+          result->type()->childAt(projection.outputChannel), rows.size(), pool);
+    }
+    child->resize(rows.size());
+    table->rows()->extractColumn(
+        rows.data(), rows.size(), projection.inputChannel, child);
+  }
+}
+
+folly::Range<vector_size_t*> initializeRowNumberMapping(
+    BufferPtr& mapping,
+    vector_size_t size,
+    memory::MemoryPool* pool) {
+  if (!mapping || !mapping->unique() ||
+      mapping->size() < sizeof(vector_size_t) * size) {
+    mapping = allocateIndices(size, pool);
+  }
+  return folly::Range(mapping->asMutable<vector_size_t>(), size);
+}
 } // namespace
 
 HashProbe::HashProbe(
@@ -156,6 +188,7 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
               operatorCtx_->driverCtx()->splitGroupId, planNodeId())
           ->tableOrFuture(future);
   if (!hashBuildResult.has_value()) {
+    VELOX_CHECK_NOT_NULL(future);
     return BlockingReason::kWaitForJoinBuild;
   }
 
@@ -290,40 +323,6 @@ void HashProbe::addInput(RowVectorPtr input) {
     results_.reset(*lookup_);
   }
 }
-
-namespace {
-// Copy values from 'rows' of 'table' according to 'projections' in
-// 'result'. Reuses 'result' children where possible.
-void extractColumns(
-    BaseHashTable* table,
-    folly::Range<char**> rows,
-    folly::Range<const IdentityProjection*> projections,
-    memory::MemoryPool* pool,
-    const RowVectorPtr& result) {
-  for (auto projection : projections) {
-    auto& child = result->childAt(projection.outputChannel);
-    // TODO: Consider reuse of complex types.
-    if (!child || !BaseVector::isReusableFlatVector(child)) {
-      child = BaseVector::create(
-          result->type()->childAt(projection.outputChannel), rows.size(), pool);
-    }
-    child->resize(rows.size());
-    table->rows()->extractColumn(
-        rows.data(), rows.size(), projection.inputChannel, child);
-  }
-}
-
-folly::Range<vector_size_t*> initializeRowNumberMapping(
-    BufferPtr& mapping,
-    vector_size_t size,
-    memory::MemoryPool* pool) {
-  if (!mapping || !mapping->unique() ||
-      mapping->size() < sizeof(vector_size_t) * size) {
-    mapping = allocateIndices(size, pool);
-  }
-  return folly::Range(mapping->asMutable<vector_size_t>(), size);
-}
-} // namespace
 
 void HashProbe::prepareOutput(vector_size_t size) {
   // Try to re-use memory for the output vectors that contain build-side data.

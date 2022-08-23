@@ -28,7 +28,7 @@ struct RowContainerIterator {
   int32_t allocationIndex = 0;
   int32_t runIndex = 0;
   int32_t rowOffset = 0;
-  // Number of unvisited entries that are prefixed by a uint64_t for
+  // Number of unvisited entries that are prefixed by an uint64_t for
   // normalized key. Set in listRows() on first call.
   int64_t normalizedKeysLeft = 0;
 

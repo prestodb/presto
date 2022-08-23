@@ -205,7 +205,6 @@ struct UnsafeRowStructBatchIterator : UnsafeRowDataBatchIterator {
    */
   const std::vector<std::optional<std::string_view>>& nextColumnBatch() {
     const TypePtr& type = childrenTypes_[idx_];
-    bool isFixedLength = type->isFixedWidth();
     std::size_t cppSizeInBytes =
         type->isFixedWidth() ? type->cppSizeInBytes() : 0;
     std::size_t fieldOffset = UnsafeRow::getNullLength(numElements_) +
@@ -352,7 +351,6 @@ struct UnsafeRowArrayBatchIterator : UnsafeRowDataBatchIterator {
       for (int32_t j = 0; j < numElement; ++j) {
         const size_t elementOffset = elementOffsetBase + j * offsetWidth;
         const char* fieldData = rawData + elementOffsetBase + j * fieldWidth;
-
         // if null
         if (bits::isBitSet(nullSet, j)) {
           columnData_[idx++] = std::nullopt;
@@ -717,8 +715,8 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
         dataIterator);
     size_t size = iterator->numRows();
     auto vector = BaseVector::create(type, size, pool);
-    using Trait = ScalarTraits<Kind>;
-    using InMemoryType = typename Trait::InMemoryType;
+    using TypeTraits = ScalarTraits<Kind>;
+    using InMemoryType = typename TypeTraits::InMemoryType;
 
     size_t nullCount = 0;
     auto* flatResult = vector->asFlatVector<InMemoryType>();
@@ -735,12 +733,13 @@ struct UnsafeRowDynamicVectorBatchDeserializer {
           StringView val =
               UnsafeRowPrimitiveBatchDeserializer::deserializeStringView(
                   iterator->next().value());
-          Trait::set(flatResult, i, val);
+          TypeTraits::set(flatResult, i, val);
         } else {
-          typename Trait::SerializedType val =
+          typename TypeTraits::SerializedType val =
               UnsafeRowPrimitiveBatchDeserializer::deserializeFixedWidth<
-                  typename Trait::SerializedType>(iterator->next().value());
-          Trait::set(flatResult, i, val);
+                  typename TypeTraits::SerializedType>(
+                  iterator->next().value());
+          TypeTraits::set(flatResult, i, val);
         }
       }
     }

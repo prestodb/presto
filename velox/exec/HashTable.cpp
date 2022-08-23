@@ -447,7 +447,7 @@ void HashTable<ignoreNullKeys>::joinProbe(HashLookup& lookup) {
   if (hashMode_ == HashMode::kArray) {
     for (auto row : lookup.rows) {
       auto index = lookup.hashes[row];
-      DCHECK(index < size_);
+      DCHECK_LT(index, size_);
       lookup.hits[row] = table_[index]; // NOLINT
     }
     return;
@@ -700,15 +700,6 @@ void HashTable<ignoreNullKeys>::insertForJoin(
     char** groups,
     uint64_t* hashes,
     int32_t numGroups) {
-  if (hashMode_ == HashMode::kNormalizedKey) {
-    // Write the normalized key below each row. The key is only known
-    // at the time of insert, so cannot be filled in at the time of
-    // accumulating the build rows.
-    for (auto i = 0; i < numGroups; ++i) {
-      RowContainer::normalizedKey(groups[i]) = hashes[i];
-      hashes[i] = mixNormalizedKey(hashes[i], sizeBits_);
-    }
-  }
   // The insertable rows are in the table, all get put in the hash
   // table or array.
   if (hashMode_ == HashMode::kArray) {
@@ -718,6 +709,16 @@ void HashTable<ignoreNullKeys>::insertForJoin(
       arrayPushRow(groups[i], index);
     }
     return;
+  }
+
+  if (hashMode_ == HashMode::kNormalizedKey) {
+    // Write the normalized key below each row. The key is only known
+    // at the time of insert, so cannot be filled in at the time of
+    // accumulating the build rows.
+    for (auto i = 0; i < numGroups; ++i) {
+      RowContainer::normalizedKey(groups[i]) = hashes[i];
+      hashes[i] = mixNormalizedKey(hashes[i], sizeBits_);
+    }
   }
 
   ProbeState state1;
@@ -746,7 +747,7 @@ void HashTable<ignoreNullKeys>::rehash() {
                       ->rows()
                       ->listRows(&iterator, kHashBatchSize, groups);
       if (!insertBatch(groups, numGroups, hashes)) {
-        VELOX_CHECK(hashMode_ != HashMode::kHash);
+        VELOX_CHECK_NE(hashMode_, HashMode::kHash);
         setHashMode(HashMode::kHash, 0);
         return;
       }
@@ -756,14 +757,17 @@ void HashTable<ignoreNullKeys>::rehash() {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
-  VELOX_CHECK(hashMode_ != HashMode::kHash);
+  VELOX_CHECK_NE(hashMode_, HashMode::kHash);
   if (mode == HashMode::kArray) {
     auto bytes = size_ * sizeof(char*);
     constexpr auto kPageSize = memory::MappedMemory::kPageSize;
     auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
     if (!rows_->mappedMemory()->allocateContiguous(
             numPages, nullptr, tableAllocation_)) {
-      VELOX_FAIL("Could not allocate array for array mode hash table");
+      VELOX_FAIL(
+          "Could not allocate array with {} bytes/{} pages for array mode hash table",
+          bytes,
+          numPages);
     }
     table_ = tableAllocation_.data<char*>();
     memset(table_, 0, bytes);
@@ -862,7 +866,6 @@ void HashTable<ignoreNullKeys>::enableRangeWhereCan(
   auto calculateNewMultipler = [&]() {
     uint64_t multipler = 1;
     for (auto i = 0; i < rangeSizes.size(); ++i) {
-      auto kind = hashers_[i]->typeKind();
       // NOLINT
       multipler =
           safeMul(multipler, useRange[i] ? rangeSizes[i] : distinctSizes[i]);
@@ -893,7 +896,6 @@ uint64_t HashTable<ignoreNullKeys>::setHasherMode(
   uint64_t multiplier = 1;
   // A group by leaves 50% space for values not yet seen.
   for (int i = 0; i < hashers.size(); ++i) {
-    auto kind = hashers[i]->typeKind();
     multiplier = useRange.size() > i && useRange[i]
         ? hashers[i]->enableValueRange(multiplier, reservePct())
         : hashers[i]->enableValueIds(multiplier, reservePct());
@@ -924,7 +926,6 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
     }
   }
   for (int i = 0; i < hashers_.size(); ++i) {
-    auto kind = hashers_[i]->typeKind();
     hashers_[i]->cardinality(reservePct(), rangeSizes[i], distinctSizes[i]);
     distinctsWithReserve = safeMul(distinctsWithReserve, distinctSizes[i]);
     rangesWithReserve = safeMul(rangesWithReserve, rangeSizes[i]);

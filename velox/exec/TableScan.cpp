@@ -71,8 +71,9 @@ RowVectorPtr TableScan::getOutput() {
       const auto& connectorSplit = split.connectorSplit;
       needNewSplit_ = false;
 
-      VELOX_CHECK(
-          connector_->connectorId() == connectorSplit->connectorId,
+      VELOX_CHECK_EQ(
+          connector_->connectorId(),
+          connectorSplit->connectorId,
           "Got splits with different connector IDs");
 
       if (!dataSource_) {

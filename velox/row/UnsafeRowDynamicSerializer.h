@@ -160,14 +160,14 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
       const VectorPtr& elementsVector) {
     // Write the number of elements.
     writeWord(buffer, size);
-    char* nullSet = buffer + 1 * UnsafeRow::kFieldWidthBytes;
+    char* nullSet = buffer + UnsafeRow::kFieldWidthBytes;
 
     auto serializedDataSize = serializeVector(
         elementsType, buffer, nullSet, offset, size, elementsVector);
 
-    // Size is metadata (1 word) + data.
+    // Size is metadata (1 word size) + data.
     return UnsafeRow::alignToFieldWidth(
-        1 * UnsafeRow::kFieldWidthBytes + serializedDataSize.value_or(0));
+        UnsafeRow::kFieldWidthBytes + serializedDataSize.value_or(0));
   }
 
   /// Dynamic array serialization function.

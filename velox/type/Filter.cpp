@@ -169,7 +169,7 @@ BigintValuesUsingHashTable::BigintValuesUsingHashTable(
     if (value == kEmptyMarker) {
       containsEmptyMarker_ = true;
     } else {
-      auto position = ((value * M) & (size - 1));
+      auto position = ((value * M) & sizeMask_);
       for (auto i = position; i < position + size; i++) {
         uint32_t index = i & sizeMask_;
         if (hashTable_[index] == kEmptyMarker) {

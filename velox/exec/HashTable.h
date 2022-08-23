@@ -157,7 +157,7 @@ class BaseHashTable {
 
   // Returns table growth in bytes after adding 'numNewDistinct' distinct
   // entries. This only concerns the hash table, not the payload rows.
-  virtual uint64_t hashTableSizeIncrease(int32_t numnewDistinct) const = 0;
+  virtual uint64_t hashTableSizeIncrease(int32_t numNewDistinct) const = 0;
 
   /// Returns true if the hash table contains rows with duplicate keys.
   virtual bool hasDuplicateKeys() const = 0;

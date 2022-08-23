@@ -433,6 +433,7 @@ class VectorHasher {
       const T* values,
       const SelectivityVector& rows,
       uint64_t* result) {
+    VELOX_DCHECK(isRange_);
     if (!isRange_) {
       return false;
     }
@@ -613,6 +614,7 @@ inline uint64_t VectorHasher::valueId(StringView value) {
     }
     return number - min_ + 1;
   }
+
   UniqueValue unique(data, size);
   unique.setId(uniqueValues_.size() + 1);
   auto pair = uniqueValues_.insert(unique);
