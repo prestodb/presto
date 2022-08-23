@@ -72,10 +72,12 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -201,13 +203,15 @@ public class PageFunctionCompiler
         if (isOptimizeCommonSubExpression) {
             ImmutableList.Builder<Supplier<PageProjectionWithOutputs>> pageProjections = ImmutableList.builder();
             ImmutableMap.Builder<RowExpression, Integer> expressionsWithPositionBuilder = ImmutableMap.builder();
+            Set<RowExpression> expressionCandidates = new HashSet<>();
             for (int i = 0; i < projections.size(); i++) {
                 RowExpression projection = projections.get(i);
-                if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression) {
+                if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression || expressionCandidates.contains(projection)) {
                     pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, sessionFunctions, projection, classNameSuffix), new int[] {i}));
                 }
                 else {
                     expressionsWithPositionBuilder.put(projection, i);
+                    expressionCandidates.add(projection);
                 }
             }
             Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
@@ -932,6 +936,7 @@ public class PageFunctionCompiler
                     callSiteBinder);
             this.variableMap = ImmutableMap.copyOf(variableMap);
         }
+
         @Override
         public BytecodeNode visitCall(CallExpression call, Scope context)
         {
