@@ -101,7 +101,7 @@ class ISerializable {
   // Serialization for clases derived from ISerializable.
   template <
       typename T,
-      typename = std::enable_if_t<std::is_base_of<ISerializable, T>::value>>
+      typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
   static folly::dynamic serialize(std::shared_ptr<const T> serializable) {
     return serializable->serialize();
   }
@@ -170,7 +170,7 @@ class ISerializable {
 
   template <
       class T,
-      typename = std::enable_if_t<std::is_base_of<ISerializable, T>::value>>
+      typename = std::enable_if_t<std::is_base_of_v<ISerializable, T>>>
   static std::shared_ptr<const T> deserialize(const folly::dynamic& obj) {
     VELOX_USER_CHECK(obj.isObject());
     // use the key to lookup creator and call it.

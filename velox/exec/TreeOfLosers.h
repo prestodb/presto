@@ -68,7 +68,7 @@ class TreeOfLosers {
 
   explicit TreeOfLosers(std::vector<std::unique_ptr<Stream>> streams)
       : streams_(std::move(streams)) {
-    static_assert(std::is_base_of<MergeStream, Stream>::value);
+    static_assert(std::is_base_of_v<MergeStream, Stream>);
     VELOX_CHECK_LT(streams_.size(), std::numeric_limits<TIndex>::max());
     VELOX_CHECK_GE(streams_.size(), 1);
 
@@ -309,7 +309,7 @@ template <typename Stream>
 class MergeArray {
  public:
   explicit MergeArray(std::vector<std::unique_ptr<Stream>> streams) {
-    static_assert(std::is_base_of<MergeStream, Stream>::value);
+    static_assert(std::is_base_of_v<MergeStream, Stream>);
     for (auto& stream : streams) {
       if (stream->hasData()) {
         streams_.push_back(std::move(stream));

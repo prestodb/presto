@@ -97,27 +97,27 @@ class BaseVector {
 
   template <typename T>
   T* as() {
-    static_assert(std::is_base_of<BaseVector, T>::value);
+    static_assert(std::is_base_of_v<BaseVector, T>);
     return dynamic_cast<T*>(this);
   }
 
   template <typename T>
   const T* as() const {
-    static_assert(std::is_base_of<BaseVector, T>::value);
+    static_assert(std::is_base_of_v<BaseVector, T>);
     return dynamic_cast<const T*>(this);
   }
 
   // Use when the type of 'this' is already known. dynamic_cast() is slow.
   template <typename T>
   T* asUnchecked() {
-    static_assert(std::is_base_of<BaseVector, T>::value);
+    static_assert(std::is_base_of_v<BaseVector, T>);
     DCHECK(dynamic_cast<const T*>(this) != nullptr);
     return static_cast<T*>(this);
   }
 
   template <typename T>
   const T* asUnchecked() const {
-    static_assert(std::is_base_of<BaseVector, T>::value);
+    static_assert(std::is_base_of_v<BaseVector, T>);
     DCHECK(dynamic_cast<const T*>(this) != nullptr);
     return static_cast<const T*>(this);
   }

@@ -1993,7 +1993,7 @@ template <typename T>
 class FormatValue<
     std::shared_ptr<T>,
     typename std::enable_if<
-        std::is_base_of<facebook::velox::Type, T>::value>::type> {
+        std::is_base_of_v<facebook::velox::Type, T>>::type> {
  public:
   explicit FormatValue(const std::shared_ptr<const facebook::velox::Type>& type)
       : type_(type) {}
