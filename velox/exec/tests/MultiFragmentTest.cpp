@@ -503,3 +503,29 @@ TEST_F(MultiFragmentTest, limit) {
   ASSERT_TRUE(waitForTaskCompletion(task.get()));
   ASSERT_TRUE(waitForTaskCompletion(leafTask.get()));
 }
+
+TEST_F(MultiFragmentTest, mergeExchangeOverEmptySources) {
+  std::vector<std::shared_ptr<Task>> tasks;
+  std::vector<std::string> leafTaskIds;
+
+  auto data = makeRowVector(rowType_, 0);
+
+  for (int i = 0; i < 2; ++i) {
+    auto taskId = makeTaskId("leaf-", i);
+    leafTaskIds.push_back(taskId);
+    auto plan =
+        PlanBuilder().values({data}).partitionedOutput({}, 1).planNode();
+
+    auto task = makeTask(taskId, plan, tasks.size());
+    tasks.push_back(task);
+    Task::start(task, 4);
+  }
+
+  auto exchangeTaskId = makeTaskId("exchange-", 0);
+  auto plan = PlanBuilder()
+                  .mergeExchange(rowType_, {"c0"})
+                  .singleAggregation({"c0"}, {"count(1)"})
+                  .planNode();
+
+  assertQuery(plan, leafTaskIds, "");
+}

@@ -353,6 +353,10 @@ StopReason Driver::runInternal(
               CpuWallTimer timer(op->stats().getOutputTiming);
               result = op->getOutput();
               if (result) {
+                VELOX_CHECK(
+                    result->size() > 0,
+                    "Operator::getOutput() must return nullptr or a non-empty vector: {}",
+                    op->stats().operatorType);
                 op->stats().outputVectors += 1;
                 op->stats().outputPositions += result->size();
                 resultBytes = result->estimateFlatSize();
@@ -405,6 +409,11 @@ StopReason Driver::runInternal(
             CpuWallTimer timer(op->stats().getOutputTiming);
             result = op->getOutput();
             if (result) {
+              VELOX_CHECK(
+                  result->size() > 0,
+                  "Operator::getOutput() must return nullptr or a non-empty vector: {}",
+                  op->stats().operatorType);
+
               // This code path is used only in single-threaded execution.
               blockingReason_ = BlockingReason::kWaitForConsumer;
               guard.notThrown();

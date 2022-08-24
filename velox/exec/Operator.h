@@ -261,6 +261,7 @@ class Operator {
 
   // Adds input. Not used if operator is a source operator, e.g. the first
   // operator in the pipeline.
+  // @param input Non-empty input vector.
   virtual void addInput(RowVectorPtr input) = 0;
 
   // Informs 'this' that addInput will no longer be called. This means
@@ -276,6 +277,7 @@ class Operator {
   // for outside causes. isBlocked distinguishes between the
   // cases. Sink operator, e.g. the last operator in the pipeline, must return
   // nullptr and pass results to the consumer through a custom mechanism.
+  // @return nullptr or a non-empty output vector.
   virtual RowVectorPtr getOutput() = 0;
 
   // Returns kNotBlocked if 'this' is not prevented from

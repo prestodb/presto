@@ -133,8 +133,14 @@ RowVectorPtr Merge::getOutput() {
     auto stream = treeOfLosers_->next();
 
     if (!stream) {
-      output_->resize(outputSize_);
       finished_ = true;
+
+      // Return nullptr if there is no data.
+      if (outputSize_ == 0) {
+        return nullptr;
+      }
+
+      output_->resize(outputSize_);
       return std::move(output_);
     }
 
