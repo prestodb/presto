@@ -1442,3 +1442,31 @@ TEST(TestReader, testOrcReaderVarchar) {
   }
   EXPECT_EQ(counter, 6000);
 }
+
+TEST(TestReader, testOrcReaderDate) {
+  const std::string dateOrc(getExampleFilePath("TestOrcFile.testDate1900.orc"));
+  ReaderOptions readerOpts;
+  readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
+  auto reader = DwrfReader::create(
+      std::make_unique<FileInputStream>(dateOrc), readerOpts);
+
+  RowReaderOptions rowReaderOptions;
+  auto rowReader = reader->createRowReader(rowReaderOptions);
+
+  VectorPtr batch;
+  int year = 1900;
+  while (rowReader->next(1000, batch)) {
+    auto rowVector = batch->as<RowVector>();
+    auto dates = rowVector->childAt(1)->as<SimpleVector<Date>>();
+
+    std::stringstream stream;
+    stream << year << "-12-25";
+    EXPECT_EQ(stream.str(), dates->valueAt(0).toString());
+
+    for (size_t i = 1; i < rowVector->size(); ++i) {
+      EXPECT_EQ(dates->valueAt(0), dates->valueAt(i));
+    }
+
+    year++;
+  }
+}
