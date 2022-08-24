@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -21,7 +22,6 @@ import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.EncryptionInformation;
-import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
@@ -32,6 +32,7 @@ import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.ParquetPageSource;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.cache.ParquetMetadataSource;
 import com.facebook.presto.parquet.predicate.Predicate;

@@ -76,6 +76,7 @@ public final class IcebergSessionProperties
     private static final String NODE_SELECTION_STRATEGY = "node_selection_strategy";
     private static final String NESSIE_REFERENCE_NAME = "nessie_reference_name";
     private static final String NESSIE_REFERENCE_HASH = "nessie_reference_hash";
+    public static final String USE_COLUMN_INDEX_FILTER = "use_column_index_filter";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -264,6 +265,11 @@ public final class IcebergSessionProperties
                         null,
                         false),
                 booleanProperty(
+                        USE_COLUMN_INDEX_FILTER,
+                        "should use column index statistics filtering",
+                        hiveClientConfig.getReadColumnIndexFilter(),
+                        false),
+                booleanProperty(
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
@@ -428,6 +434,11 @@ public final class IcebergSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean columnIndexFilterEnabled(ConnectorSession session)
+    {
+        return session.getProperty(USE_COLUMN_INDEX_FILTER, Boolean.class);
     }
 
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
