@@ -391,7 +391,7 @@ class RelationPlanner
         }
 
         RelationPlan intermediateRootRelationPlan = new RelationPlan(root, analysis.getScope(node), outputs);
-        TranslationMap translationMap = new TranslationMap(intermediateRootRelationPlan, analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translationMap = new TranslationMap(metadata.getFunctionAndTypeManager(), session, intermediateRootRelationPlan, analysis, lambdaDeclarationToVariableMap);
         translationMap.setFieldMappings(outputs);
         translationMap.putExpressionMappingsFrom(leftPlanBuilder.getTranslations());
         translationMap.putExpressionMappingsFrom(rightPlanBuilder.getTranslations());
@@ -939,7 +939,7 @@ class RelationPlanner
 
     private PlanBuilder initializePlanBuilder(RelationPlan relationPlan)
     {
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, relationPlan, analysis, lambdaDeclarationToVariableMap);
 
         // Make field->variable mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the underlying tuple directly

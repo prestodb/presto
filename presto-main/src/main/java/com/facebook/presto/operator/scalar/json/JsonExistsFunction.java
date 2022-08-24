@@ -15,30 +15,38 @@ package com.facebook.presto.operator.scalar.json;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.json.ir.IrJsonPath;
 import com.facebook.presto.metadata.BoundVariables;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.SqlScalarFunction;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
-import com.facebook.presto.operator.scalar.JsonPath;
-import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.sql.planner.JsonPathEvaluator;
+import com.facebook.presto.sql.planner.JsonPathEvaluator.PathEvaluationError;
+import com.facebook.presto.sql.tree.JsonExists;
 import com.facebook.presto.type.JsonPath2016Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.JSON_2016;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.json.JsonInputErrorNode.JSON_ERROR;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.json.JsonQueryFunction.getParametersMap;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -53,11 +61,13 @@ public class JsonExistsFunction
             "jsonExists",
             FunctionAndTypeManager.class,
             Type.class,
-            ConnectorSession.class,
+            SqlFunctionProperties.class,
             JsonNode.class,
-            JsonPath.class, // TODO replace JsonPath with IrJsonPath
+            IrJsonPath.class,
             Object.class,
             long.class);
+    private static final PrestoException INPUT_ARGUMENT_ERROR = new JsonInputConversionError("malformed input argument to JSON_EXISTS function");
+    private static final PrestoException PATH_PARAMETER_ERROR = new JsonInputConversionError("malformed JSON path parameter to JSON_EXISTS function");
 
     public JsonExistsFunction()
     {
@@ -89,6 +99,12 @@ public class JsonExistsFunction
     }
 
     @Override
+    public boolean isCalledOnNullInput()
+    {
+        return true;
+    }
+
+    @Override
     public BuiltInScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, FunctionAndTypeManager functionAndTypeManager)
     {
         Type parametersRowType = boundVariables.getTypeVariable("T");
@@ -109,12 +125,49 @@ public class JsonExistsFunction
     public static Boolean jsonExists(
             FunctionAndTypeManager functionAndTypeManager,
             Type parametersRowType,
-            ConnectorSession session,
+            SqlFunctionProperties properties,
             JsonNode inputExpression,
-            JsonPath jsonPath,
+            IrJsonPath jsonPath,
             Object parametersRow,
             long errorBehavior)
     {
-        throw new UnsupportedOperationException("JSON_EXISTS function is not yet supported");
+        if (inputExpression == null || jsonPath == null) {
+            return null;
+        }
+
+        if (inputExpression.equals(JSON_ERROR)) {
+            return handleError(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
+        }
+        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
+        for (Object parameter : parameters.values()) {
+            if (parameter.equals(JSON_ERROR)) {
+                return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
+            }
+        }
+        JsonPathEvaluator pathEvaluator = new JsonPathEvaluator(inputExpression, parameters, functionAndTypeManager, properties);
+        List<Object> pathResult;
+        try {
+            pathResult = pathEvaluator.evaluate(jsonPath);
+        }
+        catch (PathEvaluationError e) {
+            return handleError(errorBehavior, e);
+        }
+
+        return !pathResult.isEmpty();
+    }
+
+    private static Boolean handleError(long errorBehavior, PrestoException error)
+    {
+        switch (JsonExists.ErrorBehavior.values()[(int) errorBehavior]) {
+            case FALSE:
+                return false;
+            case TRUE:
+                return true;
+            case UNKNOWN:
+                return null;
+            case ERROR:
+                throw error;
+        }
+        throw new IllegalStateException("unexpected error behavior");
     }
 }

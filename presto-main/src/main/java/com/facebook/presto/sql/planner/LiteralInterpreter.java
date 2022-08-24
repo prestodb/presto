@@ -34,7 +34,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.operator.scalar.VarbinaryFunctions;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -92,12 +92,12 @@ public final class LiteralInterpreter
 {
     private LiteralInterpreter() {}
 
-    public static Object evaluate(Metadata metadata, ConnectorSession session, Expression node)
+    public static Object evaluate(FunctionAndTypeManager functionAndTypeManager, ConnectorSession session, Expression node)
     {
         if (!(node instanceof Literal)) {
             throw new IllegalArgumentException("node must be a Literal");
         }
-        return new LiteralVisitor(metadata).process(node, session);
+        return new LiteralVisitor(functionAndTypeManager).process(node, session);
     }
 
     public static Object evaluate(ConnectorSession session, ConstantExpression node)
@@ -180,13 +180,13 @@ public final class LiteralInterpreter
     private static class LiteralVisitor
             extends AstVisitor<Object, ConnectorSession>
     {
-        private final Metadata metadata;
+        FunctionAndTypeManager functionAndTypeManager;
         private final InterpretedFunctionInvoker functionInvoker;
 
-        private LiteralVisitor(Metadata metadata)
+        private LiteralVisitor(FunctionAndTypeManager functionAndTypeManager)
         {
-            this.metadata = metadata;
-            this.functionInvoker = new InterpretedFunctionInvoker(metadata.getFunctionAndTypeManager());
+            this.functionAndTypeManager = functionAndTypeManager;
+            this.functionInvoker = new InterpretedFunctionInvoker(functionAndTypeManager);
         }
 
         @Override
@@ -246,18 +246,18 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, ConnectorSession session)
         {
-            Type type = metadata.getType(parseTypeSignature(node.getType()));
+            Type type = functionAndTypeManager.getType(parseTypeSignature(node.getType()));
             if (type == null) {
                 throw new SemanticException(TYPE_MISMATCH, node, "Unknown type: " + node.getType());
             }
 
             if (JSON.equals(type)) {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupFunction("json_parse", fromTypes(VARCHAR));
+                FunctionHandle functionHandle = functionAndTypeManager.lookupFunction("json_parse", fromTypes(VARCHAR));
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
 
             try {
-                FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, VARCHAR, type);
+                FunctionHandle functionHandle = functionAndTypeManager.lookupCast(CAST, VARCHAR, type);
                 return functionInvoker.invoke(functionHandle, session.getSqlFunctionProperties(), ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

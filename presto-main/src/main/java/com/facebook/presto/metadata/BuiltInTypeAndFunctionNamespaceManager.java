@@ -1472,6 +1472,9 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 if (type.getJavaType() == Block.class) {
                     methodHandle = BlockSerdeUtil.READ_BLOCK.bindTo(blockEncodingSerde);
                 }
+                else if (type.getJavaType() != Slice.class) {
+                    methodHandle = BlockSerdeUtil.READ_BLOCK_VALUE.bindTo(blockEncodingSerde).bindTo(type);
+                }
             }
 
             checkArgument(methodHandle != null,

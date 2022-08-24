@@ -24,7 +24,7 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.AbstractVariableWidthType;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.operator.scalar.JsonPath;
+import com.facebook.presto.json.ir.IrJsonPath;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 
@@ -36,11 +36,11 @@ public class JsonPath2016Type
 {
     public static final String NAME = "JsonPath2016";
 
-    private final JsonCodec<JsonPath> jsonPathCodec;
+    private final JsonCodec<IrJsonPath> jsonPathCodec;
 
     public JsonPath2016Type(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
     {
-        super(parseTypeSignature(NAME), JsonPath.class); // TODO switch to IrJsonPath
+        super(parseTypeSignature(NAME), IrJsonPath.class);
         this.jsonPathCodec = getCodec(typeDeserializer, blockEncodingSerde);
     }
 
@@ -70,18 +70,18 @@ public class JsonPath2016Type
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        String json = jsonPathCodec.toJson((JsonPath) value);
+        String json = jsonPathCodec.toJson((IrJsonPath) value);
         Slice bytes = utf8Slice(json);
         blockBuilder.writeBytes(bytes, 0, bytes.length()).closeEntry();
     }
 
-    private static JsonCodec<JsonPath> getCodec(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
+    private static JsonCodec<IrJsonPath> getCodec(TypeDeserializer typeDeserializer, BlockEncodingSerde blockEncodingSerde)
     {
         ObjectMapperProvider provider = new JsonObjectMapperProvider();
         provider.setJsonSerializers(ImmutableMap.of(Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)));
         provider.setJsonDeserializers(ImmutableMap.of(
                 Type.class, typeDeserializer,
                 Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde)));
-        return new JsonCodecFactory(provider).jsonCodec(JsonPath.class);
+        return new JsonCodecFactory(provider).jsonCodec(IrJsonPath.class);
     }
 }

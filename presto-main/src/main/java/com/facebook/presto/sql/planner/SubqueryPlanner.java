@@ -486,7 +486,7 @@ class SubqueryPlanner
     {
         RelationPlan relationPlan = new RelationPlanner(analysis, variableAllocator, idAllocator, lambdaDeclarationToVariableMap, metadata, session)
                 .process(node, context);
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, relationPlan, analysis, lambdaDeclarationToVariableMap);
 
         // Make field->symbol mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly

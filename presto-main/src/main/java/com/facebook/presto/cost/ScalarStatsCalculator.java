@@ -355,7 +355,7 @@ public class ScalarStatsCalculator
         @Override
         protected VariableStatsEstimate visitLiteral(Literal node, Void context)
         {
-            Object value = evaluate(metadata, session.toConnectorSession(), node);
+            Object value = evaluate(metadata.getFunctionAndTypeManager(), session.toConnectorSession(), node);
             Type type = ExpressionAnalyzer.createConstantAnalyzer(metadata,
                     session.getSessionFunctions(),
                     session.getTransactionId(),

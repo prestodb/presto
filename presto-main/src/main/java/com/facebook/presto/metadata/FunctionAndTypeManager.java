@@ -534,6 +534,11 @@ public class FunctionAndTypeManager
         return builtInTypeAndFunctionNamespaceManager.getFunctionHandle(Optional.empty(), signature);
     }
 
+    public BlockEncodingSerde getBlockEncodingSerde()
+    {
+        return blockEncodingSerde;
+    }
+
     protected Type getType(UserDefinedType userDefinedType)
     {
         // Distinct type

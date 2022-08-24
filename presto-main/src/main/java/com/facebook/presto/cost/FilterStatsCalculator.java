@@ -438,7 +438,7 @@ public class FilterStatsCalculator
             VariableStatsEstimate leftStats = getExpressionStats(left);
             Optional<VariableReferenceExpression> leftVariable = left instanceof SymbolReference ? Optional.of(toVariable(left)) : Optional.empty();
             if (right instanceof Literal) {
-                Object literalValue = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), right);
+                Object literalValue = LiteralInterpreter.evaluate(metadata.getFunctionAndTypeManager(), session.toConnectorSession(), right);
                 if (literalValue == null) {
                     return visitBooleanLiteral(FALSE_LITERAL, null);
                 }

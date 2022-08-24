@@ -918,4 +918,16 @@ public final class StringFunctions
 
         return result;
     }
+
+    @Description("Determine whether source starts with prefix or not")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean startsWith(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice prefix)
+    {
+        if (source.length() < prefix.length()) {
+            return false;
+        }
+        return source.compareTo(0, prefix.length(), prefix, 0, prefix.length()) == 0;
+    }
 }

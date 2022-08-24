@@ -31,6 +31,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -1448,8 +1449,10 @@ public class ExpressionAnalyzer
             JsonPathAnalysis pathAnalysis = jsonPathAnalyses.get(NodeRef.of(node));
             Type resultType = pathAnalysis.getType(pathAnalysis.getPath());
             if (resultType != null && !resultType.equals(returnedType)) {
-                if (!functionAndTypeManager.canCoerce(resultType, returnedType)) {
-                    //plannerContext.getMetadata().getCoercion(session, resultType, returnedType);
+                try {
+                    functionAndTypeManager.lookupCast(CastType.CAST, resultType, returnedType);
+                }
+                catch (Exception e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Return type of JSON path: %s incompatible with return type of function JSON_VALUE: %s", resultType, returnedType);
                 }
             }
@@ -1539,7 +1542,10 @@ public class ExpressionAnalyzer
             Type outputType = functionAndTypeManager.getType(functionMetadata.getReturnType());
 
             if (!outputType.equals(returnedType)) {
-                if (!functionAndTypeManager.canCoerce(outputType, returnedType)) {
+                try {
+                    functionAndTypeManager.lookupCast(CastType.CAST, outputType, returnedType);
+                }
+                catch (Exception e) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Cannot cast %s to %s", outputType, returnedType);
                 }
             }
@@ -2113,6 +2119,9 @@ public class ExpressionAnalyzer
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences());
+        analysis.setJsonPathAnalyses(analyzer.getJsonPathAnalyses());
+        analysis.setJsonInputFunctions(analyzer.getJsonInputFunctions());
+        analysis.setJsonOutputFunctions(analyzer.getJsonOutputFunctions());
 
         return new ExpressionAnalysis(
                 expressionTypes,

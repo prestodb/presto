@@ -515,7 +515,7 @@ public class Analysis
         tables.put(NodeRef.of(table), handle);
     }
 
-    public FunctionHandle getFunctionHandle(FunctionCall function)
+    public FunctionHandle getFunctionHandle(Expression function)
     {
         return functionHandles.get(NodeRef.of(function));
     }

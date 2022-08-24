@@ -239,7 +239,7 @@ class QueryPlanner
         Scope scope = Scope.builder().withRelationType(RelationId.anonymous(), new RelationType(fields.build())).build();
         RelationPlan relationPlan = new RelationPlan(tableScan, scope, outputVariables);
 
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, relationPlan, analysis, lambdaDeclarationToVariableMap);
         translations.setFieldMappings(relationPlan.getFieldMappings());
 
         PlanBuilder builder = new PlanBuilder(translations, relationPlan.getRoot());
@@ -307,7 +307,7 @@ class QueryPlanner
 
     private PlanBuilder planBuilderFor(RelationPlan relationPlan)
     {
-        TranslationMap translations = new TranslationMap(relationPlan, analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, relationPlan, analysis, lambdaDeclarationToVariableMap);
 
         // Make field->variable mapping from underlying relation plan available for translations
         // This makes it possible to rewrite FieldOrExpressions that reference fields from the FROM clause directly
@@ -346,7 +346,7 @@ class QueryPlanner
 
     private PlanBuilder project(PlanBuilder subPlan, Iterable<Expression> expressions)
     {
-        TranslationMap outputTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
+        TranslationMap outputTranslations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
 
         Assignments.Builder projections = Assignments.builder();
         for (Expression expression : expressions) {
@@ -393,7 +393,7 @@ class QueryPlanner
 
     private PlanBuilder explicitCoercionFields(PlanBuilder subPlan, Iterable<Expression> alreadyCoerced, Iterable<? extends Expression> uncoerced)
     {
-        TranslationMap translations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
+        TranslationMap translations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
         Assignments.Builder projections = Assignments.builder();
 
         projections.putAll(coerce(uncoerced, subPlan, translations));
@@ -480,7 +480,7 @@ class QueryPlanner
         // 2. Aggregate
 
         // 2.a. Rewrite aggregate arguments
-        TranslationMap argumentTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
+        TranslationMap argumentTranslations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
 
         ImmutableList.Builder<VariableReferenceExpression> aggregationArgumentsBuilder = ImmutableList.builder();
         for (Expression argument : arguments.build()) {
@@ -491,7 +491,7 @@ class QueryPlanner
         List<VariableReferenceExpression> aggregationArguments = aggregationArgumentsBuilder.build();
 
         // 2.b. Rewrite grouping columns
-        TranslationMap groupingTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
+        TranslationMap groupingTranslations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
         Map<VariableReferenceExpression, VariableReferenceExpression> groupingSetMappings = new LinkedHashMap<>();
 
         for (Expression expression : groupByExpressions) {
@@ -557,7 +557,7 @@ class QueryPlanner
             subPlan = new PlanBuilder(groupingTranslations, project);
         }
 
-        TranslationMap aggregationTranslations = new TranslationMap(subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
+        TranslationMap aggregationTranslations = new TranslationMap(metadata.getFunctionAndTypeManager(), session, subPlan.getRelationPlan(), analysis, lambdaDeclarationToVariableMap);
         aggregationTranslations.copyMappingsFrom(groupingTranslations);
 
         // 2.d. Rewrite aggregates
