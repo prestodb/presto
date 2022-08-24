@@ -162,6 +162,11 @@ class HudiRecordCursors
     private static HudiFile getHudiBaseFile(HudiSplit hudiSplit)
     {
         // use first log file as base file for MOR table if it hasn't base file
-        return hudiSplit.getBaseFile().orElse(hudiSplit.getLogFiles().get(0));
+        if (hudiSplit.getBaseFile().isPresent()) {
+            return hudiSplit.getBaseFile().get();
+        }
+        else {
+            return hudiSplit.getLogFiles().get(0);
+        }
     }
 }
