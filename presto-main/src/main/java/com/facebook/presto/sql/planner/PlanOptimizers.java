@@ -490,6 +490,15 @@ public class PlanOptimizers
                 simplifyRowExpressionOptimizer); // Should always run simplifyOptimizer after predicatePushDown
 
         builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                new PickTableLayout(metadata).rules()));
+
+        // PushDownDereferences should run after PickTableLayout
+        // so the new project nodes don't interfere with pushing
+        // predicates into the TableScan in PickTableLayout
+        builder.add(new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
@@ -497,12 +506,6 @@ public class PlanOptimizers
                                 .addAll(new PushDownDereferences(metadata).rules())
                                 .build()),
                 new PruneUnreferencedOutputs());
-
-        builder.add(new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                new PickTableLayout(metadata).rules()));
 
         // PlanRemoteProjections only handles RowExpression so this need to run after TranslateExpressions
         // Rules applied after this need to handle locality of ProjectNode properly.
