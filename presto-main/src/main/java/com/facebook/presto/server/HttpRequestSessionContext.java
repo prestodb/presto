@@ -31,6 +31,7 @@ import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -44,6 +45,7 @@ import javax.ws.rs.core.Response.Status;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -89,11 +91,13 @@ public final class HttpRequestSessionContext
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
+    private static final String X509_ATTRIBUTE = "javax.servlet.request.X509Certificate";
 
     private final String catalog;
     private final String schema;
 
     private final Identity identity;
+    private final List<X509Certificate> certificates;
 
     private final String source;
     private final Optional<String> traceToken;
@@ -145,7 +149,16 @@ public final class HttpRequestSessionContext
                 Optional.ofNullable(servletRequest.getUserPrincipal()),
                 parseRoleHeaders(servletRequest),
                 parseExtraCredentials(servletRequest),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                Optional.empty());
+
+        X509Certificate[] certs = (X509Certificate[]) servletRequest.getAttribute(X509_ATTRIBUTE);
+        if (certs != null && certs.length > 0) {
+            certificates = ImmutableList.copyOf(certs);
+        }
+        else {
+            certificates = ImmutableList.of();
+        }
 
         source = servletRequest.getHeader(PRESTO_SOURCE);
         userAgent = servletRequest.getHeader(USER_AGENT);
@@ -365,6 +378,12 @@ public final class HttpRequestSessionContext
     public Identity getIdentity()
     {
         return identity;
+    }
+
+    @Override
+    public List<X509Certificate> getCertificates()
+    {
+        return certificates;
     }
 
     @Override

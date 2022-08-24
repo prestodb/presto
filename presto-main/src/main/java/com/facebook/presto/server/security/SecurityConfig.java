@@ -32,6 +32,7 @@ public class SecurityConfig
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<AuthenticationType> authenticationTypes = ImmutableList.of();
+    private boolean authorizedIdentitySelectionEnabled;
 
     public enum AuthenticationType
     {
@@ -66,5 +67,18 @@ public class SecurityConfig
                 .map(AuthenticationType::valueOf)
                 .collect(toImmutableList());
         return this;
+    }
+
+    @Config("permissions.authorized-identity-selection-enabled")
+    @ConfigDescription("Authorized identity selection enabled")
+    public SecurityConfig setAuthorizedIdentitySelectionEnabled(boolean authorizedIdentitySelectionEnabled)
+    {
+        this.authorizedIdentitySelectionEnabled = authorizedIdentitySelectionEnabled;
+        return this;
+    }
+
+    public boolean isAuthorizedIdentitySelectionEnabled()
+    {
+        return authorizedIdentitySelectionEnabled;
     }
 }

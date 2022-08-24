@@ -29,6 +29,7 @@ public class Identity
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
+    private final Optional<String> reasonForSelect;
 
     /**
      * extraAuthenticators is used when short-lived access token has to be refreshed periodically.
@@ -40,7 +41,7 @@ public class Identity
 
     public Identity(String user, Optional<Principal> principal)
     {
-        this(user, principal, emptyMap(), emptyMap(), emptyMap());
+        this(user, principal, emptyMap(), emptyMap(), emptyMap(), Optional.empty());
     }
 
     public Identity(
@@ -48,13 +49,15 @@ public class Identity
             Optional<Principal> principal,
             Map<String, SelectedRole> roles,
             Map<String, String> extraCredentials,
-            Map<String, TokenAuthenticator> extraAuthenticators)
+            Map<String, TokenAuthenticator> extraAuthenticators,
+            Optional<String> reasonForSelect)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
+        this.reasonForSelect = requireNonNull(reasonForSelect, "reasonForSelect is null");
     }
 
     public String getUser()
@@ -82,6 +85,11 @@ public class Identity
         return extraAuthenticators;
     }
 
+    public Optional<String> getReasonForSelect()
+    {
+        return reasonForSelect;
+    }
+
     public ConnectorIdentity toConnectorIdentity()
     {
         return new ConnectorIdentity(
@@ -89,7 +97,8 @@ public class Identity
                 principal,
                 Optional.empty(),
                 extraCredentials,
-                extraAuthenticators);
+                extraAuthenticators,
+                reasonForSelect);
     }
 
     public ConnectorIdentity toConnectorIdentity(String catalog)
@@ -100,7 +109,8 @@ public class Identity
                 principal,
                 Optional.ofNullable(roles.get(catalog)),
                 extraCredentials,
-                extraAuthenticators);
+                extraAuthenticators,
+                reasonForSelect);
     }
 
     @Override
@@ -131,6 +141,8 @@ public class Identity
         sb.append(", roles=").append(roles);
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append(", extraAuthenticators=").append(extraAuthenticators.keySet());
+        reasonForSelect.ifPresent(
+                reason -> sb.append(", reasonForSelect=").append(reason));
         sb.append('}');
         return sb.toString();
     }

@@ -2914,6 +2914,7 @@ public abstract class AbstractTestQueries
                 Optional.empty(),
                 getSession().isClientTransactionSupport(),
                 getSession().getIdentity(),
+                getSession().getCertificates(),
                 getSession().getSource(),
                 getSession().getCatalog(),
                 getSession().getSchema(),

@@ -169,7 +169,8 @@ public class TestAccessControlManager
                         Optional.of(PRINCIPAL),
                         ImmutableMap.of(),
                         ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery),
-                        ImmutableMap.of()),
+                        ImmutableMap.of(),
+                        Optional.empty()),
                 context,
                 testQuery);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
@@ -184,7 +185,8 @@ public class TestAccessControlManager
                                 Optional.of(PRINCIPAL),
                                 ImmutableMap.of(),
                                 ImmutableMap.of(QUERY_TOKEN_FIELD, testQuery + " modified"),
-                                ImmutableMap.of()),
+                                ImmutableMap.of(),
+                                Optional.empty()),
                         context,
                         testQuery));
     }

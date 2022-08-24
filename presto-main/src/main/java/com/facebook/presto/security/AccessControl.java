@@ -18,12 +18,15 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -35,6 +38,11 @@ public interface AccessControl
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetUser(Identity identity, AccessControlContext accessControlContext, Optional<Principal> principal, String userName);
+
+    default AuthorizedIdentity selectAuthorizedIdentity(Identity identity, AccessControlContext accessControlContext, String userName, List<X509Certificate> certificates)
+    {
+        return new AuthorizedIdentity(userName, "", true);
+    }
 
     /**
      * Check if the query is unexpectedly modified using the credentials passed in the identity.
