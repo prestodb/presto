@@ -80,7 +80,8 @@ executors:
 jobs:
   macos-build:
     macos:
-      xcode: "11.7.0"
+      xcode: "12.5.1"
+    resource_class: large
     steps:
       - checkout
       - run:
