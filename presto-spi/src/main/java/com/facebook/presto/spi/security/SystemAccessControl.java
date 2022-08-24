@@ -18,7 +18,9 @@ import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.SchemaTableName;
 
 import java.security.Principal;
+import java.security.cert.X509Certificate;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -52,6 +54,11 @@ public interface SystemAccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName);
+
+    default AuthorizedIdentity selectAuthorizedIdentity(Identity identity, AccessControlContext context, String userName, List<X509Certificate> certificates)
+    {
+        return new AuthorizedIdentity(userName, "", true);
+    }
 
     /**
      * Check if the query is unexpectedly modified using the credentials passed in the identity.

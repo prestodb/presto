@@ -94,6 +94,8 @@ import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
@@ -383,7 +385,12 @@ public class PrestoSparkQueryExecutionFactory
                 credentialsProviders,
                 authenticatorProviders);
 
+        // The permission check is moved out from createSession function.
+        // To keep the same behavior as before, we check the permissions separately here
+        checkPermissions(queryId, sessionContext);
+
         Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
+
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 
         if (retryExecutionStrategy.isPresent()) {
@@ -553,6 +560,19 @@ public class PrestoSparkQueryExecutionFactory
 
             throw toPrestoSparkFailure(session, failureInfo.get());
         }
+    }
+
+    private void checkPermissions(QueryId queryId, SessionContext sessionContext)
+    {
+        Identity identity = sessionContext.getIdentity();
+        accessControl.checkCanSetUser(
+                identity,
+                new AccessControlContext(
+                        queryId,
+                        Optional.ofNullable(sessionContext.getClientInfo()),
+                        Optional.ofNullable(sessionContext.getSource())),
+                identity.getPrincipal(),
+                identity.getUser());
     }
 
     private SubPlan configureOutputPartitioning(Session session, SubPlan subPlan, int hashPartitionCount)

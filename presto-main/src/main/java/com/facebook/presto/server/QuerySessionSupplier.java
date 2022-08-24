@@ -23,7 +23,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
-import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
@@ -68,13 +67,10 @@ public class QuerySessionSupplier
     public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
     {
         Identity identity = context.getIdentity();
-        accessControl.checkCanSetUser(
-                identity,
-                new AccessControlContext(queryId, Optional.ofNullable(context.getClientInfo()), Optional.ofNullable(context.getSource())), identity.getPrincipal(), identity.getUser());
-
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)
+                .setCertificates(context.getCertificates())
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
@@ -127,7 +123,6 @@ public class QuerySessionSupplier
         if (context.getTransactionId().isPresent()) {
             session = session.beginTransactionId(context.getTransactionId().get(), transactionManager, accessControl);
         }
-
         return session;
     }
 }

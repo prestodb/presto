@@ -29,10 +29,11 @@ public class ConnectorIdentity
     private final Optional<SelectedRole> role;
     private final Map<String, String> extraCredentials;
     private final Map<String, TokenAuthenticator> extraAuthenticators;
+    private final Optional<String> reasonForSelect;
 
     public ConnectorIdentity(String user, Optional<Principal> principal, Optional<SelectedRole> role)
     {
-        this(user, principal, role, emptyMap(), emptyMap());
+        this(user, principal, role, emptyMap(), emptyMap(), Optional.empty());
     }
 
     public ConnectorIdentity(
@@ -40,13 +41,15 @@ public class ConnectorIdentity
             Optional<Principal> principal,
             Optional<SelectedRole> role,
             Map<String, String> extraCredentials,
-            Map<String, TokenAuthenticator> extraAuthenticators)
+            Map<String, TokenAuthenticator> extraAuthenticators,
+            Optional<String> reasonForSelect)
     {
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.role = requireNonNull(role, "role is null");
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
+        this.reasonForSelect = requireNonNull(reasonForSelect, "reasonForSelect is null");
     }
 
     public String getUser()
@@ -74,6 +77,11 @@ public class ConnectorIdentity
         return extraAuthenticators;
     }
 
+    public Optional<String> getReasonForSelect()
+    {
+        return reasonForSelect;
+    }
+
     @Override
     public String toString()
     {
@@ -83,6 +91,8 @@ public class ConnectorIdentity
         role.ifPresent(role -> sb.append(", role=").append(role));
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append(", extraAuthenticators=").append(extraAuthenticators.keySet());
+        reasonForSelect.ifPresent(
+                reason -> sb.append(", reasonForSelect=").append(reason));
         sb.append('}');
         return sb.toString();
     }

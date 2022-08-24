@@ -69,7 +69,8 @@ public class PrestoSparkSessionContext
                         prestoSparkSession.getPrincipal(),
                         ImmutableMap.of(),  // presto on spark does not support role management
                         extraCredentials.build(),
-                        extraTokenAuthenticators.build()),
+                        extraTokenAuthenticators.build(),
+                        Optional.empty()),
                 prestoSparkSession.getCatalog().orElse(null),
                 prestoSparkSession.getSchema().orElse(null),
                 prestoSparkSession.getSource().orElse(null),

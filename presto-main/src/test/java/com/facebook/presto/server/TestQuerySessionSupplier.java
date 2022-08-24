@@ -79,7 +79,8 @@ public class TestQuerySessionSupplier
                     .put(PRESTO_PREPARED_STATEMENT, "query1=select * from foo,query2=select * from bar")
                     .put(PRESTO_SESSION_FUNCTION, format("%s=%s", urlEncode(SERIALIZED_SQL_FUNCTION_ID_ADD), urlEncode(SERIALIZED_SQL_FUNCTION_ADD)))
                     .build(),
-            "testRemote");
+            "testRemote",
+            ImmutableMap.of());
 
     @Test
     public void testCreateSession()
@@ -129,7 +130,8 @@ public class TestQuerySessionSupplier
                 ImmutableListMultimap.<String, String>builder()
                         .put(PRESTO_USER, "testUser")
                         .build(),
-                "remoteAddress");
+                "remoteAddress",
+                ImmutableMap.of());
         HttpRequestSessionContext context1 = new HttpRequestSessionContext(request1, new SqlParserOptions());
         assertEquals(context1.getClientTags(), ImmutableSet.of());
 
@@ -138,7 +140,8 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .put(PRESTO_CLIENT_TAGS, "")
                         .build(),
-                "remoteAddress");
+                "remoteAddress",
+                ImmutableMap.of());
         HttpRequestSessionContext context2 = new HttpRequestSessionContext(request2, new SqlParserOptions());
         assertEquals(context2.getClientTags(), ImmutableSet.of());
     }
@@ -151,7 +154,8 @@ public class TestQuerySessionSupplier
                         .put(PRESTO_USER, "testUser")
                         .put(PRESTO_TIME_ZONE, "unknown_timezone")
                         .build(),
-                "testRemote");
+                "testRemote",
+                ImmutableMap.of());
         HttpRequestSessionContext context = new HttpRequestSessionContext(request, new SqlParserOptions());
         QuerySessionSupplier sessionSupplier = new QuerySessionSupplier(
                 createTestTransactionManager(),
