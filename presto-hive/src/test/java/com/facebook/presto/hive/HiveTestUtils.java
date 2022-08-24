@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
 import com.facebook.presto.PagesIndexPageSorter;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;

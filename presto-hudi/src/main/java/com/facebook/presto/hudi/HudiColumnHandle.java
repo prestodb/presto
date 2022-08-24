@@ -16,8 +16,8 @@ package com.facebook.presto.hudi;
 
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableFormatColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -27,7 +27,7 @@ import java.util.Optional;
 import static java.util.Objects.requireNonNull;
 
 public class HudiColumnHandle
-        implements ColumnHandle
+        implements TableFormatColumnHandle
 {
     public enum ColumnType
     {
@@ -63,9 +63,17 @@ public class HudiColumnHandle
     }
 
     @JsonProperty
+    @Override
     public String getName()
     {
         return name;
+    }
+
+    @JsonProperty
+    @Override
+    public String getBaseType()
+    {
+        return getHiveType().getTypeSignature().getBase();
     }
 
     @Override
