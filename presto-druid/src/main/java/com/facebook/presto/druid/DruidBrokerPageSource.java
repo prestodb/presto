@@ -131,9 +131,7 @@ public class DruidBrokerPageSource
                         Type type = columnTypes.get(i);
                         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
                         JsonNode value = rootNode.get(((DruidColumnHandle) columnHandles.get(i)).getColumnName());
-                        if (writeValue(type, blockBuilder, value)) {
-                            continue;
-                        }
+                        writeValue(type, blockBuilder, value);
                     }
                 }
                 pageBuilder.declarePosition();
@@ -168,13 +166,12 @@ public class DruidBrokerPageSource
     }
 
     @VisibleForTesting
-    static boolean writeValue(Type type, BlockBuilder blockBuilder, JsonNode value)
+    static void writeValue(Type type, BlockBuilder blockBuilder, JsonNode value)
     {
         if (value == null) {
             blockBuilder.appendNull();
-            return true;
         }
-        if (type instanceof BigintType) {
+        else if (type instanceof BigintType) {
             type.writeLong(blockBuilder, value.longValue());
         }
         else if (type instanceof DoubleType) {
@@ -194,7 +191,6 @@ public class DruidBrokerPageSource
             Slice slice = Slices.utf8Slice(value.textValue());
             type.writeSlice(blockBuilder, slice);
         }
-        return false;
     }
 
     @Override

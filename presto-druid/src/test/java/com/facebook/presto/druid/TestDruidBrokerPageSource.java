@@ -26,6 +26,8 @@ import static org.testng.Assert.fail;
 
 public class TestDruidBrokerPageSource
 {
+    private final ObjectMapper mapper = new ObjectMapper();
+
     @DataProvider(name = "gooddates")
     public Object[][] goodDates()
     {
@@ -62,7 +64,6 @@ public class TestDruidBrokerPageSource
     public void testWriteTimestamp(String json, long expected)
             throws JsonProcessingException
     {
-        ObjectMapper mapper = new ObjectMapper();
         JsonNode node = mapper.readTree(json);
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
         DruidBrokerPageSource.writeValue(TimestampType.TIMESTAMP, blockBuilder, node);
@@ -73,7 +74,6 @@ public class TestDruidBrokerPageSource
     public void testWriteInvalidTimestamp(String json)
             throws JsonProcessingException
     {
-        ObjectMapper mapper = new ObjectMapper();
         JsonNode node = mapper.readTree(json);
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 1);
         try {
