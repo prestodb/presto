@@ -62,8 +62,19 @@ TEST(DuckParserTest, arrays) {
   // Empty array.
   EXPECT_EQ("[]", parseExpr("ARRAY[]")->toString());
 
-  // Only simple constants are supported as part of array literals.
-  EXPECT_THROW(parseExpr("ARRAY[1 + 2]"), VeloxUserError);
+  // Expressions with variables and without.
+  EXPECT_EQ(
+      "array_constructor(plus(\"x\",\"y\"),"
+      "minus(\"y\",10),"
+      "multiply(5,\"z\"),"
+      "1,"
+      "multiply(7,6))",
+      parseExpr("ARRAY[x + y, y - 10, 5 * z, 1, 7 * 6]")->toString());
+
+  // Array of variables and one constant.
+  EXPECT_EQ(
+      "array_constructor(\"x\",\"y\",\"z\",1)",
+      parseExpr("ARRAY[x, y, z, 1]")->toString());
 }
 
 TEST(DuckParserTest, variables) {

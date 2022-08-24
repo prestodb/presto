@@ -242,6 +242,15 @@ std::shared_ptr<const core::IExpr> parseConjunctionExpr(
   return current;
 }
 
+static bool areAllChildrenConstant(const OperatorExpression& operExpr) {
+  for (const auto& child : operExpr.children) {
+    if (child->GetExpressionType() != ExpressionType::VALUE_CONSTANT) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Parse an "operator", like NOT.
 std::shared_ptr<const core::IExpr> parseOperatorExpr(
     ParsedExpression& expr,
@@ -250,19 +259,30 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
 
   // Code for array literal parsing (e.g. "ARRAY[1, 2, 3]")
   if (expr.GetExpressionType() == ExpressionType::ARRAY_CONSTRUCTOR) {
-    std::vector<variant> arrayElements;
-    arrayElements.reserve(operExpr.children.size());
+    if (areAllChildrenConstant(operExpr)) {
+      std::vector<variant> arrayElements;
+      arrayElements.reserve(operExpr.children.size());
 
-    for (const auto& c : operExpr.children) {
-      if (auto constantExpr = dynamic_cast<ConstantExpression*>(c.get())) {
-        arrayElements.emplace_back(duckValueToVariant(
-            constantExpr->value, options.parseDecimalAsDouble));
-      } else {
-        VELOX_UNSUPPORTED("Array literal elements need to be constant");
+      for (const auto& child : operExpr.children) {
+        if (auto constantExpr =
+                dynamic_cast<ConstantExpression*>(child.get())) {
+          arrayElements.emplace_back(duckValueToVariant(
+              constantExpr->value, options.parseDecimalAsDouble));
+        } else {
+          VELOX_UNREACHABLE();
+        }
       }
+      return std::make_shared<const core::ConstantExpr>(
+          variant::array(arrayElements), getAlias(expr));
+    } else {
+      std::vector<std::shared_ptr<const core::IExpr>> params;
+      params.reserve(operExpr.children.size());
+
+      for (const auto& child : operExpr.children) {
+        params.emplace_back(parseExpr(*child, options));
+      }
+      return callExpr("array_constructor", std::move(params), getAlias(expr));
     }
-    return std::make_shared<const core::ConstantExpr>(
-        variant::array(arrayElements), getAlias(expr));
   }
 
   // Check if the operator is "IN" or "NOT IN".
@@ -296,8 +316,8 @@ std::shared_ptr<const core::IExpr> parseOperatorExpr(
   std::vector<std::shared_ptr<const core::IExpr>> params;
   params.reserve(operExpr.children.size());
 
-  for (const auto& c : operExpr.children) {
-    params.emplace_back(parseExpr(*c, options));
+  for (const auto& child : operExpr.children) {
+    params.emplace_back(parseExpr(*child, options));
   }
 
   // STRUCT_EXTRACT(struct, 'entry') resolves nested field access such as
