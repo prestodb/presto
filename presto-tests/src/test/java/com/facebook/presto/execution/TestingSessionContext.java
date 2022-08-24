@@ -24,6 +24,8 @@ import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.ImmutableMap;
 
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +47,12 @@ public class TestingSessionContext
     public Identity getIdentity()
     {
         return session.getIdentity();
+    }
+
+    @Override
+    public List<X509Certificate> getCertificates()
+    {
+        return session.getCertificates();
     }
 
     @Override

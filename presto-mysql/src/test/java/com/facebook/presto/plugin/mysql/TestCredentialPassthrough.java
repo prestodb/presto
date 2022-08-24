@@ -76,7 +76,7 @@ public class TestCredentialPassthrough
         return testSessionBuilder()
                 .setCatalog("mysql")
                 .setSchema(TEST_SCHEMA)
-                .setIdentity(new Identity(mySqlServer.getUser(), Optional.empty(), ImmutableMap.of(), extraCredentials, ImmutableMap.of()))
+                .setIdentity(new Identity(mySqlServer.getUser(), Optional.empty(), ImmutableMap.of(), extraCredentials, ImmutableMap.of(), Optional.empty()))
                 .build();
     }
 

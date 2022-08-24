@@ -22,6 +22,7 @@ import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
+import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -263,7 +264,8 @@ public final class SystemSessionProperties
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
                 new TracingConfig(),
-                new CompilerConfig());
+                new CompilerConfig(),
+                new SecurityConfig());
     }
 
     @Inject
@@ -277,7 +279,8 @@ public final class SystemSessionProperties
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
             TracingConfig tracingConfig,
-            CompilerConfig compilerConfig)
+            CompilerConfig compilerConfig,
+            SecurityConfig securityConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(

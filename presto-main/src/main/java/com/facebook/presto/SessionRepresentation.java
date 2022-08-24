@@ -31,6 +31,7 @@ import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Locale;
@@ -313,7 +314,9 @@ public final class SessionRepresentation
                         principal.map(BasicPrincipal::new),
                         roles,
                         extraCredentials,
-                        extraAuthenticators),
+                        extraAuthenticators,
+                        Optional.empty()),
+                ImmutableList.of(),
                 source,
                 catalog,
                 schema,
