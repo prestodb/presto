@@ -14,6 +14,7 @@
 add_subdirectory(json)
 add_subdirectory(hyperloglog)
 add_subdirectory(types)
+add_subdirectory(window)
 
 add_library(
   velox_functions_prestosql_impl OBJECT

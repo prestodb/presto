@@ -1508,7 +1508,7 @@ class WindowNode : public PlanNode {
     bool ignoreNulls;
   };
 
-  /// @windowColumnNames parameter specifies the output column
+  /// @param windowColumnNames specifies the output column
   /// names for each window function column. So
   /// windowColumnNames.length() = windowFunctions.length().
   WindowNode(

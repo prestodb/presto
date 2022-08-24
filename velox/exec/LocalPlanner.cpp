@@ -37,6 +37,7 @@
 #include "velox/exec/TopN.h"
 #include "velox/exec/Unnest.h"
 #include "velox/exec/Values.h"
+#include "velox/exec/Window.h"
 
 namespace facebook::velox::exec {
 
@@ -369,6 +370,10 @@ std::shared_ptr<Driver> DriverFactory::createDriver(
             std::dynamic_pointer_cast<const core::OrderByNode>(planNode)) {
       operators.push_back(
           std::make_unique<OrderBy>(id, ctx.get(), orderByNode));
+    } else if (
+        auto windowNode =
+            std::dynamic_pointer_cast<const core::WindowNode>(planNode)) {
+      operators.push_back(std::make_unique<Window>(id, ctx.get(), windowNode));
     } else if (
         auto localMerge =
             std::dynamic_pointer_cast<const core::LocalMergeNode>(planNode)) {

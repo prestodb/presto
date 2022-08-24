@@ -52,6 +52,7 @@ LocalMergeNode              LocalMerge
 LocalPartitionNode          LocalPartition and LocalExchange
 EnforceSingleRowNode        EnforceSingleRow
 AssignUniqueIdNode          AssignUniqueId
+WindowNode                  Window
 ==========================  ==============================================   ===========================
 
 Plan Nodes
@@ -479,6 +480,37 @@ the nodes executing the same query stage in a distributed query execution.
      - Column name for the generated unique id column.
    * - taskUniqueId
      - A 24-bit integer to uniquely identify the task id across all the nodes.
+
+WindowNode
+~~~~~~~~~~
+
+The Window operator is used to evaluate window functions. The operator adds columns
+for the window functions output at the end of the input columns.
+
+The window operator groups the input data into partitions based on the values
+of the partition columns. If no partition columns are specified, then all the input
+rows are considered to be in the same partition.
+Within each partition rows are ordered by the values of the sorting columns.
+The window function is computed for each row at a time in this order.
+If no sorting columns are specified then the order of the results is unspecified.
+
+.. list-table::
+  :widths: 10 30
+  :align: left
+  :header-rows: 1
+
+  * - Property
+    - Description
+  * - partitionKeys
+    - Partition by columns for the window functions.
+  * - sortingKeys
+    - Order by columns for the window functions.
+  * - sortingOrders
+    - Sorting order for each sorting key above. The supported sort orders are asc nulls first, asc nulls last, desc nulls first and desc nulls last.
+  * - windowColumnNames
+    - Output column names for each window function invocation in windowFunctions list below.
+  * - windowFunctions
+    - Window function calls with the frame clause. e.g row_number(), first_value(name) between range 10 preceding and current row. The default frame is between range unbounded preceding and current row.
 
 Examples
 --------
