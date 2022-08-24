@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive.parquet;
+package com.facebook.presto.parquet;
 
-import com.facebook.presto.hive.FileFormatDataSourceStats;
-import com.facebook.presto.parquet.AbstractParquetDataSource;
-import com.facebook.presto.parquet.ParquetDataSourceId;
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;

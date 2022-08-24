@@ -41,7 +41,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.getParquetTupleDomain;
+import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.HivePageSourceCommons;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
@@ -53,6 +53,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestParquetPredicateUtils
 {
+    HivePageSourceCommons pageSourceCommons = new HivePageSourceCommons();
     @Test
     public void testParquetTupleDomainPrimitiveArray()
     {
@@ -64,7 +65,7 @@ public class TestParquetPredicateUtils
                         new GroupType(REPEATED, "bag", new PrimitiveType(OPTIONAL, INT32, "array_element"))));
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
+        TupleDomain<ColumnDescriptor> tupleDomain = pageSourceCommons.getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -82,7 +83,7 @@ public class TestParquetPredicateUtils
                                 new GroupType(OPTIONAL, "array_element", new PrimitiveType(OPTIONAL, INT32, "a")))));
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
+        TupleDomain<ColumnDescriptor> tupleDomain = pageSourceCommons.getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -96,7 +97,7 @@ public class TestParquetPredicateUtils
         MessageType fileSchema = new MessageType("hive_schema", new PrimitiveType(OPTIONAL, INT64, "my_primitive"));
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
+        TupleDomain<ColumnDescriptor> tupleDomain = pageSourceCommons.getParquetTupleDomain(descriptorsByPath, domain);
 
         assertEquals(tupleDomain.getDomains().get().size(), 1);
         ColumnDescriptor descriptor = tupleDomain.getDomains().get().keySet().iterator().next();
@@ -120,7 +121,7 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b")));
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
+        TupleDomain<ColumnDescriptor> tupleDomain = pageSourceCommons.getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
@@ -144,7 +145,7 @@ public class TestParquetPredicateUtils
                                 new PrimitiveType(OPTIONAL, INT32, "value"))));
 
         Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain);
+        TupleDomain<ColumnDescriptor> tupleDomain = pageSourceCommons.getParquetTupleDomain(descriptorsByPath, domain);
         assertTrue(tupleDomain.getDomains().get().isEmpty());
     }
 
