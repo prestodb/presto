@@ -506,6 +506,27 @@ public class TestPrestoS3FileSystem
         }
     }
 
+    @Test
+    public void testGetScheme()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3a");
+        }
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3");
+        }
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3n");
+        }
+    }
+
     @DataProvider(name = "skipGlacierObjectsConfig")
     public static Object[][] skipGlacierObjectsConfigProvider()
     {
