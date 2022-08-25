@@ -18,16 +18,77 @@
 
 #include "velox/common/base/BitUtil.h"
 
+DEFINE_bool(
+    use_mmap_allocator_for_memory_pool,
+    false,
+    "If true, use MmapMemoryAllocator to allocate memory for MemoryPool");
+
 namespace facebook {
 namespace velox {
 namespace memory {
+
 /* static */
-std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultAllocator() {
-  return std::make_shared<MemoryAllocator>();
+std::shared_ptr<MmapMemoryAllocator>
+MmapMemoryAllocator::createDefaultAllocator() {
+  return std::make_shared<MmapMemoryAllocator>();
+}
+
+void* FOLLY_NULLABLE MmapMemoryAllocator::alloc(int64_t size) {
+  return mappedMemory_->allocateBytes(size);
+}
+
+void* FOLLY_NULLABLE
+MmapMemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
+  auto totalBytes = numMembers * sizeEach;
+  auto* allocResult = alloc(totalBytes);
+  if (allocResult != nullptr) {
+    std::memset(allocResult, 0, totalBytes);
+  }
+  return allocResult;
+}
+
+void* FOLLY_NULLABLE MmapMemoryAllocator::allocAligned(
+    uint16_t /* alignment */,
+    int64_t /* size */) {
+  // TODO: Add functionality in MappedMemory to support allocAligned
+  VELOX_UNSUPPORTED("allocAligned is not supported for MmapMemoryAllocator.");
+}
+
+void* FOLLY_NULLABLE MmapMemoryAllocator::realloc(
+    void* FOLLY_NULLABLE p,
+    int64_t size,
+    int64_t newSize) {
+  auto* newAlloc = alloc(newSize);
+  if (p == nullptr || newAlloc == nullptr) {
+    return newAlloc;
+  }
+  std::memcpy(newAlloc, p, std::min(size, newSize));
+  free(p, size);
+  return newAlloc;
+}
+
+void* FOLLY_NULLABLE MmapMemoryAllocator::reallocAligned(
+    void* FOLLY_NULLABLE /* p */,
+    uint16_t /* alignment */,
+    int64_t /* size */,
+    int64_t /* newSize */) {
+  VELOX_UNSUPPORTED("reallocAligned is not supported for MmapMemoryAllocator.");
+}
+
+void MmapMemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t size) {
+  if (p == nullptr) {
+    return;
+  }
+  mappedMemory_->freeBytes(p, size);
 }
 
 void* FOLLY_NULLABLE MemoryAllocator::alloc(int64_t size) {
   return std::malloc(size);
+}
+
+/* static */
+std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultAllocator() {
+  return std::make_shared<MemoryAllocator>();
 }
 
 void* FOLLY_NULLABLE
@@ -138,7 +199,7 @@ std::unique_ptr<ScopedMemoryPool> MemoryPoolBase::addScopedChild(
   return std::make_unique<ScopedMemoryPool>(pool.getWeakPtr());
 }
 
-void MemoryPoolBase::dropChild(const MemoryPool* child) {
+void MemoryPoolBase::dropChild(const MemoryPool* FOLLY_NONNULL child) {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
   // Implicitly synchronized in dtor of child so it's impossible for
   // MemoryManager to access after destruction of child.
@@ -182,7 +243,10 @@ size_t MemoryPoolBase::getPreferredSize(size_t size) {
 }
 
 IMemoryManager& getProcessDefaultMemoryManager() {
-  return MemoryManager<>::getProcessDefaultManager();
+  if (FLAGS_use_mmap_allocator_for_memory_pool) {
+    return MemoryManager<MmapMemoryAllocator>::getProcessDefaultManager();
+  }
+  return MemoryManager<MemoryAllocator>::getProcessDefaultManager();
 }
 
 std::unique_ptr<ScopedMemoryPool> getDefaultScopedMemoryPool(int64_t cap) {

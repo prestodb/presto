@@ -108,6 +108,10 @@ class MmapAllocator : public MappedMemory {
     injectedFailure_ = failure;
   }
 
+  MachinePageCount numExternalMapped() const {
+    return numExternalMapped_;
+  }
+
   std::string toString() const override;
 
   Stats stats() const override {
