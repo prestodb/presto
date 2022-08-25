@@ -737,6 +737,38 @@ Optimizer Properties
     .. warning:: The number of possible join orders scales factorially with the number of relations,
                  so increasing this value can cause serious performance issues.
 
+``optimizer.optimize-case-expression-predicate``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``boolean``
+    * **Default value:** ``false``
+
+    When set to true, CASE expression predicate gets rewritten into a series of AND/OR clauses.
+    For example::
+
+      (CASE
+        WHEN expression=constant1 THEN result1
+        WHEN expression=constant2 THEN result2
+        ELSE elseResult
+      END) = value
+    gets converted to::
+
+      (result1=value AND expression IS NOT NULL AND expression=constant1) OR
+      (result2=value AND expression IS NOT NULL AND expression=constant2) OR
+      (elseResult=value AND ((expression IS NULL) OR (!(expression=constant1) AND !(expression=constant2)))
+
+    In most cases only one ``result=value`` will evaluate to true and all other branches would be discarded resulting
+    in a simple expression. e.g, if ``result1=value`` is true then the expression becomes
+    ``expression IS NOT NULL AND expression=constant1`` and all other conditions would evaluate to false.
+
+    The conversion happens only under the following conditions:
+
+    * Value is either a constant or column reference or input reference and not any function.
+    * The LHS expression in all WHEN clauses are the same. For example, if one WHEN clause has a expression
+      using col1 and another using col2, it will not work.
+    * The relational operator in the WHEN clause is equals (=).
+    * All the RHS expressions are a constant and unique.
+
 Planner Properties
 --------------------------------------
 

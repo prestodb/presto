@@ -5599,6 +5599,21 @@ public abstract class AbstractTestQueries
         assertQuery(
                 caseExpressionRewriteEnabled,
                 "SELECT ORDERSTATUS, ORDERPRIORITY, TOTALPRICE FROM ORDERS WHERE (CASE WHEN ORDERSTATUS='F' THEN 1 WHEN (CASE WHEN ORDERPRIORITY = '5-LOW' THEN true ELSE false END) THEN 2 WHEN ORDERSTATUS='O' THEN 3 ELSE -1 END) > 1");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'a' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'b' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' ELSE 'c' END) = 'c' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = NULL THEN 'a' WHEN col = 1 THEN 'b' ELSE 'c' END) = 'a' FROM (VALUES NULL, 1, 2, 3) t(col)");
+
+        assertQuery(caseExpressionRewriteEnabled,
+                "SELECT (CASE WHEN col = 1 THEN 'a' WHEN col = 2 THEN 'b' END) = NULL FROM (VALUES NULL, 1, 2, 3) t(col)");
     }
 
     @Test

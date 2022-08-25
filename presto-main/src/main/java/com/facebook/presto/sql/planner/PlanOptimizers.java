@@ -292,7 +292,7 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 estimatedExchangesCostCalculator,
-                new RewriteCaseExpressionPredicate(metadata.getFunctionAndTypeManager()).rules());
+                new RewriteCaseExpressionPredicate(metadata).rules());
 
         PlanOptimizer predicatePushDown = new StatsRecordingPlanOptimizer(optimizerStats, new PredicatePushDown(metadata, sqlParser));
 
