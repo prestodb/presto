@@ -77,6 +77,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -377,6 +378,8 @@ public class PageFunctionCompiler
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
+
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
@@ -384,7 +387,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                "");
+                "",
+                lambdaCounter);
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
@@ -397,7 +401,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                lambdaCounter);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(projections);
@@ -411,7 +416,8 @@ public class PageFunctionCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        compiledLambdaMap);
+                        compiledLambdaMap,
+                        lambdaCounter);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
@@ -716,6 +722,7 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
@@ -726,7 +733,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                lambdaCounter);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(filter);
@@ -740,7 +748,8 @@ public class PageFunctionCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        ImmutableMap.of());
+                        ImmutableMap.of(),
+                        lambdaCounter);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
