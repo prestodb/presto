@@ -159,6 +159,10 @@ TEST_F(MultiFragmentTest, aggregationSingleKey) {
 
   assertQuery(
       op, finalAggTaskIds, "SELECT c0 % 10, sum(c1) FROM tmp GROUP BY 1");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 TEST_F(MultiFragmentTest, aggregationMultiKey) {
@@ -202,30 +206,32 @@ TEST_F(MultiFragmentTest, aggregationMultiKey) {
       op,
       finalAggTaskIds,
       "SELECT c0 % 10, c1 % 2, sum(c2) FROM tmp GROUP BY 1, 2");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 TEST_F(MultiFragmentTest, distributedTableScan) {
   setupSources(10, 1000);
   // Run the table scan several times to test the caching.
   for (int i = 0; i < 3; ++i) {
-    std::vector<std::shared_ptr<Task>> tasks;
     auto leafTaskId = makeTaskId("leaf", 0);
-    core::PlanNodePtr leafPlan;
-    {
-      PlanBuilder builder;
-      leafPlan = builder.tableScan(rowType_)
-                     .project({"c0 % 10", "c1 % 2", "c2"})
-                     .partitionedOutput({}, 1, {"c2", "p1", "p0"})
-                     .planNode();
 
-      auto leafTask = makeTask(leafTaskId, leafPlan, 0);
-      tasks.push_back(leafTask);
-      Task::start(leafTask, 4);
-      addHiveSplits(leafTask, filePaths_);
-    }
+    auto leafPlan = PlanBuilder()
+                        .tableScan(rowType_)
+                        .project({"c0 % 10", "c1 % 2", "c2"})
+                        .partitionedOutput({}, 1, {"c2", "p1", "p0"})
+                        .planNode();
+
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    addHiveSplits(leafTask, filePaths_);
+
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
-
     assertQuery(op, {leafTaskId}, "SELECT c2, c1 % 2, c0 % 10 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
 }
 
@@ -281,6 +287,10 @@ TEST_F(MultiFragmentTest, mergeExchange) {
   auto op = PlanBuilder().exchange(outputType).planNode();
   assertQueryOrdered(
       op, {finalSortTaskId}, "SELECT * FROM tmp ORDER BY 1 NULLS LAST", {0});
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 // Test reordering and dropping columns in PartitionedOutput operator
@@ -299,6 +309,8 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
 
     assertQuery(op, {leafTaskId}, "SELECT c0, c1 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
 
   // Test reordering and dropping at the same time
@@ -313,6 +325,8 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto op = PlanBuilder().exchange(leafPlan->outputType()).planNode();
 
     assertQuery(op, {leafTaskId}, "SELECT c3, c0, c2 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
 
   // Test producing duplicate columns
@@ -330,6 +344,8 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
 
     assertQuery(
         op, {leafTaskId}, "SELECT c0, c1, c2, c3, c4, c3, c2, c1, c0 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
 
   // Test dropping the partitioning key
@@ -359,6 +375,8 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto op = PlanBuilder().exchange(intermediatePlan->outputType()).planNode();
 
     assertQuery(op, intermediateTaskIds, "SELECT c3, c0, c2 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
 }
 
@@ -398,6 +416,10 @@ TEST_F(MultiFragmentTest, broadcast) {
   auto op = PlanBuilder().exchange(finalAggPlan->outputType()).planNode();
 
   assertQuery(op, finalAggTaskIds, "SELECT UNNEST(array[1000, 1000, 1000])");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 TEST_F(MultiFragmentTest, replicateNullsAndAny) {
@@ -452,6 +474,10 @@ TEST_F(MultiFragmentTest, replicateNullsAndAny) {
       op,
       finalAggTaskIds,
       "SELECT 3 * ceil(1000.0 / 7) /* number of null rows */, 1000 + 2 * ceil(1000.0 / 7) /* total number of rows */");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }
 
 // Test query finishing before all splits have been scheduled.
@@ -500,8 +526,8 @@ TEST_F(MultiFragmentTest, limit) {
       "VALUES (null), (1), (2), (3), (4), (5), (6), (7), (8), (9)",
       duckDbQueryRunner_);
 
-  ASSERT_TRUE(waitForTaskCompletion(task.get()));
-  ASSERT_TRUE(waitForTaskCompletion(leafTask.get()));
+  ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
 }
 
 TEST_F(MultiFragmentTest, mergeExchangeOverEmptySources) {
@@ -528,4 +554,8 @@ TEST_F(MultiFragmentTest, mergeExchangeOverEmptySources) {
                   .planNode();
 
   assertQuery(plan, leafTaskIds, "");
+
+  for (auto& task : tasks) {
+    ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
+  }
 }

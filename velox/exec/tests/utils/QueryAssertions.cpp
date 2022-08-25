@@ -752,7 +752,7 @@ std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>> readCursor(
     addSplits(task);
   }
 
-  EXPECT_TRUE(waitForTaskCompletion(task));
+  EXPECT_TRUE(waitForTaskCompletion(task)) << task->taskId();
   return {std::move(cursor), std::move(result)};
 }
 
@@ -813,7 +813,7 @@ std::shared_ptr<Task> assertQuery(
   }
   auto task = cursor->task();
 
-  EXPECT_TRUE(waitForTaskCompletion(task.get()));
+  EXPECT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
 
   return task;
 }

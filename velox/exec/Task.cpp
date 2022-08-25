@@ -542,8 +542,7 @@ void Task::createDriversLocked(
 // static
 void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
   bool foundDriver = false;
-  bool allOutputDriversFinished = false;
-  TaskCompletionNotifier completionNotifier;
+  bool allFinished = true;
   {
     std::lock_guard<std::mutex> taskLock(self->mutex_);
     for (auto& driverPtr : self->drivers_) {
@@ -559,24 +558,15 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
 
       auto pipelineId = driver->driverCtx()->pipelineId;
 
-      // Check if all drivers in the output pipeline finished. If so, call
-      // Task::terminate(kFinished) to mark the task finished and finish
-      // remaining pipelines quickly.
       if (self->isOutputPipeline(pipelineId)) {
         ++splitGroupState.numFinishedOutputDrivers;
-        if (self->numDrivers(pipelineId) ==
-            splitGroupState.numFinishedOutputDrivers) {
-          allOutputDriversFinished = true;
-        }
       }
 
       // Release the driver, note that after this 'driver' is invalid.
       driverPtr = nullptr;
       self->driverClosedLocked();
 
-      if (self->checkIfFinishedLocked()) {
-        self->activateTaskCompletionNotifier(completionNotifier);
-      }
+      allFinished = self->checkIfFinishedLocked();
 
       // Check if a split group is finished.
       if (splitGroupState.numRunningDrivers == 0) {
@@ -598,13 +588,8 @@ void Task::removeDriver(std::shared_ptr<Task> self, Driver* driver) {
     LOG(WARNING) << "Trying to remove a Driver twice from its Task";
   }
 
-  completionNotifier.notify();
-
-  // TODO Add support for terminating processing early in grouped execution.
-  if (self->isUngroupedExecution() && allOutputDriversFinished) {
-    if (!self->hasPartitionedOutput_ || self->partitionedOutputConsumed_) {
-      self->terminate(TaskState::kFinished);
-    }
+  if (allFinished) {
+    self->terminate(TaskState::kFinished);
   }
 }
 
@@ -774,7 +759,7 @@ void Task::noMoreSplitsForGroup(
 void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> splitPromises;
-  TaskCompletionNotifier completionNotifier;
+  bool allFinished;
   {
     std::lock_guard<std::mutex> l(mutex_);
 
@@ -795,15 +780,15 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
       splitsState.groupSplitsStores.emplace(0, SplitsStore{{}, true, {}});
     }
 
-    if (checkNoMoreSplitGroupsLocked()) {
-      activateTaskCompletionNotifier(completionNotifier);
-    }
+    allFinished = checkNoMoreSplitGroupsLocked();
   }
-
-  completionNotifier.notify();
 
   for (auto& promise : splitPromises) {
     promise.setValue();
+  }
+
+  if (allFinished) {
+    terminate(kFinished);
   }
 }
 
@@ -961,29 +946,14 @@ int Task::getOutputPipelineId() const {
 }
 
 void Task::setAllOutputConsumed() {
-  bool terminateEarly = false;
-  TaskCompletionNotifier completionNotifier;
+  bool allFinished;
   {
     std::lock_guard<std::mutex> l(mutex_);
     partitionedOutputConsumed_ = true;
-    if (checkIfFinishedLocked()) {
-      activateTaskCompletionNotifier(completionNotifier);
-    } else {
-      // TODO Add support for terminating processing early in grouped execution.
-      if (isUngroupedExecution() && !driverFactories_.empty()) {
-        auto outputPipelineId = getOutputPipelineId();
-
-        if (splitGroupStates_[0].numFinishedOutputDrivers ==
-            numDrivers(outputPipelineId)) {
-          terminateEarly = true;
-        }
-      }
-    }
+    allFinished = checkIfFinishedLocked();
   }
 
-  completionNotifier.notify();
-
-  if (terminateEarly) {
+  if (allFinished) {
     terminate(TaskState::kFinished);
   }
 }
@@ -996,16 +966,30 @@ void Task::driverClosedLocked() {
 }
 
 bool Task::checkIfFinishedLocked() {
-  if ((numFinishedDrivers_ == numTotalDrivers_) && isRunningLocked()) {
-    if (taskStats_.executionEndTimeMs == 0) {
-      // In case we haven't set executionEndTimeMs due to all splits depleted,
-      // we set it here.
-      // This can happen due to task error or task being cancelled.
-      taskStats_.executionEndTimeMs = getCurrentTimeMs();
+  if (!isRunningLocked()) {
+    return false;
+  }
+
+  // TODO Add support for terminating processing early in grouped execution.
+  bool allFinished = numFinishedDrivers_ == numTotalDrivers_;
+  if (!allFinished && isUngroupedExecution()) {
+    auto outputPipelineId = getOutputPipelineId();
+    if (splitGroupStates_[0].numFinishedOutputDrivers ==
+        numDrivers(outputPipelineId)) {
+      allFinished = true;
+
+      if (taskStats_.executionEndTimeMs == 0) {
+        // In case we haven't set executionEndTimeMs due to all splits
+        // depleted, we set it here. This can happen due to task error or task
+        // being cancelled.
+        taskStats_.executionEndTimeMs = getCurrentTimeMs();
+      }
     }
+  }
+
+  if (allFinished) {
     if ((not hasPartitionedOutput_) || partitionedOutputConsumed_) {
       taskStats_.endTimeMs = getCurrentTimeMs();
-      state_ = TaskState::kFinished;
       return true;
     }
   }

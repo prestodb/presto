@@ -508,9 +508,12 @@ class Task : public std::enable_shared_from_this<Task> {
 
   void driverClosedLocked();
 
-  /// Returns true if Task is in kRunning state, but all drivers finished
+  /// Returns true if Task is in kRunning state, but all output drivers finished
   /// processing and all output has been consumed. In other words, returns true
   /// if task should transition to kFinished state.
+  ///
+  /// In case of grouped execution, checks that all drivers, not just output
+  /// drivers finished processing.
   bool checkIfFinishedLocked();
 
   /// Check if we have no more split groups coming and adjust the total number
