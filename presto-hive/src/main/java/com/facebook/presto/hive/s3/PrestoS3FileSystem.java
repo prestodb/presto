@@ -265,6 +265,12 @@ public class PrestoS3FileSystem
     }
 
     @Override
+    public String getScheme()
+    {
+        return uri.getScheme();
+    }
+
+    @Override
     public Path getWorkingDirectory()
     {
         return workingDirectory;
