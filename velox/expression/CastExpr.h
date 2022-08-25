@@ -162,6 +162,13 @@ class CastExpr : public SpecialForm {
       const RowType& fromType,
       const RowType& toType);
 
+  VectorPtr applyDecimal(
+      const SelectivityVector& rows,
+      DecodedVector& input,
+      exec::EvalCtx& context,
+      const TypePtr& fromType,
+      const TypePtr& toType);
+
   // When enabled the error in casting leads to null being returned.
   const bool nullOnFailure_;
 

@@ -24,6 +24,16 @@
 
 namespace facebook::velox {
 
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+__attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+inline int128_t
+mul(int128_t x, const int128_t y) {
+  return x * y;
+}
+
 /// A static class that holds helper functions for DECIMAL type.
 class DecimalUtil {
  public:
@@ -32,5 +42,49 @@ class DecimalUtil {
   /// Helper function to convert a decimal value to string.
   template <typename T>
   static std::string toString(const T& value, const TypePtr& type);
+
+  template <typename TInput, typename TOutput>
+  inline static std::optional<TOutput> rescaleWithRoundUp(
+      const TInput inputValue,
+      const int fromPrecision,
+      const int fromScale,
+      const int toPrecision,
+      const int toScale,
+      const bool nullOnFailure) {
+    int128_t rescaledValue = inputValue.unscaledValue();
+    auto scaleDifference = toScale - fromScale;
+    if (scaleDifference >= 0) {
+      rescaledValue =
+          mul(rescaledValue, DecimalUtil::kPowersOfTen[scaleDifference]);
+    } else {
+      scaleDifference = -scaleDifference;
+      const auto scalingFactor = DecimalUtil::kPowersOfTen[scaleDifference];
+      rescaledValue /= scalingFactor;
+      int128_t remainder = inputValue.unscaledValue() % scalingFactor;
+      if (inputValue.unscaledValue() >= 0 && remainder >= scalingFactor / 2) {
+        ++rescaledValue;
+      } else if (remainder <= -scalingFactor / 2) {
+        --rescaledValue;
+      }
+    }
+    // Check overflow.
+    if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
+        rescaledValue > DecimalUtil::kPowersOfTen[toPrecision]) {
+      if (nullOnFailure) {
+        return std::nullopt;
+      }
+      VELOX_USER_FAIL(
+          "Cannot cast DECIMAL '{}' to DECIMAL({},{})",
+          DecimalUtil::toString<TInput>(
+              inputValue, DECIMAL(fromPrecision, fromScale)),
+          toPrecision,
+          toScale);
+    }
+    if constexpr (std::is_same_v<TOutput, UnscaledShortDecimal>) {
+      return UnscaledShortDecimal(static_cast<int64_t>(rescaledValue));
+    } else {
+      return UnscaledLongDecimal(rescaledValue);
+    }
+  }
 };
 } // namespace facebook::velox

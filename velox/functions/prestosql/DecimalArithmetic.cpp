@@ -100,7 +100,13 @@ class Addition {
  public:
   template <typename R, typename A, typename B>
   inline static void
-  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale) {
+  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
     r.setUnscaledValue(
         a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale] +
         b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale]);
@@ -129,7 +135,13 @@ class Subtraction {
  public:
   template <typename R, typename A, typename B>
   inline static void
-  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale) {
+  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale)
+#if defined(__has_feature)
+#if __has_feature(__address_sanitizer__)
+      __attribute__((__no_sanitize__("signed-integer-overflow")))
+#endif
+#endif
+  {
     r.setUnscaledValue(
         a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale] -
         b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale]);
