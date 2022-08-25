@@ -120,8 +120,6 @@ DestinationBuffer::deleteResults() {
     freed.push_back(std::move(data_[i]));
   }
   data_.clear();
-  // Notify any consumers that are still waiting.
-  getAndClearNotify().notify();
   return freed;
 }
 
@@ -364,6 +362,7 @@ bool PartitionedOutputBuffer::deleteResults(int destination) {
   std::vector<std::shared_ptr<SerializedPage>> freed;
   std::vector<ContinuePromise> promises;
   bool isFinished;
+  DataAvailable dataAvailable;
   {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK(destination < buffers_.size());
@@ -373,11 +372,16 @@ bool PartitionedOutputBuffer::deleteResults(int destination) {
       return false;
     }
     freed = buffer->deleteResults();
+    dataAvailable = buffer->getAndClearNotify();
     buffers_[destination] = nullptr;
     ++numFinalAcknowledges_;
     isFinished = isFinishedLocked();
     updateAfterAcknowledgeLocked(freed, promises);
   }
+
+  // Outside of mutex.
+  dataAvailable.notify();
+
   if (!promises.empty()) {
     VLOG(1) << "Delete of results unblocks producers. Can happen in early end "
             << "due to error or limit";
