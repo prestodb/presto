@@ -47,9 +47,6 @@ public class TestHiveAggregationQueries
 
         assertQuery("SELECT sum(custkey), clerk FROM orders GROUP BY clerk HAVING sum(custkey) > 10000");
 
-        // non-deterministic query
-        assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");
-
         // TODO results from array_agg() are not deterministic so we just compare cardinality for the time being
         // We can switch to array_sort() once it becomes available from velox
         assertQuery("SELECT orderkey, cardinality(array_agg(linenumber)) FROM lineitem GROUP BY 1");
@@ -63,8 +60,6 @@ public class TestHiveAggregationQueries
         assertQuery("SELECT orderkey, bool_or(linenumber % 2 = 0) FROM lineitem GROUP BY 1");
 
         assertQuery("SELECT linenumber = 2 AND quantity > 10, sum(quantity / 7) FROM lineitem GROUP BY 1");
-
-        // TODO Add queries with arbitrary(integer/smallint/tinyint) when these get fixed.
 
         assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25), approx_percentile(totalprice, orderkey, 0.5) FROM orders");
@@ -245,6 +240,18 @@ public class TestHiveAggregationQueries
         assertQuery("SELECT checksum(quantity_by_linenumber) FROM orders_ex");
         assertQuery("SELECT shipmode, checksum(extendedprice) FROM lineitem GROUP BY shipmode");
         assertQuery("SELECT checksum(from_unixtime(orderkey, '+01:00')) FROM lineitem WHERE orderkey < 20");
+    }
+
+    @Test
+    public void testArbitrary()
+    {
+        // Non-deterministic queries
+        assertQuerySucceeds("SELECT orderkey, arbitrary(comment) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, arbitrary(discount) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_smallint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, arbitrary(linenumber_as_tinyint) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT orderkey, arbitrary(tax_as_real) FROM lineitem GROUP BY 1");
     }
 
     private void assertQueryResultCount(String sql, int expectedResultCount)
