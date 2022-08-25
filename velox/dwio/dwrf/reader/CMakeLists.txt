@@ -18,7 +18,6 @@ add_library(
   ColumnReader.cpp
   DwrfData.cpp
   DwrfReader.cpp
-  DwrfReaderShared.cpp
   FlatMapColumnReader.cpp
   FlatMapHelper.cpp
   ReaderBase.cpp
