@@ -111,7 +111,7 @@ void DwrfData::readNulls(
 std::vector<uint32_t> DwrfData::filterRowGroups(
     const common::ScanSpec& scanSpec,
     uint64_t rowGroupSize,
-    const dwio::common::StatsContext& context) {
+    const dwio::common::StatsContext& writerContext) {
   if ((!index_ && !indexStream_) || !scanSpec.filter()) {
     return {};
   }
@@ -120,7 +120,7 @@ std::vector<uint32_t> DwrfData::filterRowGroups(
   auto filter = scanSpec.filter();
 
   std::vector<uint32_t> stridesToSkip;
-  auto dwrfContext = reinterpret_cast<const StatsContext*>(&context);
+  auto dwrfContext = reinterpret_cast<const StatsContext*>(&writerContext);
   for (auto i = 0; i < index_->entry_size(); i++) {
     const auto& entry = index_->entry(i);
     auto columnStats =

@@ -61,12 +61,14 @@ class ParquetData : public dwio::common::FormatData {
 
   /// True if 'filter' may have hits for the column of 'this' according to the
   /// stats in 'rowGroup'.
-  bool filterMatches(const thrift::RowGroup& rowGroup, common::Filter& filter);
+  bool rowGroupMatches(
+      uint32_t rowGroupId,
+      common::Filter* FOLLY_NULLABLE filter) override;
 
   std::vector<uint32_t> filterRowGroups(
       const common::ScanSpec& scanSpec,
       uint64_t rowsPerRowGroup,
-      const dwio::common::StatsContext& writerInfo) override;
+      const dwio::common::StatsContext& writerContext) override;
 
   // Reads null flags for 'numValues' next top level rows. The first 'numValues'
   // bits of 'nulls' are set and the reader is advanced by numValues'.
@@ -80,7 +82,7 @@ class ParquetData : public dwio::common::FormatData {
 
   void readNulls(
       vector_size_t numValues,
-      const uint64_t* incomingNulls,
+      const uint64_t* FOLLY_NULLABLE incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) override {
     // If the query accesses only nulls, read the nulls from the pages in range.

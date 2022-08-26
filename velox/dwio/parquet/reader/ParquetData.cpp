@@ -30,34 +30,38 @@ std::unique_ptr<dwio::common::FormatData> ParquetParams::toFormatData(
 std::vector<uint32_t> ParquetData::filterRowGroups(
     const common::ScanSpec& scanSpec,
     uint64_t /*rowsPerRowGroup*/,
-    const dwio::common::StatsContext& /*writerInfo*/) {
+    const dwio::common::StatsContext& /*writerContext*/) {
   if (!scanSpec.filter()) {
     return {};
   }
   std::vector<uint32_t> toSkip;
   for (auto i = 0; i < rowGroups_.size(); ++i) {
-    if (!filterMatches(rowGroups_[i], *scanSpec.filter())) {
+    if (!rowGroupMatches(i, scanSpec.filter())) {
       toSkip.push_back(i);
     }
   }
   return toSkip;
 }
 
-bool ParquetData::filterMatches(
-    const RowGroup& rowGroup,
-    common::Filter& filter) {
+bool ParquetData::rowGroupMatches(
+    uint32_t rowGroupId,
+    common::Filter* FOLLY_NULLABLE filter) {
   auto column = type_->column;
   auto type = type_->type;
+  auto rowGroup = rowGroups_[rowGroupId];
   assert(!rowGroup.columns.empty());
+
+  if (!filter) {
+    return true;
+  }
+
   if (rowGroup.columns[column].__isset.meta_data &&
       rowGroup.columns[column].meta_data.__isset.statistics) {
     auto columnStats = buildColumnStatisticsFromThrift(
         rowGroup.columns[column].meta_data.statistics,
         *type,
         rowGroup.num_rows);
-    if (!testFilter(&filter, columnStats.get(), rowGroup.num_rows, type)) {
-      return false;
-    }
+    return testFilter(filter, columnStats.get(), rowGroup.num_rows, type);
   }
   return true;
 }

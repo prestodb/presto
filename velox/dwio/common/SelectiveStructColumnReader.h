@@ -48,6 +48,8 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
       uint64_t rowGroupSize,
       const dwio::common::StatsContext& context) const override;
 
+  bool rowGroupMatches(uint32_t rowGroupId) const override;
+
   void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
       override;
 

@@ -22,6 +22,7 @@
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/TypeWithId.h"
+#include "velox/type/Filter.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -50,7 +51,7 @@ class FormatData {
   /// of a column are of interest, e.g. is null filter.
   virtual void readNulls(
       vector_size_t numValues,
-      const uint64_t* incomingNulls,
+      const uint64_t* FOLLY_NULLABLE incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) = 0;
 
@@ -95,7 +96,16 @@ class FormatData {
   virtual std::vector<uint32_t> filterRowGroups(
       const velox::common::ScanSpec& scanSpec,
       uint64_t rowsPerRowGroup,
-      const StatsContext& context) = 0;
+      const StatsContext& writerContext) = 0;
+
+  /// Test if the 'i'th RowGroup can potentially match the 'filter' using the
+  /// RowGroup's statistics on all columns. Returns true if all columns in this
+  /// RowGroup matches the filter, false otherwise. A column is said to match
+  /// the filter if its ColumnStatistics passes the filter, or the filter for
+  /// that column is NULL.
+  virtual bool rowGroupMatches(
+      uint32_t rowGroupId,
+      velox::common::Filter* FOLLY_NULLABLE filter) = 0;
 };
 
 /// Base class for format-specific reader initialization arguments.

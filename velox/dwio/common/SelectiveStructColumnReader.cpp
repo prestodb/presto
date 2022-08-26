@@ -43,6 +43,15 @@ std::vector<uint32_t> SelectiveStructColumnReader::filterRowGroups(
   return stridesToSkip;
 }
 
+bool SelectiveStructColumnReader::rowGroupMatches(uint32_t rowGroupId) const {
+  for (const auto& child : children_) {
+    if (!child->rowGroupMatches(rowGroupId)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 uint64_t SelectiveStructColumnReader::skip(uint64_t numValues) {
   auto numNonNulls = formatData_->skipNulls(numValues);
   // 'readOffset_' of struct child readers is aligned with

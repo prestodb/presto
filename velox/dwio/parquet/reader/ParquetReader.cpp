@@ -506,8 +506,6 @@ ParquetRowReader::ParquetRowReader(
 void ParquetRowReader::filterRowGroups() {
   auto rowGroups = readerBase_->fileMetaData().row_groups;
   rowGroupIds_.reserve(rowGroups.size());
-  auto excluded =
-      columnReader_->filterRowGroups(0, dwio::common::StatsContext());
 
   for (auto i = 0; i < rowGroups.size(); i++) {
     VELOX_CHECK_GT(rowGroups_[i].columns.size(), 0);
@@ -520,7 +518,7 @@ void ParquetRowReader::filterRowGroups() {
          fileOffset < options_.getLimit());
     // A skipped row group is one that is in range and is in the excluded list.
     if (rowGroupInRange) {
-      if (std::find(excluded.begin(), excluded.end(), i) == excluded.end()) {
+      if (columnReader_->rowGroupMatches(i)) {
         rowGroupIds_.push_back(i);
       } else {
         ++skippedRowGroups_;

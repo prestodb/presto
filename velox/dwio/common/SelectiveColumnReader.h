@@ -345,6 +345,8 @@ class SelectiveColumnReader {
     initTimeClocks_ = 0;
   }
 
+  virtual bool rowGroupMatches(uint32_t rowGroupId) const;
+
   virtual std::vector<uint32_t> filterRowGroups(
       uint64_t rowGroupSize,
       const dwio::common::StatsContext& context) const;
