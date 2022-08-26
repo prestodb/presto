@@ -166,6 +166,65 @@ BENCHMARK_MULTI(copyArrayTwoAtATime) {
   return runBenchmark(arrayVector, selected, ARRAY(INTEGER()), pool.get(), 2);
 }
 
+BENCHMARK_MULTI(copyArrayOfVarchar) {
+  folly::BenchmarkSuspender suspender;
+  std::unique_ptr<memory::MemoryPool> pool{
+      memory::getDefaultScopedMemoryPool()};
+  test::VectorMaker vectorMaker{pool.get()};
+
+  const vector_size_t size = 50'000;
+  auto offsets = allocateOffsets(size + 1, pool.get());
+  auto sizes = allocateSizes(size, pool.get());
+  auto rawOffsets = offsets->asMutable<vector_size_t>();
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+  for (int i = 0; i < size; ++i) {
+    rawSizes[i] = i % 10;
+    // Leave gap between the ranges so we don't merge them.
+    rawOffsets[i + 1] = rawOffsets[i] + rawSizes[i] + 1;
+  }
+  char string[51];
+  std::fill(std::begin(string), std::prev(std::end(string)), 'x');
+  *std::prev(std::end(string)) = '\0';
+  auto elements = vectorMaker.flatVector<StringView>(
+      rawOffsets[size], [&](auto) { return string; });
+  auto type = ARRAY(VARCHAR());
+  auto arrayVector = std::make_shared<ArrayVector>(
+      pool.get(), type, nullptr, size, offsets, sizes, elements);
+  SelectivityVector selected(size);
+  suspender.dismiss();
+
+  return runBenchmark(arrayVector, selected, type, pool.get());
+}
+
+BENCHMARK_MULTI(copyArrayOfArray) {
+  folly::BenchmarkSuspender suspender;
+  std::unique_ptr<memory::MemoryPool> pool{
+      memory::getDefaultScopedMemoryPool()};
+  test::VectorMaker vectorMaker{pool.get()};
+
+  const vector_size_t size = 1'000;
+  auto offsets = allocateOffsets(size + 1, pool.get());
+  auto sizes = allocateSizes(size, pool.get());
+  auto rawOffsets = offsets->asMutable<vector_size_t>();
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+  for (int i = 0; i < size; ++i) {
+    rawSizes[i] = i % 10;
+    // Leave gap between the ranges so we don't merge them.
+    rawOffsets[i + 1] = rawOffsets[i] + rawSizes[i] + 1;
+  }
+  auto elements = vectorMaker.arrayVector<int32_t>(
+      rawOffsets[size],
+      [](auto row) { return row % 10; },
+      [](auto row) { return row % 23; });
+  auto type = ARRAY(ARRAY(INTEGER()));
+  auto arrayVector = std::make_shared<ArrayVector>(
+      pool.get(), type, nullptr, size, offsets, sizes, elements);
+  SelectivityVector selected(size);
+  suspender.dismiss();
+
+  return runBenchmark(arrayVector, selected, type, pool.get());
+}
+
 BENCHMARK_MULTI(copyMap) {
   folly::BenchmarkSuspender suspender;
   std::unique_ptr<memory::MemoryPool> pool{
