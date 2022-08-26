@@ -471,7 +471,7 @@ class ExpressionCodegenTestBase : public testing::Test {
       facebook::velox::exec::EvalCtx evalCtx(
           execCtx_.get(), &exprSet, rowVector.get());
       std::vector<VectorPtr> result(1);
-      exprSet.eval(*rows, &evalCtx, &result);
+      exprSet.eval(*rows, evalCtx, result);
       auto resultsRows = OutputRowTypeTrait::getBaseVectorsAsViewTupleRows(
           result[0].get(), *rows);
 

@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
   // Voila! Here we do the actual evaluation. When this function returns, the
   // output vectors will be available in the results vector. Note that ExprSet's
   // logic is synchronous and single threaded.
-  exprSet.eval(rows, &evalCtx, &result);
+  exprSet.eval(rows, evalCtx, result);
 
   // Print the output vector, just for fun:
   const auto& outputVector = result.front();

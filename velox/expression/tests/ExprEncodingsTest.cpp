@@ -412,7 +412,7 @@ class ExprEncodingsTest
       vector_size_t end = size / 3 * 2;
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
-      exprSet->eval(rows, &context, &result);
+      exprSet->eval(rows, context, result);
 
       SCOPED_TRACE(text);
       SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
@@ -424,7 +424,7 @@ class ExprEncodingsTest
       vector_size_t end = size;
       auto rows = selectRange(begin, end);
       std::vector<VectorPtr> result(1);
-      exprSet->eval(0, 1, false, rows, &context, &result);
+      exprSet->eval(0, 1, false, rows, context, result);
 
       SCOPED_TRACE(text);
       SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
@@ -453,7 +453,7 @@ class ExprEncodingsTest
 
       SCOPED_TRACE(text);
       SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
-      ASSERT_THROW(exprs.eval(rows, &context, &result), VeloxException);
+      ASSERT_THROW(exprs.eval(rows, context, result), VeloxException);
     }
 
     begin = size / 3;
@@ -465,7 +465,7 @@ class ExprEncodingsTest
       SCOPED_TRACE(text);
       SCOPED_TRACE(fmt::format("[{} - {})", begin, end));
       ASSERT_THROW(
-          exprs.eval(0, 1, false, rows, &context, &result), VeloxException);
+          exprs.eval(0, 1, false, rows, context, result), VeloxException);
     }
   }
 

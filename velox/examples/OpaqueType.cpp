@@ -325,6 +325,6 @@ VectorPtr evaluate(
 
   exec::ExprSet exprSet({exprPlan}, &execCtx);
   exec::EvalCtx evalCtx(&execCtx, &exprSet, rowVector.get());
-  exprSet.eval(rows, &evalCtx, &result);
+  exprSet.eval(rows, evalCtx, result);
   return result.front();
 }

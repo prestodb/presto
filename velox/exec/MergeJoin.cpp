@@ -671,7 +671,7 @@ RowVectorPtr MergeJoin::applyFilter(const RowVectorPtr& output) {
 
 void MergeJoin::evaluateFilter(const SelectivityVector& rows) {
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
-  filter_->eval(0, 1, true, rows, &evalCtx, &filterResult_);
+  filter_->eval(0, 1, true, rows, evalCtx, filterResult_);
 
   decodedFilterResult_.decode(*filterResult_[0], rows);
 }

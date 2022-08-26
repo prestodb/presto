@@ -71,7 +71,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> result(expressions.size());
-    exprSet->eval(rows, &context, &result);
+    exprSet->eval(rows, context, result);
     return result;
   }
 
@@ -84,7 +84,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
 
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> result(1);
-    exprSet->eval(rows, &context, &result);
+    exprSet->eval(rows, context, result);
     return result[0];
   }
 
@@ -253,7 +253,7 @@ TEST_F(ExprTest, constantNull) {
 
   exec::ExprSet exprSet({expression}, execCtx_.get());
   exec::EvalCtx context(execCtx_.get(), &exprSet, rowVector.get());
-  exprSet.eval(rows, &context, &result);
+  exprSet.eval(rows, context, result);
 
   auto expected = vectorMaker_.flatVectorNullable<int32_t>(
       {std::nullopt, std::nullopt, std::nullopt});
@@ -280,7 +280,7 @@ TEST_F(ExprTest, validateReturnType) {
       {
         exec::ExprSet exprSet({expression}, execCtx_.get());
         exec::EvalCtx context(execCtx_.get(), &exprSet, rowVector.get());
-        exprSet.eval(rows, &context, &result);
+        exprSet.eval(rows, context, result);
       },
       VeloxUserError);
 }
@@ -342,7 +342,7 @@ TEST_F(ExprTest, constantArray) {
 
   SelectivityVector rows(input->size());
   std::vector<VectorPtr> result(2);
-  exprSet->eval(rows, &context, &result);
+  exprSet->eval(rows, context, result);
 
   ASSERT_TRUE(a->equalValueAt(result[0].get(), 3, 0));
   ASSERT_TRUE(b->equalValueAt(result[1].get(), 5, 0));
@@ -365,7 +365,7 @@ TEST_F(ExprTest, constantComplexNull) {
 
   SelectivityVector rows(size);
   std::vector<VectorPtr> result(3);
-  exprSet->eval(rows, &context, &result);
+  exprSet->eval(rows, context, result);
 
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, result[0]->encoding());
   ASSERT_EQ(TypeKind::ARRAY, result[0]->typeKind());

@@ -1352,14 +1352,14 @@ void ExprSet::eval(
     int32_t end,
     bool initialize,
     const SelectivityVector& rows,
-    EvalCtx* context,
-    std::vector<VectorPtr>* result) {
-  result->resize(exprs_.size());
+    EvalCtx& context,
+    std::vector<VectorPtr>& result) {
+  result.resize(exprs_.size());
   if (initialize) {
     clearSharedSubexprs();
   }
   for (int32_t i = begin; i < end; ++i) {
-    exprs_[i]->eval(rows, *context, (*result)[i]);
+    exprs_[i]->eval(rows, context, result[i]);
   }
 }
 
@@ -1381,14 +1381,14 @@ void ExprSetSimplified::eval(
     int32_t end,
     bool initialize,
     const SelectivityVector& rows,
-    EvalCtx* context,
-    std::vector<VectorPtr>* result) {
-  result->resize(exprs_.size());
+    EvalCtx& context,
+    std::vector<VectorPtr>& result) {
+  result.resize(exprs_.size());
   if (initialize) {
     clearSharedSubexprs();
   }
   for (int32_t i = begin; i < end; ++i) {
-    exprs_[i]->evalSimplified(rows, *context, (*result)[i]);
+    exprs_[i]->evalSimplified(rows, context, result[i]);
   }
 }
 

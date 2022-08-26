@@ -525,7 +525,7 @@ class ExpressionFuzzer {
       exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
 
       try {
-        exprSetCommon.eval(rows, &evalCtxCommon, &commonEvalResult);
+        exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
       } catch (...) {
         if (!canThrow) {
           LOG(ERROR)
@@ -547,7 +547,7 @@ class ExpressionFuzzer {
           &execCtx_, &exprSetSimplified, rowVector.get());
 
       try {
-        exprSetSimplified.eval(rows, &evalCtxSimplified, &simplifiedEvalResult);
+        exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
       } catch (...) {
         if (!canThrow) {
           LOG(ERROR)

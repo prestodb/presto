@@ -95,7 +95,7 @@ class InTest : public SparkFunctionBaseTest {
       auto expr = getExpr(asDictonary);
       exec::EvalCtx evalCtx(&execCtx_, &expr, data.get());
       std::vector<VectorPtr> results(1);
-      expr.eval(SelectivityVector(1), &evalCtx, &results);
+      expr.eval(SelectivityVector(1), evalCtx, results);
       // auto last = args.back();
       if (!results[0]->isNullAt(0))
         return results[0]->as<SimpleVector<bool>>()->valueAt(0);

@@ -286,7 +286,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     SelectivityVector rows(data->size());
     std::vector<VectorPtr> results(exprSet.exprs().size());
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    exprSet.eval(rows, &evalCtx, &results);
+    exprSet.eval(rows, evalCtx, results);
     return results;
   }
 
@@ -336,7 +336,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     size_t cnt = 0;
     for (auto i = 0; i < times * 1'0000; i++) {
       exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-      exprSet.eval(rows, &evalCtx, &results);
+      exprSet.eval(rows, evalCtx, results);
       cnt += results[0]->size();
     }
     return cnt;

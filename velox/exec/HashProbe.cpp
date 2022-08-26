@@ -545,7 +545,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   filterRows_.setAll();
 
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
-  filter_->eval(0, 1, true, filterRows_, &evalCtx, &filterResult_);
+  filter_->eval(0, 1, true, filterRows_, evalCtx, filterResult_);
 
   decodedFilterResult_.decode(*filterResult_[0], filterRows_);
 

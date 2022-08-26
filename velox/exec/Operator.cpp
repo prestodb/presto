@@ -45,7 +45,7 @@ class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
     exec::EvalCtx context(execCtx_, exprSet, input.get());
 
     std::vector<VectorPtr> results = {*result};
-    exprSet->eval(0, 1, true, rows, &context, &results);
+    exprSet->eval(0, 1, true, rows, context, results);
 
     *result = results[0];
   }

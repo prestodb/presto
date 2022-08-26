@@ -72,7 +72,7 @@ class CodegenTestCore {
     EvalCtx context(execCtx_.get(), &exprSet, &inputRowBatches);
     std::vector<VectorPtr> results(sizeof...(SQLType));
     exprSet.eval(
-        0, sizeof...(SQLType) - 1, true, selectedRows, &context, &results);
+        0, sizeof...(SQLType) - 1, true, selectedRows, context, results);
     return results;
   }
 

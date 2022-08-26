@@ -35,7 +35,7 @@ VectorPtr toConstant(
 
   SelectivityVector rows(1);
   std::vector<VectorPtr> results(1);
-  exprSet.eval(rows, &evalCtx, &results);
+  exprSet.eval(rows, evalCtx, results);
 
   return results[0];
 }

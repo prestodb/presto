@@ -79,7 +79,7 @@ class VeloxIn10MinDemo : public VectorTestBase {
 
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> result(1);
-    exprSet.eval(rows, &context, &result);
+    exprSet.eval(rows, context, result);
     return result[0];
   }
 

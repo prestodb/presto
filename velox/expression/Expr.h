@@ -393,8 +393,8 @@ class ExprSet {
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(
       const SelectivityVector& rows,
-      EvalCtx* FOLLY_NONNULL ctx,
-      std::vector<VectorPtr>* FOLLY_NONNULL result) {
+      EvalCtx& ctx,
+      std::vector<VectorPtr>& result) {
     eval(0, exprs_.size(), true, rows, ctx, result);
   }
 
@@ -404,8 +404,8 @@ class ExprSet {
       int32_t end,
       bool initialize,
       const SelectivityVector& rows,
-      EvalCtx* FOLLY_NONNULL ctx,
-      std::vector<VectorPtr>* FOLLY_NONNULL result);
+      EvalCtx& ctx,
+      std::vector<VectorPtr>& result);
 
   void clear();
 
@@ -463,8 +463,8 @@ class ExprSetSimplified : public ExprSet {
   // Initialize and evaluate all expressions available in this ExprSet.
   void eval(
       const SelectivityVector& rows,
-      EvalCtx* FOLLY_NONNULL ctx,
-      std::vector<VectorPtr>* FOLLY_NONNULL result) {
+      EvalCtx& ctx,
+      std::vector<VectorPtr>& result) {
     eval(0, exprs_.size(), true, rows, ctx, result);
   }
 
@@ -473,8 +473,8 @@ class ExprSetSimplified : public ExprSet {
       int32_t end,
       bool initialize,
       const SelectivityVector& rows,
-      EvalCtx* FOLLY_NONNULL ctx,
-      std::vector<VectorPtr>* FOLLY_NONNULL result) override;
+      EvalCtx& ctx,
+      std::vector<VectorPtr>& result) override;
 };
 
 // Factory method that takes `kExprEvalSimplified` (query parameter) into

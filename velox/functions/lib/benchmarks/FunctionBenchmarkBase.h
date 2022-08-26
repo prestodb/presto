@@ -42,7 +42,7 @@ class FunctionBenchmarkBase {
     SelectivityVector rows(data->size());
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
     std::vector<VectorPtr> results(1);
-    exprSet.eval(rows, &evalCtx, &results);
+    exprSet.eval(rows, evalCtx, results);
     return results[0];
   }
 

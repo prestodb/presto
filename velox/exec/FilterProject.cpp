@@ -120,7 +120,7 @@ RowVectorPtr FilterProject::getOutput() {
   if (!hasFilter_) {
     numProcessedInputRows_ = size;
     VELOX_CHECK(!isIdentityProjection_);
-    project(*rows, &evalCtx);
+    project(*rows, evalCtx);
 
     if (results_.size() > 0) {
       auto outCol = results_[0];
@@ -137,7 +137,7 @@ RowVectorPtr FilterProject::getOutput() {
   }
 
   // evaluate filter
-  auto numOut = filter(&evalCtx, *rows);
+  auto numOut = filter(evalCtx, *rows);
   numProcessedInputRows_ = size;
   if (numOut == 0) { // no rows passed the filer
     input_ = nullptr;
@@ -151,14 +151,14 @@ RowVectorPtr FilterProject::getOutput() {
     if (!allRowsSelected) {
       rows->setFromBits(filterEvalCtx_.selectedBits->as<uint64_t>(), size);
     }
-    project(*rows, &evalCtx);
+    project(*rows, evalCtx);
   }
 
   return fillOutput(
       numOut, allRowsSelected ? nullptr : filterEvalCtx_.selectedIndices);
 }
 
-void FilterProject::project(const SelectivityVector& rows, EvalCtx* evalCtx) {
+void FilterProject::project(const SelectivityVector& rows, EvalCtx& evalCtx) {
   // Make sure LazyVectors are loaded for all the "rows".
   //
   // Consider projection with 2 expressions: f(a) AND g(b), h(b)
@@ -169,17 +169,17 @@ void FilterProject::project(const SelectivityVector& rows, EvalCtx* evalCtx) {
   // This works, but may load more rows than necessary. E.g. if we only have
   // f(a) AND g(b) expression and b is not used anywhere else, it is sufficient
   // to load b for a subset of rows where f(a) is true.
-  *evalCtx->mutableIsFinalSelection() = false;
-  *evalCtx->mutableFinalSelection() = &rows;
+  *evalCtx.mutableIsFinalSelection() = false;
+  *evalCtx.mutableFinalSelection() = &rows;
 
   exprs_->eval(
-      hasFilter_ ? 1 : 0, numExprs_, !hasFilter_, rows, evalCtx, &results_);
+      hasFilter_ ? 1 : 0, numExprs_, !hasFilter_, rows, evalCtx, results_);
 }
 
 vector_size_t FilterProject::filter(
-    EvalCtx* evalCtx,
+    EvalCtx& evalCtx,
     const SelectivityVector& allRows) {
-  exprs_->eval(0, 1, true, allRows, evalCtx, &results_);
+  exprs_->eval(0, 1, true, allRows, evalCtx, results_);
   return processFilterResults(results_[0], allRows, filterEvalCtx_, pool());
 }
 } // namespace facebook::velox::exec

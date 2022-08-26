@@ -136,7 +136,7 @@ class FunctionBaseTest : public testing::Test,
 
     facebook::velox::exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
     std::vector<VectorPtr> results{std::move(result)};
-    exprSet.eval(rows, &evalCtx, &results);
+    exprSet.eval(rows, evalCtx, results);
     result = results[0];
 
     return std::dynamic_pointer_cast<T>(results[0]);
@@ -265,7 +265,7 @@ class FunctionBaseTest : public testing::Test,
 
     SelectivityVector rows(input->size());
     std::vector<VectorPtr> result(1);
-    exprSet.eval(rows, &context, &result);
+    exprSet.eval(rows, context, result);
     return result[0];
   }
 
@@ -299,7 +299,7 @@ class FunctionBaseTest : public testing::Test,
 
     ExprSet exprSet({typedExpr}, &execCtx_);
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    exprSet.eval(*rows, &evalCtx, &results);
+    exprSet.eval(*rows, evalCtx, results);
 
     return results[0];
   }

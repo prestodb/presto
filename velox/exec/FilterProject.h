@@ -67,11 +67,11 @@ class FilterProject : public Operator {
   // of the passing rows if only some rows pass the filter. If all or no rows
   // passed the filter filterEvalCtx_.selectedBits and selectedIndices are not
   // updated.
-  vector_size_t filter(EvalCtx* evalCtx, const SelectivityVector& allRows);
+  vector_size_t filter(EvalCtx& evalCtx, const SelectivityVector& allRows);
 
   // Evaluate projections on the specified rows and populate results_.
   // pre-condition: !isIdentityProjection_
-  void project(const SelectivityVector& rows, EvalCtx* evalCtx);
+  void project(const SelectivityVector& rows, EvalCtx& evalCtx);
 
   // If true exprs_[0] is a filter and the other expressions are projections
   const bool hasFilter_{false};

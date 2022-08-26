@@ -106,7 +106,7 @@ TEST_F(SimpleFunctionInitTest, initializationArray) {
         auto eval = [&](RowVectorPtr data, VectorPtr expectedVector) {
           exec::EvalCtx evalCtx(&execCtx_, &expr, data.get());
           std::vector<VectorPtr> results(1);
-          expr.eval(SelectivityVector(1), &evalCtx, &results);
+          expr.eval(SelectivityVector(1), evalCtx, results);
           assertEqualVectors(results[0], expectedVector);
         };
         auto expectedResult = makeVectorWithNullArrays<int32_t>(expected);
@@ -188,7 +188,7 @@ TEST_F(SimpleFunctionInitTest, initializationMap) {
   auto rowPtr = makeRowVector({inputVector});
   exec::EvalCtx evalCtx(&execCtx_, &expr, rowPtr.get());
   std::vector<VectorPtr> results(1);
-  expr.eval(SelectivityVector(3), &evalCtx, &results);
+  expr.eval(SelectivityVector(3), evalCtx, results);
   assertEqualVectors(results[0], expectedResults);
 }
 
