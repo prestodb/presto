@@ -214,7 +214,7 @@ public class TestBingTile
         OGCGeometry geometry = OGCGeometry.fromText(wkt);
         List<String> actual = findDissolvedTileCovering(geometry, zoom).stream().map(BingTile::toQuadKey).sorted().collect(toImmutableList());
         List<String> expected = ImmutableList.sortedCopyOf(quadkeys);
-        assertEquals(actual, expected, format("Actual:\n%s\nExpected:\n%s", actual, expected));
+        assertEquals(actual, expected, format("Actual:%n%s%nExpected:%n%s", actual, expected));
     }
 
     private void assertSmallSquareCovering(int zoom)

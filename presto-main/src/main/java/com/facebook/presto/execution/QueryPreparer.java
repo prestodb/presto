@@ -105,7 +105,7 @@ public class QueryPreparer
         String formattedQuery = formatSql(
                 statement,
                 parameters.isEmpty() ? Optional.empty() : Optional.of(parameters));
-        return format("-- Formatted Query:\n%s", formattedQuery);
+        return format("-- Formatted Query:%n%s", formattedQuery);
     }
 
     private static void validateParameters(Statement node, List<Expression> parameterValues)

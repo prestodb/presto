@@ -114,7 +114,7 @@ public class TextRenderer
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(scheduledTimeFraction)));
 
-        output.append(format(", Output: %s (%s)\n", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
+        output.append(format(", Output: %s (%s)%n", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
 
         printDistributions(output, nodeStats);
 
@@ -146,7 +146,7 @@ public class TextRenderer
             double inputAverage = inputAverages.get(operator);
 
             output.append(translatedOperatorType);
-            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%\n",
+            output.append(format(Locale.US, "Input avg.: %s rows, Input std.dev.: %s%%%n",
                     formatDouble(inputAverage), formatDouble(100.0d * inputStdDevs.get(operator) / inputAverage)));
 
             double hashCollisionsAverage = hashCollisionsAverages.getOrDefault(operator, 0.0d);
@@ -180,11 +180,11 @@ public class TextRenderer
             return;
         }
 
-        output.append(format("Active Drivers: [ %d / %d ]\n", stats.getActiveDrivers(), stats.getTotalDrivers()));
-        output.append(format("Index size: std.dev.: %s bytes , %s rows\n", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
-        output.append(format("Index count per driver: std.dev.: %s\n", formatDouble(stats.getIndexCountPerDriverStdDev())));
-        output.append(format("Rows per driver: std.dev.: %s\n", formatDouble(stats.getRowsPerDriverStdDev())));
-        output.append(format("Size of partition: std.dev.: %s\n", formatDouble(stats.getPartitionRowsStdDev())));
+        output.append(format("Active Drivers: [ %d / %d ]%n", stats.getActiveDrivers(), stats.getTotalDrivers()));
+        output.append(format("Index size: std.dev.: %s bytes , %s rows%n", formatDouble(stats.getIndexSizeStdDev()), formatDouble(stats.getIndexPositionsStdDev())));
+        output.append(format("Index count per driver: std.dev.: %s%n", formatDouble(stats.getIndexCountPerDriverStdDev())));
+        output.append(format("Rows per driver: std.dev.: %s%n", formatDouble(stats.getRowsPerDriverStdDev())));
+        output.append(format("Size of partition: std.dev.: %s%n", formatDouble(stats.getPartitionRowsStdDev())));
     }
 
     private static Map<String, String> translateOperatorTypes(Set<String> operators)

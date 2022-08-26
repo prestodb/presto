@@ -772,7 +772,7 @@ public class TDigest
 
     public String toString()
     {
-        return format("TDigest\nCompression:%s\nCentroid Count:%s\nSize:%s\nMin:%s Median:%s Max:%s",
+        return format("TDigest%nCompression:%s%nCentroid Count:%s%nSize:%s%nMin:%s Median:%s Max:%s",
                 publicCompression, activeCentroids, totalWeight, min, getQuantile(0.5), max);
     }
 }

@@ -122,10 +122,10 @@ public class JsonToRowCast
             return rowType.getObject(rowBlockBuilder, 0);
         }
         catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s%n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.%n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }
