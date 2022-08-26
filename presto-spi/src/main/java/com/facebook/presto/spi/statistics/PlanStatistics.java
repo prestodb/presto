@@ -13,8 +13,15 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+
+import java.util.Objects;
+
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class PlanStatistics
 {
     private static final PlanStatistics EMPTY = new PlanStatistics(Estimate.unknown(), Estimate.unknown(), 0);
@@ -29,24 +36,28 @@ public class PlanStatistics
         return EMPTY;
     }
 
+    @ThriftConstructor
     public PlanStatistics(Estimate rowCount, Estimate outputSize, double confidence)
     {
-        this.rowCount = requireNonNull(rowCount, "rowCount can not be null");
-        this.outputSize = requireNonNull(outputSize, "rowCount can not be null");
+        this.rowCount = requireNonNull(rowCount, "rowCount is null");
+        this.outputSize = requireNonNull(outputSize, "outputSize is null");
         checkArgument(confidence >= 0 && confidence <= 1, "confidence should be between 0 and 1");
         this.confidence = confidence;
     }
 
+    @ThriftField(1)
     public Estimate getRowCount()
     {
         return rowCount;
     }
 
+    @ThriftField(2)
     public Estimate getOutputSize()
     {
         return outputSize;
     }
 
+    @ThriftField(3)
     public double getConfidence()
     {
         return confidence;
@@ -57,5 +68,34 @@ public class PlanStatistics
         if (!condition) {
             throw new IllegalArgumentException(message);
         }
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PlanStatistics that = (PlanStatistics) o;
+        return Double.compare(that.confidence, confidence) == 0 && Objects.equals(rowCount, that.rowCount) && Objects.equals(outputSize, that.outputSize);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(rowCount, outputSize, confidence);
+    }
+
+    @Override
+    public String toString()
+    {
+        return "PlanStatistics{" +
+                "rowCount=" + rowCount +
+                ", outputSize=" + outputSize +
+                ", confidence=" + confidence +
+                '}';
     }
 }
