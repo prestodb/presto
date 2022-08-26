@@ -294,12 +294,12 @@ class FunctionBaseTest : public testing::Test,
   VectorPtr evaluateImpl(
       const std::shared_ptr<const core::ITypedExpr>& typedExpr,
       const RowVectorPtr& data) {
-    auto rows = std::make_unique<SelectivityVector>(data->size());
+    SelectivityVector rows(data->size());
     std::vector<VectorPtr> results(1);
 
     ExprSet exprSet({typedExpr}, &execCtx_);
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
-    exprSet.eval(*rows, evalCtx, results);
+    exprSet.eval(rows, evalCtx, results);
 
     return results[0];
   }
