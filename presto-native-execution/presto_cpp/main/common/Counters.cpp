@@ -60,6 +60,13 @@ void registerPrestoCppCounters() {
       kCounterAllocatedMemoryBytes, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterTotalPartitionedOutputBuffer, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMappedMemoryRawAllocBytesSmall, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMappedMemoryRawAllocBytesSizeClass,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMappedMemoryRawAllocBytesLarge, facebook::velox::StatType::AVG);
 }
 
 } // namespace facebook::presto
