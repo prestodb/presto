@@ -1596,23 +1596,23 @@ public class TestHiveMaterializedViewLogicalPlanner
             setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, lineItemTable, ImmutableList.of(lineItemView1, lineItemView2));
             setReferencedMaterializedViews((DistributedQueryRunner) queryRunner, supplierTable, ImmutableList.of(suppliersView));
 
-            String baseQuery = format("WITH long_name_supp AS ( \n" +
-                    "SELECT suppkey, name \n" +
-                    "FROM %s \n" +
+            String baseQuery = format("WITH long_name_supp AS ( %n" +
+                    "SELECT suppkey, name %n" +
+                    "FROM %s %n" +
                     "WHERE name != 'bob'), " +
-                    "supp_returns AS (\n" +
-                    "SELECT suppkey, sum(quantity) AS returned_qty \n " +
-                    "FROM %s \n" +
+                    "supp_returns AS (%n" +
+                    "SELECT suppkey, sum(quantity) AS returned_qty %n " +
+                    "FROM %s %n" +
                     "WHERE returnflag = 'R' " +
-                    "GROUP BY suppkey, ds), \n" +
-                    "supp_sum AS (\n" +
-                    "SELECT suppkey, SUM(quantity) AS qty \n " +
-                    "FROM %s \n " +
-                    "GROUP BY suppkey, ds) \n " +
-                    "SELECT n.suppkey, n.name, r.returned_qty, s.qty \n " +
-                    "FROM long_name_supp AS n \n " +
-                    "LEFT JOIN supp_returns AS r ON n.suppkey = r.suppkey \n " +
-                    "LEFT JOIN supp_sum AS s ON n.suppkey = s.suppkey \n " +
+                    "GROUP BY suppkey, ds), %n" +
+                    "supp_sum AS (%n" +
+                    "SELECT suppkey, SUM(quantity) AS qty %n " +
+                    "FROM %s %n " +
+                    "GROUP BY suppkey, ds) %n " +
+                    "SELECT n.suppkey, n.name, r.returned_qty, s.qty %n " +
+                    "FROM long_name_supp AS n %n " +
+                    "LEFT JOIN supp_returns AS r ON n.suppkey = r.suppkey %n " +
+                    "LEFT JOIN supp_sum AS s ON n.suppkey = s.suppkey %n " +
                     "ORDER BY suppkey, name",
                     supplierTable, lineItemTable, lineItemTable);
 
@@ -1709,11 +1709,11 @@ public class TestHiveMaterializedViewLogicalPlanner
             assertUpdate(format("REFRESH MATERIALIZED VIEW %s WHERE ds='2021-07-12'", lineItemView), 2000);
 
             String baseQuery = format(
-                    "SELECT t1.name, t1.suppkey, low_cost.partkey \n" +
-                    "FROM %s t1 \n" +
-                    "LEFT JOIN (\n" +
-                    "SELECT t2.partkey, t2.suppkey FROM %s t2 \n" +
-                    "LEFT JOIN (SELECT MIN(extendedprice) AS min_price, partkey, ds FROM %s GROUP BY partkey, ds) mp \n" +
+                    "SELECT t1.name, t1.suppkey, low_cost.partkey %n" +
+                    "FROM %s t1 %n" +
+                    "LEFT JOIN (%n" +
+                    "SELECT t2.partkey, t2.suppkey FROM %s t2 %n" +
+                    "LEFT JOIN (SELECT MIN(extendedprice) AS min_price, partkey, ds FROM %s GROUP BY partkey, ds) mp %n" +
                     "ON mp.partkey = t2.partkey " +
                     "WHERE t2.extendedprice <= mp.min_price*1.05) " +
                     "low_cost " +

@@ -741,7 +741,7 @@ public class CachingHiveMetastore
     {
         Optional<Partition> partitionFromMetastore = loadPartitionByName(partitionName);
         if (!partitionFromCache.equals(partitionFromMetastore)) {
-            String errorMessage = format("Partition returned from cache is different from partition from Metastore.\nPartition name = %s.\nPartition from cache = %s\n Partition from Metastore = %s",
+            String errorMessage = format("Partition returned from cache is different from partition from Metastore.%nPartition name = %s.%nPartition from cache = %s%n Partition from Metastore = %s",
                     partitionName,
                     partitionFromCache,
                     partitionFromMetastore);
@@ -759,7 +759,7 @@ public class CachingHiveMetastore
             Optional<Partition> partitionFromMetastore = entry.getValue();
 
             if (!partitionFromCache.equals(partitionFromMetastore)) {
-                String errorMessage = format("Partition returned from cache is different from partition from Metastore.\nPartition name = %s.\nPartition from cache = %s\n Partition from Metastore = %s",
+                String errorMessage = format("Partition returned from cache is different from partition from Metastore.%nPartition name = %s.%nPartition from cache = %s%n Partition from Metastore = %s",
                         partitionName,
                         partitionFromCache,
                         partitionFromMetastore);
