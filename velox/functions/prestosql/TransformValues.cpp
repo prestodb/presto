@@ -50,6 +50,12 @@ class TransformValuesFunction : public exec::VectorFunction {
         flatMap->mapKeys(), flatMap->mapValues()};
     auto numValues = flatMap->mapValues()->size();
 
+    SelectivityVector finalSelection;
+    if (!context->isFinalSelection()) {
+      finalSelection = toElementRows<MapVector>(
+          numValues, *context->finalSelection(), flatMap.get());
+    }
+
     VectorPtr transformedValues;
 
     // Loop over lambda functions and apply these to values of the map.
@@ -62,7 +68,12 @@ class TransformValuesFunction : public exec::VectorFunction {
           numValues, entry.callable, *entry.rows, flatMap);
 
       entry.callable->apply(
-          valueRows, wrapCapture, context, lambdaArgs, &transformedValues);
+          valueRows,
+          finalSelection,
+          wrapCapture,
+          context,
+          lambdaArgs,
+          &transformedValues);
     }
 
     auto localResult = std::make_shared<MapVector>(

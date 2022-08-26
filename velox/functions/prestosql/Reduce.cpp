@@ -132,7 +132,7 @@ class ReduceFunction : public exec::VectorFunction {
 
         std::vector<VectorPtr> lambdaArgs = {state, nthElement};
         entry.callable->apply(
-            arrayRows, nullptr, context, lambdaArgs, &partialResult);
+            arrayRows, rows, nullptr, context, lambdaArgs, &partialResult);
         state = partialResult;
         n++;
       }
@@ -142,7 +142,8 @@ class ReduceFunction : public exec::VectorFunction {
     auto outputFuncIt = args[3]->asUnchecked<FunctionVector>()->iterator(&rows);
     while (auto entry = outputFuncIt.next()) {
       std::vector<VectorPtr> lambdaArgs = {partialResult};
-      entry.callable->apply(*entry.rows, nullptr, context, lambdaArgs, result);
+      entry.callable->apply(
+          *entry.rows, rows, nullptr, context, lambdaArgs, result);
     }
   }
 

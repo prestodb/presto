@@ -50,6 +50,12 @@ class TransformKeysFunction : public exec::VectorFunction {
         flatMap->mapKeys(), flatMap->mapValues()};
     auto numKeys = flatMap->mapKeys()->size();
 
+    SelectivityVector finalSelection;
+    if (!context->isFinalSelection()) {
+      finalSelection = toElementRows<MapVector>(
+          numKeys, *context->finalSelection(), flatMap.get());
+    }
+
     VectorPtr transformedKeys;
 
     // Loop over lambda functions and apply these to keys of the map.
@@ -62,7 +68,12 @@ class TransformKeysFunction : public exec::VectorFunction {
           numKeys, entry.callable, *entry.rows, flatMap);
 
       entry.callable->apply(
-          keyRows, wrapCapture, context, lambdaArgs, &transformedKeys);
+          keyRows,
+          finalSelection,
+          wrapCapture,
+          context,
+          lambdaArgs,
+          &transformedKeys);
     }
 
     auto localResult = std::make_shared<MapVector>(

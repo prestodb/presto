@@ -41,6 +41,7 @@ class ExprCallable : public Callable {
 
   void apply(
       const SelectivityVector& rows,
+      const SelectivityVector& finalSelection,
       BufferPtr wrapCapture,
       EvalCtx* context,
       const std::vector<VectorPtr>& args,
@@ -63,7 +64,7 @@ class ExprCallable : public Callable {
     EvalCtx lambdaCtx(context->execCtx(), context->exprSet(), row.get());
     if (!context->isFinalSelection()) {
       *lambdaCtx.mutableIsFinalSelection() = false;
-      *lambdaCtx.mutableFinalSelection() = context->finalSelection();
+      *lambdaCtx.mutableFinalSelection() = &finalSelection;
     }
     body_->eval(rows, lambdaCtx, *result);
   }

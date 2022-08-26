@@ -49,6 +49,12 @@ class TransformFunction : public exec::VectorFunction {
     std::vector<VectorPtr> lambdaArgs = {flatArray->elements()};
     auto newNumElements = flatArray->elements()->size();
 
+    SelectivityVector finalSelection;
+    if (!context->isFinalSelection()) {
+      finalSelection = toElementRows<ArrayVector>(
+          newNumElements, *context->finalSelection(), flatArray.get());
+    }
+
     // transformed elements
     VectorPtr newElements;
 
@@ -62,7 +68,12 @@ class TransformFunction : public exec::VectorFunction {
           newNumElements, entry.callable, *entry.rows, flatArray);
 
       entry.callable->apply(
-          elementRows, wrapCapture, context, lambdaArgs, &newElements);
+          elementRows,
+          finalSelection,
+          wrapCapture,
+          context,
+          lambdaArgs,
+          &newElements);
     }
 
     VectorPtr localResult = std::make_shared<ArrayVector>(

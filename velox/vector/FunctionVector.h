@@ -39,8 +39,11 @@ class Callable {
   // so that the values of the arguments and captures are not
   // aligned. This serves to align these. If nullptr, the captures are
   // passed as is.
+  // 'finalSelection' can be empty when context->isFinalSelection() is true
+  // and must be a valid selectivity vector otherwise.
   virtual void apply(
       const SelectivityVector& rows,
+      const SelectivityVector& finalSelection,
       BufferPtr wrapCapture,
       exec::EvalCtx* context,
       const std::vector<VectorPtr>& args,

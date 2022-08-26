@@ -68,6 +68,12 @@ class FilterFunctionBase : public exec::VectorFunction {
     auto rawResultOffsets = resultOffsets->asMutable<vector_size_t>();
     auto numElements = lambdaArgs[0]->size();
 
+    SelectivityVector finalSelection;
+    if (!context->isFinalSelection()) {
+      finalSelection = toElementRows<T>(
+          numElements, *context->finalSelection(), input.get());
+    }
+
     exec::LocalDecodedVector bitsDecoder(context);
     auto iter = lambdas->asUnchecked<FunctionVector>()->iterator(&rows);
     while (auto entry = iter.next()) {
@@ -78,7 +84,7 @@ class FilterFunctionBase : public exec::VectorFunction {
 
       VectorPtr bits;
       entry.callable->apply(
-          elementRows, wrapCapture, context, lambdaArgs, &bits);
+          elementRows, finalSelection, wrapCapture, context, lambdaArgs, &bits);
       bitsDecoder.get()->decode(*bits, elementRows);
       entry.rows->applyToSelected([&](vector_size_t row) {
         if (input->isNullAt(row)) {
