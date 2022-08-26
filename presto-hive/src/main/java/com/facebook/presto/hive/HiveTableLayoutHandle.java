@@ -19,10 +19,14 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.TupleDomain.ColumnDomain;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.SemiTransactionalHiveMetastore;
+import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -46,7 +50,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public final class HiveTableLayoutHandle
+public class HiveTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
     private final SchemaTableName schemaTableName;
@@ -317,5 +321,10 @@ public final class HiveTableLayoutHandle
     private static boolean isPartitionKey(ColumnHandle columnHandle)
     {
         return columnHandle instanceof HiveColumnHandle && ((HiveColumnHandle) columnHandle).isPartitionKey();
+    }
+
+    public Table getTable(SemiTransactionalHiveMetastore metastore, MetastoreContext metastoreContext)
+    {
+        return metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName()).orElseThrow(() -> new TableNotFoundException(schemaTableName));
     }
 }
