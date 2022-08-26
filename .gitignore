@@ -31,6 +31,7 @@ presto-docs-venv/
 # presto-native-execution
 #==============================================================================#
 _build/
+cmake-build-*/
 *.swp
 *~
 a.out
