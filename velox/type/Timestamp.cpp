@@ -22,15 +22,6 @@
 namespace facebook::velox {
 namespace {
 
-inline int64_t deltaWithTimezone(const date::time_zone& zone, int64_t seconds) {
-  auto tp = std::chrono::time_point<std::chrono::system_clock>(
-      std::chrono::seconds(seconds));
-  auto epoch = zone.to_local(tp).time_since_epoch();
-  int64_t delta =
-      seconds - std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
-  return delta;
-}
-
 // Assuming tzID is in [1, 1680] range.
 // tzID - PrestoDB time zone ID.
 inline int64_t getPrestoTZOffsetInSeconds(int16_t tzID) {
@@ -70,7 +61,10 @@ void Timestamp::toGMT(int16_t tzID) {
 }
 
 void Timestamp::toTimezone(const date::time_zone& zone) {
-  seconds_ -= deltaWithTimezone(zone, seconds_);
+  auto tp = std::chrono::time_point<std::chrono::system_clock>(
+      std::chrono::seconds(seconds_));
+  auto epoch = zone.to_local(tp).time_since_epoch();
+  seconds_ = std::chrono::duration_cast<std::chrono::seconds>(epoch).count();
 }
 
 void Timestamp::toTimezone(int16_t tzID) {
