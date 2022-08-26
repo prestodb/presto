@@ -14,6 +14,9 @@
 
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
@@ -22,6 +25,7 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 
+@ThriftStruct
 public final class Estimate
 {
     // todo eventually add some notion of statistic reliability
@@ -54,7 +58,8 @@ public final class Estimate
         return new Estimate(value);
     }
 
-    private Estimate(double value)
+    @ThriftConstructor
+    public Estimate(double value)
     {
         this.value = value;
     }
@@ -65,6 +70,7 @@ public final class Estimate
     }
 
     @JsonProperty
+    @ThriftField(1)
     public double getValue()
     {
         return value;
