@@ -171,8 +171,14 @@ public class IterativeOptimizer
                 if (result.getTransformedPlan().isPresent()) {
                     // If we rewrite a plan node, topmost node should remain statistically equivalent.
                     PlanNode transformedNode = result.getTransformedPlan().get();
-                    if (node.getStatsEquivalentPlanNode().isPresent() && !transformedNode.getStatsEquivalentPlanNode().isPresent()) {
-                        transformedNode = transformedNode.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
+                    PlanNode resolvedtransformedNode = context.lookup.resolve(result.getTransformedPlan().get());
+                    if (node.getStatsEquivalentPlanNode().isPresent() && !resolvedtransformedNode.getStatsEquivalentPlanNode().isPresent()) {
+                        if (transformedNode instanceof GroupReference) {
+                            context.memo.assignStatsEquivalentPlanNode((GroupReference) transformedNode, node.getStatsEquivalentPlanNode());
+                        }
+                        else {
+                            transformedNode = transformedNode.assignStatsEquivalentPlanNode(node.getStatsEquivalentPlanNode());
+                        }
                     }
                     node = context.memo.replace(group, transformedNode, rule.getClass().getName());
 

@@ -158,6 +158,11 @@ public class Memo
         return node;
     }
 
+    public void assignStatsEquivalentPlanNode(GroupReference reference, Optional<PlanNode> statsEquivalentPlanNode)
+    {
+        getGroup(reference.getGroupId()).assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
+    }
+
     private void evictStatisticsAndCost(int group)
     {
         getGroup(group).stats = null;
@@ -286,6 +291,11 @@ public class Memo
         {
             this.membership = requireNonNull(member, "member is null");
             this.logicalProperties = logicalProperties;
+        }
+
+        private void assignStatsEquivalentPlanNode(Optional<PlanNode> statsEquivalentPlanNode)
+        {
+            membership = membership.assignStatsEquivalentPlanNode(statsEquivalentPlanNode);
         }
     }
 }
