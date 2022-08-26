@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(presto_protocol OBJECT presto_protocol.cpp Base64Util.cpp
-                                   DataSize.cpp Duration.cpp Connectors.cpp)
+                                   DataSize.cpp Duration.cpp Connectors.cpp WriteProtocol.cpp)
 
 target_link_libraries(presto_protocol velox_type ${RE2})
 

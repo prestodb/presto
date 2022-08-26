@@ -564,7 +564,7 @@ abstract class TestHiveQueries
     }
 
     @Test
-    public void testCreateTableAsSelect()
+    public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
@@ -582,6 +582,19 @@ abstract class TestHiveQueries
         getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
         assertQuery("SELECT * FROM tmp", "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
         dropTable("tmp");
+    }
+
+    @Test
+    public void testInsertIntoUnpartitionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
+        getQueryRunner().execute(session, "CREATE TABLE IF NOT EXISTS tmp_nation ( LIKE nation )");
+        getQueryRunner().execute(session, "INSERT INTO tmp_nation SELECT * FROM nation");
+        assertQuery("SELECT * FROM tmp_nation", "SELECT * FROM nation");
+        dropTable("tmp_nation");
     }
 
     private void dropTable(String tableName)
