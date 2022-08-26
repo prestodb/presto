@@ -19,6 +19,8 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/Driver.h"
 
 namespace facebook::presto {
@@ -36,7 +38,11 @@ PeriodicTaskManager::PeriodicTaskManager(
     TaskManager* taskManager)
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
-      taskManager_(taskManager) {}
+      taskManager_(taskManager),
+      memoryManager_(
+          velox::memory::MemoryManager<
+              velox::memory::MmapMemoryAllocator>::getProcessDefaultManager()) {
+}
 
 void PeriodicTaskManager::start() {
   // Add new functions here.
@@ -128,9 +134,20 @@ void PeriodicTaskManager::start() {
           REPORT_ADD_STAT_VALUE(
               kCounterAllocatedMemoryBytes,
               (mappedMemory->numAllocated() * 4096l));
+          auto allocBytesCounters =
+              velox::memory::MappedMemory::allocateBytesStats();
+          REPORT_ADD_STAT_VALUE(
+              kCounterMappedMemoryRawAllocBytesSmall,
+              (allocBytesCounters.totalSmall));
+          REPORT_ADD_STAT_VALUE(
+              kCounterMappedMemoryRawAllocBytesSizeClass,
+              (allocBytesCounters.totalInSizeClasses));
+          REPORT_ADD_STAT_VALUE(
+              kCounterMappedMemoryRawAllocBytesLarge,
+              (allocBytesCounters.totalLarge));
         },
         std::chrono::microseconds{kMemoryPeriodGlobalCounters},
-        "memory_counters");
+        "mmap_memory_counters");
   }
 
   // This should be the last call in this method.
