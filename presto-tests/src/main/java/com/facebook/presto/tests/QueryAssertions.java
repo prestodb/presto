@@ -285,7 +285,7 @@ public final class QueryAssertions
     {
         for (MaterializedRow row : expectedSubset.getMaterializedRows()) {
             if (!all.getMaterializedRows().contains(row)) {
-                fail(format("expected row missing: %s\nAll %s rows:\n    %s\nExpected subset %s rows:\n    %s\n",
+                fail(format("expected row missing: %s%nAll %s rows:%n    %s%nExpected subset %s rows:%n    %s%n",
                         row,
                         all.getMaterializedRows().size(),
                         Joiner.on("\n    ").join(Iterables.limit(all, 100)),

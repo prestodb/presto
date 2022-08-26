@@ -354,7 +354,7 @@ public class PlanPrinter
             boolean verbose)
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(format("Fragment %s [%s]\n",
+        builder.append(format("Fragment %s [%s]%n",
                 fragment.getId(),
                 fragment.getPartitioning()));
 
@@ -367,7 +367,7 @@ public class PlanPrinter
             double sdAmongTasks = Math.sqrt(squaredDifferences / tasks.size());
 
             builder.append(indentString(1))
-                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)\n",
+                    .append(format("CPU: %s, Scheduled: %s, Input: %s (%s); per task: avg.: %s std.dev.: %s, Output: %s (%s)%n",
                             stageExecutionStats.getTotalCpuTime().convertToMostSuccinctTimeUnit(),
                             stageExecutionStats.getTotalScheduledTime().convertToMostSuccinctTimeUnit(),
                             formatPositions(stageExecutionStats.getProcessedInputPositions()),
@@ -380,24 +380,24 @@ public class PlanPrinter
 
         PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
         builder.append(indentString(1))
-                .append(format("Output layout: [%s]\n",
+                .append(format("Output layout: [%s]%n",
                         Joiner.on(", ").join(partitioningScheme.getOutputLayout())));
 
         builder.append(indentString(1));
         boolean replicateNullsAndAny = partitioningScheme.isReplicateNullsAndAny();
         if (replicateNullsAndAny) {
-            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s\n",
+            builder.append(format("Output partitioning: %s (replicate nulls and any) [%s]%s%n",
                     partitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
         else {
-            builder.append(format("Output partitioning: %s [%s]%s\n",
+            builder.append(format("Output partitioning: %s [%s]%s%n",
                     partitioningScheme.getPartitioning().getHandle(),
                     Joiner.on(", ").join(partitioningScheme.getPartitioning().getArguments()),
                     formatHash(partitioningScheme.getHashColumn())));
         }
-        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s\n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
+        builder.append(indentString(1)).append(format("Stage Execution Strategy: %s%n", fragment.getStageExecutionDescriptor().getStageExecutionStrategy()));
 
         TypeProvider typeProvider = TypeProvider.fromVariables(fragment.getVariables());
         builder.append(

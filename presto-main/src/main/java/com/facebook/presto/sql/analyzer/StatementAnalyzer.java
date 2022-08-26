@@ -721,7 +721,7 @@ class StatementAnalyzer
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
             // the original refresh statement will always be one line
-            analysis.setExpandedQuery(format("-- Expanded Query: %s\nINSERT INTO %s %s",
+            analysis.setExpandedQuery(format("-- Expanded Query: %s%nINSERT INTO %s %s",
                     SqlFormatterUtil.getFormattedSql(node, sqlParser, Optional.empty()),
                     viewName.getObjectName(),
                     view.getOriginalSql()));

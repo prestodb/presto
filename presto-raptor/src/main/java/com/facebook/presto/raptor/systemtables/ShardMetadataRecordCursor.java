@@ -119,9 +119,9 @@ public class ShardMetadataRecordCursor
 
     private static String constructSqlTemplate(List<String> columnNames, long tableId)
     {
-        return format("SELECT %s\nFROM %s x\n" +
-                        "JOIN shards ON (x.shard_id = shards.shard_id AND shards.table_id = %s)\n" +
-                        "JOIN tables ON (tables.table_id = %s)\n",
+        return format("SELECT %s%nFROM %s x%n" +
+                        "JOIN shards ON (x.shard_id = shards.shard_id AND shards.table_id = %s)%n" +
+                        "JOIN tables ON (tables.table_id = %s)%n",
                 Joiner.on(", ").join(columnNames),
                 shardIndexTable(tableId),
                 tableId,

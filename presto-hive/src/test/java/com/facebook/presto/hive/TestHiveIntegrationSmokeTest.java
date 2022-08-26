@@ -4960,13 +4960,13 @@ public class TestHiveIntegrationSmokeTest
 
     private String getAvroCreateTableSql(String tableName, String schemaFile)
     {
-        return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   \"dummy_col\" varchar,\n" +
-                        "   \"another_dummy_col\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
+        return format("CREATE TABLE %s.%s.%s (%n" +
+                        "   \"dummy_col\" varchar,%n" +
+                        "   \"another_dummy_col\" varchar%n" +
+                        ")%n" +
+                        "WITH (%n" +
+                        "   avro_schema_url = '%s',%n" +
+                        "   format = 'AVRO'%n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -5619,14 +5619,14 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateOnMaterializedView()
     {
-        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
-                        "WITH (\n" +
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1%n" +
+                        "WITH (%n" +
                         "   format = 'ORC'," +
-                        "   partitioned_by = ARRAY['nationkey']\n" +
+                        "   partitioned_by = ARRAY['nationkey']%n" +
                         retentionDays(15) +
-                        ") AS SELECT\n" +
-                        "  name\n" +
-                        ", nationkey\n" +
+                        ") AS SELECT%n" +
+                        "  name%n" +
+                        ", nationkey%n" +
                         "FROM\n" +
                         "  test_customer_base_1",
                 getSession().getCatalog().get(),
