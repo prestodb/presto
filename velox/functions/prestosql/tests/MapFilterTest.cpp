@@ -278,7 +278,7 @@ TEST_F(MapFilterTest, lambdaSelectivityVector) {
   // Evaluate. Result would be overwritten.
   std::vector<VectorPtr> result = {
       makeFlatVector<int64_t>(std::vector<int64_t>{1})};
-  exprSet->eval(allRows, &context, &result);
+  exprSet->eval(allRows, context, result);
 
   auto expectedKeys = makeFlatVector<int64_t>(
       {233439836560246536, 398885052601874414, 213334509704047604});
