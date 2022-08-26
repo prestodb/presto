@@ -31,12 +31,15 @@ class MergeSource {
       RowVectorPtr input,
       ContinueFuture* future) = 0;
 
+  virtual void close() = 0;
+
   // Factory methods to create MergeSources.
   static std::shared_ptr<MergeSource> createLocalMergeSource();
 
   static std::shared_ptr<MergeSource> createMergeExchangeSource(
       MergeExchange* mergeExchange,
-      const std::string& taskId);
+      const std::string& taskId,
+      int destination);
 };
 
 /// Coordinates data transfer between single producer and single consumer. Used

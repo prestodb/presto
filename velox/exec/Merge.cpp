@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <boost/circular_buffer.hpp>
-
 #include "velox/exec/Merge.h"
 #include "velox/exec/Task.h"
 
@@ -171,6 +169,12 @@ RowVectorPtr Merge::getOutput() {
   }
 }
 
+void Merge::close() {
+  for (auto& source : sources_) {
+    source->close();
+  }
+}
+
 bool SourceStream::operator<(const MergeStream& other) const {
   const auto& otherCursor = static_cast<const SourceStream&>(other);
   for (auto i = 0; i < sortingKeys_.size(); ++i) {
@@ -310,8 +314,8 @@ BlockingReason MergeExchange::addMergeSources(ContinueFuture* future) {
             split.connectorSplit);
         VELOX_CHECK(remoteSplit, "Wrong type of split");
 
-        sources_.emplace_back(
-            MergeSource::createMergeExchangeSource(this, remoteSplit->taskId));
+        sources_.emplace_back(MergeSource::createMergeExchangeSource(
+            this, remoteSplit->taskId, operatorCtx_->task()->destination()));
         ++numSplits_;
       } else {
         noMoreSplits_ = true;

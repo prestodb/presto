@@ -168,6 +168,7 @@ void PartitionedOutputBuffer::updateBroadcastOutputBuffers(
   VELOX_CHECK(broadcast_);
 
   std::vector<ContinuePromise> promises;
+  bool isFinished;
   {
     std::lock_guard<std::mutex> l(mutex_);
 
@@ -180,10 +181,14 @@ void PartitionedOutputBuffer::updateBroadcastOutputBuffers(
     }
 
     noMoreBroadcastBuffers_ = true;
+    isFinished = isFinishedLocked();
     updateAfterAcknowledgeLocked(dataToBroadcast_, promises);
   }
 
   releaseAfterAcknowledge(dataToBroadcast_, promises);
+  if (isFinished) {
+    task_->setAllOutputConsumed();
+  }
 }
 
 void PartitionedOutputBuffer::updateNumDrivers(uint32_t newNumDrivers) {
@@ -233,17 +238,24 @@ BlockingReason PartitionedOutputBuffer::enqueue(
     if (broadcast_) {
       std::shared_ptr<SerializedPage> sharedData(data.release());
       for (auto& buffer : buffers_) {
-        buffer->enqueue(sharedData);
-        dataAvailableCallbacks.emplace_back(buffer->getAndClearNotify());
+        if (buffer) {
+          buffer->enqueue(sharedData);
+          dataAvailableCallbacks.emplace_back(buffer->getAndClearNotify());
+        }
       }
 
       if (!noMoreBroadcastBuffers_) {
         dataToBroadcast_.emplace_back(sharedData);
       }
     } else {
-      auto buffer = buffers_[destination].get();
-      buffer->enqueue(std::move(data));
-      dataAvailableCallbacks.emplace_back(buffer->getAndClearNotify());
+      if (auto buffer = buffers_[destination].get()) {
+        buffer->enqueue(std::move(data));
+        dataAvailableCallbacks.emplace_back(buffer->getAndClearNotify());
+      } else {
+        // Some downstream tasks may finish early and delete the
+        // corresponding buffers. Further data for these buffers is dropped.
+        totalSize_ -= data->size();
+      }
     }
 
     if (totalSize_ > maxSize_ && future) {
@@ -365,7 +377,7 @@ bool PartitionedOutputBuffer::deleteResults(int destination) {
   DataAvailable dataAvailable;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(destination < buffers_.size());
+    VELOX_CHECK_LT(destination, buffers_.size());
     auto* buffer = buffers_[destination].get();
     if (!buffer) {
       VLOG(1) << "Extra delete  received  for destination " << destination;

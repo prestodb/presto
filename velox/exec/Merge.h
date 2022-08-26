@@ -44,6 +44,8 @@ class Merge : public SourceOperator {
 
   RowVectorPtr getOutput() override;
 
+  void close() override;
+
   const RowTypePtr& outputType() const {
     return outputType_;
   }

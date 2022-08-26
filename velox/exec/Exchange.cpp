@@ -16,7 +16,6 @@
 #include "velox/exec/Exchange.h"
 #include <velox/buffer/Buffer.h>
 #include <velox/common/base/Exceptions.h>
-#include <velox/common/memory/MappedMemory.h>
 #include "velox/exec/PartitionedOutputBufferManager.h"
 
 namespace facebook::velox::exec {
@@ -157,7 +156,10 @@ class LocalExchangeSource : public ExchangeSource {
         });
   }
 
-  void close() override {}
+  void close() override {
+    auto buffers = PartitionedOutputBufferManager::getInstance().lock();
+    buffers->deleteResults(taskId_, destination_);
+  }
 
  private:
   static constexpr uint64_t kMaxBytes = 32 * 1024 * 1024; // 32 MB
@@ -186,8 +188,10 @@ void ExchangeClient::maybeSetMemoryPool(memory::MemoryPool* pool) {
 
 void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
   std::shared_ptr<ExchangeSource> toRequest;
+  std::shared_ptr<ExchangeSource> toClose;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+
     bool duplicate = !taskIds_.insert(taskId).second;
     if (duplicate) {
       // Do not add sources twice. Presto protocol may add duplicate sources
@@ -196,19 +200,49 @@ void ExchangeClient::addRemoteTaskId(const std::string& taskId) {
     }
     auto source = ExchangeSource::create(taskId, destination_, queue_);
     source->setMemoryPool(pool_);
-    sources_.push_back(source);
-    queue_->addSource();
-    if (source->shouldRequestLocked()) {
-      toRequest = source;
+
+    if (closed_) {
+      toClose = std::move(source);
+    } else {
+      sources_.push_back(source);
+      queue_->addSource();
+      if (source->shouldRequestLocked()) {
+        toRequest = source;
+      }
     }
   }
-  // Outside of lock
-  toRequest->request();
+
+  // Outside of lock.
+  if (toClose) {
+    toClose->close();
+  } else if (toRequest) {
+    toRequest->request();
+  }
 }
 
 void ExchangeClient::noMoreRemoteTasks() {
   std::lock_guard<std::mutex> l(queue_->mutex());
   queue_->noMoreSources();
+}
+
+void ExchangeClient::close() {
+  std::vector<std::shared_ptr<ExchangeSource>> sources;
+
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+
+    if (closed_) {
+      return;
+    }
+
+    closed_ = true;
+    sources = std::move(sources_);
+  }
+
+  // Outside of mutex.
+  for (auto& source : sources) {
+    source->close();
+  }
 }
 
 std::unique_ptr<SerializedPage> ExchangeClient::next(
@@ -243,9 +277,7 @@ std::unique_ptr<SerializedPage> ExchangeClient::next(
 }
 
 ExchangeClient::~ExchangeClient() {
-  for (auto& source : sources_) {
-    source->close();
-  }
+  close();
 }
 
 std::string ExchangeClient::toString() {

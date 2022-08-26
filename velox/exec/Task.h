@@ -79,6 +79,10 @@ class Task : public std::enable_shared_from_this<Task> {
     return taskId_;
   }
 
+  const int destination() const {
+    return destination_;
+  }
+
   // Convenience function for shortening a Presto taskId. To be used
   // in debugging messages and listings.
   static std::string shortId(const std::string& id);
@@ -483,11 +487,21 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
+  /// Add remote split to ExchangeClient for the specified plan node. Used to
+  /// close remote sources that are added after the task completed early.
+  void addRemoteSplit(
+      const core::PlanNodeId& planNodeId,
+      const exec::Split& split);
+
   /// Retrieve a split or split future from the given split store structure.
   BlockingReason getSplitOrFutureLocked(
       SplitsStore& splitsStore,
       exec::Split& split,
       ContinueFuture& future);
+
+  /// Returns next split from the store. The caller must ensure the store is not
+  /// empty.
+  exec::Split getSplitLocked(SplitsStore& splitsStore);
 
   /// Creates for the given split group and fills up the 'SplitGroupState'
   /// structure, which stores inter-operator state (local exchange, bridges).
@@ -639,6 +653,11 @@ class Task : public std::enable_shared_from_this<Task> {
   /// Exchange clients. One per pipeline / source.
   /// Null for pipelines, which don't need it.
   std::vector<std::shared_ptr<ExchangeClient>> exchangeClients_;
+
+  /// Exchange clients keyed by the corresponding Exchange plan node ID. Used to
+  /// process remaining remote splits after the task has completed early.
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<ExchangeClient>>
+      exchangeClientByPlanNode_;
 
   // Set if terminated by an error. This is the first error reported
   // by any of the instances.

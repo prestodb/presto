@@ -304,9 +304,16 @@ class ExchangeClient {
 
   void maybeSetMemoryPool(memory::MemoryPool* pool);
 
+  // Creates an exchange source and starts fetching data from the specified
+  // upstream task. If 'close' has been called already, creates an exchange
+  // source and immediately closes it to notify the upstream task that data is
+  // no longer needed. Repeated calls with the same 'taskId' are ignored.
   void addRemoteTaskId(const std::string& taskId);
 
   void noMoreRemoteTasks();
+
+  // Closes exchange sources.
+  void close();
 
   std::shared_ptr<ExchangeQueue> queue() const {
     return queue_;
@@ -322,6 +329,7 @@ class ExchangeClient {
   std::unordered_set<std::string> taskIds_;
   std::vector<std::shared_ptr<ExchangeSource>> sources_;
   memory::MemoryPool* pool_{nullptr};
+  bool closed_{false};
 };
 
 class Exchange : public SourceOperator {
@@ -349,8 +357,12 @@ class Exchange : public SourceOperator {
   RowVectorPtr getOutput() override;
 
   void close() override {
+    SourceOperator::close();
     currentPage_ = nullptr;
     result_ = nullptr;
+    if (exchangeClient_) {
+      exchangeClient_->close();
+    }
     exchangeClient_ = nullptr;
   }
 

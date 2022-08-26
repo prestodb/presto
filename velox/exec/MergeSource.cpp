@@ -37,6 +37,8 @@ class LocalMergeSource : public MergeSource {
         [&](auto& queue) { return queue.enqueue(input, future); });
   }
 
+  void close() override {}
+
  private:
   class LocalMergeSourceQueue {
    public:
@@ -113,9 +115,12 @@ class LocalMergeSource : public MergeSource {
 
 class MergeExchangeSource : public MergeSource {
  public:
-  MergeExchangeSource(MergeExchange* mergeExchange, const std::string& taskId)
+  MergeExchangeSource(
+      MergeExchange* mergeExchange,
+      const std::string& taskId,
+      int destination)
       : mergeExchange_(mergeExchange),
-        client_(std::make_shared<ExchangeClient>(0)) {
+        client_(std::make_unique<ExchangeClient>(destination)) {
     client_->addRemoteTaskId(taskId);
     client_->noMoreRemoteTasks();
   }
@@ -165,9 +170,16 @@ class MergeExchangeSource : public MergeSource {
     return BlockingReason::kNotBlocked;
   }
 
+  void close() override {
+    if (client_) {
+      client_->close();
+      client_ = nullptr;
+    }
+  }
+
  private:
   MergeExchange* mergeExchange_;
-  std::shared_ptr<ExchangeClient> client_;
+  std::unique_ptr<ExchangeClient> client_;
   std::unique_ptr<ByteStream> inputStream_;
   std::unique_ptr<SerializedPage> currentPage_;
   bool atEnd_ = false;
@@ -187,8 +199,10 @@ std::shared_ptr<MergeSource> MergeSource::createLocalMergeSource() {
 
 std::shared_ptr<MergeSource> MergeSource::createMergeExchangeSource(
     MergeExchange* mergeExchange,
-    const std::string& taskId) {
-  return std::make_shared<MergeExchangeSource>(mergeExchange, taskId);
+    const std::string& taskId,
+    int destination) {
+  return std::make_shared<MergeExchangeSource>(
+      mergeExchange, taskId, destination);
 }
 
 namespace {

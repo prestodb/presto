@@ -393,12 +393,15 @@ void Task::start(
           self->numDriversInPartitionedOutput_ * numSplitGroups);
     }
 
-    if (factory->needsExchangeClient()) {
+    if (auto exchangeNodeId = factory->needsExchangeClient()) {
       // Low-water mark for filling the exchange queue is 1/2 of the per worker
       // buffer size of the producers.
       self->exchangeClients_[pipeline] = std::make_shared<ExchangeClient>(
           self->destination_,
           self->queryCtx()->config().maxPartitionedOutputBufferSize() / 2);
+
+      self->exchangeClientByPlanNode_.emplace(
+          exchangeNodeId.value(), self->exchangeClients_[pipeline]);
     }
   }
 
@@ -650,9 +653,11 @@ bool Task::addSplitWithSequence(
   checkPlanNodeIdForSplit(planNodeId);
   std::unique_ptr<ContinuePromise> promise;
   bool added = false;
+  bool isTaskRunning;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    if (isRunningLocked()) {
+    isTaskRunning = isRunningLocked();
+    if (isTaskRunning) {
       // The same split can be added again in some systems. The systems that
       // want
       // 'one split processed once only' would use this method and duplicate
@@ -664,23 +669,50 @@ bool Task::addSplitWithSequence(
       }
     }
   }
+
   if (promise) {
     promise->setValue();
   }
+
+  if (!isTaskRunning) {
+    addRemoteSplit(planNodeId, split);
+  }
+
   return added;
 }
 
 void Task::addSplit(const core::PlanNodeId& planNodeId, exec::Split&& split) {
   checkPlanNodeIdForSplit(planNodeId);
+  bool isTaskRunning;
   std::unique_ptr<ContinuePromise> promise;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    if (isRunningLocked()) {
+    isTaskRunning = isRunningLocked();
+    if (isTaskRunning) {
       promise = addSplitLocked(splitsStates_[planNodeId], std::move(split));
     }
   }
+
   if (promise) {
     promise->setValue();
+  }
+
+  if (!isTaskRunning) {
+    addRemoteSplit(planNodeId, split);
+  }
+}
+
+void Task::addRemoteSplit(
+    const core::PlanNodeId& planNodeId,
+    const exec::Split& split) {
+  if (split.hasConnectorSplit()) {
+    if (exchangeClientByPlanNode_.count(planNodeId)) {
+      auto remoteSplit =
+          std::dynamic_pointer_cast<RemoteConnectorSplit>(split.connectorSplit);
+      VELOX_CHECK(remoteSplit, "Wrong type of split");
+      exchangeClientByPlanNode_[planNodeId]->addRemoteTaskId(
+          remoteSplit->taskId);
+    }
   }
 }
 
@@ -760,6 +792,7 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
   checkPlanNodeIdForSplit(planNodeId);
   std::vector<ContinuePromise> splitPromises;
   bool allFinished;
+  std::shared_ptr<ExchangeClient> exchangeClient;
   {
     std::lock_guard<std::mutex> l(mutex_);
 
@@ -781,10 +814,19 @@ void Task::noMoreSplits(const core::PlanNodeId& planNodeId) {
     }
 
     allFinished = checkNoMoreSplitGroupsLocked();
+
+    if (!isRunningLocked() && exchangeClientByPlanNode_.count(planNodeId)) {
+      exchangeClient = exchangeClientByPlanNode_[planNodeId];
+      exchangeClientByPlanNode_.erase(planNodeId);
+    }
   }
 
   for (auto& promise : splitPromises) {
     promise.setValue();
+  }
+
+  if (exchangeClient) {
+    exchangeClient->noMoreRemoteTasks();
   }
 
   if (allFinished) {
@@ -867,7 +909,12 @@ BlockingReason Task::getSplitOrFutureLocked(
     return BlockingReason::kWaitForSplit;
   }
 
-  split = std::move(splitsStore.splits.front());
+  split = getSplitLocked(splitsStore);
+  return BlockingReason::kNotBlocked;
+}
+
+exec::Split Task::getSplitLocked(SplitsStore& splitsStore) {
+  auto split = std::move(splitsStore.splits.front());
   splitsStore.splits.pop_front();
 
   --taskStats_.numQueuedSplits;
@@ -877,7 +924,7 @@ BlockingReason Task::getSplitOrFutureLocked(
     taskStats_.firstSplitStartTimeMs = taskStats_.lastSplitStartTimeMs;
   }
 
-  return BlockingReason::kNotBlocked;
+  return split;
 }
 
 void Task::splitFinished() {
@@ -1189,6 +1236,12 @@ ContinueFuture Task::terminate(TaskState terminalState) {
     }
   }
 
+  for (auto& exchangeClient : exchangeClients_) {
+    if (exchangeClient) {
+      exchangeClient->close();
+    }
+  }
+
   // Release reference to exchange client, so that it will close exchange
   // sources and prevent resending requests for data.
   exchangeClients_.clear();
@@ -1196,6 +1249,9 @@ ContinueFuture Task::terminate(TaskState terminalState) {
   std::vector<ContinuePromise> splitPromises;
   std::vector<std::shared_ptr<JoinBridge>> oldBridges;
   std::vector<SplitGroupState> splitGroupStates;
+  std::
+      unordered_map<core::PlanNodeId, std::pair<std::vector<exec::Split>, bool>>
+          remainingRemoteSplits;
   {
     std::lock_guard<std::mutex> l(mutex_);
     // Collect all the join bridges to clear them.
@@ -1208,9 +1264,36 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 
     // Collect all outstanding split promises from all splits state structures.
     for (auto& pair : splitsStates_) {
+      auto& splitState = pair.second;
       for (auto& it : pair.second.groupSplitsStores) {
         movePromisesOut(it.second.splitPromises, splitPromises);
       }
+
+      // Process remaining remote splits.
+      auto exchangeClientIt = exchangeClientByPlanNode_.find(pair.first);
+      if (exchangeClientIt != exchangeClientByPlanNode_.end()) {
+        auto exchangeClient = exchangeClientIt->second;
+        std::vector<exec::Split> splits;
+        for (auto& [groupId, store] : splitState.groupSplitsStores) {
+          while (!store.splits.empty()) {
+            splits.emplace_back(getSplitLocked(store));
+          }
+        }
+        if (!splits.empty()) {
+          remainingRemoteSplits.emplace(
+              pair.first,
+              std::make_pair(std::move(splits), splitState.noMoreSplits));
+        }
+      }
+    }
+  }
+
+  for (auto& [planNodeId, splits] : remainingRemoteSplits) {
+    for (auto& split : splits.first) {
+      addRemoteSplit(planNodeId, split);
+    }
+    if (splits.second) {
+      exchangeClientByPlanNode_[planNodeId]->noMoreRemoteTasks();
     }
   }
 
