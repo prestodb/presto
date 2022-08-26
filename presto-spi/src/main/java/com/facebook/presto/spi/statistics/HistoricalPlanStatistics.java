@@ -13,21 +13,28 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.lang.String.format;
 
-// TODO: Make this class thrift compatible for efficient serialization.
+@ThriftStruct
 public class HistoricalPlanStatistics
 {
     // TODO: Add more data for historical runs, like avg/min/max over last N days/runs
     private final PlanStatistics lastRunStatistics;
 
-    public HistoricalPlanStatistics(PlanStatistics lastRunStatistics)
+    @ThriftConstructor
+    public HistoricalPlanStatistics(@JsonProperty("lastRunStatistics") PlanStatistics lastRunStatistics)
     {
         this.lastRunStatistics = lastRunStatistics;
     }
 
+    @ThriftField(1)
     public PlanStatistics getLastRunStatistics()
     {
         return lastRunStatistics;
