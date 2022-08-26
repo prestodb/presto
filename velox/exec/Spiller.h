@@ -15,35 +15,10 @@
  */
 #pragma once
 
+#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RowContainer.h"
 
 namespace facebook::velox::exec {
-
-// Describes a bit range inside a 64 bit hash number for use in
-// partitioning data over multiple sets of spill files.
-class HashBitRange {
- public:
-  HashBitRange(uint8_t begin, uint8_t end)
-      : begin_(begin), end_(end), fieldMask_(bits::lowMask(end - begin)) {}
-  HashBitRange() : HashBitRange(0, 0) {}
-
-  int32_t partition(uint64_t hash, int32_t numPartitions) const {
-    int32_t number = (hash >> begin_) & fieldMask_;
-    return number < numPartitions ? number : -1;
-  }
-
-  int32_t numPartitions() const {
-    return 1 << (end_ - begin_);
-  }
-
- private:
-  // Low bit number of hash number bit range.
-  const uint8_t begin_;
-  // Bit number of first bit above the hash number bit range.
-  const uint8_t end_;
-
-  const uint64_t fieldMask_;
-};
 
 // Manages spilling data from a RowContainer.
 class Spiller {

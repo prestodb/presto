@@ -23,6 +23,23 @@ HashPartitionFunction::HashPartitionFunction(
     const std::vector<column_index_t>& keyChannels,
     const std::vector<VectorPtr>& constValues)
     : numPartitions_{numPartitions} {
+  init(inputType, keyChannels, constValues);
+}
+
+HashPartitionFunction::HashPartitionFunction(
+    const HashBitRange& hashBitRange,
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& keyChannels,
+    const std::vector<VectorPtr>& constValues)
+    : numPartitions_{hashBitRange.numPartitions()},
+      hashBitRange_(hashBitRange) {
+  init(inputType, keyChannels, constValues);
+}
+
+void HashPartitionFunction::init(
+    const RowTypePtr& inputType,
+    const std::vector<column_index_t>& keyChannels,
+    const std::vector<VectorPtr>& constValues) {
   hashers_.reserve(keyChannels.size());
   size_t constChannel{0};
   for (const auto channel : keyChannels) {
@@ -57,8 +74,14 @@ void HashPartitionFunction::partition(
   }
 
   partitions.resize(size);
-  for (auto i = 0; i < size; ++i) {
-    partitions[i] = hashes_[i] % numPartitions_;
+  if (hashBitRange_.has_value()) {
+    for (auto i = 0; i < size; ++i) {
+      partitions[i] = hashBitRange_->partition(hashes_[i]);
+    }
+  } else {
+    for (auto i = 0; i < size; ++i) {
+      partitions[i] = hashes_[i] % numPartitions_;
+    }
   }
 }
 } // namespace facebook::velox::exec
