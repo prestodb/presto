@@ -159,13 +159,13 @@ public class TaskStats
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
-            @JsonProperty("userMemoryReservation") long userMemoryReservationInBytes,
+            @JsonProperty("userMemoryReservationInBytes") long userMemoryReservationInBytes,
             @JsonProperty("revocableMemoryReservationInBytes") long revocableMemoryReservationInBytes,
             @JsonProperty("systemMemoryReservationInBytes") long systemMemoryReservationInBytes,
 
             @JsonProperty("peakTotalMemoryInBytes") long peakTotalMemoryInBytes,
             @JsonProperty("peakUserMemoryInBytes") long peakUserMemoryInBytes,
-            @JsonProperty("peakNodeTotalMemoryInbytes") long peakNodeTotalMemoryInBytes,
+            @JsonProperty("peakNodeTotalMemoryInBytes") long peakNodeTotalMemoryInBytes,
 
             @JsonProperty("totalScheduledTimeInNanos") long totalScheduledTimeInNanos,
             @JsonProperty("totalCpuTimeInNanos") long totalCpuTimeInNanos,
