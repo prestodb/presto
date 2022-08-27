@@ -16,6 +16,8 @@ package com.facebook.presto.spi;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 public class SourceLocation
 {
     private final int line;
@@ -46,5 +48,31 @@ public class SourceLocation
     public int getColumn()
     {
         return column;
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null) {
+            return false;
+        }
+
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+
+        SourceLocation that = (SourceLocation) obj;
+
+        return line == that.line && column == that.column;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(line, column);
     }
 }

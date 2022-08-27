@@ -43,7 +43,7 @@ public final class ValuesNode
 
     @JsonCreator
     public ValuesNode(
-            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("location") Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("outputVariables") List<VariableReferenceExpression> outputVariables,
             @JsonProperty("rows") List<List<RowExpression>> rows,
