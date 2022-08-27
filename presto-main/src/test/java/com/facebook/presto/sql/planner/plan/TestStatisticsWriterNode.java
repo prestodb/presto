@@ -22,6 +22,7 @@ import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ValuesNode;
@@ -61,12 +62,23 @@ public class TestStatisticsWriterNode
             throws Exception
     {
         JsonCodec<StatisticsWriterNode> jsonCodec = getJsonCodec();
-        StatisticsWriterNode expected = createStatisticsWriterNode();
+
+        StatisticsWriterNode expected = createStatisticsWriterNode(false);
         StatisticsWriterNode deserialized = jsonCodec.fromJson(jsonCodec.toJson(expected));
+        checkDeserialized(deserialized, expected);
+
+        expected = createStatisticsWriterNode(true);
+        deserialized = jsonCodec.fromJson(jsonCodec.toJson(expected));
+        checkDeserialized(deserialized, expected);
+    }
+
+    private void checkDeserialized(StatisticsWriterNode deserialized, StatisticsWriterNode expected)
+    {
         assertEquals(deserialized.getTableHandle(), expected.getTableHandle());
         assertEquals(deserialized.getRowCountVariable(), expected.getRowCountVariable());
         assertEquals(deserialized.isRowCountEnabled(), expected.isRowCountEnabled());
         assertEquals(deserialized.getDescriptor(), expected.getDescriptor());
+        assertEquals(deserialized.getSourceLocation(), expected.getSourceLocation());
     }
 
     private static PlanNodeId newId()
@@ -93,12 +105,12 @@ public class TestStatisticsWriterNode
         return allocator.newVariable("test", BIGINT);
     }
 
-    private StatisticsWriterNode createStatisticsWriterNode()
+    private StatisticsWriterNode createStatisticsWriterNode(boolean withSourceLocation)
     {
         PlanVariableAllocator variableAllocator = new PlanVariableAllocator();
 
         return new StatisticsWriterNode(
-                Optional.empty(),
+                withSourceLocation ? Optional.of(new SourceLocation(1, 2)) : Optional.empty(),
                 newId(),
                 new ValuesNode(Optional.empty(), newId(), COLUMNS.stream().map(column -> new VariableReferenceExpression(Optional.empty(), column, BIGINT)).collect(toImmutableList()), ImmutableList.of(), Optional.empty()),
                 new TableHandle(new ConnectorId("test"), new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty()),

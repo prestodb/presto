@@ -39,7 +39,7 @@ public class StatisticsWriterNode
 
     @JsonCreator
     public StatisticsWriterNode(
-            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("tableHandle") TableHandle tableHandle,
