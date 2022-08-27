@@ -130,8 +130,10 @@ void PrestoServer::run() {
   int servicePort;
   int httpExecThreads;
   try {
-    systemConfig->initialize(configDirectoryPath_ + "/config.properties");
-    nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
+    systemConfig->initialize(
+        fmt::format("{}/config.properties", configDirectoryPath_));
+    nodeConfig->initialize(
+        fmt::format("{}/node.properties", configDirectoryPath_));
     servicePort = systemConfig->httpServerHttpPort();
     nodeVersion_ = systemConfig->prestoVersion();
     httpExecThreads = systemConfig->httpExecThreads();
