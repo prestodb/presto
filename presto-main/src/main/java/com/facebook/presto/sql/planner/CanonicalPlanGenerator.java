@@ -267,7 +267,14 @@ public class CanonicalPlanGenerator
             sources.sort(comparing(sourceKeys::get));
         }
 
-        List<PlanNode> newSources = sources.stream().map(source -> source.accept(this, context).get()).collect(toImmutableList());
+        ImmutableList.Builder<PlanNode> newSources = ImmutableList.builder();
+        for (PlanNode source : sources) {
+            Optional<PlanNode> newSource = source.accept(this, context);
+            if (!newSource.isPresent()) {
+                return Optional.empty();
+            }
+            newSources.add(newSource.get());
+        }
         Set<JoinNode.EquiJoinClause> newCriterias = criterias.build().stream()
                 .map(criteria -> canonicalize(criteria, context))
                 .sorted(comparing(JoinNode.EquiJoinClause::toString))
@@ -283,7 +290,7 @@ public class CanonicalPlanGenerator
 
         PlanNode result = new CanonicalJoinNode(
                 planNodeidAllocator.getNextId(),
-                newSources,
+                newSources.build(),
                 node.getType(),
                 newCriterias,
                 newFilters,
