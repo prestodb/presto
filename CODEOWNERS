@@ -1,3 +1,6 @@
 /** @prestodb/committers
 /presto-hudi @vinothchandar @7c00
 /presto-native-execution @prestodb/team-velox
+/presto-docs @prestodb/team-releases
+/presto-verifier @prestodb/team-releases
+/.github @prestodb/team-releases
