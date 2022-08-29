@@ -98,13 +98,13 @@ class FormatData {
       uint64_t rowsPerRowGroup,
       const StatsContext& writerContext) = 0;
 
-  /// Test if the 'i'th RowGroup can potentially match the 'filter' using the
-  /// RowGroup's statistics on all columns. Returns true if all columns in this
-  /// RowGroup matches the filter, false otherwise. A column is said to match
-  /// the filter if its ColumnStatistics passes the filter, or the filter for
-  /// that column is NULL.
-  virtual bool rowGroupMatches(
-      uint32_t rowGroupId,
+  /// Test if the 'i'th Stripe (RowGroup for Parquet) can potentially match the
+  /// 'filter' using the Stripe's statistics on all columns. Returns true if all
+  /// columns in this Stripe matches the filter, false otherwise. A column is
+  /// said to match the filter if its ColumnStatistics passes the filter, or the
+  /// filter for that column is NULL.
+  virtual bool stripeMatches(
+      uint32_t stripeIndex,
       velox::common::Filter* FOLLY_NULLABLE filter) = 0;
 };
 
