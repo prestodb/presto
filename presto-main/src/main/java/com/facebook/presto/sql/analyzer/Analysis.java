@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.Type;
@@ -66,8 +65,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
-import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.NOT_VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITED;
 import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState.VISITING;
@@ -90,6 +87,7 @@ public class Analysis
 {
     @Nullable
     private final Statement root;
+    private final AnalysisContext analysisContext;
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
 
@@ -171,9 +169,10 @@ public class Analysis
     // Keeps track of the subquery we are visiting, so we have access to base query information when processing materialized view status
     private Optional<QuerySpecification> currentQuerySpecification = Optional.empty();
 
-    public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
+    public Analysis(@Nullable Statement root, @Nullable AnalysisContext analysisContext, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
+        this.analysisContext = analysisContext;
         this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
         this.isDescribe = isDescribe;
     }
@@ -802,18 +801,18 @@ public class Analysis
         return ImmutableMap.copyOf(utilizedTableColumnReferences);
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl(Session session)
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> getTableColumnAndSubfieldReferencesForAccessControl()
     {
         Map<AccessControlInfo, Map<QualifiedObjectName, Set<Subfield>>> references;
-        if (!isCheckAccessControlWithSubfields(session)) {
-            references = (isCheckAccessControlOnUtilizedColumnsOnly(session) ? utilizedTableColumnReferences : tableColumnReferences).entrySet().stream()
+        if (!analysisContext.isCheckAccessControlWithSubfields()) {
+            references = (analysisContext.isCheckAccessControlOnUtilizedColumnsOnly() ? utilizedTableColumnReferences : tableColumnReferences).entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getKey,
                             accessControlEntry -> accessControlEntry.getValue().entrySet().stream().collect(toImmutableMap(
                                     Map.Entry::getKey,
                                     tableEntry -> tableEntry.getValue().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet())))));
         }
-        else if (!isCheckAccessControlOnUtilizedColumnsOnly(session)) {
+        else if (!analysisContext.isCheckAccessControlOnUtilizedColumnsOnly()) {
             references = tableColumnAndSubfieldReferences;
         }
         else {
@@ -898,6 +897,7 @@ public class Analysis
     {
         this.currentQuerySpecification = Optional.of(currentSubQuery);
     }
+
     public Optional<QuerySpecification> getCurrentQuerySpecification()
     {
         return currentQuerySpecification;
