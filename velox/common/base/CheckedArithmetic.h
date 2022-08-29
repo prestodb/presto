@@ -20,6 +20,8 @@
 #include <string>
 #include "folly/Likely.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/type/UnscaledLongDecimal.h"
+#include "velox/type/UnscaledShortDecimal.h"
 
 namespace facebook::velox {
 
@@ -31,6 +33,38 @@ T checkedPlus(const T& a, const T& b) {
     VELOX_ARITHMETIC_ERROR("integer overflow: {} + {}", a, b);
   }
   return result;
+}
+
+template <>
+inline UnscaledShortDecimal checkedPlus(
+    const UnscaledShortDecimal& a,
+    const UnscaledShortDecimal& b) {
+  int64_t result;
+  bool overflow =
+      __builtin_add_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow)) {
+    VELOX_ARITHMETIC_ERROR(
+        "short decimal plus overflow: {} + {}",
+        a.unscaledValue(),
+        b.unscaledValue());
+  }
+  return UnscaledShortDecimal(result);
+}
+
+template <>
+inline UnscaledLongDecimal checkedPlus(
+    const UnscaledLongDecimal& a,
+    const UnscaledLongDecimal& b) {
+  int128_t result;
+  bool overflow =
+      __builtin_add_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow)) {
+    VELOX_ARITHMETIC_ERROR(
+        "long decimal plus overflow: {} + {}",
+        a.unscaledValue(),
+        b.unscaledValue());
+  }
+  return UnscaledLongDecimal(result);
 }
 
 template <typename T>
@@ -51,6 +85,38 @@ T checkedMultiply(const T& a, const T& b) {
     VELOX_ARITHMETIC_ERROR("integer overflow: {} * {}", a, b);
   }
   return result;
+}
+
+template <>
+inline UnscaledShortDecimal checkedMultiply(
+    const UnscaledShortDecimal& a,
+    const UnscaledShortDecimal& b) {
+  int64_t result;
+  bool overflow =
+      __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow)) {
+    VELOX_ARITHMETIC_ERROR(
+        "short decimal multiply overflow: {} * {}",
+        a.unscaledValue(),
+        b.unscaledValue());
+  }
+  return UnscaledShortDecimal(result);
+}
+
+template <>
+inline UnscaledLongDecimal checkedMultiply(
+    const UnscaledLongDecimal& a,
+    const UnscaledLongDecimal& b) {
+  int128_t result;
+  bool overflow =
+      __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow)) {
+    VELOX_ARITHMETIC_ERROR(
+        "long decimal multiply overflow: {} * {}",
+        a.unscaledValue(),
+        b.unscaledValue());
+  }
+  return UnscaledLongDecimal(result);
 }
 
 template <typename T>

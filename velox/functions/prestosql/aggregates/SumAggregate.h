@@ -34,6 +34,10 @@ class SumAggregate
     return sizeof(TAccumulator);
   }
 
+  int32_t accumulatorAlignmentSize() const override {
+    return 1;
+  }
+
   void initializeNewGroups(
       char** groups,
       folly::Range<const vector_size_t*> indices) override {
@@ -87,7 +91,7 @@ class SumAggregate
         &updateSingleValue<TAccumulator>,
         &updateDuplicateValues<TAccumulator>,
         mayPushdown,
-        0);
+        TAccumulator(0));
   }
 
   void addSingleGroupIntermediateResults(
@@ -102,7 +106,7 @@ class SumAggregate
         &updateSingleValue<ResultType>,
         &updateDuplicateValues<ResultType>,
         mayPushdown,
-        0);
+        ResultType(0));
   }
 
  protected:
@@ -152,7 +156,7 @@ class SumAggregate
       result += n * value;
     } else {
       result = functions::checkedPlus<TData>(
-          result, functions::checkedMultiply<TData>(n, value));
+          result, functions::checkedMultiply<TData>(TData(n), value));
     }
   }
 };
@@ -183,6 +187,49 @@ inline void SumAggregate<float, double, float>::extractValues(
       });
 }
 
+/// Override 'initializeNewGroups' for decimal values to call set method to
+/// initialize the decimal value properly.
+template <>
+inline void
+SumAggregate<UnscaledShortDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
+    initializeNewGroups(
+        char** groups,
+        folly::Range<const vector_size_t*> indices) {
+  exec::Aggregate::setAllNulls(groups, indices);
+  for (auto i : indices) {
+    exec::Aggregate::value<UnscaledLongDecimal>(groups[i])->setUnscaledValue(0);
+  }
+}
+
+template <>
+inline void
+SumAggregate<UnscaledLongDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
+    initializeNewGroups(
+        char** groups,
+        folly::Range<const vector_size_t*> indices) {
+  exec::Aggregate::setAllNulls(groups, indices);
+  for (auto i : indices) {
+    exec::Aggregate::value<UnscaledLongDecimal>(groups[i])->setUnscaledValue(0);
+  }
+}
+
+/// Override 'accumulatorAlignmentSize' for UnscaledLongDecimal values as it
+/// uses int128_t type. Some CPUs don't support misaligned access to int128_t
+/// type.
+template <>
+inline int32_t
+SumAggregate<UnscaledShortDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
+    accumulatorAlignmentSize() const {
+  return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
+}
+
+template <>
+inline int32_t
+SumAggregate<UnscaledLongDecimal, UnscaledLongDecimal, UnscaledLongDecimal>::
+    accumulatorAlignmentSize() const {
+  return static_cast<int32_t>(sizeof(UnscaledLongDecimal));
+}
+
 template <template <typename U, typename V, typename W> class T>
 bool registerSumAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
@@ -195,6 +242,11 @@ bool registerSumAggregate(const std::string& name) {
           .returnType("double")
           .intermediateType("double")
           .argumentType("double")
+          .build(),
+      exec::AggregateFunctionSignatureBuilder()
+          .argumentType("DECIMAL(a_precision, a_scale)")
+          .intermediateType("DECIMAL(38, a_scale)")
+          .returnType("DECIMAL(38, a_scale)")
           .build(),
   };
 
@@ -234,6 +286,16 @@ bool registerSumAggregate(const std::string& name) {
               return std::make_unique<T<double, double, float>>(resultType);
             }
             return std::make_unique<T<double, double, double>>(DOUBLE());
+          case TypeKind::SHORT_DECIMAL:
+            return std::make_unique<
+                T<UnscaledShortDecimal,
+                  UnscaledLongDecimal,
+                  UnscaledLongDecimal>>(resultType);
+          case TypeKind::LONG_DECIMAL:
+            return std::make_unique<
+                T<UnscaledLongDecimal,
+                  UnscaledLongDecimal,
+                  UnscaledLongDecimal>>(resultType);
           default:
             VELOX_CHECK(
                 false,

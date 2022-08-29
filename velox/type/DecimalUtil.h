@@ -24,16 +24,6 @@
 
 namespace facebook::velox {
 
-#if defined(__has_feature)
-#if __has_feature(__address_sanitizer__)
-__attribute__((__no_sanitize__("signed-integer-overflow")))
-#endif
-#endif
-inline int128_t
-mul(int128_t x, const int128_t y) {
-  return x * y;
-}
-
 /// A static class that holds helper functions for DECIMAL type.
 class DecimalUtil {
  public:

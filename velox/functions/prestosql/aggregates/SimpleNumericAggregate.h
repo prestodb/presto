@@ -100,7 +100,7 @@ class SimpleNumericAggregate : public exec::Aggregate {
         auto value = decoded.valueAt<TInput>(0);
         rows.applyToSelected([&](vector_size_t i) {
           updateNonNullValue<tableHasNulls, TData>(
-              groups[i], value, updateSingleValue);
+              groups[i], TData(value), updateSingleValue);
         });
       }
     } else if (decoded.mayHaveNulls()) {
@@ -109,18 +109,18 @@ class SimpleNumericAggregate : public exec::Aggregate {
           return;
         }
         updateNonNullValue<tableHasNulls, TData>(
-            groups[i], decoded.valueAt<TInput>(i), updateSingleValue);
+            groups[i], TData(decoded.valueAt<TInput>(i)), updateSingleValue);
       });
     } else if (decoded.isIdentityMapping() && !std::is_same_v<TInput, bool>) {
       auto data = decoded.data<TInput>();
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<tableHasNulls, TData>(
-            groups[i], data[i], updateSingleValue);
+            groups[i], TData(data[i]), updateSingleValue);
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<tableHasNulls, TData>(
-            groups[i], decoded.valueAt<TInput>(i), updateSingleValue);
+            groups[i], TData(decoded.valueAt<TInput>(i)), updateSingleValue);
       });
     }
   }
@@ -145,7 +145,9 @@ class SimpleNumericAggregate : public exec::Aggregate {
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
         updateDuplicateValues(
-            initialValue, decoded.valueAt<TInput>(0), rows.countSelected());
+            initialValue,
+            TData(decoded.valueAt<TInput>(0)),
+            rows.countSelected());
         updateNonNullValue<true, TData>(group, initialValue, updateSingleValue);
       }
     } else if (decoded.mayHaveNulls()) {
@@ -154,17 +156,18 @@ class SimpleNumericAggregate : public exec::Aggregate {
           return;
         }
         updateNonNullValue<true, TData>(
-            group, decoded.valueAt<TInput>(i), updateSingleValue);
+            group, TData(decoded.valueAt<TInput>(i)), updateSingleValue);
       });
     } else if (decoded.isIdentityMapping() && !std::is_same_v<TInput, bool>) {
       auto data = decoded.data<TInput>();
       rows.applyToSelected([&](vector_size_t i) {
-        updateNonNullValue<true, TData>(group, data[i], updateSingleValue);
+        updateNonNullValue<true, TData>(
+            group, TData(data[i]), updateSingleValue);
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<true, TData>(
-            group, decoded.valueAt<TInput>(i), updateSingleValue);
+            group, TData(decoded.valueAt<TInput>(i)), updateSingleValue);
       });
     }
   }

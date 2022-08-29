@@ -98,6 +98,8 @@ RowContainer::RowContainer(
   int32_t firstAggregate = offsets_.size();
   int32_t firstAggregateOffset = offset;
   for (auto& aggregate : aggregates) {
+    // Accumulator offset must be aligned by their alignment size.
+    offset = bits::roundUp(offset, aggregate->accumulatorAlignmentSize());
     offsets_.push_back(offset);
     offset += aggregate->accumulatorFixedWidthSize();
     nullOffsets_.push_back(nullOffset);

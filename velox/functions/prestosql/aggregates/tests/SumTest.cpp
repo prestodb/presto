@@ -16,7 +16,6 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/AggregationHook.h"
-#include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
@@ -38,7 +37,9 @@ class SumTest : public AggregationTestBase {
       typename InputType,
       typename ResultType,
       typename IntermediateType = ResultType>
-  void testAggregateOverflow(bool expectOverflow = false);
+  void testAggregateOverflow(
+      bool expectOverflow = false,
+      const TypePtr& type = CppToType<InputType>::create());
 };
 
 template <typename ResultType>
@@ -56,6 +57,12 @@ void verifyAggregates(
       } else if constexpr (std::is_same_v<ResultType, double>) {
         ASSERT_FLOAT_EQ(
             result.template value<TypeKind::DOUBLE>(), expectedResult);
+      } else if constexpr (std::is_same_v<ResultType, UnscaledShortDecimal>) {
+        auto output = result.template value<TypeKind::SHORT_DECIMAL>();
+        ASSERT_EQ(output.value(), expectedResult);
+      } else if constexpr (std::is_same_v<ResultType, UnscaledLongDecimal>) {
+        auto output = result.template value<TypeKind::LONG_DECIMAL>();
+        ASSERT_EQ(output.value(), expectedResult);
       } else {
         ASSERT_EQ(result, expectedResult);
       }
@@ -70,28 +77,30 @@ __attribute__((no_sanitize("integer")))
 #endif
 #endif
 void SumTest::testAggregateOverflow(
-    bool expectOverflow) {
-  InputType maxLimit = std::numeric_limits<InputType>::max();
-  InputType overflow = 1;
+    bool expectOverflow,
+    const TypePtr& type) {
+  const InputType maxLimit = std::numeric_limits<InputType>::max();
+  const InputType overflow = InputType(1);
+  const InputType zero = InputType(0);
 
   // Intermediate type size is always >= result type size. Hence, use
   // intermediate type to calculate the expected output.
-  IntermediateType limitResult = maxLimit;
-  IntermediateType overflowResult = overflow;
+  IntermediateType limitResult = IntermediateType(maxLimit);
+  IntermediateType overflowResult = IntermediateType(overflow);
 
   // Single max limit value. 0's to induce dummy calculations.
   auto limitVector =
-      makeRowVector({makeFlatVector<InputType>({maxLimit, 0, 0})});
+      makeRowVector({makeFlatVector<InputType>({maxLimit, zero, zero}, type)});
 
   // Test code path for single values with possible overflow hit in add.
   auto overflowFlatVector =
-      makeRowVector({makeFlatVector<InputType>({maxLimit, overflow})});
+      makeRowVector({makeFlatVector<InputType>({maxLimit, overflow}, type)});
   IntermediateType expectedFlatSum = limitResult + overflowResult;
 
   // Test code path for duplicate values with possible overflow hit in
   // multiply.
   auto overflowConstantVector =
-      makeRowVector({makeConstant<InputType>(maxLimit / 3, 4)});
+      makeRowVector({makeConstant<InputType>(maxLimit / 3, 4, type)});
   IntermediateType expectedConstantSum = (limitResult / 3) * 4;
 
   // Test code path for duplicate values with possible overflow hit in add.
@@ -236,6 +245,23 @@ TEST_F(SumTest, sumDouble) {
         {"sum(c0)", "sum(c1)"},
         "SELECT sum(c0), sum(c1) FROM tmp");
   }
+}
+
+TEST_F(SumTest, sumDecimal) {
+  auto input = makeRowVector(
+      {makeNullableShortDecimalFlatVector(
+           {1'000, 2'000, 3'000, 4'000, 5'000, std::nullopt}, DECIMAL(10, 1)),
+       makeNullableLongDecimalFlatVector(
+           {buildInt128(10, 100),
+            buildInt128(10, 200),
+            buildInt128(10, 300),
+            buildInt128(10, 400),
+            buildInt128(10, 500),
+            std::nullopt},
+           DECIMAL(23, 4))});
+  createDuckDbTable({input});
+  testAggregations(
+      {input}, {}, {"sum(c0)", "sum(c1)"}, "SELECT sum(c0), sum(c1) FROM tmp");
 }
 
 TEST_F(SumTest, sumWithMask) {
@@ -460,6 +486,15 @@ TEST_F(SumTest, integerAggregateOverflow) {
 TEST_F(SumTest, floatAggregateOverflow) {
   testAggregateOverflow<float, float, double>();
   testAggregateOverflow<double, double>();
+}
+
+TEST_F(SumTest, DISABLED_decimalAggregateOverflow) {
+  testAggregateOverflow<
+      UnscaledShortDecimal,
+      UnscaledLongDecimal,
+      UnscaledLongDecimal>(false, DECIMAL(10, 5));
+  testAggregateOverflow<UnscaledLongDecimal, UnscaledLongDecimal>(
+      true, DECIMAL(20, 5));
 }
 } // namespace
 } // namespace facebook::velox::aggregate::test

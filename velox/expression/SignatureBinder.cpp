@@ -45,17 +45,18 @@ TypePtr inferDecimalType(
     const std::unordered_map<std::string, std::string>& constraints) {
   const auto& precisionVar = typeSignature.variables()[0];
   const auto& scaleVar = typeSignature.variables()[1];
-  // check for constraints, else set defaults.
-  const auto& precisionConstraint = constraints.find(precisionVar);
-  const auto& scaleConstraint = constraints.find(scaleVar);
-
   int precision = 0;
   int scale = 0;
   // Determine precision.
-  // Handle constant.
   if (isPositiveInteger(precisionVar)) {
+    // Handle constant.
     precision = atoi(precisionVar.c_str());
+  } else if (variables.find(precisionVar) != variables.end()) {
+    // Check if variable is already computed.
+    precision = variables[precisionVar];
   } else {
+    // Check constraints and evaluate.
+    const auto& precisionConstraint = constraints.find(precisionVar);
     VELOX_CHECK(
         precisionConstraint != constraints.end(),
         "Missing constraint for variable {}",
@@ -66,10 +67,15 @@ TypePtr inferDecimalType(
     precision = variables[precisionVar];
   }
   // Determine scale.
-  // Handle constant.
   if (isPositiveInteger(scaleVar)) {
+    // Handle constant.
     scale = atoi(scaleVar.c_str());
+  } else if (variables.find(scaleVar) != variables.end()) {
+    // Check if variable is already computed.
+    scale = variables[scaleVar];
   } else {
+    // Check constraints and evaluate.
+    const auto& scaleConstraint = constraints.find(scaleVar);
     VELOX_CHECK(
         scaleConstraint != constraints.end(),
         "Missing constraint for variable {}",

@@ -115,10 +115,8 @@ TEST(SignatureBinderTest, decimals) {
   {
     auto signature = exec::AggregateFunctionSignatureBuilder()
                          .argumentType("DECIMAL(a_precision, a_scale)")
-                         .intermediateType("DECIMAL(38, i_scale)")
-                         .variableConstraint("i_scale", "a_scale")
-                         .returnType("DECIMAL(38, r_scale)")
-                         .variableConstraint("r_scale", "a_scale")
+                         .intermediateType("DECIMAL(38, a_scale)")
+                         .returnType("DECIMAL(38, a_scale)")
                          .build();
 
     const std::vector<TypePtr> actualTypes{DECIMAL(10, 4)};

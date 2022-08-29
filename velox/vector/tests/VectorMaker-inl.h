@@ -251,14 +251,15 @@ FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVectorNullable(
 
 template <typename T>
 FlatVectorPtr<VectorMaker::EvalType<T>> VectorMaker::flatVector(
-    const std::vector<T>& data) {
+    const std::vector<T>& data,
+    const TypePtr& type) {
   using TEvalType = EvalType<T>;
   BufferPtr dataBuffer = AlignedBuffer::allocate<TEvalType>(data.size(), pool_);
 
   auto stats = genVectorMakerStats(data);
   auto flatVector = std::make_shared<FlatVector<TEvalType>>(
       pool_,
-      CppToType<T>::create(),
+      type,
       BufferPtr(nullptr),
       data.size(),
       std::move(dataBuffer),

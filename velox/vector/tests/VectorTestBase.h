@@ -136,9 +136,13 @@ class VectorTestBase {
     return vectorMaker_.flatVector<T>(size, valueAt, isNullAt);
   }
 
+  /// Decimal Vector type cannot be inferred from the cpp type alone as the cpp
+  /// type does not contain the precision and scale.
   template <typename T>
-  FlatVectorPtr<EvalType<T>> makeFlatVector(const std::vector<T>& data) {
-    return vectorMaker_.flatVector<T>(data);
+  FlatVectorPtr<EvalType<T>> makeFlatVector(
+      const std::vector<T>& data,
+      const TypePtr& type = CppToType<T>::create()) {
+    return vectorMaker_.flatVector<T>(data, type);
   }
 
   template <typename T>
@@ -149,8 +153,10 @@ class VectorTestBase {
   }
 
   template <typename T, int TupleIndex, typename TupleType>
-  FlatVectorPtr<T> makeFlatVector(const std::vector<TupleType>& data) {
-    return vectorMaker_.flatVector<T, TupleIndex, TupleType>(data);
+  FlatVectorPtr<T> makeFlatVector(
+      const std::vector<TupleType>& data,
+      const TypePtr& type = CppToType<T>::create()) {
+    return vectorMaker_.flatVector<T, TupleIndex, TupleType>(data, type);
   }
 
   template <typename T>
@@ -552,8 +558,17 @@ class VectorTestBase {
   }
 
   template <typename T>
-  VectorPtr makeConstant(T value, vector_size_t size) {
-    return BaseVector::createConstant(value, size, pool());
+  VectorPtr
+  makeConstant(T value, vector_size_t size, const TypePtr& type = {}) {
+    variant v;
+    if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
+      v = variant::shortDecimal(value.unscaledValue(), type);
+    } else if constexpr (std::is_same_v<T, UnscaledLongDecimal>) {
+      v = variant::longDecimal(value.unscaledValue(), type);
+    } else {
+      v = value;
+    }
+    return BaseVector::createConstant(v, size, pool());
   }
 
   template <typename T>

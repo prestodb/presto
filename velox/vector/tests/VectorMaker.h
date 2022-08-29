@@ -138,15 +138,19 @@ class VectorMaker {
   ///   auto flatVector = flatVector({1, 2, 3, 4});
   ///   auto flatVector2 = flatVector({"hello", "world"});
   template <typename T>
-  FlatVectorPtr<EvalType<T>> flatVector(const std::vector<T>& data);
+  FlatVectorPtr<EvalType<T>> flatVector(
+      const std::vector<T>& data,
+      const TypePtr& type = CppToType<T>::create());
 
   // Helper overload to allow users to use initializer list directly without
   // explicitly specifying the template type, e.g:
   //
   //   auto flatVector2 = flatVector({"hello", "world"});
   template <typename T>
-  FlatVectorPtr<EvalType<T>> flatVector(const std::initializer_list<T>& data) {
-    return flatVector(std::vector<T>(data));
+  FlatVectorPtr<EvalType<T>> flatVector(
+      const std::initializer_list<T>& data,
+      const TypePtr& type = CppToType<T>::create()) {
+    return flatVector(std::vector<T>(data), type);
   }
 
   /// Create a FlatVector<T>
@@ -174,9 +178,11 @@ class VectorMaker {
   }
 
   template <typename T, int TupleIndex, typename TupleType>
-  FlatVectorPtr<T> flatVector(const std::vector<TupleType>& data) {
+  FlatVectorPtr<T> flatVector(
+      const std::vector<TupleType>& data,
+      const TypePtr& type) {
     auto vector = std::dynamic_pointer_cast<FlatVector<T>>(
-        BaseVector::create(CppToType<T>::create(), data.size(), pool_));
+        BaseVector::create(type, data.size(), pool_));
     for (vector_size_t i = 0; i < data.size(); ++i) {
       vector->set(i, std::get<TupleIndex>(data[i]));
     }

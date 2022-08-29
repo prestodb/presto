@@ -68,5 +68,12 @@ TEST(DecimalTest, decimalToString) {
       DecimalUtil::toString(UnscaledLongDecimal(-1000), DECIMAL(20, 6)));
   ASSERT_EQ("0", DecimalUtil::toString(UnscaledLongDecimal(0), DECIMAL(20, 9)));
 }
+
+TEST(DecimalTest, overloads) {
+  ASSERT_EQ(UnscaledShortDecimal(3), UnscaledShortDecimal(10) / 3);
+  ASSERT_EQ(UnscaledLongDecimal(33), UnscaledLongDecimal(100) / 3);
+  ASSERT_EQ(UnscaledLongDecimal(300), UnscaledLongDecimal(100) * 3);
+}
+
 } // namespace
 } // namespace facebook::velox

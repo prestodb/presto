@@ -37,7 +37,6 @@ class SignatureBinder {
       if (!variable.constraint().empty()) {
         constraints_.insert({variable.name(), variable.constraint()});
       }
-      variables_.insert({variable.name(), -1});
     }
   }
 
