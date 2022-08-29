@@ -4,7 +4,7 @@
     <parent>
         <artifactId>presto-root</artifactId>
         <groupId>com.facebook.presto</groupId>
-        <version>0.276</version>
+        <version>0.276.1-SNAPSHOT</version>
     </parent>
     <artifactId>presto-hudi</artifactId>
     <description>Presto - Hudi Connector</description>
