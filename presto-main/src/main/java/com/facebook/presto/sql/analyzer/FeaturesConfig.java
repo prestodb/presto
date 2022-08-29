@@ -230,6 +230,7 @@ public class FeaturesConfig
     private int maxStageCountForEagerScheduling = 25;
     private boolean quickDistinctLimitEnabled;
 
+    private boolean transformTopNToStreamingMergeLimit = true;
     private double hyperloglogStandardErrorWarningThreshold = 0.004;
 
     public enum PartitioningPrecisionStrategy
@@ -2160,6 +2161,18 @@ public class FeaturesConfig
     public FeaturesConfig setQuickDistinctLimitEnabled(boolean quickDistinctLimitEnabled)
     {
         this.quickDistinctLimitEnabled = quickDistinctLimitEnabled;
+        return this;
+    }
+    public boolean isTransformTopNToStreamingMergeLimit()
+    {
+        return transformTopNToStreamingMergeLimit;
+    }
+
+    @Config("optimizer.transform-topn-to-streaming-merge-limit")
+    @ConfigDescription("")
+    public FeaturesConfig setTransformTopNToStreamingMergeLimit(boolean transformTopNToStreamingMergeLimit)
+    {
+        this.transformTopNToStreamingMergeLimit = transformTopNToStreamingMergeLimit;
         return this;
     }
 }

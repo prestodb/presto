@@ -161,11 +161,15 @@ public final class HiveQueryRunner
                 .putAll(extraProperties)
                 .build();
 
+        Map<String, String> coordinatorProperties = ImmutableMap.<String, String>builder()
+                .put("node-scheduler.include-coordinator", "false")
+                .putAll(extraCoordinatorProperties)
+                .build();
         DistributedQueryRunner queryRunner =
                 DistributedQueryRunner.builder(createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))))
-                        .setNodeCount(workerCount.orElse(4))
+                        .setNodeCount(workerCount.orElse(10))
                         .setExtraProperties(systemProperties)
-                        .setCoordinatorProperties(extraCoordinatorProperties)
+                        .setCoordinatorProperties(coordinatorProperties)
                         .setBaseDataDir(baseDataDir)
                         .setExternalWorkerLauncher(externalWorkerLauncher)
                         .build();

@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.MarkDistinctNode;
+import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
@@ -543,15 +544,22 @@ public class AddExchanges
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
             if (!child.getProperties().isSingleNode()) {
+                PlanNode childNode = getOnlyElement(child.getNode().getSources());
+                if (childNode instanceof TopNNode) {
+                    OrderingScheme orderingScheme =((TopNNode) childNode).getOrderingScheme();
+                    child = withDerivedProperties(
+                            mergingExchange(idAllocator.getNextId(), REMOTE_STREAMING, childNode, orderingScheme),
+                            child.getProperties());
+                }
+                else {
                 child = withDerivedProperties(
                         new LimitNode(child.getNode().getSourceLocation(), idAllocator.getNextId(), child.getNode(), node.getCount(), PARTIAL),
                         child.getProperties());
-
-                child = withDerivedProperties(
-                        gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
-                        child.getProperties());
+                    child = withDerivedProperties(
+                            gatheringExchange(idAllocator.getNextId(), REMOTE_STREAMING, child.getNode()),
+                            child.getProperties());
+                }
             }
-
             return rebaseAndDeriveProperties(node, child);
         }
 

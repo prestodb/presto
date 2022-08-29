@@ -241,6 +241,7 @@ public final class SystemSessionProperties
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
+    public static final String TRANSFORM_TOPN_TO_STREAMING_MERGE_LIMIT = "transform_topn_to_streaming_merge_limit";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1192,6 +1193,11 @@ public final class SystemSessionProperties
                         MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED,
                         "When enabled and reading from materialized view, partition stitching is applied to achieve data consistency",
                         featuresConfig.isMaterializedViewDataConsistencyEnabled(),
+                        false),
+                booleanProperty(
+                        TRANSFORM_TOPN_TO_STREAMING_MERGE_LIMIT,
+                        "Allow planner to transform TopN to streaming merge Limit to reduce final sorting",
+                        featuresConfig.isTransformTopNToStreamingMergeLimit(),
                         false),
                 booleanProperty(
                         CONSIDER_QUERY_FILTERS_FOR_MATERIALIZED_VIEW_PARTITIONS,
@@ -2218,6 +2224,11 @@ public final class SystemSessionProperties
     public static boolean useHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(USE_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean isTransformTopNToStreamingMergeLimit(Session session)
+    {
+        return session.getSystemProperty(TRANSFORM_TOPN_TO_STREAMING_MERGE_LIMIT, Boolean.class);
     }
 
     public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)

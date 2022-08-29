@@ -120,6 +120,7 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarA
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.rule.TransformTopNToStreamingMergeLimit;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
@@ -559,7 +560,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 ImmutableSet.of(
                         new CreatePartialTopN(),
-                        new PushTopNThroughUnion())));
+                        new PushTopNThroughUnion(),
+                        new TransformTopNToStreamingMergeLimit())));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
