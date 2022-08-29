@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlOnUtilizedColumnsOnly;
+import static com.facebook.presto.SystemSessionProperties.isCheckAccessControlWithSubfields;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExternalFunctions;
@@ -88,7 +90,12 @@ public class Analyzer
     public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
-        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, isDescribe);
+
+        //better place for this initilization?
+        AnalysisContext analysisContext = new AnalysisContext();
+        analysisContext.setCheckAccessControlOnUtilizedColumnsOnly(isCheckAccessControlOnUtilizedColumnsOnly(session)).setCheckAccessControlWithSubfields(isCheckAccessControlWithSubfields(session));
+
+        Analysis analysis = new Analysis(rewrittenStatement, analysisContext, parameterLookup, isDescribe);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement());
@@ -101,7 +108,7 @@ public class Analyzer
      */
     public void checkColumnAccessPermissions(Analysis analysis)
     {
-        analysis.getTableColumnAndSubfieldReferencesForAccessControl(session).forEach((accessControlInfo, tableColumnReferences) ->
+        analysis.getTableColumnAndSubfieldReferencesForAccessControl().forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->
                         accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                 session.getRequiredTransactionId(),
