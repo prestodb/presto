@@ -114,21 +114,10 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
 PrestoServer::~PrestoServer() {}
 
 void PrestoServer::run() {
-  registerPrestoCppCounters();
-  velox::filesystems::registerLocalFileSystem();
-  registerOptionalHiveStorageAdapters();
-  protocol::registerHiveConnectors();
-
   auto systemConfig = SystemConfig::instance();
-
-  auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->numIoThreads(),
-      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
-  folly::setUnsafeMutableGlobalIOExecutor(executor);
-
   auto nodeConfig = NodeConfig::instance();
-  int servicePort;
-  int httpExecThreads;
+  int servicePort{0};
+  int httpExecThreads{0};
   try {
     systemConfig->initialize(
         fmt::format("{}/config.properties", configDirectoryPath_));
@@ -150,6 +139,17 @@ void PrestoServer::run() {
     // Avoid logging again.
     exit(EXIT_FAILURE);
   }
+
+  registerPrestoCppCounters();
+  velox::filesystems::registerLocalFileSystem();
+  registerOptionalHiveStorageAdapters();
+  protocol::registerHiveConnectors();
+
+  auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
+      systemConfig->numIoThreads(),
+      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
+  folly::setUnsafeMutableGlobalIOExecutor(executor);
+
   initializeAsyncCache();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
