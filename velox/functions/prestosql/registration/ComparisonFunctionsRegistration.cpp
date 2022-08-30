@@ -25,9 +25,8 @@ void registerComparisonFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_eq, "eq");
   registerFunction<EqFunction, bool, Generic<T1>, Generic<T1>>({"eq"});
 
-  // Not enabling simd for neq due to xsimd bug.
-  // See here: https://github.com/xtensor-stack/xsimd/issues/805
-  registerBinaryScalar<NeqFunction, bool>({"neq"});
+  registerNonSimdizableScalar<NeqFunction, bool>({"neq"});
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_neq, "neq");
 
   registerNonSimdizableScalar<LtFunction, bool>({"lt"});
   VELOX_REGISTER_VECTOR_FUNCTION(udf_simd_comparison_lt, "lt");
