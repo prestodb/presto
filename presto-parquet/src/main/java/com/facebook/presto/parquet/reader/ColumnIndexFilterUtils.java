@@ -129,11 +129,11 @@ public class ColumnIndexFilterUtils
         public String toString()
         {
             try (Formatter formatter = new Formatter()) {
-                formatter.format("%-12s  %20s  %16s  %20s\n", "", "offset", "compressed size", "first row index");
+                formatter.format("%-12s  %20s  %16s  %20s%n", "", "offset", "compressed size", "first row index");
                 for (int i = 0, n = offsetIndex.getPageCount(); i < n; ++i) {
                     int index = Arrays.binarySearch(indices, i);
                     boolean isHidden = index < 0;
-                    formatter.format("%spage-%-5d  %20d  %16d  %20d\n",
+                    formatter.format("%spage-%-5d  %20d  %16d  %20d%n",
                             isHidden ? "- " : "  ",
                             isHidden ? i : index,
                             offsetIndex.getOffset(i),

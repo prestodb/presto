@@ -82,6 +82,7 @@ import static com.facebook.presto.SystemSessionProperties.COLOCATED_JOIN;
 import static com.facebook.presto.SystemSessionProperties.CONCURRENT_LIFESPANS_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.EXCHANGE_MATERIALIZATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.GROUPED_EXECUTION;
+import static com.facebook.presto.SystemSessionProperties.INLINE_SQL_FUNCTIONS;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
@@ -719,6 +720,24 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
         assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
+    }
+
+    @Test
+    public void testInlineRecursiveSqlFunctions()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(INLINE_SQL_FUNCTIONS, "false")
+                .build();
+
+        @Language("SQL") String createTable = "create table if not exists test_array_temp as select sequence(1, 10) x";
+        @Language("SQL") String queryTable = "SELECT\n" +
+                "\"array_sum\"(\"transform\"(x, (y) -> \"cardinality\"(x)))\n" +
+                ", \"array_sum\"(\"transform\"(x, (y) -> \"array_sum\"(\"transform\"(x, (check) -> IF((NOT random(10) > 10), 1, 0)))))\n" +
+                "FROM\n" +
+                "test_array_temp";
+
+        assertUpdate(session, createTable, 1);
+        assertQuerySucceeds(session, queryTable);
     }
 
     @Test
@@ -4960,13 +4979,13 @@ public class TestHiveIntegrationSmokeTest
 
     private String getAvroCreateTableSql(String tableName, String schemaFile)
     {
-        return format("CREATE TABLE %s.%s.%s (\n" +
-                        "   \"dummy_col\" varchar,\n" +
-                        "   \"another_dummy_col\" varchar\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   avro_schema_url = '%s',\n" +
-                        "   format = 'AVRO'\n" +
+        return format("CREATE TABLE %s.%s.%s (%n" +
+                        "   \"dummy_col\" varchar,%n" +
+                        "   \"another_dummy_col\" varchar%n" +
+                        ")%n" +
+                        "WITH (%n" +
+                        "   avro_schema_url = '%s',%n" +
+                        "   format = 'AVRO'%n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -5619,14 +5638,14 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testShowCreateOnMaterializedView()
     {
-        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1\n" +
-                        "WITH (\n" +
+        String createMaterializedViewSql = formatSqlText(format("CREATE MATERIALIZED VIEW %s.%s.test_customer_view_1%n" +
+                        "WITH (%n" +
                         "   format = 'ORC'," +
-                        "   partitioned_by = ARRAY['nationkey']\n" +
+                        "   partitioned_by = ARRAY['nationkey']%n" +
                         retentionDays(15) +
-                        ") AS SELECT\n" +
-                        "  name\n" +
-                        ", nationkey\n" +
+                        ") AS SELECT%n" +
+                        "  name%n" +
+                        ", nationkey%n" +
                         "FROM\n" +
                         "  test_customer_base_1",
                 getSession().getCatalog().get(),

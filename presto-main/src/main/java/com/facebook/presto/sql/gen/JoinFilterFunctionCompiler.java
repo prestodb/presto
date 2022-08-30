@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PRIVATE;
@@ -155,6 +156,7 @@ public class JoinFilterFunctionCompiler
 
         FieldDefinition propertiesField = classDefinition.declareField(a(PRIVATE, FINAL), "properties", SqlFunctionProperties.class);
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(
                 classDefinition,
                 callSiteBinder,
@@ -162,8 +164,19 @@ public class JoinFilterFunctionCompiler
                 filter,
                 metadata,
                 sqlFunctionProperties,
-                sessionFunctions);
-        generateFilterMethod(sqlFunctionProperties, sessionFunctions, classDefinition, callSiteBinder, cachedInstanceBinder, compiledLambdaMap, filter, leftBlocksSize, propertiesField);
+                sessionFunctions,
+                lambdaCounter);
+        generateFilterMethod(
+                sqlFunctionProperties,
+                sessionFunctions,
+                classDefinition,
+                callSiteBinder,
+                cachedInstanceBinder,
+                compiledLambdaMap,
+                filter,
+                leftBlocksSize,
+                propertiesField,
+                lambdaCounter);
 
         generateConstructor(classDefinition, propertiesField, cachedInstanceBinder);
     }
@@ -197,7 +210,8 @@ public class JoinFilterFunctionCompiler
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             RowExpression filter,
             int leftBlocksSize,
-            FieldDefinition propertiesField)
+            FieldDefinition propertiesField,
+            AtomicInteger lambdaCounter)
     {
         // int leftPosition, Page leftPage, int rightPosition, Page rightPage
         Parameter leftPosition = arg("leftPosition", int.class);
@@ -231,7 +245,8 @@ public class JoinFilterFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                lambdaCounter);
 
         BytecodeNode visitorBody = compiler.compile(filter, scope, Optional.empty());
 
