@@ -30,7 +30,7 @@ class HttpResponse {
 
   ~HttpResponse();
 
-  proxygen::HTTPMessage* headers() {
+  proxygen::HTTPMessage* FOLLY_NONNULL headers() {
     return headers_.get();
   }
 
@@ -69,7 +69,7 @@ class HttpResponse {
 class HttpClient {
  public:
   HttpClient(
-      folly::EventBase* eventBase,
+      folly::EventBase* FOLLY_NONNULL eventBase,
       const folly::SocketAddress& address,
       std::chrono::milliseconds timeout);
 
@@ -81,7 +81,7 @@ class HttpClient {
       const std::string& body = "");
 
  private:
-  folly::EventBase* eventBase_;
+  folly::EventBase* FOLLY_NONNULL eventBase_;
   const folly::SocketAddress address_;
   const folly::HHWheelTimer::UniquePtr timer_;
   std::unique_ptr<proxygen::SessionPool> sessionPool_;
@@ -116,7 +116,7 @@ class RequestBuilder {
   }
 
   folly::SemiFuture<std::unique_ptr<HttpResponse>> send(
-      HttpClient* client,
+      HttpClient* FOLLY_NONNULL client,
       const std::string& body = "") {
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
     headers_.ensureHostHeader();
