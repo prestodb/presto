@@ -110,7 +110,6 @@ public class KeyProperty
      */
     private void addNonRedundantKey(Key newKey)
     {
-        requireNonNull(newKey, "newKey is null");
         Set<Key> removedKeys = new HashSet<>();
         for (Key key : keys) {
             //if the new key >= key don't add it
