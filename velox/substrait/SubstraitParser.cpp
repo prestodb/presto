@@ -86,6 +86,14 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = substraitType.struct_().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kList: {
+      // The type name of list is in the format of: ARRAY<T>.
+      const auto& sList = substraitType.list();
+      const auto& sType = sList.type();
+      typeName = "ARRAY<" + parseType(sType)->type + ">";
+      nullability = substraitType.list().nullability();
+      break;
+    }
     case ::substrait::Type::KindCase::kUserDefined: {
       // We only support UNKNOWN type to handle the null literal whose type is
       // not known.
