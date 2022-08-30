@@ -76,6 +76,17 @@ public class TestRedundantAggregateDistinctRemoval
                 "count", functionCall("count", false, ImmutableList.of(anySymbol())),
                 "avg", functionCall("avg", false, ImmutableList.of(anySymbol())));
 
+        tester().assertThat(ImmutableSet.of(new RemoveRedundantAggregateDistinct()), logicalPropertiesProvider)
+                .on("SELECT count(distinct linenumber), avg(tax) FROM lineitem GROUP BY orderkey")
+                .matches(output(
+                        node(ProjectNode.class,
+                                aggregation(aggregations,
+                                        tableScan("lineitem")))));
+
+        aggregations = ImmutableMap.of(
+                "count", functionCall("count", false, ImmutableList.of(anySymbol())),
+                "avg", functionCall("avg", false, ImmutableList.of(anySymbol())));
+
         //single row per group, so all distinct's are redundant
         tester().assertThat(ImmutableSet.of(new RemoveRedundantAggregateDistinct()), logicalPropertiesProvider)
                 .on("SELECT count(distinct quantity), avg(distinct tax) FROM lineitem GROUP BY orderkey, linenumber")
