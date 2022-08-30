@@ -175,6 +175,8 @@ public class PrestoServer
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
 
+            startAssociatedProcesses();
+
             injector.getInstance(Announcer.class).start();
 
             log.info("======== SERVER STARTED ========");
@@ -188,6 +190,10 @@ public class PrestoServer
     protected Iterable<? extends Module> getAdditionalModules()
     {
         return ImmutableList.of();
+    }
+
+    protected void startAssociatedProcesses()
+    {
     }
 
     private static void updateConnectorIds(Announcer announcer, CatalogManager metadata, ServerConfig serverConfig, NodeSchedulerConfig schedulerConfig)
