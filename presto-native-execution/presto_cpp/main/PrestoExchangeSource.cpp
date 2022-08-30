@@ -259,6 +259,8 @@ void PrestoExchangeSource::abortResults() {
               "Abort results failed: {}, path {}", statusCode, self->basePath_);
           LOG(ERROR) << errMsg;
           onFinalFailure(errMsg, queue);
+        } else {
+          self->abortResultsSucceeded_.store(true);
         }
       })
       .thenError(
@@ -272,6 +274,13 @@ void PrestoExchangeSource::abortResults() {
             // due to other errors.
             onFinalFailure(errMsg, queue);
           });
+}
+
+void PrestoExchangeSource::close() {
+  closed_.store(true);
+  if (!abortResultsSucceeded_.load()) {
+    abortResults();
+  }
 }
 
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {

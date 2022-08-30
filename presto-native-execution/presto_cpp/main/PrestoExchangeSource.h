@@ -33,12 +33,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue);
 
+  void close() override;
+
  private:
   void request() override;
-
-  void close() override {
-    closed_.store(true);
-  }
 
   void doRequest();
 
@@ -59,5 +57,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   std::unique_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
   std::atomic_bool closed_{false};
+  // A boolean indicating whether abortResults() call was issued and was
+  // successfully processed by the remote server.
+  std::atomic_bool abortResultsSucceeded_{false};
 };
 } // namespace facebook::presto
