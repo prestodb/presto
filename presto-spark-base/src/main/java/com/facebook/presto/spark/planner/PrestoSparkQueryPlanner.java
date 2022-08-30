@@ -109,7 +109,7 @@ public class PrestoSparkQueryPlanner
                 warningCollector,
                 planChecker);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement()).getAnalysis();
         Plan plan = logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED);
         List<Input> inputs = new InputExtractor(metadata, session).extractInputs(plan.getRoot());
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
