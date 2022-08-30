@@ -213,7 +213,6 @@ import static com.facebook.presto.sql.QueryUtil.selectList;
 import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static com.facebook.presto.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
-import static com.facebook.presto.sql.analyzer.Analysis.MaterializedViewAnalysisState;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
@@ -291,7 +290,7 @@ class StatementAnalyzer
 {
     private static final Logger log = Logger.get(StatementAnalyzer.class);
     private static final int UNION_DISTINCT_FIELDS_WARNING_THRESHOLD = 3;
-    private final Analysis analysis;
+    private final AccessControlAwareAnalysis accessControlAwareAnalysis;
     private final Metadata metadata;
     private final Session session;
     private final SqlParser sqlParser;
@@ -299,14 +298,14 @@ class StatementAnalyzer
     private final WarningCollector warningCollector;
 
     public StatementAnalyzer(
-            Analysis analysis,
+            AccessControlAwareAnalysis accessControlAwareAnalysis,
             Metadata metadata,
             SqlParser sqlParser,
             AccessControl accessControl,
             Session session,
             WarningCollector warningCollector)
     {
-        this.analysis = requireNonNull(analysis, "analysis is null");
+        this.accessControlAwareAnalysis = requireNonNull(accessControlAwareAnalysis, "accessControlAwareAnalysis is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -376,7 +375,7 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = process(insert.getQuery(), scope);
 
-            analysis.setUpdateType("INSERT");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("INSERT");
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -419,7 +418,7 @@ class StatementAnalyzer
             checkTypesMatchForInsert(insert, queryScope, expectedColumns);
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
-            analysis.setInsert(new Analysis.Insert(
+            accessControlAwareAnalysis.getAnalysis().setInsert(new Analysis.Insert(
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
@@ -550,7 +549,7 @@ class StatementAnalyzer
             // Analyzer checks for select permissions but DELETE has a separate permission, so disable access checks
             // TODO: we shouldn't need to create a new analyzer. The access control should be carried in the context object
             StatementAnalyzer analyzer = new StatementAnalyzer(
-                    analysis,
+                    accessControlAwareAnalysis,
                     metadata,
                     sqlParser,
                     new AllowAllAccessControl(),
@@ -560,7 +559,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyze(table, scope);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("DELETE");
 
             accessControl.checkCanDeleteFromTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
@@ -570,7 +569,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("ANALYZE");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("ANALYZE");
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
 
             // verify the target table exists and it's not a view
@@ -588,12 +587,12 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    analysis.getParameters());
+                    accessControlAwareAnalysis.getAnalysis().getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
             // user must have read and insert permission in order to analyze stats of a table
-            analysis.addTableColumnAndSubfieldReferences(
+            accessControlAwareAnalysis.addTableColumnAndSubfieldReferences(
                     accessControl,
                     session.getIdentity(),
                     ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
@@ -606,37 +605,37 @@ class StatementAnalyzer
                 throw new AccessDeniedException(format("Cannot ANALYZE (missing insert privilege) table %s", tableName));
             }
 
-            analysis.setAnalyzeTarget(tableHandle);
+            accessControlAwareAnalysis.getAnalysis().setAnalyzeTarget(tableHandle);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
         }
 
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE TABLE");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("CREATE TABLE");
 
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
-            analysis.setCreateTableDestination(targetTable);
+            accessControlAwareAnalysis.getAnalysis().setCreateTableDestination(targetTable);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
                 if (node.isNotExists()) {
-                    analysis.setCreateTableAsSelectNoOp(true);
+                    accessControlAwareAnalysis.getAnalysis().setCreateTableAsSelectNoOp(true);
                     return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "rows", BIGINT));
                 }
                 throw new SemanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
             }
 
             validateProperties(node.getProperties(), scope);
-            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
+            accessControlAwareAnalysis.getAnalysis().setCreateTableProperties(mapFromProperties(node.getProperties()));
 
-            node.getColumnAliases().ifPresent(analysis::setCreateTableColumnAliases);
-            analysis.setCreateTableComment(node.getComment());
+            node.getColumnAliases().ifPresent(accessControlAwareAnalysis.getAnalysis()::setCreateTableColumnAliases);
+            accessControlAwareAnalysis.getAnalysis().setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), targetTable);
 
-            analysis.setCreateTableAsSelectWithData(node.isWithData());
+            accessControlAwareAnalysis.getAnalysis().setCreateTableAsSelectWithData(node.isWithData());
 
             // analyze the query that creates the table
             Scope queryScope = process(node.getQuery(), scope);
@@ -661,12 +660,12 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE VIEW");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("CREATE VIEW");
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
 
             // analyze the query that creates the view
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, accessControl, session, warningCollector);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
@@ -680,10 +679,10 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE MATERIALIZED VIEW");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("CREATE MATERIALIZED VIEW");
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-            analysis.setCreateTableDestination(viewName);
+            accessControlAwareAnalysis.getAnalysis().setCreateTableDestination(viewName);
 
             Optional<TableHandle> viewHandle = metadata.getTableHandle(session, viewName);
             if (viewHandle.isPresent()) {
@@ -694,8 +693,8 @@ class StatementAnalyzer
             }
             validateProperties(node.getProperties(), scope);
 
-            analysis.setCreateTableProperties(mapFromProperties(node.getProperties()));
-            analysis.setCreateTableComment(node.getComment());
+            accessControlAwareAnalysis.getAnalysis().setCreateTableProperties(mapFromProperties(node.getProperties()));
+            accessControlAwareAnalysis.getAnalysis().setCreateTableComment(node.getComment());
 
             accessControl.checkCanCreateTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
             accessControl.checkCanCreateView(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName);
@@ -705,7 +704,7 @@ class StatementAnalyzer
 
             validateColumns(node, queryScope.getRelationType());
 
-            validateBaseTables(analysis.getTableNodes(), node);
+            validateBaseTables(accessControlAwareAnalysis.getAnalysis().getTableNodes(), node);
 
             return createAndAssignScope(node, scope);
         }
@@ -713,7 +712,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitRefreshMaterializedView(RefreshMaterializedView node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("INSERT");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("INSERT");
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
 
@@ -721,14 +720,14 @@ class StatementAnalyzer
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
             // the original refresh statement will always be one line
-            analysis.setExpandedQuery(format("-- Expanded Query: %s%nINSERT INTO %s %s",
+            accessControlAwareAnalysis.getAnalysis().setExpandedQuery(format("-- Expanded Query: %s%nINSERT INTO %s %s",
                     SqlFormatterUtil.getFormattedSql(node, sqlParser, Optional.empty()),
                     viewName.getObjectName(),
                     view.getOriginalSql()));
             accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), getOwnerIdentity(view.getOwner(), session), session.getAccessControlContext(), viewName);
 
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
-            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(node.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, node.getWhere(), viewScope, metadata, session);
 
@@ -738,7 +737,7 @@ class StatementAnalyzer
                     : viewQuery;
             // Check if the owner has SELECT permission on the base tables
             StatementAnalyzer queryAnalyzer = new StatementAnalyzer(
-                    analysis,
+                    accessControlAwareAnalysis,
                     metadata,
                     sqlParser,
                     accessControl,
@@ -753,7 +752,7 @@ class StatementAnalyzer
                     .filter(column -> !column.isHidden())
                     .map(column -> columnHandles.get(column.getName()))
                     .collect(toImmutableList());
-            analysis.setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
+            accessControlAwareAnalysis.getAnalysis().setRefreshMaterializedViewAnalysis(new Analysis.RefreshMaterializedViewAnalysis(
                     tableHandle,
                     targetColumnHandles,
                     refreshQuery));
@@ -763,20 +762,20 @@ class StatementAnalyzer
 
         private Optional<RelationType> analyzeBaseTableForRefreshMaterializedView(Table baseTable, Optional<Scope> scope)
         {
-            checkState(analysis.getStatement() instanceof RefreshMaterializedView, "Not analyzing RefreshMaterializedView statement");
+            checkState(accessControlAwareAnalysis.getAnalysis().getStatement() instanceof RefreshMaterializedView, "Not analyzing RefreshMaterializedView statement");
 
-            RefreshMaterializedView refreshMaterializedView = (RefreshMaterializedView) analysis.getStatement();
+            RefreshMaterializedView refreshMaterializedView = (RefreshMaterializedView) accessControlAwareAnalysis.getAnalysis().getStatement();
             QualifiedObjectName viewName = createQualifiedObjectName(session, refreshMaterializedView.getTarget(), refreshMaterializedView.getTarget().getName());
 
             // Use AllowAllAccessControl; otherwise Analyzer will check SELECT permission on the materialized view, which is not necessary.
-            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(analysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
+            StatementAnalyzer viewAnalyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, new AllowAllAccessControl(), session, warningCollector);
             Scope viewScope = viewAnalyzer.analyze(refreshMaterializedView.getTarget(), scope);
             Map<SchemaTableName, Expression> tablePredicates = extractTablePredicates(viewName, refreshMaterializedView.getWhere(), viewScope, metadata, session);
 
             SchemaTableName baseTableName = toSchemaTableName(createQualifiedObjectName(session, baseTable, baseTable.getName()));
             if (tablePredicates.containsKey(baseTableName)) {
                 Query tableSubquery = buildQueryWithPredicate(baseTable, tablePredicates.get(baseTableName));
-                analysis.registerNamedQuery(baseTable, tableSubquery);
+                accessControlAwareAnalysis.getAnalysis().registerNamedQuery(baseTable, tableSubquery);
 
                 Scope subqueryScope = process(tableSubquery, scope);
 
@@ -802,7 +801,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateFunction(CreateFunction node, Optional<Scope> scope)
         {
-            analysis.setUpdateType("CREATE FUNCTION");
+            accessControlAwareAnalysis.getAnalysis().setUpdateType("CREATE FUNCTION");
 
             // Check function name
             checkFunctionName(node, node.getFunctionName(), node.isTemporary());
@@ -841,8 +840,8 @@ class StatementAnalyzer
                     throw new SemanticException(TYPE_MISMATCH, node, "Function implementation type '%s' does not match declared return type '%s'", bodyType, returnType);
                 }
 
-                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), returnExpression, "CREATE FUNCTION body");
-                verifyNoExternalFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), returnExpression, "CREATE FUNCTION body");
+                verifyNoAggregateWindowOrGroupingFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), metadata.getFunctionAndTypeManager(), returnExpression, "CREATE FUNCTION body");
+                verifyNoExternalFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), metadata.getFunctionAndTypeManager(), returnExpression, "CREATE FUNCTION body");
 
                 // TODO: Check body contains no SQL invoked functions
             }
@@ -912,7 +911,7 @@ class StatementAnalyzer
         protected Scope visitProperty(Property node, Optional<Scope> scope)
         {
             // Property value expressions must be constant
-            createConstantAnalyzer(metadata, session, analysis.getParameters(), warningCollector, analysis.isDescribe())
+            createConstantAnalyzer(metadata, session, accessControlAwareAnalysis.getAnalysis().getParameters(), warningCollector, accessControlAwareAnalysis.getAnalysis().isDescribe())
                     .analyze(node.getValue(), createScope(scope));
             return createAndAssignScope(node, scope);
         }
@@ -1089,7 +1088,7 @@ class StatementAnalyzer
                 throw new SemanticException(NOT_SUPPORTED, node, "EXPLAIN ANALYZE only supports TYPE DISTRIBUTED option");
             }
             process(node.getStatement(), scope);
-            analysis.setUpdateType(null);
+            accessControlAwareAnalysis.getAnalysis().setUpdateType(null);
             return createAndAssignScope(node, scope, Field.newUnqualified(node.getLocation(), "Query Plan", VARCHAR));
         }
 
@@ -1103,24 +1102,24 @@ class StatementAnalyzer
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
                 if (queryBodyScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent()) {
                     // not the root scope and ORDER BY is ineffective
-                    analysis.markRedundantOrderBy(node.getOrderBy().get());
+                    accessControlAwareAnalysis.getAnalysis().markRedundantOrderBy(node.getOrderBy().get());
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
                 }
             }
-            analysis.setOrderByExpressions(node, orderByExpressions);
+            accessControlAwareAnalysis.getAnalysis().setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
             // Input fields == Output fields
-            analysis.setOutputExpressions(node, descriptorToFields(queryBodyScope));
+            accessControlAwareAnalysis.getAnalysis().setOutputExpressions(node, descriptorToFields(queryBodyScope));
 
             Scope queryScope = Scope.builder()
                     .withParent(withScope)
                     .withRelationType(RelationId.of(node), queryBodyScope.getRelationType())
                     .build();
 
-            analysis.setScope(node, queryScope);
+            accessControlAwareAnalysis.getAnalysis().setScope(node, queryScope);
             return queryScope;
         }
 
@@ -1165,7 +1164,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1180,10 +1179,10 @@ class StatementAnalyzer
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(name);
                 if (withQuery.isPresent()) {
                     Query query = withQuery.get().getQuery();
-                    analysis.registerNamedQuery(table, query);
+                    accessControlAwareAnalysis.getAnalysis().registerNamedQuery(table, query);
 
                     // re-alias the fields with the name assigned to the query in the WITH declaration
-                    RelationType queryDescriptor = analysis.getOutputDescriptor(query);
+                    RelationType queryDescriptor = accessControlAwareAnalysis.getAnalysis().getOutputDescriptor(query);
 
                     List<Field> fields;
                     Optional<List<Identifier>> columnNames = withQuery.get().getColumnNames();
@@ -1232,7 +1231,7 @@ class StatementAnalyzer
             if (name.getSchemaName().isEmpty()) {
                 throw new SemanticException(MISSING_SCHEMA, table, "Schema name is empty");
             }
-            analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
+            accessControlAwareAnalysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
             Optional<ViewDefinition> optionalView = session.getRuntimeStats().profileNanos(
                     GET_VIEW_TIME_NANOS,
@@ -1246,18 +1245,18 @@ class StatementAnalyzer
                     () -> metadata.getMaterializedView(session, name));
             // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
             if (optionalMaterializedView.isPresent()
-                    && (analysis.getStatement() instanceof Insert || analysis.getStatement() instanceof CreateTableAsSelect)) {
+                    && (accessControlAwareAnalysis.getAnalysis().getStatement() instanceof Insert || accessControlAwareAnalysis.getAnalysis().getStatement() instanceof CreateTableAsSelect)) {
                 throw new SemanticException(
                         NOT_SUPPORTED,
                         table,
                         "%s by selecting from a materialized view %s is not supported",
-                        analysis.getStatement().getClass().getSimpleName(),
+                        accessControlAwareAnalysis.getAnalysis().getStatement().getClass().getSimpleName(),
                         optionalMaterializedView.get().getTable());
             }
-            Statement statement = analysis.getStatement();
+            Statement statement = accessControlAwareAnalysis.getAnalysis().getStatement();
             if (isMaterializedViewDataConsistencyEnabled(session) && optionalMaterializedView.isPresent() && statement instanceof Query) {
                 // When the materialized view has already been expanded, do not process it. Just use it as a table.
-                MaterializedViewAnalysisState materializedViewAnalysisState = analysis.getMaterializedViewAnalysisState(table);
+                Analysis.MaterializedViewAnalysisState materializedViewAnalysisState = accessControlAwareAnalysis.getAnalysis().getMaterializedViewAnalysisState(table);
 
                 if (materializedViewAnalysisState.isNotVisited()) {
                     return processMaterializedView(table, name, scope, optionalMaterializedView.get());
@@ -1299,17 +1298,17 @@ class StatementAnalyzer
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
-                analysis.setColumn(field, columnHandle);
+                accessControlAwareAnalysis.getAnalysis().setColumn(field, columnHandle);
             }
 
-            analysis.registerTable(table, tableHandle.get());
+            accessControlAwareAnalysis.getAnalysis().registerTable(table, tableHandle.get());
 
             if (statement instanceof RefreshMaterializedView) {
                 Table view = ((RefreshMaterializedView) statement).getTarget();
-                if (!table.equals(view) && !analysis.hasTableRegisteredForMaterializedView(view, table)) {
-                    analysis.registerTableForMaterializedView(view, table);
+                if (!table.equals(view) && !accessControlAwareAnalysis.getAnalysis().hasTableRegisteredForMaterializedView(view, table)) {
+                    accessControlAwareAnalysis.getAnalysis().registerTableForMaterializedView(view, table);
                     Optional<RelationType> descriptor = analyzeBaseTableForRefreshMaterializedView(table, scope);
-                    analysis.unregisterTableForMaterializedView(view, table);
+                    accessControlAwareAnalysis.getAnalysis().unregisterTableForMaterializedView(view, table);
 
                     if (descriptor.isPresent()) {
                         return createAndAssignScope(table, scope, descriptor.get());
@@ -1358,7 +1357,7 @@ class StatementAnalyzer
 
         private Scope processView(Table table, Optional<Scope> scope, QualifiedObjectName name, Optional<ViewDefinition> optionalView)
         {
-            Statement statement = analysis.getStatement();
+            Statement statement = accessControlAwareAnalysis.getAnalysis().getStatement();
             if (statement instanceof CreateView) {
                 CreateView viewStatement = (CreateView) statement;
                 QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
@@ -1366,17 +1365,17 @@ class StatementAnalyzer
                     throw new SemanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
-            if (analysis.hasTableInView(table)) {
+            if (accessControlAwareAnalysis.getAnalysis().hasTableInView(table)) {
                 throw new SemanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
             ViewDefinition view = optionalView.get();
 
             Query query = parseView(view.getOriginalSql(), name, table);
 
-            analysis.registerNamedQuery(table, query);
-            analysis.registerTableForView(table);
+            accessControlAwareAnalysis.getAnalysis().registerNamedQuery(table, query);
+            accessControlAwareAnalysis.getAnalysis().registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
-            analysis.unregisterTableForView();
+            accessControlAwareAnalysis.getAnalysis().unregisterTableForView();
 
             if (isViewStale(view.getColumns(), descriptor.getVisibleFields())) {
                 throw new SemanticException(VIEW_IS_STALE, table, "View '%s' is stale; it must be re-created", name);
@@ -1397,7 +1396,7 @@ class StatementAnalyzer
                             false))
                     .collect(toImmutableList());
 
-            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
+            accessControlAwareAnalysis.getAnalysis().addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
 
             return createAndAssignScope(table, scope, outputFields);
         }
@@ -1410,15 +1409,15 @@ class StatementAnalyzer
         {
             MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
 
-            analysis.registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
+            accessControlAwareAnalysis.getAnalysis().registerMaterializedViewForAnalysis(materializedViewName, materializedView, materializedViewDefinition.getOriginalSql());
             String newSql = getMaterializedViewSQL(materializedView, materializedViewName, materializedViewDefinition, scope);
 
             Query query = (Query) sqlParser.createStatement(newSql, createParsingOptions(session, warningCollector));
-            analysis.registerNamedQuery(materializedView, query);
+            accessControlAwareAnalysis.getAnalysis().registerNamedQuery(materializedView, query);
 
             Scope queryScope = process(query, scope);
             RelationType relationType = queryScope.getRelationType().withAlias(materializedViewName.getObjectName(), null);
-            analysis.unregisterMaterializedViewForAnalysis(materializedView);
+            accessControlAwareAnalysis.getAnalysis().unregisterMaterializedViewForAnalysis(materializedView);
 
             return createAndAssignScope(materializedView, scope, relationType);
         }
@@ -1484,8 +1483,8 @@ class StatementAnalyzer
             //  SELECT x FROM (SELECT x FROM tbl WHERE y < 20) WHERE y > 5 where y is a partition key,
             //  right now we would only remove partitions y >= 20. We should eventually consider y <= 5 as well.
 
-            checkArgument(analysis.getCurrentQuerySpecification().isPresent(), "Current subquery should be set when processing materialized view");
-            QuerySpecification currentSubquery = analysis.getCurrentQuerySpecification().get();
+            checkArgument(accessControlAwareAnalysis.getAnalysis().getCurrentQuerySpecification().isPresent(), "Current subquery should be set when processing materialized view");
+            QuerySpecification currentSubquery = accessControlAwareAnalysis.getAnalysis().getCurrentQuerySpecification().get();
 
             if (currentSubquery.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
                 Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName);
@@ -1502,7 +1501,7 @@ class StatementAnalyzer
                 DomainTranslator domainTranslator = new RowExpressionDomainTranslator(metadata);
                 RowExpression rowExpression = SqlToRowExpressionTranslator.translate(
                         viewQueryWhereClause,
-                        analysis.getTypes(),
+                        accessControlAwareAnalysis.getAnalysis().getTypes(),
                         ImmutableMap.of(),
                         metadata.getFunctionAndTypeManager(),
                         session);
@@ -1563,7 +1562,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
-            if (!VariablesExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
+            if (!VariablesExtractor.extractNames(relation.getSamplePercentage(), accessControlAwareAnalysis.getAnalysis().getColumnReferences()).isEmpty()) {
                 throw new SemanticException(NON_NUMERIC_SAMPLE_PERCENTAGE, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
             }
 
@@ -1573,9 +1572,9 @@ class StatementAnalyzer
                     sqlParser,
                     TypeProvider.empty(),
                     relation.getSamplePercentage(),
-                    analysis.getParameters(),
+                    accessControlAwareAnalysis.getAnalysis().getParameters(),
                     warningCollector,
-                    analysis.isDescribe());
+                    accessControlAwareAnalysis.getAnalysis().isDescribe());
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
@@ -1595,7 +1594,7 @@ class StatementAnalyzer
                 throw new SemanticException(SemanticErrorCode.SAMPLE_PERCENTAGE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
             }
 
-            analysis.setSampleRatio(relation, samplePercentageValue / 100);
+            accessControlAwareAnalysis.getAnalysis().setSampleRatio(relation, samplePercentageValue / 100);
             Scope relationScope = process(relation.getRelation(), scope);
             return createAndAssignScope(relation, scope, relationScope.getRelationType());
         }
@@ -1603,7 +1602,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
-            StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+            StatementAnalyzer analyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, accessControl, session, warningCollector);
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
@@ -1614,14 +1613,14 @@ class StatementAnalyzer
             // TODO: extract candidate names from SELECT, WHERE, HAVING, GROUP BY and ORDER BY expressions
             // to pass down to analyzeFrom
 
-            analysis.setCurrentSubquery(node);
+            accessControlAwareAnalysis.getAnalysis().setCurrentSubquery(node);
             Scope sourceScope = analyzeFrom(node, scope);
 
             if (node.getWhere().isPresent()) {
                 Expression predicate = node.getWhere().get();
                 // If analysis already contains where clause information for this node, analyzeWhere
                 // was already called for this node when fetching materialized view status
-                if (analysis.getWhere(node) == null) {
+                if (accessControlAwareAnalysis.getAnalysis().getWhere(node) == null) {
                     analyzeWhere(node, sourceScope, predicate);
                 }
             }
@@ -1646,14 +1645,14 @@ class StatementAnalyzer
 
                 if (sourceScope.getOuterQueryParent().isPresent() && !node.getLimit().isPresent()) {
                     // not the root scope and ORDER BY is ineffective
-                    analysis.markRedundantOrderBy(orderBy);
+                    accessControlAwareAnalysis.getAnalysis().markRedundantOrderBy(orderBy);
                     warningCollector.add(new PrestoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
                 }
             }
             if (node.getOffset().isPresent()) {
                 analyzeOffset(node.getOffset().get());
             }
-            analysis.setOrderByExpressions(node, orderByExpressions);
+            accessControlAwareAnalysis.getAnalysis().setOrderByExpressions(node, orderByExpressions);
 
             List<Expression> sourceExpressions = new ArrayList<>(outputExpressions);
             node.getHaving().ifPresent(sourceExpressions::add);
@@ -1663,21 +1662,21 @@ class StatementAnalyzer
 
             if (!aggregates.isEmpty() && groupByExpressions.isEmpty()) {
                 // Have Aggregation functions but no explicit GROUP BY clause
-                analysis.setGroupByExpressions(node, ImmutableList.of());
+                accessControlAwareAnalysis.getAnalysis().setGroupByExpressions(node, ImmutableList.of());
             }
 
             verifyAggregations(node, sourceScope, orderByScope, groupByExpressions, sourceExpressions, orderByExpressions);
 
             analyzeWindowFunctions(node, outputExpressions, orderByExpressions);
 
-            if (analysis.isAggregation(node) && node.getOrderBy().isPresent()) {
+            if (accessControlAwareAnalysis.getAnalysis().isAggregation(node) && node.getOrderBy().isPresent()) {
                 // Create a different scope for ORDER BY expressions when aggregation is present.
                 // This is because planner requires scope in order to resolve names against fields.
                 // Original ORDER BY scope "sees" FROM query fields. However, during planning
                 // and when aggregation is present, ORDER BY expressions should only be resolvable against
                 // output scope, group by expressions and aggregation expressions.
                 List<GroupingOperation> orderByGroupingOperations = extractExpressions(orderByExpressions, GroupingOperation.class);
-                List<FunctionCall> orderByAggregations = extractAggregateFunctions(analysis.getFunctionHandles(), orderByExpressions, metadata.getFunctionAndTypeManager());
+                List<FunctionCall> orderByAggregations = extractAggregateFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), orderByExpressions, metadata.getFunctionAndTypeManager());
                 computeAndAssignOrderByScopeWithAggregation(node.getOrderBy().get(), sourceScope, outputScope, orderByAggregations, groupByExpressions, orderByGroupingOperations);
             }
 
@@ -1759,7 +1758,7 @@ class StatementAnalyzer
                     Type outputFieldType = outputFieldTypes[j];
                     Type descFieldType = relationType.getFieldByIndex(j).getType();
                     if (!outputFieldType.equals(descFieldType)) {
-                        analysis.addRelationCoercion(relation, outputFieldTypes);
+                        accessControlAwareAnalysis.getAnalysis().addRelationCoercion(relation, outputFieldTypes);
                         break;
                     }
                 }
@@ -1857,7 +1856,7 @@ class StatementAnalyzer
                         throw new SemanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
                     }
                     // coerce null to boolean
-                    analysis.addCoercion(expression, BOOLEAN, false);
+                    accessControlAwareAnalysis.getAnalysis().addCoercion(expression, BOOLEAN, false);
                 }
 
                 if (expression instanceof LogicalBinaryExpression) {
@@ -1868,10 +1867,10 @@ class StatementAnalyzer
                 }
 
                 verifyJoinOnConditionReferencesRelatedFields(left, right, expression, node.getRight());
-                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
+                verifyNoAggregateWindowOrGroupingFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), metadata.getFunctionAndTypeManager(), expression, "JOIN clause");
 
-                analysis.recordSubqueries(node, expressionAnalysis);
-                analysis.setJoinCriteria(node, expression);
+                accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, expressionAnalysis);
+                accessControlAwareAnalysis.getAnalysis().setJoinCriteria(node, expression);
             }
             else {
                 throw new UnsupportedOperationException("unsupported join criteria: " + criteria.getClass().getName());
@@ -1952,23 +1951,23 @@ class StatementAnalyzer
                 }
 
                 Optional<Type> type = metadata.getFunctionAndTypeManager().getCommonSuperType(leftField.get().getType(), rightField.get().getType());
-                analysis.addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
+                accessControlAwareAnalysis.getAnalysis().addTypes(ImmutableMap.of(NodeRef.of(column), type.get()));
 
                 joinFields.add(Field.newUnqualified(column.getLocation(), column.getValue(), type.get()));
 
                 leftJoinFields.add(leftField.get().getRelationFieldIndex());
                 rightJoinFields.add(rightField.get().getRelationFieldIndex());
 
-                analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
-                analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
+                accessControlAwareAnalysis.getAnalysis().addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
+                accessControlAwareAnalysis.getAnalysis().addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
+                    accessControlAwareAnalysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
                             ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
+                    accessControlAwareAnalysis.addTableColumnAndSubfieldReferences(
                             accessControl,
                             session.getIdentity(),
                             ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
@@ -1994,7 +1993,7 @@ class StatementAnalyzer
                 }
             }
 
-            analysis.setJoinUsing(node, new Analysis.JoinUsingAnalysis(leftJoinFields, rightJoinFields, leftFields.build(), rightFields.build()));
+            accessControlAwareAnalysis.getAnalysis().setJoinUsing(node, new Analysis.JoinUsingAnalysis(leftJoinFields, rightJoinFields, leftFields.build(), rightFields.build()));
 
             return createAndAssignScope(node, scope, new RelationType(outputs.build()));
         }
@@ -2057,17 +2056,17 @@ class StatementAnalyzer
                     for (int i = 0; i < items.size(); i++) {
                         Type expectedType = fieldTypes.get(i);
                         Expression item = items.get(i);
-                        Type actualType = analysis.getType(item);
+                        Type actualType = accessControlAwareAnalysis.getAnalysis().getType(item);
                         if (!actualType.equals(expectedType)) {
-                            analysis.addCoercion(item, expectedType, metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType));
+                            accessControlAwareAnalysis.getAnalysis().addCoercion(item, expectedType, metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType));
                         }
                     }
                 }
                 else {
-                    Type actualType = analysis.getType(row);
+                    Type actualType = accessControlAwareAnalysis.getAnalysis().getType(row);
                     Type expectedType = fieldTypes.get(0);
                     if (!actualType.equals(expectedType)) {
-                        analysis.addCoercion(row, expectedType, metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType));
+                        accessControlAwareAnalysis.getAnalysis().addCoercion(row, expectedType, metadata.getFunctionAndTypeManager().isTypeOnlyCoercion(actualType, expectedType));
                     }
                 }
             }
@@ -2081,16 +2080,16 @@ class StatementAnalyzer
 
         private void analyzeWindowFunctions(QuerySpecification node, List<Expression> outputExpressions, List<Expression> orderByExpressions)
         {
-            analysis.setWindowFunctions(node, analyzeWindowFunctions(node, outputExpressions));
+            accessControlAwareAnalysis.getAnalysis().setWindowFunctions(node, analyzeWindowFunctions(node, outputExpressions));
             if (node.getOrderBy().isPresent()) {
-                analysis.setOrderByWindowFunctions(node.getOrderBy().get(), analyzeWindowFunctions(node, orderByExpressions));
+                accessControlAwareAnalysis.getAnalysis().setOrderByWindowFunctions(node.getOrderBy().get(), analyzeWindowFunctions(node, orderByExpressions));
             }
         }
 
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
             for (Expression expression : expressions) {
-                new WindowFunctionValidator(metadata.getFunctionAndTypeManager()).process(expression, analysis);
+                new WindowFunctionValidator(metadata.getFunctionAndTypeManager()).process(expression, accessControlAwareAnalysis.getAnalysis());
             }
 
             List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
@@ -2150,7 +2149,7 @@ class StatementAnalyzer
                     analyzeWindowFrame(window.getFrame().get());
                 }
 
-                FunctionKind kind = metadata.getFunctionAndTypeManager().getFunctionMetadata(analysis.getFunctionHandle(windowFunction)).getFunctionKind();
+                FunctionKind kind = metadata.getFunctionAndTypeManager().getFunctionMetadata(accessControlAwareAnalysis.getAnalysis().getFunctionHandle(windowFunction)).getFunctionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw new SemanticException(MUST_BE_WINDOW_FUNCTION, node, "Not a window function: %s", windowFunction.getName());
                 }
@@ -2200,14 +2199,14 @@ class StatementAnalyzer
                             throw new SemanticException(NESTED_WINDOW, function.getNode(), "HAVING clause cannot contain window functions");
                         });
 
-                analysis.recordSubqueries(node, expressionAnalysis);
+                accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, expressionAnalysis);
 
                 Type predicateType = expressionAnalysis.getType(predicate);
                 if (!predicateType.equals(BOOLEAN) && !predicateType.equals(UNKNOWN)) {
                     throw new SemanticException(TYPE_MISMATCH, predicate, "HAVING clause must evaluate to a boolean: actual type %s", predicateType);
                 }
 
-                analysis.setHaving(node, predicate);
+                accessControlAwareAnalysis.getAnalysis().setHaving(node, predicate);
             }
         }
 
@@ -2351,12 +2350,12 @@ class StatementAnalyzer
                                 analyzeExpression(column, scope);
                             }
 
-                            if (analysis.getColumnReferenceFields().containsKey(NodeRef.of(column))) {
-                                sets.add(ImmutableList.of(ImmutableSet.copyOf(analysis.getColumnReferenceFields().get(NodeRef.of(column)))));
+                            if (accessControlAwareAnalysis.getAnalysis().getColumnReferenceFields().containsKey(NodeRef.of(column))) {
+                                sets.add(ImmutableList.of(ImmutableSet.copyOf(accessControlAwareAnalysis.getAnalysis().getColumnReferenceFields().get(NodeRef.of(column)))));
                             }
                             else {
-                                verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), column, "GROUP BY clause");
-                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                                verifyNoAggregateWindowOrGroupingFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), metadata.getFunctionAndTypeManager(), column, "GROUP BY clause");
+                                accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, analyzeExpression(column, scope));
                                 complexExpressions.add(column);
                             }
 
@@ -2366,7 +2365,7 @@ class StatementAnalyzer
                     else {
                         for (Expression column : groupingElement.getExpressions()) {
                             analyzeExpression(column, scope);
-                            if (!analysis.getColumnReferences().contains(NodeRef.of(column))) {
+                            if (!accessControlAwareAnalysis.getAnalysis().getColumnReferences().contains(NodeRef.of(column))) {
                                 throw new SemanticException(SemanticErrorCode.MUST_BE_COLUMN_REFERENCE, column, "GROUP BY expression must be a column reference: %s", column);
                             }
 
@@ -2376,7 +2375,7 @@ class StatementAnalyzer
                         if (groupingElement instanceof Cube) {
                             Set<FieldId> cube = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
+                                    .map(accessControlAwareAnalysis.getAnalysis().getColumnReferenceFields()::get)
                                     .flatMap(Collection::stream)
                                     .collect(toImmutableSet());
 
@@ -2385,7 +2384,7 @@ class StatementAnalyzer
                         else if (groupingElement instanceof Rollup) {
                             List<FieldId> rollup = groupingElement.getExpressions().stream()
                                     .map(NodeRef::of)
-                                    .map(analysis.getColumnReferenceFields()::get)
+                                    .map(accessControlAwareAnalysis.getAnalysis().getColumnReferenceFields()::get)
                                     .flatMap(Collection::stream)
                                     .collect(toImmutableList());
 
@@ -2395,7 +2394,7 @@ class StatementAnalyzer
                             List<Set<FieldId>> groupingSets = ((GroupingSets) groupingElement).getSets().stream()
                                     .map(set -> set.stream()
                                             .map(NodeRef::of)
-                                            .map(analysis.getColumnReferenceFields()::get)
+                                            .map(accessControlAwareAnalysis.getAnalysis().getColumnReferenceFields()::get)
                                             .flatMap(Collection::stream)
                                             .collect(toImmutableSet()))
                                     .collect(toImmutableList());
@@ -2407,14 +2406,14 @@ class StatementAnalyzer
 
                 List<Expression> expressions = groupingExpressions.build();
                 for (Expression expression : expressions) {
-                    Type type = analysis.getType(expression);
+                    Type type = accessControlAwareAnalysis.getAnalysis().getType(expression);
                     if (!type.isComparable()) {
                         throw new SemanticException(TYPE_MISMATCH, node, "%s is not comparable, and therefore cannot be used in GROUP BY", type);
                     }
                 }
 
-                analysis.setGroupByExpressions(node, expressions);
-                analysis.setGroupingSets(node, new Analysis.GroupingSetAnalysis(cubes.build(), rollups.build(), sets.build(), complexExpressions.build()));
+                accessControlAwareAnalysis.getAnalysis().setGroupByExpressions(node, expressions);
+                accessControlAwareAnalysis.getAnalysis().setGroupingSets(node, new Analysis.GroupingSetAnalysis(cubes.build(), rollups.build(), sets.build(), complexExpressions.build()));
 
                 return expressions;
             }
@@ -2466,7 +2465,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(expression.getLocation(), field.map(Identifier::getValue), accessControlAwareAnalysis.getAnalysis().getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -2483,7 +2482,7 @@ class StatementAnalyzer
                     .withParent(sourceScope)
                     .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
                     .build();
-            analysis.setScope(node, orderByScope);
+            accessControlAwareAnalysis.getAnalysis().setScope(node, orderByScope);
             return orderByScope;
         }
 
@@ -2500,10 +2499,10 @@ class StatementAnalyzer
             List<Expression> orderByExpressionsReferencingOutputScope = AstUtils.preOrder(node)
                     .filter(Expression.class::isInstance)
                     .map(Expression.class::cast)
-                    .filter(expression -> hasReferencesToScope(expression, analysis, outputScope))
+                    .filter(expression -> hasReferencesToScope(expression, accessControlAwareAnalysis.getAnalysis(), outputScope))
                     .collect(toImmutableList());
             List<Expression> orderByAggregationExpressions = orderByAggregationExpressionsBuilder.build().stream()
-                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || analysis.isColumnReference(expression))
+                    .filter(expression -> !orderByExpressionsReferencingOutputScope.contains(expression) || accessControlAwareAnalysis.getAnalysis().isColumnReference(expression))
                     .collect(toImmutableList());
 
             // generate placeholder fields
@@ -2515,7 +2514,7 @@ class StatementAnalyzer
                                 .filter(resolvedField -> seen.add(resolvedField.getField()))
                                 .map(ResolvedField::getField);
                         return sourceField
-                                .orElse(Field.newUnqualified(expression.getLocation(), Optional.empty(), analysis.getType(expression)));
+                                .orElse(Field.newUnqualified(expression.getLocation(), Optional.empty(), accessControlAwareAnalysis.getAnalysis().getType(expression)));
                     })
                     .collect(toImmutableList());
 
@@ -2527,8 +2526,8 @@ class StatementAnalyzer
                     .withParent(orderByAggregationScope)
                     .withRelationType(outputScope.getRelationId(), outputScope.getRelationType())
                     .build();
-            analysis.setScope(node, orderByScope);
-            analysis.setOrderByAggregates(node, orderByAggregationExpressions);
+            accessControlAwareAnalysis.getAnalysis().setScope(node, orderByScope);
+            accessControlAwareAnalysis.getAnalysis().setOrderByAggregates(node, orderByAggregationExpressions);
             return orderByScope;
         }
 
@@ -2568,7 +2567,7 @@ class StatementAnalyzer
                 else if (item instanceof SingleColumn) {
                     SingleColumn column = (SingleColumn) item;
                     ExpressionAnalysis expressionAnalysis = analyzeExpression(column.getExpression(), scope);
-                    analysis.recordSubqueries(node, expressionAnalysis);
+                    accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, expressionAnalysis);
                     outputExpressionBuilder.add(column.getExpression());
 
                     Type type = expressionAnalysis.getType(column.getExpression());
@@ -2582,7 +2581,7 @@ class StatementAnalyzer
             }
 
             ImmutableList<Expression> result = outputExpressionBuilder.build();
-            analysis.setOutputExpressions(node, result);
+            accessControlAwareAnalysis.getAnalysis().setOutputExpressions(node, result);
 
             return result;
         }
@@ -2591,9 +2590,9 @@ class StatementAnalyzer
         {
             ExpressionAnalysis expressionAnalysis = analyzeExpression(predicate, scope);
 
-            verifyNoAggregateWindowOrGroupingFunctions(analysis.getFunctionHandles(), metadata.getFunctionAndTypeManager(), predicate, "WHERE clause");
+            verifyNoAggregateWindowOrGroupingFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), metadata.getFunctionAndTypeManager(), predicate, "WHERE clause");
 
-            analysis.recordSubqueries(node, expressionAnalysis);
+            accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, expressionAnalysis);
 
             Type predicateType = expressionAnalysis.getType(predicate);
             if (!predicateType.equals(BOOLEAN)) {
@@ -2601,10 +2600,10 @@ class StatementAnalyzer
                     throw new SemanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
                 }
                 // coerce null to boolean
-                analysis.addCoercion(predicate, BOOLEAN, false);
+                accessControlAwareAnalysis.getAnalysis().addCoercion(predicate, BOOLEAN, false);
             }
 
-            analysis.setWhere(node, predicate);
+            accessControlAwareAnalysis.getAnalysis().setWhere(node, predicate);
         }
 
         private Scope analyzeFrom(QuerySpecification node, Optional<Scope> scope)
@@ -2628,7 +2627,7 @@ class StatementAnalyzer
                         "A GROUPING() operation can only be used with a corresponding GROUPING SET/CUBE/ROLLUP/GROUP BY clause");
             }
 
-            analysis.setGroupingOperations(node, groupingOperations);
+            accessControlAwareAnalysis.getAnalysis().setGroupingOperations(node, groupingOperations);
         }
 
         private List<FunctionCall> analyzeAggregations(
@@ -2636,8 +2635,8 @@ class StatementAnalyzer
                 List<Expression> outputExpressions,
                 List<Expression> orderByExpressions)
         {
-            List<FunctionCall> aggregates = extractAggregateFunctions(analysis.getFunctionHandles(), Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionAndTypeManager());
-            analysis.setAggregates(node, aggregates);
+            List<FunctionCall> aggregates = extractAggregateFunctions(accessControlAwareAnalysis.getAnalysis().getFunctionHandles(), Iterables.concat(outputExpressions, orderByExpressions), metadata.getFunctionAndTypeManager());
+            accessControlAwareAnalysis.getAnalysis().setAggregates(node, aggregates);
             return aggregates;
         }
 
@@ -2651,7 +2650,7 @@ class StatementAnalyzer
         {
             checkState(orderByExpressions.isEmpty() || orderByScope.isPresent(), "non-empty orderByExpressions list without orderByScope provided");
 
-            if (analysis.isAggregation(node)) {
+            if (accessControlAwareAnalysis.getAnalysis().isAggregation(node)) {
                 // ensure SELECT, ORDER BY and HAVING are constant with respect to group
                 // e.g, these are all valid expressions:
                 //     SELECT f(a) GROUP BY a
@@ -2662,11 +2661,11 @@ class StatementAnalyzer
                         .collect(toImmutableList());
 
                 for (Expression expression : outputExpressions) {
-                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, analysis, warningCollector, session);
+                    verifySourceAggregations(distinctGroupingColumns, sourceScope, expression, metadata, accessControlAwareAnalysis.getAnalysis(), warningCollector, session);
                 }
 
                 for (Expression expression : orderByExpressions) {
-                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, analysis, warningCollector, session);
+                    verifyOrderByAggregations(distinctGroupingColumns, sourceScope, orderByScope.get(), expression, metadata, accessControlAwareAnalysis.getAnalysis(), warningCollector, session);
                 }
             }
         }
@@ -2701,7 +2700,7 @@ class StatementAnalyzer
                         .setStartTime(session.getStartTime());
                 session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
                 Session viewSession = viewSessionBuilder.build();
-                StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
+                StatementAnalyzer analyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, viewAccessControl, viewSession, warningCollector);
                 Scope queryScope = analyzer.analyze(query, Scope.create());
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
@@ -2748,7 +2747,7 @@ class StatementAnalyzer
                     accessControl,
                     sqlParser,
                     scope,
-                    analysis,
+                    accessControlAwareAnalysis,
                     expression,
                     warningCollector);
         }
@@ -2788,7 +2787,7 @@ class StatementAnalyzer
                 // check if all or none of the columns are explicitly alias
                 if (withQuery.getColumnNames().isPresent()) {
                     List<Identifier> columnNames = withQuery.getColumnNames().get();
-                    RelationType queryDescriptor = analysis.getOutputDescriptor(query);
+                    RelationType queryDescriptor = accessControlAwareAnalysis.getAnalysis().getOutputDescriptor(query);
                     if (columnNames.size() != queryDescriptor.getVisibleFieldCount()) {
                         throw new SemanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());
                     }
@@ -2798,7 +2797,7 @@ class StatementAnalyzer
             }
 
             Scope withScope = withScopeBuilder.build();
-            analysis.setScope(with, withScope);
+            accessControlAwareAnalysis.getAnalysis().setScope(with, withScope);
             return withScope;
         }
 
@@ -2814,7 +2813,7 @@ class StatementAnalyzer
             if (rowCount < 0) {
                 throw new SemanticException(INVALID_OFFSET_ROW_COUNT, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);
             }
-            analysis.setOffset(node, rowCount);
+            accessControlAwareAnalysis.getAnalysis().setOffset(node, rowCount);
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
@@ -2857,9 +2856,9 @@ class StatementAnalyzer
                 }
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, orderByScope);
-                analysis.recordSubqueries(node, expressionAnalysis);
+                accessControlAwareAnalysis.getAnalysis().recordSubqueries(node, expressionAnalysis);
 
-                Type type = analysis.getType(expression);
+                Type type = accessControlAwareAnalysis.getAnalysis().getType(expression);
                 if (!type.isOrderable()) {
                     throw new SemanticException(TYPE_MISMATCH, node, "Type %s is not orderable, and therefore cannot be used in ORDER BY: %s", type, expression);
                 }
@@ -2892,7 +2891,7 @@ class StatementAnalyzer
                     .withRelationType(RelationId.of(node), relationType)
                     .build();
 
-            analysis.setScope(node, scope);
+            accessControlAwareAnalysis.getAnalysis().setScope(node, scope);
             return scope;
         }
 

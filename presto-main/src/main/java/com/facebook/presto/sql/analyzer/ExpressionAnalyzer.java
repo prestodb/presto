@@ -1678,8 +1678,8 @@ public class ExpressionAnalyzer
     {
         // expressions at this point can not have sub queries so deny all access checks
         // in the future, we will need a full access controller here to verify access to functions
-        Analysis analysis = new Analysis(null, null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
+        AccessControlAwareAnalysis accessControlAwareAnalysis = new AccessControlAwareAnalysis(null, null, parameters, isDescribe);
+        ExpressionAnalyzer analyzer = create(accessControlAwareAnalysis, session, metadata, sqlParser, new DenyAllAccessControl(), types, warningCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
         }
@@ -1703,11 +1703,11 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             SqlParser sqlParser,
             Scope scope,
-            Analysis analysis,
+            AccessControlAwareAnalysis accessControlAwareAnalysis,
             Expression expression,
             WarningCollector warningCollector)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
+        ExpressionAnalyzer analyzer = create(accessControlAwareAnalysis, session, metadata, sqlParser, accessControl, TypeProvider.empty(), warningCollector);
         analyzer.analyze(expression, scope);
 
         Map<NodeRef<Expression>, Type> expressionTypes = analyzer.getExpressionTypes();
@@ -1715,12 +1715,12 @@ public class ExpressionAnalyzer
         Set<NodeRef<Expression>> typeOnlyCoercions = analyzer.getTypeOnlyCoercions();
         Map<NodeRef<FunctionCall>, FunctionHandle> resolvedFunctions = analyzer.getResolvedFunctions();
 
-        analysis.addTypes(expressionTypes);
-        analysis.addCoercions(expressionCoercions, typeOnlyCoercions);
-        analysis.addFunctionHandles(resolvedFunctions);
-        analysis.addColumnReferences(analyzer.getColumnReferences());
-        analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences());
+        accessControlAwareAnalysis.getAnalysis().addTypes(expressionTypes);
+        accessControlAwareAnalysis.getAnalysis().addCoercions(expressionCoercions, typeOnlyCoercions);
+        accessControlAwareAnalysis.getAnalysis().addFunctionHandles(resolvedFunctions);
+        accessControlAwareAnalysis.getAnalysis().addColumnReferences(analyzer.getColumnReferences());
+        accessControlAwareAnalysis.getAnalysis().addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
+        accessControlAwareAnalysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences());
 
         return new ExpressionAnalysis(
                 expressionTypes,
@@ -1774,7 +1774,7 @@ public class ExpressionAnalyzer
     }
 
     private static ExpressionAnalyzer create(
-            Analysis analysis,
+            AccessControlAwareAnalysis accessControlAwareAnalysis,
             Session session,
             Metadata metadata,
             SqlParser sqlParser,
@@ -1784,14 +1784,14 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionAndTypeManager(),
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                node -> new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, accessControl, session, warningCollector),
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
                 types,
-                analysis.getParameters(),
+                accessControlAwareAnalysis.getAnalysis().getParameters(),
                 warningCollector,
-                analysis.isDescribe());
+                accessControlAwareAnalysis.getAnalysis().isDescribe());
     }
 
     public static ExpressionAnalyzer createConstantAnalyzer(Metadata metadata, Session session, Map<NodeRef<Parameter>, Expression> parameters, WarningCollector warningCollector)

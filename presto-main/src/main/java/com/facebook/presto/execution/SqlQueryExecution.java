@@ -42,6 +42,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
+import com.facebook.presto.sql.analyzer.AccessControlAwareAnalysis;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -122,7 +123,7 @@ public class SqlQueryExecution
     private final AtomicReference<Plan> queryPlan = new AtomicReference<>();
     private final ExecutionPolicy executionPolicy;
     private final SplitSchedulerStats schedulerStats;
-    private final Analysis analysis;
+    private final AccessControlAwareAnalysis accessControlAwareAnalysis;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final PlanChecker planChecker;
@@ -197,13 +198,13 @@ public class SqlQueryExecution
                     Thread.currentThread(),
                     timeoutThreadExecutor,
                     getQueryAnalyzerTimeout(getSession()))) {
-                this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+                this.accessControlAwareAnalysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
             }
-            stateMachine.setUpdateType(analysis.getUpdateType());
-            stateMachine.setExpandedQuery(analysis.getExpandedQuery());
+            stateMachine.setUpdateType(accessControlAwareAnalysis.getAnalysis().getUpdateType());
+            stateMachine.setExpandedQuery(accessControlAwareAnalysis.getAnalysis().getExpandedQuery());
 
             stateMachine.beginColumnAccessPermissionChecking();
-            analyzer.checkColumnAccessPermissions(this.analysis);
+            analyzer.checkColumnAccessPermissions(this.accessControlAwareAnalysis);
             stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
@@ -477,7 +478,7 @@ public class SqlQueryExecution
         LogicalPlanner logicalPlanner = new LogicalPlanner(false, stateMachine.getSession(), planOptimizers, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, stateMachine.getWarningCollector(), planChecker);
         Plan plan = getSession().getRuntimeStats().profileNanos(
                 LOGICAL_PLANNER_TIME_NANOS,
-                () -> logicalPlanner.plan(analysis));
+                () -> logicalPlanner.plan(accessControlAwareAnalysis.getAnalysis()));
         queryPlan.set(plan);
 
         // extract inputs
@@ -498,8 +499,8 @@ public class SqlQueryExecution
         // record analysis time
         stateMachine.endAnalysis();
 
-        boolean explainAnalyze = analysis.getStatement() instanceof Explain && ((Explain) analysis.getStatement()).isAnalyze();
-        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(analysis));
+        boolean explainAnalyze = accessControlAwareAnalysis.getAnalysis().getStatement() instanceof Explain && ((Explain) accessControlAwareAnalysis.getAnalysis().getStatement()).isAnalyze();
+        return new PlanRoot(fragmentedPlan, !explainAnalyze, extractConnectors(accessControlAwareAnalysis.getAnalysis()));
     }
 
     private static Set<ConnectorId> extractConnectors(Analysis analysis)

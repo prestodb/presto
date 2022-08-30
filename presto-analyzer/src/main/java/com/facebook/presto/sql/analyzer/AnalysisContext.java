@@ -19,6 +19,7 @@ package com.facebook.presto.sql.analyzer;
 public final class AnalysisContext
 {
     //TODO: These should move moved from here after accesscontrol is removed from analysis phase.
+    //TODO: Use generic properties key-value<T>?
     private boolean checkAccessControlWithSubfields;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
 

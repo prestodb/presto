@@ -75,38 +75,40 @@ public class Analyzer
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
-    public Analysis analyze(Statement statement)
+    public AccessControlAwareAnalysis analyze(Statement statement)
     {
         return analyze(statement, false);
     }
 
-    public Analysis analyze(Statement statement, boolean isDescribe)
+    public AccessControlAwareAnalysis analyze(Statement statement, boolean isDescribe)
     {
-        Analysis analysis = analyzeSemantic(statement, isDescribe);
-        checkColumnAccessPermissions(analysis);
-        return analysis;
+        AccessControlAwareAnalysis accessControlAwareAnalysis = analyzeSemantic(statement, isDescribe);
+        checkColumnAccessPermissions(accessControlAwareAnalysis);
+        return accessControlAwareAnalysis;
     }
 
-    public Analysis analyzeSemantic(Statement statement, boolean isDescribe)
+    public AccessControlAwareAnalysis analyzeSemantic(Statement statement, boolean isDescribe)
     {
         Statement rewrittenStatement = StatementRewrite.rewrite(session, metadata, sqlParser, queryExplainer, statement, parameters, parameterLookup, accessControl, warningCollector);
 
-        //better place for this initilization?
+        //better place for this initialization?
         AnalysisContext analysisContext = new AnalysisContext();
         analysisContext.setCheckAccessControlOnUtilizedColumnsOnly(isCheckAccessControlOnUtilizedColumnsOnly(session)).setCheckAccessControlWithSubfields(isCheckAccessControlWithSubfields(session));
 
-        Analysis analysis = new Analysis(rewrittenStatement, analysisContext, parameterLookup, isDescribe);
-        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+        AccessControlAwareAnalysis accessControlAwareAnalysis = new AccessControlAwareAnalysis(analysisContext, rewrittenStatement, parameterLookup, isDescribe);
+
+        StatementAnalyzer analyzer = new StatementAnalyzer(accessControlAwareAnalysis, metadata, sqlParser, accessControl, session, warningCollector);
         analyzer.analyze(rewrittenStatement, Optional.empty());
-        analyzeForUtilizedColumns(analysis, analysis.getStatement());
-        return analysis;
+        analyzeForUtilizedColumns(accessControlAwareAnalysis, accessControlAwareAnalysis.getAnalysis().getStatement());
+        return accessControlAwareAnalysis;
     }
 
     /**
      * check column access permissions for each table
+     *
      * @param analysis the Analysis that needs to check ACL for
      */
-    public void checkColumnAccessPermissions(Analysis analysis)
+    public void checkColumnAccessPermissions(AccessControlAwareAnalysis analysis)
     {
         analysis.getTableColumnAndSubfieldReferencesForAccessControl().forEach((accessControlInfo, tableColumnReferences) ->
                 tableColumnReferences.forEach((tableName, columns) ->

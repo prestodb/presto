@@ -1037,7 +1037,7 @@ public class LocalQueryRunner
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(wrappedStatement instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis = analyzer.analyze(preparedQuery.getStatement()).getAnalysis();
         return logicalPlanner.plan(analysis, stage);
     }
 

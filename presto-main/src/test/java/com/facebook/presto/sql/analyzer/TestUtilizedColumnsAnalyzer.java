@@ -528,7 +528,7 @@ public class TestUtilizedColumnsAnalyzer
                 .execute(CLIENT_SESSION, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata, WarningCollector.NOOP);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    Analysis analysis = analyzer.analyze(statement);
+                    AccessControlAwareAnalysis analysis = analyzer.analyze(statement);
                     assertEquals(analysis.getUtilizedTableColumnReferences().values().stream().findFirst().get(), expected);
                 });
     }

@@ -114,7 +114,7 @@ public class QueryExplainer
     public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector);
-        return analyzer.analyze(statement);
+        return analyzer.analyze(statement).getAnalysis();
     }
 
     public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, boolean verbose, WarningCollector warningCollector)

@@ -155,9 +155,9 @@ public class TestColumnAndSubfieldAnalyzer
                 .execute(session, s -> {
                     Analyzer analyzer = createAnalyzer(s, metadata, WarningCollector.NOOP);
                     Statement statement = SQL_PARSER.createStatement(query);
-                    Analysis analysis = analyzer.analyze(statement);
+                    AccessControlAwareAnalysis accessControlAwareAnalysis = analyzer.analyze(statement);
                     assertEquals(
-                            analysis.getTableColumnAndSubfieldReferencesForAccessControl().values().stream().findFirst().get().entrySet().stream()
+                            accessControlAwareAnalysis.getTableColumnAndSubfieldReferencesForAccessControl().values().stream().findFirst().get().entrySet().stream()
                                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().stream().map(Subfield::toString).collect(toImmutableSet()))),
                             expected);
                 });

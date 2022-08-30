@@ -91,7 +91,7 @@ public class CreateMaterializedViewTask
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = parameterExtractor(statement, parameters);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterLookup, warningCollector);
-        Analysis analysis = analyzer.analyze(statement);
+        Analysis analysis = analyzer.analyze(statement).getAnalysis();
 
         ConnectorId connectorId = metadata.getCatalogHandle(session, viewName.getCatalogName())
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));

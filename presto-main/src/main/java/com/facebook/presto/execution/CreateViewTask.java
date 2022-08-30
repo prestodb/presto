@@ -113,6 +113,6 @@ public class CreateViewTask
     private Analysis analyzeStatement(Statement statement, Session session, Metadata metadata, AccessControl accessControl, List<Expression> parameters, WarningCollector warningCollector)
     {
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.empty(), parameters, parameterExtractor(statement, parameters), warningCollector);
-        return analyzer.analyze(statement);
+        return analyzer.analyze(statement).getAnalysis();
     }
 }

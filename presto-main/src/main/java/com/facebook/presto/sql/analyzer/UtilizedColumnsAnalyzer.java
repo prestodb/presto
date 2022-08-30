@@ -15,7 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.sql.analyzer.Analysis.AccessControlInfo;
+import com.facebook.presto.sql.analyzer.AccessControlAwareAnalysis.AccessControlInfo;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.Cube;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
@@ -86,28 +86,28 @@ public class UtilizedColumnsAnalyzer
 {
     private static final Logger LOG = Logger.get(UtilizedColumnsAnalyzer.class);
 
-    private final Analysis analysis;
+    private final AccessControlAwareAnalysis accessControlAwareAnalysis;
 
-    public static void analyzeForUtilizedColumns(Analysis analysis, Node node)
+    public static void analyzeForUtilizedColumns(AccessControlAwareAnalysis accessControlAwareAnalysis, Node node)
     {
-        UtilizedColumnsAnalyzer analyzer = new UtilizedColumnsAnalyzer(analysis);
+        UtilizedColumnsAnalyzer analyzer = new UtilizedColumnsAnalyzer(accessControlAwareAnalysis);
         try {
             analyzer.analyze(node);
         }
         catch (Exception e) {
-            LOG.debug(e, format("Error in analyzing utilized columns, falling back to access control on all columns: %s", analysis.getStatement()));
-            analysis.getTableColumnReferences().forEach(analysis::addUtilizedTableColumnReferences);
+            LOG.debug(e, format("Error in analyzing utilized columns, falling back to access control on all columns: %s", accessControlAwareAnalysis.getAnalysis().getStatement()));
+            accessControlAwareAnalysis.getTableColumnReferences().forEach(accessControlAwareAnalysis::addUtilizedTableColumnReferences);
         }
     }
 
-    public UtilizedColumnsAnalyzer(Analysis analysis)
+    public UtilizedColumnsAnalyzer(AccessControlAwareAnalysis accessControlAwareAnalysis)
     {
-        this.analysis = analysis;
+        this.accessControlAwareAnalysis = accessControlAwareAnalysis;
     }
 
     public void analyze(Node node)
     {
-        UtilizedFieldsBuilderVisitor visitor = new UtilizedFieldsBuilderVisitor(analysis);
+        UtilizedFieldsBuilderVisitor visitor = new UtilizedFieldsBuilderVisitor(accessControlAwareAnalysis.getAnalysis());
         ImmutableSet.Builder<Field> utilizedFieldsBuilder = ImmutableSet.builder();
         visitor.process(node, new Context(utilizedFieldsBuilder));
 
@@ -120,14 +120,14 @@ public class UtilizedColumnsAnalyzer
         }
 
         // For each access control, keep only the table columns that impact the final results
-        for (Entry<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> entry : analysis.getTableColumnReferences().entrySet()) {
+        for (Entry<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> entry : accessControlAwareAnalysis.getTableColumnReferences().entrySet()) {
             AccessControlInfo accessControlInfo = entry.getKey();
             Map<QualifiedObjectName, Set<String>> tableColumnsForThisAccessControl = entry.getValue();
             Map<QualifiedObjectName, Set<String>> utilizedTableColumnsForThisAccessControl = new HashMap<>();
             for (QualifiedObjectName table : tableColumnsForThisAccessControl.keySet()) {
                 utilizedTableColumnsForThisAccessControl.put(table, intersection(utilizedTableColumns.get(table), tableColumnsForThisAccessControl.get(table)));
             }
-            analysis.addUtilizedTableColumnReferences(accessControlInfo, utilizedTableColumnsForThisAccessControl);
+            accessControlAwareAnalysis.addUtilizedTableColumnReferences(accessControlInfo, utilizedTableColumnsForThisAccessControl);
         }
     }
 
