@@ -66,39 +66,63 @@ HashBuild::HashBuild(
     DriverCtx* driverCtx,
     std::shared_ptr<const core::HashJoinNode> joinNode)
     : Operator(driverCtx, nullptr, operatorId, joinNode->id(), "HashBuild"),
-      joinType_{joinNode->joinType()},
+      joinNode_(std::move(joinNode)),
+      joinType_{joinNode_->joinType()},
       mappedMemory_(operatorCtx_->mappedMemory()) {
-  auto type = joinNode->sources()[1]->outputType();
+  auto outputType = joinNode_->sources()[1]->outputType();
 
-  auto numKeys = joinNode->rightKeys().size();
+  auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
   folly::F14FastSet<column_index_t> keyChannelSet;
   keyChannelSet.reserve(numKeys);
-  std::vector<std::unique_ptr<VectorHasher>> keyHashers;
-  keyHashers.reserve(numKeys);
-  for (auto& key : joinNode->rightKeys()) {
-    auto channel = exprToChannel(key.get(), type);
+  std::vector<std::string> names;
+  names.reserve(outputType->size());
+  std::vector<TypePtr> types;
+  types.reserve(outputType->size());
+
+  for (auto& key : joinNode_->rightKeys()) {
+    auto channel = exprToChannel(key.get(), outputType);
     keyChannelSet.emplace(channel);
     keyChannels_.emplace_back(channel);
-    keyHashers.emplace_back(
-        std::make_unique<VectorHasher>(type->childAt(channel), channel));
+    names.emplace_back(outputType->nameOf(channel));
+    types.emplace_back(outputType->childAt(channel));
   }
 
   // Identify the non-key build side columns and make a decoder for each.
-  auto numDependents = type->size() - numKeys;
+  const auto numDependents = outputType->size() - numKeys;
   dependentChannels_.reserve(numDependents);
   decoders_.reserve(numDependents);
-  std::vector<TypePtr> dependentTypes;
-  dependentTypes.reserve(numDependents);
-  for (auto i = 0; i < type->size(); ++i) {
+  for (auto i = 0; i < outputType->size(); ++i) {
     if (keyChannelSet.find(i) == keyChannelSet.end()) {
-      dependentTypes.emplace_back(type->childAt(i));
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
+      names.emplace_back(outputType->nameOf(i));
+      types.emplace_back(outputType->childAt(i));
     }
   }
 
-  if (joinNode->isRightJoin() || joinNode->isFullJoin()) {
+  tableType_ = ROW(std::move(names), std::move(types));
+  setupTable();
+}
+
+void HashBuild::setupTable() {
+  VELOX_CHECK_NULL(table_);
+
+  const auto numKeys = keyChannels_.size();
+  std::vector<std::unique_ptr<VectorHasher>> keyHashers;
+  keyHashers.reserve(numKeys);
+  for (vector_size_t i = 0; i < numKeys; ++i) {
+    keyHashers.emplace_back(std::make_unique<VectorHasher>(
+        tableType_->childAt(i), keyChannels_[i]));
+  }
+
+  const auto numDependents = tableType_->size() - numKeys;
+  std::vector<TypePtr> dependentTypes;
+  dependentTypes.reserve(numDependents);
+  for (int i = numKeys; i < tableType_->size(); ++i) {
+    dependentTypes.emplace_back(tableType_->childAt(i));
+  }
+  if (joinNode_->isRightJoin() || joinNode_->isFullJoin()) {
     // Do not ignore null keys.
     table_ = HashTable<false>::createForJoin(
         std::move(keyHashers),
@@ -109,10 +133,10 @@ HashBuild::HashBuild(
   } else {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
-    const bool dropDuplicates = !joinNode->filter() &&
-        (joinNode->isLeftSemiJoin() || joinNode->isAntiJoin());
+    const bool dropDuplicates = !joinNode_->filter() &&
+        (joinNode_->isLeftSemiJoin() || joinNode_->isAntiJoin());
     // Right semi join needs to tag build rows that were probed.
-    const bool needProbedFlag = joinNode->isRightSemiJoin();
+    const bool needProbedFlag = joinNode_->isRightSemiJoin();
     // Ignore null keys
     table_ = HashTable<true>::createForJoin(
         std::move(keyHashers),

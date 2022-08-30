@@ -84,9 +84,20 @@ class HashBuild final : public Operator {
   void close() override {}
 
  private:
+  // Invoked to setup hash table to build.
+  void setupTable();
+
   void addRuntimeStats();
 
+  const std::shared_ptr<const core::HashJoinNode> joinNode_;
+
   const core::JoinType joinType_;
+
+  // Holds the areas in RowContainer of 'table_'
+  memory::MappedMemory* const mappedMemory_; // Not owned.
+
+  // The row type used for hash table build and disk spilling.
+  RowTypePtr tableType_;
 
   // Container for the rows being accumulated.
   std::unique_ptr<BaseHashTable> table_;
@@ -99,9 +110,6 @@ class HashBuild final : public Operator {
 
   // Corresponds 1:1 to 'dependentChannels_'.
   std::vector<std::unique_ptr<DecodedVector>> decoders_;
-
-  // Holds the areas in RowContainer of 'table_'
-  memory::MappedMemory* mappedMemory_;
 
   // Future for synchronizing with other Drivers of the same pipeline. All build
   // Drivers must be completed before making the hash table.

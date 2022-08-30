@@ -15,40 +15,11 @@
  */
 #pragma once
 
+#include <velox/exec/HashBitRange.h>
 #include <velox/exec/VectorHasher.h>
 #include "velox/core/PlanNode.h"
 
 namespace facebook::velox::exec {
-
-// Describes a bit range inside a 64 bit hash number for use in
-// partitioning data.
-class HashBitRange {
- public:
-  HashBitRange(uint8_t begin, uint8_t end)
-      : begin_(begin), end_(end), fieldMask_(bits::lowMask(end - begin)) {}
-  HashBitRange() : HashBitRange(0, 0) {}
-
-  int32_t partition(uint64_t hash, int32_t numPartitions) const {
-    int32_t number = (hash >> begin_) & fieldMask_;
-    return number < numPartitions ? number : -1;
-  }
-
-  int32_t partition(uint64_t hash) const {
-    return (hash >> begin_) & fieldMask_;
-  }
-
-  int32_t numPartitions() const {
-    return 1 << (end_ - begin_);
-  }
-
- private:
-  // Low bit number of hash number bit range.
-  const uint8_t begin_;
-  // Bit number of first bit above the hash number bit range.
-  const uint8_t end_;
-
-  const uint64_t fieldMask_;
-};
 
 class HashPartitionFunction : public core::PartitionFunction {
  public:
@@ -68,6 +39,10 @@ class HashPartitionFunction : public core::PartitionFunction {
 
   void partition(const RowVector& input, std::vector<uint32_t>& partitions)
       override;
+
+  int numPartitions() const {
+    return numPartitions_;
+  }
 
  private:
   void init(

@@ -28,6 +28,7 @@ add_executable(
   FunctionResolutionTest.cpp
   FunctionSignatureBuilderTest.cpp
   HashJoinTest.cpp
+  HashBitRangeTest.cpp
   HashPartitionFunctionTest.cpp
   HashTableTest.cpp
   LimitTest.cpp

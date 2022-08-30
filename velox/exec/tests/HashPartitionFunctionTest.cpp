@@ -27,8 +27,7 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
   const int numRows = 10'000;
   RowVectorPtr vector = makeRowVector(
       {makeFlatVector<int32_t>(numRows, [](auto row) { return row * 100 / 3; }),
-       makeFlatVector<int32_t>(
-           numRows, [](auto row) { return row * 1274364; })});
+       makeFlatVector<int32_t>(numRows, [](auto row) { return row * 128; })});
   RowTypePtr rowType = asRowType(vector->type());
 
   // The test case the two hash partition functions having the same config.
@@ -36,11 +35,13 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
     functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{0, 2}, rowType, {0});
     functionWithBits.partition(*vector, partitonsWithBits);
     EXPECT_EQ(partitonsWithoutBits, partitonsWithBits);
+    EXPECT_EQ(4, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
@@ -48,11 +49,13 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
     functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{0, 3}, rowType, {0});
     functionWithBits.partition(*vector, partitonsWithBits);
     EXPECT_NE(partitonsWithoutBits, partitonsWithBits);
+    EXPECT_EQ(8, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
@@ -60,11 +63,13 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithoutBits(numRows);
     HashPartitionFunction functionWithoutBits(4, rowType, {0});
     functionWithoutBits.partition(*vector, partitonsWithoutBits);
+    EXPECT_EQ(4, functionWithoutBits.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits(numRows);
     HashPartitionFunction functionWithBits(HashBitRange{29, 31}, rowType, {0});
     functionWithBits.partition(*vector, partitonsWithBits);
     EXPECT_NE(partitonsWithoutBits, partitonsWithBits);
+    EXPECT_EQ(4, functionWithBits.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
@@ -72,11 +77,13 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{40, 42}, rowType, {0});
     functionWithBits1.partition(*vector, partitonsWithBits1);
+    EXPECT_EQ(4, functionWithBits1.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
     functionWithBits2.partition(*vector, partitonsWithBits2);
     EXPECT_NE(partitonsWithBits1, partitonsWithBits2);
+    EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 
   // The test case the two hash partition functions with different configs.
@@ -84,11 +91,13 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{20, 31}, rowType, {0});
     functionWithBits1.partition(*vector, partitonsWithBits1);
+    EXPECT_EQ(1 << 11, functionWithBits1.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
     functionWithBits2.partition(*vector, partitonsWithBits2);
     EXPECT_NE(partitonsWithBits1, partitonsWithBits2);
+    EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 
   // The test case the two hash partition functions having the same config.
@@ -96,10 +105,12 @@ TEST_F(HashPartitionFunctionTest, HashPartitionFunction) {
     std::vector<uint32_t> partitonsWithBits1(numRows);
     HashPartitionFunction functionWithBits1(HashBitRange{29, 31}, rowType, {0});
     functionWithBits1.partition(*vector, partitonsWithBits1);
+    EXPECT_EQ(4, functionWithBits1.numPartitions());
 
     std::vector<uint32_t> partitonsWithBits2(numRows);
     HashPartitionFunction functionWithBits2(HashBitRange{29, 31}, rowType, {0});
     functionWithBits2.partition(*vector, partitonsWithBits2);
     EXPECT_EQ(partitonsWithBits1, partitonsWithBits2);
+    EXPECT_EQ(4, functionWithBits2.numPartitions());
   }
 }
