@@ -38,7 +38,7 @@ TEST_F(PrestoOutputStreamListenerTest, basic) {
       os->listener());
   EXPECT_TRUE(listener != nullptr);
 
-  boost::crc_32_type crc;
+  bits::Crc32 crc;
   crc.process_bytes(&codec, sizeof(codec));
   crc.process_bytes(&length, sizeof(length));
   crc.process_bytes(str1.data(), str1.size());

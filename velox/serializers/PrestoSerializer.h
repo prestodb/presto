@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <boost/crc.hpp>
+#include "velox/common/base/Crc.h"
 #include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::serializer::presto {
@@ -55,7 +55,7 @@ class PrestoOutputStreamListener : public OutputStreamListener {
     paused_ = false;
   }
 
-  boost::crc_32_type crc() const {
+  auto crc() const {
     return crc_;
   }
 
@@ -65,6 +65,6 @@ class PrestoOutputStreamListener : public OutputStreamListener {
 
  private:
   bool paused_{false};
-  boost::crc_32_type crc_;
+  bits::Crc32 crc_;
 };
 } // namespace facebook::velox::serializer::presto

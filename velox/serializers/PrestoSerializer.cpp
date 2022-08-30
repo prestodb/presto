@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/common/base/Crc.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
@@ -34,7 +35,7 @@ int64_t computeChecksum(
     int codecMarker,
     int numRows,
     int uncompressedSize) {
-  boost::crc_32_type result = listener->crc();
+  auto result = listener->crc();
   result.process_bytes(&codecMarker, 1);
   result.process_bytes(&numRows, 4);
   result.process_bytes(&uncompressedSize, 4);
@@ -47,7 +48,7 @@ int64_t computeChecksum(
     int numRows,
     int uncompressedSize) {
   auto offset = source->tellp();
-  boost::crc_32_type crc32;
+  bits::Crc32 crc32;
 
   auto remainingBytes = uncompressedSize;
   while (remainingBytes > 0) {
