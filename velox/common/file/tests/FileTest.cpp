@@ -68,8 +68,7 @@ void readData(ReadFile* readFile) {
   ASSERT_EQ(std::string_view(tail, sizeof(tail)), "ccddddd");
 }
 
-// We could template this test, but that's kinda overkill for how simple it is.
-
+// We could templated this test, but that's kinda overkill for how simple it is.
 TEST(InMemoryFile, writeAndRead) {
   std::string buf;
   {
