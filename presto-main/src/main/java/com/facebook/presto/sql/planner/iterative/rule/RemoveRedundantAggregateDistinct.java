@@ -19,8 +19,10 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Rule;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -38,17 +40,12 @@ public class RemoveRedundantAggregateDistinct
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(RemoveRedundantAggregateDistinct::aggregateDistinctOfUniqueKey);
+            .matching(RemoveRedundantAggregateDistinct::hasAggregations);
 
-    private static boolean aggregateDistinctOfUniqueKey(AggregationNode node)
+    private static boolean hasAggregations(AggregationNode node)
     {
-        return !node.getAggregations().isEmpty() &&
-                ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
-                node.getAggregations().values().stream()
-                        .filter(AggregationNode.Aggregation::isDistinct)
-                        .anyMatch(a -> ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(
-                                Stream.concat(node.getGroupingKeys().stream().map(VariableReferenceExpression.class::cast),
-                                        a.getArguments().stream().map(VariableReferenceExpression.class::cast)).collect(Collectors.toSet())));
+        return ((GroupReference) node.getSource()).getLogicalProperties().isPresent() &&
+                !node.getAggregations().isEmpty();
     }
 
     @Override
@@ -60,18 +57,33 @@ public class RemoveRedundantAggregateDistinct
     @Override
     public Result apply(AggregationNode node, Captures captures, Context context)
     {
+        ImmutableMap.Builder<VariableReferenceExpression, AggregationNode.Aggregation> aggregationsBuilder = ImmutableMap.builder();
+
+        for (Map.Entry<VariableReferenceExpression, AggregationNode.Aggregation> agg : node.getAggregations().entrySet()) {
+            Set<VariableReferenceExpression> varAndGroupingKeySet =
+                    Stream.concat(node.getGroupingKeys().stream().map(VariableReferenceExpression.class::cast),
+                                    (agg.getValue()).getArguments().stream().map(VariableReferenceExpression.class::cast))
+                            .collect(Collectors.toSet());
+            if (agg.getValue().isDistinct() && ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(varAndGroupingKeySet)) {
+                aggregationsBuilder.put(agg.getKey(), removeDistinct(agg.getValue()));
+            }
+            else {
+                aggregationsBuilder.put(agg);
+            }
+        }
+
+        Map<VariableReferenceExpression, AggregationNode.Aggregation> newAggregations = aggregationsBuilder.build();
+        if (newAggregations.equals(node.getAggregations())) {
+            return Result.empty();
+        }
+
         //create new AggregateNode same as original but with distinct turned off for
         //any aggregate function whose argument variables + grouping variables form a unique key
         return Result.ofPlanNode(new AggregationNode(
                 node.getSourceLocation(),
                 context.getIdAllocator().getNextId(),
                 node.getSource(),
-                node.getAggregations().entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e ->
-                        (e.getValue().isDistinct() &&
-                                ((GroupReference) node.getSource()).getLogicalProperties().get().isDistinct(
-                                        Stream.concat(node.getGroupingKeys().stream().map(VariableReferenceExpression.class::cast),
-                                                (e.getValue()).getArguments().stream().map(VariableReferenceExpression.class::cast)).collect(Collectors.toSet()))) ?
-                                removeDistinct(e.getValue()) : (e.getValue()))),
+                newAggregations,
                 node.getGroupingSets(),
                 node.getPreGroupedVariables(),
                 node.getStep(),
