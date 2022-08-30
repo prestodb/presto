@@ -184,7 +184,7 @@ class Producer {
       future = std::move(f);
     }
 
-    std::move(future).get();
+    std::move(future).get(std::chrono::microseconds(10'000));
   }
 
  private:
@@ -374,6 +374,36 @@ TEST_F(PrestoExchangeSourceTest, basic) {
     serverWrapper.stop();
     EXPECT_EQ(pool_->getCurrentBytes(), 0);
   }
+}
+
+TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
+  std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
+  auto producer = std::make_unique<Producer>();
+  for (auto& page : pages) {
+    producer->enqueue(page);
+  }
+  producer->noMoreData();
+
+  auto producerServer =
+      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto producerUri = makeProducerUri(producerAddress);
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSource();
+  queue->noMoreSources();
+
+  auto exchangeSource =
+      std::make_shared<PrestoExchangeSource>(producerUri, 3, queue);
+  exchangeSource->setMemoryPool(pool_);
+  exchangeSource->close();
+
+  producer->waitForDeleteResults();
+  serverWrapper.stop();
+  EXPECT_EQ(pool_->getCurrentBytes(), 0);
 }
 
 TEST_F(PrestoExchangeSourceTest, slowProducer) {
