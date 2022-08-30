@@ -926,7 +926,7 @@ public class OrcSelectiveRecordReader
         }
 
         @Override
-        public final void load(LazyBlock lazyBlock)
+        public void load(LazyBlock lazyBlock)
         {
             if (loaded) {
                 return;
@@ -936,7 +936,12 @@ public class OrcSelectiveRecordReader
                 reader.read(offset, positions, positionCount);
             }
             catch (IOException e) {
+                OrcSelectiveRecordReader.this.getOrcDataSourceId().attachToException(e);
                 throw new UncheckedIOException(e);
+            }
+            catch (RuntimeException e) {
+                OrcSelectiveRecordReader.this.getOrcDataSourceId().attachToException(e);
+                throw e;
             }
 
             Block block = reader.getBlock(positions, positionCount);
