@@ -2,24 +2,6 @@
 Array Functions
 =============================
 
-.. function:: array_intersect(array(E) x, array(E) y) -> array(E)
-
-    Returns an array of the elements in the intersection of array ``x`` and array ``y``, without duplicates. ::
-
-        SELECT array_intersect(ARRAY [1, 2, 3], ARRAY[4, 5, 6]); -- []
-        SELECT array_intersect(ARRAY [1, 2, 2], ARRAY[1, 1, 2]); -- [1, 2]
-        SELECT array_intersect(ARRAY [1, NULL, NULL], ARRAY[1, 1, NULL]); -- [1, NULL]
-
-.. function:: array_except(array(E) x, array(E) y) -> array(E)
-
-    Returns an array of the elements in array ``x`` but not in array ``y``, without duplicates. ::
-
-        SELECT array_except(ARRAY [1, 2, 3], ARRAY [4, 5, 6]); -- [1, 2, 3]
-        SELECT array_except(ARRAY [1, 2, 3], ARRAY [1, 2]); -- [3]
-        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 1, 2]); -- []
-        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
-        SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
-
 .. function:: array_distinct(array(E)) -> array(E)
 
     Remove duplicate values from the input array. ::
@@ -34,6 +16,32 @@ Array Functions
     E must be bigint or varchar.
 
         select array_duplicates(ARRAY [5, 2, 5, 1, 1, 5, null, null])); -- [null, 1, 5]
+
+.. function:: array_except(array(E) x, array(E) y) -> array(E)
+
+    Returns an array of the elements in array ``x`` but not in array ``y``, without duplicates. ::
+
+        SELECT array_except(ARRAY [1, 2, 3], ARRAY [4, 5, 6]); -- [1, 2, 3]
+        SELECT array_except(ARRAY [1, 2, 3], ARRAY [1, 2]); -- [3]
+        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 1, 2]); -- []
+        SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
+        SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
+
+.. function:: array_intersect(array(E) x, array(E) y) -> array(E)
+
+    Returns an array of the elements in the intersection of array ``x`` and array ``y``, without duplicates. ::
+
+        SELECT array_intersect(ARRAY [1, 2, 3], ARRAY[4, 5, 6]); -- []
+        SELECT array_intersect(ARRAY [1, 2, 2], ARRAY[1, 1, 2]); -- [1, 2]
+        SELECT array_intersect(ARRAY [1, NULL, NULL], ARRAY[1, 1, NULL]); -- [1, NULL]
+
+.. function:: array_join(x, delimiter, null_replacement) -> varchar
+
+    Concatenates the elements of the given array using the delimiter and an optional string to replace nulls. ::
+
+        SELECT array_join(ARRAY [1, 2, 3], ",") -- "1,2,3"
+        SELECT array_join(ARRAY [1, NULL, 2], ",") -- "1,2"
+        SELECT array_join(ARRAY [1, NULL, 2], ",", "0") -- "1,0,2"
 
 .. function:: array_max(array(E)) -> E
 
@@ -66,13 +74,16 @@ Array Functions
 
     If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
 
-.. function:: array_join(x, delimiter, null_replacement) -> varchar
+.. function:: array_sort(array(E)) -> array(E)
 
-    Concatenates the elements of the given array using the delimiter and an optional string to replace nulls. ::
+     Returns an array which has the sorted order of the input array x. The elements of x must
+     be orderable. Null elements will be placed at the end of the returned array.
 
-        SELECT array_join(ARRAY [1, 2, 3], ",") -- "1,2,3"
-        SELECT array_join(ARRAY [1, NULL, 2], ",") -- "1,2"
-        SELECT array_join(ARRAY [1, NULL, 2], ",", "0") -- "1,0,2"
+        SELECT array_sort(ARRAY [1, 2, 3]); -- [1, 2, 3]
+        SELECT array_sort(ARRAY [3, 2, 1]); -- [1, 2, 3]
+        SELECT array_sort(ARRAY [2, 1, NULL]; -- [1, 2, NULL]
+        SELECT array_sort(ARRAY [NULL, 1, NULL]); -- [1, NULL, NULL]
+        SELECT array_sort(ARRAY [NULL, 2, 1]); -- [1, 2, NUL]
 
 .. function:: array_sum(array(T)) -> bigint/double
 
@@ -154,7 +165,6 @@ Array Functions
         SELECT transform(ARRAY [5, NULL, 6], x -> COALESCE(x, 0) + 1); -- [6, 1, 7]
         SELECT transform(ARRAY ['x', 'abc', 'z'], x -> x || '0'); -- ['x0', 'abc0', 'z0']
         SELECT transform(ARRAY [ARRAY [1, NULL, 2], ARRAY[3, NULL]], a -> filter(a, x -> x IS NOT NULL)); -- [[1, 2], [3]]
-
 
 .. function:: zip(array(T), array(U),..) -> array(row(T,U, ...))
 
