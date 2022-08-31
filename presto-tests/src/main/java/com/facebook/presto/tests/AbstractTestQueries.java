@@ -6055,4 +6055,14 @@ public abstract class AbstractTestQueries
         assertTrue(plan.contains("m := max (1:34)"));
         assertTrue(plan.contains("max := max(expr) RANGE UNBOUNDED_PRECEDING CURRENT_ROW (1:34)"));
     }
+
+    @Test
+    public void testCSECompilation()
+    {
+        String sql = "SELECT " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v1, " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v2 " +
+                "FROM (select MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN ( SELECT MAP() AS other_map ) risk_map";
+        assertQuery(sql, "VALUES (100000, 100000)");
+    }
 }
