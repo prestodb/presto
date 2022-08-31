@@ -17,6 +17,7 @@ Presto Functions
     functions/json
     functions/url
     functions/aggregate
+    functions/window
     functions/hyperloglog
 
 Here is a list of all scalar and aggregate Presto functions available in Velox.
