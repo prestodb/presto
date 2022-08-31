@@ -198,6 +198,14 @@ public class TestPageFunctionCompiler
     }
 
     @Test
+    public void testCommonSubExpressionDuplicatesInProjection()
+    {
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
+        List<Supplier<PageProjectionWithOutputs>> pageProjections = functionCompiler.compileProjections(SESSION.getSqlFunctionProperties(), ImmutableList.of(ADD_X_Y, ADD_X_Y), true, Optional.empty());
+        assertEquals(pageProjections.size(), 2);
+    }
+
+    @Test
     public void testCommonSubExpressionLongProjectionList()
     {
         PageFunctionCompiler functionCompiler = new PageFunctionCompiler(createTestMetadataManager(), 0);
@@ -228,7 +236,7 @@ public class TestPageFunctionCompiler
         Page input = createLongBlockPage(2, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
         SelectedPositions positions = filter(pageFilter.get(), input);
         assertEquals(positions.size(), 3);
-        assertEquals(positions.getPositions(), new int[]{2, 3, 4});
+        assertEquals(positions.getPositions(), new int[] {2, 3, 4});
     }
 
     private void checkBlockEqual(Block a, Block b)
