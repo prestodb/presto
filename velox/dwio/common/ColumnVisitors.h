@@ -673,7 +673,7 @@ inline xsimd::batch<int64_t> cvtU32toI64(
 inline xsimd::batch<int64_t> cvtU32toI64(simd::Batch64<int32_t> values) {
   int64_t lo = static_cast<uint32_t>(values.data[0]);
   int64_t hi = static_cast<uint32_t>(values.data[1]);
-  return xsimd::batch<int64_t>({lo, hi});
+  return xsimd::batch<int64_t>(lo, hi);
 }
 #endif
 
