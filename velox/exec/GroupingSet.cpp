@@ -104,6 +104,12 @@ GroupingSet::GroupingSet(
   }
 }
 
+GroupingSet::~GroupingSet() {
+  if (isGlobal_) {
+    destroyGlobalAggregations();
+  }
+}
+
 namespace {
 bool equalKeys(
     const std::vector<column_index_t>& keys,
@@ -366,8 +372,21 @@ bool GroupingSet::getGlobalAggregationOutput(
       aggregates_[i]->extractValues(groups, 1, &result->childAt(i));
     }
   }
+
   iterator.allocationIndex = std::numeric_limits<int32_t>::max();
   return true;
+}
+
+void GroupingSet::destroyGlobalAggregations() {
+  if (!globalAggregationInitialized_) {
+    return;
+  }
+  for (int32_t i = 0; i < aggregates_.size(); ++i) {
+    if (aggregates_[i]->accumulatorUsesExternalMemory()) {
+      auto groups = lookup_->hits.data();
+      aggregates_[i]->destroy(folly::Range(groups, 1));
+    }
+  }
 }
 
 void GroupingSet::populateTempVectors(

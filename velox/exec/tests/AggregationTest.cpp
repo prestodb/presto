@@ -551,7 +551,8 @@ TEST_F(AggregationTest, global) {
                      "max(c2)",
                      "max(c3)",
                      "max(c4)",
-                     "max(c5)"},
+                     "max(c5)",
+                     "sumnonpod(1)"},
                     {},
                     core::AggregationNode::Step::kPartial,
                     false)
@@ -561,7 +562,9 @@ TEST_F(AggregationTest, global) {
       op,
       "SELECT sum(15), sum(c1), sum(c2), sum(c4), sum(c5), "
       "min(15), min(c1), min(c2), min(c3), min(c4), min(c5), "
-      "max(15), max(c1), max(c2), max(c3), max(c4), max(c5) FROM tmp");
+      "max(15), max(c1), max(c2), max(c3), max(c4), max(c5), sum(1) FROM tmp");
+
+  EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
 }
 
 TEST_F(AggregationTest, singleBigintKey) {
