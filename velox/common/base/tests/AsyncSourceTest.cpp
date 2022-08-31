@@ -20,6 +20,7 @@
 #include <folly/Synchronized.h>
 #include <gtest/gtest.h>
 #include <thread>
+#include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
 
@@ -38,6 +39,11 @@ TEST(AsyncSourceTest, basic) {
   auto value = gizmo.move();
   EXPECT_FALSE(gizmo.hasValue());
   EXPECT_EQ(11, value->id);
+
+  AsyncSource<Gizmo> error(
+      []() -> std::unique_ptr<Gizmo> { VELOX_USER_FAIL("Testing error"); });
+  EXPECT_THROW(error.move(), VeloxException);
+  EXPECT_TRUE(error.hasValue());
 }
 
 TEST(AsyncSourceTest, threads) {
@@ -96,4 +102,51 @@ TEST(AsyncSourceTest, threads) {
       EXPECT_TRUE(set.find(i) != set.end());
     }
   });
+}
+
+TEST(AsyncSourceTest, errorsWithThreads) {
+  constexpr int32_t kNumGizmos = 50;
+  constexpr int32_t kNumThreads = 10;
+  std::vector<std::shared_ptr<AsyncSource<Gizmo>>> gizmos;
+  std::atomic<int32_t> numErrors{0};
+  for (auto i = 0; i < kNumGizmos; ++i) {
+    gizmos.push_back(
+        std::make_shared<AsyncSource<Gizmo>>([i]() -> std::unique_ptr<Gizmo> {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1)); // NOLINT
+          VELOX_USER_FAIL("Testing error");
+        }));
+  }
+
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+  for (int32_t threadIndex = 0; threadIndex < kNumThreads; ++threadIndex) {
+    threads.push_back(std::thread([threadIndex, &gizmos, &numErrors]() {
+      if (threadIndex < kNumThreads / 2) {
+        // The first half of the threads prepare Gizmos in the background.
+        for (auto i = 0; i < kNumGizmos; ++i) {
+          gizmos[i]->prepare();
+        }
+      } else {
+        // The rest of the threads get random gizmos. They are
+        // expected to produce an error or nullptr in the event
+        // another thread is already waiting for the same gizmo.
+        folly::Random::DefaultGenerator rng;
+        for (auto i = 0; i < kNumGizmos / 3; ++i) {
+          try {
+            auto gizmo =
+                gizmos[folly::Random::rand32(rng) % gizmos.size()]->move();
+            EXPECT_EQ(nullptr, gizmo);
+          } catch (std::exception& e) {
+            ++numErrors;
+          }
+        }
+      }
+    }));
+  }
+  for (auto& thread : threads) {
+    thread.join();
+  }
+  // There will always be errors since the first to wait for any given
+  // gizmo is sure to get an error.
+  EXPECT_LT(0, numErrors);
 }

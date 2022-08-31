@@ -28,9 +28,10 @@ namespace facebook::velox {
 
 // A future-like object that prefabricates Items on an executor and
 // allows consumer threads to pick items as they are ready. If the
-// consumer needs the item before the executor started making it,
-// the consumer will make it instead. If multiple consumers request
-// the same item, exactly one gets it.
+// consumer needs the item before the executor started making it, the
+// consumer will make it instead. If multiple consumers request the
+// same item, exactly one gets it. Propagates exceptions to the
+// consumer.
 template <typename Item>
 class AsyncSource {
  public:
@@ -49,7 +50,11 @@ class AsyncSource {
       making_ = true;
       std::swap(make, make_);
     }
-    item_ = make();
+    try {
+      item_ = make();
+    } catch (std::exception& e) {
+      exception_ = std::current_exception();
+    }
     {
       std::lock_guard<std::mutex> l(mutex_);
       making_ = false;
@@ -68,6 +73,12 @@ class AsyncSource {
     ContinueFuture wait;
     {
       std::lock_guard<std::mutex> l(mutex_);
+      // 'making_' can be read atomically, 'exception)' maybe
+      // not. Sotest 'making' so as not to read half-assigned
+      // 'exception_'.
+      if (!making_ && exception_) {
+        std::rethrow_exception(exception_);
+      }
       if (item_) {
         return std::move(item_);
       }
@@ -87,18 +98,26 @@ class AsyncSource {
     }
     // Outside of mutex_.
     if (make) {
-      return make();
+      try {
+        return make();
+      } catch (const std::exception& e) {
+        exception_ = std::current_exception();
+        throw;
+      }
     }
     auto& exec = folly::QueuedImmediateExecutor::instance();
     std::move(wait).via(&exec).wait();
     std::lock_guard<std::mutex> l(mutex_);
+    if (exception_) {
+      std::rethrow_exception(exception_);
+    }
     return std::move(item_);
   }
 
   // If true, move() will not block. But there is no guarantee that somebody
   // else will not get the item first.
   bool hasValue() const {
-    return item_ != nullptr;
+    return item_ != nullptr || exception_ != nullptr;
   }
 
  private:
@@ -108,5 +127,6 @@ class AsyncSource {
   std::unique_ptr<ContinuePromise> promise_;
   std::unique_ptr<Item> item_;
   std::function<std::unique_ptr<Item>()> make_;
+  std::exception_ptr exception_;
 };
 } // namespace facebook::velox
