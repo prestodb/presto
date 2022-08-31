@@ -90,8 +90,9 @@ class Spiller {
     return state_.isPartitionSpilled(partition);
   }
 
-  std::unique_ptr<TreeOfLosers<SpillStream>> startMerge(int32_t partition) {
-    return state_.startMerge(partition, spillStreamOverRows(partition));
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(
+      int32_t partition) {
+    return state_.startMerge(partition, spillMergeStreamOverRows(partition));
   }
 
   // Define the spiller stats.
@@ -148,7 +149,7 @@ class Spiller {
   // Returns a mergeable stream that goes over unspilled in-memory
   // rows for the spill partition  'partition'. finishSpill()
   // first and 'partition' must specify a partition that has started spilling.
-  std::unique_ptr<SpillStream> spillStreamOverRows(int32_t partition);
+  std::unique_ptr<SpillMergeStream> spillMergeStreamOverRows(int32_t partition);
 
   std::string toString() const;
 
@@ -239,7 +240,7 @@ class Spiller {
   // True if all rows of spilling partitions are in 'spillRuns_', so
   // that one can start reading these back. This means that the rows
   // that are not written out and deleted will be captured by
-  // spillStreamOverRows().
+  // spillMergeStreamOverRows().
   bool spillFinalized_{false};
   memory::MemoryPool& pool_;
   folly::Executor* const executor_;

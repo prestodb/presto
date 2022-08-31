@@ -55,6 +55,7 @@ add_executable(
   TaskTest.cpp
   TopNTest.cpp
   TreeOfLosersTest.cpp
+  UnorderedStreamReaderTest.cpp
   UnnestTest.cpp
   VectorHasherTest.cpp
   WindowFunctionRegistryTest.cpp)
@@ -81,6 +82,7 @@ target_link_libraries(
   velox_exec_test_util
   velox_functions_json
   velox_vector
+  velox_vector_fuzzer
   velox_memory
   velox_dwio_common_exception
   ${Boost_ATOMIC_LIBRARIES}

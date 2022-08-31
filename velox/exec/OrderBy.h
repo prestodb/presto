@@ -137,7 +137,7 @@ class OrderBy : public Operator {
   uint64_t spillTestCounter_{0};
 
   // Set to read back spilled data if disk spilling has been triggered.
-  std::unique_ptr<TreeOfLosers<SpillStream>> spillMerge_;
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> spillMerge_;
 
   // Record the source rows to copy to 'output_' in order.
   std::vector<const RowVector*> spillSources_;

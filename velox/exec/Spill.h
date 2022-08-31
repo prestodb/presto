@@ -19,6 +19,7 @@
 #include "velox/common/file/File.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/TreeOfLosers.h"
+#include "velox/exec/UnorderedStreamReader.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -51,156 +52,10 @@ class SpillInput : public ByteStream {
   uint64_t offset_ = 0;
 };
 
-// A source of spilled RowVectors coming either from a file or memory.
-class SpillStream : public MergeStream {
- public:
-  SpillStream(
-      RowTypePtr type,
-      int32_t numSortingKeys,
-      const std::vector<CompareFlags>& sortCompareFlags,
-      memory::MemoryPool& pool)
-      : type_(std::move(type)),
-        numSortingKeys_(numSortingKeys),
-        sortCompareFlags_(sortCompareFlags),
-        ordinal_(++ordinalCounter_),
-        pool_(pool) {
-    // NOTE: if the spilling operator has specified the sort comparison flags,
-    // then it must match the number of sorting keys.
-    VELOX_CHECK(
-        sortCompareFlags_.empty() ||
-        sortCompareFlags_.size() == numSortingKeys_);
-  }
-
-  virtual ~SpillStream() = default;
-
-  bool hasData() const final {
-    return index_ < size_;
-  }
-
-  bool operator<(const MergeStream& other) const final {
-    return compare(other) < 0;
-  }
-
-  int32_t compare(const MergeStream& other) const {
-    auto& otherStream = static_cast<const SpillStream&>(other);
-    auto& children = rowVector_->children();
-    auto& otherChildren = otherStream.current().children();
-    int32_t key = 0;
-    do {
-      auto result = children[key]
-                        ->compare(
-                            otherChildren[key].get(),
-                            index_,
-                            otherStream.index_,
-                            sortCompareFlags_.empty() ? CompareFlags()
-                                                      : sortCompareFlags_[key])
-                        .value();
-      if (result != 0) {
-        return result;
-      }
-    } while (++key < numSortingKeys_);
-    return 0;
-  }
-
-  virtual std::string label() const {
-    return fmt::format("{}", ordinal_);
-  }
-
-  void pop();
-
-  const RowVector& current() const {
-    return *rowVector_;
-  }
-
-  /// Invoked to get the current row index in 'rowVector_'. If 'isLastRow' is
-  /// not null, it is set to true if current row is the last one in the current
-  /// batch, in which case the caller must call copy out current batch data if
-  /// required before calling pop().
-  vector_size_t currentIndex(bool* isLastRow = nullptr) const {
-    if (isLastRow != nullptr) {
-      *isLastRow = (index_ == (rowVector_->size() - 1));
-    }
-    return index_;
-  }
-
-  // Returns a DecodedVector set decoding the 'index'th child of 'rowVector_'
-  DecodedVector& decoded(int32_t index) {
-    ensureDecodedValid(index);
-    return decoded_[index];
-  }
-
-  virtual uint64_t size() const = 0;
-
- protected:
-  // loads the next 'rowVector' and sets 'decoded_' if this is initialized.
-  void setNextBatch() {
-    nextBatch();
-    if (!decoded_.empty()) {
-      ensureRows();
-      for (auto i = 0; i < decoded_.size(); ++i) {
-        decoded_[i].decode(*rowVector_->childAt(i), rows_);
-      }
-    }
-  }
-
-  void ensureDecodedValid(int32_t index) {
-    int32_t oldSize = decoded_.size();
-    if (index < oldSize) {
-      return;
-    }
-    ensureRows();
-    decoded_.resize(index + 1);
-    for (auto i = oldSize; i <= index; ++i) {
-      decoded_[index].decode(*rowVector_->childAt(index), rows_);
-    }
-  }
-
-  void ensureRows() {
-    if (rows_.size() != rowVector_->size()) {
-      rows_.resize(size_);
-    }
-  }
-
-  // Loads the next RowVector from the backing storage, e.g. spill file or
-  // RowContainer.
-  virtual void nextBatch() = 0;
-
-  static std::atomic<int32_t> ordinalCounter_;
-
-  // Type of 'rowVector_'. Needed for setting up writing.
-  const RowTypePtr type_;
-
-  // Number of leading columns of 'rowVector_'  on which the values are sorted,
-  // 0 if not sorted.
-  const int32_t numSortingKeys_;
-  const std::vector<CompareFlags> sortCompareFlags_;
-
-  // Ordinal number used for making a label for debugging.
-  const int32_t ordinal_;
-
-  memory::MemoryPool& pool_;
-
-  // Current batch of rows.
-  RowVectorPtr rowVector_;
-
-  // The current row in 'rowVector_'
-  vector_size_t index_{0};
-
-  // Number of rows in 'rowVector_'
-  vector_size_t size_{0};
-
-  // Decoded vectors for leading parts of 'rowVector_'. Initialized on first
-  // use and maintained when updating 'rowVector_'.
-  std::vector<DecodedVector> decoded_;
-
-  // Covers all rows inn 'rowVector_' Set if 'decoded_' is non-empty.
-  SelectivityVector rows_;
-};
-
 /// Represents a spill file that is first in write mode and then
 /// turns into a source of spilled RowVectors. Owns a file system file that
 /// contains the spilled data and is live for the duration of 'this'.
-class SpillFile : public SpillStream {
+class SpillFile {
  public:
   SpillFile(
       RowTypePtr type,
@@ -208,10 +63,28 @@ class SpillFile : public SpillStream {
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       memory::MemoryPool& pool)
-      : SpillStream(std::move(type), numSortingKeys, sortCompareFlags, pool),
-        path_(fmt::format("{}-{}", path, ordinalCounter_++)) {}
+      : type_(std::move(type)),
+        numSortingKeys_(numSortingKeys),
+        sortCompareFlags_(sortCompareFlags),
+        pool_(pool),
+        ordinal_(ordinalCounter_++),
+        path_(fmt::format("{}-{}", path, ordinal_)) {
+    // NOTE: if the spilling operator has specified the sort comparison flags,
+    // then it must match the number of sorting keys.
+    VELOX_CHECK(
+        sortCompareFlags_.empty() ||
+        sortCompareFlags_.size() == numSortingKeys_);
+  }
 
-  ~SpillFile() override;
+  ~SpillFile();
+
+  int32_t numSortingKeys() const {
+    return numSortingKeys_;
+  }
+
+  const std::vector<CompareFlags>& sortCompareFlags() const {
+    return sortCompareFlags_;
+  }
 
   /// Returns a file for writing spilled data. The caller constructs
   /// this, then calls output() and writes serialized data to the file
@@ -235,32 +108,46 @@ class SpillFile : public SpillStream {
   /// content. The caller must call output() and finishWrite() before this.
   void startRead();
 
+  bool nextBatch(RowVectorPtr& rowVector);
+
   /// Returns the file size in bytes. During the writing phase this is
   /// the current size of the file, during reading this is the final
   // size.
-  uint64_t size() const override {
+  uint64_t size() const {
     if (output_) {
       return output_->size();
     }
     return fileSize_;
   }
 
-  /// Sets 'result' to refer to the next row of content of 'this'.
-  void read(RowVector& result);
+  std::string label() const {
+    return fmt::format("{}", ordinal_);
+  }
 
   const std::string& testingFilePath() const {
     return path_;
   }
 
  private:
-  void nextBatch() override;
+  static std::atomic<int32_t> ordinalCounter_;
 
+  // Type of 'rowVector_'. Needed for setting up writing.
+  const RowTypePtr type_;
+  const int32_t numSortingKeys_;
+  const std::vector<CompareFlags> sortCompareFlags_;
+  memory::MemoryPool& pool_;
+
+  // Ordinal number used for making a label for debugging.
+  const int32_t ordinal_;
   const std::string path_;
+
   // Byte size of the backing file. Set when finishing writing.
   uint64_t fileSize_ = 0;
   std::unique_ptr<WriteFile> output_;
   std::unique_ptr<SpillInput> input_;
 };
+
+using SpillFiles = std::vector<std::unique_ptr<SpillFile>>;
 
 /// Sequence of files for one partition of the spilled data. If data is
 /// sorted, each file is sorted. The globally sorted order is produced
@@ -310,7 +197,7 @@ class SpillFileList {
   /// start a new one.
   void finishFile();
 
-  std::vector<std::unique_ptr<SpillFile>> files() {
+  SpillFiles files() {
     VELOX_CHECK(!files_.empty());
     finishFile();
     return std::move(files_);
@@ -329,6 +216,7 @@ class SpillFileList {
   WriteFile& currentOutput();
   // Writes data from 'batch_' to the current output file.
   void flush();
+
   const RowTypePtr type_;
   const int32_t numSortingKeys_;
   const std::vector<CompareFlags> sortCompareFlags_;
@@ -337,7 +225,203 @@ class SpillFileList {
   memory::MemoryPool& pool_;
   memory::MappedMemory& mappedMemory_;
   std::unique_ptr<VectorStreamGroup> batch_;
-  std::vector<std::unique_ptr<SpillFile>> files_;
+  SpillFiles files_;
+};
+
+// A source of sorted spilled RowVectors coming either from a file or memory.
+class SpillMergeStream : public MergeStream {
+ public:
+  SpillMergeStream() = default;
+  virtual ~SpillMergeStream() = default;
+
+  bool hasData() const final {
+    return index_ < size_;
+  }
+
+  bool operator<(const MergeStream& other) const final {
+    return compare(other) < 0;
+  }
+
+  int32_t compare(const MergeStream& other) const {
+    auto& otherStream = static_cast<const SpillMergeStream&>(other);
+    auto& children = rowVector_->children();
+    auto& otherChildren = otherStream.current().children();
+    int32_t key = 0;
+    if (sortCompareFlags().empty()) {
+      do {
+        auto result = children[key]
+                          ->compare(
+                              otherChildren[key].get(),
+                              index_,
+                              otherStream.index_,
+                              CompareFlags())
+                          .value();
+        if (result != 0) {
+          return result;
+        }
+      } while (++key < numSortingKeys());
+    } else {
+      do {
+        auto result = children[key]
+                          ->compare(
+                              otherChildren[key].get(),
+                              index_,
+                              otherStream.index_,
+                              sortCompareFlags()[key])
+                          .value();
+        if (result != 0) {
+          return result;
+        }
+      } while (++key < numSortingKeys());
+    }
+    return 0;
+  }
+
+  void pop();
+
+  const RowVector& current() const {
+    return *rowVector_;
+  }
+
+  /// Invoked to get the current row index in 'rowVector_'. If 'isLastRow' is
+  /// not null, it is set to true if current row is the last one in the current
+  /// batch, in which case the caller must call copy out current batch data if
+  /// required before calling pop().
+  vector_size_t currentIndex(bool* isLastRow = nullptr) const {
+    if (isLastRow != nullptr) {
+      *isLastRow = (index_ == (rowVector_->size() - 1));
+    }
+    return index_;
+  }
+
+  // Returns a DecodedVector set decoding the 'index'th child of 'rowVector_'
+  DecodedVector& decoded(int32_t index) {
+    ensureDecodedValid(index);
+    return decoded_[index];
+  }
+
+ protected:
+  virtual int32_t numSortingKeys() const = 0;
+
+  virtual const std::vector<CompareFlags>& sortCompareFlags() const = 0;
+
+  virtual void nextBatch() = 0;
+
+  // loads the next 'rowVector' and sets 'decoded_' if this is initialized.
+  void setNextBatch() {
+    nextBatch();
+    if (!decoded_.empty()) {
+      ensureRows();
+      for (auto i = 0; i < decoded_.size(); ++i) {
+        decoded_[i].decode(*rowVector_->childAt(i), rows_);
+      }
+    }
+  }
+
+  void ensureDecodedValid(int32_t index) {
+    int32_t oldSize = decoded_.size();
+    if (index < oldSize) {
+      return;
+    }
+    ensureRows();
+    decoded_.resize(index + 1);
+    for (auto i = oldSize; i <= index; ++i) {
+      decoded_[index].decode(*rowVector_->childAt(index), rows_);
+    }
+  }
+
+  void ensureRows() {
+    if (rows_.size() != rowVector_->size()) {
+      rows_.resize(size_);
+    }
+  }
+
+  // Current batch of rows.
+  RowVectorPtr rowVector_;
+
+  // The current row in 'rowVector_'
+  vector_size_t index_{0};
+
+  // Number of rows in 'rowVector_'
+  vector_size_t size_{0};
+
+  // Decoded vectors for leading parts of 'rowVector_'. Initialized on first
+  // use and maintained when updating 'rowVector_'.
+  std::vector<DecodedVector> decoded_;
+
+  // Covers all rows inn 'rowVector_' Set if 'decoded_' is non-empty.
+  SelectivityVector rows_;
+};
+
+// A source of spilled RowVectors coming from a file.
+class FileSpillMergeStream : public SpillMergeStream {
+ public:
+  static std::unique_ptr<SpillMergeStream> create(
+      std::unique_ptr<SpillFile> spillFile) {
+    spillFile->startRead();
+    auto* spillStream = new FileSpillMergeStream(std::move(spillFile));
+    spillStream->nextBatch();
+    return std::unique_ptr<SpillMergeStream>(spillStream);
+  }
+
+ private:
+  FileSpillMergeStream(std::unique_ptr<SpillFile> spillFile)
+      : spillFile_(std::move(spillFile)) {
+    VELOX_CHECK_NOT_NULL(spillFile_);
+  }
+
+  int32_t numSortingKeys() const override {
+    return spillFile_->numSortingKeys();
+  }
+
+  const std::vector<CompareFlags>& sortCompareFlags() const override {
+    return spillFile_->sortCompareFlags();
+  }
+
+  void nextBatch() override {
+    index_ = 0;
+    if (!spillFile_->nextBatch(rowVector_)) {
+      size_ = 0;
+      return;
+    }
+    size_ = rowVector_->size();
+  }
+
+  std::unique_ptr<SpillFile> spillFile_;
+};
+
+/// A source of spilled RowVectors coming from a file. The spill data might not
+/// be sorted.
+///
+/// NOTE: this object is not thread-safe.
+class FileSpillBatchStream : public BatchStream {
+ public:
+  static std::unique_ptr<BatchStream> create(
+      std::unique_ptr<SpillFile> spillFile) {
+    auto* spillStream = new FileSpillBatchStream(std::move(spillFile));
+    return std::unique_ptr<BatchStream>(spillStream);
+  }
+
+  bool nextBatch(RowVectorPtr& batch) override {
+    if (FOLLY_UNLIKELY(!isFileOpened_)) {
+      spillFile_->startRead();
+      isFileOpened_ = true;
+    }
+    return spillFile_->nextBatch(batch);
+  }
+
+ private:
+  FileSpillBatchStream(std::unique_ptr<SpillFile> spillFile)
+      : isFileOpened_(false), spillFile_(std::move(spillFile)) {
+    VELOX_CHECK_NOT_NULL(spillFile_);
+  }
+
+  // Indicates if 'spillFile_' has been opened for stream read or not.
+  //
+  // NOTE: we open the file until the first read on this stream object so that
+  // we don't open too many files at the same time.
+  bool isFileOpened_;
+  std::unique_ptr<SpillFile> spillFile_;
 };
 
 // Represents all spilled data of an operator, e.g. order by or group
@@ -367,13 +451,12 @@ class SpillState {
         targetFileSize_(targetFileSize),
         pool_(pool),
         mappedMemory_(mappedMemory),
-        isPartitionSpilled_(maxPartitions_, false),
         files_(maxPartitions_) {}
 
   /// Indicates if a given 'partition' has been spilled or not.
   bool isPartitionSpilled(int32_t partition) const {
     VELOX_DCHECK_LT(partition, maxPartitions_);
-    return isPartitionSpilled_[partition];
+    return spilledPartitionSet_.contains(partition);
   }
 
   // Sets a partition as spilled.
@@ -396,6 +479,11 @@ class SpillState {
     return sortCompareFlags_;
   }
 
+  bool isAllPartitionSpilled() const {
+    VELOX_CHECK_LE(spilledPartitionSet_.size(), maxPartitions_);
+    return spilledPartitionSet_.size() == maxPartitions_;
+  }
+
   // Appends data to 'partition'. The rows given by 'indices' must be
   // sorted for a sorted spill and must hash to 'partition'. It is
   // safe to call this on multiple threads if all threads specify a
@@ -410,12 +498,17 @@ class SpillState {
     files_[partition]->finishFile();
   }
 
+  /// Returns the spill file objects from a given 'partition'. The function
+  /// returns an empty list if either the partition has not been spilled or has
+  /// no spilled data.
+  SpillFiles files(int32_t partition);
+
   // Starts reading values for 'partition'. If 'extra' is non-null, it can be
   // a stream of rows from a RowContainer so as to merge unspilled data with
   // spilled data.
-  std::unique_ptr<TreeOfLosers<SpillStream>> startMerge(
+  std::unique_ptr<TreeOfLosers<SpillMergeStream>> startMerge(
       int32_t partition,
-      std::unique_ptr<SpillStream>&& extra);
+      std::unique_ptr<SpillMergeStream>&& extra);
 
   bool hasFiles(int32_t partition) const {
     return partition < files_.size() && files_[partition];
@@ -440,8 +533,8 @@ class SpillState {
   memory::MemoryPool& pool_;
   memory::MappedMemory& mappedMemory_;
 
-  // A vector of flags indicates if each partition has been spilled or not.
-  std::vector<bool> isPartitionSpilled_;
+  // A set of spilled partition numbers.
+  folly::F14FastSet<uint32_t> spilledPartitionSet_;
 
   // A file list for each spilled partition. Only partitions that have
   // started spilling have an entry here.

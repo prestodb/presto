@@ -302,7 +302,7 @@ void OrderBy::getOutputWithSpill() {
     VELOX_DCHECK_LT(outputRow, output_->size());
     VELOX_DCHECK_LT(outputRow + outputSize, output_->size());
 
-    SpillStream* stream = spillMerge_->next();
+    SpillMergeStream* stream = spillMerge_->next();
     VELOX_CHECK_NOT_NULL(stream);
 
     spillSources_[outputSize] = &stream->current();

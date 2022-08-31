@@ -144,16 +144,15 @@ namespace {
 // spilled when starting to produce output. This is only used for
 // sorted spills since for hash join spilling we just use the data in
 // the RowContainer as is.
-class RowContainerSpillStream : public SpillStream {
+class RowContainerSpillMergeStream : public SpillMergeStream {
  public:
-  RowContainerSpillStream(
-      RowTypePtr type,
+  RowContainerSpillMergeStream(
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
-      memory::MemoryPool& pool,
       Spiller::SpillRows&& rows,
       Spiller& spiller)
-      : SpillStream(std::move(type), numSortingKeys, sortCompareFlags, pool),
+      : numSortingKeys_(numSortingKeys),
+        sortCompareFlags_(sortCompareFlags),
         rows_(std::move(rows)),
         spiller_(spiller) {
     if (!rows_.empty()) {
@@ -161,12 +160,15 @@ class RowContainerSpillStream : public SpillStream {
     }
   }
 
-  uint64_t size() const override {
-    // 0 means that 'this' does not own spilled data in files.
-    return 0;
+ private:
+  int32_t numSortingKeys() const override {
+    return numSortingKeys_;
   }
 
- private:
+  const std::vector<CompareFlags>& sortCompareFlags() const override {
+    return sortCompareFlags_;
+  }
+
   void nextBatch() override {
     // Extracts up to 64 rows at a time. Small batch size because may
     // have wide data and no advantage in large size for narrow data
@@ -184,13 +186,17 @@ class RowContainerSpillStream : public SpillStream {
     index_ = 0;
   }
 
+  const int32_t numSortingKeys_;
+  const std::vector<CompareFlags> sortCompareFlags_;
+
   Spiller::SpillRows rows_;
   Spiller& spiller_;
   size_t nextBatchIndex_ = 0;
 };
 } // namespace
 
-std::unique_ptr<SpillStream> Spiller::spillStreamOverRows(int32_t partition) {
+std::unique_ptr<SpillMergeStream> Spiller::spillMergeStreamOverRows(
+    int32_t partition) {
   VELOX_CHECK(spillFinalized_);
   VELOX_CHECK_LT(partition, state_.maxPartitions());
 
@@ -198,11 +204,9 @@ std::unique_ptr<SpillStream> Spiller::spillStreamOverRows(int32_t partition) {
     return nullptr;
   }
   ensureSorted(spillRuns_[partition]);
-  return std::make_unique<RowContainerSpillStream>(
-      rowType_,
+  return std::make_unique<RowContainerSpillMergeStream>(
       container_.keyTypes().size(),
       state_.sortCompareFlags(),
-      pool_,
       std::move(spillRuns_[partition].rows),
       *this);
 }
