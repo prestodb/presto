@@ -36,8 +36,8 @@ class BatchStream {
   virtual bool nextBatch(RowVectorPtr& batch) = 0;
 };
 
-/// Implements a union reader to read from a group of streams with one at a time
-/// in batch. The union reader owns the streams. At each call of nextBatch(), it
+/// Implements a unordered reader to read from a group of streams with one at a
+/// time in batch. The reader owns the streams. At each call of nextBatch(), it
 /// returns the next batch from the current reading stream, and the reader will
 /// switch to the next stream internally if the current stream reaches to the
 /// end.

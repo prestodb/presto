@@ -15,6 +15,7 @@
  */
 
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/HashAggregation.h"
@@ -29,6 +30,7 @@
 using facebook::velox::core::QueryConfig;
 using facebook::velox::exec::Aggregate;
 using facebook::velox::test::BatchMaker;
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::exec::test {
 namespace {
@@ -259,6 +261,11 @@ class AggregateFunc : public Aggregate {
 
 class AggregationTest : public OperatorTestBase {
  protected:
+  static void SetUpTestCase() {
+    OperatorTestBase::SetUpTestCase();
+    TestValue::enable();
+  }
+
   void SetUp() override {
     filesystems::registerLocalFileSystem();
     mappedMemory_ = memory::MappedMemory::getInstance();
@@ -1043,8 +1050,10 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
   constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
   rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
   // Used to calculate the aggregation spilling partition number.
+  const int kPartitionStartBit = 29;
   const int kPartitionsBits = 2;
-  const HashBitRange hashBits{29, 31};
+  const HashBitRange hashBits{
+      kPartitionStartBit, kPartitionStartBit + kPartitionsBits};
   const int kNumPartitions = hashBits.numPartitions();
   std::vector<uint64_t> hashes(1);
 
@@ -1116,6 +1125,17 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
     queryCtx->pool()->setMemoryUsageTracker(
         velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
 
+#ifndef NDEBUG
+    SCOPED_TESTVALUE_SET(
+        "facebook::velox::exec::test::TestObject::set",
+        std::function<void(const HashBitRange*)>(
+            ([&](const HashBitRange* spillerBitRange) {
+              ASSERT_EQ(kPartitionStartBit, spillerBitRange->begin());
+              ASSERT_EQ(
+                  kPartitionStartBit + kPartitionsBits, spillerBitRange->end());
+            })));
+#endif
+
     auto task =
         AssertQueryBuilder(PlanBuilder()
                                .values(batches)
@@ -1126,6 +1146,9 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
             .config(
                 QueryConfig::kSpillPartitionBits,
                 std::to_string(kPartitionsBits))
+            .config(
+                QueryConfig::kSpillStartPartitionBit,
+                std::to_string(kPartitionStartBit))
             .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;

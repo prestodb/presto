@@ -38,15 +38,10 @@ OrderBy::OrderBy(
           "OrderBy"),
       mappedMemory_(operatorCtx_->mappedMemory()),
       numSortKeys_(orderByNode->sortingKeys().size()),
-      spillPath_(makeSpillPath(operatorId)),
-      spillExecutor_(operatorCtx_->task()->queryCtx()->spillExecutor()),
-      testSpillPct_(
-          operatorCtx_->execCtx()->queryCtx()->config().testingSpillPct()),
-      spillableReservationGrowthPct_(operatorCtx_->driverCtx()
-                                         ->queryConfig()
-                                         .spillableReservationGrowthPct()),
-      spillFileSizeFactor_(
-          operatorCtx_->driverCtx()->queryConfig().spillFileSizeFactor()) {
+      spillConfig_(makeOperatorSpillConfig(
+          *operatorCtx_->task()->queryCtx(),
+          *operatorCtx_,
+          operatorId)) {
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
   std::vector<TypePtr> types;
@@ -128,7 +123,7 @@ void OrderBy::addInput(RowVectorPtr input) {
 
 void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   // Check if spilling is enabled or not.
-  if (!spillPath_.has_value()) {
+  if (!spillConfig_.has_value()) {
     return;
   }
 
@@ -143,9 +138,11 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   const int64_t outOfLineBytesPerRow = outOfLineBytes / numRows;
   const int64_t flatInputBytes = input->estimateFlatSize();
 
+  const auto& spillConfig = spillConfig_.value();
   // Test-only spill path.
-  if (numRows > 0 && testSpillPct_ &&
-      (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <= testSpillPct_) {
+  if (numRows > 0 && spillConfig.testSpillPct &&
+      (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
+          spillConfig.testSpillPct) {
     const int64_t rowsToSpill = std::max<int64_t>(1, numRows / 10);
     spill(
         numRows - rowsToSpill,
@@ -178,7 +175,8 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   // the current reservation.
   const auto targetIncrementBytes = std::max<int64_t>(
       incrementBytes * 2,
-      tracker->getCurrentUserBytes() * spillableReservationGrowthPct_ / 100);
+      tracker->getCurrentUserBytes() *
+          spillConfig.spillableReservationGrowthPct / 100);
   if (tracker->maybeReserve(targetIncrementBytes)) {
     return;
   }
@@ -196,8 +194,9 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
 
   if (spiller_ == nullptr) {
     assert(mappedMemory_->tracker()); // lint
-    const auto spillFileSize =
-        mappedMemory_->tracker()->getCurrentUserBytes() * spillFileSizeFactor_;
+    const auto& spillConfig = spillConfig_.value();
+    const auto spillFileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
+        spillConfig.fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,
         *data_,
@@ -205,10 +204,10 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         internalStoreType_,
         data_->keyTypes().size(),
         keyCompareFlags_,
-        spillPath_.value(),
+        spillConfig.filePath,
         spillFileSize,
         Spiller::spillPool(),
-        spillExecutor_);
+        spillConfig.executor);
     VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   }
   spiller_->spill(targetRows, targetBytes);
@@ -358,17 +357,4 @@ void OrderBy::prepareOutput() {
     child->resize(batchSize);
   }
 }
-
-std::optional<std::string> OrderBy::makeSpillPath(int32_t operatorId) const {
-  auto basePath = operatorCtx_->task()->queryCtx()->config().spillPath();
-  if (!basePath.has_value()) {
-    return std::nullopt;
-  }
-  return makeOperatorSpillPath(
-      basePath.value(),
-      operatorCtx_->task()->taskId(),
-      operatorCtx_->driverCtx()->driverId,
-      operatorId);
-}
-
 } // namespace facebook::velox::exec

@@ -35,6 +35,44 @@ class Spiller {
   static constexpr int kNumTypes = 3;
   static std::string typeName(Type);
 
+  // Specifies the config for spilling.
+  struct Config {
+    Config(
+        const std::string& _filePath,
+        double _fileSizeFactor,
+        folly::Executor* FOLLY_NULLABLE _executor,
+        int32_t _spillableReservationGrowthPct,
+        const HashBitRange& _hashBitRange,
+        int32_t _testSpillPct)
+        : filePath(_filePath),
+          fileSizeFactor(_fileSizeFactor),
+          executor(_executor),
+          spillableReservationGrowthPct(_spillableReservationGrowthPct),
+          hashBitRange(_hashBitRange),
+          testSpillPct(_testSpillPct) {}
+
+    // Filesystem path for spill files.
+    std::string filePath;
+
+    // Used to calculate the spill file size based on the associated task or
+    // operator's memory usage.
+    double fileSizeFactor;
+
+    // Executor for spilling. If nullptr spilling writes on the Driver's thread.
+    folly::Executor* FOLLY_NULLABLE executor; // Not owned.
+
+    // The spillable memory reservation growth percentage of the current
+    // reservation size.
+    int32_t spillableReservationGrowthPct;
+
+    // Used to calculate the spill hash partition number.
+    HashBitRange hashBitRange;
+
+    // Percentage of input batches to be spilled for testing. 0 means no
+    // spilling for test.
+    int32_t testSpillPct;
+  };
+
   using SpillRows = std::vector<char*, memory::StlMappedMemoryAllocator<char*>>;
 
   // The constructor without specifying hash bits which will only use one
@@ -49,7 +87,7 @@ class Spiller {
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
-      folly::Executor* executor);
+      folly::Executor* FOLLY_NULLABLE executor);
 
   Spiller(
       Type type,
@@ -62,7 +100,7 @@ class Spiller {
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
-      folly::Executor* executor);
+      folly::Executor* FOLLY_NULLABLE executor);
 
   // Spills rows from 'this' until there are under 'targetRows' rows
   // and 'targetBytes' of allocated variable length space in use. spill() starts
@@ -194,7 +232,8 @@ class Spiller {
   // If 'rowsFromNonSpillingPartitions' is not null, the function is invoked
   // to finish spill, and it will collect rows from the non-spilling partitions
   // in 'rowsFromNonSpillingPartitions' instead of 'spillRuns_'.
-  void fillSpillRuns(SpillRows* rowsFromNonSpillingPartitions = nullptr);
+  void fillSpillRuns(
+      SpillRows* FOLLY_NULLABLE rowsFromNonSpillingPartitions = nullptr);
 
   // Picks the next partition to spill. In case of non kHashJoin type, the
   // function picks the partition with spillable data no matter it has spilled
@@ -243,7 +282,7 @@ class Spiller {
   // spillMergeStreamOverRows().
   bool spillFinalized_{false};
   memory::MemoryPool& pool_;
-  folly::Executor* const executor_;
+  folly::Executor* FOLLY_NULLABLE const executor_;
   uint64_t spilledRows_{0};
 };
 

@@ -71,10 +71,6 @@ class OrderBy : public Operator {
   void getOutputWithoutSpill();
   void getOutputWithSpill();
 
-  // Returns the disk spill file path. The function returns null if disk
-  // spilling is disabled or not configured.
-  std::optional<std::string> makeSpillPath(int32_t operatorId) const;
-
   // Spills content until under 'targetRows' and under 'targetBytes' of out of
   // line data are left. If 'targetRows' is 0, spills everything and physically
   // frees the data in the 'data_'. This is called by ensureInputFits or by
@@ -87,20 +83,8 @@ class OrderBy : public Operator {
   const int32_t numSortKeys_;
 
   // Filesystem path for spill files, empty if spilling is disabled.
-  const std::optional<std::string> spillPath_;
-
-  // Executor for spilling. If nullptr spilling writes on the Driver's thread.
-  folly::Executor* FOLLY_NULLABLE const spillExecutor_;
-
-  // Percentage of input batches to be spilled for testing. 0 means no spilling
-  // for test.
-  const int32_t testSpillPct_;
-
-  // The spillable memory reservation growth percentage of the current
-  // reservation size.
-  const int32_t spillableReservationGrowthPct_;
-
-  const double spillFileSizeFactor_;
+  // The disk spilling related configs if spilling is enabled, otherwise null.
+  const std::optional<Spiller::Config> spillConfig_;
 
   // The map from column channel in 'output_' to the corresponding one stored in
   // 'data_'. The column channel might be reordered to ensure the sorting key

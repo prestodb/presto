@@ -78,6 +78,8 @@ Spiller::Spiller(
           spillMappedMemory()),
       pool_(pool),
       executor_(executor) {
+  TestValue::notify("facebook::velox::exec::Spiller", &bits_);
+
   // TODO: add to support kHashJoin type later.
   VELOX_CHECK_NE(
       type_,

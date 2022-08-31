@@ -106,6 +106,9 @@ class QueryConfig {
 
   static constexpr const char* kTestingSpillPct = "testing.spill-pct";
 
+  static constexpr const char* kSpillStartPartitionBit =
+      "spiller-start-partition-bit";
+
   static constexpr const char* kSpillPartitionBits = "spiller-partition-bits";
 
   static constexpr const char* kSpillFileSizeFactor =
@@ -217,6 +220,13 @@ class QueryConfig {
   // will be forced to spill for testing. 0 means no extra spilling.
   int32_t testingSpillPct() const {
     return get<int32_t>(kTestingSpillPct, 0);
+  }
+
+  /// Returns the start partition bit which is used with 'kSpillPartitionBits'
+  /// together to calculate the spilling partition number.
+  uint8_t spillStartPartitionBit() const {
+    constexpr uint8_t kDefaultStartBit = 29;
+    return get<uint8_t>(kSpillStartPartitionBit, kDefaultStartBit);
   }
 
   /// Returns the number of bits used to calculate the spilling partition

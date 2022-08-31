@@ -242,7 +242,7 @@ class SpillMergeStream : public MergeStream {
     return compare(other) < 0;
   }
 
-  int32_t compare(const MergeStream& other) const {
+  int32_t compare(const MergeStream& other) const override {
     auto& otherStream = static_cast<const SpillMergeStream&>(other);
     auto& children = rowVector_->children();
     auto& otherChildren = otherStream.current().children();
@@ -365,7 +365,7 @@ class FileSpillMergeStream : public SpillMergeStream {
   }
 
  private:
-  FileSpillMergeStream(std::unique_ptr<SpillFile> spillFile)
+  explicit FileSpillMergeStream(std::unique_ptr<SpillFile> spillFile)
       : spillFile_(std::move(spillFile)) {
     VELOX_CHECK_NOT_NULL(spillFile_);
   }
@@ -411,7 +411,7 @@ class FileSpillBatchStream : public BatchStream {
   }
 
  private:
-  FileSpillBatchStream(std::unique_ptr<SpillFile> spillFile)
+  explicit FileSpillBatchStream(std::unique_ptr<SpillFile> spillFile)
       : isFileOpened_(false), spillFile_(std::move(spillFile)) {
     VELOX_CHECK_NOT_NULL(spillFile_);
   }

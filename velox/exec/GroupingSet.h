@@ -38,6 +38,7 @@ class GroupingSet {
       bool ignoreNullKeys,
       bool isPartial,
       bool isRawInput,
+      const Spiller::Config* FOLLY_NULLABLE spillConfig,
       OperatorCtx* FOLLY_NONNULL operatorCtx);
 
   ~GroupingSet();
@@ -177,15 +178,9 @@ class GroupingSet {
 
   const bool ignoreNullKeys_;
 
-  // The spillable memory reservation growth percentage of the current
-  // reservation size.
-  const int32_t spillableReservationGrowthPct_;
-
-  // Parameters used for spilling control.
-  const int32_t spillPartitionBits_;
-  const double spillFileSizeFactor_;
-
   memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
+
+  const Spiller::Config* FOLLY_NULLABLE const spillConfig_; // Not owned.
 
   // Boolean indicating whether accumulators for a global aggregation (i.e.
   // aggregation with no grouping keys) have been initialized.
@@ -221,9 +216,6 @@ class GroupingSet {
 
   uint64_t maxBatchBytes_;
 
-  // Filesystem path for spill files, empty if spilling is disabled.
-  const std::optional<std::string> spillPath_;
-
   std::unique_ptr<Spiller> spiller_;
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;
 
@@ -256,16 +248,9 @@ class GroupingSet {
   // Pool of the OperatorCtx. Used for spilling.
   memory::MemoryPool& pool_;
 
-  // Executor for spilling. If nullptr spilling writes on the Driver's thread.
-  folly::Executor* FOLLY_NULLABLE const spillExecutor_;
-
   // The RowContainer of 'table_' is moved here before freeing
   // 'table_' when starting to read spill output.
   std::unique_ptr<RowContainer> rowsWhileReadingSpill_;
-
-  // Percentage of input batches to be spilled for testing. 0 means no spilling
-  // for test.
-  const int32_t testSpillPct_;
 
   // Counts input batches and triggers spilling if folly hash of this % 100 <=
   // 'testSpillPct_';.
