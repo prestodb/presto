@@ -77,23 +77,23 @@ TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
 format-fix: 			#: Fix formatting issues in the master branch
-	velox/scripts/check.py format master --fix
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master --fix && popd
 
 format-check: 			#: Check for formatting issues on the master branch
 	clang-format --version
-	velox/scripts/check.py format master
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master && popd
 
 header-fix:				#: Fix license header issues in the master branch
-	velox/scripts/check.py header master --fix
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master --fix && popd
 
 header-check:			#: Check for license header issues on the man branch
-	velox/scripts/check.py header master
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master && popd
 
 tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
-	velox/scripts/check.py tidy master --fix
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master --fix && popd
 
 tidy-check: cmake		#: Check clang-tidy issues in the master branch
-	velox/scripts/check.py tidy master
+	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
 
 circleci-container:			#: Build the linux container for CircleCi
 	$(MAKE) linux-container CONTAINER_NAME=circleci
@@ -109,6 +109,3 @@ help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
 	awk '/^[-a-z]+:/' | \
 	awk -F: '{ printf("%-20s   %s\n", $$1, $$NF) }'
-
-gen-pom-xml:
-	scripts/gen-pom-xml.sh
