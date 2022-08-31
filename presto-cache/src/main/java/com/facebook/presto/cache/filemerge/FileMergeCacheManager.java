@@ -219,6 +219,9 @@ public class FileMergeCacheManager
         long bytes = 0;
         for (Path path : paths) {
             CacheRange cacheRange = persistedRanges.get(path);
+            if (cacheRange == null) {
+                continue;
+            }
             Lock readLock = cacheRange.getLock().readLock();
             readLock.lock();
             try {
