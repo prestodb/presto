@@ -264,6 +264,14 @@ class FlatVector final : public SimpleVector<T> {
     copyValuesAndNulls(source, targetIndex, sourceIndex, count);
   }
 
+  void copyRanges(
+      const BaseVector* source,
+      const folly::Range<const BaseVector::CopyRange*>& ranges) override {
+    for (auto& range : ranges) {
+      copy(source, range.targetIndex, range.sourceIndex, range.count);
+    }
+  }
+
   void resize(vector_size_t size, bool setNotNull = true) override;
 
   VectorPtr slice(vector_size_t offset, vector_size_t length) const override;
@@ -430,6 +438,11 @@ void FlatVector<StringView>::copy(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count);
+
+template <>
+void FlatVector<StringView>::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges);
 
 template <>
 void FlatVector<bool>::copyValuesAndNulls(

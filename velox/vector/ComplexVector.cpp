@@ -313,6 +313,143 @@ VectorPtr RowVector::slice(vector_size_t offset, vector_size_t length) const {
       pool_, type_, sliceNulls(offset, length), length, std::move(children));
 }
 
+void ArrayVectorBase::copyRangesImpl(
+    const BaseVector* source,
+    const folly::Range<const BaseVector::CopyRange*>& ranges,
+    VectorPtr* targetValues,
+    const BaseVector* sourceValues,
+    VectorPtr* targetKeys,
+    const BaseVector* sourceKeys) {
+  auto sourceValue = source->wrappedVector();
+  if (sourceValue->isConstantEncoding()) {
+    // A null constant does not have a value vector, so wrappedVector
+    // returns the constant.
+    VELOX_CHECK(sourceValue->isNullAt(0));
+    for (auto& r : ranges) {
+      for (auto i = 0; i < r.count; ++i) {
+        setNull(r.targetIndex + i, true);
+      }
+    }
+    return;
+  }
+  VELOX_CHECK_EQ(sourceValue->encoding(), encoding());
+  auto sourceArray = sourceValue->asUnchecked<ArrayVectorBase>();
+  if (targetKeys) {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(),
+        targetKeys->get()->type(),
+        pool(),
+        targetKeys);
+  } else {
+    BaseVector::ensureWritable(
+        SelectivityVector::empty(),
+        targetValues->get()->type(),
+        pool(),
+        targetValues);
+  }
+  auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
+  auto wantWidth = type()->isFixedWidth() ? type()->fixedElementsWidth() : 0;
+  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
+  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
+  vector_size_t childSize = targetValues->get()->size();
+  if (ranges.size() == 1 && ranges.back().count == 1) {
+    auto& range = ranges.back();
+    VELOX_DCHECK(BaseVector::length_ >= range.targetIndex + range.count);
+    // Fast path if we're just copying a single array.
+    if (source->isNullAt(range.sourceIndex)) {
+      setNull(range.targetIndex, true);
+    } else {
+      if (setNotNulls) {
+        setNull(range.targetIndex, false);
+      }
+
+      vector_size_t wrappedIndex = source->wrappedIndex(range.sourceIndex);
+      vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
+
+      mutableOffsets[range.targetIndex] = childSize;
+      mutableSizes[range.targetIndex] = copySize;
+
+      if (copySize > 0) {
+        // If we are populating a FixedSizeArray we validate here that
+        // the entries we are populating are the correct sizes.
+        if (wantWidth != 0) {
+          VELOX_CHECK_EQ(
+              copySize,
+              wantWidth,
+              "Invalid length element at wrappedIndex {}",
+              wrappedIndex);
+        }
+        auto copyOffset = sourceArray->offsetAt(wrappedIndex);
+        targetValues->get()->resize(childSize + copySize);
+        targetValues->get()->copy(
+            sourceValues, childSize, copyOffset, copySize);
+        if (targetKeys) {
+          targetKeys->get()->resize(childSize + copySize);
+          targetKeys->get()->copy(sourceKeys, childSize, copyOffset, copySize);
+        }
+      }
+    }
+  } else {
+    std::vector<CopyRange> outRanges;
+    vector_size_t totalCount = 0;
+    for (auto& range : ranges) {
+      VELOX_DCHECK(BaseVector::length_ >= range.targetIndex + range.count);
+      totalCount += range.count;
+    }
+    outRanges.reserve(totalCount);
+    for (auto& range : ranges) {
+      for (vector_size_t i = 0; i < range.count; ++i) {
+        if (source->isNullAt(range.sourceIndex + i)) {
+          setNull(range.targetIndex + i, true);
+        } else {
+          if (setNotNulls) {
+            setNull(range.targetIndex + i, false);
+          }
+          vector_size_t wrappedIndex =
+              source->wrappedIndex(range.sourceIndex + i);
+          vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
+
+          if (copySize > 0) {
+            // If we are populating a FixedSizeArray we validate here that the
+            // entries we are populating are the correct sizes.
+            if (wantWidth != 0) {
+              VELOX_CHECK_EQ(
+                  copySize,
+                  wantWidth,
+                  "Invalid length element at index {}, wrappedIndex {}",
+                  i,
+                  wrappedIndex);
+            }
+
+            auto copyOffset = sourceArray->offsetAt(wrappedIndex);
+
+            // If we're copying two adjacent ranges, merge them.  This only
+            // works if they're consecutive.
+            if (!outRanges.empty() &&
+                (outRanges.back().sourceIndex + outRanges.back().count ==
+                 copyOffset)) {
+              outRanges.back().count += copySize;
+            } else {
+              outRanges.push_back({copyOffset, childSize, copySize});
+            }
+          }
+
+          mutableOffsets[range.targetIndex + i] = childSize;
+          mutableSizes[range.targetIndex + i] = copySize;
+          childSize += copySize;
+        }
+      }
+    }
+
+    targetValues->get()->resize(childSize);
+    targetValues->get()->copyRanges(sourceValues, outRanges);
+    if (targetKeys) {
+      targetKeys->get()->resize(childSize);
+      targetKeys->get()->copyRanges(sourceKeys, outRanges);
+    }
+  }
+}
+
 namespace {
 std::optional<int32_t> compareArrays(
     const BaseVector& left,
@@ -433,117 +570,6 @@ uint64_t ArrayVector::hashValueAt(vector_size_t index) const {
 
 std::unique_ptr<SimpleVector<uint64_t>> ArrayVector::hashAll() const {
   VELOX_NYI();
-}
-
-void ArrayVector::copy(
-    const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count) {
-  auto sourceValue = source->wrappedVector();
-  if (sourceValue->isConstantEncoding()) {
-    // A null constant does not have a value vector, so wrappedVector
-    // returns the constant.
-    VELOX_CHECK(sourceValue->isNullAt(0));
-    for (auto i = 0; i < count; ++i) {
-      setNull(targetIndex + i, true);
-    }
-    return;
-  }
-  VELOX_CHECK_EQ(sourceValue->encoding(), VectorEncoding::Simple::ARRAY);
-  auto sourceArray = sourceValue->asUnchecked<ArrayVector>();
-  VELOX_DCHECK(BaseVector::length_ >= targetIndex + count);
-  BaseVector::ensureWritable(
-      SelectivityVector::empty(), elements_->type(), pool(), &elements_);
-  auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
-  auto wantWidth = type()->isFixedWidth() ? type()->fixedElementsWidth() : 0;
-  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
-  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
-  vector_size_t childSize = elements_->size();
-  if (count == 1) {
-    // Fast path if we're just copying a single array.
-    if (source->isNullAt(sourceIndex)) {
-      setNull(targetIndex, true);
-    } else {
-      if (setNotNulls) {
-        setNull(targetIndex, false);
-      }
-
-      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex);
-      vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
-
-      mutableOffsets[targetIndex] = childSize;
-      mutableSizes[targetIndex] = copySize;
-
-      if (copySize > 0) {
-        // If we are populating a FixedSizeArray we validate here that
-        // the entries we are populating are the correct sizes.
-        if (wantWidth != 0) {
-          VELOX_CHECK_EQ(
-              copySize,
-              wantWidth,
-              "Invalid length element at wrappedIndex {}",
-              wrappedIndex);
-        }
-        auto copyOffset = sourceArray->offsetAt(wrappedIndex);
-        elements_->resize(childSize + copySize);
-
-        elements_->copy(
-            sourceArray->elements_.get(), childSize, copyOffset, copySize);
-      }
-    }
-  } else {
-    std::vector<std::pair<vector_size_t, vector_size_t>> ranges;
-    ranges.reserve(count);
-    for (int32_t i = 0; i < count; ++i) {
-      if (source->isNullAt(sourceIndex + i)) {
-        setNull(targetIndex + i, true);
-      } else {
-        if (setNotNulls) {
-          setNull(targetIndex + i, false);
-        }
-        vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
-        vector_size_t copySize = sourceArray->sizeAt(wrappedIndex);
-
-        if (copySize > 0) {
-          // If we are populating a FixedSizeArray we validate here that
-          // the entries we are populating are the correct sizes.
-          if (wantWidth != 0) {
-            VELOX_CHECK_EQ(
-                copySize,
-                wantWidth,
-                "Invalid length element at index {}, wrappedIndex {}",
-                i,
-                wrappedIndex);
-          }
-
-          auto copyOffset = sourceArray->offsetAt(wrappedIndex);
-
-          // If we're copying two adjacent ranges, merge them.
-          // This only works if they're consecutive.
-          if (!ranges.empty() &&
-              (ranges.back().first + ranges.back().second == copyOffset)) {
-            ranges.back().second += copySize;
-          } else {
-            ranges.emplace_back(copyOffset, copySize);
-          }
-        }
-
-        mutableOffsets[targetIndex + i] = childSize;
-        mutableSizes[targetIndex + i] = copySize;
-        childSize += copySize;
-      }
-    }
-
-    vector_size_t childOffset = elements_->size();
-    elements_->resize(childSize);
-
-    for (auto& range : ranges) {
-      elements_->copy(
-          sourceArray->elements_.get(), childOffset, range.first, range.second);
-      childOffset += range.second;
-    }
-  }
 }
 
 std::string ArrayVector::toString(vector_size_t index) const {
@@ -722,101 +748,6 @@ vector_size_t MapVector::reserveMap(vector_size_t offset, vector_size_t size) {
   offsets_->asMutable<vector_size_t>()[offset] = keySize;
   sizes_->asMutable<vector_size_t>()[offset] = size;
   return keySize;
-}
-
-void MapVector::copy(
-    const BaseVector* source,
-    vector_size_t targetIndex,
-    vector_size_t sourceIndex,
-    vector_size_t count) {
-  auto sourceValue = source->wrappedVector();
-  if (sourceValue->isConstantEncoding()) {
-    // A null constant does not have a value vector, so wrappedVector
-    // returns the constant.
-    VELOX_CHECK(sourceValue->isNullAt(0));
-    for (auto i = 0; i < count; ++i) {
-      setNull(targetIndex + i, true);
-    }
-    return;
-  }
-  VELOX_CHECK_EQ(sourceValue->encoding(), VectorEncoding::Simple::MAP);
-  VELOX_DCHECK(BaseVector::length_ >= targetIndex + count);
-  auto sourceMap = sourceValue->asUnchecked<MapVector>();
-  BaseVector::ensureWritable(
-      SelectivityVector::empty(), keys_->type(), pool(), &keys_);
-  auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
-  auto* mutableOffsets = offsets_->asMutable<vector_size_t>();
-  auto* mutableSizes = sizes_->asMutable<vector_size_t>();
-  vector_size_t childSize = keys_->size();
-  if (count == 1) {
-    // Fast path if we're just copying a single map.
-    if (source->isNullAt(sourceIndex)) {
-      setNull(targetIndex, true);
-    } else {
-      if (setNotNulls) {
-        setNull(targetIndex, false);
-      }
-
-      vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex);
-      vector_size_t copySize = sourceMap->sizeAt(wrappedIndex);
-
-      mutableOffsets[targetIndex] = childSize;
-      mutableSizes[targetIndex] = copySize;
-
-      if (copySize > 0) {
-        auto copyOffset = sourceMap->offsetAt(wrappedIndex);
-        keys_->resize(childSize + copySize);
-        values_->resize(childSize + copySize);
-
-        keys_->copy(sourceMap->keys_.get(), childSize, copyOffset, copySize);
-        values_->copy(
-            sourceMap->values_.get(), childSize, copyOffset, copySize);
-      }
-    }
-  } else {
-    std::vector<std::pair<vector_size_t, vector_size_t>> ranges;
-    ranges.reserve(count);
-    for (int32_t i = 0; i < count; ++i) {
-      if (source->isNullAt(sourceIndex + i)) {
-        setNull(targetIndex + i, true);
-      } else {
-        if (setNotNulls) {
-          setNull(targetIndex + i, false);
-        }
-        vector_size_t wrappedIndex = source->wrappedIndex(sourceIndex + i);
-        vector_size_t copySize = sourceMap->sizeAt(wrappedIndex);
-
-        if (copySize > 0) {
-          auto copyOffset = sourceMap->offsetAt(wrappedIndex);
-
-          // If we're copying two adjacent ranges, merge them.
-          // This only works if they're consecutive.
-          if (!ranges.empty() &&
-              (ranges.back().first + ranges.back().second == copyOffset)) {
-            ranges.back().second += copySize;
-          } else {
-            ranges.emplace_back(copyOffset, copySize);
-          }
-        }
-
-        mutableOffsets[targetIndex + i] = childSize;
-        mutableSizes[targetIndex + i] = copySize;
-        childSize += copySize;
-      }
-    }
-
-    vector_size_t childOffset = keys_->size();
-    keys_->resize(childSize);
-    values_->resize(childSize);
-
-    for (auto& range : ranges) {
-      keys_->copy(
-          sourceMap->keys_.get(), childOffset, range.first, range.second);
-      values_->copy(
-          sourceMap->values_.get(), childOffset, range.first, range.second);
-      childOffset += range.second;
-    }
-  }
 }
 
 bool MapVector::isSorted(vector_size_t index) const {

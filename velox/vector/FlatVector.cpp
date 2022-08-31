@@ -283,8 +283,9 @@ void FlatVector<StringView>::setNoCopy(
   }
 }
 
-template <typename T>
-void FlatVector<T>::acquireSharedStringBuffers(const BaseVector* source) {
+template <>
+void FlatVector<StringView>::acquireSharedStringBuffers(
+    const BaseVector* source) {
   auto leaf = source->wrappedVector();
   if (leaf->typeKind() == TypeKind::UNKNOWN) {
     // If the source is all nulls, it can be of unknown type.
@@ -380,21 +381,33 @@ void FlatVector<StringView>::copy(
     vector_size_t targetIndex,
     vector_size_t sourceIndex,
     vector_size_t count) {
+  BaseVector::copy(source, targetIndex, sourceIndex, count);
+}
+
+template <>
+void FlatVector<StringView>::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges) {
   auto leaf = source->wrappedVector()->asUnchecked<SimpleVector<StringView>>();
   if (pool_ == leaf->pool()) {
     // We copy referencing the storage of 'source'.
-    copyValuesAndNulls(source, targetIndex, sourceIndex, count);
+    for (auto& r : ranges) {
+      copyValuesAndNulls(source, r.targetIndex, r.sourceIndex, r.count);
+    }
     acquireSharedStringBuffers(source);
   } else {
-    for (auto i = 0; i < count; ++i) {
-      if (source->isNullAt(sourceIndex + i)) {
-        setNull(targetIndex + i, true);
-      } else {
-        set(targetIndex + i,
-            leaf->valueAt(source->wrappedIndex(sourceIndex + i)));
+    for (auto& r : ranges) {
+      for (auto i = 0; i < r.count; ++i) {
+        if (source->isNullAt(r.sourceIndex + i)) {
+          setNull(r.targetIndex + i, true);
+        } else {
+          set(r.targetIndex + i,
+              leaf->valueAt(source->wrappedIndex(r.sourceIndex + i)));
+        }
       }
     }
   }
 }
+
 } // namespace velox
 } // namespace facebook
