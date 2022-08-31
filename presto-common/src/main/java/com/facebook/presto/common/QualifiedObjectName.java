@@ -38,13 +38,13 @@ public class QualifiedObjectName
     @JsonCreator
     public static QualifiedObjectName valueOf(String name)
     {
-        if (name == null) {
-            throw new NullPointerException("name is null");
-        }
+        requireNonNull(name, "name is null");
+
         String[] parts = name.split("\\.");
         if (parts.length != 3) {
             throw new IllegalArgumentException("QualifiedObjectName should have exactly 3 parts");
         }
+
         return new QualifiedObjectName(parts[0], parts[1], parts[2]);
     }
 

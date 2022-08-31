@@ -194,9 +194,8 @@ public class SqlInvokedFunction
 
     public boolean hasSameDefinitionAs(SqlInvokedFunction function)
     {
-        if (function == null) {
-            throw new IllegalArgumentException("function is null");
-        }
+        requireNonNull(function, "function is null");
+
         return Objects.equals(parameters, function.parameters)
                 && Objects.equals(description, function.description)
                 && Objects.equals(routineCharacteristics, function.routineCharacteristics)
