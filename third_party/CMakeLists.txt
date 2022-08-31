@@ -13,7 +13,7 @@
 # limitations under the License.
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
-                      "${CMAKE_SOURCE_DIR}/third_party/cmake_modules/")
+                      "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
 include(ExternalProject)
 
