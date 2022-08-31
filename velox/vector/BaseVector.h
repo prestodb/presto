@@ -191,10 +191,6 @@ class BaseVector {
     return length_;
   }
 
-  void setSize(vector_size_t newSize) {
-    length_ = newSize;
-  }
-
   virtual void append(const BaseVector* other) {
     auto totalSize = BaseVector::length_ + other->size();
     auto previousSize = BaseVector::size();
