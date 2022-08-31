@@ -96,6 +96,14 @@ TypePtr toVeloxType(const std::string& typeName) {
           fieldTypes.size(), 1, "The size of ARRAY type should be only one.");
       return ARRAY(toVeloxType(std::string(fieldTypes[0])));
     }
+    case TypeKind::MAP: {
+      auto fieldTypes = getTypesFromCompoundName(typeName);
+      VELOX_CHECK_EQ(
+          fieldTypes.size(), 2, "The size of MAP type should be two.");
+      auto keyType = toVeloxType(std::string(fieldTypes[0]));
+      auto valueType = toVeloxType(std::string(fieldTypes[1]));
+      return MAP(keyType, valueType);
+    }
     case TypeKind::ROW: {
       auto fieldTypes = getTypesFromCompoundName(typeName);
       VELOX_CHECK(

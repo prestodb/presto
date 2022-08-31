@@ -94,6 +94,16 @@ std::shared_ptr<SubstraitParser::SubstraitType> SubstraitParser::parseType(
       nullability = substraitType.list().nullability();
       break;
     }
+    case ::substrait::Type::KindCase::kMap: {
+      // The type name of map is in the format of: MAP<K,V>.
+      const auto& sMap = substraitType.map();
+      const auto& keyType = sMap.key();
+      const auto& valueType = sMap.value();
+      typeName = "MAP<" + parseType(keyType)->type + "," +
+          parseType(valueType)->type + ">";
+      nullability = substraitType.map().nullability();
+      break;
+    }
     case ::substrait::Type::KindCase::kUserDefined: {
       // We only support UNKNOWN type to handle the null literal whose type is
       // not known.

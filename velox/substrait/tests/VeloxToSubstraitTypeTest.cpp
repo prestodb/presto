@@ -60,9 +60,7 @@ TEST_F(VeloxToSubstraitTypeTest, basic) {
   testTypeConversion(VARBINARY());
 
   testTypeConversion(ARRAY(BIGINT()));
-
-  // Map type is not supported yet.
-  ASSERT_ANY_THROW(testTypeConversion(MAP(BIGINT(), DOUBLE())));
+  testTypeConversion(MAP(BIGINT(), DOUBLE()));
 
   testTypeConversion(ROW({"a", "b", "c"}, {BIGINT(), BOOLEAN(), VARCHAR()}));
   testTypeConversion(
