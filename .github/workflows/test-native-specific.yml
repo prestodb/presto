@@ -18,6 +18,7 @@ on:
 
 jobs:
   native-specific-macos:
+    if: ${{ false }}  # disable the macos run for now
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
