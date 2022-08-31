@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
+import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import styles from './index.module.css';
@@ -32,8 +33,8 @@ function HomepageHeader() {
                 'button button--success button--lg',
                 styles.getStarted,
               )}
-              to={ useBaseUrl('docs/') }>
-              Learn More
+              to={ "https://github.com/facebookincubator/velox/blob/main/CONTRIBUTING.md" }>
+              Join Us
             </Link>
           </div>
         </div>
@@ -60,6 +61,7 @@ export default function Home() {
                   </div>
               </div>
           </section>
+          <HomepageFeatures />
       </main>
     </Layout>
   );
