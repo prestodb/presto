@@ -319,3 +319,51 @@ TEST(VariantTest, equalsWithEpsilonFloat) {
   ASSERT_NE(sum1, sum3);
   ASSERT_FALSE(variant(sum1).equalsWithEpsilon(variant(sum3)));
 }
+
+struct SerializableClass {
+  const std::string name;
+  const bool value;
+  SerializableClass(std::string name, bool value)
+      : name(std::move(name)), value(value) {}
+};
+
+TEST(VariantTest, serializeOpaque) {
+  OpaqueType::registerSerialization<SerializableClass>(
+      "serializable_class",
+      [](const std::shared_ptr<SerializableClass>& obj) -> std::string {
+        return folly::toJson(
+            folly::dynamic::object("name", obj->name)("value", obj->value));
+      },
+      [](const std::string& json) -> std::shared_ptr<SerializableClass> {
+        folly::dynamic obj = folly::parseJson(json);
+        return std::make_shared<SerializableClass>(
+            obj["name"].asString(), obj["value"].asBool());
+      });
+
+  auto var = variant::opaque<SerializableClass>(
+      std::make_shared<SerializableClass>("test_class", false));
+
+  auto serialized = var.serialize();
+  auto deserialized_variant = variant::create(serialized);
+  auto opaque = deserialized_variant.value<TypeKind::OPAQUE>().obj;
+
+  auto original_class = std::static_pointer_cast<SerializableClass>(
+      deserialized_variant.value<TypeKind::OPAQUE>().obj);
+  EXPECT_EQ(original_class->name, "test_class");
+  EXPECT_EQ(original_class->value, false);
+}
+
+TEST(VariantTest, opaqueSerializationNotRegistered) {
+  struct opaqueSerializationTestStruct {};
+  auto opaqueBeforeRegistration =
+      variant::opaque<opaqueSerializationTestStruct>(
+          std::make_shared<opaqueSerializationTestStruct>());
+  EXPECT_THROW(opaqueBeforeRegistration.serialize(), VeloxException);
+
+  OpaqueType::registerSerialization<opaqueSerializationTestStruct>(
+      "opaqueSerializationStruct");
+
+  auto opaqueAfterRegistration = variant::opaque<opaqueSerializationTestStruct>(
+      std::make_shared<opaqueSerializationTestStruct>());
+  EXPECT_THROW(opaqueAfterRegistration.serialize(), VeloxException);
+}
