@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
-import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import styles from './index.module.css';
@@ -52,7 +51,15 @@ export default function Home() {
       description="Description will go into a meta tag in <head />">
       <HomepageHeader />
       <main>
-        <HomepageFeatures />
+          <section className={styles.features}>
+              <div className="container">
+                  <div className="row">
+                      <div className={clsx('col')}>
+                          <img src={useBaseUrl("img/stack_transform.png")}/>
+                      </div>
+                  </div>
+              </div>
+          </section>
       </main>
     </Layout>
   );
