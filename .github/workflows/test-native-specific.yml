@@ -97,10 +97,10 @@ jobs:
         run: make -C presto-native-execution submodules
 
       - name: Format check
-        run: presto-native-execution/velox/scripts/check.py format master
+        run: make -C presto-native-execution format-check
 
       - name: Header check
-        run: presto-native-execution/velox/scripts/check.py header master
+        run: make -C presto-native-execution header-check
 
       - name: Get date for ccache
         id: get-date
