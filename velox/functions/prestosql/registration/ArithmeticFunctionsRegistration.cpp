@@ -95,6 +95,7 @@ void registerArithmeticFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, "not");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_add, "plus");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_sub, "minus");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_decimal_mul, "multiply");
 }
 
 } // namespace facebook::velox::functions

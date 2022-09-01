@@ -162,6 +162,42 @@ class Subtraction {
   }
 };
 
+class Multiply {
+ public:
+  template <typename R, typename A, typename B>
+  inline static void
+  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale) {
+    r.setUnscaledValue(checkedMultiply<int128_t>(
+        checkedMultiply<int128_t>(a.unscaledValue(), b.unscaledValue()),
+        DecimalUtil::kPowersOfTen[aRescale + bRescale]));
+  }
+
+  inline static uint8_t
+  computeRescaleFactor(uint8_t fromScale, uint8_t toScale, uint8_t rScale = 0) {
+    return 0;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale,
+      const uint8_t bPrecision,
+      const uint8_t bScale) {
+    return {std::min(38, aPrecision + bPrecision), aScale + bScale};
+  }
+};
+
+std::vector<std::shared_ptr<exec::FunctionSignature>>
+decimalMultiplySignature() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("DECIMAL(r_precision, r_scale)")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .argumentType("DECIMAL(b_precision, b_scale)")
+              .variableConstraint(
+                  "r_precision", "min(38, a_precision + b_precision)")
+              .variableConstraint("r_scale", "a_scale + b_scale")
+              .build()};
+}
+
 std::vector<std::shared_ptr<exec::FunctionSignature>>
 decimalAddSubtractSignature() {
   return {
@@ -243,4 +279,9 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_sub,
     decimalAddSubtractSignature(),
     createDecimalFunction<Subtraction>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_mul,
+    decimalMultiplySignature(),
+    createDecimalFunction<Multiply>);
 }; // namespace facebook::velox::functions

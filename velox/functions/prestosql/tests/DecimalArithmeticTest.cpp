@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -65,17 +66,17 @@ class DecimalArithmeticTest : public FunctionBaseTest {
 } // namespace facebook::velox
 
 TEST_F(DecimalArithmeticTest, add) {
-  auto expectedLongFlat =
-      makeLongDecimalFlatVector({2000, 4000}, DECIMAL(19, 3));
   auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(18, 3));
-
   // Add short and short, returning long.
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      expectedLongFlat, "plus(c0, c1)", {shortFlat, shortFlat});
+      makeLongDecimalFlatVector({2000, 4000}, DECIMAL(19, 3)),
+      "plus(c0, c1)",
+      {shortFlat, shortFlat});
 
   // Add short and long, returning long.
   auto longFlat = makeLongDecimalFlatVector({1000, 2000}, DECIMAL(19, 3));
-  expectedLongFlat = makeLongDecimalFlatVector({2000, 4000}, DECIMAL(20, 3));
+  auto expectedLongFlat =
+      makeLongDecimalFlatVector({2000, 4000}, DECIMAL(20, 3));
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
       expectedLongFlat, "plus(c0, c1)", {shortFlat, longFlat});
 
@@ -105,72 +106,127 @@ TEST_F(DecimalArithmeticTest, add) {
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
       expectedConstantFlat, "plus(c0,1.00)", {shortFlat});
 
-  auto shortWithNullsA = makeNullableShortDecimalFlatVector(
-      {1, 2, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3));
-  auto shortWithNullsB = makeNullableShortDecimalFlatVector(
-      {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3));
-  auto expectedShortWithNulls = makeNullableShortDecimalFlatVector(
-      {2, 4, std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 3));
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
-      expectedShortWithNulls,
+      makeNullableShortDecimalFlatVector(
+          {2, 4, std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 3)),
       "plus(c0, c1)",
-      {shortWithNullsA, shortWithNullsB});
+      {makeNullableShortDecimalFlatVector(
+           {1, 2, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3)),
+       makeNullableShortDecimalFlatVector(
+           {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
 }
 
 TEST_F(DecimalArithmeticTest, decimalSubTest) {
-  auto resultLongFlat = makeLongDecimalFlatVector({500, 1000}, DECIMAL(19, 3));
   auto shortFlatA = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(18, 3));
-  auto shortFlatB = makeShortDecimalFlatVector({500, 1000}, DECIMAL(18, 3));
-
   // Subtract short and short, returning long.
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      resultLongFlat, "minus(c0, c1)", {shortFlatA, shortFlatB});
+      makeLongDecimalFlatVector({500, 1000}, DECIMAL(19, 3)),
+      "minus(c0, c1)",
+      {shortFlatA, makeShortDecimalFlatVector({500, 1000}, DECIMAL(18, 3))});
 
   // Subtract short and long, returning long.
   auto longFlatA = makeLongDecimalFlatVector({100, 200}, DECIMAL(19, 3));
-  resultLongFlat = makeLongDecimalFlatVector({900, 1800}, DECIMAL(20, 3));
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      resultLongFlat, "minus(c0, c1)", {shortFlatA, longFlatA});
+      makeLongDecimalFlatVector({900, 1800}, DECIMAL(20, 3)),
+      "minus(c0, c1)",
+      {shortFlatA, longFlatA});
 
   // Subtract long and short, returning long.
-  resultLongFlat = makeLongDecimalFlatVector({-900, -1800}, DECIMAL(20, 3));
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      resultLongFlat, "minus(c0, c1)", {longFlatA, shortFlatA});
+      makeLongDecimalFlatVector({-900, -1800}, DECIMAL(20, 3)),
+      "minus(c0, c1)",
+      {longFlatA, shortFlatA});
 
   // Subtract long and long, returning long.
-  auto longFlatB = makeLongDecimalFlatVector({100, 200}, DECIMAL(19, 2));
-  resultLongFlat = makeLongDecimalFlatVector({-900, -1800}, DECIMAL(21, 3));
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
-      resultLongFlat, "c0 - c1", {longFlatA, longFlatB});
+      makeLongDecimalFlatVector({-900, -1800}, DECIMAL(21, 3)),
+      "c0 - c1",
+      {longFlatA, makeLongDecimalFlatVector({100, 200}, DECIMAL(19, 2))});
 
   // Subtract short and short, returning short.
-  shortFlatA = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(10, 3));
-  shortFlatB = makeShortDecimalFlatVector({500, 1000}, DECIMAL(10, 3));
-  auto resultShortFlat =
-      makeShortDecimalFlatVector({500, 1000}, DECIMAL(11, 3));
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
-      resultShortFlat, "minus(c0, c1)", {shortFlatA, shortFlatB});
-  auto resultConstantFlat =
-      makeShortDecimalFlatVector({0, -1000}, DECIMAL(11, 3));
-
+      makeShortDecimalFlatVector({500, 1000}, DECIMAL(11, 3)),
+      "minus(c0, c1)",
+      {makeShortDecimalFlatVector({1000, 2000}, DECIMAL(10, 3)),
+       makeShortDecimalFlatVector({500, 1000}, DECIMAL(10, 3))});
   // Constant and Flat arguments.
+  shortFlatA = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(10, 3));
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
-      resultConstantFlat, "minus(1.00, c0)", {shortFlatA});
-  resultConstantFlat = makeShortDecimalFlatVector({0, 1000}, DECIMAL(11, 3));
+      makeShortDecimalFlatVector({0, -1000}, DECIMAL(11, 3)),
+      "minus(1.00, c0)",
+      {shortFlatA});
 
   // Flat and Constant arguments.
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
-      resultConstantFlat, "minus(c0, 1.00)", {shortFlatA});
+      makeShortDecimalFlatVector({0, 1000}, DECIMAL(11, 3)),
+      "minus(c0, 1.00)",
+      {shortFlatA});
 
   // Input with NULLs.
-  auto shortWithNullsA = makeNullableShortDecimalFlatVector(
-      {3, 6, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3));
-  auto shortWithNullsB = makeNullableShortDecimalFlatVector(
-      {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3));
-  auto expectedShortWithNulls = makeNullableShortDecimalFlatVector(
-      {2, 4, std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 3));
   testDecimalExpr<TypeKind::SHORT_DECIMAL>(
-      expectedShortWithNulls,
+      makeNullableShortDecimalFlatVector(
+          {2, 4, std::nullopt, std::nullopt, std::nullopt}, DECIMAL(11, 3)),
       "minus(c0, c1)",
-      {shortWithNullsA, shortWithNullsB});
+      {makeNullableShortDecimalFlatVector(
+           {3, 6, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3)),
+       makeNullableShortDecimalFlatVector(
+           {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
+}
+
+TEST_F(DecimalArithmeticTest, decimalMultiplyTest) {
+  auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(17, 3));
+  // Multiply short and short, returning long.
+  testDecimalExpr<TypeKind::LONG_DECIMAL>(
+      makeLongDecimalFlatVector({1000000, 4000000}, DECIMAL(34, 6)),
+      "multiply(c0, c1)",
+      {shortFlat, shortFlat});
+  // Multiply short and long, returning long.
+  auto longFlat = makeLongDecimalFlatVector({1000, 2000}, DECIMAL(20, 3));
+  auto expectedLongFlat =
+      makeLongDecimalFlatVector({1000000, 4000000}, DECIMAL(37, 6));
+  testDecimalExpr<TypeKind::LONG_DECIMAL>(
+      expectedLongFlat, "multiply(c0, c1)", {shortFlat, longFlat});
+  // Multiply long and short, returning long.
+  testDecimalExpr<TypeKind::LONG_DECIMAL>(
+      expectedLongFlat, "multiply(c0, c1)", {longFlat, shortFlat});
+
+  // Multiply long and long, returning long.
+  testDecimalExpr<TypeKind::LONG_DECIMAL>(
+      makeLongDecimalFlatVector({1000000, 4000000}, DECIMAL(38, 6)),
+      "multiply(c0, c1)",
+      {longFlat, longFlat});
+
+  // Multiply short and short, returning short.
+  shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(6, 3));
+  testDecimalExpr<TypeKind::SHORT_DECIMAL>(
+      makeShortDecimalFlatVector({1000000, 4000000}, DECIMAL(12, 6)),
+      "c0 * c1",
+      {shortFlat, shortFlat});
+  auto expectedConstantFlat =
+      makeShortDecimalFlatVector({100000, 200000}, DECIMAL(9, 5));
+
+  // Constant and Flat arguments.
+  testDecimalExpr<TypeKind::SHORT_DECIMAL>(
+      expectedConstantFlat, "1.00 * c0", {shortFlat});
+
+  // Flat and Constant arguments.
+  testDecimalExpr<TypeKind::SHORT_DECIMAL>(
+      expectedConstantFlat, "c0 * 1.00", {shortFlat});
+
+  // Long decimal limits
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 * 10.00",
+          {makeLongDecimalFlatVector(
+              {std::numeric_limits<int128_t>::max()}, DECIMAL(38, 0))}),
+      "integer overflow: 170141183460469231731687303715884105727 * 1000");
+
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 * 10.00",
+          {makeLongDecimalFlatVector(
+              {std::numeric_limits<int128_t>::min()}, DECIMAL(38, 0))}),
+      "integer overflow: -170141183460469231731687303715884105728 * 1000");
 }
