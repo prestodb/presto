@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/IOUtils.h"
 #include "velox/common/base/Macros.h"
 #include "velox/common/base/RandomUtil.h"
 #include "velox/common/memory/HashStringAllocator.h"
@@ -20,7 +21,6 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/lib/KllSketch.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/aggregates/IOUtils.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -422,7 +422,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
         sizeof percentile_ + sizeof accuracy_ + digest.serializedByteSize();
     Buffer* buffer = result->getBufferWithSpace(size);
     char* data = buffer->asMutable<char>() + buffer->size();
-    OutputByteStream stream(data);
+    common::OutputByteStream stream(data);
     stream.appendOne(percentile_);
     stream.appendOne(accuracy_);
     digest.serialize(data + stream.offset());
@@ -432,7 +432,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 
   const char* getDeserializedDigest(vector_size_t row) {
     auto data = decodedDigest_.valueAt<StringView>(row);
-    InputByteStream stream(data.data());
+    common::InputByteStream stream(data.data());
     auto percentile = stream.read<double>();
     checkSetPercentile(percentile);
     if (auto accuracy = stream.read<double>();

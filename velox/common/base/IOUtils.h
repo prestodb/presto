@@ -15,7 +15,10 @@
  */
 #pragma once
 
-namespace facebook::velox::aggregate {
+#include <cstdint>
+#include <cstring>
+
+namespace facebook::velox::common {
 struct OutputByteStream {
   explicit OutputByteStream(char* data, int32_t offset = 0)
       : data_(data), offset_{offset} {}
@@ -74,4 +77,4 @@ struct InputByteStream {
   const char* data_;
   int32_t offset_{0};
 };
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::common
