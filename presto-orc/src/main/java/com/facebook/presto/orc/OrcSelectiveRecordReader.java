@@ -774,23 +774,6 @@ public class OrcSelectiveRecordReader
         return columnsWithFilterScores.containsKey(columnIndex) || filterFunctionInputMapping.containsKey(columnIndex);
     }
 
-    private void initializePositions(int batchSize)
-    {
-        if (positions == null || positions.length < batchSize) {
-            positions = new int[batchSize];
-            for (int i = 0; i < batchSize; i++) {
-                positions[i] = i;
-            }
-        }
-
-        if (errors == null || errors.length < batchSize) {
-            errors = new RuntimeException[batchSize];
-        }
-        else {
-            Arrays.fill(errors, null);
-        }
-    }
-
     private int applyFilterFunctionWithNoInputs(int positionCount)
     {
         initializeOutputPositions(positionCount);
@@ -873,6 +856,24 @@ public class OrcSelectiveRecordReader
         }
         else {
             Arrays.fill(tmpErrors, null);
+        }
+    }
+
+    private void initializePositions(int batchSize)
+    {
+        if (positions == null || positions.length < batchSize) {
+            positions = new int[batchSize];
+        }
+
+        for (int i = 0; i < batchSize; i++) {
+            positions[i] = i;
+        }
+
+        if (errors == null || errors.length < batchSize) {
+            errors = new RuntimeException[batchSize];
+        }
+        else {
+            Arrays.fill(errors, null);
         }
     }
 
