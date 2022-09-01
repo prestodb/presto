@@ -49,6 +49,11 @@ class VectorSerializer {
 class VectorSerde {
  public:
   virtual ~VectorSerde() = default;
+  // Lets the caller pass options to the Serde. This can be extended to add
+  // custom options by each of its extended classes.
+  struct Options {
+    virtual ~Options() {}
+  };
 
   virtual void estimateSerializedSize(
       std::shared_ptr<BaseVector> vector,
@@ -58,13 +63,15 @@ class VectorSerde {
   virtual std::unique_ptr<VectorSerializer> createSerializer(
       std::shared_ptr<const RowType> type,
       int32_t numRows,
-      StreamArena* streamArena) = 0;
+      StreamArena* streamArena,
+      const Options* options = nullptr) = 0;
 
   virtual void deserialize(
       ByteStream* source,
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const RowType> type,
-      std::shared_ptr<RowVector>* result) = 0;
+      std::shared_ptr<RowVector>* result,
+      const Options* options = nullptr) = 0;
 };
 
 bool registerVectorSerde(std::unique_ptr<VectorSerde> serde);
@@ -89,7 +96,10 @@ class VectorStreamGroup : public StreamArena {
   explicit VectorStreamGroup(memory::MappedMemory* mappedMemory)
       : StreamArena(mappedMemory) {}
 
-  void createStreamTree(std::shared_ptr<const RowType> type, int32_t numRows);
+  void createStreamTree(
+      std::shared_ptr<const RowType> type,
+      int32_t numRows,
+      const VectorSerde::Options* options = nullptr);
 
   static void estimateSerializedSize(
       std::shared_ptr<BaseVector> vector,
@@ -108,7 +118,8 @@ class VectorStreamGroup : public StreamArena {
       ByteStream* source,
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const RowType> type,
-      std::shared_ptr<RowVector>* result);
+      std::shared_ptr<RowVector>* result,
+      const VectorSerde::Options* options = nullptr);
 
  private:
   std::unique_ptr<VectorSerializer> serializer_;

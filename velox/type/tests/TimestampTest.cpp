@@ -49,5 +49,25 @@ TEST(TimestampTest, fromMillisAndMicros) {
   EXPECT_EQ(ts3, Timestamp::fromMicros(ts3.toMicros()));
 }
 
+TEST(TimestampTest, fromNanos) {
+  int64_t positiveSecond = 10'000;
+  int64_t negativeSecond = -10'000;
+  uint64_t nano = 123'456'789;
+
+  Timestamp ts1(positiveSecond, nano);
+  int64_t positiveNanos = positiveSecond * 1'000'000'000 + nano;
+  EXPECT_EQ(ts1, Timestamp::fromNanos(positiveNanos));
+  EXPECT_EQ(ts1, Timestamp::fromNanos(ts1.toNanos()));
+
+  Timestamp ts2(negativeSecond, nano);
+  int64_t negativeNanos = negativeSecond * 1'000'000'000 + nano;
+  EXPECT_EQ(ts2, Timestamp::fromNanos(negativeNanos));
+  EXPECT_EQ(ts2, Timestamp::fromNanos(ts2.toNanos()));
+
+  Timestamp ts3(negativeSecond, 0);
+  EXPECT_EQ(ts3, Timestamp::fromNanos(negativeSecond * 1'000'000'000));
+  EXPECT_EQ(ts3, Timestamp::fromNanos(ts3.toNanos()));
+}
+
 } // namespace
 } // namespace facebook::velox

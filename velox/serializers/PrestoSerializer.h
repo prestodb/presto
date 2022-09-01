@@ -20,6 +20,17 @@
 namespace facebook::velox::serializer::presto {
 class PrestoVectorSerde : public VectorSerde {
  public:
+  // Input options that the serializer recognizes.
+  struct PrestoOptions : VectorSerde::Options {
+    explicit PrestoOptions(bool useLosslessTimestamp)
+        : useLosslessTimestamp(useLosslessTimestamp) {}
+    // Currently presto only supports millisecond precision and the serializer
+    // converts velox native timestamp to that resulting in loss of precision.
+    // This option allows it to serialize with nanosecond precision and is
+    // currently used for spilling. Is false by default.
+    bool useLosslessTimestamp{false};
+  };
+
   void estimateSerializedSize(
       std::shared_ptr<BaseVector> vector,
       const folly::Range<const IndexRange*>& ranges,
@@ -28,13 +39,15 @@ class PrestoVectorSerde : public VectorSerde {
   std::unique_ptr<VectorSerializer> createSerializer(
       std::shared_ptr<const RowType> type,
       int32_t numRows,
-      StreamArena* streamArena) override;
+      StreamArena* streamArena,
+      const Options* options) override;
 
   void deserialize(
       ByteStream* source,
       velox::memory::MemoryPool* pool,
       std::shared_ptr<const RowType> type,
-      std::shared_ptr<RowVector>* result) override;
+      std::shared_ptr<RowVector>* result,
+      const Options* options) override;
 
   static void registerVectorSerde();
 };

@@ -206,6 +206,35 @@ void readValues<Timestamp>(
   }
 }
 
+Timestamp readLosslessTimestamp(ByteStream* source) {
+  int64_t nanos = source->read<int64_t>();
+  return Timestamp::fromNanos(nanos);
+}
+
+void readLosslessTimestampValues(
+    ByteStream* source,
+    vector_size_t size,
+    BufferPtr nulls,
+    vector_size_t nullCount,
+    BufferPtr values) {
+  auto rawValues = values->asMutable<Timestamp>();
+  if (nullCount > 0) {
+    int32_t toClear = 0;
+    bits::forEachSetBit(nulls->as<uint64_t>(), 0, size, [&](int32_t row) {
+      // Set the values between the last non-null and this to type default.
+      for (; toClear < row; ++toClear) {
+        rawValues[toClear] = Timestamp();
+      }
+      rawValues[row] = readLosslessTimestamp(source);
+      toClear = row + 1;
+    });
+  } else {
+    for (int32_t row = 0; row < size; ++row) {
+      rawValues[row] = readLosslessTimestamp(source);
+    }
+  }
+}
+
 Date readDate(ByteStream* source) {
   int32_t days = source->read<int32_t>();
   return Date(days);
@@ -290,7 +319,8 @@ void read(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
   int32_t size = source->read<int32_t>();
   if (*result && result->unique()) {
     (*result)->resize(size);
@@ -302,6 +332,13 @@ void read(
   auto nullCount = readNulls(source, size, flatResult);
 
   BufferPtr values = flatResult->mutableValues(size);
+  if constexpr (std::is_same<T, Timestamp>::value) {
+    if (useLosslessTimestamp) {
+      readLosslessTimestampValues(
+          source, size, flatResult->nulls(), nullCount, values);
+      return;
+    }
+  }
   readValues<T>(source, size, flatResult->nulls(), nullCount, values);
 }
 
@@ -329,7 +366,8 @@ void read<StringView>(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
   int32_t size = source->read<int32_t>();
 
   if (*result && result->unique()) {
@@ -368,13 +406,15 @@ void readColumns(
     ByteStream* source,
     velox::memory::MemoryPool* pool,
     const std::vector<TypePtr>& types,
-    std::vector<VectorPtr>* result);
+    std::vector<VectorPtr>* result,
+    bool useLosslessTimestamp);
 
 void readArrayVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
   ArrayVector* arrayVector =
       (*result && result->unique()) ? (*result)->as<ArrayVector>() : nullptr;
   std::vector<TypePtr> childTypes = {type->childAt(0)};
@@ -382,7 +422,7 @@ void readArrayVector(
   if (arrayVector) {
     children[0] = arrayVector->elements();
   }
-  readColumns(source, pool, childTypes, &children);
+  readColumns(source, pool, childTypes, &children, useLosslessTimestamp);
 
   vector_size_t size = source->read<int32_t>();
   if (arrayVector) {
@@ -428,7 +468,8 @@ void readMapVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
   MapVector* mapVector =
       (*result && result->unique()) ? (*result)->as<MapVector>() : nullptr;
   std::vector<TypePtr> childTypes = {type->childAt(0), type->childAt(1)};
@@ -437,7 +478,7 @@ void readMapVector(
     children[0] = mapVector->mapKeys();
     children[1] = mapVector->mapValues();
   }
-  readColumns(source, pool, childTypes, &children);
+  readColumns(source, pool, childTypes, &children, useLosslessTimestamp);
 
   int32_t hashTableSize = source->read<int32_t>();
   if (hashTableSize != -1) {
@@ -486,7 +527,7 @@ void readTimestampWithTimeZone(
     velox::memory::MemoryPool* pool,
     VectorPtr* result) {
   VectorPtr timestamps;
-  read<int64_t>(source, BIGINT(), pool, &timestamps);
+  read<int64_t>(source, BIGINT(), pool, &timestamps, false);
 
   auto rawTimestamps = timestamps->asFlatVector<int64_t>()->mutableRawValues();
 
@@ -515,7 +556,8 @@ void readRowVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
     velox::memory::MemoryPool* pool,
-    VectorPtr* result) {
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
   if (isTimestampWithTimeZoneType(type)) {
     readTimestampWithTimeZone(source, pool, result);
     return;
@@ -540,7 +582,7 @@ void readRowVector(
   }
 
   auto childTypes = type->as<TypeKind::ROW>().children();
-  readColumns(source, pool, childTypes, children);
+  readColumns(source, pool, childTypes, children, useLosslessTimestamp);
 
   auto size = source->read<int32_t>();
 
@@ -623,14 +665,16 @@ void readColumns(
     ByteStream* source,
     velox::memory::MemoryPool* pool,
     const std::vector<TypePtr>& types,
-    std::vector<VectorPtr>* result) {
+    std::vector<VectorPtr>* result,
+    bool useLosslessTimestamp) {
   static std::unordered_map<
       TypeKind,
       std::function<void(
           ByteStream * source,
           std::shared_ptr<const Type> type,
           velox::memory::MemoryPool * pool,
-          VectorPtr * result)>>
+          VectorPtr * result,
+          bool useLosslessTimestamp)>>
       readers = {
           {TypeKind::BOOLEAN, &read<bool>},
           {TypeKind::TINYINT, &read<int8_t>},
@@ -659,7 +703,7 @@ void readColumns(
         types[i]->kindName());
 
     readAndCheckType(source, types[i]);
-    it->second(source, types[i], pool, &(*result)[i]);
+    it->second(source, types[i], pool, &(*result)[i], useLosslessTimestamp);
   }
 }
 
@@ -680,8 +724,10 @@ class VectorStream {
   VectorStream(
       const TypePtr type,
       StreamArena* streamArena,
-      int32_t initialNumRows)
+      int32_t initialNumRows,
+      bool useLosslessTimestamp)
       : type_(type),
+        useLosslessTimestamp_(useLosslessTimestamp),
         nulls_(streamArena, true, true),
         lengths_(streamArena),
         values_(streamArena) {
@@ -705,7 +751,10 @@ class VectorStream {
           children_.resize(type_->size());
           for (int32_t i = 0; i < type_->size(); ++i) {
             children_[i] = std::make_unique<VectorStream>(
-                type_->childAt(i), streamArena, initialNumRows);
+                type_->childAt(i),
+                streamArena,
+                initialNumRows,
+                useLosslessTimestamp);
           }
           break;
         case TypeKind::VARCHAR:
@@ -848,11 +897,15 @@ class VectorStream {
   }
 
  private:
+  const TypePtr type_;
+  /// Indicates whether to serialize timestamps with nanosecond precision.
+  /// If false, they are serialized with millisecond precision which is
+  /// compatible with presto.
+  const bool useLosslessTimestamp_;
   int32_t nonNullCount_{0};
   int32_t nullCount_{0};
   int32_t totalLength_{0};
   bool hasLengths_{false};
-  const TypePtr type_;
   ByteRange header_;
   ByteStream nulls_;
   ByteStream lengths_;
@@ -871,8 +924,14 @@ inline void VectorStream::append(folly::Range<const StringView*> values) {
 
 template <>
 void VectorStream::append(folly::Range<const Timestamp*> values) {
-  for (auto& value : values) {
-    appendOne(value.toMillis());
+  if (useLosslessTimestamp_) {
+    for (auto& value : values) {
+      appendOne(value.toNanos());
+    }
+  } else {
+    for (auto& value : values) {
+      appendOne(value.toMillis());
+    }
   }
 }
 
@@ -1491,13 +1550,14 @@ class PrestoVectorSerializer : public VectorSerializer {
   PrestoVectorSerializer(
       std::shared_ptr<const RowType> rowType,
       int32_t numRows,
-      StreamArena* streamArena) {
+      StreamArena* streamArena,
+      bool useLosslessTimestamp) {
     auto types = rowType->children();
     auto numTypes = types.size();
     streams_.resize(numTypes);
     for (int i = 0; i < numTypes; i++) {
-      streams_[i] =
-          std::make_unique<VectorStream>(types[i], streamArena, numRows);
+      streams_[i] = std::make_unique<VectorStream>(
+          types[i], streamArena, numRows, useLosslessTimestamp);
     }
   }
 
@@ -1589,15 +1649,24 @@ void PrestoVectorSerde::estimateSerializedSize(
 std::unique_ptr<VectorSerializer> PrestoVectorSerde::createSerializer(
     std::shared_ptr<const RowType> type,
     int32_t numRows,
-    StreamArena* streamArena) {
-  return std::make_unique<PrestoVectorSerializer>(type, numRows, streamArena);
+    StreamArena* streamArena,
+    const Options* options) {
+  bool useLosslessTimestamp = options != nullptr
+      ? static_cast<const PrestoOptions*>(options)->useLosslessTimestamp
+      : false;
+  return std::make_unique<PrestoVectorSerializer>(
+      type, numRows, streamArena, useLosslessTimestamp);
 }
 
 void PrestoVectorSerde::deserialize(
     ByteStream* source,
     velox::memory::MemoryPool* pool,
     std::shared_ptr<const RowType> type,
-    std::shared_ptr<RowVector>* result) {
+    std::shared_ptr<RowVector>* result,
+    const Options* options) {
+  bool useLosslessTimestamp = options != nullptr
+      ? static_cast<const PrestoOptions*>(options)->useLosslessTimestamp
+      : false;
   auto numRows = source->read<int32_t>();
   if (!(*result) || !result->unique() || (*result)->type() != type) {
     *result = std::dynamic_pointer_cast<RowVector>(
@@ -1626,7 +1695,7 @@ void PrestoVectorSerde::deserialize(
 
   auto children = &(*result)->children();
   auto childTypes = type->as<TypeKind::ROW>().children();
-  readColumns(source, pool, childTypes, children);
+  readColumns(source, pool, childTypes, children, useLosslessTimestamp);
 }
 
 void PrestoVectorSerde::registerVectorSerde() {

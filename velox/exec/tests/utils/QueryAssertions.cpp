@@ -28,6 +28,11 @@ using facebook::velox::duckdb::veloxTimestampToDuckDB;
 namespace facebook::velox::exec::test {
 namespace {
 
+static const std::string kDuckDbTimestampWarning =
+    "Note: DuckDB only supports timestamps of millisecond precision. If this "
+    "test involves timestamp inputs, please make sure you use the right"
+    " precision.";
+
 std::string makeCreateTableSql(
     const std::string& tableName,
     const RowType& rowType) {
@@ -353,16 +358,6 @@ template <TypeKind kind>
 velox::variant variantAt(VectorPtr vector, int32_t row) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   return velox::variant(vector->as<SimpleVector<T>>()->valueAt(row));
-}
-
-template <>
-velox::variant variantAt<TypeKind::TIMESTAMP>(VectorPtr vector, int32_t row) {
-  // DuckDB's timestamps have microseconds precision, while Velox has nanos.
-  // Converting to duckDB and back to Velox to truncate nanoseconds, and thus
-  // allow the comparisons to match.
-  using T = typename KindToFlatVector<TypeKind::TIMESTAMP>::WrapperType;
-  return velox::variant(duckdbTimestampToVelox(
-      veloxTimestampToDuckDB(vector->as<SimpleVector<T>>()->valueAt(row))));
 }
 
 template <>
@@ -699,7 +694,8 @@ void assertResults(
   auto expectedRows = duckDbQueryRunner.execute(duckDbSql, resultType);
   if (not compareMaterializedRows(actualRows, expectedRows)) {
     auto message = generateUserFriendlyDiff(expectedRows, actualRows);
-    EXPECT_TRUE(false) << message << "DuckDB query: " << duckDbSql;
+    EXPECT_TRUE(false) << message << kDuckDbTimestampWarning
+                       << "\nDuckDB query: " << duckDbSql;
   }
 }
 
@@ -807,7 +803,8 @@ void assertResultsOrdered(
         oss << generateUserFriendlyDiff(
             expectedPartIter->second, actualPartIter->second);
       }
-      EXPECT_TRUE(false) << oss.str() << "DuckDB query: " << duckDbSql;
+      EXPECT_TRUE(false) << oss.str() << kDuckDbTimestampWarning
+                         << "\nDuckDB query: " << duckDbSql;
     }
   }
 }

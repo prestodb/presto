@@ -43,6 +43,11 @@ struct Timestamp {
     return nanos_;
   }
 
+  int64_t toNanos() const {
+    // int64 can store around 292 years in nanos ~ till 2262-04-12
+    return seconds_ * 1'000'000'000 + nanos_;
+  }
+
   int64_t toMillis() const {
     return seconds_ * 1'000 + nanos_ / 1'000'000;
   }
@@ -66,6 +71,15 @@ struct Timestamp {
     }
     auto second = micros / 1'000'000 - 1;
     auto nano = ((micros - second * 1'000'000) % 1'000'000) * 1'000;
+    return Timestamp(second, nano);
+  }
+
+  static Timestamp fromNanos(int64_t nanos) {
+    if (nanos >= 0 || nanos % 1'000'000'000 == 0) {
+      return Timestamp(nanos / 1'000'000'000, nanos % 1'000'000'000);
+    }
+    auto second = nanos / 1'000'000'000 - 1;
+    auto nano = (nanos - second * 1'000'000'000) % 1'000'000'000;
     return Timestamp(second, nano);
   }
 

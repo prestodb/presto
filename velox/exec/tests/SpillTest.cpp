@@ -260,6 +260,41 @@ TEST_F(SpillTest, spillState) {
   spillStateTest(1'000'000'000, 2, 10, 10, {}, 2 * 10);
 }
 
+TEST_F(SpillTest, spillTimestamp) {
+  // Verify that timestamp type retains it nanosecond precision when spilled and
+  // read back.
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  std::vector<CompareFlags> emptyCompareFlags;
+  const std::string kSpillPath = tempDirectory->path + "/test";
+  std::vector<Timestamp> timeValues = {
+      Timestamp{0, 0},
+      Timestamp{12, 0},
+      Timestamp{0, 17'123'456},
+      Timestamp{1, 17'123'456},
+      Timestamp{-1, 17'123'456}};
+  SpillState state(
+      kSpillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
+  int partitionIndex = 0;
+  state.setPartitionSpilled(partitionIndex);
+  EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));
+  EXPECT_FALSE(state.hasFiles(partitionIndex));
+  state.appendToPartition(
+      partitionIndex, makeRowVector({makeFlatVector<Timestamp>(timeValues)}));
+  state.finishWrite(partitionIndex);
+  EXPECT_TRUE(state.hasFiles(partitionIndex));
+
+  auto merge = state.startMerge(partitionIndex, nullptr);
+  for (auto i = 0; i < timeValues.size(); ++i) {
+    auto stream = merge->next();
+    ASSERT_NE(nullptr, stream);
+    ASSERT_EQ(
+        timeValues[i],
+        stream->decoded(0).valueAt<Timestamp>(stream->currentIndex()));
+    stream->pop();
+  }
+  ASSERT_EQ(nullptr, merge->next());
+}
+
 TEST_F(SpillTest, spillStateWithSmallTargetFileSize) {
   // Set the target file size to a small value to open a new file on each batch
   // write.
