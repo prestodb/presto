@@ -16,15 +16,18 @@
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
+#include "velox/common/hyperloglog/DenseHll.h"
+#include "velox/common/hyperloglog/HllUtils.h"
+#include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/memory/HashStringAllocator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
-#include "velox/functions/prestosql/hyperloglog/DenseHll.h"
-#include "velox/functions/prestosql/hyperloglog/HllUtils.h"
-#include "velox/functions/prestosql/hyperloglog/SparseHll.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
+
+using facebook::velox::common::hll::DenseHll;
+using facebook::velox::common::hll::SparseHll;
 
 namespace facebook::velox::aggregate {
 namespace {
@@ -36,7 +39,7 @@ struct HllAccumulator {
   void setIndexBitLength(int8_t indexBitLength) {
     indexBitLength_ = indexBitLength;
     sparseHll_.setSoftMemoryLimit(
-        hll::DenseHll::estimateInMemorySize(indexBitLength_));
+        DenseHll::estimateInMemorySize(indexBitLength_));
   }
 
   void append(uint64_t hash) {
@@ -55,17 +58,17 @@ struct HllAccumulator {
 
   void mergeWith(StringView serialized, HashStringAllocator* allocator) {
     auto input = serialized.data();
-    if (hll::SparseHll::canDeserialize(input)) {
+    if (SparseHll::canDeserialize(input)) {
       if (isSparse_) {
         sparseHll_.mergeWith(input);
       } else {
-        hll::SparseHll other{input, allocator};
+        SparseHll other{input, allocator};
         other.toDense(denseHll_);
       }
-    } else if (hll::DenseHll::canDeserialize(input)) {
+    } else if (DenseHll::canDeserialize(input)) {
       if (isSparse_) {
         if (indexBitLength_ < 0) {
-          setIndexBitLength(hll::DenseHll::deserializeIndexBitLength(input));
+          setIndexBitLength(DenseHll::deserializeIndexBitLength(input));
         }
         toDense();
       }
@@ -94,8 +97,8 @@ struct HllAccumulator {
 
   bool isSparse_{true};
   int8_t indexBitLength_{-1};
-  hll::SparseHll sparseHll_;
-  hll::DenseHll denseHll_;
+  SparseHll sparseHll_;
+  DenseHll denseHll_;
 };
 
 template <typename T>
@@ -351,11 +354,11 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   }
 
   void checkSetMaxStandardError(double error) {
-    hll::checkMaxStandardError(error);
+    common::hll::checkMaxStandardError(error);
 
     if (maxStandardError_ < 0) {
       maxStandardError_ = error;
-      indexBitLength_ = hll::toIndexBitLength(error);
+      indexBitLength_ = common::hll::toIndexBitLength(error);
     } else {
       VELOX_USER_CHECK_EQ(
           error,
@@ -372,7 +375,8 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   /// serialized HLLs.
   const bool hllAsRawInput_;
 
-  int8_t indexBitLength_{hll::toIndexBitLength(hll::kDefaultStandardError)};
+  int8_t indexBitLength_{
+      common::hll::toIndexBitLength(common::hll::kDefaultStandardError)};
   double maxStandardError_{-1};
   DecodedVector decodedValue_;
   DecodedVector decodedMaxStandardError_;

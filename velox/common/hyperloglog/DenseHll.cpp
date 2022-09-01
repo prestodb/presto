@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/hyperloglog/DenseHll.h"
+#include "velox/common/hyperloglog/DenseHll.h"
+
 #include <exception>
 #include <sstream>
 #include "velox/common/base/IOUtils.h"
-#include "velox/functions/prestosql/hyperloglog/BiasCorrection.h"
-#include "velox/functions/prestosql/hyperloglog/HllUtils.h"
+#include "velox/common/hyperloglog/BiasCorrection.h"
+#include "velox/common/hyperloglog/HllUtils.h"
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 namespace {
 const int kBitsPerBucket = 4;
 const int8_t kMaxDelta = (1 << kBitsPerBucket) - 1;
@@ -654,4 +655,4 @@ void DenseHll::removeOverflow(int overflowEntry) {
   overflowValues_[overflowEntry] = overflowValues_[overflows_ - 1];
   overflows_--;
 }
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

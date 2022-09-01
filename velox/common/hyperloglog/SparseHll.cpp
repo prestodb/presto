@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/hyperloglog/SparseHll.h"
+#include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/common/base/IOUtils.h"
-#include "velox/functions/prestosql/hyperloglog/HllUtils.h"
+#include "velox/common/hyperloglog/HllUtils.h"
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 namespace {
 const int8_t kValueBitLength = 6;
 const int8_t kIndexBitLength = 26;
@@ -246,4 +246,4 @@ void SparseHll::toDense(DenseHll& denseHll) const {
   }
 }
 
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

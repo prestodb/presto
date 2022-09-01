@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/hyperloglog/SparseHll.h"
+#include "velox/common/hyperloglog/SparseHll.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
-using facebook::velox::aggregate::hll::DenseHll;
-using facebook::velox::aggregate::hll::SparseHll;
+using facebook::velox::common::hll::DenseHll;
+using facebook::velox::common::hll::SparseHll;
 
 namespace facebook::velox {
 namespace {

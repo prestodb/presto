@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/hyperloglog/SparseHll.h"
+#include "velox/common/hyperloglog/SparseHll.h"
 
 #define XXH_INLINE_ALL
 #include <xxhash.h>
@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 
 using namespace facebook::velox;
-using namespace facebook::velox::aggregate::hll;
+using namespace facebook::velox::common::hll;
 
 template <typename T>
 uint64_t hashOne(T value) {

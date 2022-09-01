@@ -16,7 +16,7 @@
 #include "BiasCorrection.h"
 #include <vector>
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 const std::vector<std::vector<double>> BiasCorrection::kRawEstimates = {
     {
         11.238823092354272, 11.725363299909107, 12.222487291610099,
@@ -1710,4 +1710,4 @@ const std::vector<std::vector<double>> BiasCorrection::kBias = {
         64.98260062038032,  62.02954922536067,
     },
 };
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

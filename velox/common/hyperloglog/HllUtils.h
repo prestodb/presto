@@ -17,7 +17,7 @@
 #include <cmath>
 #include <vector>
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 
 constexpr double kLowestMaxStandardError = 0.0040625;
 constexpr double kHighestMaxStandardError = 0.26000;
@@ -66,4 +66,4 @@ inline int8_t computeValue(uint64_t hash, int indexBitLength) {
 inline double linearCounting(int zeroBuckets, int totalBuckets) {
   return totalBuckets * std::log(totalBuckets * 1.0 / zeroBuckets);
 }
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

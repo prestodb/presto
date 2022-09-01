@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/functions/prestosql/hyperloglog/DenseHll.h"
+#include "velox/common/hyperloglog/DenseHll.h"
 
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -26,7 +26,7 @@
 #include "velox/common/encode/Base64.h"
 
 using namespace facebook::velox;
-using namespace facebook::velox::aggregate::hll;
+using namespace facebook::velox::common::hll;
 using namespace facebook::velox::encoding;
 
 template <typename T>

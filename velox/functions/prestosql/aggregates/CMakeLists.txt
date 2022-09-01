@@ -47,5 +47,5 @@ add_library(
   VarianceAggregates.cpp
   MaxSizeForStatsAggregate.cpp)
 
-target_link_libraries(velox_aggregates velox_functions_hyperloglog velox_exec
+target_link_libraries(velox_aggregates velox_common_hyperloglog velox_exec
                       velox_presto_serializer ${FOLLY_WITH_DEPENDENCIES})

@@ -16,7 +16,7 @@
 #pragma once
 #include "velox/common/memory/HashStringAllocator.h"
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 class SparseHll;
 
 /// HyperLogLog implementation using dense storage layout.
@@ -141,4 +141,4 @@ class DenseHll {
   /// baseline.
   std::vector<int8_t, StlAllocator<int8_t>> overflowValues_;
 };
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

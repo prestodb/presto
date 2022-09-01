@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_subdirectory(json)
-add_subdirectory(hyperloglog)
 add_subdirectory(types)
 add_subdirectory(window)
 
@@ -56,8 +55,8 @@ add_library(
 
 target_link_libraries(
   velox_functions_prestosql_impl
+  velox_common_hyperloglog
   velox_functions_json
-  velox_functions_hyperloglog
   velox_functions_lib
   velox_expression
   md5

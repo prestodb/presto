@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
+#include "velox/common/hyperloglog/DenseHll.h"
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/functions/prestosql/hyperloglog/DenseHll.h"
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 /// HyperLogLog implementation using sparse storage layout.
 /// It uses 26-bit buckets and provides high accuracy for low cardinalities.
 /// Memory usage: 4 bytes for each observed bucket.
@@ -84,4 +84,4 @@ class SparseHll {
   /// Number of entries that can be stored before reaching soft memory limit.
   uint32_t softNumEntriesLimit_{0};
 };
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll

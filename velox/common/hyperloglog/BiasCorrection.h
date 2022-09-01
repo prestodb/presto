@@ -16,7 +16,7 @@
 #pragma once
 #include <vector>
 
-namespace facebook::velox::aggregate::hll {
+namespace facebook::velox::common::hll {
 // These tables come from Presto's HLL implementation:
 // https://github.com/airlift/airlift/blob/master/stats/src/main/java/io/airlift/stats/cardinality/BiasCorrection.java
 //
@@ -31,4 +31,4 @@ class BiasCorrection {
   static const std::vector<std::vector<double>> kRawEstimates;
   static const std::vector<std::vector<double>> kBias;
 };
-} // namespace facebook::velox::aggregate::hll
+} // namespace facebook::velox::common::hll
