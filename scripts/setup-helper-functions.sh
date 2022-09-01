@@ -59,6 +59,7 @@ function get_cxx_flags {
   OS=$(uname)
   local MACHINE
   MACHINE=$(uname -m)
+  ADDITIONAL_FLAGS=""
 
   if [ -z "$CPU_ARCH" ]; then
 
@@ -78,6 +79,9 @@ function get_cxx_flags {
         # Apple silicon.
         CPU_ARCH="arm64"
       fi
+
+    # On MacOs prevent the flood of translation visibility settings warnings.
+    ADDITIONAL_FLAGS="-fvisibility=hidden -fvisibility-inlines-hidden"
     else [ "$OS" = "Linux" ];
 
       local CPU_CAPABILITIES
@@ -96,19 +100,19 @@ function get_cxx_flags {
   case $CPU_ARCH in
 
     "arm64")
-      echo -n "-mcpu=apple-m1+crc -std=c++17"
+      echo -n "-mcpu=apple-m1+crc -std=c++17 -fvisibility=hidden $ADDITIONAL_FLAGS"
     ;;
 
     "avx")
-      echo -n "-mavx2 -mfma -mavx -mf16c -mlzcnt -mbmi2 -std=c++17"
+      echo -n "-mavx2 -mfma -mavx -mf16c -mlzcnt -std=c++17 -mbmi2 $ADDITIONAL_FLAGS"
     ;;
 
     "sse")
-      echo -n "-msse4.2 -std=c++17"
+      echo -n "-msse4.2 -std=c++17 $ADDITIONAL_FLAGS"
     ;;
 
     "aarch64")
-      echo -n "-mcpu=neoverse-n1 -std=c++17"
+      echo -n "-mcpu=neoverse-n1 -std=c++17 $ADDITIONAL_FLAGS"
     ;;
   *)
     echo -n "Architecture not supported!"
