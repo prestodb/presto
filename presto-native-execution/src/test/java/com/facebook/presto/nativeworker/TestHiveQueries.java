@@ -280,6 +280,11 @@ abstract class TestHiveQueries
 
         assertQuery("SELECT array[1, 2, 3], array[0.1, NULL, 0.23, 0.00004], array['x', 'y', 'zetta']");
 
+        assertQuery("SELECT * FROM (VALUES (array[1, 23, 456])) as t(a)");
+        assertQuery("SELECT * FROM (VALUES (array[1, NULL, 23, 456])) as t(a)");
+
+        assertQuery("SELECT * FROM (VALUES (map(array[1, 2, 3], array[10, 20, 30]))) as t(a)");
+
         assertQuery("SELECT BIGINT '12345', INTEGER '1234', SMALLINT '123', TINYINT '12', TRUE, FALSE, DOUBLE '1.234', REAL '1.23', 'ABC', 'Somewhat longish string', NULL, array[1, 2, 3]");
     }
 
