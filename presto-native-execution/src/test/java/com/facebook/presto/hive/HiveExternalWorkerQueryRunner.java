@@ -43,6 +43,9 @@ public class HiveExternalWorkerQueryRunner
         String workerCount = System.getenv("WORKER_COUNT");
         int cacheMaxSize = 4096; // 4GB size cache
 
+        checkArgument(prestoServerPath != null, "Native worker binary path is missing. Add PRESTO_SERVER environment variable.");
+        checkArgument(baseDataDir != null, "Data directory path is missing.. Add DATA_DIR environment variable.");
+
         return createQueryRunner(
                 Optional.ofNullable(prestoServerPath),
                 Optional.ofNullable(baseDataDir).map(Paths::get),
