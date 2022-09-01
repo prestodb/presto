@@ -2060,7 +2060,7 @@
             <dependency>
                 <groupId>com.facebook.presto.ranger</groupId>
                 <artifactId>ranger-apache</artifactId>
-                <version>2.1.0-2</version>
+                <version>2.1.0-3</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->
