@@ -14,7 +14,7 @@
 package com.facebook.presto.transaction;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.security.AccessControl;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import java.util.function.Consumer;

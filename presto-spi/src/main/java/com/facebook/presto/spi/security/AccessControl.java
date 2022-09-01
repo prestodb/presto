@@ -11,16 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.security;
+package com.facebook.presto.spi.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.security.AccessControlContext;
-import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.spi.security.PrestoPrincipal;
-import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;

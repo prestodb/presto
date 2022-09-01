@@ -15,8 +15,8 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.transaction.TransactionId;
