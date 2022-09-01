@@ -154,7 +154,7 @@ public class HiveExternalWorkerQueryRunner
                         Files.write(tempDirectoryPath.resolve("node.properties"),
                                 format("node.id=%s%n" +
                                         "node.ip=127.0.0.1%n" +
-                                        "node.environment=testing%n" +
+                                        "node.environment=test%n" +
                                         "node.location=test-location", UUID.randomUUID()).getBytes());
 
                         Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
