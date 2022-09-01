@@ -804,7 +804,7 @@ public class TestPrestoSparkQueryRunner
         assertThat(sampledRows).isLessThan(totalRows);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTimeouts()
     {
         // Expected run time for this query is ~30s
