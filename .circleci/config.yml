@@ -125,11 +125,11 @@ jobs:
       - run:
           name: "Build on MacOS"
           command: |
-            export PATH=~/deps/bin:${PATH}
+            export PATH=~/deps/bin:~/deps/opt/bison/bin:~/deps/opt/flex/bin:${PATH}
             mkdir -p .ccache
             export CCACHE_DIR=$(pwd)/.ccache
             ccache -sz -M 5Gi
-            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=~/deps -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=~/deps -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DFLEX_INCLUDE_DIR=~/deps/opt/flex/include
             ninja -C _build/debug
             ccache -s
           no_output_timeout: 1h
