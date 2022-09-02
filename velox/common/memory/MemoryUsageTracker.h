@@ -144,6 +144,8 @@ class MemoryUsageTracker
             .build());
   }
 
+  virtual ~MemoryUsageTracker() = default;
+
   // Increments the reservation for 'this' so that we can allocate at
   // least 'size' bytes on top of the current allocation. This is used
   // when a memory user needs to allocate more memory and needs a
@@ -183,7 +185,7 @@ class MemoryUsageTracker
   // allocation and negative for free. If there is no reservation or
   // the new allocated amount exceeds the reservation, propagates the
   // change upward.
-  void update(int64_t size) {
+  virtual void update(int64_t size) {
     if (size > 0) {
       int64_t increment = 0;
       {
@@ -213,7 +215,7 @@ class MemoryUsageTracker
     }
   }
 
-  int64_t getCurrentUserBytes() const {
+  virtual int64_t getCurrentUserBytes() const {
     return adjustByReservation(user(currentUsageInBytes_));
   }
   int64_t getCurrentSystemBytes() const {
@@ -294,7 +296,7 @@ class MemoryUsageTracker
   /// true if succeeded.
   bool maybeReserve(int64_t increment);
 
- private:
+ protected:
   static constexpr int64_t kMB = 1 << 20;
 
   template <typename T, size_t size>
@@ -449,5 +451,24 @@ class MemoryUsageTracker
           << total(currentUsageInBytes_);
     }
   }
+};
+
+// A temporary solution to MemoryUsageTracker accounting leak without properly
+// remodeling the interface. Only the overridden methods are supposed to be
+// used.
+class SimpleMemoryTracker : public MemoryUsageTracker {
+ public:
+  explicit SimpleMemoryTracker(const MemoryUsageConfig& config);
+  virtual ~SimpleMemoryTracker() override = default;
+
+  virtual void update(int64_t size) override;
+  virtual int64_t getCurrentUserBytes() const override;
+
+  static std::shared_ptr<SimpleMemoryTracker> create(
+      const MemoryUsageConfig& config = MemoryUsageConfig());
+
+ private:
+  const int64_t userMemoryQuota_;
+  std::atomic_long totalUserMemory_{0};
 };
 } // namespace facebook::velox::memory

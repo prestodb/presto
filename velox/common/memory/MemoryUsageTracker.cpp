@@ -139,4 +139,24 @@ bool MemoryUsageTracker::maybeReserve(int64_t increment) {
   return false;
 }
 
+SimpleMemoryTracker::SimpleMemoryTracker(const MemoryUsageConfig& config)
+    : MemoryUsageTracker{nullptr, UsageType::kUserMem, config},
+      userMemoryQuota_{config.maxUserMemory.value_or(kMaxMemory)} {}
+
+void SimpleMemoryTracker::update(int64_t size) {
+  int64_t previousUsage =
+      totalUserMemory_.fetch_add(size, std::memory_order_relaxed);
+  if (previousUsage + size > userMemoryQuota_) {
+    VELOX_MEM_CAP_EXCEEDED(userMemoryQuota_);
+  }
+}
+
+int64_t SimpleMemoryTracker::getCurrentUserBytes() const {
+  return totalUserMemory_.load(std::memory_order_relaxed);
+}
+
+/* static */ std::shared_ptr<SimpleMemoryTracker> SimpleMemoryTracker::create(
+    const MemoryUsageConfig& config) {
+  return std::make_shared<SimpleMemoryTracker>(config);
+}
 } // namespace facebook::velox::memory
