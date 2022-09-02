@@ -15,7 +15,7 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.TableFormatColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;
@@ -30,7 +30,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class DeltaColumnHandle
-        implements TableFormatColumnHandle
+        implements ColumnHandle
 {
     private final String name;
     private final TypeSignature dataType;
@@ -58,17 +58,9 @@ public final class DeltaColumnHandle
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
-    }
-
-    @JsonProperty
-    @Override
-    public String getBaseType()
-    {
-        throw new UnsupportedOperationException();
     }
 
     @JsonProperty

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.rcfile;
 
-import com.facebook.presto.common.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.rcfile.RcFileDataSource;
 import com.facebook.presto.rcfile.RcFileDataSourceId;
 import org.apache.hadoop.fs.FSDataInputStream;

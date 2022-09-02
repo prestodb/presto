@@ -25,7 +25,6 @@ import com.facebook.presto.operator.DriverYieldSignal;
 import com.facebook.presto.operator.project.PageProcessor;
 import com.facebook.presto.parquet.Field;
 import com.facebook.presto.parquet.FileParquetDataSource;
-import com.facebook.presto.parquet.ParquetPageSource;
 import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.relation.InputReferenceExpression;

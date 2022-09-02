@@ -19,7 +19,6 @@ import com.facebook.airlift.event.client.EventClient;
 import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.drift.codec.utils.DefaultThriftCodecsModule;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForCryptoService;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider.ForUnknown;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;

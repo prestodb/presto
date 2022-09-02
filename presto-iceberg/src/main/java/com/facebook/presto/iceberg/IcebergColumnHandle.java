@@ -15,7 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.spi.TableFormatColumnHandle;
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.iceberg.types.Types;
@@ -29,7 +29,7 @@ import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergColumnHandle
-        implements TableFormatColumnHandle
+        implements ColumnHandle
 {
     private final ColumnIdentity columnIdentity;
     private final Type type;
@@ -59,7 +59,6 @@ public class IcebergColumnHandle
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return columnIdentity.getName();
@@ -69,12 +68,6 @@ public class IcebergColumnHandle
     public Type getType()
     {
         return type;
-    }
-
-    @JsonProperty
-    public String getBaseType()
-    {
-        return getType().getTypeSignature().getBase();
     }
 
     @JsonProperty

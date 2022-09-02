@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.parquet;
+package com.facebook.presto.hive.parquet;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
@@ -21,6 +21,8 @@ import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.block.LongArrayBlock;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.parquet.Field;
+import com.facebook.presto.parquet.ParquetCorruptionException;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;

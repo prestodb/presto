@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.TableFormatColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -41,7 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveColumnHandle
-        implements TableFormatColumnHandle
+        implements ColumnHandle
 {
     public static final int PATH_COLUMN_INDEX = -11;
     public static final String PATH_COLUMN_NAME = "$path";
@@ -121,7 +120,6 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
@@ -131,13 +129,6 @@ public class HiveColumnHandle
     public HiveType getHiveType()
     {
         return hiveType;
-    }
-
-    @JsonProperty
-    @Override
-    public String getBaseType()
-    {
-        return getHiveType().getTypeSignature().getBase();
     }
 
     @JsonProperty

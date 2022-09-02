@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
-import com.facebook.presto.common.FileFormatDataSourceStats;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.AbstractOrcDataSource;
 import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.spi.PrestoException;

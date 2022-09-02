@@ -86,6 +86,11 @@
 
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-memory-context</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
 
@@ -185,16 +190,6 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.facebook.airlift</groupId>
-                    <artifactId>stats</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.weakref</groupId>
-                    <artifactId>jmxutils</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
