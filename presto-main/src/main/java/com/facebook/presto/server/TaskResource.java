@@ -201,20 +201,19 @@ public class TaskResource
         Duration waitTime = randomizeWaitTime(maxWait);
         ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
                 taskManager.getTaskInfo(taskId, currentState),
-                () -> {
-                    TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
-                    if (isThriftRequest) {
-                        return convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver);
-                    }
-                    else {
-                        return taskInfo;
-                    }
-                },
+                () -> taskManager.getTaskInfo(taskId),
                 waitTime,
                 timeoutExecutor);
 
         if (shouldSummarize(uriInfo)) {
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
+        }
+
+        if (isThriftRequest) {
+            futureTaskInfo = Futures.transform(
+                    futureTaskInfo,
+                    taskInfo -> convertToThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver),
+                    directExecutor());
         }
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
