@@ -155,7 +155,7 @@ def member_name(name):
 def special(filepath, current_class, key, classes, depends):
     classes[current_class].class_name = current_class
     (status, stdout, stderr) = classes[current_class][key] = util.run(
-        "../../velox/scripts/license-header.py --header ../../license.header --remove "
+        "../../velox/scripts/license-header.py --header ../../velox/license.header --remove "
         + filepath
     )
     classes[current_class][key] = stdout
