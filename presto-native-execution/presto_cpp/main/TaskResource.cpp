@@ -20,6 +20,7 @@
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
+#include "velox/common/process/ProcessBase.h"
 #include "velox/common/time/Timer.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -130,6 +131,26 @@ void TaskResource::registerUris(http::HttpServer& server) {
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return removeRemoteSource(message, pathMatch);
+      });
+
+  server.registerGet(
+      R"(/v1/jmx/mbean/java.lang:type=OperatingSystem/ProcessCpuTime)",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return new http::CallbackRequestHandler(
+            [this](
+                proxygen::HTTPMessage* /*message*/,
+                const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+                proxygen::ResponseHandler* downstream) {
+              try {
+                sendOkResponse(
+                    downstream,
+                    std::to_string(velox::process::threadCpuNanos()));
+              } catch (const std::exception& e) {
+                sendErrorResponse(downstream, e.what());
+                return;
+              }
+            });
       });
 }
 
