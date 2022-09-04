@@ -69,7 +69,13 @@ LocalReadFile::LocalReadFile(std::string_view path) {
   buf[path.size()] = 0;
   memcpy(buf.get(), path.data(), path.size());
   fd_ = open(buf.get(), O_RDONLY);
-  VELOX_CHECK_GE(fd_, 0, "open failure in LocalReadFile constructor, {}.", fd_);
+  VELOX_CHECK_GE(
+      fd_,
+      0,
+      "open failure in LocalReadFile constructor, {} {} {}.",
+      fd_,
+      path,
+      strerror(errno));
 }
 
 LocalReadFile::LocalReadFile(int32_t fd) : fd_(fd) {}
@@ -150,7 +156,11 @@ LocalWriteFile::LocalWriteFile(std::string_view path) {
         !exists, "Failure in LocalWriteFile: path '{}' already exists.", path);
   }
   auto file = fopen(buf.get(), "ab");
-  VELOX_CHECK(file, "fopen failure in LocalWriteFile constructor, {}.", path);
+  VELOX_CHECK(
+      file,
+      "fopen failure in LocalWriteFile constructor, {} {}.",
+      path,
+      strerror(errno));
   file_ = file;
 }
 
@@ -178,13 +188,18 @@ void LocalWriteFile::append(std::string_view data) {
 void LocalWriteFile::flush() {
   VELOX_CHECK(!closed_, "file is closed");
   auto ret = fflush(file_);
-  VELOX_CHECK_EQ(ret, 0, "fflush failed in LocalWriteFile::flush.");
+  VELOX_CHECK_EQ(
+      ret, 0, "fflush failed in LocalWriteFile::flush: {}.", strerror(errno));
 }
 
 void LocalWriteFile::close() {
   if (!closed_) {
     auto ret = fclose(file_);
-    VELOX_CHECK_EQ(ret, 0, "fwrite failure in LocalWriteFile::close.");
+    VELOX_CHECK_EQ(
+        ret,
+        0,
+        "fwrite failure in LocalWriteFile::close: {}.",
+        strerror(errno));
     closed_ = true;
   }
 }

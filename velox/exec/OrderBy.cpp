@@ -199,7 +199,7 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig.fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,
-        *data_,
+        data_.get(),
         [&](folly::Range<char**> rows) { data_->eraseRows(rows); },
         internalStoreType_,
         data_->keyTypes().size(),

@@ -562,7 +562,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         spillConfig_->fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregate,
-        *rows,
+        rows,
         [&](folly::Range<char**> rows) { table_->erase(rows); },
         ROW(std::move(names), std::move(types)),
         // Spill up to 8 partitions based on bits starting from 29th of the hash

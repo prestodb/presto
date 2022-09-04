@@ -95,7 +95,8 @@ class LocalFileSystem : public FileSystem {
         path.find(kFileScheme) == 0 ? path.substr(kFileScheme.length()) : path;
     int32_t rc = ::remove(std::string(file).c_str());
     if (rc < 0) {
-      VELOX_USER_FAIL("Failed to delete file {} with errno {}", file, errno);
+      VELOX_USER_FAIL(
+          "Failed to delete file {} with errno {}", file, strerror(errno));
     }
   }
 

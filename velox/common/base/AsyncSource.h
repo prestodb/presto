@@ -73,9 +73,8 @@ class AsyncSource {
     ContinueFuture wait;
     {
       std::lock_guard<std::mutex> l(mutex_);
-      // 'making_' can be read atomically, 'exception)' maybe
-      // not. Sotest 'making' so as not to read half-assigned
-      // 'exception_'.
+      // 'making_' can be read atomically, 'exception' maybe not. So test
+      // 'making' so as not to read half-assigned 'exception_'.
       if (!making_ && exception_) {
         std::rethrow_exception(exception_);
       }

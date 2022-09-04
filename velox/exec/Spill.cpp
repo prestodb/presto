@@ -226,6 +226,10 @@ uint32_t SpillState::spilledPartitions() const {
   return spilledPartitionSet_.size();
 }
 
+const SpillPartitionNumSet& SpillState::spilledPartitionSet() const {
+  return spilledPartitionSet_;
+}
+
 int64_t SpillState::spilledFiles() const {
   int64_t numFiles = 0;
   for (const auto& list : files_) {
@@ -248,6 +252,18 @@ std::vector<std::string> SpillState::testingSpilledFilePaths() const {
     }
   }
   return spilledFiles;
+}
+
+std::unique_ptr<UnorderedStreamReader<BatchStream>>
+SpillPartition::createReader() {
+  std::vector<std::unique_ptr<BatchStream>> streams;
+  streams.reserve(files_.size());
+  for (auto& file : files_) {
+    streams.push_back(FileSpillBatchStream::create(std::move(file)));
+  }
+  files_.clear();
+  return std::make_unique<UnorderedStreamReader<BatchStream>>(
+      std::move(streams));
 }
 
 } // namespace facebook::velox::exec

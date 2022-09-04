@@ -28,10 +28,13 @@ TEST_F(HashRangeBitTest, hashBitRange) {
   EXPECT_EQ(4, bitRange.numPartitions());
   EXPECT_EQ(2, bitRange.numBits());
   EXPECT_EQ(31, bitRange.end());
+  EXPECT_EQ(bitRange, bitRange);
 
   HashBitRange defaultRange;
   EXPECT_EQ(0, defaultRange.begin());
   EXPECT_EQ(1, defaultRange.numPartitions());
   EXPECT_EQ(0, defaultRange.numBits());
   EXPECT_EQ(0, defaultRange.end());
+  EXPECT_EQ(defaultRange, defaultRange);
+  EXPECT_NE(defaultRange, bitRange);
 }

@@ -424,6 +424,105 @@ class FileSpillBatchStream : public BatchStream {
   std::unique_ptr<SpillFile> spillFile_;
 };
 
+/// Identifies a spill partition generated from a given spilling operator. It
+/// consists of partition start bit offset and the actual partition number. The
+/// start bit offset is used to calculate the partition number of spill data. It
+/// is required for the recursive spilling handling as we advance the start bit
+/// offset when we go to the next level of recursive spilling.
+struct SpillPartitionId {
+  SpillPartitionId()
+      : SpillPartitionId(
+            std::numeric_limits<uint8_t>::max(),
+            std::numeric_limits<int32_t>::max()) {}
+
+  SpillPartitionId(uint8_t _partitionBitOffset, int32_t _partitionNumber)
+      : partitionBitOffset(_partitionBitOffset),
+        partitionNumber(_partitionNumber) {}
+
+  uint8_t partitionBitOffset = 0;
+  int32_t partitionNumber = 0;
+
+  bool valid() const {
+    return !(*this == SpillPartitionId());
+  }
+
+  bool operator==(const SpillPartitionId& other) const {
+    return std::tie(partitionBitOffset, partitionNumber) ==
+        std::tie(other.partitionBitOffset, other.partitionNumber);
+  }
+
+  bool operator!=(const SpillPartitionId& other) const {
+    return !(*this == other);
+  }
+
+  /// Customize the compare operator for recursive spilling control. It ensures
+  /// the partition with higher partition bit is handled prior than one with
+  /// lower partition bit. With the same partition bit, the one with smaller
+  /// partition number is handled first. We put all spill partitions in an
+  /// ordered map sorted based on the partition id. The recursive spilling will
+  /// advance the partition start bit when go to the next level of recursive
+  /// spilling.
+  bool operator<(const SpillPartitionId& other) const {
+    if (partitionBitOffset != other.partitionBitOffset) {
+      return partitionBitOffset > other.partitionBitOffset;
+    }
+    return partitionNumber < other.partitionNumber;
+  }
+
+  bool operator>(const SpillPartitionId& other) const {
+    return (*this != other) && !(*this < other);
+  }
+
+  std::string toString() const {
+    return fmt::format("[{},{}]", partitionBitOffset, partitionNumber);
+  }
+};
+
+inline std::ostream& operator<<(std::ostream& os, SpillPartitionId id) {
+  os << id.toString();
+  return os;
+}
+
+using SpillPartitionIdSet = folly::F14FastSet<SpillPartitionId>;
+using SpillPartitionNumSet = folly::F14FastSet<uint32_t>;
+
+/// Contains a spill partition data which includes the partition id and
+/// corresponding spill files.
+class SpillPartition {
+ public:
+  explicit SpillPartition(const SpillPartitionId& id)
+      : SpillPartition(id, {}) {}
+
+  SpillPartition(const SpillPartitionId& id, SpillFiles files)
+      : id_(id), files_(std::move(files)) {}
+
+  void addFiles(SpillFiles files) {
+    files_.reserve(files_.size() + files.size());
+    for (auto& file : files) {
+      files_.push_back(std::move(file));
+    }
+  }
+
+  const SpillPartitionId& id() const {
+    return id_;
+  }
+
+  int numFiles() const {
+    return files_.size();
+  }
+
+  /// Invoked to create an unordered stream reader from this spill partition.
+  /// The created reader will take the ownership of the spill files.
+  std::unique_ptr<UnorderedStreamReader<BatchStream>> createReader();
+
+ private:
+  SpillPartitionId id_;
+  SpillFiles files_;
+};
+
+using SpillPartitionSet =
+    std::map<SpillPartitionId, std::unique_ptr<SpillPartition>>;
+
 // Represents all spilled data of an operator, e.g. order by or group
 // by. This has one SpillFileList per partition of spill data.
 class SpillState {
@@ -516,7 +615,11 @@ class SpillState {
 
   uint64_t spilledBytes() const;
 
+  /// Return the number of spilled partitions.
   uint32_t spilledPartitions() const;
+
+  /// Return the spilled partition number set.
+  const SpillPartitionNumSet& spilledPartitionSet() const;
 
   int64_t spilledFiles() const;
 
@@ -534,7 +637,7 @@ class SpillState {
   memory::MappedMemory& mappedMemory_;
 
   // A set of spilled partition numbers.
-  folly::F14FastSet<uint32_t> spilledPartitionSet_;
+  SpillPartitionNumSet spilledPartitionSet_;
 
   // A file list for each spilled partition. Only partitions that have
   // started spilling have an entry here.
@@ -542,3 +645,15 @@ class SpillState {
 };
 
 } // namespace facebook::velox::exec
+
+// Adding the custom hash for SpillPartitionId to std::hash to make it usable
+// with maps and other standard data structures
+namespace std {
+template <>
+struct hash<::facebook::velox::exec::SpillPartitionId> {
+  size_t operator()(const ::facebook::velox::exec::SpillPartitionId& id) const {
+    return facebook::velox::bits::hashMix(
+        id.partitionBitOffset, id.partitionNumber);
+  }
+};
+} // namespace std

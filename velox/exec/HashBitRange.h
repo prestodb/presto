@@ -53,12 +53,21 @@ class HashBitRange {
     return 1 << numBits();
   }
 
+  inline bool operator==(const HashBitRange& other) const {
+    return std::tie(begin_, end_) == std::tie(other.begin_, other.end_);
+  }
+
+  inline bool operator!=(const HashBitRange& other) const {
+    return !(*this == other);
+  }
+
  private:
   // Low bit number of hash number bit range.
-  const uint8_t begin_;
-  // Bit number of first bit above the hash number bit range.
-  const uint8_t end_;
+  uint8_t begin_;
 
-  const uint64_t fieldMask_;
+  // Bit number of first bit above the hash number bit range.
+  uint8_t end_;
+
+  uint64_t fieldMask_;
 };
 } // namespace facebook::velox::exec
