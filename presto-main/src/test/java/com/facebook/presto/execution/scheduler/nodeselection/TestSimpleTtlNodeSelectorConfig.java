@@ -29,7 +29,8 @@ public class TestSimpleTtlNodeSelectorConfig
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(SimpleTtlNodeSelectorConfig.class)
                 .setUseDefaultExecutionTimeEstimateAsFallback(false)
-                .setDefaultExecutionTimeEstimate(new Duration(30, TimeUnit.MINUTES)));
+                .setDefaultExecutionTimeEstimate(new Duration(30, TimeUnit.MINUTES))
+                .setFallbackToSimpleNodeSelection(false));
     }
 
     @Test
@@ -38,11 +39,13 @@ public class TestSimpleTtlNodeSelectorConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("simple-ttl-node-selector.use-default-execution-time-estimate-as-fallback", "true")
                 .put("simple-ttl-node-selector.default-execution-time-estimate", "1h")
+                .put("simple-ttl-node-selector.fallback-to-simple-node-selection", "true")
                 .build();
 
         SimpleTtlNodeSelectorConfig expected = new SimpleTtlNodeSelectorConfig()
                 .setUseDefaultExecutionTimeEstimateAsFallback(true)
-                .setDefaultExecutionTimeEstimate(new Duration(1, TimeUnit.HOURS));
+                .setDefaultExecutionTimeEstimate(new Duration(1, TimeUnit.HOURS))
+                .setFallbackToSimpleNodeSelection(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
