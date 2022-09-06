@@ -101,8 +101,7 @@ public class WrapperJobConf
         if (config == null) {
             return super.get(name);
         }
-        String result = config.get(name);
-        return result != null ? result : super.get(name);
+        return config.get(name);
     }
 
     @Override
