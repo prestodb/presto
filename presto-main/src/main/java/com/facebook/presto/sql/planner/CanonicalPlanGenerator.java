@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
@@ -133,7 +134,7 @@ public class CanonicalPlanGenerator
             return Optional.empty();
         }
 
-        PlanNode result = new StatsEquivalentPlanNodeWithLimit(planNodeidAllocator.getNextId(), plan.get(), (LimitNode) limit.get());
+        PlanNode result = new StatsEquivalentPlanNodeWithLimit(plan.get().getId(), plan.get(), (LimitNode) limit.get());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
@@ -211,7 +212,7 @@ public class CanonicalPlanGenerator
         }
 
         PlanNode result = new LimitNode(Optional.empty(), planNodeidAllocator.getNextId(), source.get(), node.getCount(), node.getStep());
-        context.addPlan(node, new CanonicalPlan(result, strategy));
+        context.addLimitNodePlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
 
@@ -812,7 +813,59 @@ public class CanonicalPlanGenerator
             expressions.put(from, to);
         }
 
-        public void addPlan(PlanNode plan, CanonicalPlan canonicalPlan)
+        private void addLimitNodePlan(LimitNode plan, CanonicalPlan canonicalPlan)
+        {
+            if (!plan.getStatsEquivalentPlanNode().isPresent()) {
+                addPlanInternal(plan, canonicalPlan);
+                return;
+            }
+            // When limits are involved, we can only know canonicalized plans after topmost limit has been canonicalized.
+            // Once we are at topmost limit, we cache canonicalized plans for all sub-plans.
+            PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+            StatsEquivalentPlanNodeWithLimit statsEquivalentPlanNodeWithLimit = (StatsEquivalentPlanNodeWithLimit) statsEquivalentPlanNode;
+            if (childrenCount(statsEquivalentPlanNodeWithLimit.getLimit()) != childrenCount(statsEquivalentPlanNodeWithLimit.getPlan())) {
+                addPlanInternal(plan, canonicalPlan);
+                return;
+            }
+            forTree(PlanNode::getSources)
+                    .depthFirstPreOrder(plan)
+                    .forEach(child -> {
+                        CanonicalPlan childCanonicalPlan = child == plan ? canonicalPlan : canonicalPlans.get(child);
+                        if (childCanonicalPlan == null || !child.getStatsEquivalentPlanNode().isPresent()) {
+                            return;
+                        }
+                        // Only save canonicalized plans for stats equivalent plan nodes.
+                        canonicalPlans.remove(child);
+                        inputTables.remove(child);
+                        addPlanInternal(
+                                child.getStatsEquivalentPlanNode().get(),
+                                new CanonicalPlan(
+                                        new StatsEquivalentPlanNodeWithLimit(childCanonicalPlan.getPlan().getId(), childCanonicalPlan.getPlan(), (LimitNode) canonicalPlan.getPlan()),
+                                        canonicalPlan.getStrategy()));
+                    });
+        }
+
+        private void addPlan(PlanNode plan, CanonicalPlan canonicalPlan)
+        {
+            if (!plan.getStatsEquivalentPlanNode().isPresent()) {
+                addPlanInternal(plan, canonicalPlan);
+                return;
+            }
+            PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+            if (childrenCount(plan) == childrenCount(statsEquivalentPlanNode)) {
+                addPlanInternal(statsEquivalentPlanNode, canonicalPlan);
+            }
+            else {
+                addPlanInternal(plan, canonicalPlan);
+            }
+        }
+
+        private int childrenCount(PlanNode root)
+        {
+            return Iterables.size(forTree(PlanNode::getSources).depthFirstPreOrder(root));
+        }
+
+        private void addPlanInternal(PlanNode plan, CanonicalPlan canonicalPlan)
         {
             ImmutableList.Builder<TableScanNode> inputs = ImmutableList.builder();
             canonicalPlans.put(plan, canonicalPlan);

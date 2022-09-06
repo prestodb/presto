@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
@@ -56,7 +57,7 @@ public class StatsEquivalentPlanNodeWithLimit
     @Override
     public List<PlanNode> getSources()
     {
-        return plan.getSources();
+        return ImmutableList.of(plan);
     }
 
     @JsonProperty
