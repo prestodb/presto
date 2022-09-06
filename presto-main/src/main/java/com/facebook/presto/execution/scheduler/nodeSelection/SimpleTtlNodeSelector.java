@@ -83,6 +83,7 @@ public class SimpleTtlNodeSelector
     private final SimpleNodeSelector simpleNodeSelector;
     private final QueryManager queryManager;
     private final Duration estimatedExecutionTime;
+    private final boolean fallbackToSimpleNodeSelection;
 
     public SimpleTtlNodeSelector(
             SimpleNodeSelector simpleNodeSelector,
@@ -112,6 +113,7 @@ public class SimpleTtlNodeSelector
         requireNonNull(config, "config is null");
         checkArgument(session.getResourceEstimates().getExecutionTime().isPresent() || config.getUseDefaultExecutionTimeEstimateAsFallback(), "Estimated execution time is not present");
         estimatedExecutionTime = session.getResourceEstimates().getExecutionTime().orElse(config.getDefaultExecutionTimeEstimate());
+        fallbackToSimpleNodeSelection = config.getFallbackToSimpleNodeSelection();
     }
 
     @Override
@@ -158,7 +160,19 @@ public class SimpleTtlNodeSelector
 
         Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
         List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo, estimatedExecutionTimeRemaining);
-        return selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
+        List<InternalNode> selectedNodes = selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
+
+        if (selectedNodes.isEmpty()) {
+            if (fallbackToSimpleNodeSelection) {
+                log.warn("No nodes available with enough TTL (%s), falling back to simple node selection.", estimatedExecutionTimeRemaining);
+                return simpleNodeSelector.selectRandomNodes(limit, excludedNodes);
+            }
+
+            log.warn("No nodes available with enough TTL (%s). Active nodes: %s", estimatedExecutionTimeRemaining, activeNodes);
+            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+        }
+
+        return selectedNodes;
     }
 
     @Override
@@ -189,7 +203,13 @@ public class SimpleTtlNodeSelector
 
             List<InternalNode> candidateNodes = randomNodeSelection.pickNodes(split);
             if (candidateNodes.isEmpty()) {
-                log.warn("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
+                Duration remainingTime = getEstimatedExecutionTimeRemaining();
+                if (fallbackToSimpleNodeSelection) {
+                    log.warn("No nodes available with enough TTL (%s) to schedule %s. Active nodes %s, falling back to simple node selection.", remainingTime, split, nodeMap.getActiveNodes());
+                    return simpleNodeSelector.computeAssignments(splits, existingTasks);
+                }
+
+                log.warn("No nodes available with enough TTL (%s) to schedule %s. Active nodes %s", remainingTime, split, nodeMap.getActiveNodes());
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
             }
 
