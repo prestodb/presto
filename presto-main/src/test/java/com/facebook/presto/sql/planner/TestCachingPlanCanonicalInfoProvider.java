@@ -14,13 +14,16 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.graph.Traverser.forTree;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -31,12 +34,22 @@ public class TestCachingPlanCanonicalInfoProvider
     public void testCache()
     {
         Session session = createSession();
-        String sql = "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 GROUP BY orderkey";
-        PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
-        assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
+        String sql = "SELECT O.totalprice, C.name FROM orders O, customer C WHERE C.custkey = O.custkey LIMIT 10";
+        PlanNode root = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
+        assertTrue(root.getStatsEquivalentPlanNode().isPresent());
+
         CachingPlanCanonicalInfoProvider planCanonicalInfoProvider = (CachingPlanCanonicalInfoProvider) ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanCanonicalInfoProvider();
-        // We cache hashes for all intermediate plan nodes
-        assertEquals(planCanonicalInfoProvider.getCacheSize(), 12);
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(child -> {
+            if (!child.getStatsEquivalentPlanNode().isPresent()) {
+                return;
+            }
+            for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
+                planCanonicalInfoProvider.hash(session, child.getStatsEquivalentPlanNode().get(), strategy).get();
+            }
+        });
+        // Assert that size of cache remains same, meaning all needed hashes were already cached.
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
     }
 
     private Session createSession()

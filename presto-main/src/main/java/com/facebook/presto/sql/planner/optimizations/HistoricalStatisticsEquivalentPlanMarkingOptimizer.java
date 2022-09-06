@@ -76,6 +76,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         @Override
         public PlanNode visitPlan(PlanNode node, RewriteContext<Context> context)
         {
+            node = context.defaultRewrite(node, context.get());
             if (!node.getStatsEquivalentPlanNode().isPresent()) {
                 PlanNode nodeWithLimit = node;
                 // A LIMIT node can affect statistics of several children nodes, so let's put the limit node in the stats equivalent plan node.
@@ -90,7 +91,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
                 }
                 node = node.assignStatsEquivalentPlanNode(Optional.of(nodeWithLimit));
             }
-            return context.defaultRewrite(node, context.get());
+            return node;
         }
 
         @Override
@@ -98,7 +99,7 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         {
             context.get().getLimits().addLast(node);
             PlanNode result = visitPlan(node, context);
-            context.get().getLimits().pop();
+            context.get().getLimits().removeLast();
             return result;
         }
     }
