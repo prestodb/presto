@@ -102,6 +102,19 @@ std::string to_string(const ::facebook::velox::Date& ts);
 
 } // namespace std
 
+template <>
+struct fmt::formatter<facebook::velox::Date> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(const facebook::velox::Date& d, FormatContext& ctx) {
+    return fmt::format_to(ctx.out(), "{}", std::to_string(d));
+  }
+};
+
 namespace folly {
 template <>
 struct hasher<::facebook::velox::Date> {
