@@ -115,6 +115,7 @@ import static com.facebook.presto.execution.TaskStatus.failWith;
 import static com.facebook.presto.server.RequestErrorTracker.isExpectedError;
 import static com.facebook.presto.server.RequestErrorTracker.taskRequestErrorTracker;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
+import static com.facebook.presto.server.TaskResourceUtils.convertFromThriftTaskInfo;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static com.facebook.presto.server.smile.FullSmileResponseHandler.createFullSmileResponseHandler;
 import static com.facebook.presto.server.thrift.ThriftCodecWrapper.unwrapThriftCodec;
@@ -212,6 +213,8 @@ public final class HttpRemoteTask
     private final boolean thriftTransportEnabled;
     private final boolean taskInfoThriftTransportEnabled;
     private final Protocol thriftProtocol;
+    private final ConnectorTypeSerdeManager connectorTypeSerdeManager;
+    private final HandleResolver handleResolver;
     private final int maxTaskUpdateSizeInBytes;
     private final int maxUnacknowledgedSplits;
 
@@ -278,6 +281,8 @@ public final class HttpRemoteTask
         requireNonNull(metadataManager, "metadataManager is null");
         requireNonNull(queryManager, "queryManager is null");
         requireNonNull(thriftProtocol, "thriftProtocol is null");
+        requireNonNull(handleResolver, "handleResolver is null");
+        requireNonNull(connectorTypeSerdeManager, "connectorTypeSerdeManager is null");
         requireNonNull(taskUpdateRequestSize, "taskUpdateRequestSize cannot be null");
 
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
@@ -304,6 +309,8 @@ public final class HttpRemoteTask
             this.thriftTransportEnabled = thriftTransportEnabled;
             this.taskInfoThriftTransportEnabled = taskInfoThriftTransportEnabled;
             this.thriftProtocol = thriftProtocol;
+            this.connectorTypeSerdeManager = connectorTypeSerdeManager;
+            this.handleResolver = handleResolver;
             this.tableWriteInfo = tableWriteInfo;
             this.maxTaskUpdateSizeInBytes = maxTaskUpdateSizeInBytes;
             this.maxUnacknowledgedSplits = getMaxUnacknowledgedSplitsPerTask(session);
@@ -703,7 +710,9 @@ public final class HttpRemoteTask
 
     private synchronized void processTaskUpdate(TaskInfo newValue, List<TaskSource> sources)
     {
-        updateTaskInfo(newValue);
+        //Setting the flag as false since TaskUpdateRequest is not on thrift yet.
+        //Once it is converted to thrift we can use the isThrift enabled flag here.
+        updateTaskInfo(newValue, false);
 
         // remove acknowledged splits, which frees memory
         for (TaskSource source : sources) {
@@ -738,7 +747,7 @@ public final class HttpRemoteTask
     private void onSuccessTaskInfo(TaskInfo result)
     {
         try {
-            updateTaskInfo(result);
+            updateTaskInfo(result, taskInfoThriftTransportEnabled);
         }
         finally {
             if (!getTaskInfo().getTaskStatus().getState().isDone()) {
@@ -747,10 +756,12 @@ public final class HttpRemoteTask
         }
     }
 
-    private void updateTaskInfo(TaskInfo taskInfo)
+    private void updateTaskInfo(TaskInfo taskInfo, boolean isTaskInfoThriftTransportEnabled)
     {
         taskStatusFetcher.updateTaskStatus(taskInfo.getTaskStatus());
-        taskInfoFetcher.updateTaskInfo(taskInfo);
+        if (isTaskInfoThriftTransportEnabled) {
+            taskInfoFetcher.updateTaskInfo(convertFromThriftTaskInfo(taskInfo, connectorTypeSerdeManager, handleResolver));
+        }
     }
 
     private void cleanUpLocally()
@@ -771,7 +782,7 @@ public final class HttpRemoteTask
 
         // Since this TaskInfo is updated in the client the "complete" flag will not be set,
         // indicating that the stats may not reflect the final stats on the worker.
-        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()));
+        updateTaskInfo(getTaskInfo().withTaskStatus(getTaskStatus()), taskInfoThriftTransportEnabled);
     }
 
     private void onFailureTaskInfo(
