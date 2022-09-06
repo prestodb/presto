@@ -232,21 +232,6 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.basepom.maven</groupId>
-                <artifactId>duplicate-finder-maven-plugin</artifactId>
-                <configuration>
-                    <ignoredClassPatterns>
-                        <ignoredClassPattern>META-INF.versions.9.module-info</ignoredClassPattern>
-                        <ignoredClassPattern>module-info</ignoredClassPattern>
-                    </ignoredClassPatterns>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
     <profiles>
         <profile>
             <id>ci</id>

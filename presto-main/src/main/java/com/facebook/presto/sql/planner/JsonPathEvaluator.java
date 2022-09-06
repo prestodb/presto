@@ -51,7 +51,6 @@ import com.facebook.presto.json.ir.IrTypeMethod;
 import com.facebook.presto.json.ir.SqlJsonLiteralConverter;
 import com.facebook.presto.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionError;
 import com.facebook.presto.json.ir.TypedValue;
-import com.facebook.presto.metadata.CastType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.OperatorNotFoundException;
 import com.facebook.presto.spi.PrestoException;
@@ -85,6 +84,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.common.function.OperatorType.CAST;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DateType.DATE;
@@ -1049,7 +1049,7 @@ public class JsonPathEvaluator
 
     public FunctionHandle getCoercion(Type from, Type to)
     {
-        return functionAndTypeManager.lookupCast(CastType.CAST, from, to);
+        return functionAndTypeManager.resolveFunction(Optional.empty(), Optional.empty(), CAST.getFunctionName(), fromTypes(from, to));
     }
 
     public boolean isTypeOnlyCoercion(Type from, Type to)
