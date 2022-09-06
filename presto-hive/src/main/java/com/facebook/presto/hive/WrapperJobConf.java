@@ -99,10 +99,13 @@ public class WrapperJobConf
     public String get(String name)
     {
         if (config == null) {
-            return super.get(name);
+            // This is weird code, config is ensured to be non-null in constructor. But this method is called
+            // from super class JobConf constructor. config member variable can be only initialized after super
+            // constructor runs. So this is asking for a property, before it is set. Default to null
+            // as Presto does not use the Hadoop specific properties.
+            return null;
         }
-        String result = config.get(name);
-        return result != null ? result : super.get(name);
+        return config.get(name);
     }
 
     @Override
