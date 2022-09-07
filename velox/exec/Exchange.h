@@ -211,20 +211,26 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   using Factory = std::function<std::shared_ptr<ExchangeSource>(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<ExchangeQueue> queue)>;
+      std::shared_ptr<ExchangeQueue> queue,
+      memory::MemoryPool* FOLLY_NONNULL pool)>;
 
   ExchangeSource(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<ExchangeQueue> queue)
-      : taskId_(taskId), destination_(destination), queue_(std::move(queue)) {}
+      std::shared_ptr<ExchangeQueue> queue,
+      memory::MemoryPool* FOLLY_NONNULL pool)
+      : taskId_(taskId),
+        destination_(destination),
+        queue_(std::move(queue)),
+        pool_(pool) {}
 
   virtual ~ExchangeSource() = default;
 
   static std::shared_ptr<ExchangeSource> create(
       const std::string& taskId,
       int destination,
-      std::shared_ptr<ExchangeQueue> queue);
+      std::shared_ptr<ExchangeQueue> queue,
+      memory::MemoryPool* FOLLY_NONNULL pool);
 
   // Returns true if there is no request to the source pending or if
   // this should be retried. If true, the caller is expected to call
@@ -262,7 +268,6 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
 
   static std::vector<Factory>& factories();
 
-  void setMemoryPool(memory::MemoryPool* FOLLY_NULLABLE pool);
   // ID of the task producing data
   const std::string taskId_;
   // Destination number of 'this' on producer
@@ -273,7 +278,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   bool atEnd_ = false;
 
  protected:
-  memory::MemoryPool* FOLLY_NULLABLE pool_{nullptr};
+  memory::MemoryPool* FOLLY_NONNULL pool_;
 };
 
 struct RemoteConnectorSplit : public connector::ConnectorSplit {
@@ -304,7 +309,7 @@ class ExchangeClient {
     return pool_;
   }
 
-  void maybeSetMemoryPool(memory::MemoryPool* FOLLY_NONNULL pool);
+  void initialize(memory::MemoryPool* FOLLY_NONNULL pool);
 
   // Creates an exchange source and starts fetching data from the specified
   // upstream task. If 'close' has been called already, creates an exchange
@@ -351,7 +356,11 @@ class Exchange : public SourceOperator {
             "Exchange"),
         planNodeId_(exchangeNode->id()),
         exchangeClient_(std::move(exchangeClient)) {
-    exchangeClient_->maybeSetMemoryPool(operatorCtx_->pool());
+    if (operatorCtx_->driverCtx()->driverId == 0) {
+      // As all Exchange operators share the same ExchangeClient, we only
+      // need one to do client initialization.
+      exchangeClient_->initialize(operatorCtx_->pool());
+    }
   }
 
   ~Exchange() override {

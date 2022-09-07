@@ -1290,6 +1290,11 @@ ContinueFuture Task::terminate(TaskState terminalState) {
 
   for (auto& [planNodeId, splits] : remainingRemoteSplits) {
     for (auto& split : splits.first) {
+      if (!exchangeClientByPlanNode_[planNodeId]->pool()) {
+        // If we terminate even before the client's initialization, we
+        // initialize the client with Task's memory pool.
+        exchangeClientByPlanNode_[planNodeId]->initialize(pool_.get());
+      }
       addRemoteSplit(planNodeId, split);
     }
     if (splits.second) {
