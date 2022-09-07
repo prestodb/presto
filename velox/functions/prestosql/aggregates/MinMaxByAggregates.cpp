@@ -26,10 +26,11 @@ namespace facebook::velox::aggregate {
 namespace {
 
 template <typename T>
-constexpr bool isNumeric() {
+constexpr bool isNumericOrDate() {
   return std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||
       std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> ||
-      std::is_same_v<T, float> || std::is_same_v<T, double>;
+      std::is_same_v<T, float> || std::is_same_v<T, double> ||
+      std::is_same_v<T, Date>;
 }
 
 template <typename T, typename TAccumulator>
@@ -38,7 +39,7 @@ void extract(
     const VectorPtr& vector,
     vector_size_t index,
     T* rawValues) {
-  if constexpr (isNumeric<T>()) {
+  if constexpr (isNumericOrDate<T>()) {
     rawValues[index] = *accumulator;
   } else {
     accumulator->read(vector, index);
@@ -51,7 +52,7 @@ void store(
     const DecodedVector& decodedVector,
     vector_size_t index,
     HashStringAllocator* allocator) {
-  if constexpr (isNumeric<T>()) {
+  if constexpr (isNumericOrDate<T>()) {
     *accumulator = decodedVector.valueAt<T>(index);
   } else {
     accumulator->write(
@@ -66,7 +67,7 @@ bool greaterThan(
     TAccumulator* accumulator,
     const DecodedVector& newComparisons,
     vector_size_t index) {
-  if constexpr (isNumeric<T>()) {
+  if constexpr (isNumericOrDate<T>()) {
     return newComparisons.valueAt<T>(index) > *accumulator;
   } else {
     // SingleValueAccumulator::compare has the semantics of accumulator value is
@@ -83,7 +84,7 @@ bool lessThan(
     TAccumulator* accumulator,
     const DecodedVector& newComparisons,
     vector_size_t index) {
-  if constexpr (isNumeric<T>()) {
+  if constexpr (isNumericOrDate<T>()) {
     return newComparisons.valueAt<T>(index) < *accumulator;
   } else {
     // SingleValueAccumulator::compare has the semantics of accumulator value is
@@ -97,13 +98,27 @@ template <typename T, typename = void>
 struct AccumulatorTypeTraits {};
 
 template <typename T>
-struct AccumulatorTypeTraits<T, std::enable_if_t<isNumeric<T>(), void>> {
+struct AccumulatorTypeTraits<T, std::enable_if_t<isNumericOrDate<T>(), void>> {
   using AccumulatorType = T;
 };
 
 template <typename T>
-struct AccumulatorTypeTraits<T, std::enable_if_t<!isNumeric<T>(), void>> {
+struct AccumulatorTypeTraits<T, std::enable_if_t<!isNumericOrDate<T>(), void>> {
   using AccumulatorType = SingleValueAccumulator;
+};
+
+template <typename T>
+struct MinMaxTrait : public std::numeric_limits<T> {};
+
+template <>
+struct MinMaxTrait<Date> {
+  static constexpr Date lowest() {
+    return Date(std::numeric_limits<int32_t>::min());
+  }
+
+  static constexpr Date max() {
+    return Date(std::numeric_limits<int32_t>::max());
+  }
 };
 
 /// MinMaxByAggregate is the base class for min_by and max_by functions
@@ -138,16 +153,16 @@ class MinMaxByAggregate : public exec::Aggregate {
       auto group = groups[i];
       valueIsNull(group) = true;
 
-      if constexpr (!isNumeric<T>()) {
+      if constexpr (!isNumericOrDate<T>()) {
         new (group + offset_) SingleValueAccumulator();
       }
 
-      if constexpr (isNumeric<U>()) {
+      if constexpr (isNumericOrDate<U>()) {
         *comparisonValue(group) = initialValue_;
       } else {
         new (
             group + offset_ +
-            (isNumeric<T>() ? sizeof(T) : sizeof(ValueAccumulatorType)))
+            (isNumericOrDate<T>() ? sizeof(T) : sizeof(ValueAccumulatorType)))
             SingleValueAccumulator();
       }
     }
@@ -162,7 +177,7 @@ class MinMaxByAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(result->get());
 
     T* rawValues = nullptr;
-    if constexpr (isNumeric<T>()) {
+    if constexpr (isNumericOrDate<T>()) {
       auto vector = (*result)->as<FlatVector<T>>();
       VELOX_CHECK(vector != nullptr);
       rawValues = vector->mutableRawValues();
@@ -191,13 +206,13 @@ class MinMaxByAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     T* rawValues = nullptr;
-    if constexpr (isNumeric<T>()) {
+    if constexpr (isNumericOrDate<T>()) {
       auto flatValueVector = valueVector->as<FlatVector<T>>();
       VELOX_CHECK(flatValueVector != nullptr);
       rawValues = flatValueVector->mutableRawValues();
     }
     U* rawComparisonValues = nullptr;
-    if constexpr (isNumeric<U>()) {
+    if constexpr (isNumericOrDate<U>()) {
       auto flatComparisonVector = comparisonVector->as<FlatVector<U>>();
       VELOX_CHECK(flatComparisonVector != nullptr);
       rawComparisonValues = flatComparisonVector->mutableRawValues();
@@ -224,10 +239,10 @@ class MinMaxByAggregate : public exec::Aggregate {
 
   void destroy(folly::Range<char**> groups) override {
     for (auto group : groups) {
-      if constexpr (!isNumeric<T>()) {
+      if constexpr (!isNumericOrDate<T>()) {
         value(group)->destroy(allocator_);
       }
-      if constexpr (!isNumeric<U>()) {
+      if constexpr (!isNumericOrDate<U>()) {
         comparisonValue(group)->destroy(allocator_);
       }
     }
@@ -470,7 +485,7 @@ class MaxByAggregate : public MinMaxByAggregate<T, U> {
       typename AccumulatorTypeTraits<U>::AccumulatorType;
 
   explicit MaxByAggregate(TypePtr resultType)
-      : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::lowest()) {}
+      : MinMaxByAggregate<T, U>(resultType, MinMaxTrait<U>::lowest()) {}
 
   void addRawInput(
       char** groups,
@@ -540,7 +555,7 @@ class MinByAggregate : public MinMaxByAggregate<T, U> {
       typename AccumulatorTypeTraits<U>::AccumulatorType;
 
   explicit MinByAggregate(TypePtr resultType)
-      : MinMaxByAggregate<T, U>(resultType, std::numeric_limits<U>::max()) {}
+      : MinMaxByAggregate<T, U>(resultType, MinMaxTrait<U>::max()) {}
 
   void addRawInput(
       char** groups,
@@ -623,6 +638,8 @@ std::unique_ptr<exec::Aggregate> create(
       return std::make_unique<Aggregate<W, double>>(resultType);
     case TypeKind::VARCHAR:
       return std::make_unique<Aggregate<W, StringView>>(resultType);
+    case TypeKind::DATE:
+      return std::make_unique<Aggregate<W, Date>>(resultType);
     default:
       VELOX_FAIL("{}", errorMessage);
       return nullptr;
@@ -639,7 +656,8 @@ bool registerMinMaxByAggregate(const std::string& name) {
         "bigint",
         "real",
         "double",
-        "varchar"}) {
+        "varchar",
+        "date"}) {
     for (const auto& compareType :
          {"tinyint",
           "smallint",
@@ -647,7 +665,8 @@ bool registerMinMaxByAggregate(const std::string& name) {
           "bigint",
           "real",
           "double",
-          "varchar"}) {
+          "varchar",
+          "date"}) {
       signatures.push_back(exec::AggregateFunctionSignatureBuilder()
                                .returnType(valueType)
                                .intermediateType(fmt::format(
@@ -716,6 +735,9 @@ bool registerMinMaxByAggregate(const std::string& name) {
                 resultType, compareType, errorMessage);
           case TypeKind::VARCHAR:
             return create<Aggregate, StringView>(
+                resultType, compareType, errorMessage);
+          case TypeKind::DATE:
+            return create<Aggregate, Date>(
                 resultType, compareType, errorMessage);
           default:
             VELOX_FAIL(errorMessage);
