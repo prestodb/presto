@@ -16,6 +16,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include <folly/Random.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/BaseVector.h"
@@ -298,4 +299,28 @@ TEST_F(PrestoSerializerTest, timestampWithNanosecondPrecision) {
       std::dynamic_pointer_cast<const RowType>(inputRowVector->type());
   auto deserialized = deserialize(rowType, out.str(), {});
   assertEqualVectors(deserialized, expectedOutputWithLostPrecision);
+}
+
+TEST_F(PrestoSerializerTest, unscaledLongDecimal) {
+  std::vector<int128_t> decimalValues(101);
+  for (int row = 0; row < 100; row++) {
+    decimalValues[row] = row - 50;
+  }
+  decimalValues[100] = std::numeric_limits<int128_t>::max();
+  auto vector =
+      vectorMaker_->longDecimalFlatVector(decimalValues, DECIMAL(20, 5));
+
+  testRoundTrip(vector);
+
+  // Add some nulls.
+  for (auto i = 0; i < 101; i += 7) {
+    vector->setNull(i, true);
+  }
+  testRoundTrip(vector);
+
+  // std::numeric_limits<UnscaledLongDecimal>::min() will throw an error.
+  vector->set(100, std::numeric_limits<UnscaledLongDecimal>::min());
+  VELOX_ASSERT_THROW(
+      testRoundTrip(vector),
+      "Cannot serialize '-170141183460469231731687303715884105728' as a Presto UnscaledDecimal128 value");
 }

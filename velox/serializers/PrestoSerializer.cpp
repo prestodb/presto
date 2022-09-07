@@ -294,6 +294,46 @@ void readValues<IntervalDayTime>(
   }
 }
 
+UnscaledLongDecimal readUnscaledLongDecimal(ByteStream* source) {
+  constexpr int64_t kInt64DeserializeMask = ~(static_cast<int64_t>(1) << 63);
+  // ByteStream does not support reading int128_t values.
+  auto low = source->read<int64_t>();
+  auto high = source->read<int64_t>();
+  // 'high' is in signed magnitude representation.
+  if (high < 0) {
+    // Remove the sign bit before building the int128 value.
+    // Negate the value.
+    return UnscaledLongDecimal(
+        -1 * buildInt128(high & kInt64DeserializeMask, low));
+  }
+  return UnscaledLongDecimal(buildInt128(high, low));
+}
+
+template <>
+void readValues<UnscaledLongDecimal>(
+    ByteStream* source,
+    vector_size_t size,
+    BufferPtr nulls,
+    vector_size_t nullCount,
+    BufferPtr values) {
+  auto rawValues = values->asMutable<UnscaledLongDecimal>();
+  if (nullCount) {
+    int32_t toClear = 0;
+    bits::forEachSetBit(nulls->as<uint64_t>(), 0, size, [&](int32_t row) {
+      // Set the values between the last non-null and this to type default.
+      for (; toClear < row; ++toClear) {
+        rawValues[toClear] = UnscaledLongDecimal();
+      }
+      rawValues[row] = readUnscaledLongDecimal(source);
+      toClear = row + 1;
+    });
+  } else {
+    for (int32_t row = 0; row < size; ++row) {
+      rawValues[row] = readUnscaledLongDecimal(source);
+    }
+  }
+}
+
 vector_size_t
 readNulls(ByteStream* source, vector_size_t size, BaseVector* result) {
   if (source->readByte() == 0) {
@@ -946,6 +986,29 @@ template <>
 void VectorStream::append(folly::Range<const IntervalDayTime*> values) {
   for (auto& value : values) {
     appendOne(value.milliseconds());
+  }
+}
+
+template <>
+inline void VectorStream::append(
+    folly::Range<const UnscaledLongDecimal*> values) {
+  constexpr int128_t kInt128SerializeMask = (static_cast<int128_t>(1) << 127);
+  for (auto& value : values) {
+    int128_t val = value.unscaledValue();
+    // Presto Java UnscaledDecimal128 representation uses signed magnitude
+    // representation. Only negative values differ in this representation.
+    // Due to this difference in representation, the UnscaledLongDecimal minimum
+    // value cannot be represented as a Presto UnscaledDecimal128 value. We
+    // throw an error in this case.
+    if (val < 0) {
+      if (value == std::numeric_limits<UnscaledLongDecimal>::min()) {
+        VELOX_FAIL(
+            "Cannot serialize '{}' as a Presto UnscaledDecimal128 value", val);
+      }
+      val *= -1;
+      val |= kInt128SerializeMask;
+    }
+    appendOne(val);
   }
 }
 
