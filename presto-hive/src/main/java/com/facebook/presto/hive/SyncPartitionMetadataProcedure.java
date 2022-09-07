@@ -233,7 +233,8 @@ public class SyncPartitionMetadataProcedure
                     false,
                     buildPartitionObject(session, table, name),
                     new Path(table.getStorage().getLocation(), name),
-                    PartitionStatistics.empty());
+                    PartitionStatistics.empty(),
+                    true);
         }
     }
 
