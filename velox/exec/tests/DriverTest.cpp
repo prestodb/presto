@@ -651,10 +651,7 @@ TEST_F(DriverTest, pauserNode) {
   Operator::registerOperator(std::make_unique<PauserNodeFactory>(
       kThreadsPerTask, sequence, testInstance));
 
-  std::vector<int32_t> counters;
-  counters.reserve(kNumTasks);
-  std::vector<CursorParameters> params;
-  params.resize(kNumTasks);
+  std::vector<CursorParameters> params(kNumTasks);
   int32_t hits;
   for (int32_t i = 0; i < kNumTasks; ++i) {
     params[i].queryCtx = std::make_shared<core::QueryCtx>(
@@ -671,10 +668,10 @@ TEST_F(DriverTest, pauserNode) {
     params[i].maxDrivers =
         kThreadsPerTask * 2; // a number larger than kThreadsPerTask
   }
+  std::vector<int32_t> counters(kNumTasks, 0);
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    counters.push_back(0);
     threads.push_back(std::thread([this, &params, &counters, i]() {
       try {
         readResults(params[i], ResultOperation::kRead, 10'000, &counters[i], i);
