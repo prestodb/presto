@@ -53,6 +53,7 @@ import org.testng.annotations.Test;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -267,7 +268,7 @@ public class TestPrestoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
+    @Test(expectedExceptions = FileNotFoundException.class, expectedExceptionsMessageRegExp = "File does not exist: s3n://test-bucket/test")
     public void testReadNotFound()
             throws Exception
     {
