@@ -456,10 +456,7 @@ TEST_F(DriverTest, pause) {
 TEST_F(DriverTest, yield) {
   constexpr int32_t kNumTasks = 20;
   constexpr int32_t kThreadsPerTask = 5;
-  std::vector<int32_t> counters;
-  counters.reserve(kNumTasks);
-  std::vector<CursorParameters> params;
-  params.resize(kNumTasks);
+  std::vector<CursorParameters> params(kNumTasks);
   int32_t hits;
   for (int32_t i = 0; i < kNumTasks; ++i) {
     params[i].planNode = makeValuesFilterProject(
@@ -472,10 +469,10 @@ TEST_F(DriverTest, yield) {
         &hits);
     params[i].maxDrivers = kThreadsPerTask;
   }
+  std::vector<int32_t> counters(kNumTasks, 0);
   std::vector<std::thread> threads;
   threads.reserve(kNumTasks);
   for (int32_t i = 0; i < kNumTasks; ++i) {
-    counters.push_back(0);
     threads.push_back(std::thread([this, &params, &counters, i]() {
       readResults(params[i], ResultOperation::kYield, 10'000, &counters[i], i);
     }));
