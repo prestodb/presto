@@ -69,18 +69,18 @@ void checkForBadPattern(const RE2& re) {
 
 FlatVector<bool>& ensureWritableBool(
     const SelectivityVector& rows,
-    EvalCtx* context,
-    std::shared_ptr<BaseVector>* result) {
-  context->ensureWritable(rows, BOOLEAN(), *result);
-  return *(*result)->as<FlatVector<bool>>();
+    EvalCtx& context,
+    VectorPtr& result) {
+  context.ensureWritable(rows, BOOLEAN(), result);
+  return *result->as<FlatVector<bool>>();
 }
 
 FlatVector<StringView>& ensureWritableStringView(
     const SelectivityVector& rows,
-    EvalCtx* context,
-    std::shared_ptr<BaseVector>* result) {
-  context->ensureWritable(rows, VARCHAR(), *result);
-  auto* flat = (*result)->as<FlatVector<StringView>>();
+    EvalCtx& context,
+    std::shared_ptr<BaseVector>& result) {
+  context.ensureWritable(rows, VARCHAR(), result);
+  auto* flat = result->as<FlatVector<StringView>>();
   flat->mutableValues(rows.end());
   return *flat;
 }
@@ -191,8 +191,8 @@ class Re2MatchConstantPattern final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK_EQ(args.size(), 2);
     FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
     exec::LocalDecodedVector toSearch(context, *args[0], rows);
@@ -213,8 +213,8 @@ class Re2Match final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* resultRef) const override {
+      EvalCtx& context,
+      VectorPtr& resultRef) const override {
     VELOX_CHECK_EQ(args.size(), 2);
     if (auto pattern = getIfConstant<StringView>(*args[1])) {
       Re2MatchConstantPattern<Fn>(*pattern).apply(
@@ -251,8 +251,8 @@ class Re2SearchAndExtractConstantPattern final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     // TODO: Potentially re-use the string vector, not just the buffer.
     FlatVector<StringView>& result =
@@ -327,8 +327,8 @@ class Re2SearchAndExtract final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     // Handle the common case of a constant pattern.
     if (auto pattern = getIfConstant<StringView>(*args[1])) {
@@ -384,14 +384,14 @@ class LikeConstantPattern final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
 
     if (!validPattern_) {
       auto error = std::make_exception_ptr(std::invalid_argument(
           "Escape character must be followed by '%%', '_' or the escape character itself\""));
-      rows.applyToSelected([&](auto row) { context->setError(row, error); });
+      rows.applyToSelected([&](auto row) { context.setError(row, error); });
       return;
     }
 
@@ -463,13 +463,13 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     checkForBadPattern(re_);
 
     ArrayBuilder<Varchar> builder(
-        rows.size(), rows.countSelected() * 3, context->pool());
+        rows.size(), rows.countSelected() * 3, context.pool());
     exec::LocalDecodedVector inputStrs(context, *args[0], rows);
     FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
 
@@ -477,7 +477,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       // Case 1: No groupId -- use 0 as the default groupId
       //
       groups.resize(1);
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         re2ExtractAll(builder, re_, inputStrs, row, groups, 0);
       });
     } else if (const auto _groupId = getIfConstant<T>(*args[2])) {
@@ -485,7 +485,7 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       //
       checkForBadGroupId(*_groupId, re_);
       groups.resize(*_groupId + 1);
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         re2ExtractAll(builder, re_, inputStrs, row, groups, *_groupId);
       });
     } else {
@@ -494,14 +494,14 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       //
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
       T maxGroupId = 0, minGroupId = 0;
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         maxGroupId = std::max(groupIds->valueAt<T>(row), maxGroupId);
         minGroupId = std::min(groupIds->valueAt<T>(row), minGroupId);
       });
       checkForBadGroupId(maxGroupId, re_);
       checkForBadGroupId(minGroupId, re_);
       groups.resize(maxGroupId + 1);
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
         checkForBadGroupId(groupId, re_);
         re2ExtractAll(builder, re_, inputStrs, row, groups, groupId);
@@ -512,8 +512,8 @@ class Re2ExtractAllConstantPattern final : public VectorFunction {
       builder.setStringBuffers(fv->stringBuffers());
     }
     std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context->pool());
-    context->moveOrCopyResult(arrayVector, rows, resultRef);
+        std::move(builder).finish(context.pool());
+    context.moveOrCopyResult(arrayVector, rows, resultRef);
   }
 
  private:
@@ -527,8 +527,8 @@ class Re2ExtractAll final : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* resultRef) const final {
+      EvalCtx& context,
+      VectorPtr& resultRef) const final {
     VELOX_CHECK(args.size() == 2 || args.size() == 3);
     // Use Re2ExtractAllConstantPattern if it's constant regexp pattern.
     //
@@ -539,7 +539,7 @@ class Re2ExtractAll final : public VectorFunction {
     }
 
     ArrayBuilder<Varchar> builder(
-        rows.size(), rows.countSelected() * 3, context->pool());
+        rows.size(), rows.countSelected() * 3, context.pool());
     exec::LocalDecodedVector inputStrs(context, *args[0], rows);
     exec::LocalDecodedVector pattern(context, *args[1], rows);
     FOLLY_DECLARE_REUSED(groups, std::vector<re2::StringPiece>);
@@ -548,7 +548,7 @@ class Re2ExtractAll final : public VectorFunction {
       // Case 1: No groupId -- use 0 as the default groupId
       //
       groups.resize(1);
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
         checkForBadPattern(re);
         re2ExtractAll(builder, re, inputStrs, row, groups, 0);
@@ -557,7 +557,7 @@ class Re2ExtractAll final : public VectorFunction {
       // Case 2: Has groupId
       //
       exec::LocalDecodedVector groupIds(context, *args[2], rows);
-      context->applyToSelectedNoThrow(rows, [&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         const T groupId = groupIds->valueAt<T>(row);
         RE2 re(toStringPiece(pattern->valueAt<StringView>(row)), RE2::Quiet);
         checkForBadPattern(re);
@@ -571,8 +571,8 @@ class Re2ExtractAll final : public VectorFunction {
       builder.setStringBuffers(fv->stringBuffers());
     }
     std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context->pool());
-    context->moveOrCopyResult(arrayVector, rows, resultRef);
+        std::move(builder).finish(context.pool());
+    context.moveOrCopyResult(arrayVector, rows, resultRef);
   }
 };
 

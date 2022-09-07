@@ -31,12 +31,12 @@ class TestingDictionaryFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /*outputType*/,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(rows.isAllSelected());
     const auto size = rows.size();
-    auto indices = makeIndicesInReverse(size, context->pool());
-    *result = BaseVector::wrapInDictionary(
+    auto indices = makeIndicesInReverse(size, context.pool());
+    result = BaseVector::wrapInDictionary(
         BufferPtr(nullptr), indices, size, args[0]);
   }
 

@@ -116,8 +116,8 @@ class MapResolverVectorFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     // We cannot make any assumptions about the encoding of the input vectors.
     // In order to access their data as FlatVectors, we need to decode them
     // first:
@@ -134,8 +134,8 @@ class MapResolverVectorFunction : public exec::VectorFunction {
 
     // Ensure we have an output vector where we can write the output opaqued
     // values.
-    context->ensureWritable(rows, outputType, *result);
-    auto* output = (*result)->as<KindToFlatVector<TypeKind::OPAQUE>::type>();
+    context.ensureWritable(rows, outputType, result);
+    auto* output = result->as<KindToFlatVector<TypeKind::OPAQUE>::type>();
 
     // `applyToSelected()` will execute the lambda below on each row enabled in
     // the input selectivity vector (rows). We don't need to check for null

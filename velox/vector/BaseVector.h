@@ -453,7 +453,7 @@ class BaseVector {
       const SelectivityVector& rows,
       const TypePtr& type,
       velox::memory::MemoryPool* pool,
-      std::shared_ptr<BaseVector>* result,
+      std::shared_ptr<BaseVector>& result,
       VectorPool* vectorPool = nullptr);
 
   virtual void ensureWritable(const SelectivityVector& rows);
@@ -466,12 +466,12 @@ class BaseVector {
   //
   // We don't necessarily need (b) if we only want to flatten vectors.
   static void flattenVector(
-      std::shared_ptr<BaseVector>* vector,
+      std::shared_ptr<BaseVector>& vector,
       size_t vectorSize) {
     BaseVector::ensureWritable(
         SelectivityVector::empty(vectorSize),
-        (*vector)->type(),
-        (*vector)->pool(),
+        vector->type(),
+        vector->pool(),
         vector);
   }
 

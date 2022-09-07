@@ -35,13 +35,13 @@ class VectorFunctionImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     LocalDecodedVector decoded_(context, *args[0], rows); // NOLINT
 
     // Prepare results.
-    BaseVector::ensureWritable(rows, ARRAY(BIGINT()), context->pool(), result);
-    auto flatResult = (*result)->as<ArrayVector>();
+    BaseVector::ensureWritable(rows, ARRAY(BIGINT()), context.pool(), result);
+    auto flatResult = result->as<ArrayVector>();
     auto currentOffset = 0;
     auto elementsFlat = flatResult->elements()->asFlatVector<int64_t>();
 

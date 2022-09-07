@@ -44,20 +44,20 @@ class HourFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
     const auto* timestamps =
         static_cast<const Timestamp*>(args[0]->valuesAsVoid());
 
     // Initialize flat results vector.
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
-    auto rawResults = (*result)->as<FlatVector<int64_t>>()->mutableRawValues();
+    BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
+    auto rawResults = result->as<FlatVector<int64_t>>()->mutableRawValues();
 
     // Check if we need to adjust the current UTC timestamps to
     // the user provided session timezone.
     const auto* timeZone =
-        getTimeZoneIfNeeded(context->execCtx()->queryCtx()->config());
+        getTimeZoneIfNeeded(context.execCtx()->queryCtx()->config());
     if (timeZone != nullptr) {
       rows.applyToSelected([&](int row) {
         auto timestamp = timestamps[row];

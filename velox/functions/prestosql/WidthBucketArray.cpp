@@ -60,10 +60,10 @@ class WidthBucketArrayFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    context->ensureWritable(rows, BIGINT(), *result);
-    auto flatResult = (*result)->asFlatVector<int64_t>()->mutableRawValues();
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    context.ensureWritable(rows, BIGINT(), result);
+    auto flatResult = result->asFlatVector<int64_t>()->mutableRawValues();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto operand = decodedArgs.at(0);
@@ -86,7 +86,7 @@ class WidthBucketArrayFunction : public exec::VectorFunction {
         flatResult[row] = widthBucket<T>(
             operand->valueAt<double>(row), *elementsHolder.get(), offset, size);
       } catch (const std::exception& e) {
-        context->setError(row, std::current_exception());
+        context.setError(row, std::current_exception());
       }
     });
   }
@@ -101,10 +101,10 @@ class WidthBucketArrayFunctionConstantBins : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    context->ensureWritable(rows, BIGINT(), *result);
-    auto flatResult = (*result)->asFlatVector<int64_t>()->mutableRawValues();
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    context.ensureWritable(rows, BIGINT(), result);
+    auto flatResult = result->asFlatVector<int64_t>()->mutableRawValues();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto operand = decodedArgs.at(0);
@@ -113,7 +113,7 @@ class WidthBucketArrayFunctionConstantBins : public exec::VectorFunction {
       try {
         flatResult[row] = widthBucket(operand->valueAt<double>(row), bins_);
       } catch (const std::exception& e) {
-        context->setError(row, std::current_exception());
+        context.setError(row, std::current_exception());
       }
     });
   }

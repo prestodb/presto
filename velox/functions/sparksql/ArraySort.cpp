@@ -37,12 +37,12 @@ void applyComplexType(
     ArrayVector* inputArray,
     bool ascending,
     bool nullsFirst,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     VectorPtr* resultElements) {
   auto elementsVector = inputArray->elements();
 
   // Allocate new vectors for indices.
-  BufferPtr indices = allocateIndices(elementsVector->size(), context->pool());
+  BufferPtr indices = allocateIndices(elementsVector->size(), context.pool());
   vector_size_t* rawIndices = indices->asMutable<vector_size_t>();
 
   const CompareFlags flags{.nullsFirst = nullsFirst, .ascending = ascending};
@@ -87,7 +87,7 @@ void applyTyped(
     const ArrayVector* inputArray,
     bool ascending,
     bool nullsFirst,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     VectorPtr* resultElements) {
   using T = typename TypeTraits<kind>::NativeType;
 
@@ -97,7 +97,7 @@ void applyTyped(
       toElementRows(inputElements->size(), rows, inputArray);
 
   *resultElements = BaseVector::create(
-      inputElements->type(), inputElements->size(), context->pool());
+      inputElements->type(), inputElements->size(), context.pool());
   (*resultElements)
       ->copy(inputElements.get(), elementRows, /*toSourceRow=*/nullptr);
 
@@ -161,8 +161,8 @@ void ArraySort::apply(
     const SelectivityVector& rows,
     std::vector<VectorPtr>& args,
     const TypePtr& /*outputType*/,
-    exec::EvalCtx* context,
-    VectorPtr* result) const {
+    exec::EvalCtx& context,
+    VectorPtr& result) const {
   auto& arg = args[0];
 
   VectorPtr localResult;
@@ -184,13 +184,13 @@ void ArraySort::apply(
     localResult = applyFlat(rows, arg, context);
   }
 
-  context->moveOrCopyResult(localResult, rows, result);
+  context.moveOrCopyResult(localResult, rows, result);
 }
 
 VectorPtr ArraySort::applyFlat(
     const SelectivityVector& rows,
     const VectorPtr& arg,
-    exec::EvalCtx* context) const {
+    exec::EvalCtx& context) const {
   ArrayVector* inputArray = arg->as<ArrayVector>();
   VectorPtr resultElements;
 
@@ -212,7 +212,7 @@ VectorPtr ArraySort::applyFlat(
   }
 
   return std::make_shared<ArrayVector>(
-      context->pool(),
+      context.pool(),
       inputArray->type(),
       inputArray->nulls(),
       rows.end(),

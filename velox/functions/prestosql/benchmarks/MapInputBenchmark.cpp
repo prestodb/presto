@@ -33,8 +33,8 @@ class MapSumValuesAndKeysVector : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto arg = args.at(0);
 
     exec::LocalDecodedVector mapHolder(context, *arg, rows);
@@ -55,8 +55,8 @@ class MapSumValuesAndKeysVector : public exec::VectorFunction {
     auto rawOffsets = mapVector->rawOffsets();
     auto rawSizes = mapVector->rawSizes();
 
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
-    auto flatResult = (*result)->asFlatVector<int64_t>();
+    BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
+    auto flatResult = result->asFlatVector<int64_t>();
 
     rows.applyToSelected([&](vector_size_t row) {
       size_t mapIndex = mapIndices[row];
@@ -79,8 +79,8 @@ class NestedMapSumValuesAndKeysVector : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto arg = args.at(0);
 
     exec::LocalDecodedVector mapHolder(context, *arg, rows);
@@ -126,8 +126,8 @@ class NestedMapSumValuesAndKeysVector : public exec::VectorFunction {
     auto innerRawSizes = innerMapVector->rawSizes();
 
     // Prepare results
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
-    auto flatResult = (*result)->asFlatVector<int64_t>();
+    BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
+    auto flatResult = result->asFlatVector<int64_t>();
 
     rows.applyToSelected([&](vector_size_t row) {
       size_t mapIndex = mapIndices[row];
@@ -163,16 +163,16 @@ class NestedMapWithMapView : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     LocalDecodedVector decoded_(context, *args[0], rows);
     using exec_in_t = typename VectorExec::template resolver<
         Map<int64_t, Map<int64_t, int64_t>>>::in_type;
     VectorReader<Map<int64_t, Map<int64_t, int64_t>>> reader{decoded_.get()};
 
     // Prepare results
-    BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
-    auto flatResult = (*result)->asFlatVector<int64_t>();
+    BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
+    auto flatResult = result->asFlatVector<int64_t>();
 
     rows.applyToSelected([&](vector_size_t row) {
       auto sum = 0;

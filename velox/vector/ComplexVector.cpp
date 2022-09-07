@@ -163,7 +163,7 @@ void RowVector::copy(
     const vector_size_t* toSourceRow) {
   for (auto i = 0; i < children_.size(); ++i) {
     BaseVector::ensureWritable(
-        rows, type()->asRow().childAt(i), pool(), &children_[i]);
+        rows, type()->asRow().childAt(i), pool(), children_[i]);
   }
 
   // Copy non-null values.
@@ -278,7 +278,7 @@ void RowVector::ensureWritable(const SelectivityVector& rows) {
   for (int i = 0; i < childrenSize_; i++) {
     if (children_[i]) {
       BaseVector::ensureWritable(
-          rows, children_[i]->type(), BaseVector::pool_, &children_[i]);
+          rows, children_[i]->type(), BaseVector::pool_, children_[i]);
     }
   }
   BaseVector::ensureWritable(rows);
@@ -339,13 +339,13 @@ void ArrayVectorBase::copyRangesImpl(
         SelectivityVector::empty(),
         targetKeys->get()->type(),
         pool(),
-        targetKeys);
+        *targetKeys);
   } else {
     BaseVector::ensureWritable(
         SelectivityVector::empty(),
         targetValues->get()->type(),
         pool(),
-        targetValues);
+        *targetValues);
   }
   auto setNotNulls = mayHaveNulls() || source->mayHaveNulls();
   auto wantWidth = type()->isFixedWidth() ? type()->fixedElementsWidth() : 0;
@@ -625,7 +625,7 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
       SelectivityVector::empty(),
       type()->childAt(0),
       BaseVector::pool_,
-      &elements_);
+      elements_);
   BaseVector::ensureWritable(rows);
 }
 
@@ -886,15 +886,12 @@ void MapVector::ensureWritable(const SelectivityVector& rows) {
   // Vectors are write-once and nested elements are append only,
   // hence, all values already written must be preserved.
   BaseVector::ensureWritable(
-      SelectivityVector::empty(),
-      type()->childAt(0),
-      BaseVector::pool_,
-      &keys_);
+      SelectivityVector::empty(), type()->childAt(0), BaseVector::pool_, keys_);
   BaseVector::ensureWritable(
       SelectivityVector::empty(),
       type()->childAt(1),
       BaseVector::pool_,
-      &values_);
+      values_);
   BaseVector::ensureWritable(rows);
 }
 

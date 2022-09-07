@@ -48,7 +48,7 @@ to "b":
 .. code-block:: sql
 
     > select filter(a, x -> x >= b)
-    
+
     [3, 4]
     [5, 6, 7]
 
@@ -86,7 +86,7 @@ compact form. In most cases lambda expression is the same for all rows, but it
 is possible for different rows to be associated with different lambdas as we
 have seen above. FunctionVector stores a list of different lambdas along with a
 set of rows each lambda applies to. Each lambda is represented as an object of
-type Callable which allows for evaluating the lambda on a set of rows. 
+type Callable which allows for evaluating the lambda on a set of rows.
 
 .. code-block:: c++
 
@@ -96,9 +96,9 @@ type Callable which allows for evaluating the lambda on a set of rows.
       void apply(
           const SelectivityVector& rows,
           BufferPtr wrapCapture,
-          exec::EvalCtx* context,
+          exec::EvalCtx& context,
           const std::vector<VectorPtr>& args,
-          VectorPtr* result);
+          VectorPtr& result);
     };
 
 The "apply" method of Callable is similar to the "apply" method of
@@ -210,20 +210,20 @@ in a test:
 .. code-block:: c++
 
   auto rowType = ROW({"a", "b"}, {ARRAY(BIGINT()), BIGINT()});
-  
+
   registerLambda("lambda", ROW({"x"}, {BIGINT()}), rowType, "x >= b"));
 
   auto result =
       evaluate<BaseVector>("filter(a, function('lambda'))", data);
 
 The first argument to registerLambda is the name for the lambda. This name can
-later be used to refer to the lambda in a function call. 
+later be used to refer to the lambda in a function call.
 
 The second argument is the signature of the lambda, e.g. the list of lambda
-parameters along with their names and types. 
+parameters along with their names and types.
 
 The third argument is the type of the input data to the overall expression. This
-is used to resolve the types of captures. 
+is used to resolve the types of captures.
 
 The last argument is the lambda body as SQL expression.
 

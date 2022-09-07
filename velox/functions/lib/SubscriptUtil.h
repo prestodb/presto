@@ -44,8 +44,8 @@ class SubscriptImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
     VectorPtr localResult;
 
@@ -61,7 +61,7 @@ class SubscriptImpl : public exec::VectorFunction {
       default:
         VELOX_UNREACHABLE();
     }
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -95,7 +95,7 @@ class SubscriptImpl : public exec::VectorFunction {
   VectorPtr applyArray(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::ARRAY);
 
     auto arrayArg = args[0];
@@ -118,7 +118,7 @@ class SubscriptImpl : public exec::VectorFunction {
   VectorPtr applyMap(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::MAP);
 
     auto mapArg = args[0];
@@ -153,8 +153,8 @@ class SubscriptImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       const VectorPtr& arrayArg,
       const VectorPtr& indexArg,
-      exec::EvalCtx* context) const {
-    auto pool = context->pool();
+      exec::EvalCtx& context) const {
+    auto* pool = context.pool();
 
     BufferPtr indices = allocateIndices(rows.size(), pool);
     auto rawIndices = indices->asMutable<vector_size_t>();
@@ -181,14 +181,13 @@ class SubscriptImpl : public exec::VectorFunction {
       try {
         adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(0));
       } catch (const std::exception& e) {
-        rows.applyToSelected([&](auto row) {
-          context->setError(row, std::current_exception());
-        });
+        rows.applyToSelected(
+            [&](auto row) { context.setError(row, std::current_exception()); });
         allFailed = true;
       }
 
       if (!allFailed) {
-        context->applyToSelectedNoThrow(rows, [&](auto row) {
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
           auto elementIndex =
               getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
           rawIndices[row] = elementIndex;
@@ -198,7 +197,7 @@ class SubscriptImpl : public exec::VectorFunction {
         });
       }
     } else {
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         auto adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(row));
         auto elementIndex =
             getIndex(adjustedIndex, row, rawSizes, rawOffsets, arrayIndices);
@@ -281,8 +280,8 @@ class SubscriptImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       const VectorPtr& mapArg,
       const VectorPtr& indexArg,
-      exec::EvalCtx* context) const {
-    auto pool = context->pool();
+      exec::EvalCtx& context) const {
+    auto* pool = context.pool();
 
     BufferPtr indices = allocateIndices(rows.size(), pool);
     auto rawIndices = indices->asMutable<vector_size_t>();

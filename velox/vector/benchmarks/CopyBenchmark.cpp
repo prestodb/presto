@@ -43,7 +43,7 @@ size_t runBenchmark(
     vector_size_t copyBatchSize) {
   VectorPtr result;
   folly::BenchmarkSuspender suspender;
-  BaseVector::ensureWritable(selected, type, pool, &result);
+  BaseVector::ensureWritable(selected, type, pool, result);
   suspender.dismiss();
 
   size_t numIters = 100;

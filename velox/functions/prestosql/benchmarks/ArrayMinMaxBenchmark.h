@@ -215,8 +215,8 @@ class ArrayMinMaxFunctionBasic : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
     auto arrayVector = args[0]->asUnchecked<ArrayVector>();
 
@@ -226,7 +226,7 @@ class ArrayMinMaxFunctionBasic : public exec::VectorFunction {
         context, *elementsVector, *elementsRows.get());
 
     BaseVector::ensureWritable(
-        rows, elementsVector->type(), context->pool(), result);
+        rows, elementsVector->type(), context.pool(), result);
 
     VELOX_DYNAMIC_SCALAR_TEMPLATE_TYPE_DISPATCH(
         applyTyped,
@@ -235,7 +235,7 @@ class ArrayMinMaxFunctionBasic : public exec::VectorFunction {
         rows,
         *arrayVector,
         *elementsHolder.get(),
-        *result);
+        result);
   }
 };
 

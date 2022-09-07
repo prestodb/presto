@@ -72,8 +72,8 @@ class SplitFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     // If no 'limit' specified we just pick some int type.
     // Should we have two passes, with limit and without?
     TypeKind limitType =
@@ -96,8 +96,8 @@ class SplitFunction : public exec::VectorFunction {
   void applyTyped(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
     // Get the decoded vectors out of arguments.
     const bool noLimit = (args.size() == 2);
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -107,7 +107,7 @@ class SplitFunction : public exec::VectorFunction {
 
     // Build the result vector (arrays of strings) using Array Builder.
     ArrayBuilder<Varchar> builder(
-        rows.end(), 3 * rows.countSelected(), context->pool());
+        rows.end(), 3 * rows.countSelected(), context.pool());
 
     // Optimization for the (flat, const, const) case.
     if (strings->isIdentityMapping() and delims->isConstantMapping() and
@@ -131,7 +131,7 @@ class SplitFunction : public exec::VectorFunction {
           auto pex = std::make_exception_ptr(
               std::invalid_argument("Limit must be positive"));
           rows.applyToSelected(
-              [&](vector_size_t row) { context->setError(row, pex); });
+              [&](vector_size_t row) { context.setError(row, pex); });
         }
       }
 
@@ -150,14 +150,14 @@ class SplitFunction : public exec::VectorFunction {
     }
 
     std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context->pool());
-    context->moveOrCopyResult(arrayVector, rows, result);
+        std::move(builder).finish(context.pool());
+    context.moveOrCopyResult(arrayVector, rows, result);
   }
 
   template <typename I>
   void applyDecoded(
       const SelectivityVector& rows,
-      exec::EvalCtx* context,
+      exec::EvalCtx& context,
       DecodedVector* strings,
       DecodedVector* delims,
       DecodedVector* limits,
@@ -185,7 +185,7 @@ class SplitFunction : public exec::VectorFunction {
         } else {
           auto pex = std::make_exception_ptr(
               std::invalid_argument("Limit must be positive"));
-          context->setError(row, pex);
+          context.setError(row, pex);
         }
       });
     }

@@ -24,8 +24,8 @@ class NotFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(
         args.size(), 1, "Incorrect number of arguments passed to not");
     const auto& input = args[0];
@@ -39,9 +39,9 @@ class NotFunction : public exec::VectorFunction {
     if (input->isConstantEncoding()) {
       bool value = input->as<ConstantVector<bool>>()->valueAt(0);
       negated =
-          AlignedBuffer::allocate<bool>(rows.size(), context->pool(), !value);
+          AlignedBuffer::allocate<bool>(rows.size(), context.pool(), !value);
     } else {
-      negated = AlignedBuffer::allocate<bool>(rows.size(), context->pool());
+      negated = AlignedBuffer::allocate<bool>(rows.size(), context.pool());
       auto rawNegated = negated->asMutable<char>();
 
       auto rawInput = input->asFlatVector<bool>()->rawValues<uint64_t>();
@@ -51,13 +51,13 @@ class NotFunction : public exec::VectorFunction {
     }
 
     auto localResult = std::make_shared<FlatVector<bool>>(
-        context->pool(),
+        context.pool(),
         nullptr,
         rows.size(),
         negated,
         std::vector<BufferPtr>{});
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

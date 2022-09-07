@@ -206,18 +206,11 @@ class EvalCtx {
       const SelectivityVector& rows,
       VectorPtr& result) const {
     if (result && !isFinalSelection() && *finalSelection() != rows) {
-      BaseVector::ensureWritable(rows, result->type(), result->pool(), &result);
+      BaseVector::ensureWritable(rows, result->type(), result->pool(), result);
       result->copy(localResult.get(), rows, nullptr);
     } else {
       result = localResult;
     }
-  }
-
-  void moveOrCopyResult(
-      const VectorPtr& localResult,
-      const SelectivityVector& rows,
-      VectorPtr* FOLLY_NONNULL result) const {
-    moveOrCopyResult(localResult, rows, *result);
   }
 
   VectorPool& vectorPool() const {
@@ -243,7 +236,7 @@ class EvalCtx {
       const TypePtr& type,
       VectorPtr& result) {
     BaseVector::ensureWritable(
-        rows, type, execCtx_->pool(), &result, &execCtx_->vectorPool());
+        rows, type, execCtx_->pool(), result, &execCtx_->vectorPool());
   }
 
  private:
@@ -408,9 +401,6 @@ class LocalDecodedVector {
  public:
   explicit LocalDecodedVector(core::ExecCtx& context) : context_(context) {}
 
-  explicit LocalDecodedVector(core::ExecCtx* FOLLY_NONNULL context)
-      : LocalDecodedVector(*context) {}
-
   explicit LocalDecodedVector(EvalCtx& context)
       : context_(*context.execCtx()) {}
 
@@ -425,13 +415,6 @@ class LocalDecodedVector {
       : context_(*context.execCtx()) {
     get()->decode(vector, rows, loadLazy);
   }
-
-  LocalDecodedVector(
-      const EvalCtx* FOLLY_NONNULL context,
-      const BaseVector& vector,
-      const SelectivityVector& rows,
-      bool loadLazy = true)
-      : LocalDecodedVector(*context, vector, rows, loadLazy) {}
 
   LocalDecodedVector(LocalDecodedVector&& other) noexcept
       : context_{other.context_}, vector_{std::move(other.vector_)} {}

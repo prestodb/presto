@@ -1089,8 +1089,7 @@ void StringFunctionsTest::testReplaceInPlace(
     ExprSet exprSet({}, &execCtx_);
     RowVectorPtr inputRows = makeRowVector({});
     exec::EvalCtx evalCtx(&execCtx_, &exprSet, inputRows.get());
-    replaceFunction->apply(
-        rows, functionInputs, VARCHAR(), &evalCtx, &resultPtr);
+    replaceFunction->apply(rows, functionInputs, VARCHAR(), evalCtx, resultPtr);
   };
 
   std::vector<VectorPtr> functionInputs = {
@@ -1422,9 +1421,9 @@ class MultiStringFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* /*context*/,
-      VectorPtr* result) const override {
-    *result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
+      exec::EvalCtx& /*context*/,
+      VectorPtr& result) const override {
+    result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -1577,9 +1576,9 @@ class InputModifyingFunction : public MultiStringFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* ctx,
-      VectorPtr* result) const override {
-    MultiStringFunction::apply(rows, args, outputType, ctx, result);
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    MultiStringFunction::apply(rows, args, outputType, context, result);
 
     // Modify args and remove its asciness
     for (auto& arg : args) {

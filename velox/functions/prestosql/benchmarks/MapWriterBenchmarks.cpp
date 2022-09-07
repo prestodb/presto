@@ -37,15 +37,15 @@ class VectorFunctionImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     LocalDecodedVector decoded_(context, *args[0], rows); // NOLINT
 
     // Prepare results.
     BaseVector::ensureWritable(
-        rows, MAP(BIGINT(), BIGINT()), context->pool(), result);
+        rows, MAP(BIGINT(), BIGINT()), context.pool(), result);
 
-    auto flatResult = (*result)->as<MapVector>();
+    auto flatResult = result->as<MapVector>();
     auto currentOffset = 0;
     auto keysFlat = flatResult->mapKeys()->asFlatVector<int64_t>();
     auto valuesFlat = flatResult->mapValues()->asFlatVector<int64_t>();

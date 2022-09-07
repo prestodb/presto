@@ -25,8 +25,8 @@ class MapKeyValueFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto& arg = args[0];
 
     VectorPtr localResult;
@@ -48,7 +48,7 @@ class MapKeyValueFunction : public exec::VectorFunction {
       localResult = applyFlat(rows, arg, context);
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
  protected:
@@ -57,7 +57,7 @@ class MapKeyValueFunction : public exec::VectorFunction {
   virtual VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context) const = 0;
+      exec::EvalCtx& context) const = 0;
 
  private:
   const std::string name_;
@@ -70,7 +70,7 @@ class MapKeysFunction : public MapKeyValueFunction {
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context) const override {
+      exec::EvalCtx& context) const override {
     VELOX_CHECK(
         arg->typeKind() == TypeKind::MAP,
         "Unsupported type for map_keys function {}",
@@ -79,7 +79,7 @@ class MapKeysFunction : public MapKeyValueFunction {
     auto mapVector = arg->as<MapVector>();
     auto mapKeys = mapVector->mapKeys();
     return std::make_shared<ArrayVector>(
-        context->pool(),
+        context.pool(),
         ARRAY(mapKeys->type()),
         mapVector->nulls(),
         rows.size(),
@@ -107,7 +107,7 @@ class MapValuesFunction : public MapKeyValueFunction {
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context) const override {
+      exec::EvalCtx& context) const override {
     VELOX_CHECK(
         arg->typeKind() == TypeKind::MAP,
         "Unsupported type for map_keys function {}",
@@ -116,7 +116,7 @@ class MapValuesFunction : public MapKeyValueFunction {
     auto mapVector = arg->as<MapVector>();
     auto mapValues = mapVector->mapValues();
     return std::make_shared<ArrayVector>(
-        context->pool(),
+        context.pool(),
         ARRAY(mapValues->type()),
         mapVector->nulls(),
         rows.size(),

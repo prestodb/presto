@@ -70,8 +70,8 @@ class ReduceFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 4);
 
     // Flatten input array.
@@ -82,7 +82,7 @@ class ReduceFunction : public exec::VectorFunction {
 
     const auto& initialState = args[1];
     auto partialResult =
-        BaseVector::create(initialState->type(), rows.end(), context->pool());
+        BaseVector::create(initialState->type(), rows.end(), context.pool());
 
     // Process null and empty arrays.
     auto* rawNulls = flatArray->rawNulls();
@@ -97,16 +97,16 @@ class ReduceFunction : public exec::VectorFunction {
 
     // Fix finalSelection at "rows" unless already fixed.
     VarSetter finalSelection(
-        context->mutableFinalSelection(), &rows, context->isFinalSelection());
-    VarSetter isFinalSelection(context->mutableIsFinalSelection(), false);
-    const SelectivityVector& finalSelectionRows = *context->finalSelection();
+        context.mutableFinalSelection(), &rows, context.isFinalSelection());
+    VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
+    const SelectivityVector& finalSelectionRows = *context.finalSelection();
 
     // Loop over lambda functions and apply these to elements of the base array.
     // In most cases there will be only one function and the loop will run once.
     auto inputFuncIt = args[2]->asUnchecked<FunctionVector>()->iterator(&rows);
 
     BufferPtr elementIndices =
-        allocateIndices(flatArray->size(), context->pool());
+        allocateIndices(flatArray->size(), context.pool());
     SelectivityVector arrayRows(flatArray->size(), false);
 
     // Iteratively apply input function to array elements.
@@ -143,7 +143,7 @@ class ReduceFunction : public exec::VectorFunction {
             arrayRows,
             finalSelectionRows,
             nullptr,
-            context,
+            &context,
             lambdaArgs,
             &partialResult);
         state = partialResult;
@@ -159,9 +159,9 @@ class ReduceFunction : public exec::VectorFunction {
           *entry.rows,
           finalSelectionRows,
           nullptr,
-          context,
+          &context,
           lambdaArgs,
-          result);
+          &result);
     }
   }
 

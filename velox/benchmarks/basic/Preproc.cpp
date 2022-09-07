@@ -39,8 +39,8 @@ class BaseFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& resultType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     if (args[0]->isConstantEncoding() &&
         args[1]->encoding() == VectorEncoding::Simple::FLAT) {
       // Fast path for (flat, const).
@@ -51,7 +51,7 @@ class BaseFunction : public exec::VectorFunction {
       auto rawResults =
           getRawResults(rows, args[1], rawValues, resultType, context, result);
 
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         rawResults[row] = Operation::apply(constant, rawValues[row]);
       });
     } else if (
@@ -65,7 +65,7 @@ class BaseFunction : public exec::VectorFunction {
       auto rawResults =
           getRawResults(rows, args[0], rawValues, resultType, context, result);
 
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         rawResults[row] = Operation::apply(rawValues[row], constant);
       });
     } else if (
@@ -78,20 +78,20 @@ class BaseFunction : public exec::VectorFunction {
       auto rawB = flatB->mutableRawValues();
 
       T* rawResults = nullptr;
-      if (!(*result)) {
+      if (!result) {
         if (BaseVector::isReusableFlatVector(args[0])) {
           rawResults = rawA;
-          *result = std::move(args[0]);
+          result = std::move(args[0]);
         } else if (BaseVector::isReusableFlatVector(args[1])) {
           rawResults = rawB;
-          *result = std::move(args[1]);
+          result = std::move(args[1]);
         }
       }
       if (!rawResults) {
         rawResults = prepareResults(rows, resultType, context, result);
       }
 
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         rawResults[row] = Operation::apply(rawA[row], rawB[row]);
       });
     } else {
@@ -100,11 +100,11 @@ class BaseFunction : public exec::VectorFunction {
       auto a = decodedArgs.at(0);
       auto b = decodedArgs.at(1);
 
-      BaseVector::ensureWritable(rows, resultType, context->pool(), result);
+      BaseVector::ensureWritable(rows, resultType, context.pool(), result);
       auto rawResults =
-          (*result)->asUnchecked<FlatVector<T>>()->mutableRawValues();
+          result->asUnchecked<FlatVector<T>>()->mutableRawValues();
 
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         rawResults[row] =
             Operation::apply(a->valueAt<T>(row), b->valueAt<T>(row));
       });
@@ -115,11 +115,11 @@ class BaseFunction : public exec::VectorFunction {
   T* prepareResults(
       const SelectivityVector& rows,
       const TypePtr& resultType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
-    BaseVector::ensureWritable(rows, resultType, context->pool(), result);
-    (*result)->clearNulls(rows);
-    return (*result)->asUnchecked<FlatVector<T>>()->mutableRawValues();
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
+    BaseVector::ensureWritable(rows, resultType, context.pool(), result);
+    result->clearNulls(rows);
+    return result->asUnchecked<FlatVector<T>>()->mutableRawValues();
   }
 
   T* getRawResults(
@@ -127,13 +127,13 @@ class BaseFunction : public exec::VectorFunction {
       VectorPtr& flat,
       T* rawValues,
       const TypePtr& resultType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
     // Check if input can be reused for results.
     T* rawResults;
-    if (!(*result) && BaseVector::isReusableFlatVector(flat)) {
+    if (!result && BaseVector::isReusableFlatVector(flat)) {
       rawResults = rawValues;
-      *result = std::move(flat);
+      result = std::move(flat);
     } else {
       rawResults = prepareResults(rows, resultType, context, result);
     }

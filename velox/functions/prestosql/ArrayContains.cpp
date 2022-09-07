@@ -160,8 +160,8 @@ class ArrayContainsFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
     const auto& arrayVector = args[0];
     const auto& searchVector = args[1];
@@ -170,8 +170,8 @@ class ArrayContainsFunction : public exec::VectorFunction {
     VELOX_CHECK(arrayVector->type()->asArray().elementType()->kindEquals(
         searchVector->type()));
 
-    context->ensureWritable(rows, BOOLEAN(), *result);
-    auto flatResult = (*result)->asFlatVector<bool>();
+    context.ensureWritable(rows, BOOLEAN(), result);
+    auto flatResult = result->asFlatVector<bool>();
 
     exec::LocalDecodedVector arrayHolder(context, *arrayVector, rows);
     auto elements = arrayHolder.get()->base()->as<ArrayVector>()->elements();

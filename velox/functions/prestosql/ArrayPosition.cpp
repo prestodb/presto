@@ -344,16 +344,16 @@ class ArrayPositionFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     const auto& arrayVector = args[0];
     const auto& searchVector = args[1];
     VELOX_CHECK(arrayVector->type()->isArray());
     VELOX_CHECK(arrayVector->type()->asArray().elementType()->kindEquals(
         searchVector->type()));
 
-    context->ensureWritable(rows, BIGINT(), *result);
-    auto flatResult = (*result)->asFlatVector<int64_t>();
+    context.ensureWritable(rows, BIGINT(), result);
+    auto flatResult = result->asFlatVector<int64_t>();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto elements = decodedArgs.at(0)->base()->as<ArrayVector>()->elements();

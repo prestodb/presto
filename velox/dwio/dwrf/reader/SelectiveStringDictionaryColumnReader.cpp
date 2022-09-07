@@ -274,7 +274,7 @@ void SelectiveStringDictionaryColumnReader::getValues(
 
   if (scanSpec_->makeFlat()) {
     BaseVector::ensureWritable(
-        SelectivityVector::empty(), (*result)->type(), &memoryPool_, result);
+        SelectivityVector::empty(), (*result)->type(), &memoryPool_, *result);
   }
 }
 

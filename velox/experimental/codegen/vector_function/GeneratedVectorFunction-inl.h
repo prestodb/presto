@@ -124,7 +124,7 @@ class GeneratedVectorFunctionBase
       const facebook::velox::SelectivityVector& rows,
       std::vector<facebook::velox::VectorPtr>& args,
       const TypePtr& /* outputType */,
-      facebook::velox::exec::EvalCtx* context,
+      facebook::velox::exec::EvalCtx& context,
       std::vector<facebook::velox::VectorPtr>& results) const = 0;
 #pragma clang diagnostic pop
 
@@ -172,17 +172,16 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(result != nullptr);
     VELOX_CHECK(rowType_ != nullptr);
-    VELOX_CHECK(
-        (*result == nullptr) or (result->get()->as<RowVector>() != nullptr));
+    VELOX_CHECK(result == nullptr or (result->as<RowVector>() != nullptr));
 
     // all-constant expressions shouldn't be compiled
     VELOX_CHECK(args.size() > 0);
 
-    BaseVector::ensureWritable(rows, rowType_, context->pool(), result);
+    BaseVector::ensureWritable(rows, rowType_, context.pool(), result);
 
     // TODO: We should probably move this loop inside ensureWritable
     for (size_t columnIndex = 0; columnIndex < rowType_->size();
@@ -190,12 +189,12 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       BaseVector::ensureWritable(
           rows,
           rowType_->childAt(columnIndex),
-          context->pool(),
-          &(result->get()->as<RowVector>()->childAt(columnIndex)));
+          context.pool(),
+          result->as<RowVector>()->childAt(columnIndex));
     }
 
     // Constuct nulls
-    for (auto& child : result->get()->as<RowVector>()->children()) {
+    for (auto& child : result->as<RowVector>()->children()) {
       child->setCodegenOutput();
       if constexpr (
           (GeneratedCodeConfig::isDefaultNull ||
@@ -209,9 +208,9 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       }
     }
 
-    (*result)->setCodegenOutput();
+    result->setCodegenOutput();
 
-    VELOX_CHECK(result->get()->as<RowVector>() != nullptr);
+    VELOX_CHECK(result->as<RowVector>() != nullptr);
 
     // Shared string input buffer
     // TODO: write now we are sharing everything, this not ideal. We should do
@@ -222,13 +221,9 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
         for (size_t columnIndex = 0; columnIndex < rowType_->size();
              ++columnIndex) {
           // Ensures that the results vectors are nullables.
-          if (result->get()
-                  ->as<RowVector>()
-                  ->childAt(columnIndex)
-                  ->type()
-                  ->kind() == TypeKind::VARCHAR) {
-            result->get()
-                ->as<RowVector>()
+          if (result->as<RowVector>()->childAt(columnIndex)->type()->kind() ==
+              TypeKind::VARCHAR) {
+            result->as<RowVector>()
                 ->childAt(columnIndex)
                 ->template asFlatVector<StringView>()
                 ->acquireSharedStringBuffers(arg.get());
@@ -270,27 +265,20 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
           args,
           outputType,
           context,
-          result->get()->as<RowVector>()->children());
+          result->as<RowVector>()->children());
 
     } else {
       resultSize = apply(
-          rows,
-          args,
-          outputType,
-          context,
-          result->get()->as<RowVector>()->children());
+          rows, args, outputType, context, result->as<RowVector>()->children());
     }
 
     // truncate result
     if (resultSize != args[0]->size()) {
       for (size_t columnIndex = 0; columnIndex < rowType_->size();
            ++columnIndex) {
-        result->get()
-            ->as<RowVector>()
-            ->childAt(columnIndex)
-            ->resize(resultSize);
+        result->as<RowVector>()->childAt(columnIndex)->resize(resultSize);
       }
-      result->get()->resize(resultSize);
+      result->resize(resultSize);
     }
   }
 
@@ -298,10 +286,9 @@ class GeneratedVectorFunction : public GeneratedVectorFunctionBase {
       const facebook::velox::SelectivityVector& rows,
       std::vector<facebook::velox::VectorPtr>& args,
       const TypePtr& /* outputType */,
-      facebook::velox::exec::EvalCtx* context,
+      facebook::velox::exec::EvalCtx& context,
       std::vector<facebook::velox::VectorPtr>& results) const override {
     VELOX_CHECK(rowType_ != nullptr);
-    VELOX_CHECK(context != nullptr);
     VELOX_CHECK(results.size() == rowType_->size());
 
     auto inReaders = createReaders(

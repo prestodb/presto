@@ -35,20 +35,17 @@ class VectorFunctionImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     LocalDecodedVector decoded_(context, *args[0], rows); // NOLINT
 
     // Prepare results
     auto elementType =
         ArrayType(std::make_shared<ArrayType>(ArrayType(BIGINT())));
     BaseVector::ensureWritable(
-        rows,
-        std::make_shared<ArrayType>(elementType),
-        context->pool(),
-        result);
+        rows, std::make_shared<ArrayType>(elementType), context.pool(), result);
 
-    auto arrayVectorOuter = (*result)->as<ArrayVector>();
+    auto arrayVectorOuter = result->as<ArrayVector>();
     auto arrayVectorInner = arrayVectorOuter->elements()->as<ArrayVector>();
     auto flatElements = arrayVectorInner->elements()->as<FlatVector<int64_t>>();
 

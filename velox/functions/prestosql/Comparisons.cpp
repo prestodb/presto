@@ -104,13 +104,13 @@ struct SimdComparator {
       const SelectivityVector& rows,
       DecodedVector& lhs,
       DecodedVector& rhs,
-      exec::EvalCtx* context,
-      VectorPtr* result) {
+      exec::EvalCtx& context,
+      VectorPtr& result) {
     using T = typename TypeTraits<kind>::NativeType;
 
     auto rawRhs = rhs.template data<T>();
     auto rawLhs = lhs.template data<T>();
-    auto resultVector = (*result)->asUnchecked<FlatVector<bool>>();
+    auto resultVector = result->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
     auto isSimdizable = (lhs.isConstantMapping() || lhs.isIdentityMapping()) &&
@@ -118,7 +118,7 @@ struct SimdComparator {
         rows.isAllSelected();
 
     if (!isSimdizable) {
-      context->template applyToSelectedNoThrow(rows, [&](auto row) {
+      context.template applyToSelectedNoThrow(rows, [&](auto row) {
         auto l = lhs.template valueAt<T>(row);
         auto r = rhs.template valueAt<T>(row);
         auto filtered = ComparisonOp()(l, r);
@@ -155,8 +155,8 @@ struct SimdComparator {
       const SelectivityVector& rows,
       DecodedVector& lhs,
       DecodedVector& rhs,
-      exec::EvalCtx* context,
-      VectorPtr* result) {
+      exec::EvalCtx& context,
+      VectorPtr& result) {
     VELOX_FAIL("Unsupported type for SIMD comparison");
   }
 };
@@ -168,13 +168,13 @@ class ComparisonSimdFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2, "Comparison requires two arguments");
     VELOX_CHECK_EQ(args[0]->typeKind(), args[1]->typeKind());
     VELOX_USER_CHECK_EQ(outputType, BOOLEAN());
 
-    context->ensureWritable(rows, outputType, *result);
+    context.ensureWritable(rows, outputType, result);
 
     exec::LocalDecodedVector lhs(context, *args[0], rows);
     exec::LocalDecodedVector rhs(context, *args[1], rows);

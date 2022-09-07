@@ -64,8 +64,8 @@ class ZipFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     validateInputTypes(args);
     const vector_size_t numInputArrays = args.size();
 
@@ -84,7 +84,7 @@ class ZipFunction : public exec::VectorFunction {
 
     // Size of elements in result vector.
     vector_size_t resultElementsSize = 0;
-    auto pool = context->pool();
+    auto* pool = context.pool();
     // This is true if for all rows, all the arrays within a row are the same
     // size.
     bool allSameSize = true;
@@ -146,7 +146,7 @@ class ZipFunction : public exec::VectorFunction {
             resultArraySizesBuffer,
             std::move(rowVector));
 
-        context->moveOrCopyResult(arrayVector, rows, result);
+        context.moveOrCopyResult(arrayVector, rows, result);
 
         return;
       }
@@ -224,7 +224,7 @@ class ZipFunction : public exec::VectorFunction {
         resultArraySizesBuffer,
         std::move(rowVector));
 
-    context->moveOrCopyResult(arrayVector, rows, result);
+    context.moveOrCopyResult(arrayVector, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

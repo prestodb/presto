@@ -34,7 +34,7 @@ class GenericWriterTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(GenericWriterTest, boolean) {
   VectorPtr result;
-  BaseVector::ensureWritable(SelectivityVector(5), BOOLEAN(), pool(), &result);
+  BaseVector::ensureWritable(SelectivityVector(5), BOOLEAN(), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -61,7 +61,7 @@ TEST_F(GenericWriterTest, boolean) {
 
 TEST_F(GenericWriterTest, integer) {
   VectorPtr result;
-  BaseVector::ensureWritable(SelectivityVector(100), BIGINT(), pool(), &result);
+  BaseVector::ensureWritable(SelectivityVector(100), BIGINT(), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -82,7 +82,7 @@ TEST_F(GenericWriterTest, integer) {
 
 TEST_F(GenericWriterTest, varchar) {
   VectorPtr result;
-  BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), &result);
+  BaseVector::ensureWritable(SelectivityVector(6), VARCHAR(), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -109,7 +109,7 @@ TEST_F(GenericWriterTest, varchar) {
 TEST_F(GenericWriterTest, array) {
   VectorPtr result;
   BaseVector::ensureWritable(
-      SelectivityVector(5), ARRAY(BIGINT()), pool(), &result);
+      SelectivityVector(5), ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -143,7 +143,7 @@ TEST_F(GenericWriterTest, array) {
 TEST_F(GenericWriterTest, arrayWriteThenCommitNull) {
   VectorPtr result;
   SelectivityVector rows(2);
-  BaseVector::ensureWritable(rows, ARRAY(BIGINT()), pool(), &result);
+  BaseVector::ensureWritable(rows, ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -177,8 +177,7 @@ TEST_F(GenericWriterTest, genericWriteThenCommitNull) {
   SelectivityVector rows(2);
   using test_t = Row<Array<int64_t>>;
 
-  BaseVector::ensureWritable(
-      rows, CppToType<test_t>::create(), pool(), &result);
+  BaseVector::ensureWritable(rows, CppToType<test_t>::create(), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -213,7 +212,7 @@ TEST_F(GenericWriterTest, genericWriteThenCommitNull) {
 TEST_F(GenericWriterTest, map) {
   VectorPtr result;
   BaseVector::ensureWritable(
-      SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), &result);
+      SelectivityVector(4), MAP(VARCHAR(), BIGINT()), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -251,7 +250,7 @@ TEST_F(GenericWriterTest, row) {
       SelectivityVector(4),
       ROW({VARCHAR(), BIGINT(), DOUBLE()}),
       pool(),
-      &result);
+      result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -296,7 +295,7 @@ TEST_F(GenericWriterTest, nested) {
       SelectivityVector(3),
       MAP(BIGINT(), ROW({ARRAY(BIGINT()), TINYINT()})),
       pool(),
-      &result);
+      result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -366,7 +365,7 @@ TEST_F(GenericWriterTest, nested) {
 
 TEST_F(GenericWriterTest, commitNull) {
   VectorPtr result;
-  BaseVector::ensureWritable(SelectivityVector(3), BIGINT(), pool(), &result);
+  BaseVector::ensureWritable(SelectivityVector(3), BIGINT(), pool(), result);
 
   VectorWriter<Any> writer;
   writer.init(*result);
@@ -396,7 +395,7 @@ TEST_F(GenericWriterTest, handleMisuse) {
   // Test finish without commit.
   VectorPtr result;
   BaseVector::ensureWritable(
-      SelectivityVector(1), ARRAY(BIGINT()), pool(), &result);
+      SelectivityVector(1), ARRAY(BIGINT()), pool(), result);
 
   VectorWriter<Any> writer1;
   initializeAndAddElements(result, writer1);

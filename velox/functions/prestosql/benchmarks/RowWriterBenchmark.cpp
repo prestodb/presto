@@ -31,15 +31,15 @@ class VectorFunctionImpl : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     LocalDecodedVector decoded_(context, *args[0], rows); // NOLINT
 
     // Prepare results.
     BaseVector::ensureWritable(
-        rows, ROW({BIGINT(), BIGINT()}), context->pool(), result);
+        rows, ROW({BIGINT(), BIGINT()}), context.pool(), result);
 
-    auto rowVector = (*result)->as<RowVector>();
+    auto rowVector = result->as<RowVector>();
     rowVector->childAt(0)->resize(rows.size());
     rowVector->childAt(1)->resize(rows.size());
     auto flat1 = rowVector->childAt(0)->asFlatVector<int64_t>();

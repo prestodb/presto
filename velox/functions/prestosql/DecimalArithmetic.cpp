@@ -34,15 +34,15 @@ class DecimalBaseFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& resultType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto rawResults = prepareResults(rows, resultType, context, result);
     if (args[0]->isConstantEncoding() && args[1]->isFlatEncoding()) {
       // Fast path for (const, flat).
       auto constant = args[0]->asUnchecked<SimpleVector<A>>()->valueAt(0);
       auto flatValues = args[1]->asUnchecked<FlatVector<B>>();
       auto rawValues = flatValues->mutableRawValues();
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         Operation::template apply<R, A, B>(
             rawResults[row], constant, rawValues[row], aRescale_, bRescale_);
       });
@@ -51,7 +51,7 @@ class DecimalBaseFunction : public exec::VectorFunction {
       auto flatValues = args[0]->asUnchecked<FlatVector<A>>();
       auto constant = args[1]->asUnchecked<SimpleVector<B>>()->valueAt(0);
       auto rawValues = flatValues->mutableRawValues();
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         Operation::template apply<R, A, B>(
             rawResults[row], rawValues[row], constant, aRescale_, bRescale_);
       });
@@ -61,7 +61,7 @@ class DecimalBaseFunction : public exec::VectorFunction {
       auto rawA = flatA->mutableRawValues();
       auto flatB = args[1]->asUnchecked<FlatVector<B>>();
       auto rawB = flatB->mutableRawValues();
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         Operation::template apply<R, A, B>(
             rawResults[row], rawA[row], rawB[row], aRescale_, bRescale_);
       });
@@ -70,7 +70,7 @@ class DecimalBaseFunction : public exec::VectorFunction {
       exec::DecodedArgs decodedArgs(rows, args, context);
       auto a = decodedArgs.at(0);
       auto b = decodedArgs.at(1);
-      context->applyToSelectedNoThrow(rows, [&](auto row) {
+      context.applyToSelectedNoThrow(rows, [&](auto row) {
         Operation::template apply<R, A, B>(
             rawResults[row],
             a->valueAt<A>(row),
@@ -85,11 +85,11 @@ class DecimalBaseFunction : public exec::VectorFunction {
   R* prepareResults(
       const SelectivityVector& rows,
       const TypePtr& resultType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
-    context->ensureWritable(rows, resultType, *result);
-    (*result)->clearNulls(rows);
-    return (*result)->asUnchecked<FlatVector<R>>()->mutableRawValues();
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
+    context.ensureWritable(rows, resultType, result);
+    result->clearNulls(rows);
+    return result->asUnchecked<FlatVector<R>>()->mutableRawValues();
   }
 
   const uint8_t aRescale_;

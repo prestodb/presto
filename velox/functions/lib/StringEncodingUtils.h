@@ -25,9 +25,9 @@ namespace facebook::velox::functions {
 /// It will use the input argToReuse vector instead of creating new one when
 /// possible. Returns true if argToReuse vector was moved to results
 bool prepareFlatResultsVector(
-    VectorPtr* result,
+    VectorPtr& result,
     const SelectivityVector& rows,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     VectorPtr& argToReuse);
 
 /// Return the string encoding of a vector, if not set UTF8 is returned

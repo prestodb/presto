@@ -50,7 +50,7 @@ class VectorFunction {
   /// see a null row in any of the arguments. They can safely assume that there
   /// are no nulls in any of the arguments in specified positions.
   ///
-  /// If context->isFinalSelection() is false, the result may have been
+  /// If context.isFinalSelection() is false, the result may have been
   /// partially populated for the positions not specified in rows. The function
   /// must take care not to overwrite these values. This happens when evaluating
   /// conditional expressions. Consider if(a = 1, f(b), g(c)) expression. The
@@ -59,14 +59,14 @@ class VectorFunction {
   /// but g(c) is called with partially populated result which has f(b) values
   /// in some positions. Function g must preserve these values.
   ///
-  /// Use context->isFinalSelection() to determine whether partially populated
+  /// Use context.isFinalSelection() to determine whether partially populated
   /// results must be preserved or not.
   ///
   /// If 'result' is not null, it can be dictionary, constant or sequence
   /// encoded and therefore may be read-only. Call BaseVector::ensureWritable
   /// before writing into the "result", e.g.
   ///
-  ///    BaseVector::ensureWritable(&rows, caller->type(), context->pool(),
+  ///    BaseVector::ensureWritable(&rows, caller->type(), context.pool(),
   ///        result);
   ///
   /// If 'result' is null, the function can allocate a new vector using
@@ -77,8 +77,8 @@ class VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* result) const = 0;
+      EvalCtx& context,
+      VectorPtr& result) const = 0;
 
   virtual bool isDeterministic() const {
     return true;

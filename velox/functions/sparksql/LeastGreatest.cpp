@@ -35,14 +35,14 @@ class LeastGreatestFunction final : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     const size_t nargs = args.size();
     const auto nrows = rows.end();
 
     // Setup result vector.
-    context->ensureWritable(rows, outputType, *result);
-    FlatVector<T>& flatResult = *(*result)->as<FlatVector<T>>();
+    context.ensureWritable(rows, outputType, result);
+    FlatVector<T>& flatResult = *result->as<FlatVector<T>>();
 
     // NULL all elements.
     rows.applyToSelected(

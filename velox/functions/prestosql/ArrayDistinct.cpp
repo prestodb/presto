@@ -47,8 +47,8 @@ class ArrayDistinctFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto& arg = args[0];
 
     VectorPtr localResult;
@@ -70,14 +70,14 @@ class ArrayDistinctFunction : public exec::VectorFunction {
       localResult = applyFlat(rows, arg, context);
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
  private:
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     auto arrayVector = arg->as<ArrayVector>();
     auto elementsVector = arrayVector->elements();
     auto elementsRows =
@@ -88,7 +88,7 @@ class ArrayDistinctFunction : public exec::VectorFunction {
     vector_size_t rowCount = arrayVector->size();
 
     // Allocate new vectors for indices, length and offsets.
-    memory::MemoryPool* pool = context->pool();
+    memory::MemoryPool* pool = context.pool();
     BufferPtr newIndices = allocateIndices(elementsCount, pool);
     BufferPtr newLengths = allocateSizes(rowCount, pool);
     BufferPtr newOffsets = allocateOffsets(rowCount, pool);

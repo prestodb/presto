@@ -319,8 +319,8 @@ class CodegenBenchmark : public CodegenTestCore {
                   arguments, // See D27826068
                   // batch.get()->children(),
                   nullptr,
-                  &context,
-                  &batchResult);
+                  context,
+                  batchResult);
           return batchResult;
         }
 
@@ -336,8 +336,8 @@ class CodegenBenchmark : public CodegenTestCore {
                 arguments, // See D27826068
                 // batch.get()->children(),
                 nullptr,
-                &context,
-                &filterResult);
+                context,
+                filterResult);
 
         auto numOut = facebook::velox::exec::processFilterResults(
             filterResult->as<RowVector>()->childAt(0),
@@ -358,7 +358,7 @@ class CodegenBenchmark : public CodegenTestCore {
         dynamic_cast<facebook::velox::exec::VectorFunction*>(
             info.projectionFunc.get())
             ->apply(
-                rows, batch.get()->children(), nullptr, &context, &batchResult);
+                rows, batch.get()->children(), nullptr, context, batchResult);
 
         if (numOut != batch->size()) {
           batchResult = facebook::velox::exec::wrap(

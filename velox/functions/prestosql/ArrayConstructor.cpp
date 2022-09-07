@@ -29,13 +29,13 @@ class ArrayConstructor : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto numArgs = args.size();
 
-    context->ensureWritable(rows, outputType, *result);
-    (*result)->clearNulls(rows);
-    auto arrayResult = (*result)->as<ArrayVector>();
+    context.ensureWritable(rows, outputType, result);
+    result->clearNulls(rows);
+    auto arrayResult = result->as<ArrayVector>();
     auto sizes = arrayResult->mutableSizes(rows.size());
     auto rawSizes = sizes->asMutable<int32_t>();
     auto offsets = arrayResult->mutableOffsets(rows.size());

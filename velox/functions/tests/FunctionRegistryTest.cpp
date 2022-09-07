@@ -100,8 +100,8 @@ class VectorFuncOne : public velox::exec::VectorFunction {
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
       const TypePtr& /* outputType */,
-      velox::exec::EvalCtx* /* context */,
-      velox::VectorPtr* /* result */) const override {}
+      velox::exec::EvalCtx& /* context */,
+      velox::VectorPtr& /* result */) const override {}
 
   static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
   signatures() {
@@ -119,8 +119,8 @@ class VectorFuncTwo : public velox::exec::VectorFunction {
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
       const TypePtr& /* outputType */,
-      velox::exec::EvalCtx* /* context */,
-      velox::VectorPtr* /* result */) const override {}
+      velox::exec::EvalCtx& /* context */,
+      velox::VectorPtr& /* result */) const override {}
 
   static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
   signatures() {
@@ -138,8 +138,8 @@ class VectorFuncThree : public velox::exec::VectorFunction {
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
       const TypePtr& /* outputType */,
-      velox::exec::EvalCtx* /* context */,
-      velox::VectorPtr* /* result */) const override {}
+      velox::exec::EvalCtx& /* context */,
+      velox::VectorPtr& /* result */) const override {}
 
   static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
   signatures() {
@@ -157,8 +157,8 @@ class VectorFuncFour : public velox::exec::VectorFunction {
       const velox::SelectivityVector& /* rows */,
       std::vector<velox::VectorPtr>& /* args */,
       const TypePtr& /* outputType */,
-      velox::exec::EvalCtx* /* context */,
-      velox::VectorPtr* /* result */) const override {}
+      velox::exec::EvalCtx& /* context */,
+      velox::VectorPtr& /* result */) const override {}
 
   static std::vector<std::shared_ptr<velox::exec::FunctionSignature>>
   signatures() {

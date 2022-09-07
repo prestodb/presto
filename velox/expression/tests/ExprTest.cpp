@@ -450,8 +450,8 @@ class PlusConstantFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
 
     auto& arg = args[0];
@@ -459,10 +459,10 @@ class PlusConstantFunction : public exec::VectorFunction {
     // The argument may be flat or constant.
     VELOX_CHECK(arg->isFlatEncoding() || arg->isConstantEncoding());
 
-    BaseVector::ensureWritable(rows, INTEGER(), context->pool(), result);
+    BaseVector::ensureWritable(rows, INTEGER(), context.pool(), result);
 
-    auto flatResult = (*result)->asFlatVector<int32_t>();
-    auto rawResult = flatResult->mutableRawValues();
+    auto* flatResult = result->asFlatVector<int32_t>();
+    auto* rawResult = flatResult->mutableRawValues();
 
     flatResult->clearNulls(rows);
 
@@ -576,13 +576,13 @@ class PlusRandomIntegerFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
     VELOX_CHECK_EQ(args[0]->typeKind(), facebook::velox::TypeKind::INTEGER);
 
-    BaseVector::ensureWritable(rows, INTEGER(), context->pool(), result);
-    auto flatResult = (*result)->asFlatVector<int32_t>();
+    BaseVector::ensureWritable(rows, INTEGER(), context.pool(), result);
+    auto flatResult = result->asFlatVector<int32_t>();
 
     DecodedVector decoded(*args[0], rows);
     std::srand(1);
@@ -707,18 +707,18 @@ class AddSuffixFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto input = args[0]->asFlatVector<StringView>();
     auto localResult = std::dynamic_pointer_cast<FlatVector<StringView>>(
-        BaseVector::create(VARCHAR(), rows.end(), context->pool()));
+        BaseVector::create(VARCHAR(), rows.end(), context.pool()));
     rows.applyToSelected([&](auto row) {
       auto value = fmt::format("{}{}", input->valueAt(row).str(), suffix_);
       localResult->set(row, StringView(value));
       return true;
     });
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -974,16 +974,16 @@ class StatefulVectorFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), numInputs_);
     auto numInputs =
-        BaseVector::createConstant(numInputs_, rows.size(), context->pool());
+        BaseVector::createConstant(numInputs_, rows.size(), context.pool());
     if (!result) {
-      *result = numInputs;
+      result = numInputs;
     } else {
-      BaseVector::ensureWritable(rows, INTEGER(), context->pool(), result);
-      (*result)->copy(numInputs.get(), rows, nullptr);
+      BaseVector::ensureWritable(rows, INTEGER(), context.pool(), result);
+      result->copy(numInputs.get(), rows, nullptr);
     }
   }
 
@@ -1341,10 +1341,10 @@ class TestingConstantFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* /*context*/,
-      VectorPtr* result) const override {
+      exec::EvalCtx& /*context*/,
+      VectorPtr& result) const override {
     VELOX_CHECK(rows.isAllSelected());
-    *result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
+    result = BaseVector::wrapInConstant(rows.size(), 0, args[0]);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -1369,11 +1369,11 @@ class TestingDictionaryFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* /*context*/,
-      VectorPtr* result) const override {
+      exec::EvalCtx& /*context*/,
+      VectorPtr& result) const override {
     VELOX_CHECK(rows.isAllSelected());
-    auto indices = args[1]->as<FlatVector<int32_t>>()->values();
-    *result = BaseVector::wrapInDictionary(
+    auto& indices = args[1]->as<FlatVector<int32_t>>()->values();
+    result = BaseVector::wrapInDictionary(
         BufferPtr(nullptr), indices, rows.size(), args[0]);
   }
 
@@ -1401,11 +1401,11 @@ class TestingSequenceFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(rows.isAllSelected());
     auto lengths = args[1]->as<FlatVector<int32_t>>()->values();
-    *result = BaseVector::wrapInSequence(lengths, rows.size(), args[0]);
+    result = BaseVector::wrapInSequence(lengths, rows.size(), args[0]);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -1427,12 +1427,12 @@ class TestingSingleArgDeterministicFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto& arg = args[0];
     VELOX_CHECK(arg->isFlatEncoding() || arg->isConstantEncoding());
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
-    (*result)->copy(arg.get(), rows, nullptr);
+    BaseVector::ensureWritable(rows, outputType, context.pool(), result);
+    result->copy(arg.get(), rows, nullptr);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -1537,11 +1537,11 @@ class NullArrayFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     // This function returns a vector of all nulls
-    BaseVector::ensureWritable(rows, ARRAY(VARCHAR()), context->pool(), result);
-    (*result)->addNulls(nullptr, rows);
+    BaseVector::ensureWritable(rows, ARRAY(VARCHAR()), context.pool(), result);
+    result->addNulls(nullptr, rows);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -1944,14 +1944,14 @@ class TestingShrinkingDictionary : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     BufferPtr indices =
-        AlignedBuffer::allocate<vector_size_t>(rows.end(), context->pool());
+        AlignedBuffer::allocate<vector_size_t>(rows.end(), context.pool());
     auto rawIndices = indices->asMutable<vector_size_t>();
     rows.applyToSelected([&](int row) { rawIndices[row] = row; });
 
-    *result =
+    result =
         BaseVector::wrapInDictionary(nullptr, indices, rows.end() - 1, args[0]);
   }
 

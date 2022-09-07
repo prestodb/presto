@@ -84,8 +84,8 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(args.size() == 1);
     VELOX_CHECK(args[0]->typeKind() == TypeKind::VARCHAR);
 
@@ -104,7 +104,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     // buffer can be reused as output.
     if (tryInplace &&
         prepareFlatResultsVector(result, rows, context, args.at(0))) {
-      auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+      auto* resultFlatVector = result->as<FlatVector<StringView>>();
       applyInternalInPlace(rows, decodedInput, resultFlatVector);
       return;
     }
@@ -112,7 +112,7 @@ class UpperLowerTemplateFunction : public exec::VectorFunction {
     // Not in place path.
     VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
-    auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+    auto* resultFlatVector = result->as<FlatVector<StringView>>();
 
     StringEncodingTemplateWrapper<ApplyInternal>::apply(
         ascii, rows, decodedInput, resultFlatVector);
@@ -151,11 +151,11 @@ class ConcatFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
-    auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+    auto* resultFlatVector = result->as<FlatVector<StringView>>();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
 
@@ -223,16 +223,16 @@ class StringPosition : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto decodedStringInput = decodedArgs.at(0);
     auto decodedSubStringInput = decodedArgs.at(1);
 
     auto stringArgStringEncoding = isAscii(args.at(0).get(), rows);
-    context->ensureWritable(rows, BIGINT(), *result);
+    context.ensureWritable(rows, BIGINT(), result);
 
-    auto* resultFlatVector = (*result)->as<FlatVector<int64_t>>();
+    auto* resultFlatVector = result->as<FlatVector<int64_t>>();
 
     auto stringReader = [&](const vector_size_t row) {
       return decodedStringInput->valueAt<StringView>(row);
@@ -362,8 +362,8 @@ class Replace : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     // Read string input
     exec::LocalDecodedVector decodedStringHolder(context, *args[0], rows);
     auto decodedStringInput = decodedStringHolder.get();
@@ -421,7 +421,7 @@ class Replace : public exec::VectorFunction {
 
     if (tryInplace) {
       if (prepareFlatResultsVector(result, rows, context, args.at(0))) {
-        auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+        auto* resultFlatVector = result->as<FlatVector<StringView>>();
         applyInPlace(
             stringReader, searchReader, replaceReader, rows, resultFlatVector);
         return;
@@ -431,7 +431,7 @@ class Replace : public exec::VectorFunction {
     // Not in place path
     VectorPtr emptyVectorPtr;
     prepareFlatResultsVector(result, rows, context, emptyVectorPtr);
-    auto* resultFlatVector = (*result)->as<FlatVector<StringView>>();
+    auto* resultFlatVector = result->as<FlatVector<StringView>>();
 
     applyInternal(
         stringReader, searchReader, replaceReader, rows, resultFlatVector);

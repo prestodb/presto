@@ -41,10 +41,10 @@ class VectorFunctionTwoArgs : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& /*args*/,
       const TypePtr& /*outputType*/,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    BaseVector::ensureWritable(rows, BOOLEAN(), context->pool(), result);
-    auto resultVector = (*result)->asUnchecked<FlatVector<bool>>();
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    BaseVector::ensureWritable(rows, BOOLEAN(), context.pool(), result);
+    auto resultVector = result->asUnchecked<FlatVector<bool>>();
 
     rows.applyToSelected([&](auto row) { resultVector->set(row, false); });
   }
@@ -64,8 +64,8 @@ class VectorFunctionOneArg : public VectorFunctionTwoArgs {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& ptr,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
     VectorFunctionTwoArgs::apply(rows, args, ptr, context, result);
   }

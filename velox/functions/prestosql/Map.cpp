@@ -26,8 +26,8 @@ class MapFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
 
     auto keys = args[0];
@@ -58,7 +58,7 @@ class MapFunction : public exec::VectorFunction {
       });
 
       mapVector = std::make_shared<MapVector>(
-          context->pool(),
+          context.pool(),
           outputType,
           BufferPtr(nullptr),
           rows.size(),
@@ -87,16 +87,16 @@ class MapFunction : public exec::VectorFunction {
         totalElements += keysArray->sizeAt(keyIndices[row]);
       });
 
-      BufferPtr offsets = allocateOffsets(rows.size(), context->pool());
+      BufferPtr offsets = allocateOffsets(rows.size(), context.pool());
       auto rawOffsets = offsets->asMutable<vector_size_t>();
 
-      BufferPtr sizes = allocateSizes(rows.size(), context->pool());
+      BufferPtr sizes = allocateSizes(rows.size(), context.pool());
       auto rawSizes = sizes->asMutable<vector_size_t>();
 
-      BufferPtr valuesIndices = allocateIndices(totalElements, context->pool());
+      BufferPtr valuesIndices = allocateIndices(totalElements, context.pool());
       auto rawValuesIndices = valuesIndices->asMutable<vector_size_t>();
 
-      BufferPtr keysIndices = allocateIndices(totalElements, context->pool());
+      BufferPtr keysIndices = allocateIndices(totalElements, context.pool());
       auto rawKeysIndices = keysIndices->asMutable<vector_size_t>();
 
       vector_size_t offset = 0;
@@ -128,7 +128,7 @@ class MapFunction : public exec::VectorFunction {
           valuesArray->elements());
 
       mapVector = std::make_shared<MapVector>(
-          context->pool(),
+          context.pool(),
           outputType,
           BufferPtr(nullptr),
           rows.size(),
@@ -158,7 +158,7 @@ class MapFunction : public exec::VectorFunction {
         }
       });
     }
-    context->moveOrCopyResult(mapVector, rows, result);
+    context.moveOrCopyResult(mapVector, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

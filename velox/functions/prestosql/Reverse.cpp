@@ -49,8 +49,8 @@ class ReverseFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
 
     switch (args[0]->typeKind()) {
@@ -70,14 +70,14 @@ class ReverseFunction : public exec::VectorFunction {
   void applyVarchar(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
     auto* arg = args[0].get();
 
     auto ascii = isAscii(arg, rows);
 
     prepareFlatResultsVector(result, rows, context, args[0]);
-    auto* flatResult = (*result)->as<FlatVector<StringView>>();
+    auto* flatResult = result->as<FlatVector<StringView>>();
 
     // Input can be constant or flat.
     if (arg->isConstantEncoding()) {
@@ -114,8 +114,8 @@ class ReverseFunction : public exec::VectorFunction {
   void applyArray(
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
     auto& arg = args[0];
 
     VectorPtr localResult;
@@ -137,18 +137,18 @@ class ReverseFunction : public exec::VectorFunction {
       localResult = applyArrayFlat(rows, arg, context);
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   VectorPtr applyArrayFlat(
       const SelectivityVector& rows,
       const VectorPtr& vector,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     auto arrayVector = vector->as<ArrayVector>();
     auto elementCount = arrayVector->elements()->size();
 
     // Allocate new vectors for indices.
-    auto pool = context->pool();
+    auto* pool = context.pool();
     BufferPtr indices = allocateIndices(elementCount, pool);
     auto rawIndices = indices->asMutable<vector_size_t>();
 

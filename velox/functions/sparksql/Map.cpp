@@ -37,7 +37,7 @@ void setKeysResultTyped(
     vector_size_t mapSize,
     std::vector<VectorPtr>& args,
     const VectorPtr& keysResult,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto flatKeys = keysResult->asFlatVector<T>()
@@ -60,7 +60,7 @@ void setValuesResultTyped(
     vector_size_t mapSize,
     std::vector<VectorPtr>& args,
     const VectorPtr& valuesResult,
-    exec::EvalCtx* context,
+    exec::EvalCtx& context,
     const SelectivityVector& rows) {
   using T = typename KindToFlatVector<kind>::WrapperType;
   auto flatValues = valuesResult->asFlatVector<T>()
@@ -90,8 +90,8 @@ class MapFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /*outputType*/,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(
         args.size() >= 2 && args.size() % 2 == 0,
         "Map function must take an even number of arguments");
@@ -113,10 +113,10 @@ class MapFunction : public exec::VectorFunction {
     }
 
     // Initializing input
-    context->ensureWritable(
-        rows, std::make_shared<MapType>(keyType, valueType), *result);
+    context.ensureWritable(
+        rows, std::make_shared<MapType>(keyType, valueType), result);
 
-    auto mapResult = (*result)->as<MapVector>();
+    auto mapResult = result->as<MapVector>();
     auto sizes = mapResult->mutableSizes(rows.size());
     auto rawSizes = sizes->asMutable<int32_t>();
     auto offsets = mapResult->mutableOffsets(rows.size());

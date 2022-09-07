@@ -275,7 +275,7 @@ void Expr::evalSimplifiedImpl(
     auto& inputValue = inputValues_[i];
     inputs_[i]->evalSimplified(remainingRows, context, inputValue);
 
-    BaseVector::flattenVector(&inputValue, rows.end());
+    BaseVector::flattenVector(inputValue, rows.end());
     VELOX_CHECK_EQ(VectorEncoding::Simple::FLAT, inputValue->encoding());
 
     // If the resulting vector has nulls, merge them into our current remaining
@@ -298,8 +298,7 @@ void Expr::evalSimplifiedImpl(
   }
 
   // Apply the actual function.
-  vectorFunction_->apply(
-      remainingRows, inputValues_, type(), &context, &result);
+  vectorFunction_->apply(remainingRows, inputValues_, type(), context, result);
 
   // Make sure the returned vector has its null bitmap properly set.
   addNulls(rows, remainingRows.asRange().bits(), context, result);
@@ -752,7 +751,7 @@ void Expr::addNulls(
 
   if (!result.unique() || !result->isNullsWritable()) {
     BaseVector::ensureWritable(
-        SelectivityVector::empty(), type(), context.pool(), &result);
+        SelectivityVector::empty(), type(), context.pool(), result);
   }
 
   if (result->size() < rows.end()) {
@@ -899,7 +898,7 @@ void Expr::setAllNulls(
     EvalCtx& context,
     VectorPtr& result) const {
   if (result) {
-    BaseVector::ensureWritable(rows, type(), context.pool(), &result);
+    BaseVector::ensureWritable(rows, type(), context.pool(), result);
     LocalSelectivityVector notNulls(context, rows.end());
     notNulls.get()->setAll();
     notNulls.get()->deselect(rows);
@@ -1210,7 +1209,7 @@ void Expr::applyFunction(
       ? computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows)
       : std::nullopt;
 
-  vectorFunction_->apply(rows, inputValues_, type(), &context, &result);
+  vectorFunction_->apply(rows, inputValues_, type(), context, result);
 
   if (isAscii.has_value()) {
     result->asUnchecked<SimpleVector<StringView>>()->setIsAscii(

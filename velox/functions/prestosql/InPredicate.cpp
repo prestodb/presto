@@ -143,8 +143,8 @@ class InPredicate : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     const auto& input = args[0];
     switch (input->typeKind()) {
       case TypeKind::BIGINT:
@@ -198,23 +198,23 @@ class InPredicate : public exec::VectorFunction {
  private:
   static VectorPtr createBoolConstantNull(
       vector_size_t size,
-      exec::EvalCtx* context) {
+      exec::EvalCtx& context) {
     return BaseVector::createConstant(
-        variant(TypeKind::BOOLEAN), size, context->pool());
+        variant(TypeKind::BOOLEAN), size, context.pool());
   }
 
   static VectorPtr
-  createBoolConstant(bool value, vector_size_t size, exec::EvalCtx* context) {
-    return BaseVector::createConstant(value, size, context->pool());
+  createBoolConstant(bool value, vector_size_t size, exec::EvalCtx& context) {
+    return BaseVector::createConstant(value, size, context.pool());
   }
 
   template <typename T, typename F>
   void applyTyped(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context,
-      VectorPtr* result,
-      F testFunction) const {
+      exec::EvalCtx& context,
+      VectorPtr& result,
+      F&& testFunction) const {
     VELOX_CHECK(filter_, "IN predicate supports only constant IN list");
 
     // Indicates whether result can be true or null only, e.g. no false results.
@@ -234,7 +234,7 @@ class InPredicate : public exec::VectorFunction {
         }
       }
 
-      context->moveOrCopyResult(localResult, rows, result);
+      context.moveOrCopyResult(localResult, rows, result);
       return;
     }
 
@@ -242,10 +242,10 @@ class InPredicate : public exec::VectorFunction {
     auto flatArg = arg->asUnchecked<FlatVector<T>>();
     auto rawValues = flatArg->rawValues();
 
-    context->ensureWritable(rows, BOOLEAN(), *result);
-    auto boolResult = static_cast<FlatVector<bool>*>((*result).get());
+    context.ensureWritable(rows, BOOLEAN(), result);
+    auto* boolResult = result->asUnchecked<FlatVector<bool>>();
 
-    auto rawResults = boolResult->mutableRawValues<uint64_t>();
+    auto* rawResults = boolResult->mutableRawValues<uint64_t>();
 
     if (flatArg->mayHaveNulls() || passOrNull) {
       rows.applyToSelected([&](auto row) {

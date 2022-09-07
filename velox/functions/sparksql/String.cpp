@@ -44,15 +44,15 @@ class Instr : public exec::VectorFunction {
       const SelectivityVector& selected,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2);
     VELOX_CHECK_EQ(args[0]->typeKind(), TypeKind::VARCHAR);
     VELOX_CHECK_EQ(args[1]->typeKind(), TypeKind::VARCHAR);
     exec::LocalDecodedVector haystack(context, *args[0], selected);
     exec::LocalDecodedVector needle(context, *args[1], selected);
-    context->ensureWritable(selected, INTEGER(), *result);
-    auto* output = (*result)->as<FlatVector<int32_t>>();
+    context.ensureWritable(selected, INTEGER(), result);
+    auto* output = result->as<FlatVector<int32_t>>();
 
     if (isAscii(args[0].get(), selected)) {
       selected.applyToSelected([&](vector_size_t row) {
@@ -83,15 +83,15 @@ class Length : public exec::VectorFunction {
       const SelectivityVector& selected,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 1);
     VELOX_CHECK(
         args[0]->typeKind() == TypeKind::VARCHAR ||
         args[0]->typeKind() == TypeKind::VARBINARY);
     exec::LocalDecodedVector input(context, *args[0], selected);
-    context->ensureWritable(selected, INTEGER(), *result);
-    auto* output = (*result)->as<FlatVector<int32_t>>();
+    context.ensureWritable(selected, INTEGER(), result);
+    auto* output = result->as<FlatVector<int32_t>>();
 
     if (args[0]->typeKind() == TypeKind::VARCHAR &&
         !isAscii(args[0].get(), selected)) {

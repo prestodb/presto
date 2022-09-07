@@ -380,10 +380,10 @@ VectorPtr createVeloxVector(
     const SelectivityVector& rows,
     LogicalType type,
     size_t count,
-    exec::EvalCtx* context) {
+    exec::EvalCtx& context) {
   auto resultType = toVeloxType(type);
-  auto result = BaseVector::create(resultType, count, context->pool());
-  context->ensureWritable(rows, resultType, result);
+  auto result = BaseVector::create(resultType, count, context.pool());
+  context.ensureWritable(rows, resultType, result);
   return result;
 }
 
@@ -420,22 +420,22 @@ class DuckDBFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      EvalCtx* context,
-      VectorPtr* result) const override {
+      EvalCtx& context,
+      VectorPtr& result) const override {
     // FIXME: this binding does not need to be performed on every function call
     std::vector<LogicalType> inputTypes;
     for (auto& arg : args) {
       inputTypes.push_back(fromVeloxType(arg->typeKind()));
     }
 
-    duckdb::VeloxPoolAllocator duckDBAllocator(*context->pool());
+    duckdb::VeloxPoolAllocator duckDBAllocator(*context.pool());
     auto state = initializeState(move(inputTypes), duckDBAllocator);
     assert(state->functionIndex < set_.size());
     auto& function = set_[state->functionIndex];
     idx_t nrow = rows.size();
 
-    if (!*result) {
-      *result = createVeloxVector(rows, function.return_type, nrow, context);
+    if (!result) {
+      result = createVeloxVector(rows, function.return_type, nrow, context);
     }
     for (auto offset = 0; offset < nrow; offset += STANDARD_VECTOR_SIZE) {
       // reset the input chunk by referencing the base chunk
@@ -443,7 +443,7 @@ class DuckDBFunction : public exec::VectorFunction {
       // convert arguments to duck arguments
       toDuck(rows, args, offset, *state->castChunk, *state->input);
       // run the function
-      callFunction(function, *state, offset, *result);
+      callFunction(function, *state, offset, result);
     }
   }
 

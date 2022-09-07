@@ -102,11 +102,11 @@ class ArraySumFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     // Prepare result vector for writing
-    BaseVector::ensureWritable(rows, outputType, context->pool(), result);
-    auto resultValues = (*result)->template asFlatVector<TOutput>();
+    BaseVector::ensureWritable(rows, outputType, context.pool(), result);
+    auto resultValues = result->template asFlatVector<TOutput>();
 
     // Acquire the array elements vector.
     auto arrayVector = args[0]->as<ArrayVector>();

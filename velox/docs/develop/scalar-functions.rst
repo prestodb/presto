@@ -803,8 +803,8 @@ implement the “apply” method.
               const SelectivityVector& rows,
               std::vector<VectorPtr>& args,
               Expr* caller,
-              EvalCtx* context,
-              VectorPtr* result) const
+              EvalCtx& context,
+              VectorPtr& result) const
 
 Input rows
 ^^^^^^^^^^
@@ -918,13 +918,13 @@ Here is an example of using moveOrCopyResult to implement map_keys function:
         const SelectivityVector& rows,
         std::vector<VectorPtr>& args,
         exec::Expr* /* caller */,
-        exec::EvalCtx* context,
-        VectorPtr* result) const override {
+        exec::EvalCtx& context,
+        VectorPtr& result) const override {
       auto mapVector = args[0]->as<MapVector>();
       auto mapKeys = mapVector->mapKeys();
 
       auto localResult = std::make_shared<ArrayVector>(
-          context->pool(),
+          context.pool(),
           ARRAY(mapKeys->type()),
           mapVector->nulls(),
           rows.end(),
@@ -933,7 +933,7 @@ Here is an example of using moveOrCopyResult to implement map_keys function:
           mapKeys,
           mapVector->getNullCount());
 
-      context->moveOrCopyResult(localResult, rows, result);
+      context.moveOrCopyResult(localResult, rows, result);
     }
 
 Use BaseVector::ensureWritable method to initialize “result” to a flat
@@ -958,12 +958,12 @@ cardinality function for maps:
         const SelectivityVector& rows,
         std::vector<VectorPtr>& args,
         exec::Expr* /* caller */,
-        exec::EvalCtx* context,
-        VectorPtr* result) const override {
+        exec::EvalCtx& context,
+        VectorPtr& result) const override {
 
-      BaseVector::ensureWritable(rows, BIGINT(), context->pool(), result);
+      BaseVector::ensureWritable(rows, BIGINT(), context.pool(), result);
       BufferPtr resultValues =
-          (*result)->as<FlatVector<int64_t>>()->mutableValues(rows.size());
+           result->as<FlatVector<int64_t>>()->mutableValues(rows.size());
       auto rawResult = resultValues->asMutable<int64_t>();
 
       auto mapVector = args[0]->as<MapVector>();
@@ -987,8 +987,8 @@ as a simple function. I’m using it here for illustration purposes only.
 .. code-block:: c++
 
     // Initialize flat results vector.
-    BaseVector::ensureWritable(rows, DOUBLE(), context->pool(), result);
-    auto rawResults = (*result)->as<FlatVector<int64_t>>()->mutableRawValues();
+    BaseVector::ensureWritable(rows, DOUBLE(), context.pool(), result);
+    auto rawResults = result->as<FlatVector<int64_t>>()->mutableRawValues();
 
     // Decode the arguments.
     DecodedArgs decodedArgs(rows, args, context);
@@ -1074,7 +1074,7 @@ catch block.
       try {
         // ... calculate and store the result for the row
       } catch (const std::exception& e) {
-        context->setError(row, std::current_exception());
+        context.setError(row, std::current_exception());
       }
     });
 
@@ -1083,14 +1083,14 @@ instead of the explicit try-catch block above:
 
 .. code-block:: c++
 
-    context->applyToSelectedNoThrow(rows, [&](auto row) {
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
       // ... calculate and store the result for the row
     });
 
 
 Simple functions are compatible with the TRY expression by default. The framework
 wraps the “call” and “callNullable” methods in a try-catch and reports errors
-using context->setError.
+using context.setError.
 
 Registration
 ^^^^^^^^^^^^

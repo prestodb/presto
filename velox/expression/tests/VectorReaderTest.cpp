@@ -462,7 +462,7 @@ TEST_F(VectorReaderTest, variadicContainsNull) {
   exec::EvalCtx ctx(&execCtx_);
   std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : {field1Vector, field2Vector, field3Vector}) {
-    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+    args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
   }
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);
 
@@ -536,7 +536,7 @@ TEST_F(VectorReaderTest, dictionaryEncodedVariadicContainsNull) {
   exec::EvalCtx ctx(&execCtx_);
   std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : {field1Vector, field2Vector, field3Vector}) {
-    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+    args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
   }
   exec::VectorReader<Variadic<int32_t>> reader(args, 0);
 

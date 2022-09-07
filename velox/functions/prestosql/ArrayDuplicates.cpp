@@ -48,8 +48,8 @@ class ArrayDuplicatesFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args, // Not using const ref so we can reuse args
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto& arg = args[0];
 
     VectorPtr localResult;
@@ -71,14 +71,14 @@ class ArrayDuplicatesFunction : public exec::VectorFunction {
       localResult = applyFlat(rows, arg, context);
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
  private:
   VectorPtr applyFlat(
       const SelectivityVector& rows,
       const VectorPtr& arg,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     auto arrayVector = arg->as<ArrayVector>();
     VELOX_CHECK(arrayVector);
     auto elementsVector = arrayVector->elements();
@@ -91,7 +91,7 @@ class ArrayDuplicatesFunction : public exec::VectorFunction {
     vector_size_t numRows = arrayVector->size();
 
     // Allocate new vectors for indices, length and offsets.
-    memory::MemoryPool* pool = context->pool();
+    memory::MemoryPool* pool = context.pool();
     BufferPtr newIndices = allocateIndices(numElements, pool);
     BufferPtr newSizes = allocateSizes(numRows, pool);
     BufferPtr newOffsets = allocateOffsets(numRows, pool);

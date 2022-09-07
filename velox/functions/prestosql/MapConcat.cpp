@@ -32,8 +32,8 @@ class MapConcatFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VELOX_CHECK(args.size() >= 2);
     auto mapType = args[0]->type();
     VELOX_CHECK_EQ(mapType->kind(), TypeKind::MAP);
@@ -57,16 +57,16 @@ class MapConcatFunction : public exec::VectorFunction {
     auto keyType = outputType->asMap().keyType();
     auto valueType = outputType->asMap().valueType();
 
-    auto combinedKeys = BaseVector::create(keyType, maxSize, context->pool());
-    auto combinedValues =
-        BaseVector::create(valueType, maxSize, context->pool());
+    auto* pool = context.pool();
+    auto combinedKeys = BaseVector::create(keyType, maxSize, pool);
+    auto combinedValues = BaseVector::create(valueType, maxSize, pool);
 
     // Initialize offsets and sizes to 0 so that canonicalize() will
     // work also for sparse 'rows'.
-    BufferPtr offsets = allocateOffsets(rows.size(), context->pool());
+    BufferPtr offsets = allocateOffsets(rows.size(), pool);
     auto rawOffsets = offsets->asMutable<vector_size_t>();
 
-    BufferPtr sizes = allocateSizes(rows.size(), context->pool());
+    BufferPtr sizes = allocateSizes(rows.size(), pool);
     auto rawSizes = sizes->asMutable<vector_size_t>();
 
     vector_size_t offset = 0;
@@ -92,7 +92,7 @@ class MapConcatFunction : public exec::VectorFunction {
     });
 
     auto combinedMap = std::make_shared<MapVector>(
-        context->pool(),
+        pool,
         outputType,
         BufferPtr(nullptr),
         rows.size(),
@@ -130,7 +130,7 @@ class MapConcatFunction : public exec::VectorFunction {
       uniqueKeys.updateBounds();
       auto uniqueCount = uniqueKeys.countSelected();
 
-      BufferPtr uniqueIndices = allocateIndices(uniqueCount, context->pool());
+      BufferPtr uniqueIndices = allocateIndices(uniqueCount, pool);
       auto rawUniqueIndices = uniqueIndices->asMutable<vector_size_t>();
       vector_size_t index = 0;
       uniqueKeys.applyToSelected(
@@ -141,7 +141,7 @@ class MapConcatFunction : public exec::VectorFunction {
           BaseVector::transpose(uniqueIndices, std::move(combinedValues));
 
       combinedMap = std::make_shared<MapVector>(
-          context->pool(),
+          pool,
           outputType,
           BufferPtr(nullptr),
           rows.size(),
@@ -151,7 +151,7 @@ class MapConcatFunction : public exec::VectorFunction {
           values);
     }
 
-    context->moveOrCopyResult(combinedMap, rows, result);
+    context.moveOrCopyResult(combinedMap, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

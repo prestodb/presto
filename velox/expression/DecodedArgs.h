@@ -35,9 +35,9 @@ class DecodedArgs {
   DecodedArgs(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
-      exec::EvalCtx* FOLLY_NONNULL context) {
+      exec::EvalCtx& context) {
     for (auto& arg : args) {
-      holders_.emplace_back(*context, *arg.get(), rows);
+      holders_.emplace_back(context, *arg, rows);
     }
   }
 

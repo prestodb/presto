@@ -123,9 +123,9 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
-    memory::MemoryPool* pool = context->pool();
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
+    memory::MemoryPool* pool = context.pool();
     BaseVector* left = args[0].get();
     BaseVector* right = args[1].get();
 
@@ -257,7 +257,7 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
         newLengths,
         newElements,
         0);
-    context->moveOrCopyResult(resultArray, rows, result);
+    context.moveOrCopyResult(resultArray, rows, result);
   }
 
   // If one of the arrays is constant, this member will store a pointer to the
@@ -281,8 +281,8 @@ class ArraysOverlapFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     BaseVector* left = args[0].get();
     BaseVector* right = args[1].get();
     if (constantSet_.has_value() && isLeftConstant_) {
@@ -294,8 +294,8 @@ class ArraysOverlapFunction : public exec::VectorFunction {
         decodeArrayElements(arrayDecoder, elementsDecoder, rows);
     auto decodedLeftArray = arrayDecoder.get();
     auto baseLeftArray = decodedLeftArray->base()->as<ArrayVector>();
-    context->ensureWritable(rows, BOOLEAN(), *result);
-    auto resultBoolVector = (*result)->template asFlatVector<bool>();
+    context.ensureWritable(rows, BOOLEAN(), result);
+    auto resultBoolVector = result->template asFlatVector<bool>();
     auto processRow = [&](auto row, const SetWithNull<T>& rightSet) {
       auto idx = decodedLeftArray->index(row);
       auto offset = baseLeftArray->offsetAt(idx);

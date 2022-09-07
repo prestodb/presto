@@ -98,6 +98,6 @@ void FieldReference::evalSpecialFormSimplified(
 
   auto row = context.row();
   result = row->childAt(index(context));
-  BaseVector::flattenVector(&result, rows.end());
+  BaseVector::flattenVector(result, rows.end());
 }
 } // namespace facebook::velox::exec

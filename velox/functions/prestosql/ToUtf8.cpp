@@ -24,8 +24,8 @@ class ToUtf8Function : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     VectorPtr localResult;
 
     // Input can be constant or flat.
@@ -33,13 +33,13 @@ class ToUtf8Function : public exec::VectorFunction {
     if (arg->isConstantEncoding()) {
       auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
       localResult = std::make_shared<ConstantVector<StringView>>(
-          context->pool(), rows.size(), false, VARBINARY(), std::move(value));
+          context.pool(), rows.size(), false, VARBINARY(), std::move(value));
     } else {
       auto flatInput = arg->asFlatVector<StringView>();
 
       auto stringBuffers = flatInput->stringBuffers();
       localResult = std::make_shared<FlatVector<StringView>>(
-          context->pool(),
+          context.pool(),
           VARBINARY(),
           nullptr,
           rows.size(),
@@ -47,7 +47,7 @@ class ToUtf8Function : public exec::VectorFunction {
           std::move(stringBuffers));
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {

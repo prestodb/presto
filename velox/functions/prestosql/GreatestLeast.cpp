@@ -65,11 +65,11 @@ class ExtremeValueFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const {
-    context->ensureWritable(rows, outputType, *result);
+      exec::EvalCtx& context,
+      VectorPtr& result) const {
+    context.ensureWritable(rows, outputType, result);
     BufferPtr resultValues =
-        (*result)->as<FlatVector<T>>()->mutableValues(rows.end());
+        result->as<FlatVector<T>>()->mutableValues(rows.end());
     T* __restrict rawResult = resultValues->asMutable<T>();
 
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -96,7 +96,7 @@ class ExtremeValueFunction : public exec::VectorFunction {
 
     if constexpr (std::
                       is_same_v<T, TypeTraits<TypeKind::VARCHAR>::NativeType>) {
-      auto* flatResult = (*result)->as<FlatVector<T>>();
+      auto* flatResult = result->as<FlatVector<T>>();
       for (auto index : usedInputs) {
         flatResult->acquireSharedStringBuffers(args[index].get());
       }
@@ -108,8 +108,8 @@ class ExtremeValueFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     switch (outputType.get()->kind()) {
       case TypeKind::BIGINT:
         applyTyped<TypeTraits<TypeKind::BIGINT>::NativeType>(

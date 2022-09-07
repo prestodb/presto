@@ -133,7 +133,7 @@ Now consider a function that generates Array<int64_t> as an output. The result v
 
     VectorPtr result;
     // Here type is ArrayType(BIGINT()).
-    BaseVector::ensureWritable(rows, type, pool_, &result);
+    BaseVector::ensureWritable(rows, type, pool_, result);
 
     // Define a vector writer. ArrayWriterT is a temp holder. Eventually, Array will be used
     // once old writers are deprecated.

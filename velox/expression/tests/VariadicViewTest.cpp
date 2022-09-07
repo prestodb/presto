@@ -64,7 +64,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     EvalCtx ctx(&execCtx_);
     std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+      args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
     }
 
     size_t startIndex = additionalVectors.size();
@@ -140,7 +140,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     EvalCtx ctx(&execCtx_);
     std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+      args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -170,7 +170,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     EvalCtx ctx(&execCtx_);
     std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+      args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -203,7 +203,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     EvalCtx ctx(&execCtx_);
     std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+      args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -235,7 +235,7 @@ class VariadicViewTest : public functions::test::FunctionBaseTest {
     EvalCtx ctx(&execCtx_);
     std::vector<std::optional<LocalDecodedVector>> args;
     for (const auto& vector : vectors) {
-      args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+      args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
     }
 
     VectorReader<Variadic<int64_t>> reader(args, 0);
@@ -306,7 +306,7 @@ TEST_F(NullableVariadicViewTest, notNullContainer) {
   EvalCtx ctx(&execCtx_);
   std::vector<std::optional<LocalDecodedVector>> args;
   for (const auto& vector : vectors) {
-    args.emplace_back(LocalDecodedVector(&ctx, *vector, rows));
+    args.emplace_back(LocalDecodedVector(ctx, *vector, rows));
   }
 
   VectorReader<Variadic<int64_t>> reader(args, 0);

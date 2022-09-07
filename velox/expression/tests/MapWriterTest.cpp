@@ -78,7 +78,7 @@ class MapWriterTest : public functions::test::FunctionBaseTest {
   VectorPtr prepareResult(const TypePtr& mapType, vector_size_t size = 1) {
     VectorPtr result;
     BaseVector::ensureWritable(
-        SelectivityVector(size), mapType, this->execCtx_.pool(), &result);
+        SelectivityVector(size), mapType, this->execCtx_.pool(), result);
     return result;
   }
 

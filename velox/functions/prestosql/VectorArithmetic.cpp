@@ -74,8 +74,8 @@ class VectorArithmetic : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* result) const override {
+      EvalCtx& context,
+      VectorPtr& result) const override {
     // Same basic checks on the number of inputs and their kinds
     VELOX_CHECK(args.size() == 2);
     VELOX_CHECK(args[0]->typeKind() == args[1]->typeKind());
@@ -116,8 +116,8 @@ class VectorArithmetic : public VectorFunction {
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* result) const {
+      EvalCtx& context,
+      VectorPtr& result) const {
     BaseVector* left = args[0].get();
     BaseVector* right = args[1].get();
     auto leftEncoding = left->encoding();
@@ -131,23 +131,24 @@ class VectorArithmetic : public VectorFunction {
     // (1) Its unique() property must be true!
     // (2) the input type must match the output vector type
     // (3) usually we try to reuse inputs with flat encoding
-    if (!*result) {
+    if (!result) {
       if (args[0].unique() && leftEncoding == VectorEncoding::Simple::FLAT) {
-        *result = std::move(args[0]);
+        result = std::move(args[0]);
       } else if (
+
           args[1].unique() && rightEncoding == VectorEncoding::Simple::FLAT) {
-        *result = std::move(args[1]);
+        result = std::move(args[1]);
       } else {
-        *result = BaseVector::create(outputType, rows.size(), context->pool());
+        result = BaseVector::create(outputType, rows.size(), context.pool());
       }
     } else {
       // if the output is previously initialized, we prepare it for writing
       // here using ensureWritable
-      context->ensureWritable(rows, outputType, *result);
+      context.ensureWritable(rows, outputType, result);
     }
     // Here we provide a pointer to the raw flat results.
     BufferPtr resultValues =
-        (*result)->as<FlatVector<T>>()->mutableValues(rows.end());
+        result->as<FlatVector<T>>()->mutableValues(rows.end());
     T* __restrict rawResult = resultValues->asMutable<T>();
 
     // Step 2: handle input encodings and call the inner kernels
@@ -250,14 +251,14 @@ class VectorArithmetic : public VectorFunction {
   template <typename T>
   inline static bool processAsDense(
       const SelectivityVector& rows,
-      EvalCtx* context) {
+      EvalCtx& context) {
     // Consider it dense if one of these:
     // 1) If the rows are all valid
     // 2) type is integral and is safe to leave the values uninitialized
     // and the number of valid rows is larger than half of the row (heuristic)
     return rows.isAllSelected() ||
         (std::is_integral_v<T> && Operation::isSafeForUninitialized &&
-         context->isFinalSelection() && rows.countSelected() > rows.size() / 2);
+         context.isFinalSelection() && rows.countSelected() > rows.size() / 2);
   }
 };
 

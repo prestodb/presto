@@ -25,17 +25,17 @@ class RowFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto argsCopy = args;
     RowVectorPtr row = std::make_shared<RowVector>(
-        context->pool(),
+        context.pool(),
         outputType,
         BufferPtr(nullptr),
         rows.size(),
         std::move(argsCopy),
         0 /*nullCount*/);
-    context->moveOrCopyResult(row, rows, *result);
+    context.moveOrCopyResult(row, rows, result);
   }
 
   bool isDefaultNullBehavior() const override {

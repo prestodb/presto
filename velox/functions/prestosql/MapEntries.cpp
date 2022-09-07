@@ -26,8 +26,8 @@ class MapEntriesFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto& arg = args[0];
 
     VectorPtr localResult;
@@ -49,7 +49,7 @@ class MapEntriesFunction : public exec::VectorFunction {
       localResult = applyFlat(rows, arg, outputType, context);
     }
 
-    context->moveOrCopyResult(localResult, rows, result);
+    context.moveOrCopyResult(localResult, rows, result);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -67,18 +67,18 @@ class MapEntriesFunction : public exec::VectorFunction {
       const SelectivityVector& rows,
       const VectorPtr& arg,
       const TypePtr& outputType,
-      exec::EvalCtx* context) const {
+      exec::EvalCtx& context) const {
     const auto inputMap = arg->as<MapVector>();
 
     VectorPtr resultElements = std::make_shared<RowVector>(
-        context->pool(),
+        context.pool(),
         outputType->childAt(0),
         BufferPtr(nullptr),
         inputMap->mapKeys()->size(),
         std::vector<VectorPtr>{inputMap->mapKeys(), inputMap->mapValues()});
 
     return std::make_shared<ArrayVector>(
-        context->pool(),
+        context.pool(),
         outputType,
         inputMap->nulls(),
         rows.size(),

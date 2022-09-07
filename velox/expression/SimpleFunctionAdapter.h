@@ -138,29 +138,29 @@ class SimpleFunctionAdapter : public VectorFunction {
     ApplyContext(
         const SelectivityVector* _rows,
         const TypePtr& outputType,
-        EvalCtx* _context,
-        VectorPtr* _result,
+        EvalCtx& _context,
+        VectorPtr& _result,
         bool isResultReused)
         : rows{_rows}, context{_context} {
       // If we're reusing the input, we've already checked that the vector
       // is unique, as is nulls.  We also know the size of the vector is
       // at least as large as the size of rows.
       if (!isResultReused) {
-        context->ensureWritable(*rows, outputType, *_result);
+        context.ensureWritable(*rows, outputType, _result);
       }
-      result = reinterpret_cast<result_vector_t*>((*_result).get());
+      result = reinterpret_cast<result_vector_t*>(_result.get());
       resultWriter.init(*result);
     }
 
     template <typename Callable>
     void applyToSelectedNoThrow(Callable func) {
-      context->template applyToSelectedNoThrow<Callable>(*rows, func);
+      context.template applyToSelectedNoThrow<Callable>(*rows, func);
     }
 
     const SelectivityVector* rows;
     result_vector_t* result;
     VectorWriter<typename FUNC::return_type> resultWriter;
-    EvalCtx* context;
+    EvalCtx& context;
     bool allAscii{false};
     bool mayHaveNullsRecursive{false};
   };
@@ -256,9 +256,9 @@ class SimpleFunctionAdapter : public VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& outputType,
-      EvalCtx* context,
-      VectorPtr* result) const override {
-    auto* reusableResult = result;
+      EvalCtx& context,
+      VectorPtr& result) const override {
+    auto* reusableResult = &result;
     // If result is null, check if one of the arguments can be re-used for
     // storing the result. This is possible if all the following conditions are
     // met:
@@ -282,13 +282,13 @@ class SimpleFunctionAdapter : public VectorFunction {
     }
 
     ApplyContext applyContext{
-        &rows, outputType, context, reusableResult, isResultReused};
+        &rows, outputType, context, *reusableResult, isResultReused};
 
     // If the function provides an initialize() method and it threw, we set that
     // exception in all active rows and we're done with it.
     if constexpr (FUNC::udf_has_initialize) {
       if (UNLIKELY(initializeException_ != nullptr)) {
-        applyContext.context->setErrors(
+        applyContext.context.setErrors(
             *applyContext.rows, initializeException_);
         return;
       }
@@ -352,7 +352,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       }
     }
 
-    *result = std::move(*reusableResult);
+    result = std::move(*reusableResult);
   }
 
   // Acquire string buffer from source if vector is a string flat vector.
@@ -522,7 +522,7 @@ class SimpleFunctionAdapter : public VectorFunction {
 
     // Compute allNotNull.
     bool allNotNull;
-    if (applyContext.context->nullsPruned()) {
+    if (applyContext.context.nullsPruned()) {
       allNotNull = true;
     } else {
       allNotNull = (!readers.mayHaveNulls() && ...);

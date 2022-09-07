@@ -949,7 +949,7 @@ VectorPtr testVariadicArgReuse(
   exec::EvalCtx evalCtx(execCtx, &exprSet, inputRows.get());
 
   VectorPtr resultPtr;
-  function->apply(rows, inputs, outputType, &evalCtx, &resultPtr);
+  function->apply(rows, inputs, outputType, evalCtx, resultPtr);
 
   return resultPtr;
 }

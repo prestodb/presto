@@ -37,14 +37,14 @@ class SplitCharacter final : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     exec::LocalDecodedVector input(context, *args[0], rows);
 
     ArrayBuilder<Varchar> builder(
         /*numArrays=*/rows.size(),
         /*estimatedNumElements=*/rows.countSelected() * 3,
-        context->pool());
+        context.pool());
 
     rows.applyToSelected([&](vector_size_t row) {
       ArrayBuilder<Varchar>::Ref array = builder.startArray(row);
@@ -62,8 +62,8 @@ class SplitCharacter final : public exec::VectorFunction {
     builder.setStringBuffers(
         args[0]->asFlatVector<StringView>()->stringBuffers());
     std::shared_ptr<ArrayVector> arrayVector =
-        std::move(builder).finish(context->pool());
-    context->moveOrCopyResult(arrayVector, rows, result);
+        std::move(builder).finish(context.pool());
+    context.moveOrCopyResult(arrayVector, rows, result);
   }
 
  private:
@@ -80,8 +80,8 @@ class Split final : public exec::VectorFunction {
       const SelectivityVector& rows,
       std::vector<VectorPtr>& args,
       const TypePtr& /* outputType */,
-      exec::EvalCtx* context,
-      VectorPtr* result) const override {
+      exec::EvalCtx& context,
+      VectorPtr& result) const override {
     auto delimiterVector = args[1]->as<ConstantVector<StringView>>();
     VELOX_CHECK(
         delimiterVector, "Split function supports only constant delimiter");
