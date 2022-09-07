@@ -16,6 +16,7 @@
 
 #include "velox/exec/Spiller.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
+#include <unordered_set>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -43,16 +44,22 @@ struct TestParam {
   }
 };
 
-std::vector<TestParam> getTestParams() {
-  std::vector<TestParam> params;
-  for (int i = 0; i < Spiller::kNumTypes; ++i) {
-    const auto type = static_cast<Spiller::Type>(i);
-    for (int poolSize : {0, 0}) {
-      params.emplace_back(type, poolSize);
+struct TestParamsBuilder {
+  std::vector<TestParam> getTestParams() {
+    std::vector<TestParam> params;
+    for (int i = 0; i < Spiller::kNumTypes; ++i) {
+      const auto type = static_cast<Spiller::Type>(i);
+      if (typesToExclude.find(type) == typesToExclude.end()) {
+        for (int poolSize : {0, 8}) {
+          params.emplace_back(type, poolSize);
+        }
+      }
     }
+    return params;
   }
-  return params;
-}
+
+  std::unordered_set<Spiller::Type> typesToExclude{};
+};
 
 // Set sequential value in a given child vector. 'value' is the starting value.
 void setSequentialValue(
@@ -74,16 +81,16 @@ void resizeVector(RowVector& vector, vector_size_t size) {
 }
 } // namespace
 
-class SpillerTest : public exec::test::RowContainerTestBase,
-                    public testing::WithParamInterface<TestParam> {
+class SpillerTest : public exec::test::RowContainerTestBase {
  public:
   static void SetUpTestCase() {
     TestValue::enable();
   }
 
-  SpillerTest()
-      : type_(GetParam().type),
-        executorPoolSize_(GetParam().poolSize),
+  explicit SpillerTest(const TestParam& param)
+      : param_(param),
+        type_(param.type),
+        executorPoolSize_(param.poolSize),
         hashBits_(0, type_ == Spiller::Type::kOrderBy ? 0 : 2),
         numPartitions_(hashBits_.numPartitions()) {}
 
@@ -522,7 +529,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     }
     SCOPED_TRACE(fmt::format(
         "Param: {}, numSpillers: {}, numBatchRows: {}, numAppendBatches: {}, targetFileSize: {}, spillPartitionNumSet: {}",
-        GetParam().toString(),
+        param_.toString(),
         numSpillers,
         numBatchRows,
         numAppendBatches,
@@ -685,6 +692,7 @@ class SpillerTest : public exec::test::RowContainerTestBase,
     partitions_.clear();
   }
 
+  const TestParam param_;
   const Spiller::Type type_;
   const int executorPoolSize_;
   const HashBitRange hashBits_;
@@ -707,11 +715,45 @@ class SpillerTest : public exec::test::RowContainerTestBase,
   std::unique_ptr<Spiller> spiller_;
 };
 
-TEST_P(SpillerTest, spilFew) {
-  if (GetParam().type == Spiller::Type::kHashJoinProbe ||
-      GetParam().type == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
+class AllTypes : public SpillerTest,
+                 public testing::WithParamInterface<TestParam> {
+ public:
+  AllTypes() : SpillerTest(GetParam()) {}
+
+  static std::vector<TestParam> getTestParams() {
+    return TestParamsBuilder().getTestParams();
   }
+};
+
+class NoHashJoin : public SpillerTest,
+                   public testing::WithParamInterface<TestParam> {
+ public:
+  NoHashJoin() : SpillerTest(GetParam()) {}
+
+  static std::vector<TestParam> getTestParams() {
+    return TestParamsBuilder{
+        .typesToExclude =
+            {Spiller::Type::kHashJoinProbe, Spiller::Type::kHashJoinBuild}}
+        .getTestParams();
+  }
+};
+
+class NoHashJoinNoOrderBy : public SpillerTest,
+                            public testing::WithParamInterface<TestParam> {
+ public:
+  NoHashJoinNoOrderBy() : SpillerTest(GetParam()) {}
+
+  static std::vector<TestParam> getTestParams() {
+    return TestParamsBuilder{
+        .typesToExclude =
+            {Spiller::Type::kHashJoinProbe,
+             Spiller::Type::kHashJoinBuild,
+             Spiller::Type::kOrderBy}}
+        .getTestParams();
+  }
+};
+
+TEST_P(NoHashJoin, spilFew) {
   // Test with distinct sort keys.
   testSortedSpill(10, 1);
   testSortedSpill(10, 1, 0, false);
@@ -724,11 +766,7 @@ TEST_P(SpillerTest, spilFew) {
   testSortedSpill(10, 10, 32, false);
 }
 
-TEST_P(SpillerTest, spilMost) {
-  if (type_ == Spiller::Type::kHashJoinProbe ||
-      type_ == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
-  }
+TEST_P(NoHashJoin, spilMost) {
   // Test with distinct sort keys.
   testSortedSpill(60, 1);
   testSortedSpill(60, 1, 0, false);
@@ -741,11 +779,7 @@ TEST_P(SpillerTest, spilMost) {
   testSortedSpill(60, 10, 32, false);
 }
 
-TEST_P(SpillerTest, spillAll) {
-  if (type_ == Spiller::Type::kHashJoinProbe ||
-      type_ == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
-  }
+TEST_P(NoHashJoin, spillAll) {
   // Test with distinct sort keys.
   testSortedSpill(100, 1);
   testSortedSpill(100, 1, 0, false);
@@ -758,24 +792,13 @@ TEST_P(SpillerTest, spillAll) {
   testSortedSpill(100, 10, 32, false);
 }
 
-TEST_P(SpillerTest, error) {
-  if (type_ == Spiller::Type::kHashJoinProbe ||
-      type_ == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
-  }
+TEST_P(NoHashJoin, error) {
   testSortedSpill(100, 1, 0, true);
 }
 
-TEST_P(SpillerTest, spillWithEmptyPartitions) {
-  if (type_ == Spiller::Type::kHashJoinProbe ||
-      type_ == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
-  }
-  if (type_ == Spiller::Type::kOrderBy) {
-    // kOrderBy type which has only one partition which is not relevant for this
-    // test.
-    return;
-  }
+TEST_P(NoHashJoinNoOrderBy, spillWithEmptyPartitions) {
+  // kOrderBy type which has only one partition which is not relevant for this
+  // test.
   auto rowType = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
     std::vector<int> rowsPerPartition;
@@ -844,15 +867,8 @@ TEST_P(SpillerTest, spillWithEmptyPartitions) {
   }
 }
 
-TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
-  if (type_ == Spiller::Type::kHashJoinProbe ||
-      type_ == Spiller::Type::kHashJoinBuild) {
-    GTEST_SKIP();
-  }
-  if (type_ == Spiller::Type::kOrderBy) {
-    // kOrderBy type which has only one partition, is un-relevant for this test.
-    GTEST_SKIP();
-  }
+TEST_P(NoHashJoinNoOrderBy, spillWithNonSpillingPartitions) {
+  // kOrderBy type which has only one partition, is irrelevant for this test.
   std::shared_ptr<const RowType> rowType =
       ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
@@ -915,7 +931,7 @@ TEST_P(SpillerTest, spillWithNonSpillingPartitions) {
   }
 }
 
-TEST_P(SpillerTest, nonSortedSpillFunctions) {
+TEST_P(AllTypes, nonSortedSpillFunctions) {
   if (type_ == Spiller::Type::kOrderBy || type_ == Spiller::Type::kAggregate) {
     setupSpillData(rowType_, numKeys_, 1'000, 1, nullptr, {});
     sortSpillData();
@@ -948,5 +964,15 @@ TEST_P(SpillerTest, nonSortedSpillFunctions) {
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,
+    AllTypes,
+    testing::ValuesIn(AllTypes::getTestParams()));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,
-    testing::ValuesIn(getTestParams()));
+    NoHashJoin,
+    testing::ValuesIn(NoHashJoin::getTestParams()));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    SpillerTest,
+    NoHashJoinNoOrderBy,
+    testing::ValuesIn(NoHashJoinNoOrderBy::getTestParams()));

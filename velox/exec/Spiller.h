@@ -34,7 +34,7 @@ class Spiller {
     // Used for order by.
     kOrderBy = 3,
   };
-  static constexpr int kNumTypes = 3;
+  static constexpr int kNumTypes = 4;
   static std::string typeName(Type);
 
   // Specifies the config for spilling.
