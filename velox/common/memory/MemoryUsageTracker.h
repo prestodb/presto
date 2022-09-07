@@ -203,7 +203,7 @@ class MemoryUsageTracker
     {
       std::lock_guard<std::mutex> l(mutex_);
       auto newUsed = usedReservation_ += size;
-      auto newCap = std::max(minReservation_, newUsed);
+      auto newCap = std::max(minReservation_.load(), newUsed);
       auto newQuantized = quantizedSize(newCap);
       if (newQuantized != reservation_) {
         decrement = reservation_ - newQuantized;
@@ -397,10 +397,10 @@ class MemoryUsageTracker
   std::array<std::atomic<int64_t>, 3> numAllocs_{};
   std::array<std::atomic<int64_t>, 3> cumulativeBytes_{};
 
-  int64_t reservation_{0};
+  std::atomic<int64_t> reservation_{0};
 
   // Minimum amount of reserved memory to hold until explicit release().
-  int64_t minReservation_{0};
+  std::atomic<int64_t> minReservation_{0};
   std::atomic<int64_t> usedReservation_{};
 
   GrowCallback growCallback_{};
