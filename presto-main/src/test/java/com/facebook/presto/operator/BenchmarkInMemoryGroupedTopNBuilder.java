@@ -16,7 +16,10 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.memory.context.SimpleLocalMemoryContext;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.tpch.LineItem;
 import io.airlift.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -38,8 +41,10 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
@@ -56,7 +61,7 @@ import static org.testng.Assert.assertFalse;
 @Fork(4)
 @Warmup(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-public class BenchmarkGroupedTopNBuilder
+public class BenchmarkInMemoryGroupedTopNBuilder
 {
     private static final int HASH_GROUP = 0;
     private static final int EXTENDED_PRICE = 1;
@@ -88,7 +93,7 @@ public class BenchmarkGroupedTopNBuilder
         private int groupCount = 10;
 
         private List<Page> page;
-        private GroupedTopNBuilder topNBuilder;
+        private InMemoryGroupedTopNBuilder topNBuilder;
 
         @Setup
         public void setup()
@@ -97,14 +102,40 @@ public class BenchmarkGroupedTopNBuilder
             GroupByHash groupByHash;
             if (groupCount > 1) {
                 groupByHash = new BigintGroupByHash(HASH_GROUP, true, groupCount, UpdateMemory.NOOP);
+                topNBuilder = new InMemoryGroupedTopNBuilder(
+                        null,
+                        types,
+                        ImmutableList.of(types.get(HASH_GROUP)),
+                        ImmutableList.of(HASH_GROUP),
+                        Optional.of(HASH_GROUP),
+                        0,
+                        false,
+                        null,
+                        comparator,
+                        topN,
+                        false,
+                        Optional.empty(),
+                        false);
             }
             else {
-                groupByHash = new NoChannelGroupByHash();
+                topNBuilder = new InMemoryGroupedTopNBuilder(
+                        null,
+                        types,
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
+                        comparator,
+                        topN,
+                        false,
+                        Optional.empty(),
+                        false);
             }
-            topNBuilder = new GroupedTopNBuilder(types, comparator, topN, false, groupByHash);
         }
 
-        public GroupedTopNBuilder getTopNBuilder()
+        public InMemoryGroupedTopNBuilder getTopNBuilder()
         {
             return topNBuilder;
         }
@@ -118,7 +149,7 @@ public class BenchmarkGroupedTopNBuilder
     @Benchmark
     public void topN(BenchmarkData data, Blackhole blackhole)
     {
-        GroupedTopNBuilder topNBuilder = data.getTopNBuilder();
+        InMemoryGroupedTopNBuilder topNBuilder = data.getTopNBuilder();
         for (Page page : data.getPages()) {
             Work<?> work = topNBuilder.processPage(page);
             boolean finished;
@@ -135,7 +166,7 @@ public class BenchmarkGroupedTopNBuilder
 
     public List<Page> topNToList(BenchmarkData data)
     {
-        GroupedTopNBuilder topNBuilder = data.getTopNBuilder();
+        InMemoryGroupedTopNBuilder topNBuilder = data.getTopNBuilder();
         for (Page page : data.getPages()) {
             Work<?> work = topNBuilder.processPage(page);
             boolean finished;
@@ -159,7 +190,7 @@ public class BenchmarkGroupedTopNBuilder
     {
         Options options = new OptionsBuilder()
                 .parent(new CommandLineOptions(args))
-                .include(".*" + BenchmarkGroupedTopNBuilder.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkInMemoryGroupedTopNBuilder.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

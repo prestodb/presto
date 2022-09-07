@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
+import java.util.Map;
 
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -32,30 +33,33 @@ public class TestDistributedSpilledQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return localCreateQueryRunner();
+        return createDistributedSpillingQueryRunner(null);
     }
 
-    public static QueryRunner localCreateQueryRunner()
+    public static QueryRunner createDistributedSpillingQueryRunner(Map<String, String> extraSessionProperties)
             throws Exception
     {
-        Session defaultSession = testSessionBuilder()
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2")
-                .setSystemProperty(SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "128kB")
-                .setSystemProperty(SystemSessionProperties.USE_MARK_DISTINCT, "false")
-                .setSystemProperty(SystemSessionProperties.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "false")
-                .build();
+                .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "1")
+                .setSystemProperty(SystemSessionProperties.MAX_DRIVERS_PER_TASK, "1");
+
+        if (extraSessionProperties != null) {
+            for (Map.Entry<String, String> e : extraSessionProperties.entrySet()) {
+                sessionBuilder.setSystemProperty(e.getKey(), e.getValue());
+            }
+        }
 
         ImmutableMap<String, String> extraProperties = ImmutableMap.<String, String>builder()
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
-                .put("experimental.memory-revoking-target", "0.0")
+//                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
+//                .put("experimental.memory-revoking-target", "0.0")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(defaultSession, 2, extraProperties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(sessionBuilder.build(), 1, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

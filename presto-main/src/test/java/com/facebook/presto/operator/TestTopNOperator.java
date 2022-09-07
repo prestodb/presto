@@ -91,7 +91,9 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST),
+                null,
+                false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(6L, 0.6)
@@ -122,7 +124,9 @@ public class TestTopNOperator
                 ImmutableList.of(VARCHAR, BIGINT),
                 3,
                 ImmutableList.of(0, 1),
-                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST, DESC_NULLS_LAST),
+                null,
+                false);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
                 .row("f", 3L)
@@ -155,7 +159,9 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT, DOUBLE),
                 2,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                null,
+                false);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT, DOUBLE)
                 .row(-1L, -0.1)
@@ -177,7 +183,9 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 0,
                 ImmutableList.of(0),
-                ImmutableList.of(DESC_NULLS_LAST));
+                ImmutableList.of(DESC_NULLS_LAST),
+                null,
+                false);
 
         try (Operator operator = factory.createOperator(driverContext)) {
             assertEquals(operator.isFinished(), true);
@@ -204,7 +212,9 @@ public class TestTopNOperator
                 ImmutableList.of(BIGINT),
                 100,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                null,
+                false);
         try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
             operator.addInput(input.get(0));
             fail("must fail because of exceeding local memory limit");
@@ -212,4 +222,6 @@ public class TestTopNOperator
         catch (ExceededMemoryLimitException ignore) {
         }
     }
+
+
 }

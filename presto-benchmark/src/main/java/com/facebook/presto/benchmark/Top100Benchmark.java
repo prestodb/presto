@@ -44,7 +44,9 @@ public class Top100Benchmark
                 tableScanTypes,
                 100,
                 ImmutableList.of(0),
-                ImmutableList.of(ASC_NULLS_LAST));
+                ImmutableList.of(ASC_NULLS_LAST),
+                null,
+                false);
         return ImmutableList.of(tableScanOperator, topNOperator);
     }
 

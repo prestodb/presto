@@ -13,20 +13,25 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spiller.SpillerFactory;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -35,6 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class TopNOperator
         implements Operator
 {
+    public static Logger logger = Logger.get(TopNOperator.class);
     public static class TopNOperatorFactory
             implements OperatorFactory
     {
@@ -45,6 +51,8 @@ public class TopNOperator
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
         private boolean closed;
+        private final SpillerFactory spillerFactory;
+        private final boolean spillEnabled;
 
         public TopNOperatorFactory(
                 int operatorId,
@@ -52,7 +60,9 @@ public class TopNOperator
                 List<? extends Type> types,
                 int n,
                 List<Integer> sortChannels,
-                List<SortOrder> sortOrders)
+                List<SortOrder> sortOrders,
+                SpillerFactory spillerFactory,
+                boolean spillEnabled)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -60,6 +70,8 @@ public class TopNOperator
             this.n = n;
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+            this.spillerFactory = spillerFactory;
+            this.spillEnabled = spillEnabled;
         }
 
         @Override
@@ -72,7 +84,9 @@ public class TopNOperator
                     sourceTypes,
                     n,
                     sortChannels,
-                    sortOrders);
+                    sortOrders,
+                    spillerFactory,
+                    spillEnabled);
         }
 
         @Override
@@ -84,7 +98,7 @@ public class TopNOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
+            return new TopNOperatorFactory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, spillerFactory, spillEnabled);
         }
     }
 
@@ -101,23 +115,51 @@ public class TopNOperator
             List<Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            SpillerFactory spillerFactory,
+            boolean spillEnabled)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         checkArgument(n >= 0, "n must be positive");
-
         if (n == 0) {
             finishing = true;
             outputIterator = emptyIterator();
         }
         else {
-            topNBuilder = new GroupedTopNBuilder(
-                    types,
-                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
-                    n,
-                    false,
-                    new NoChannelGroupByHash());
+            if (spillEnabled) {
+                logger.info("TopNOperator::: SpillEnabled id=%s", operatorContext.getOperatorId());
+                topNBuilder = new SpillableGroupedTopNBuilder(
+                        types,
+                        emptyList(),
+                        emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
+                        new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                        n,
+                        false,
+                        operatorContext,
+                        spillerFactory);
+            }
+            else {
+                logger.info("TopNOperator::: NOT SpillEnabled");
+                topNBuilder = new InMemoryGroupedTopNBuilder(
+                        operatorContext,
+                        types,
+                        emptyList(),
+                        emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
+                        new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                        n,
+                        false,
+                        Optional.empty(),
+                        true);
+            }
         }
     }
 
@@ -148,16 +190,19 @@ public class TopNOperator
     @Override
     public void addInput(Page page)
     {
+        logger.info(" [%s] ===================== Consuming Page ==================== ", Thread.currentThread().getName());
         checkState(!finishing, "Operator is already finishing");
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
-        updateMemoryReservation();
+        logger.info(" [%s] ===================== Consuming Page (Done) ==================== ", Thread.currentThread().getName());
     }
 
     @Override
     public Page getOutput()
     {
+        logger.info(" [%s] <<<<<<<<<<<<<<<<<<<<< Trying for Output Page ==================== ",Thread.currentThread().getName());
+
         if (!finishing || noMoreOutput()) {
             return null;
         }
@@ -170,17 +215,26 @@ public class TopNOperator
         Page output = null;
         if (outputIterator.hasNext()) {
             output = outputIterator.next();
+            logger.info(" [%s] <<<<<<<<<<<<<<<<<<<<< Got Output Page  %s (Done) ==================== ", Thread.currentThread().getName(), output);
         }
         else {
             outputIterator = emptyIterator();
         }
-        updateMemoryReservation();
         return output;
     }
 
-    private void updateMemoryReservation()
+    @Override
+    public ListenableFuture<?> startMemoryRevoke()
     {
-        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
+        return topNBuilder.startMemoryRevoke();
+    }
+
+    @Override
+    public void finishMemoryRevoke()
+    {
+        if (topNBuilder != null) {
+            topNBuilder.finishMemoryRevoke();
+        }
     }
 
     private boolean noMoreOutput()

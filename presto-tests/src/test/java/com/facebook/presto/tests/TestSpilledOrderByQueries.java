@@ -18,6 +18,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+
 import static com.facebook.presto.SystemSessionProperties.ORDER_BY_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
 
@@ -28,7 +30,10 @@ public class TestSpilledOrderByQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TestDistributedSpilledQueries.localCreateQueryRunner();
+        HashMap<String, String> spillProperties = new HashMap<>();
+        spillProperties.put(ORDER_BY_SPILL_ENABLED, "true");
+
+        return TestDistributedSpilledQueries.createDistributedSpillingQueryRunner(spillProperties);
     }
 
     @Test

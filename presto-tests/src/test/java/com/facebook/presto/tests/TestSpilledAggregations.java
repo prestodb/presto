@@ -14,13 +14,20 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
+
+import static com.facebook.presto.SystemSessionProperties.AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_SPILL_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.DISTINCT_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.ORDER_BY_AGGREGATION_SPILL_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_REVOCABLE_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.USE_MARK_DISTINCT;
+import static com.facebook.presto.SystemSessionProperties.WINDOW_SPILL_ENABLED;
 
 public class TestSpilledAggregations
         extends AbstractTestAggregations
@@ -29,7 +36,13 @@ public class TestSpilledAggregations
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return TestDistributedSpilledQueries.localCreateQueryRunner();
+        HashMap<String, String> spillProperties = new HashMap<>();
+        spillProperties.put(WINDOW_SPILL_ENABLED, "true");
+        spillProperties.put(AGGREGATION_OPERATOR_UNSPILL_MEMORY_LIMIT, "true");
+        spillProperties.put(USE_MARK_DISTINCT, "true");
+        spillProperties.put(DEDUP_BASED_DISTINCT_AGGREGATION_SPILL_ENABLED, "true");
+
+        return TestDistributedSpilledQueries.createDistributedSpillingQueryRunner(spillProperties);
     }
 
     @Test

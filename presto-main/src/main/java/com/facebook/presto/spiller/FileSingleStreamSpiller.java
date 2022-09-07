@@ -42,6 +42,7 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import static com.facebook.presto.common.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static com.facebook.presto.execution.buffer.PageSplitterUtil.splitPage;
@@ -61,7 +62,7 @@ public class FileSingleStreamSpiller
 {
     @VisibleForTesting
     static final int BUFFER_SIZE = 4 * 1024;
-
+    public static final Logger logger = Logger.getLogger(FileSingleStreamSpiller.class.getSimpleName());
     private final FileHolder targetFile;
     private final Closer closer = Closer.create();
     private final PagesSerde serde;
@@ -154,6 +155,7 @@ public class FileSingleStreamSpiller
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
+                logger.info("[" + Thread.currentThread().getName() + "]" + "Spilling page " + page.toString());
                 spilledPagesInMemorySize += page.getSizeInBytes();
                 // page serialization requires  page.getSizeInBytes() + Integer.BYTES to fit in an integer
                 splitPage(page, DEFAULT_MAX_PAGE_SIZE_IN_BYTES).stream()

@@ -55,7 +55,7 @@ public class TaskManagerConfig
     private int maxWorkerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private Integer minDrivers;
     private Integer initialSplitsPerNode;
-    private int minDriversPerTask = 3;
+    private int minDriversPerTask = 1;
     private int maxDriversPerTask = Integer.MAX_VALUE;
     private int maxTasksPerStage = Integer.MAX_VALUE;
     private Duration splitConcurrencyAdjustmentInterval = new Duration(100, TimeUnit.MILLISECONDS);
