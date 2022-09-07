@@ -249,6 +249,14 @@ class FunctionBaseTest : public testing::Test,
     return core::Expressions::inferTypes(untyped, rowType, pool());
   }
 
+  std::unique_ptr<exec::ExprSet> compileExpression(
+      const std::string& expr,
+      const RowTypePtr& rowType) {
+    std::vector<core::TypedExprPtr> expressions = {
+        parseExpression(expr, rowType)};
+    return std::make_unique<exec::ExprSet>(std::move(expressions), &execCtx_);
+  }
+
   std::unique_ptr<exec::ExprSet> compileExpressions(
       const std::vector<std::string>& exprs,
       const RowTypePtr& rowType) {

@@ -23,14 +23,6 @@ using namespace facebook::velox::test;
 
 class MapFilterTest : public functions::test::FunctionBaseTest {
  protected:
-  std::unique_ptr<exec::ExprSet> compileExpression(
-      const std::string& expr,
-      const RowTypePtr& rowType) {
-    std::vector<std::shared_ptr<const core::ITypedExpr>> expressions = {
-        parseExpression(expr, rowType)};
-    return std::make_unique<exec::ExprSet>(std::move(expressions), &execCtx_);
-  }
-
   template <typename K, typename V>
   void checkMapFilter(
       BaseVector* inputMap,

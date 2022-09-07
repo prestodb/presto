@@ -80,14 +80,6 @@ class ReduceFunction : public exec::VectorFunction {
 
     auto flatArray = flattenArray(rows, args[0], decodedArray);
 
-    // Loop over lambda functions and apply these to elements of the base array.
-    // In most cases there will be only one function and the loop will run once.
-    auto inputFuncIt = args[2]->asUnchecked<FunctionVector>()->iterator(&rows);
-
-    SelectivityVector arrayRows(flatArray->size(), false);
-    BufferPtr elementIndices =
-        allocateIndices(flatArray->size(), context->pool());
-
     const auto& initialState = args[1];
     auto partialResult =
         BaseVector::create(initialState->type(), rows.end(), context->pool());
@@ -107,6 +99,15 @@ class ReduceFunction : public exec::VectorFunction {
     VarSetter finalSelection(
         context->mutableFinalSelection(), &rows, context->isFinalSelection());
     VarSetter isFinalSelection(context->mutableIsFinalSelection(), false);
+    const SelectivityVector& finalSelectionRows = *context->finalSelection();
+
+    // Loop over lambda functions and apply these to elements of the base array.
+    // In most cases there will be only one function and the loop will run once.
+    auto inputFuncIt = args[2]->asUnchecked<FunctionVector>()->iterator(&rows);
+
+    BufferPtr elementIndices =
+        allocateIndices(flatArray->size(), context->pool());
+    SelectivityVector arrayRows(flatArray->size(), false);
 
     // Iteratively apply input function to array elements.
     // First, apply input function to first elements of all arrays.
@@ -117,22 +118,34 @@ class ReduceFunction : public exec::VectorFunction {
     while (auto entry = inputFuncIt.next()) {
       VectorPtr state = initialState;
 
-      int n = 0;
+      vector_size_t n = 0;
       while (true) {
+        // Sets arrayRows[row] to true if array at that row has n-th element, to
+        // false otherwise.
+        // Set elementIndices[row] to the index of the n-th element in the
+        // array's elements vector.
         if (!toNthElementRows(
                 flatArray, *entry.rows, n, arrayRows, elementIndices)) {
           break; // Ran out of elements in all arrays.
         }
 
-        auto nthElement = BaseVector::wrapInDictionary(
+        // Create dictionary row -> element in array's elements vector.
+        auto dictNthElements = BaseVector::wrapInDictionary(
             BufferPtr(nullptr),
             elementIndices,
             flatArray->size(),
             flatArray->elements());
 
-        std::vector<VectorPtr> lambdaArgs = {state, nthElement};
+        // Run input lambda on our dictionary - adding n-th element to the
+        // initial state for every row.
+        std::vector<VectorPtr> lambdaArgs = {state, dictNthElements};
         entry.callable->apply(
-            arrayRows, rows, nullptr, context, lambdaArgs, &partialResult);
+            arrayRows,
+            finalSelectionRows,
+            nullptr,
+            context,
+            lambdaArgs,
+            &partialResult);
         state = partialResult;
         n++;
       }
@@ -143,7 +156,12 @@ class ReduceFunction : public exec::VectorFunction {
     while (auto entry = outputFuncIt.next()) {
       std::vector<VectorPtr> lambdaArgs = {partialResult};
       entry.callable->apply(
-          *entry.rows, rows, nullptr, context, lambdaArgs, result);
+          *entry.rows,
+          finalSelectionRows,
+          nullptr,
+          context,
+          lambdaArgs,
+          result);
     }
   }
 
