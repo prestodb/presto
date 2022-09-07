@@ -2,6 +2,10 @@
 Release 0.276
 =============
 
+.. warning::
+
+   There is a lock contention in Hive connector which slows the query execution.
+
 **Details**
 ===========
 
