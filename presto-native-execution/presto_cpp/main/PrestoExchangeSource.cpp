@@ -54,8 +54,9 @@ void onFinalFailure(
 PrestoExchangeSource::PrestoExchangeSource(
     const folly::Uri& baseUri,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue)
-    : ExchangeSource(extractTaskId(baseUri.path()), destination, queue),
+    std::shared_ptr<exec::ExchangeQueue> queue,
+    memory::MemoryPool* pool)
+    : ExchangeSource(extractTaskId(baseUri.path()), destination, queue, pool),
       basePath_(baseUri.path()),
       host_(baseUri.host()),
       port_(baseUri.port()) {
@@ -292,10 +293,11 @@ std::unique_ptr<exec::ExchangeSource>
 PrestoExchangeSource::createExchangeSource(
     const std::string& url,
     int destination,
-    std::shared_ptr<exec::ExchangeQueue> queue) {
+    std::shared_ptr<exec::ExchangeQueue> queue,
+    memory::MemoryPool* pool) {
   if (strncmp(url.c_str(), "http://", 7) == 0) {
     return std::make_unique<PrestoExchangeSource>(
-        folly::Uri(url), destination, queue);
+        folly::Uri(url), destination, queue, pool);
   }
   return nullptr;
 }
