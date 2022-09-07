@@ -101,7 +101,7 @@ export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
 ### Basic setup on Linux (CentOs 8 or later)
 
 * Clone the whole Presto repository.
-* Run `presto/presto-native-execution/scripts/setup-ubuntu.sh`
+* Run `presto/presto-native-execution/scripts/setup-centos.sh`
 
 ### Setting up local Presto environment on MacOS (with optional IntelliJ and CLion) 
 Clone the whole Presto repository.
