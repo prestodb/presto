@@ -30,9 +30,11 @@ import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
+import com.facebook.presto.spi.security.ViewExpression;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.weakref.jmx.Managed;
@@ -43,6 +45,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -705,6 +708,27 @@ public class AccessControlManager
         if (entry != null) {
             authenticationCheck(() -> entry.getAccessControl().checkCanShowRoleGrants(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(catalogName), context, catalogName));
         }
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, String columnName)
+    {
+        requireNonNull(context, "securityContext is null");
+        requireNonNull(tableName, "catalogName is null");
+
+        ImmutableList.Builder<ViewExpression> masks = ImmutableList.builder();
+
+        // connector-provided masks take precedence over global masks
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, tableName.getCatalogName());
+        if (entry != null) {
+            entry.getAccessControl().getColumnMask(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(tableName.getCatalogName()), context, toSchemaTableName(tableName), columnName)
+                    .ifPresent(masks::add);
+        }
+
+        systemAccessControl.get().getColumnMask(identity, context, toCatalogSchemaTableName(tableName), columnName)
+                .ifPresent(masks::add);
+
+        return masks.build();
     }
 
     private CatalogAccessControlEntry getConnectorAccessControl(TransactionId transactionId, String catalogName)
