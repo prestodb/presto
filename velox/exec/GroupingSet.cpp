@@ -557,7 +557,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
     for (auto i = 0; i < types.size(); ++i) {
       names.push_back(fmt::format("s{}", i));
     }
-    assert(mappedMemory_->tracker()); // lint
+    VELOX_DCHECK(mappedMemory_->tracker() != nullptr);
     const auto fileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
         spillConfig_->fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(

@@ -17,6 +17,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/ConstantExpr.h"
@@ -416,7 +417,7 @@ bool Expr::checkGetSharedSubexprValues(
   if (!rows.isSubset(*sharedSubexprRows_)) {
     LocalSelectivityVector missingRowsHolder(context, rows);
     auto missingRows = missingRowsHolder.get();
-    assert(missingRows); // lint
+    VELOX_DCHECK(missingRows != nullptr);
     missingRows->deselect(*sharedSubexprRows_);
 
     // Fix finalSelection at "rows" if missingRows is a strict subset to avoid
@@ -825,7 +826,7 @@ void Expr::evalWithMemo(
     if (cachedDictionaryIndices_) {
       LocalSelectivityVector cachedHolder(context, rows);
       auto cached = cachedHolder.get();
-      assert(cached); // lint
+      VELOX_DCHECK(cached != nullptr);
       cached->intersect(*cachedDictionaryIndices_);
       if (cached->hasSelections()) {
         context.ensureWritable(rows, type(), result);
@@ -834,7 +835,7 @@ void Expr::evalWithMemo(
     }
     LocalSelectivityVector uncachedHolder(context, rows);
     auto uncached = uncachedHolder.get();
-    assert(uncached); // lint
+    VELOX_DCHECK(uncached != nullptr);
     if (cachedDictionaryIndices_) {
       uncached->deselect(*cachedDictionaryIndices_);
     }
@@ -1014,7 +1015,7 @@ void Expr::evalAll(
         nonNulls.allocate(rows.end());
         *nonNulls.get() = rows;
         remainingRows = nonNulls.get();
-        assert(remainingRows); // lint
+        VELOX_DCHECK(remainingRows != nullptr);
       }
       LocalDecodedVector decoded(context, *inputValues_[i], rows);
       if (auto* rawNulls = decoded->nulls()) {

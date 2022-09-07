@@ -125,7 +125,7 @@ void ConjunctExpr::evalSpecialForm(
   LocalSelectivityVector errorRows(context);
   LocalSelectivityVector activeRowsHolder(context, rows);
   auto activeRows = activeRowsHolder.get();
-  assert(activeRows); // lint
+  VELOX_DCHECK(activeRows != nullptr);
   int32_t numActive = activeRows->countSelected();
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     VectorPtr inputResult;

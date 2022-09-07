@@ -100,7 +100,7 @@ HashAggregation::HashAggregation(
       intermediateTypes.push_back(
           Aggregate::intermediateType(aggregate->name(), argTypes));
     } else {
-      assert(!argTypes.empty()); // lint
+      VELOX_DCHECK(!argTypes.empty());
       intermediateTypes.push_back(argTypes[0]);
       VELOX_CHECK_EQ(
           argTypes.size(),

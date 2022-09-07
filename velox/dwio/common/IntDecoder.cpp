@@ -2654,7 +2654,7 @@ void IntDecoder<isSigned>::decodeBitsLE(
   }
   if (anyUnsafe) {
     auto lastSafeWord = bufferEnd - sizeof(uint64_t);
-    assert(lastSafeWord); // lint
+    VELOX_DCHECK(lastSafeWord);
     for (auto i = numSafeRows; i < numRows; ++i) {
       auto bit = bitOffset + (rows[i]) * bitWidth;
       auto byte = bit / 8;

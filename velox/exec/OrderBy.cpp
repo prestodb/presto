@@ -193,7 +193,7 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
   VELOX_CHECK_GE(targetBytes, 0);
 
   if (spiller_ == nullptr) {
-    assert(mappedMemory_->tracker()); // lint
+    VELOX_DCHECK(mappedMemory_->tracker() != nullptr);
     const auto& spillConfig = spillConfig_.value();
     const auto spillFileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
         spillConfig.fileSizeFactor;
