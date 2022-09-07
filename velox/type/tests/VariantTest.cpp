@@ -111,6 +111,9 @@ TEST(VariantTest, shortDecimal) {
   // 0.1234 < 1.234
   EXPECT_LT(
       u2.value<TypeKind::SHORT_DECIMAL>(), v.value<TypeKind::SHORT_DECIMAL>());
+  EXPECT_TRUE(dispatchDynamicVariantEquality(v, v, false));
+  EXPECT_TRUE(dispatchDynamicVariantEquality(v, v, true));
+  EXPECT_FALSE(dispatchDynamicVariantEquality(v, u2, true));
 }
 
 TEST(VariantTest, shortDecimalHash) {
@@ -157,6 +160,9 @@ TEST(VariantTest, shortDecimalNull) {
   // n and n3 have same precision and scale.
   auto n3 = n;
   EXPECT_EQ(nHash, n3.hash());
+
+  EXPECT_TRUE(dispatchDynamicVariantEquality(n, n, true));
+  EXPECT_FALSE(dispatchDynamicVariantEquality(n, n, false));
 }
 
 TEST(VariantTest, longDecimal) {
@@ -179,6 +185,9 @@ TEST(VariantTest, longDecimal) {
   // 12.3456 > 12.345
   EXPECT_LT(
       v.value<TypeKind::LONG_DECIMAL>(), u2.value<TypeKind::LONG_DECIMAL>());
+  EXPECT_TRUE(dispatchDynamicVariantEquality(v, v, false));
+  EXPECT_TRUE(dispatchDynamicVariantEquality(v, v, true));
+  EXPECT_FALSE(dispatchDynamicVariantEquality(v, u2, true));
 }
 
 TEST(VariantTest, longDecimalHash) {
@@ -225,6 +234,9 @@ TEST(VariantTest, longDecimalNull) {
   // n and n3 have same precision and scale.
   auto n3 = n;
   EXPECT_EQ(nHash, n3.hash());
+
+  EXPECT_TRUE(dispatchDynamicVariantEquality(n, n, true));
+  EXPECT_FALSE(dispatchDynamicVariantEquality(n, n, false));
 }
 
 /// Test variant::equalsWithEpsilon by summing up large 64-bit integers (> 15

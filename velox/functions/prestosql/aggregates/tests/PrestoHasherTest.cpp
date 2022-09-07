@@ -31,8 +31,9 @@ class PrestoHasherTest : public testing::Test,
   template <typename T>
   void assertHash(
       const std::vector<std::optional<T>>& data,
-      const std::vector<int64_t>& expected) {
-    auto vector = makeNullableFlatVector<T>(data);
+      const std::vector<int64_t>& expected,
+      const TypePtr& type = CppToType<T>::create()) {
+    auto vector = makeNullableFlatVector<T>(data, type);
     assertHash(vector, expected);
   }
 
@@ -172,6 +173,20 @@ TEST_F(PrestoHasherTest, timestamp) {
 TEST_F(PrestoHasherTest, date) {
   assertHash<Date>(
       {Date(0), Date(1000), std::nullopt}, {0, 2343331593029422743, 0});
+}
+
+TEST_F(PrestoHasherTest, unscaledShortDecimal) {
+  assertHash<UnscaledShortDecimal>(
+      {UnscaledShortDecimal(0), UnscaledShortDecimal(1000), std::nullopt},
+      {0, 2343331593029422743, 0},
+      DECIMAL(10, 5));
+}
+
+TEST_F(PrestoHasherTest, unscaledLongDecimal) {
+  assertHash<UnscaledLongDecimal>(
+      {UnscaledLongDecimal(0), UnscaledLongDecimal(1000), std::nullopt},
+      {0, 2343331593029422743, 0},
+      DECIMAL(20, 5));
 }
 
 TEST_F(PrestoHasherTest, doubles) {

@@ -77,6 +77,44 @@ struct VariantEquality<TypeKind::DATE> {
   }
 };
 
+template <>
+struct VariantEquality<TypeKind::SHORT_DECIMAL> {
+  template <bool NullEqualsNull>
+  static bool equals(const variant& a, const variant& b) {
+    const auto lhs = a.value<TypeKind::SHORT_DECIMAL>();
+    const auto rhs = b.value<TypeKind::SHORT_DECIMAL>();
+    const auto lType = DECIMAL(lhs.precision, lhs.scale);
+    const auto rType = DECIMAL(rhs.precision, rhs.scale);
+    if (!lType->equivalent(*rType)) {
+      return false;
+    }
+    if (a.isNull() || b.isNull()) {
+      return evaluateNullEquality<NullEqualsNull>(a, b);
+    } else {
+      return lhs.value() == rhs.value();
+    }
+  }
+};
+
+template <>
+struct VariantEquality<TypeKind::LONG_DECIMAL> {
+  template <bool NullEqualsNull>
+  static bool equals(const variant& a, const variant& b) {
+    const auto lhs = a.value<TypeKind::LONG_DECIMAL>();
+    const auto rhs = b.value<TypeKind::LONG_DECIMAL>();
+    const auto lType = DECIMAL(lhs.precision, lhs.scale);
+    const auto rType = DECIMAL(rhs.precision, rhs.scale);
+    if (!lType->equivalent(*rType)) {
+      return false;
+    }
+    if (a.isNull() || b.isNull()) {
+      return evaluateNullEquality<NullEqualsNull>(a, b);
+    } else {
+      return lhs.value() == rhs.value();
+    }
+  }
+};
+
 // interval day time
 template <>
 struct VariantEquality<TypeKind::INTERVAL_DAY_TIME> {
