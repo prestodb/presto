@@ -20,9 +20,12 @@ import com.facebook.presto.common.array.IntBigArray;
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
@@ -37,9 +40,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.PrimitiveIterator;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,7 +68,7 @@ public class InMemoryGroupedTopNBuilder
     private final int topN;
     private final boolean produceRowNumber;
     private final GroupByHash groupByHash;
-
+    private final OperatorContext operatorContext;
     // a map of heaps, each of which records the top N rows
     private final ObjectBigArray<RowHeap> groupedRows = new ObjectBigArray<>();
     // a list of input pages, each of which has information of which row in which heap references which position
@@ -80,18 +85,25 @@ public class InMemoryGroupedTopNBuilder
     private LocalMemoryContext localUserMemoryContext;
 
     public InMemoryGroupedTopNBuilder(
+            OperatorContext operatorContext,
             List<Type> sourceTypes,
+            List<Type> partitionTypes,
+            List<Integer> partitionChannels,
+            Optional<Integer> hashChannel,
+            int expectedPositions,
+            boolean isDictionaryAggregationEnabled,
+            JoinCompiler joinCompiler,
             PageWithPositionComparator comparator,
             int topN,
             boolean produceRowNumber,
-            GroupByHash groupByHash,
-            Optional<LocalMemoryContext> localUserMemoryContextOptional)
+            Optional<LocalMemoryContext> localUserMemoryContextOptional,
+            boolean yieldForMemoryReservation)
     {
+        this.operatorContext = operatorContext;
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
         checkArgument(topN > 0, "topN must be > 0");
         this.topN = topN;
         this.produceRowNumber = produceRowNumber;
-        this.groupByHash = requireNonNull(groupByHash, "groupByHash is not null");
 
         this.pageWithPositionComparator = requireNonNull(comparator, "comparator is null");
         // Note: this is comparator intentionally swaps left and right arguments form a "reverse order" comparator
@@ -102,6 +114,32 @@ public class InMemoryGroupedTopNBuilder
                 right.getPosition());
         this.emptyPageReferenceSlots = new IntFIFOQueue();
         this.localUserMemoryContext = localUserMemoryContextOptional.orElse(null);
+
+        UpdateMemory updateMemory;
+        if (yieldForMemoryReservation) {
+            updateMemory = this::updateMemoryWithYieldInfo;
+        }
+        else {
+            // Report memory usage but do not yield for memory.
+            updateMemory = () -> {
+                updateMemoryWithYieldInfo();
+                return true;
+            };
+        }
+        if (!partitionChannels.isEmpty()) {
+            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
+            this.groupByHash = createGroupByHash(
+                    partitionTypes,
+                    Ints.toArray(partitionChannels),
+                    hashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled,
+                    joinCompiler,
+                    updateMemory);
+        }
+        else {
+            this.groupByHash = new NoChannelGroupByHash();
+        }
     }
 
     @Override
@@ -131,6 +169,30 @@ public class InMemoryGroupedTopNBuilder
     public void finishMemoryRevoke()
     {
         throw new UnsupportedOperationException("InMemoryGroupedTopNBuilder does not support finishMemoryRevoke");
+    }
+
+    /**
+     * The below logic is borrowed from InMemoryHashAggregationBuilder
+     * Essentially we are setting up for GroupByHash to check if it can allocate memory.
+     * --------------------------------------BORROWED CODE AND COMMENTS BELOW ------------------------------------
+     * Update memory usage with extra memory needed.
+     *
+     * @return true to if the reservation is within the limit
+     */
+    // TODO: update in the interface after the new memory tracking framework is landed
+    // Essentially we would love to have clean interfaces to support both pushing and pulling memory usage
+    // The following implementation is a hybrid model, where the push model is going to call the pull model causing reentrancy
+    private boolean updateMemoryWithYieldInfo()
+    {
+        long memorySize = getEstimatedSizeInBytes();
+        updateMemory(memorySize);
+        // If memory is not available, inform the caller that we cannot proceed for allocation.
+        return operatorContext.isWaitingForMemory().isDone();
+    }
+
+    private void updateMemory(long memorySize)
+    {
+        localUserMemoryContext.setBytes(memorySize);
     }
 
     public Iterator<Page> buildHashSortedResult()
@@ -262,13 +324,15 @@ public class InMemoryGroupedTopNBuilder
 
             memorySizeInBytes += rows.getEstimatedSizeInBytes();
         }
-        log.info("this=%s, memoryOfHeap=%s", this, memorySizeInBytes);
+
+//        log.info("this=%s, consumed pageSize=%s final memorySize=%s ", this, newPage.getSizeInBytes(), memorySizeInBytes);
 
         // may compact the new page as well
         if (newPageReference.getUsedPositionCount() * COMPACT_THRESHOLD < newPage.getPositionCount()) {
             verify(pagesToCompact.add(newPageId));
         }
 
+//        log.info("PagesToCompact=%s", pagesToCompact.parallelStream().map(pageId -> pageReferences.get(pageId).getPage()).collect(Collectors.toList()));
         // compact pages
         IntIterator iterator = pagesToCompact.iterator();
         while (iterator.hasNext()) {
@@ -285,7 +349,7 @@ public class InMemoryGroupedTopNBuilder
                 memorySizeInBytes += pageReference.getEstimatedSizeInBytes();
             }
         }
-        log.info("AfterCompacting this=%s, memoryOfHeap=%s", this, memorySizeInBytes);
+//        log.info("this=%s, consumed pageSize=%s final compactedSize=%s", this, newPage.getSizeInBytes(), memorySizeInBytes);
     }
 
     private int findFirstPositionToInsert(Page newPage, GroupByIdBlock groupIds)
@@ -536,7 +600,8 @@ public class InMemoryGroupedTopNBuilder
         private void nextGroupedRows()
         {
             if (this.groupIds.hasNext()) {
-                RowHeap rows = groupedRows.getAndSet(this.groupIds.nextInt(), null);
+                int n = this.groupIds.nextInt();
+                RowHeap rows = groupedRows.getAndSet(n, null);
                 verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row. rows=%s for %s", rows, this);
                 currentGroupSizeInBytes = rows.getEstimatedSizeInBytes();
                 currentGroupSize = rows.size();
@@ -563,6 +628,18 @@ public class InMemoryGroupedTopNBuilder
     public long getGroupIdsSortingSize()
     {
         return (long) groupByHash.getGroupCount() * Integer.BYTES;
+    }
+
+    @Override
+    public GroupByHash getGroupByHash()
+    {
+        return groupByHash;
+    }
+
+    @Override
+    public void close()
+    {
+        updateMemory(0);
     }
 
     public void updateMemoryReservations()

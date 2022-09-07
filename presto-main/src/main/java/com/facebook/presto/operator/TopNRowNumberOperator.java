@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
@@ -31,7 +32,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -39,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TopNRowNumberOperator
         implements Operator
 {
+    public static Logger logger = Logger.get(TopNRowNumberOperator.class);
     public static class TopNRowNumberOperatorFactory
             implements OperatorFactory
     {
@@ -141,7 +142,6 @@ public class TopNRowNumberOperator
 
     private final int[] outputChannels;
 
-    private final GroupByHash groupByHash;
     private final GroupedTopNBuilder topNBuilder;
 
     private boolean finishing;
@@ -178,40 +178,39 @@ public class TopNRowNumberOperator
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
 
-        if (!partitionChannels.isEmpty()) {
-            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            groupByHash = createGroupByHash(
+        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
+        if (spillEnabled) {
+            logger.info(" SpillableTopNBuilder %s", operatorContext.getOperatorId());
+            this.topNBuilder = new SpillableGroupedTopNBuilder(
+                    ImmutableList.copyOf(sourceTypes),
                     partitionTypes,
-                    Ints.toArray(partitionChannels),
+                    partitionChannels,
                     hashChannel,
                     expectedPositions,
                     isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
-                    () -> {return true;});
-        }
-        else {
-            groupByHash = new NoChannelGroupByHash();
-        }
-
-        List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
-        if (spillEnabled) {
-            this.topNBuilder = new SpillableGroupedTopNBuilder(
-                    ImmutableList.copyOf(sourceTypes),
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                     maxRowCountPerPartition,
                     generateRowNumber,
-                    groupByHash,
                     operatorContext,
                     spillerFactory);
         }
         else {
+            logger.info(" InMemoryTopNBuilder %s", operatorContext.getOperatorId());
             this.topNBuilder = new InMemoryGroupedTopNBuilder(
+                    operatorContext,
                     ImmutableList.copyOf(sourceTypes),
+                    partitionTypes,
+                    partitionChannels,
+                    hashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled(operatorContext.getSession()),
+                    joinCompiler,
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                     maxRowCountPerPartition,
                     generateRowNumber,
-                    groupByHash,
-                    Optional.of(localUserMemoryContext));
+                    Optional.of(localUserMemoryContext),
+                    true);
         }
     }
 
@@ -284,6 +283,7 @@ public class TopNRowNumberOperator
     @VisibleForTesting
     public int getCapacity()
     {
+        GroupByHash groupByHash = topNBuilder.getGroupByHash();
         checkState(groupByHash != null);
         return groupByHash.getCapacity();
     }

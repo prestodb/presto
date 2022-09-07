@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -101,11 +102,37 @@ public class BenchmarkInMemoryGroupedTopNBuilder
             GroupByHash groupByHash;
             if (groupCount > 1) {
                 groupByHash = new BigintGroupByHash(HASH_GROUP, true, groupCount, UpdateMemory.NOOP);
+                topNBuilder = new InMemoryGroupedTopNBuilder(
+                        null,
+                        types,
+                        ImmutableList.of(types.get(HASH_GROUP)),
+                        ImmutableList.of(HASH_GROUP),
+                        Optional.of(HASH_GROUP),
+                        0,
+                        false,
+                        null,
+                        comparator,
+                        topN,
+                        false,
+                        Optional.empty(),
+                        false);
             }
             else {
-                groupByHash = new NoChannelGroupByHash();
+                topNBuilder = new InMemoryGroupedTopNBuilder(
+                        null,
+                        types,
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
+                        comparator,
+                        topN,
+                        false,
+                        Optional.empty(),
+                        false);
             }
-            topNBuilder = new InMemoryGroupedTopNBuilder(types, comparator, topN, false, groupByHash, Optional.empty());
         }
 
         public InMemoryGroupedTopNBuilder getTopNBuilder()

@@ -71,14 +71,21 @@ public class TestInMemoryGroupedTopNBuilder
     public void testEmptyInput()
     {
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 ImmutableList.of(BIGINT),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null,
+                0,
+                false,
+                null,
                 (left, leftPosition, right, rightPosition) -> {
                     throw new UnsupportedOperationException();
                 },
                 5,
                 false,
-                new NoChannelGroupByHash(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         assertFalse(inMemoryGroupedTopNBuilder.buildResult().hasNext());
     }
 
@@ -109,12 +116,19 @@ public class TestInMemoryGroupedTopNBuilder
 
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 types,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null,
+                0,
+                false,
+                null,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 2,
                 produceRowNumbers,
-                groupByHash,
-                Optional.empty());
+                Optional.empty(),
+                false);
         assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), inMemoryGroupedTopNBuilder.getEstimatedSizeInBytes());
 
         // add 4 rows for the first page and created three heaps with 1, 1, 2 rows respectively
@@ -182,12 +196,19 @@ public class TestInMemoryGroupedTopNBuilder
         }
 
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 types,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null,
+                0,
+                false,
+                null,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 5,
                 produceRowNumbers,
-                new NoChannelGroupByHash(),
-                Optional.empty());
+                Optional.empty(),
+                false);
         assertBuilderSize(new NoChannelGroupByHash(), types, ImmutableList.of(), ImmutableList.of(), inMemoryGroupedTopNBuilder.getEstimatedSizeInBytes());
 
         // add 4 rows for the first page and created a single heap with 4 rows
@@ -243,12 +264,19 @@ public class TestInMemoryGroupedTopNBuilder
         AtomicBoolean unblock = new AtomicBoolean();
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get);
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 types,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null,
+                0,
+                false,
+                null,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 5,
                 false,
-                groupByHash,
-                Optional.empty());
+                Optional.empty(),
+                false);
         assertBuilderSize(groupByHash, types, ImmutableList.of(), ImmutableList.of(), inMemoryGroupedTopNBuilder.getEstimatedSizeInBytes());
 
         Work<?> work = inMemoryGroupedTopNBuilder.processPage(input);
@@ -294,12 +322,19 @@ public class TestInMemoryGroupedTopNBuilder
                 .build();
 
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 types,
+                types.subList(0, 1),
+                ImmutableList.of(0),
+                null,
+                0,
+                false,
+                null,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 1,
                 false,
-                createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         // page 1:
         // the first page will be compacted
@@ -389,12 +424,19 @@ public class TestInMemoryGroupedTopNBuilder
 
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
         InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+                null,
                 types,
+                Collections.emptyList(),
+                Collections.emptyList(),
+                null,
+                0,
+                false,
+                null,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
                 pageCount * rowCount,
                 false,
-                groupByHash,
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         // Assert memory usage gradually goes up
         for (int i = 0; i < pageCount; i++) {

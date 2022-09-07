@@ -441,6 +441,7 @@ public class PrestoSparkTaskExecutorFactory
                 }
 
                 if (totalMemoryReservationBytes > pool.getMaxBytes() * memoryRevokingThreshold && memoryRevokeRequestInProgress.compareAndSet(false, true)) {
+                    log.info("InitiatingMemoryRevoke Request -> %s > %s", totalMemoryReservationBytes, pool.getMaxBytes() * memoryRevokingThreshold);
                     memoryRevocationExecutor.execute(() -> {
                         try {
                             AtomicLong remainingBytesToRevoke = new AtomicLong(totalMemoryReservationBytes - (long) (memoryRevokingTarget * pool.getMaxBytes()));

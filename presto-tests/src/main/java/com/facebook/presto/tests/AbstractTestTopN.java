@@ -18,24 +18,46 @@ import org.testng.annotations.Test;
 public abstract class AbstractTestTopN
         extends AbstractTestQueryFramework
 {
-
     @Test
     public void testUngroupedTopN()
     {
-        assertQuery("SELECT custkey, totalprice from orders ORDER BY totalprice limit 10");
+        assertQuery("SELECT custkey, totalprice from orders ORDER BY totalprice limit 3");
     }
 
     @Test
     public void testGroupedTopN()
     {
         assertQuery(
-            "SELECT * FROM (SELECT " +
-                    "custkey, " +
-                    "totalprice, " +
-                    "ROW_NUMBER() OVER (PARTITION BY custkey order by totalprice) rn " +
-                "from orders) " +
-                "where rn < 3");
+                "SELECT * FROM (SELECT " +
+                        "custkey, " +
+                        "totalprice, " +
+                        "ROW_NUMBER() OVER (PARTITION BY custkey order by totalprice) rn " +
+                        "from orders) " +
+                        "where rn < 3");
+    }
 
+    @Test
+    public void testGroupedTopNRowNumber()
+    {
+        assertQuery(
+                "SELECT * FROM (SELECT " +
+                        "custkey, " +
+                        "totalprice, " +
+                        "ROW_NUMBER() OVER (PARTITION BY custkey order by totalprice) rn " +
+                    "from orders) " +
+                    "where rn < 3");
+    }
+
+    @Test
+    public void testUnGroupedTopN()
+    {
+        assertQuery(
+                "SELECT * FROM (SELECT " +
+                        "custkey, " +
+                        "SUM(totalprice) t " +
+//                        "ROW_NUMBER() OVER (PARTITION BY custkey order by totalprice) rn " +
+                        "from orders GROUP BY custkey ) order by t desc " +
+                        "limit 3");
     }
 
     @Test
@@ -52,7 +74,6 @@ public abstract class AbstractTestTopN
                         "   )" +
                         ") " +
                     " WHERE " +
-                        "r <= 2"
-        );
+                        "r <= 2");
     }
 }

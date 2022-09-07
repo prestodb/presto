@@ -51,8 +51,13 @@ public final class WorkProcessorUtils
                     return endOfData();
                 }
 
-                return yieldingIterator.next()
-                        .orElseThrow(() -> new IllegalStateException("Cannot iterate over yielding WorkProcessor"));
+                Optional<T> res =  yieldingIterator.next();
+
+                if (!res.isPresent()) {
+                    throw new IllegalStateException("Cannot iterate over yielding WorkProcessor");
+                }
+
+                return res.get();
             }
         };
     }

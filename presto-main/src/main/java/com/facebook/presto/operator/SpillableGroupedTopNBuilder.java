@@ -19,11 +19,14 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.openjdk.jol.info.ClassLayout;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -45,9 +48,14 @@ public class SpillableGroupedTopNBuilder
     private final PageWithPositionComparator comparator;
     private final int topN;
     private final boolean produceRowNumber;
-    private final GroupByHash groupByHash;
     private final SpillerFactory spillerFactory;
     private final OperatorContext operatorContext;
+    private final List<Type> partitionTypes;
+    private final List<Integer> partitionChannels;
+    private final Optional<Integer> hashChannel;
+    private final int expectedPositions;
+    private final boolean isDictionaryAggregationEnabled;
+    private final JoinCompiler joinCompiler;
 
     private InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder;
     private InMemoryGroupedTopNBuilder mergingInMemoryGroupedTopNBuilder;
@@ -64,10 +72,15 @@ public class SpillableGroupedTopNBuilder
 
     public SpillableGroupedTopNBuilder(
             List<Type> sourceTypes,
+            List<Type> partitionTypes,
+            List<Integer> partitionChannels,
+            Optional<Integer> hashChannel,
+            int expectedPositions,
+            boolean isDictionaryAggregationEnabled,
+            JoinCompiler joinCompiler,
             PageWithPositionComparator comparator,
             int topN,
             boolean produceRowNumber,
-            GroupByHash groupByHash,
             OperatorContext operatorContext,
             SpillerFactory spillerFactory)
     {
@@ -75,9 +88,14 @@ public class SpillableGroupedTopNBuilder
         this.comparator = comparator;
         this.topN = topN;
         this.produceRowNumber = produceRowNumber;
-        this.groupByHash = groupByHash;
         this.spillerFactory = spillerFactory;
         this.operatorContext = operatorContext;
+        this.partitionTypes = partitionTypes;
+        this.partitionChannels = partitionChannels;
+        this.hashChannel = hashChannel;
+        this.expectedPositions = expectedPositions;
+        this.isDictionaryAggregationEnabled = isDictionaryAggregationEnabled;
+        this.joinCompiler = joinCompiler;
 
         initializeInMemoryGroupedTopNBuilder();
 
@@ -93,7 +111,7 @@ public class SpillableGroupedTopNBuilder
     {
         checkState(hasPreviousSpillCompletedSuccessfully(), "Previous spill hasn't yet finished");
 
-        Work<?> result =  inMemoryGroupedTopNBuilder.processPage(page);
+        Work<?> result = inMemoryGroupedTopNBuilder.processPage(page);
         updateMemoryReservations(); // what if we run out of revocable memory ?? We should ideally spill here as well.
         return result;
     }
@@ -112,6 +130,9 @@ public class SpillableGroupedTopNBuilder
 
     public Iterator<Page> buildResult()
     {
+        // spill could be in progress.
+        checkSpillSucceeded(spillInProgress);
+
         producingOutput = true;
         // Convert revocable memory to user memory as returned Iterator holds on to memory so we no longer can revoke.
         if (localRevocableMemoryContext.getBytes() > 0) {
@@ -122,11 +143,14 @@ public class SpillableGroupedTopNBuilder
                 logger.info("Started spilling in buildResult() currentRevocableBytes=%s", currentRevocableBytes);
                 checkSpillSucceeded(spillToDisk());
                 logger.info("Completed spilling in buildResult()");
-                updateMemoryReservations();
+            }
+            else {
+                logger.info("[%s] Moved %s bytes from revocableMemory to localUserMemory", Thread.currentThread().getName(), currentRevocableBytes);
             }
         }
 
         if (!spiller.isPresent()) {
+            logger.info("inMemoryGroupedTopNBuilder.buildResult because spiller not present");
             return inMemoryGroupedTopNBuilder.buildResult();
         }
 
@@ -144,9 +168,8 @@ public class SpillableGroupedTopNBuilder
                     .build();
         }
         else {
-            logger.info("mergingPages: with spilling");
+            logger.info("[%s] mergingPages: with spilling. CurrMem=%s", Thread.currentThread().getName(), getSizeInMemory());
             checkSpillSucceeded(spillToDisk());
-            updateMemoryReservations();
             sortedPageStreams = ImmutableList.<WorkProcessor<Page>>builder()
                     .addAll(spiller.get().getSpills().stream()
                             .map(WorkProcessor::fromIterator)
@@ -172,6 +195,32 @@ public class SpillableGroupedTopNBuilder
         return 0;
     }
 
+    @Override
+    public GroupByHash getGroupByHash()
+    {
+        return inMemoryGroupedTopNBuilder.getGroupByHash();
+    }
+
+    @Override
+    public void close()
+    {
+        try (Closer closer = Closer.create()) {
+            if (inMemoryGroupedTopNBuilder != null) {
+                closer.register(inMemoryGroupedTopNBuilder::close);
+            }
+
+            if (mergingInMemoryGroupedTopNBuilder != null) {
+                closer.register(mergingInMemoryGroupedTopNBuilder::close);
+            }
+            spiller.ifPresent(closer::register);
+            closer.register(() -> localUserMemoryContext.setBytes(0));
+            closer.register(() -> localRevocableMemoryContext.setBytes(0));
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public ListenableFuture<?> startMemoryRevoke()
     {
         checkState(spillInProgress.isDone());
@@ -181,6 +230,7 @@ public class SpillableGroupedTopNBuilder
             verify(localRevocableMemoryContext.getBytes() == 0);
             return NOT_BLOCKED;
         }
+        logger.info("[%s]  startMemoryRevoke because revocableMemoruy=%s", Thread.currentThread().getName(), localRevocableMemoryContext.getBytes());
         spillToDisk();
         return spillInProgress;
     }
@@ -204,7 +254,7 @@ public class SpillableGroupedTopNBuilder
     {
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.aggregateSystemMemoryContext()));
         WorkProcessor<Page> mergedSortedPages = WorkProcessor.fromIterator(mergeHashSort.get().merge(
-                groupByHash.getTypes(),
+                partitionTypes,
                 sourceTypes,
                 sortedPageStreams,
                 operatorContext.getDriverContext().getYieldSignal()).iterator());
@@ -242,7 +292,7 @@ public class SpillableGroupedTopNBuilder
                         return WorkProcessor.TransformationState.needsMoreData();
                     }
                 }
-                logger.info("inputFinished. memorysize=%s", memorySize);
+                logger.info("START mergingInMemoryGroupedTopNBuilder.buildResult memorysize=%s", memorySize);
 
                 reset = true;
                 // we can produce output after every input page, because input pages do not have
@@ -261,14 +311,21 @@ public class SpillableGroupedTopNBuilder
                     this.sourceTypes,
                     operatorContext.getSpillContext(),
                     operatorContext.aggregateSystemMemoryContext()));
+            logger.info("[%s] Spiller created !", Thread.currentThread().getName());
+
+        }
+        else {
+            logger.info("[%s] Spiller already exists !", Thread.currentThread().getName());
         }
 
         // start spilling process with current content of the inMemoryGroupedTopNBuilder builder...
         spillInProgress = spiller.get().spill(inMemoryGroupedTopNBuilder.buildHashSortedResult());
         // ... and immediately create new inMemoryGroupedTopNBuilder so effectively memory ownership
         // over inMemoryGroupedTopNBuilder is transferred from this thread to a spilling thread
+        logger.info("[%s] BEFORE spillMemupdate = %s", Thread.currentThread().getName(), localRevocableMemoryContext.getBytes());
         initializeInMemoryGroupedTopNBuilder();
         updateMemoryReservations();
+        logger.info("[%s] AFTER spillMemupdate = %s", Thread.currentThread().getName(), localRevocableMemoryContext.getBytes());
 
         return spillInProgress;
     }
@@ -276,23 +333,37 @@ public class SpillableGroupedTopNBuilder
     private void initializeInMemoryGroupedTopNBuilder()
     {
         this.inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
+            this.operatorContext,
             this.sourceTypes,
+            this.partitionTypes,
+            this.partitionChannels,
+            this.hashChannel,
+            this.expectedPositions,
+            this.isDictionaryAggregationEnabled,
+            this.joinCompiler,
             this.comparator,
             this.topN,
             this.produceRowNumber,
-            this.groupByHash,
-                Optional.empty());
+            Optional.empty(),
+            false);
     }
 
     private void initializeMergingGroupedTopNBuilder()
     {
         this.mergingInMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
-            this.sourceTypes,
-            this.comparator,
-            this.topN,
-            this.produceRowNumber,
-            this.groupByHash,
-                Optional.empty());
+                this.operatorContext,
+                this.sourceTypes,
+                this.partitionTypes,
+                this.partitionChannels,
+                this.hashChannel,
+                this.expectedPositions,
+                this.isDictionaryAggregationEnabled,
+                this.joinCompiler,
+                this.comparator,
+                this.topN,
+                this.produceRowNumber,
+                Optional.empty(),
+                false);
     }
 
     public void updateMemoryReservations()
@@ -302,9 +373,9 @@ public class SpillableGroupedTopNBuilder
 
     public long getSizeInMemory()
     {
-        // TODO: we could skip memory reservation for hashAggregationBuilder.getGroupIdsSortingSize()
-        // if before building result from hashAggregationBuilder we would convert it to "read only" version.
-        // Read only version of GroupByHash from hashAggregationBuilder could be compacted by dropping
+        // TODO: we could skip memory reservation for inMemoryGroupedTopNBuilder.getGroupIdsSortingSize()
+        // if before building result from inMemoryGroupedTopNBuilder we would convert it to "read only" version.
+        // Read only version of GroupByHash from inMemoryGroupedTopNBuilder could be compacted by dropping
         // most of it's field, freeing up some memory that could be used for sorting.
         return inMemoryGroupedTopNBuilder.getEstimatedSizeInBytes() + inMemoryGroupedTopNBuilder.getGroupIdsSortingSize();
     }

@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.Iterator;
 
 public interface GroupedTopNBuilder
+        extends AutoCloseable
 {
     Work<?> processPage(Page page);
 
@@ -33,4 +34,9 @@ public interface GroupedTopNBuilder
     void updateMemoryReservations();
 
     long getGroupIdsSortingSize();
+
+    GroupByHash getGroupByHash();
+
+    @Override
+    void close();
 }

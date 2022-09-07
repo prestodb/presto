@@ -207,6 +207,8 @@ public final class QueryAssertions
 
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
+        log.info(printRows(actualRows, "actual"));
+        log.info(printRows(expectedRows, "expected"));
 
         if (compareUpdate) {
             if (!actualResults.getUpdateType().isPresent()) {
@@ -230,6 +232,17 @@ public final class QueryAssertions
         else {
             assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
         }
+    }
+
+    public static String printRows(List<MaterializedRow> res, String header)
+    {
+        StringBuilder printV = new StringBuilder();
+        printV.append("\n ============================").append(header).append("========================================== \n");
+        for (MaterializedRow row : res) {
+            printV.append("\n").append(row.toString());
+        }
+        printV.append("\n ====================================================================== \n");
+        return printV.toString();
     }
 
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected)

@@ -115,7 +115,7 @@ public class NoChannelGroupByHash
     {
         if (page.getPositionCount() > 0 && groupCount == 0) {
             groupCount = 1;
-            logger.info("Updating groupCount to 1 for page %s", page);
+            logger.info("[%s] Updating groupCount to 1 for page %s", Thread.currentThread().getName(), page);
         }
     }
 }

@@ -42,10 +42,11 @@ public class TestDistributedSpilledQueries
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema(TINY_SCHEMA_NAME)
-                .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "2");
+                .setSystemProperty(SystemSessionProperties.TASK_CONCURRENCY, "1")
+                .setSystemProperty(SystemSessionProperties.MAX_DRIVERS_PER_TASK, "1");
 
         if (extraSessionProperties != null) {
-            for(Map.Entry<String, String> e: extraSessionProperties.entrySet()) {
+            for (Map.Entry<String, String> e : extraSessionProperties.entrySet()) {
                 sessionBuilder.setSystemProperty(e.getKey(), e.getValue());
             }
         }
@@ -54,11 +55,11 @@ public class TestDistributedSpilledQueries
                 .put("experimental.spill-enabled", "true")
                 .put("experimental.spiller-spill-path", Paths.get(System.getProperty("java.io.tmpdir"), "presto", "spills").toString())
                 .put("experimental.spiller-max-used-space-threshold", "1.0")
-                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
-                .put("experimental.memory-revoking-target", "0.0")
+//                .put("experimental.memory-revoking-threshold", "0.0") // revoke always
+//                .put("experimental.memory-revoking-target", "0.0")
                 .build();
 
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(sessionBuilder.build(), 2, extraProperties);
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(sessionBuilder.build(), 1, extraProperties);
 
         try {
             queryRunner.installPlugin(new TpchPlugin());

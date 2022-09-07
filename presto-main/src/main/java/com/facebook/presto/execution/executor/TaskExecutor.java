@@ -264,6 +264,10 @@ public class TaskExecutor
         checkArgument(interruptSplitInterval.getValue(SECONDS) >= 1.0, "interruptSplitInterval must be at least 1 second");
 
         // we manage thread pool size directly, so create an unlimited pool
+        guaranteedNumberOfDriversPerTask = 1;
+        maximumNumberOfDriversPerTask = 1;
+        runnerThreads = 1;
+        minDrivers = 1;
         this.executor = newCachedThreadPool(threadsNamed("task-processor-%s"));
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) executor);
         this.runnerThreads = runnerThreads;
@@ -300,8 +304,9 @@ public class TaskExecutor
     public synchronized void start()
     {
         checkState(!closed, "TaskExecutor is closed");
-        for (int i = 0; i < runnerThreads; i++) {
+        for (int i = 0; i < 1; i++) {
             addRunnerThread();
+            log.info("Adding new runner thread");
         }
         if (interruptRunawaySplitsTimeout != null) {
             long interval = (long) interruptSplitInterval.getValue(SECONDS);

@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -127,25 +128,37 @@ public class TopNOperator
         }
         else {
             if (spillEnabled) {
-                logger.info("TopNOperator::: SpillEnabled");
+                logger.info("TopNOperator::: SpillEnabled id=%s", operatorContext.getOperatorId());
                 topNBuilder = new SpillableGroupedTopNBuilder(
                         types,
+                        emptyList(),
+                        emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
                         new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                         n,
                         false,
-                        new NoChannelGroupByHash(),
                         operatorContext,
                         spillerFactory);
             }
             else {
                 logger.info("TopNOperator::: NOT SpillEnabled");
                 topNBuilder = new InMemoryGroupedTopNBuilder(
+                        operatorContext,
                         types,
+                        emptyList(),
+                        emptyList(),
+                        null,
+                        0,
+                        false,
+                        null,
                         new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                         n,
                         false,
-                        new NoChannelGroupByHash(),
-                        Optional.of(localUserMemoryContext));
+                        Optional.empty(),
+                        true);
             }
         }
     }
@@ -177,15 +190,19 @@ public class TopNOperator
     @Override
     public void addInput(Page page)
     {
+        logger.info(" [%s] ===================== Consuming Page ==================== ", Thread.currentThread().getName());
         checkState(!finishing, "Operator is already finishing");
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
+        logger.info(" [%s] ===================== Consuming Page (Done) ==================== ", Thread.currentThread().getName());
     }
 
     @Override
     public Page getOutput()
     {
+        logger.info(" [%s] <<<<<<<<<<<<<<<<<<<<< Trying for Output Page ==================== ",Thread.currentThread().getName());
+
         if (!finishing || noMoreOutput()) {
             return null;
         }
@@ -198,6 +215,7 @@ public class TopNOperator
         Page output = null;
         if (outputIterator.hasNext()) {
             output = outputIterator.next();
+            logger.info(" [%s] <<<<<<<<<<<<<<<<<<<<< Got Output Page  %s (Done) ==================== ", Thread.currentThread().getName(), output);
         }
         else {
             outputIterator = emptyIterator();
