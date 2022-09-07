@@ -931,7 +931,7 @@ public class PrestoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, EOFException.class, FileNotFoundException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             InputStream stream;
@@ -946,8 +946,9 @@ public class PrestoS3FileSystem
                                     switch (((AmazonS3Exception) e).getStatusCode()) {
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
-                                        case HTTP_FORBIDDEN:
                                         case HTTP_NOT_FOUND:
+                                            throw new FileNotFoundException("File does not exist: " + path);
+                                        case HTTP_FORBIDDEN:
                                         case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
@@ -1021,7 +1022,7 @@ public class PrestoS3FileSystem
                 int bytesRead = retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
                         .onRetry(STATS::newReadRetry)
                         .run("readStream", () -> {
                             seekStream();
@@ -1100,7 +1101,7 @@ public class PrestoS3FileSystem
                 return retry()
                         .maxAttempts(maxAttempts)
                         .exponentialBackoff(BACKOFF_MIN_SLEEP, maxBackoffTime, maxRetryTime, 2.0)
-                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class)
+                        .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, FileNotFoundException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             try {
@@ -1114,8 +1115,9 @@ public class PrestoS3FileSystem
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
-                                        case HTTP_FORBIDDEN:
                                         case HTTP_NOT_FOUND:
+                                            throw new FileNotFoundException("File does not exist: " + path);
+                                        case HTTP_FORBIDDEN:
                                         case HTTP_BAD_REQUEST:
                                             throw new UnrecoverableS3OperationException(path, e);
                                     }
