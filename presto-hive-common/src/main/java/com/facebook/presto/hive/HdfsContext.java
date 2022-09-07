@@ -32,6 +32,7 @@ public class HdfsContext
     private final Optional<String> tablePath;
     // true if the table already exist in the metastore, false if the table is about to be created in the current transaction
     private final Optional<Boolean> isNewTable;
+    private final Optional<Boolean> isPathValidationNeeded;
     private final Optional<String> clientInfo;
     private final Optional<Set<String>> clientTags;
     private final Optional<ConnectorSession> session;
@@ -53,6 +54,7 @@ public class HdfsContext
         this.tablePath = Optional.empty();
         this.isNewTable = Optional.empty();
         this.session = Optional.empty();
+        this.isPathValidationNeeded = Optional.empty();
     }
 
     /**
@@ -97,6 +99,22 @@ public class HdfsContext
             String schemaName,
             String tableName,
             String tablePath,
+            boolean isNewTable,
+            boolean isPathValidationNeeded)
+    {
+        this(
+                session,
+                Optional.of(requireNonNull(schemaName, "schemaName is null")),
+                Optional.of(requireNonNull(tableName, "tableName is null")),
+                Optional.of(requireNonNull(tablePath, "tablePath is null")),
+                Optional.of(isNewTable),
+                Optional.of(isPathValidationNeeded));
+    }
+    public HdfsContext(
+            ConnectorSession session,
+            String schemaName,
+            String tableName,
+            String tablePath,
             boolean isNewTable)
     {
         this(
@@ -104,7 +122,8 @@ public class HdfsContext
                 Optional.of(requireNonNull(schemaName, "schemaName is null")),
                 Optional.of(requireNonNull(tableName, "tableName is null")),
                 Optional.of(requireNonNull(tablePath, "tablePath is null")),
-                Optional.of(isNewTable));
+                Optional.of(isNewTable),
+                Optional.empty());
     }
 
     private HdfsContext(
@@ -113,6 +132,22 @@ public class HdfsContext
             Optional<String> tableName,
             Optional<String> tablePath,
             Optional<Boolean> isNewTable)
+    {
+        this(
+                session,
+                schemaName,
+                tableName,
+                tablePath,
+                isNewTable,
+                Optional.empty());
+    }
+    private HdfsContext(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            Optional<String> tableName,
+            Optional<String> tablePath,
+            Optional<Boolean> isNewTable,
+            Optional<Boolean> isPathValidationNeeded)
     {
         this.session = Optional.of(requireNonNull(session, "session is null"));
         this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
@@ -124,6 +159,7 @@ public class HdfsContext
         this.clientTags = Optional.of(session.getClientTags());
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
         this.isNewTable = requireNonNull(isNewTable, "isNewTable is null");
+        this.isPathValidationNeeded = requireNonNull(isPathValidationNeeded, "isPathValidationNeeded is null");
     }
 
     public ConnectorIdentity getIdentity()
@@ -174,6 +210,11 @@ public class HdfsContext
     public Optional<ConnectorSession> getSession()
     {
         return session;
+    }
+
+    public Optional<Boolean> getIsPathValidationNeeded()
+    {
+        return isPathValidationNeeded;
     }
 
     @Override
