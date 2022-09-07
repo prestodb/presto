@@ -68,7 +68,7 @@ std::shared_ptr<ExchangeSource> ExchangeSource::create(
   VELOX_FAIL("No ExchangeSource factory matches {}", taskId);
 }
 
-void ExchangeSource::setMemoryPool(memory::MemoryPool* pool) {
+void ExchangeSource::setMemoryPool(memory::MemoryPool* FOLLY_NULLABLE pool) {
   pool_ = pool;
 }
 
@@ -178,7 +178,8 @@ std::unique_ptr<ExchangeSource> createLocalExchangeSource(
 
 } // namespace
 
-void ExchangeClient::maybeSetMemoryPool(memory::MemoryPool* pool) {
+void ExchangeClient::maybeSetMemoryPool(
+    memory::MemoryPool* FOLLY_NONNULL pool) {
   // ExchangeClient could be shared by the same exchange operators from
   // different drivers so we only need to set it on the first operator setup.
   if (pool_ == nullptr) {
@@ -288,7 +289,7 @@ std::string ExchangeClient::toString() {
   return out.str();
 }
 
-bool Exchange::getSplits(ContinueFuture* future) {
+bool Exchange::getSplits(ContinueFuture* FOLLY_NONNULL future) {
   if (operatorCtx_->driverCtx()->driverId != 0) {
     // When there are multiple pipelines, a single operator, the one from
     // pipeline 0, is responsible for feeding splits into shared ExchangeClient.
@@ -322,7 +323,7 @@ bool Exchange::getSplits(ContinueFuture* future) {
   }
 }
 
-BlockingReason Exchange::isBlocked(ContinueFuture* future) {
+BlockingReason Exchange::isBlocked(ContinueFuture* FOLLY_NONNULL future) {
   if (currentPage_ || atEnd_) {
     return BlockingReason::kNotBlocked;
   }
