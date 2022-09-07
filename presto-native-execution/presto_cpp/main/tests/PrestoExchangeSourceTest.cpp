@@ -325,55 +325,45 @@ class PrestoExchangeSourceTest : public testing::Test {
 };
 
 TEST_F(PrestoExchangeSourceTest, basic) {
-  // Test both with memory pool and without memory pool conditions.
-  for (const bool withPool : {true, false}) {
-    memory::MemoryPool* pool = withPool ? pool_ : nullptr;
-
-    std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
-    auto producer = std::make_unique<Producer>();
-    for (auto& page : pages) {
-      producer->enqueue(page);
-    }
-    producer->noMoreData();
-
-    auto producerServer = std::make_unique<http::HttpServer>(
-        folly::SocketAddress("127.0.0.1", 0));
-    producer->registerEndpoints(producerServer.get());
-
-    test::HttpServerWrapper serverWrapper(std::move(producerServer));
-    auto producerAddress = serverWrapper.start().get();
-    auto producerUri = makeProducerUri(producerAddress);
-
-    auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
-    queue->addSource();
-    queue->noMoreSources();
-
-    auto exchangeSource =
-        std::make_shared<PrestoExchangeSource>(producerUri, 3, queue);
-    exchangeSource->setMemoryPool(pool);
-
-    size_t beforePoolSize = pool_->getCurrentBytes();
-    size_t beforeQueueSize = queue->totalBytes();
-    requestNextPage(queue, exchangeSource);
-    for (int i = 0; i < pages.size(); i++) {
-      auto page = waitForNextPage(queue);
-      ASSERT_EQ(toString(page.get()), pages[i]) << "at " << i;
-      requestNextPage(queue, exchangeSource);
-    }
-    waitForEndMarker(queue);
-
-    size_t deltaPool = pool_->getCurrentBytes() - beforePoolSize;
-    size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
-    if (withPool) {
-      EXPECT_EQ(deltaPool, deltaQueue);
-    } else {
-      EXPECT_EQ(deltaPool, 0);
-    }
-
-    producer->waitForDeleteResults();
-    serverWrapper.stop();
-    EXPECT_EQ(pool_->getCurrentBytes(), 0);
+  std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
+  auto producer = std::make_unique<Producer>();
+  for (auto& page : pages) {
+    producer->enqueue(page);
   }
+  producer->noMoreData();
+
+  auto producerServer =
+      std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
+  producer->registerEndpoints(producerServer.get());
+
+  test::HttpServerWrapper serverWrapper(std::move(producerServer));
+  auto producerAddress = serverWrapper.start().get();
+  auto producerUri = makeProducerUri(producerAddress);
+
+  auto queue = std::make_shared<exec::ExchangeQueue>(1 << 20);
+  queue->addSource();
+  queue->noMoreSources();
+
+  auto exchangeSource =
+      std::make_shared<PrestoExchangeSource>(producerUri, 3, queue, pool_);
+
+  size_t beforePoolSize = pool_->getCurrentBytes();
+  size_t beforeQueueSize = queue->totalBytes();
+  requestNextPage(queue, exchangeSource);
+  for (int i = 0; i < pages.size(); i++) {
+    auto page = waitForNextPage(queue);
+    ASSERT_EQ(toString(page.get()), pages[i]) << "at " << i;
+    requestNextPage(queue, exchangeSource);
+  }
+  waitForEndMarker(queue);
+
+  size_t deltaPool = pool_->getCurrentBytes() - beforePoolSize;
+  size_t deltaQueue = queue->totalBytes() - beforeQueueSize;
+  EXPECT_EQ(deltaPool, deltaQueue);
+
+  producer->waitForDeleteResults();
+  serverWrapper.stop();
+  EXPECT_EQ(pool_->getCurrentBytes(), 0);
 }
 
 TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
@@ -396,9 +386,8 @@ TEST_F(PrestoExchangeSourceTest, earlyTerminatingConsumer) {
   queue->addSource();
   queue->noMoreSources();
 
-  auto exchangeSource =
-      std::make_shared<PrestoExchangeSource>(producerUri, 3, queue);
-  exchangeSource->setMemoryPool(pool_);
+  auto exchangeSource = std::make_shared<PrestoExchangeSource>(
+      makeProducerUri(producerAddress), 3, queue, pool_);
   exchangeSource->close();
 
   producer->waitForDeleteResults();
@@ -421,8 +410,7 @@ TEST_F(PrestoExchangeSourceTest, slowProducer) {
   queue->addSource();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress), 3, queue);
-  exchangeSource->setMemoryPool(pool_);
+      makeProducerUri(producerAddress), 3, queue, pool_);
 
   size_t beforePoolSize = pool_->getCurrentBytes();
   size_t beforeQueueSize = queue->totalBytes();
@@ -460,7 +448,7 @@ TEST_F(PrestoExchangeSourceTest, failedProducer) {
   queue->addSource();
   queue->noMoreSources();
   auto exchangeSource = std::make_shared<PrestoExchangeSource>(
-      makeProducerUri(producerAddress), 3, queue);
+      makeProducerUri(producerAddress), 3, queue, pool_);
 
   requestNextPage(queue, exchangeSource);
   producer->enqueue(pages[0]);

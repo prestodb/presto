@@ -16,6 +16,7 @@
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/http/HttpClient.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/exec/Exchange.h"
 
 namespace facebook::presto {
@@ -24,14 +25,16 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue);
+      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      velox::memory::MemoryPool* pool);
 
   bool shouldRequestLocked() override;
 
   static std::unique_ptr<ExchangeSource> createExchangeSource(
       const std::string& url,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue);
+      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      velox::memory::MemoryPool* pool);
 
   void close() override;
 
