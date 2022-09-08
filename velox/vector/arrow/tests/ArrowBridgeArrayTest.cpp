@@ -778,7 +778,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     // buffer, depending on the string sizes, in which case the buffers could be
     // reusable. So we don't check them in here.
     if constexpr (!std::is_same_v<T, std::string>) {
-      EXPECT_FALSE(BaseVector::isReusableFlatVector(output));
+      EXPECT_FALSE(BaseVector::isVectorWritable(output));
     }
   }
 

@@ -154,6 +154,8 @@ class RowVector : public BaseVector {
 
   void ensureWritable(const SelectivityVector& rows) override;
 
+  bool isWritable() const override;
+
   /// Calls BaseVector::prepareForReuse() to check and reset nulls buffer if
   /// needed, then calls BaseVector::prepareForReuse(child, 0) for all children.
   void prepareForReuse() override;
@@ -430,6 +432,8 @@ class ArrayVector : public ArrayVectorBase {
 
   void ensureWritable(const SelectivityVector& rows) override;
 
+  bool isWritable() const override;
+
   /// Calls BaseVector::prepareForReuse() to check and reset nulls buffer if
   /// needed, checks and resets offsets and sizes buffers, zeros out offsets and
   /// sizes if reusable, calls BaseVector::prepareForReuse(elements, 0) for the
@@ -577,6 +581,8 @@ class MapVector : public ArrayVectorBase {
   std::vector<vector_size_t> sortedKeyIndices(vector_size_t index) const;
 
   void ensureWritable(const SelectivityVector& rows) override;
+
+  bool isWritable() const override;
 
   /// Calls BaseVector::prepareForReuse() to check and reset nulls buffer if
   /// needed, checks and resets offsets and sizes buffers, zeros out offsets and

@@ -196,13 +196,6 @@ class FlatVector final : public SimpleVector<T> {
     return rawValues_;
   }
 
-  bool isRecyclable() const final {
-    return (!BaseVector::nulls_ ||
-            (BaseVector::nulls_->unique() &&
-             BaseVector::nulls_->isMutable())) &&
-        (values_ && values_->unique() && values_->isMutable());
-  }
-
   template <typename As>
   const As* rawValues() const {
     return reinterpret_cast<const As*>(rawValues_);
@@ -311,10 +304,6 @@ class FlatVector final : public SimpleVector<T> {
     return size;
   }
 
-  bool isNullsWritable() const override {
-    return true;
-  }
-
   /**
    * Used for vectors of type VARCHAR and VARBINARY to hold data referenced by
    * StringView's. It is safe to share these among multiple vectors. These
@@ -367,6 +356,11 @@ class FlatVector final : public SimpleVector<T> {
   }
 
   void ensureWritable(const SelectivityVector& rows) override;
+
+  bool isWritable() const override {
+    return this->isNullsWritable() &&
+        (!values_ || (values_->unique() && values_->isMutable()));
+  }
 
   /// Calls BaseVector::prapareForReuse() to check and reset nulls buffer if
   /// needed, checks and resets values buffer. Resets all strings buffers except

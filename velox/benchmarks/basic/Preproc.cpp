@@ -79,10 +79,10 @@ class BaseFunction : public exec::VectorFunction {
 
       T* rawResults = nullptr;
       if (!result) {
-        if (BaseVector::isReusableFlatVector(args[0])) {
+        if (BaseVector::isVectorWritable(args[0])) {
           rawResults = rawA;
           result = std::move(args[0]);
-        } else if (BaseVector::isReusableFlatVector(args[1])) {
+        } else if (BaseVector::isVectorWritable(args[1])) {
           rawResults = rawB;
           result = std::move(args[1]);
         }
@@ -131,7 +131,7 @@ class BaseFunction : public exec::VectorFunction {
       VectorPtr& result) const {
     // Check if input can be reused for results.
     T* rawResults;
-    if (!result && BaseVector::isReusableFlatVector(flat)) {
+    if (!result && BaseVector::isVectorWritable(flat)) {
       rawResults = rawValues;
       result = std::move(flat);
     } else {

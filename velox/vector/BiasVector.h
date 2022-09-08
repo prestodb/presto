@@ -155,10 +155,6 @@ class BiasVector : public SimpleVector<T> {
     return true;
   }
 
-  bool isNullsWritable() const override {
-    return true;
-  }
-
   VectorPtr slice(vector_size_t, vector_size_t) const override {
     VELOX_NYI();
   }

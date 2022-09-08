@@ -223,7 +223,7 @@ class SimpleFunctionAdapter : public VectorFunction {
           CppToType<typename arg_at<POSITION>::underlying_type>::typeKind ==
           return_type_traits::typeKind) {
         for (auto i = POSITION; i < args.size(); i++) {
-          if (BaseVector::isReusableFlatVector(args[i])) {
+          if (BaseVector::isVectorWritable(args[i])) {
             return &args[i];
           }
         }
@@ -233,7 +233,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       return nullptr;
     } else if constexpr (
         CppToType<arg_at<POSITION>>::typeKind == return_type_traits::typeKind) {
-      if (BaseVector::isReusableFlatVector(args[POSITION])) {
+      if (BaseVector::isVectorWritable(args[POSITION])) {
         // Re-use arg for result. We rely on the fact that for each row
         // we read arguments before computing and writing out the
         // result.

@@ -169,10 +169,6 @@ class SimpleVector : public BaseVector {
     return elementSize_;
   }
 
-  bool isNullsWritable() const override {
-    return false;
-  }
-
   using BaseVector::toString;
 
   std::string toString(vector_size_t index) const override {

@@ -123,7 +123,8 @@ class Expr {
     if (sharedSubexprRows_) {
       sharedSubexprRows_->clearAll();
     }
-    if (BaseVector::isReusableFlatVector(sharedSubexprValues_)) {
+    if (BaseVector::isVectorWritable(sharedSubexprValues_) &&
+        sharedSubexprValues_->isFlatEncoding()) {
       sharedSubexprValues_->resize(0);
     } else {
       sharedSubexprValues_ = nullptr;

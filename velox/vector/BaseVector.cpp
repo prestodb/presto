@@ -722,42 +722,6 @@ bool isLazyNotLoaded(const BaseVector& vector) {
   }
 }
 
-// static
-bool BaseVector::isReusableFlatVector(const VectorPtr& vector) {
-  // If the main shared_ptr has more than one references, or if it's not a flat
-  // vector, can't reuse.
-  if (!vector.unique() || !isFlat(vector->encoding())) {
-    return false;
-  }
-
-  // Now check if nulls and values buffers also have a single reference and
-  // are mutable.
-  auto checkNullsAndValueBuffers = [&]() {
-    const auto& nulls = vector->nulls();
-    if (!nulls || (nulls->unique() && nulls->isMutable())) {
-      const auto& values = vector->values();
-      if (!values || (values->unique() && values->isMutable())) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Check that all string buffers are single referenced.
-  auto checkStringBuffers = [&]() {
-    if (vector->typeKind_ == TypeKind::VARBINARY ||
-        vector->typeKind_ == TypeKind::VARCHAR) {
-      for (auto& buffer : vector->asFlatVector<StringView>()->stringBuffers()) {
-        if (buffer->refCount() > 1) {
-          return false;
-        }
-      }
-    }
-    return true;
-  };
-  return checkNullsAndValueBuffers() && checkStringBuffers();
-}
-
 uint64_t BaseVector::estimateFlatSize() const {
   if (length_ == 0) {
     return 0;

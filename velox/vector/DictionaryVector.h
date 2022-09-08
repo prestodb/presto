@@ -176,10 +176,6 @@ class DictionaryVector : public SimpleVector<T> {
     return dictionaryValues_->wrappedIndex(rawIndices_[index]);
   }
 
-  bool isNullsWritable() const override {
-    return true;
-  }
-
   std::string toString(vector_size_t index) const override {
     if (BaseVector::isNullAt(index)) {
       return "null";

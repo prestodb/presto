@@ -60,7 +60,8 @@ void extractColumns(
   for (auto projection : projections) {
     auto& child = result->childAt(projection.outputChannel);
     // TODO: Consider reuse of complex types.
-    if (!child || !BaseVector::isReusableFlatVector(child)) {
+    if (!child || !BaseVector::isVectorWritable(child) ||
+        !child->isFlatEncoding()) {
       child = BaseVector::create(
           result->type()->childAt(projection.outputChannel), rows.size(), pool);
     }

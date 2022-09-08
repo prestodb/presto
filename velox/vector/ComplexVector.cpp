@@ -284,6 +284,18 @@ void RowVector::ensureWritable(const SelectivityVector& rows) {
   BaseVector::ensureWritable(rows);
 }
 
+bool RowVector::isWritable() const {
+  for (int i = 0; i < childrenSize_; i++) {
+    if (children_[i]) {
+      if (!BaseVector::isVectorWritable(children_[i])) {
+        return false;
+      }
+    }
+  }
+
+  return isNullsWritable();
+}
+
 uint64_t RowVector::estimateFlatSize() const {
   uint64_t total = BaseVector::retainedSize();
   for (const auto& child : children_) {
@@ -629,6 +641,18 @@ void ArrayVector::ensureWritable(const SelectivityVector& rows) {
   BaseVector::ensureWritable(rows);
 }
 
+bool ArrayVector::isWritable() const {
+  if (offsets_ && !(offsets_->unique() && offsets_->isMutable())) {
+    return false;
+  }
+
+  if (sizes_ && !(sizes_->unique() && sizes_->isMutable())) {
+    return false;
+  }
+
+  return isNullsWritable() && BaseVector::isVectorWritable(elements_);
+}
+
 uint64_t ArrayVector::estimateFlatSize() const {
   return BaseVector::retainedSize() + offsets_->capacity() +
       sizes_->capacity() + elements_->estimateFlatSize();
@@ -893,6 +917,19 @@ void MapVector::ensureWritable(const SelectivityVector& rows) {
       BaseVector::pool_,
       values_);
   BaseVector::ensureWritable(rows);
+}
+
+bool MapVector::isWritable() const {
+  if (offsets_ && !(offsets_->unique() && offsets_->isMutable())) {
+    return false;
+  }
+
+  if (sizes_ && !(sizes_->unique() && sizes_->isMutable())) {
+    return false;
+  }
+
+  return isNullsWritable() && BaseVector::isVectorWritable(keys_) &&
+      BaseVector::isVectorWritable(values_);
 }
 
 uint64_t MapVector::estimateFlatSize() const {

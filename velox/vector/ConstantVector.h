@@ -320,6 +320,10 @@ class ConstantVector final : public SimpleVector<T> {
     return valueVector_->toString(index_);
   }
 
+  bool isNullsWritable() const override {
+    return false;
+  }
+
  protected:
   std::string toSummaryString() const override {
     std::stringstream out;

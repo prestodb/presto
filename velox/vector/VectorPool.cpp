@@ -56,7 +56,9 @@ size_t VectorPool::release(std::vector<VectorPtr>& vectors) {
 }
 
 bool VectorPool::TypePool::maybePushBack(VectorPtr& vector) {
-  if (!vector->isRecyclable()) {
+  // Check that this is a Flat Vector with an initialized, unique, and mutable
+  // values Buffer and an uninitialized or unique and mutable nulls Buffer.
+  if (!vector->isWritable() || !vector->isFlatEncoding() || !vector->values()) {
     return false;
   }
   if (size >= kNumPerType) {

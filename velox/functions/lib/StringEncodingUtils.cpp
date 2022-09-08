@@ -19,12 +19,26 @@
 
 namespace facebook::velox::functions {
 
+namespace {
+/// Check if the input vector's buffers are single referenced
+bool hasSingleReferencedBuffers(const FlatVector<StringView>& vector) {
+  for (auto& buffer : vector.stringBuffers()) {
+    if (!buffer->unique()) {
+      return false;
+    }
+  }
+  return true;
+};
+} // namespace
+
 bool prepareFlatResultsVector(
     VectorPtr& result,
     const SelectivityVector& rows,
     exec::EvalCtx& context,
     VectorPtr& argToReuse) {
-  if (!result && BaseVector::isReusableFlatVector(argToReuse)) {
+  if (!result && BaseVector::isVectorWritable(argToReuse) &&
+      argToReuse->isFlatEncoding() &&
+      hasSingleReferencedBuffers(*argToReuse->asFlatVector<StringView>())) {
     // Move input vector to result
     VELOX_CHECK(
         VectorEncoding::isFlat(argToReuse.get()->encoding()) &&

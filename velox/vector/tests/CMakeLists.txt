@@ -27,6 +27,7 @@ add_executable(
   DecodedVectorTest.cpp
   SelectivityVectorTest.cpp
   EnsureWritableVectorTest.cpp
+  IsWritableVectorTest.cpp
   LazyVectorTest.cpp
   MayHaveNullsRecursiveTest.cpp)
 

@@ -177,6 +177,10 @@ class SequenceVector : public SimpleVector<T> {
     VELOX_NYI();
   }
 
+  bool isNullsWritable() const override {
+    return false;
+  }
+
  private:
   // Prepares for use after construction.
   void setInternalState();
