@@ -31,7 +31,7 @@ public class PinotFunctions
     @Description("pinot binary decimal to double")
     @ScalarFunction(value = "pinot_binary_decimal_to_double")
     @SqlNullable
-    @SqlType(StandardTypes.DOUBLE) // TODO: use StandardTypes.DECIMAL
+    @SqlType(StandardTypes.DOUBLE)
     public static Double pinotBinaryDecimalToDouble(
             @SqlType(StandardTypes.VARBINARY) Slice input,
             @SqlType(StandardTypes.INTEGER) long bigIntegerRadix,
@@ -48,7 +48,5 @@ public class PinotFunctions
         }
         return new BigDecimal(new BigInteger(Hex.encodeHexString(input.getBytes()),
                 (int) bigIntegerRadix), (int) scale).doubleValue();
-//        return Decimals.encodeScaledValue(new BigDecimal(new BigInteger(hex, (int) bigIntegerRadix),
-//                (int) scale), (int) scale);
     }
 }
