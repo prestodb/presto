@@ -3,7 +3,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.276.1-SNAPSHOT</version>
+        <version>0.276.1</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
