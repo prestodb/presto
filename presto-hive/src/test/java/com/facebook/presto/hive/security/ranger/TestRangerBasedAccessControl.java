@@ -15,7 +15,6 @@ package com.facebook.presto.hive.security.ranger;
 
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.http.client.HttpStatus;
-import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.presto.common.Subfield;
@@ -54,7 +53,6 @@ public class TestRangerBasedAccessControl
 {
     public static final ConnectorTransactionHandle TRANSACTION_HANDLE = new ConnectorTransactionHandle() {};
     public static final AccessControlContext CONTEXT = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty());
-    private Response httpResponse;
 
     @Test
     public void testTablePriviledgesRolesNotAllowed()
@@ -193,26 +191,26 @@ public class TestRangerBasedAccessControl
         HttpClient httpClient = new TestingHttpClient(httpRequest -> {
             String uriPath = httpRequest.getUri().getPath();
             if (uriPath.contains(RANGER_REST_POLICY_MGR_DOWNLOAD_URL)) {
-                mockHttpResponse(ByteStreams.toByteArray(this.getClass().getClassLoader().getResourceAsStream(policyFilePath)));
+                return makeHttpResponse(ByteStreams.toByteArray(this.getClass().getClassLoader().getResourceAsStream(policyFilePath)));
             }
             else if (uriPath.contains(RANGER_REST_USER_GROUP_URL)) {
-                mockHttpResponse(ByteStreams.toByteArray(this.getClass().getClassLoader().getResourceAsStream(usersFilePath)));
+                return makeHttpResponse(ByteStreams.toByteArray(this.getClass().getClassLoader().getResourceAsStream(usersFilePath)));
             }
             else if (uriPath.contains(RANGER_REST_USER_ROLES_URL)) {
                 if (uriPath.contains("raj")) {
-                    mockHttpResponse("[\"admin_role\"]".getBytes(UTF_8));
+                    return makeHttpResponse("[\"admin_role\"]".getBytes(UTF_8));
                 }
                 else if (uriPath.contains("maria")) {
-                    mockHttpResponse("[\"etl_role\"]".getBytes(UTF_8));
+                    return makeHttpResponse("[\"etl_role\"]".getBytes(UTF_8));
                 }
                 else if (uriPath.contains("sam")) {
-                    mockHttpResponse("[\"analyst_role\"]".getBytes(UTF_8));
+                    return makeHttpResponse("[\"analyst_role\"]".getBytes(UTF_8));
                 }
                 else {
-                    mockHttpResponse("[\"dev_role\"]".getBytes(UTF_8));
+                    return makeHttpResponse("[\"dev_role\"]".getBytes(UTF_8));
                 }
             }
-            return httpResponse;
+            throw new IllegalStateException("Testing client is not configured correctly");
         });
 
         RangerBasedAccessControlConfig config = new RangerBasedAccessControlConfig()
@@ -222,11 +220,11 @@ public class TestRangerBasedAccessControl
         return rangerBasedAccessControl;
     }
 
-    private void mockHttpResponse(byte[] answerJson)
+    private TestingResponse makeHttpResponse(byte[] answerJson)
     {
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
         headers.put("Content-Type", "application/json");
-        httpResponse = new TestingResponse(HttpStatus.OK, headers.build(), answerJson);
+        return new TestingResponse(HttpStatus.OK, headers.build(), answerJson);
     }
 
     private static <T> T jsonParse(File file, Class<T> clazz)
