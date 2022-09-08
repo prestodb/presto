@@ -93,22 +93,22 @@ public final class HiveQueryRunner
             Iterable<TpchTable<?>> tpchTables,
             Map<String, String> extraProperties,
             Map<String, String> extraCoordinatorProperties,
-            Optional<Path> baseDataDir)
+            Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, extraCoordinatorProperties, "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
     }
 
-    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> baseDataDir)
+    public static DistributedQueryRunner createQueryRunner(Iterable<TpchTable<?>> tpchTables, List<String> tpcdsTableNames, Map<String, String> extraProperties, Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, ImmutableMap.of(), "sql-standard", ImmutableMap.of(), Optional.empty(), dataDirectory, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -116,10 +116,10 @@ public final class HiveQueryRunner
             Map<String, String> extraProperties,
             String security,
             Map<String, String> extraHiveProperties,
-            Optional<Path> baseDataDir)
+            Optional<Path> dataDirectory)
             throws Exception
     {
-        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), baseDataDir, Optional.empty());
+        return createQueryRunner(tpchTables, ImmutableList.of(), extraProperties, ImmutableMap.of(), security, extraHiveProperties, Optional.empty(), dataDirectory, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -130,11 +130,11 @@ public final class HiveQueryRunner
             String security,
             Map<String, String> extraHiveProperties,
             Optional<Integer> workerCount,
-            Optional<Path> baseDataDir,
+            Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
             throws Exception
     {
-        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, baseDataDir, externalWorkerLauncher, Optional.empty());
+        return createQueryRunner(tpchTables, tpcdsTableNames, extraProperties, extraCoordinatorProperties, security, extraHiveProperties, workerCount, dataDirectory, externalWorkerLauncher, Optional.empty());
     }
 
     public static DistributedQueryRunner createQueryRunner(
@@ -145,7 +145,7 @@ public final class HiveQueryRunner
             String security,
             Map<String, String> extraHiveProperties,
             Optional<Integer> workerCount,
-            Optional<Path> baseDataDir,
+            Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             Optional<ExtendedHiveMetastore> externalMetastore)
             throws Exception
@@ -166,7 +166,7 @@ public final class HiveQueryRunner
                         .setNodeCount(workerCount.orElse(4))
                         .setExtraProperties(systemProperties)
                         .setCoordinatorProperties(extraCoordinatorProperties)
-                        .setBaseDataDir(baseDataDir)
+                        .setDataDirectory(dataDirectory)
                         .setExternalWorkerLauncher(externalWorkerLauncher)
                         .build();
         try {
@@ -258,12 +258,12 @@ public final class HiveQueryRunner
 
     private static ExtendedHiveMetastore getFileHiveMetastore(DistributedQueryRunner queryRunner)
     {
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
+        File dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("hive_data").toFile();
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
+        return new FileHiveMetastore(hdfsEnvironment, dataDirectory.toURI().toString(), "test");
     }
 
     public static DistributedQueryRunner createMaterializingQueryRunner(Iterable<TpchTable<?>> tables)
@@ -391,41 +391,41 @@ public final class HiveQueryRunner
         // You need to add "--user user" to your CLI for your queries to work
         Logging.initialize();
 
-        Optional<Path> baseDataDir = Optional.empty();
+        Optional<Path> dataDirectory = Optional.empty();
         if (args.length > 0) {
             if (args.length != 1) {
-                log.error("usage: HiveQueryRunner [baseDataDir]\n");
-                log.error("       [baseDataDir] is a local directory under which you want the hive_data directory to be created.]\n");
+                log.error("usage: HiveQueryRunner [dataDirectory]\n");
+                log.error("       [dataDirectory] is a local directory under which you want the hive_data directory to be created.]\n");
                 System.exit(1);
             }
 
-            File baseDataDirFile = new File(args[0]);
-            if (baseDataDirFile.exists()) {
-                if (!baseDataDirFile.isDirectory()) {
-                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not a directory.");
+            File dataDirectoryFile = new File(args[0]);
+            if (dataDirectoryFile.exists()) {
+                if (!dataDirectoryFile.isDirectory()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not a directory.");
                     System.exit(1);
                 }
-                else if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
-                    log.error("Error: " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                else if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
                     System.exit(1);
                 }
             }
             else {
                 // For user supplied path like [path_exists_but_is_not_readable_or_writable]/[paths_do_not_exist], the hadoop file system won't
                 // be able to create directory for it. e.g. "/aaa/bbb" is not creatable because path "/" is not writable.
-                while (!baseDataDirFile.exists()) {
-                    baseDataDirFile = baseDataDirFile.getParentFile();
+                while (!dataDirectoryFile.exists()) {
+                    dataDirectoryFile = dataDirectoryFile.getParentFile();
                 }
-                if (!baseDataDirFile.canRead() || !baseDataDirFile.canWrite()) {
-                    log.error("Error: The ancestor directory " + baseDataDirFile.getAbsolutePath() + " is not readable/writable.");
+                if (!dataDirectoryFile.canRead() || !dataDirectoryFile.canWrite()) {
+                    log.error("Error: The ancestor directory " + dataDirectoryFile.getAbsolutePath() + " is not readable/writable.");
                     System.exit(1);
                 }
             }
 
-            baseDataDir = Optional.of(baseDataDirFile.toPath());
+            dataDirectory = Optional.of(dataDirectoryFile.toPath());
         }
 
-        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), baseDataDir);
+        DistributedQueryRunner queryRunner = createQueryRunner(TpchTable.getTables(), getAllTpcdsTableNames(), ImmutableMap.of("http-server.http.port", "8080"), dataDirectory);
         Thread.sleep(10);
         Logger log = Logger.get(DistributedQueryRunner.class);
         log.info("======== SERVER STARTED ========");
