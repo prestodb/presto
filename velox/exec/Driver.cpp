@@ -73,25 +73,21 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
   std::move(state->future_)
       .via(&exec)
       .thenValue([state](auto&& /* unused */) {
-        state->operator_->recordBlockingTime(state->sinceMicros_);
         auto driver = state->driver_;
         auto task = driver->task();
-        if (!task) {
-          //'driver' is already removed from its task. No Just drop remaining
-          // references.
+
+        std::lock_guard<std::mutex> l(task->mutex());
+        if (!driver->state().isTerminated) {
+          state->operator_->recordBlockingTime(state->sinceMicros_);
+        }
+        VELOX_CHECK(!driver->state().isSuspended);
+        VELOX_CHECK(driver->state().hasBlockingFuture);
+        driver->state().hasBlockingFuture = false;
+        if (task->pauseRequested()) {
+          // The thread will be enqueued at resume.
           return;
         }
-        {
-          std::lock_guard<std::mutex> l(task->mutex());
-          VELOX_CHECK(!driver->state().isSuspended);
-          VELOX_CHECK(driver->state().hasBlockingFuture);
-          driver->state().hasBlockingFuture = false;
-          if (task->pauseRequested()) {
-            // The thread will be enqueued at resume.
-            return;
-          }
-          Driver::enqueue(state->driver_);
-        }
+        Driver::enqueue(state->driver_);
       })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
