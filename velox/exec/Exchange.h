@@ -173,6 +173,10 @@ class ExchangeQueue {
     checkComplete();
   }
 
+  void closeLocked() {
+    queue_.clear();
+  }
+
  private:
   void checkComplete() {
     if (noMoreSources_ && numCompleted_ == numSources_) {

@@ -141,10 +141,10 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
+      pool_(queryCtx_->pool()->addScopedChild("task_root")),
       splitPlanNodeIds_(collectSplitPlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
-      pool_(queryCtx_->pool()->addScopedChild("task_root")),
       bufferManager_(PartitionedOutputBufferManager::getInstance()) {
   auto memoryUsageTracker = pool_->getMemoryUsageTracker();
   if (memoryUsageTracker) {

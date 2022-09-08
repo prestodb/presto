@@ -787,3 +787,130 @@ TEST_F(MultiFragmentTest, earlyCompletionMerge) {
     ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
   }
 }
+
+class SlowNode : public core::PlanNode {
+ public:
+  SlowNode(const core::PlanNodeId& id, core::PlanNodePtr source)
+      : PlanNode(id), sources_{std::move(source)} {}
+
+  const RowTypePtr& outputType() const override {
+    return sources_[0]->outputType();
+  }
+
+  const std::vector<core::PlanNodePtr>& sources() const override {
+    return sources_;
+  }
+
+  std::string_view name() const override {
+    return "slow";
+  }
+
+ private:
+  void addDetails(std::stringstream& /* stream */) const override {}
+
+  std::vector<core::PlanNodePtr> sources_;
+};
+
+class SlowOperator : public Operator {
+ public:
+  SlowOperator(
+      int32_t operatorId,
+      DriverCtx* driverCtx,
+      std::shared_ptr<const SlowNode> slowNode)
+      : Operator(
+            driverCtx,
+            slowNode->outputType(),
+            operatorId,
+            slowNode->id(),
+            "SlowOperator") {}
+
+  void addInput(RowVectorPtr input) override {
+    input_ = std::move(input);
+  }
+
+  bool needsInput() const override {
+    return input_ == nullptr;
+  }
+
+  RowVectorPtr getOutput() override {
+    if (!input_ || consumedOneBatch_) {
+      return nullptr;
+    }
+    consumedOneBatch_ = true;
+    return std::move(input_);
+  }
+
+  void noMoreInput() override {
+    Operator::noMoreInput();
+  }
+
+  BlockingReason isBlocked(ContinueFuture* future) override {
+    return BlockingReason::kNotBlocked;
+  }
+
+  bool isFinished() override {
+    return false;
+  }
+
+ private:
+  bool consumedOneBatch_{false};
+};
+
+class SlowOperatorTranslator : public Operator::PlanNodeTranslator {
+  std::unique_ptr<Operator>
+  toOperator(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& node) {
+    if (auto slowNode = std::dynamic_pointer_cast<const SlowNode>(node)) {
+      return std::make_unique<SlowOperator>(id, ctx, slowNode);
+    }
+    return nullptr;
+  }
+};
+
+TEST_F(MultiFragmentTest, exchangeDestruction) {
+  // This unit test tests the proper destruction of ExchangeClient upon
+  // task destruction.
+  Operator::registerOperator(std::make_unique<SlowOperatorTranslator>());
+
+  // Set small size so that ExchangeSource will conduct multiple rounds of
+  // pulls of data while SlowOperator will only consume one batch (data
+  // from a single pull of ExchangeSource). This makes sure we always have
+  // data buffered at ExchangeQueue in Exchange operator, which this test
+  // requires.
+  configSettings_[core::QueryConfig::kMaxPartitionedOutputBufferSize] = "2048";
+  setupSources(10, 1000);
+  auto leafTaskId = makeTaskId("leaf", 0);
+  core::PlanNodePtr leafPlan;
+
+  leafPlan = PlanBuilder()
+                 .tableScan(rowType_)
+                 .project({"c0 % 10 AS c0", "c1"})
+                 .partitionedOutput({}, 1)
+                 .planNode();
+
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  Task::start(leafTask, 1);
+  addHiveSplits(leafTask, filePaths_);
+
+  auto rootPlan =
+      PlanBuilder()
+          .exchange(leafPlan->outputType())
+          .addNode([&leafPlan](std::string id, core::PlanNodePtr node) {
+            return std::make_shared<SlowNode>(id, std::move(node));
+          })
+          .partitionedOutput({}, 1)
+          .planNode();
+
+  auto rootTask = makeTask("root-task", rootPlan, 0);
+  Task::start(rootTask, 1);
+  addRemoteSplits(rootTask, {leafTaskId});
+
+  ASSERT_FALSE(waitForTaskCompletion(rootTask.get(), 1'000'000));
+  leafTask->requestAbort().get();
+  rootTask->requestAbort().get();
+
+  // Destructors of root Task should be called without issues. Unprocessed
+  // SerializedPages in MemoryPool tracked LocalExchangeSource should be freed
+  // properly with no crash.
+  leafTask = nullptr;
+  rootTask = nullptr;
+}

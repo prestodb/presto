@@ -223,14 +223,11 @@ void ExchangeClient::noMoreRemoteTasks() {
 
 void ExchangeClient::close() {
   std::vector<std::shared_ptr<ExchangeSource>> sources;
-
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
-
     if (closed_) {
       return;
     }
-
     closed_ = true;
     sources = std::move(sources_);
   }
@@ -238,6 +235,10 @@ void ExchangeClient::close() {
   // Outside of mutex.
   for (auto& source : sources) {
     source->close();
+  }
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    queue_->closeLocked();
   }
 }
 
