@@ -30,6 +30,7 @@ static const char* kRle = "RLE";
 static const char* kArray = "ARRAY";
 static const char* kMap = "MAP";
 static const char* kInt128Array = "INT128_ARRAY";
+static const __int128_t kInt128Mask = ~(static_cast<__int128_t>(1) << 127);
 
 struct ByteStream {
   explicit ByteStream(const char* data, int32_t offset = 0)
@@ -104,7 +105,6 @@ velox::VectorPtr readScalarBlock(
     case velox::TypeKind::VARCHAR:
     case velox::TypeKind::DATE:
     case velox::TypeKind::INTERVAL_DAY_TIME:
-    case velox::TypeKind::LONG_DECIMAL:
     case velox::TypeKind::SHORT_DECIMAL:
       return std::make_shared<velox::FlatVector<U>>(
           pool,
@@ -113,6 +113,22 @@ velox::VectorPtr readScalarBlock(
           positionCount,
           buffer,
           std::vector<velox::BufferPtr>{});
+    case velox::TypeKind::LONG_DECIMAL: {
+      for (auto i = 0; i < positionCount; i++) {
+        // Convert signed magnitude form to 2's complement.
+        if (rawBuffer[i] < 0) {
+          rawBuffer[i] &= kInt128Mask;
+          rawBuffer[i] *= -1;
+        }
+      }
+      return std::make_shared<velox::FlatVector<velox::UnscaledLongDecimal>>(
+          pool,
+          type,
+          nulls,
+          positionCount,
+          buffer,
+          std::vector<velox::BufferPtr>{});
+    }
     case velox::TypeKind::TIMESTAMP: {
       velox::BufferPtr timestamps =
           velox::AlignedBuffer::allocate<velox::Timestamp>(positionCount, pool);
