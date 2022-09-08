@@ -481,6 +481,7 @@ the nodes executing the same query stage in a distributed query execution.
    * - taskUniqueId
      - A 24-bit integer to uniquely identify the task id across all the nodes.
 
+.. _window-node:
 WindowNode
 ~~~~~~~~~~
 
