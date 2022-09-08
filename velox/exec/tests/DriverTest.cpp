@@ -353,7 +353,7 @@ TEST_F(DriverTest, cancel) {
   int32_t numRead = 0;
   try {
     readResults(params, ResultOperation::kCancel, 1'000'000, &numRead);
-    EXPECT_TRUE(false) << "Expected exception";
+    FAIL() << "Expected exception";
   } catch (const VeloxRuntimeError& e) {
     EXPECT_EQ("Cancelled", e.message());
   }
@@ -385,6 +385,11 @@ TEST_F(DriverTest, terminate) {
     // If this is an exception, it will be a cancellation.
     EXPECT_TRUE(strstr(e.what(), "Aborted") != nullptr) << e.what();
   }
+
+  ASSERT_TRUE(cancelFuture_.valid());
+  auto& executor = folly::QueuedImmediateExecutor::instance();
+  std::move(cancelFuture_).via(&executor).wait();
+
   EXPECT_GE(numRead, 1'000'000);
   EXPECT_TRUE(stateFutures_.at(0).isReady());
   EXPECT_EQ(tasks_[0]->state(), TaskState::kAborted);
