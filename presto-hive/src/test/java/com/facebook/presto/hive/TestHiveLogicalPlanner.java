@@ -2009,12 +2009,12 @@ public class TestHiveLogicalPlanner
 
     static ExtendedHiveMetastore replicateHiveMetastore(DistributedQueryRunner queryRunner)
     {
-        URI baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toUri();
+        URI dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("hive_data").toUri();
         HiveClientConfig hiveClientConfig = new HiveClientConfig();
         MetastoreClientConfig metastoreClientConfig = new MetastoreClientConfig();
         HdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, metastoreClientConfig), ImmutableSet.of(), hiveClientConfig);
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, metastoreClientConfig, new NoHdfsAuthentication());
-        return new FileHiveMetastore(hdfsEnvironment, baseDir.toString(), "test");
+        return new FileHiveMetastore(hdfsEnvironment, dataDirectory.toString(), "test");
     }
 
     private static PlanMatchPattern tableScan(String tableName, TupleDomain<String> domainPredicate, RowExpression remainingPredicate, Set<String> predicateColumnNames)

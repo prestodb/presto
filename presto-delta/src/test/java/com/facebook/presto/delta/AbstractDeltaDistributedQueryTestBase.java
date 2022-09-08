@@ -103,14 +103,14 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_metadata");
-        Path catalogDir = dataDir.getParent().resolve("catalog");
+        Path dataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("delta_metadata");
+        Path catalogDirectory = dataDirectory.getParent().resolve("catalog");
 
         // Install a Delta connector catalog
         queryRunner.installPlugin(new DeltaPlugin());
         Map<String, String> deltaProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .build();
         queryRunner.createCatalog(DELTA_CATALOG, "delta", deltaProperties);
 
@@ -120,7 +120,7 @@ public abstract class AbstractDeltaDistributedQueryTestBase
         queryRunner.installPlugin(new HivePlugin("hive"));
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .put("hive.allow-drop-table", "true")
                 .put("hive.security", "legacy")
                 .build();

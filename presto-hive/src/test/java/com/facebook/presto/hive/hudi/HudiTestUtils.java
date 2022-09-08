@@ -57,20 +57,20 @@ public class HudiTestUtils
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setExtraProperties(serverConfig).build();
 
         // setup file metastore
-        Path catalogDir = queryRunner.getCoordinator().getBaseDataDir().resolve("catalog");
-        ExtendedHiveMetastore metastore = createFileHiveMetastore(catalogDir.toString());
+        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("catalog");
+        ExtendedHiveMetastore metastore = createFileHiveMetastore(catalogDirectory.toString());
 
         // prepare testing data
-        Path testingDataDir = queryRunner.getCoordinator().getBaseDataDir().resolve(DATA_DIR);
-        HudiTestingDataGenerator generator = new HudiTestingDataGenerator(metastore, defaultSchema, testingDataDir);
+        Path testingDataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve(DATA_DIR);
+        HudiTestingDataGenerator generator = new HudiTestingDataGenerator(metastore, defaultSchema, testingDataDirectory);
         generator.generateData();
         generator.generateMetadata();
 
         queryRunner.installPlugin(connectorPluginFactory.apply(Optional.of(metastore)));
         queryRunner.createCatalog(catalogName, connectorName, connectorConfig);
 
-        log.info("Using %s as catalog directory ", catalogDir);
-        log.info("Using %s as testing data directory", testingDataDir);
+        log.info("Using %s as catalog directory ", catalogDirectory);
+        log.info("Using %s as testing data directory", testingDataDirectory);
         return queryRunner;
     }
 
