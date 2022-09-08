@@ -83,7 +83,7 @@ public class TestJdbcConnection
         server.installPlugin(new HiveHadoop2Plugin());
         server.createCatalog("hive", "hive-hadoop2", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", server.getBaseDataDir().resolve("hive").toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", server.getDataDirectory().resolve("hive").toFile().toURI().toString())
                 .put("hive.security", "sql-standard")
                 .build());
 

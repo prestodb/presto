@@ -54,9 +54,9 @@ public class LocalFileStorageService
 
     private final RawLocalFileSystem localFileSystem;
 
-    private final File baseStorageDir;
-    private final File baseStagingDir;
-    private final File baseQuarantineDir;
+    private final File storageDirectory;
+    private final File stagingDirectory;
+    private final File quarantineDirectory;
 
     @Inject
     public LocalFileStorageService(OrcDataEnvironment environment, StorageManagerConfig storageManagerConfig)
@@ -64,17 +64,17 @@ public class LocalFileStorageService
         this(environment, storageManagerConfig.getDataDirectory());
     }
 
-    public LocalFileStorageService(OrcDataEnvironment environment, URI dataDirectory)
+    public LocalFileStorageService(OrcDataEnvironment environment, URI dataDirectoryLocation)
     {
         Optional<RawLocalFileSystem> fileSystem = tryGetLocalFileSystem(requireNonNull(environment, "environment is null"));
         checkState(fileSystem.isPresent(), "LocalFileStorageService has to have local file system");
-        checkState(dataDirectory.isAbsolute(), "dataDirectory URI is not absolute");
-        checkState(dataDirectory.getScheme().equals("file"), "dataDirectory URI is not pointing to local file system");
+        checkState(dataDirectoryLocation.isAbsolute(), "dataDirectoryLocation URI is not absolute");
+        checkState(dataDirectoryLocation.getScheme().equals("file"), "dataDirectoryLocation URI is not pointing to local file system");
         this.localFileSystem = fileSystem.get();
-        File baseDataDir = requireNonNull(localFileSystem.pathToFile(new Path(dataDirectory)), "dataDirectory is null");
-        this.baseStorageDir = new File(baseDataDir, "storage");
-        this.baseStagingDir = new File(baseDataDir, "staging");
-        this.baseQuarantineDir = new File(baseDataDir, "quarantine");
+        File dataDirectory = requireNonNull(localFileSystem.pathToFile(new Path(dataDirectoryLocation)), "dataDirectoryLocation is null");
+        this.storageDirectory = new File(dataDirectory, "storage");
+        this.stagingDirectory = new File(dataDirectory, "staging");
+        this.quarantineDirectory = new File(dataDirectory, "quarantine");
     }
 
     @Override
@@ -82,49 +82,49 @@ public class LocalFileStorageService
     public void start()
     {
         deleteStagingFilesAsync();
-        createDirectory(new Path(baseStagingDir.toURI()));
-        createDirectory(new Path(baseStorageDir.toURI()));
-        createDirectory(new Path(baseQuarantineDir.toURI()));
+        createDirectory(new Path(stagingDirectory.toURI()));
+        createDirectory(new Path(storageDirectory.toURI()));
+        createDirectory(new Path(quarantineDirectory.toURI()));
     }
 
     @Override
     public long getAvailableBytes()
     {
-        return baseStorageDir.getUsableSpace();
+        return storageDirectory.getUsableSpace();
     }
 
     @PreDestroy
     public void stop()
             throws IOException
     {
-        deleteDirectory(baseStagingDir);
+        deleteDirectory(stagingDirectory);
     }
 
     @Override
     public Path getStorageFile(UUID shardUuid)
     {
-        return new Path(getFileSystemPath(baseStorageDir, shardUuid).toString());
+        return new Path(getFileSystemPath(storageDirectory, shardUuid).toString());
     }
 
     @Override
     public Path getStagingFile(UUID shardUuid)
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
-        return new Path(baseStagingDir.toString(), name);
+        return new Path(stagingDirectory.toString(), name);
     }
 
     @Override
     public Path getQuarantineFile(UUID shardUuid)
     {
         String name = getFileSystemPath(new File("/"), shardUuid).getName();
-        return new Path(baseQuarantineDir.toString(), name);
+        return new Path(quarantineDirectory.toString(), name);
     }
 
     @Override
     public Set<UUID> getStorageShards()
     {
         ImmutableSet.Builder<UUID> shards = ImmutableSet.builder();
-        for (File level1 : listFiles(baseStorageDir, LocalFileStorageService::isHexDirectory)) {
+        for (File level1 : listFiles(storageDirectory, LocalFileStorageService::isHexDirectory)) {
             for (File level2 : listFiles(level1, LocalFileStorageService::isHexDirectory)) {
                 for (File file : listFiles(level2, path -> true)) {
                     if (file.isFile()) {
@@ -182,7 +182,7 @@ public class LocalFileStorageService
 
     private void deleteStagingFilesAsync()
     {
-        List<File> files = listFiles(baseStagingDir, null);
+        List<File> files = listFiles(stagingDirectory, null);
         if (!files.isEmpty()) {
             new Thread(() -> {
                 for (File file : files) {

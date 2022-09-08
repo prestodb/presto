@@ -167,7 +167,7 @@ public class DistributedQueryRunner
             Map<String, String> catalogServerProperties,
             SqlParserOptions parserOptions,
             String environment,
-            Optional<Path> baseDataDir,
+            Optional<Path> dataDirectory,
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
             List<Module> extraModules)
             throws Exception
@@ -219,7 +219,7 @@ public class DistributedQueryRunner
                                     extraProperties,
                                     parserOptions,
                                     environment,
-                                    baseDataDir,
+                                    dataDirectory,
                                     extraModules));
                     servers.add(worker);
                 }
@@ -236,7 +236,18 @@ public class DistributedQueryRunner
                         int raftPort = Integer.valueOf(resourceManagerProperties.get("raft.port")) + i;
                         rmProperties.replace("raft.port", String.valueOf(raftPort));
                     }
-                    TestingPrestoServer resourceManager = closer.register(createTestingPrestoServer(discoveryUrl, true, true, false, false, false, rmProperties, parserOptions, environment, baseDataDir, extraModules));
+                    TestingPrestoServer resourceManager = closer.register(createTestingPrestoServer(
+                            discoveryUrl,
+                            true,
+                            true,
+                            false,
+                            false,
+                            false,
+                            rmProperties,
+                            parserOptions,
+                            environment,
+                            dataDirectory,
+                            extraModules));
                     servers.add(resourceManager);
                     resourceManagers.add(resourceManager);
                 }
@@ -253,7 +264,7 @@ public class DistributedQueryRunner
                         catalogServerProperties,
                         parserOptions,
                         environment,
-                        baseDataDir,
+                        dataDirectory,
                         extraModules)));
                 servers.add(catalogServer.get());
             }
@@ -269,7 +280,7 @@ public class DistributedQueryRunner
                         extraCoordinatorProperties,
                         parserOptions,
                         environment,
-                        baseDataDir,
+                        dataDirectory,
                         extraModules));
                 servers.add(coordinator);
                 coordinators.add(coordinator);
@@ -364,7 +375,7 @@ public class DistributedQueryRunner
             Map<String, String> extraProperties,
             SqlParserOptions parserOptions,
             String environment,
-            Optional<Path> baseDataDir,
+            Optional<Path> dataDirectory,
             List<Module> extraModules)
             throws Exception
     {
@@ -394,7 +405,7 @@ public class DistributedQueryRunner
                 discoveryUri,
                 parserOptions,
                 extraModules,
-                baseDataDir);
+                dataDirectory);
 
         String nodeRole = "worker";
         if (coordinator) {
@@ -808,7 +819,11 @@ public class DistributedQueryRunner
         closer.register(handle);
     }
 
-    private void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties, boolean coordinatorOnly)
+    private void loadFunctionNamespaceManager(
+            String functionNamespaceManagerName,
+            String catalogName,
+            Map<String, String> properties,
+            boolean coordinatorOnly)
     {
         for (TestingPrestoServer server : servers) {
             if (coordinatorOnly && !server.isCoordinator()) {
@@ -852,7 +867,7 @@ public class DistributedQueryRunner
         private Map<String, String> catalogServerProperties = ImmutableMap.of();
         private SqlParserOptions parserOptions = DEFAULT_SQL_PARSER_OPTIONS;
         private String environment = ENVIRONMENT;
-        private Optional<Path> baseDataDir = Optional.empty();
+        private Optional<Path> dataDirectory = Optional.empty();
         private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
         private boolean resourceManagerEnabled;
         private boolean catalogServerEnabled;
@@ -939,9 +954,9 @@ public class DistributedQueryRunner
             return this;
         }
 
-        public Builder setBaseDataDir(Optional<Path> baseDataDir)
+        public Builder setDataDirectory(Optional<Path> dataDirectory)
         {
-            this.baseDataDir = requireNonNull(baseDataDir, "baseDataDir is null");
+            this.dataDirectory = requireNonNull(dataDirectory, "dataDirectory is null");
             return this;
         }
 
@@ -978,7 +993,22 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return new DistributedQueryRunner(resourceManagerEnabled, catalogServerEnabled, defaultSession, nodeCount, coordinatorCount, resourceManagerCount, extraProperties, coordinatorProperties, resourceManagerProperties, catalogServerProperties, parserOptions, environment, baseDataDir, externalWorkerLauncher, extraModules);
+            return new DistributedQueryRunner(
+                    resourceManagerEnabled,
+                    catalogServerEnabled,
+                    defaultSession,
+                    nodeCount,
+                    coordinatorCount,
+                    resourceManagerCount,
+                    extraProperties,
+                    coordinatorProperties,
+                    resourceManagerProperties,
+                    catalogServerProperties,
+                    parserOptions,
+                    environment,
+                    dataDirectory,
+                    externalWorkerLauncher,
+                    extraModules);
         }
     }
 }

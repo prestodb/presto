@@ -34,22 +34,22 @@ public abstract class TestHiveTpchQueries
             throws Exception
     {
         String prestoServerPath = System.getProperty("PRESTO_SERVER");
-        String baseDataDir = System.getProperty("DATA_DIR");
+        String dataDirectory = System.getProperty("DATA_DIR");
         String workerCount = System.getProperty("WORKER_COUNT");
         int cacheMaxSize = 0;
 
         assertNotNull(prestoServerPath);
-        assertNotNull(baseDataDir);
+        assertNotNull(dataDirectory);
 
-        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(baseDataDir, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
+        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
     }
 
     @Override
     protected ExpectedQueryRunner createExpectedQueryRunner()
             throws Exception
     {
-        String baseDataDir = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(baseDataDir)));
+        String dataDirectory = System.getProperty("DATA_DIR");
+        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
     }
 
     private static String getTpchQuery(int q)

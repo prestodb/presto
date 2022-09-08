@@ -58,12 +58,12 @@ public class TestIcebergOrcMetricsCollection
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path catalogDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").resolve("catalog");
+        Path catalogDirectory = queryRunner.getCoordinator().getDataDirectory().resolve("iceberg_data").resolve("catalog");
 
         queryRunner.installPlugin(new IcebergPlugin());
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
-                .put("hive.metastore.catalog.dir", catalogDir.toFile().toURI().toString())
+                .put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString())
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
