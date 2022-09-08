@@ -54,11 +54,19 @@ add(int128_t x, const int128_t y) {
 
 struct UnscaledLongDecimal {
  public:
+  inline static bool valueInRange(int128_t value) {
+    return (value >= kMin) && (value <= kMax);
+  }
+
   // Default required for creating vector with NULL values.
   UnscaledLongDecimal() = default;
 
-  constexpr explicit UnscaledLongDecimal(int128_t value)
-      : unscaledValue_(value) {}
+  explicit UnscaledLongDecimal(int128_t value) : unscaledValue_(value) {
+    VELOX_DCHECK(
+        valueInRange(unscaledValue_),
+        "Value '{}' is not in the range of LongDecimal Type",
+        unscaledValue_);
+  }
 
   constexpr explicit UnscaledLongDecimal(int64_t value)
       : unscaledValue_(value) {}
@@ -67,6 +75,14 @@ struct UnscaledLongDecimal {
 
   explicit UnscaledLongDecimal(UnscaledShortDecimal value)
       : unscaledValue_(value.unscaledValue()) {}
+
+  static UnscaledLongDecimal min() {
+    return UnscaledLongDecimal(kMin);
+  }
+
+  static UnscaledLongDecimal max() {
+    return UnscaledLongDecimal(kMax);
+  }
 
   int128_t unscaledValue() const {
     return unscaledValue_;
@@ -96,11 +112,23 @@ struct UnscaledLongDecimal {
     return UnscaledLongDecimal(add(unscaledValue_, other.unscaledValue_));
   }
 
+  UnscaledLongDecimal operator-(const UnscaledLongDecimal& other) const {
+    return UnscaledLongDecimal(unscaledValue_ - other.unscaledValue_);
+  }
+
   UnscaledLongDecimal operator=(int value) const {
     return UnscaledLongDecimal(static_cast<int64_t>(value));
   }
 
  private:
+  static constexpr int128_t kMin =
+      -(1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000 *
+        (int128_t)100) +
+      1;
+  static constexpr int128_t kMax =
+      (1'000'000'000'000'000'000 * (int128_t)1'000'000'000'000'000'000 *
+       (int128_t)100) -
+      1;
   int128_t unscaledValue_;
 }; // struct UnscaledLongDecimal
 
@@ -146,12 +174,10 @@ template <>
 class numeric_limits<facebook::velox::UnscaledLongDecimal> {
  public:
   static facebook::velox::UnscaledLongDecimal min() {
-    return facebook::velox::UnscaledLongDecimal(
-        std::numeric_limits<__int128_t>::min());
+    return facebook::velox::UnscaledLongDecimal::min();
   }
   static facebook::velox::UnscaledLongDecimal max() {
-    return facebook::velox::UnscaledLongDecimal(
-        std::numeric_limits<__int128_t>::max());
+    return facebook::velox::UnscaledLongDecimal::max();
   }
 };
 } // namespace std

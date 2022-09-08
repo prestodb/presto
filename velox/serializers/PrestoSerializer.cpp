@@ -997,14 +997,7 @@ inline void VectorStream::append(
     int128_t val = value.unscaledValue();
     // Presto Java UnscaledDecimal128 representation uses signed magnitude
     // representation. Only negative values differ in this representation.
-    // Due to this difference in representation, the UnscaledLongDecimal minimum
-    // value cannot be represented as a Presto UnscaledDecimal128 value. We
-    // throw an error in this case.
     if (val < 0) {
-      if (value == std::numeric_limits<UnscaledLongDecimal>::min()) {
-        VELOX_FAIL(
-            "Cannot serialize '{}' as a Presto UnscaledDecimal128 value", val);
-      }
       val *= -1;
       val |= kInt128SerializeMask;
     }

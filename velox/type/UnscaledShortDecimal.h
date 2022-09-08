@@ -25,11 +25,27 @@ namespace facebook::velox {
 
 struct UnscaledShortDecimal {
  public:
+  inline static bool valueInRange(int64_t value) {
+    return (value >= kMin) && (value <= kMax);
+  }
+
   // Default required for creating vector with NULL values.
   UnscaledShortDecimal() = default;
 
-  constexpr explicit UnscaledShortDecimal(int64_t value)
-      : unscaledValue_(value) {}
+  explicit UnscaledShortDecimal(int64_t value) : unscaledValue_(value) {
+    VELOX_DCHECK(
+        valueInRange(unscaledValue_),
+        "Value '{}' is not in the range of ShortDecimal Type",
+        unscaledValue_);
+  }
+
+  static UnscaledShortDecimal min() {
+    return UnscaledShortDecimal(kMin);
+  }
+
+  static UnscaledShortDecimal max() {
+    return UnscaledShortDecimal(kMax);
+  }
 
   int64_t unscaledValue() const {
     return unscaledValue_;
@@ -59,6 +75,14 @@ struct UnscaledShortDecimal {
     return unscaledValue_ > other.unscaledValue_;
   }
 
+  UnscaledShortDecimal operator-(const UnscaledShortDecimal& other) const {
+    return UnscaledShortDecimal(unscaledValue_ - other.unscaledValue_);
+  }
+
+  UnscaledShortDecimal operator+(const UnscaledShortDecimal& other) const {
+    return UnscaledShortDecimal(unscaledValue_ + other.unscaledValue_);
+  }
+
   bool operator>=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ >= other.unscaledValue_;
   }
@@ -68,6 +92,8 @@ struct UnscaledShortDecimal {
   }
 
  private:
+  static constexpr int64_t kMin = -1'000'000'000'000'000'000 + 1;
+  static constexpr int64_t kMax = 1'000'000'000'000'000'000 - 1;
   int64_t unscaledValue_;
 };
 
@@ -103,12 +129,10 @@ template <>
 class numeric_limits<facebook::velox::UnscaledShortDecimal> {
  public:
   static facebook::velox::UnscaledShortDecimal min() {
-    return facebook::velox::UnscaledShortDecimal(
-        std::numeric_limits<int64_t>::min());
+    return facebook::velox::UnscaledShortDecimal::min();
   }
   static facebook::velox::UnscaledShortDecimal max() {
-    return facebook::velox::UnscaledShortDecimal(
-        std::numeric_limits<int64_t>::max());
+    return facebook::velox::UnscaledShortDecimal::max();
   }
 };
 } // namespace std

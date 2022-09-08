@@ -302,25 +302,20 @@ TEST_F(PrestoSerializerTest, timestampWithNanosecondPrecision) {
 }
 
 TEST_F(PrestoSerializerTest, unscaledLongDecimal) {
-  std::vector<int128_t> decimalValues(101);
-  for (int row = 0; row < 100; row++) {
+  std::vector<int128_t> decimalValues(102);
+  decimalValues[0] = UnscaledLongDecimal::min().unscaledValue();
+  for (int row = 1; row < 101; row++) {
     decimalValues[row] = row - 50;
   }
-  decimalValues[100] = std::numeric_limits<int128_t>::max();
+  decimalValues[101] = UnscaledLongDecimal::max().unscaledValue();
   auto vector =
       vectorMaker_->longDecimalFlatVector(decimalValues, DECIMAL(20, 5));
 
   testRoundTrip(vector);
 
   // Add some nulls.
-  for (auto i = 0; i < 101; i += 7) {
+  for (auto i = 0; i < 102; i += 7) {
     vector->setNull(i, true);
   }
   testRoundTrip(vector);
-
-  // std::numeric_limits<UnscaledLongDecimal>::min() will throw an error.
-  vector->set(100, std::numeric_limits<UnscaledLongDecimal>::min());
-  VELOX_ASSERT_THROW(
-      testRoundTrip(vector),
-      "Cannot serialize '-170141183460469231731687303715884105728' as a Presto UnscaledDecimal128 value");
 }

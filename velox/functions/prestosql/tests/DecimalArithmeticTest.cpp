@@ -219,14 +219,14 @@ TEST_F(DecimalArithmeticTest, decimalMultiplyTest) {
           {},
           "c0 * 10.00",
           {makeLongDecimalFlatVector(
-              {std::numeric_limits<int128_t>::max()}, DECIMAL(38, 0))}),
-      "integer overflow: 170141183460469231731687303715884105727 * 1000");
+              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))}),
+      "integer overflow: 99999999999999999999999999999999999999 * 1000");
 
   VELOX_ASSERT_THROW(
       testDecimalExpr<TypeKind::LONG_DECIMAL>(
           {},
           "c0 * 10.00",
           {makeLongDecimalFlatVector(
-              {std::numeric_limits<int128_t>::min()}, DECIMAL(38, 0))}),
-      "integer overflow: -170141183460469231731687303715884105728 * 1000");
+              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0))}),
+      "integer overflow: -99999999999999999999999999999999999999 * 1000");
 }
