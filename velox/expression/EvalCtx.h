@@ -74,16 +74,12 @@ class EvalCtx {
 
   void restore(ContextSaver& saver);
 
-  // Creates or updates *result according to 'source'. The
-  // 'source' position corresponding to each position in 'rows' is
-  // given by the wrap produced by the last peeling in
-  // EvalEncoding. If '*result' existed, positions not in 'rows' are
-  // not changed.
-  void setWrapped(
-      Expr* FOLLY_NONNULL expr,
-      VectorPtr source,
-      const SelectivityVector& rows,
-      VectorPtr& result);
+  // Wraps the 'peeledResult' in the wrap produced by the last peeling in
+  // EvalEncoding() and returns the vector created as a result.
+  VectorPtr applyWrapToPeeledResult(
+      const TypePtr& outputType,
+      VectorPtr peeledResult,
+      const SelectivityVector& rows);
 
   void setError(vector_size_t index, const std::exception_ptr& exceptionPtr);
 

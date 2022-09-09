@@ -417,17 +417,29 @@ bool Expr::checkGetSharedSubexprValues(
   if (!rows.isSubset(*sharedSubexprRows_)) {
     LocalSelectivityVector missingRowsHolder(context, rows);
     auto missingRows = missingRowsHolder.get();
-    VELOX_DCHECK(missingRows != nullptr);
+    VELOX_DCHECK_NOT_NULL(missingRows);
     missingRows->deselect(*sharedSubexprRows_);
 
-    // Fix finalSelection at "rows" if missingRows is a strict subset to avoid
-    // losing values outside of missingRows.
-    bool updateFinalSelection = context.isFinalSelection() &&
-        (missingRows->countSelected() < rows.countSelected());
-    VarSetter finalSelectionOr(
-        context.mutableFinalSelection(), &rows, updateFinalSelection);
-    VarSetter isFinalSelectionOr(
-        context.mutableIsFinalSelection(), false, updateFinalSelection);
+    // Add the missingRows to sharedSubexprRows_ that will eventually be
+    // evaluated and added to sharedSubexprValues_.
+    sharedSubexprRows_->select(*missingRows);
+
+    // Fix finalSelection to avoid losing values outside missingRows.
+    LocalSelectivityVector newFinalSelectionHolder(
+        context, *sharedSubexprRows_);
+    auto newFinalSelection = newFinalSelectionHolder.get();
+    VELOX_DCHECK_NOT_NULL(newFinalSelection);
+    if (!context.isFinalSelection()) {
+      // In case currently set finalSelection does not include all rows in
+      // sharedSubexprRows_.
+      VELOX_DCHECK_NOT_NULL(context.finalSelection());
+      newFinalSelection->select(*context.finalSelection());
+    }
+    VarSetter finalSelectionPreservePrecomputedValues(
+        context.mutableFinalSelection(),
+        const_cast<const SelectivityVector*>(newFinalSelection));
+    VarSetter isFinalSelectionPreservePrecomputedValues(
+        context.mutableIsFinalSelection(), false, context.isFinalSelection());
 
     evalEncodings(*missingRows, context, sharedSubexprValues_);
   }
@@ -670,31 +682,39 @@ void Expr::evalEncodings(
     }
 
     if (hasNonFlat) {
-      LocalSelectivityVector newRowsHolder(context);
-      LocalSelectivityVector finalRowsHolder(context);
-      ContextSaver saveContext;
-      LocalDecodedVector decodedHolder(context);
-      auto peelEncodingsResult = peelEncodings(
-          context,
-          saveContext,
-          rows,
-          decodedHolder,
-          newRowsHolder,
-          finalRowsHolder);
-      auto* newRows = peelEncodingsResult.newRows;
-      if (newRows) {
-        VectorPtr peeledResult;
-        // peelEncodings() can potentially produce an empty selectivity vector
-        // if all selected values we are waiting for are nulls. So, here we
-        // check for such a case.
-        if (newRows->hasSelections()) {
-          if (peelEncodingsResult.mayCache) {
-            evalWithMemo(*newRows, context, peeledResult);
-          } else {
-            evalWithNulls(*newRows, context, peeledResult);
+      VectorPtr wrappedResult;
+      // Attempt peeling and bound the scope of the context used for it.
+      {
+        ContextSaver saveContext;
+        LocalSelectivityVector newRowsHolder(context);
+        LocalSelectivityVector finalRowsHolder(context);
+        LocalDecodedVector decodedHolder(context);
+        auto peelEncodingsResult = peelEncodings(
+            context,
+            saveContext,
+            rows,
+            decodedHolder,
+            newRowsHolder,
+            finalRowsHolder);
+        auto* newRows = peelEncodingsResult.newRows;
+        if (newRows) {
+          VectorPtr peeledResult;
+          // peelEncodings() can potentially produce an empty selectivity vector
+          // if all selected values we are waiting for are nulls. So, here we
+          // check for such a case.
+          if (newRows->hasSelections()) {
+            if (peelEncodingsResult.mayCache) {
+              evalWithMemo(*newRows, context, peeledResult);
+            } else {
+              evalWithNulls(*newRows, context, peeledResult);
+            }
           }
+          wrappedResult =
+              context.applyWrapToPeeledResult(this->type(), peeledResult, rows);
         }
-        context.setWrapped(this, peeledResult, rows, result);
+      }
+      if (wrappedResult != nullptr) {
+        context.moveOrCopyResult(wrappedResult, rows, result);
         return;
       }
     }
@@ -841,7 +861,8 @@ void Expr::evalWithMemo(
     }
     if (uncached->hasSelections()) {
       // Fix finalSelection at "rows" if uncached rows is a strict subset to
-      // avoid losing values not in uncached rows.
+      // avoid losing values not in uncached rows that were copied earlier into
+      // "result" from the cached rows.
       bool updateFinalSelection = context.isFinalSelection() &&
           (uncached->countSelected() < rows.countSelected());
       VarSetter finalSelectionMemo(
@@ -1193,7 +1214,9 @@ bool Expr::applyFunctionWithPeeling(
 
   VectorPtr peeledResult;
   applyFunction(*newRows, context, peeledResult);
-  context.setWrapped(this, peeledResult, rows, result);
+  VectorPtr wrappedResult =
+      context.applyWrapToPeeledResult(this->type(), peeledResult, rows);
+  context.moveOrCopyResult(wrappedResult, rows, result);
   return true;
 }
 

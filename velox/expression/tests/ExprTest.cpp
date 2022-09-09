@@ -26,7 +26,6 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
-#include "velox/vector/VectorEncoding.h"
 #include "velox/vector/tests/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -2236,4 +2235,82 @@ TEST_F(ExprTest, flatNoNullsFastPath) {
   ASSERT_EQ(1, exprSet->exprs().size());
   ASSERT_FALSE(exprSet->exprs()[0]->supportsFlatNoNullsFastPath())
       << exprSet->toString();
+}
+
+TEST_F(ExprTest, commonSubExpressionWithEncodedInput) {
+  // This test case does a sanity check of the code path that re-uses
+  // precomputed results for common sub-expressions.
+  auto data = makeRowVector(
+      {makeFlatVector<int64_t>({1, 1, 2, 2}),
+       makeFlatVector<int64_t>({10, 10, 20, 20}),
+       wrapInDictionary(
+           makeIndices({0, 1, 2, 3}),
+           4,
+           wrapInDictionary(
+               makeIndices({0, 1, 1, 0}),
+               4,
+               makeFlatVector<int64_t>({1, 2, 3, 4}))),
+       makeConstant<int64_t>(1, 4)});
+
+  // Case 1: When the input to the common sub-expression is a dictionary.
+  // c2 > 1 is a common sub-expression. It is used in 3 top-level expressions.
+  // In the first expression, c2 > 1 is evaluated for rows 2, 3.
+  // In the second expression, c2 > 1 is evaluated for rows 0, 1.
+  // In the third expression. c2 > 1 returns pre-computed results for rows 2, 3
+  auto results = makeRowVector(evaluateMultiple(
+      {"c0 = 2 AND c2 > 1", "c0 = 1 AND c2 > 1", "c1 = 20 AND c2 > 1"}, data));
+  auto expectedResults = makeRowVector(
+      {makeFlatVector<bool>({false, false, true, false}),
+       makeFlatVector<bool>({false, true, false, false}),
+       makeFlatVector<bool>({false, false, true, false})});
+  assertEqualVectors(expectedResults, results);
+
+  // Case 2: When the input to the common sub-expression is a constant.
+  results = makeRowVector(evaluateMultiple(
+      {"c0 = 2 AND c3 > 3", "c0 = 1 AND c3 > 3", "c1 = 20 AND c3 > 3"}, data));
+  expectedResults = makeRowVector(
+      {makeFlatVector<bool>({false, false, false, false}),
+       makeFlatVector<bool>({false, false, false, false}),
+       makeFlatVector<bool>({false, false, false, false})});
+  assertEqualVectors(expectedResults, results);
+
+  // Case 3: When cached rows in sub-expression are not present in final
+  // selection.
+  // In the first expression, c2 > 1 is evaluated for rows 2, 3.
+  // In the second expression, c0 = 1 filters out row 2, 3 and the OR
+  // expression sets the final selection to rows 0, 1. Finally, c2 > 1 is
+  // evaluated for rows 0, 1. If finalSelection was not updated to the union of
+  // cached rows and the existing finalSelection then the vector containing
+  // cached values would have been override.
+  // In the third expression. c2 > 1 returns pre-computed results for rows 3, 4
+  // verifying that the vector containing cached values was not overridden.
+  results = makeRowVector(evaluateMultiple(
+      {"c0 = 2 AND c2 > 1",
+       "c0 = 1 AND ( c1 = 20 OR c2 > 1 )",
+       "c1 = 20 AND c2 > 1"},
+      data));
+  expectedResults = makeRowVector(
+      {makeFlatVector<bool>({false, false, true, false}),
+       makeFlatVector<bool>({false, true, false, false}),
+       makeFlatVector<bool>({false, false, true, false})});
+  assertEqualVectors(expectedResults, results);
+}
+
+TEST_F(ExprTest, preservePartialResultsWithEncodedInput) {
+  // This test verifies that partially populated results are preserved when the
+  // input contains an encoded vector. We do this by using an if statement where
+  // partial results are passed between its children expressions based on the
+  // condition.
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6}),
+      wrapInDictionary(
+          makeIndices({0, 1, 2, 0, 1, 2}),
+          6,
+          makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})),
+  });
+
+  // Create an expression which divides the input to be processed equally
+  // between two different expressions.
+  auto result = evaluate("if(c0 > 3, 7, c1 + 100)", data);
+  assertEqualVectors(makeFlatVector<int64_t>({101, 102, 103, 7, 7, 7}), result);
 }
