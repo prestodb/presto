@@ -1397,6 +1397,26 @@ TEST_F(MysqlDateTimeTest, formatFractionOfSecond) {
       buildMysqlDateTimeFormatter("%f")->format(
           util::fromTimestampString("2000-02-01 00:00:00.987654"), timezone),
       "987000");
+
+  EXPECT_EQ(
+      buildMysqlDateTimeFormatter("%f")->format(
+          util::fromTimestampString("2000-02-01 00:00:00.900654"), timezone),
+      "900000");
+
+  EXPECT_EQ(
+      buildMysqlDateTimeFormatter("%f")->format(
+          util::fromTimestampString("2000-02-01 00:00:00.090654"), timezone),
+      "090000");
+
+  EXPECT_EQ(
+      buildMysqlDateTimeFormatter("%f")->format(
+          util::fromTimestampString("2000-02-01 00:00:00.009654"), timezone),
+      "009000");
+
+  EXPECT_EQ(
+      buildMysqlDateTimeFormatter("%f")->format(
+          util::fromTimestampString("2000-02-01 00:00:00.000654"), timezone),
+      "000000");
 }
 
 TEST_F(MysqlDateTimeTest, formatHour) {

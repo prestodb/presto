@@ -444,6 +444,33 @@ int64_t parseHalfDayOfDay(const char* cur, const char* end, Date& date) {
   }
 }
 
+std::string formatFractionOfSecond(
+    uint16_t subseconds,
+    size_t minRepresentDigits) {
+  char toAdd[minRepresentDigits > 3 ? minRepresentDigits + 1 : 4];
+
+  if (subseconds < 10) {
+    toAdd[0] = '0';
+    toAdd[1] = '0';
+    toAdd[2] = char(subseconds + '0');
+  } else if (subseconds < 100) {
+    toAdd[2] = char(subseconds % 10 + '0');
+    toAdd[1] = char((subseconds / 10) % 10 + '0');
+    toAdd[0] = '0';
+  } else {
+    toAdd[2] = char(subseconds % 10 + '0');
+    toAdd[1] = char((subseconds / 10) % 10 + '0');
+    toAdd[0] = char((subseconds / 100) % 10 + '0');
+  }
+
+  if (minRepresentDigits > 3) {
+    memset(toAdd + 3, '0', minRepresentDigits - 3);
+  }
+
+  toAdd[minRepresentDigits] = '\0';
+  return toAdd;
+}
+
 // According to DateTimeFormatSpecifier enum class
 std::string getSpecifierName(int enumInt) {
   switch (enumInt) {
@@ -1003,14 +1030,13 @@ std::string DateTimeFormatter::format(
               token.pattern.minRepresentDigits);
           break;
 
-        case DateTimeFormatSpecifier::FRACTION_OF_SECOND:
-          result += padContent(
-                        durationInTheDay.subseconds().count(),
-                        '0',
-                        token.pattern.minRepresentDigits,
-                        false)
-                        .substr(0, token.pattern.minRepresentDigits);
+        case DateTimeFormatSpecifier::FRACTION_OF_SECOND: {
+          result += formatFractionOfSecond(
+              durationInTheDay.subseconds().count(),
+              token.pattern.minRepresentDigits);
           break;
+        }
+
         case DateTimeFormatSpecifier::TIMEZONE:
           // TODO: implement short name time zone, need a map from full name to
           // short name

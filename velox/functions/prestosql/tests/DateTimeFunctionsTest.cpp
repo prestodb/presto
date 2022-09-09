@@ -2246,6 +2246,12 @@ TEST_F(DateTimeFunctionsTest, formatDateTime) {
       "12300000",
       formatDatetime(
           fromTimestampString("2022-01-01 03:30:30.123"), "SSSSSSSS"));
+  EXPECT_EQ(
+      "0990",
+      formatDatetime(fromTimestampString("2022-01-01 03:30:30.099"), "SSSS"));
+  EXPECT_EQ(
+      "0010",
+      formatDatetime(fromTimestampString("2022-01-01 03:30:30.001"), "SSSS"));
 
   // time zone test cases - 'z'
   setQueryTimeZone("Asia/Kolkata");
@@ -2412,6 +2418,12 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
   EXPECT_EQ(
       "123000",
       dateFormat(fromTimestampString("2022-01-01 03:30:30.123"), "%f"));
+  EXPECT_EQ(
+      "099000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.099"), "%f"));
+  EXPECT_EQ(
+      "001000",
+      dateFormat(fromTimestampString("2022-01-01 03:30:30.001234"), "%f"));
 
   // Hour cases
   for (int i = 0; i < 24; i++) {
