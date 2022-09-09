@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/future/VeloxPromise.h"
 
 namespace facebook::velox {
@@ -50,18 +51,25 @@ class AsyncSource {
       making_ = true;
       std::swap(make, make_);
     }
+    std::unique_ptr<Item> item;
     try {
-      item_ = make();
+      item = make();
     } catch (std::exception& e) {
+      std::lock_guard<std::mutex> l(mutex_);
       exception_ = std::current_exception();
     }
+    std::unique_ptr<ContinuePromise> promise;
     {
       std::lock_guard<std::mutex> l(mutex_);
-      making_ = false;
-      if (promise_) {
-        promise_->setValue();
-        promise_ = nullptr;
+      VELOX_CHECK_NULL(item_);
+      if (FOLLY_LIKELY(exception_ == nullptr)) {
+        item_ = std::move(item);
       }
+      making_ = false;
+      promise.swap(promise_);
+    }
+    if (promise != nullptr) {
+      promise->setValue();
     }
   }
 

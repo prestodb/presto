@@ -305,9 +305,12 @@ void Spiller::advanceSpill() {
     }
   });
 
+  std::vector<std::unique_ptr<SpillStatus>> results;
+  results.reserve(writes.size());
   for (auto& write : writes) {
-    const auto result = write->move();
-
+    results.push_back(write->move());
+  }
+  for (auto& result : results) {
     if (result->error) {
       std::rethrow_exception(result->error);
     }
