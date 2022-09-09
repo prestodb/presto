@@ -42,7 +42,7 @@ public class TaskStats
 
     private final long elapsedTimeInNanos;
     private final long queuedTimeInNanos;
-    private final long bootstrapTimeMillis;
+    private final long bootstrapTimeInMillis;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -148,7 +148,7 @@ public class TaskStats
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
             @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
-            @JsonProperty("bootstrapTimeMillis") long bootstrapTimeMillis,
+            @JsonProperty("bootstrapTimeInMillis") long bootstrapTimeInMillis,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -202,7 +202,7 @@ public class TaskStats
         this.endTime = endTime;
         this.elapsedTimeInNanos = elapsedTimeInNanos;
         this.queuedTimeInNanos = queuedTimeInNanos;
-        this.bootstrapTimeMillis = bootstrapTimeMillis;
+        this.bootstrapTimeInMillis = bootstrapTimeInMillis;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -559,9 +559,9 @@ public class TaskStats
 
     @JsonProperty
     @ThriftField(42)
-    public long getBootstrapTimeMillis()
+    public long getBootstrapTimeInMillis()
     {
-        return bootstrapTimeMillis;
+        return bootstrapTimeInMillis;
     }
 
     public TaskStats summarize()
@@ -574,7 +574,7 @@ public class TaskStats
                 endTime,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
-                bootstrapTimeMillis,
+                bootstrapTimeInMillis,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
