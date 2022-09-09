@@ -62,6 +62,7 @@ public class TestStageExecutionStats
             new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
+            888L,
 
             new DataSize(123, BYTE),
 
