@@ -393,6 +393,125 @@ abstract class TestHiveQueries
     }
 
     @Test
+    public void testDecimalArithmetic()
+    {
+        // Addition of two Long Decimal columns with inferred types DECIMAL(35,20) and DECIMAL(29,4)
+        // and also contains NULLs.
+        assertQuery(
+                "SELECT n + m from (values " +
+                        "(DECIMAL'999999999999999.999' , DECIMAL'1')," +
+                        "(DECIMAL'-123456789012345.123456', DECIMAL'-9999999999999999')," +
+                        "(DECIMAL'1.23', DECIMAL'-0.0005')," +
+                        "(DECIMAL'1.33333333333333333333', DECIMAL'-0.0005')," +
+                        "(NULL, NULL), (decimal'1.23', NULL)) t(n, m)");
+
+        // Addition of two short decimal columns of type DECIMAL(10,7) and DECIMAL(10,5)
+        assertQuery("SELECT n + m from (values (decimal'1.1', decimal'-1.1')," +
+                "(decimal'-0.0000004', decimal'-0.12345')," +
+                "(decimal'123', decimal'13245')) t(n, m)");
+
+        // numeric limits
+        assertQueryFails("SELECT n + m from (values (DECIMAL'99999999999999999999999999999999999999'," +
+                "CAST('1' as DECIMAL(2,0)))) t(n, m)",
+                ".*Decimal overflow.*");
+        assertQueryFails(
+                "SELECT n + m from (values (CAST('-99999999999999999999999999999999999999' as DECIMAL(38,0))," +
+                        "CAST('-1' as DECIMAL(15,0)))) t(n,m)",
+                ".*Decimal overflow.*");
+        // Subtraction of long decimals.
+        assertQuery(
+                "SELECT n - m from (values " +
+                        "(CAST('999999999999999.999' as decimal(18,3)), CAST('1' as decimal(1,0)))," +
+                        "(CAST('-123456789012345.123456' as DECIMAL(21,6)), CAST('-9999999999999999' as DECIMAL(25, 0)))," +
+                        "(CAST('1.23' as DECIMAL(3,2)), CAST('-0.0005' as DECIMAL(5,4)))," +
+                        "(CAST('1.33333333333333333333' as DECIMAL(23,20)), CAST('-0.0005' as DECIMAL(5,4)))," +
+                        "(NULL, NULL)," +
+                        "(decimal'1.23', NULL)) t(n, m)");
+        // Subtraction Overflow
+        assertQueryFails(
+                "SELECT n - m from (values (DECIMAL'-99999999999999999999999999999999999999', decimal'1')) " +
+                        "t(n,m)", ".*Decimal overflow.*");
+
+        // Subtraction of short decimals.
+        assertQuery("SELECT n - m from (values (decimal'1.1', decimal'-1.1')," +
+                "(decimal'-0.0000004', decimal'-0.12345')," +
+                "(decimal'123', decimal'13245')) t(n, m)");
+
+        // Subtraction overflow.
+        assertQueryFails(
+                "SELECT n - m from (values (decimal'99999999999999999999999999999999999999', decimal'-1')) t(n,m)",
+                ".*Decimal overflow.*");
+
+        // Multiplication.
+        assertQuery("SELECT n * m from (values (DECIMAL'99999999999999999999', DECIMAL'-0.000003')," +
+                "(DECIMAL'-0.00000000000000001', DECIMAL'10000000000'),(DECIMAL'-12345678902345.124', DECIMAL'-0.275')," +
+                "(NULL, NULL), (NULL, DECIMAL'2')) t(n, m)");
+        assertQuery("SELECT n*m from(values (DECIMAL '100', DECIMAL '299'),(DECIMAL '5.4', DECIMAL '-125')," +
+                "(DECIMAL '-3.4', DECIMAL '-625'), (DECIMAL '-0.0004', DECIMAL '-0.0123')) t(n,m)");
+
+        // Multiplication overflow.
+        assertQueryFails("SELECT n*m from (values (DECIMAL'14621507953634074601941877663083790335', DECIMAL'10')) " +
+                "t(n,m)", ".*Decimal overflow.*");
+
+        // Division long decimals.
+        assertQuery("SELECT n/m from(values " +
+                "(CAST('10000000000000000.00' as decimal(19, 2)), DECIMAL'30000000000000.00')," +
+                "(CAST('-1255555555555' as decimal(19, 0)), DECIMAL'50000000000')," +
+                "(CAST('-0.55555555' as decimal(19, 6)), DECIMAL'-111111111.222')," +
+                "(CAST('123456789123456789' as decimal(18, 0)), DECIMAL '-999232342342344234')" +
+                ") t(n, m)");
+        // Divide by zero error.
+        assertQueryFails("SELECT n/m from(values (DECIMAL'100', DECIMAL'0.0')) t(n,m)",
+                ".*Division by zero.*");
+        // Division short decimals.
+        assertQuery("SELECT n/m from(values (DECIMAL'100', DECIMAL'299'),(DECIMAL'5.4', DECIMAL'-125')," +
+                "(DECIMAL'-3.4', DECIMAL'0.6'), (DECIMAL'-0.0004', DECIMAL'-0.0123')) t(n,m)");
+        // Division overflow.
+        assertQueryFails("SELECT n/m from(values (DECIMAL'99999999999999999999999999999999999999', DECIMAL'0.01')) t(n,m)",
+                ".*Decimal overflow.*");
+    }
+
+    @Test
+    public void testDecimalLogicalFunctions()
+    {
+        // Between.
+        assertQuery("SELECT c0 from (values DECIMAL'2.5', DECIMAL'2.4232', DECIMAL'3', NULL, DECIMAL'5000') t(c0) " +
+                "where c0 between DECIMAL'2.0' and DECIMAL'3.0'");
+        assertQuery("SELECT c0 from (values DECIMAL'-1.54455555555555555555'," +
+                "DECIMAL'3.141592653589793238', NULL, DECIMAL'2.718281828459045') t(c0) " +
+                "where c0 between DECIMAL'-2.0' and DECIMAL'3.0'");
+        assertQuery("SELECT c0 from (values DECIMAL'99999999999999999999999999999999999999', DECIMAL'-99999999999999999999999999999999999999'," +
+                "DECIMAL'99999999999999999999999999999999999998', DECIMAL'-99999999999999999999999999999999999998') " +
+                " t(c0) where c0 between DECIMAL'-99999999999999999999999999999999999999' and DECIMAL'99999999999999999999999999999999999999'");
+        // Equals.
+        assertQuery("SELECT c0 from (values DECIMAL'2.5', DECIMAL'2.4232', DECIMAL'3', NULL, DECIMAL'5000') t(c0) " +
+                "where c0=DECIMAL'2.5'");
+        assertQuery("SELECT c0 from (values DECIMAL'2.5555555555555555555', DECIMAL'3.141592653589793238', NULL," +
+                "DECIMAL'2.718281828459045') t(c0) " +
+                "where c0=DECIMAL'2.5555555555555555555'");
+        assertQuery("SELECT c0 from (values (DECIMAL'2.5555555555555555555',DECIMAL'2.5555555555555555555')," +
+                "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555555', DECIMAL'-1.54455555555555555555')," +
+                "(NULL, NULL )) t(c0, c1) where c0 = c1");
+
+        // Greater-than.
+        assertQuery("SELECT c0 from (values (DECIMAL'2.5555555555555555555',DECIMAL'2.5555555555555555551')," +
+                "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555551', DECIMAL'-1.54455555555555555555')," +
+                "(NULL, NULL )) t(c0, c1) where c0 > c1");
+        // Less-than.
+        assertQuery("SELECT c0 from (values (DECIMAL'2.5555555555555555555',DECIMAL'2.5555555555555555551')," +
+                "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555551', DECIMAL'-1.54455555555555555555')," +
+                "(NULL, NULL )) t(c0, c1) where c0 < c1");
+
+        // Greater-than-equal
+        assertQuery("SELECT c0 from (values (DECIMAL'2.5555555555555555555',DECIMAL'2.5555555555555555551')," +
+                "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555551', DECIMAL'-1.54455555555555555555')," +
+                "(NULL, NULL )) t(c0, c1) where c0 >= c1");
+        // Less-than-equal.
+        assertQuery("SELECT c0 from (values (DECIMAL'2.5555555555555555555',DECIMAL'2.5555555555555555551')," +
+                "(DECIMAL'3.141592653589793238', NULL), (DECIMAL'-1.54455555555555555551', DECIMAL'-1.54455555555555555555')," +
+                "(NULL, NULL )) t(c0, c1) where c0 <= c1");
+    }
+    @Test
     public void testStringFunctions()
     {
         // Substr, length, trim.
