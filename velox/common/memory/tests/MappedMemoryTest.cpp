@@ -412,6 +412,8 @@ TEST_P(MappedMemoryTest, increasingSizeWithThreadsTest) {
   threads.reserve(numThreads);
   for (int32_t i = 0; i < numThreads; ++i) {
     allocations.emplace_back(makeEmptyAllocations(500));
+  }
+  for (int32_t i = 0; i < numThreads; ++i) {
     threads.push_back(std::thread([this, &allocations, i]() {
       allocateIncreasing(10, 1000, 1000, allocations[i]);
     }));
