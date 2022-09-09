@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 #include <folly/Benchmark.h>
-#include "velox/expression/VectorFunction.h"
-#include "velox/functions/Macros.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
+#include "velox/functions/prestosql/ArrayFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 using namespace facebook::velox;
@@ -30,7 +29,8 @@ class ArraySumBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
   ArraySumBenchmark() : FunctionBenchmarkBase() {
     functions::prestosql::registerArrayFunctions();
-    functions::prestosql::registerGeneralFunctions();
+    registerFunction<ArraySumFunction, int64_t, Array<int32_t>>(
+        {"array_sum_alt"});
   }
 
   void runInteger(const std::string& functionName) {
