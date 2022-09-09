@@ -18,15 +18,15 @@ import java.io.Serializable;
 public class PrestoSparkTaskBootstrapStats
         implements Serializable
 {
-    private final long prestoSparkServiceCreationTime;
+    private final long prestoSparkServiceCreationTimeMillis;
 
-    public PrestoSparkTaskBootstrapStats(long prestoSparkServiceCreationTime)
+    public PrestoSparkTaskBootstrapStats(long prestoSparkServiceCreationTimeMillis)
     {
-        this.prestoSparkServiceCreationTime = prestoSparkServiceCreationTime;
+        this.prestoSparkServiceCreationTimeMillis = prestoSparkServiceCreationTimeMillis;
     }
 
-    public long getPrestoSparkServiceCreationTime()
+    public long getPrestoSparkServiceCreationTimeMillis()
     {
-        return prestoSparkServiceCreationTime;
+        return prestoSparkServiceCreationTimeMillis;
     }
 }

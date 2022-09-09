@@ -85,7 +85,6 @@ public class TaskContext
     private final ScheduledExecutorService yieldExecutor;
     private final Session session;
 
-    private final long taskBootstrapTimeMillis;
     private final long createNanos = System.nanoTime();
 
     private final AtomicLong startNanos = new AtomicLong();
@@ -146,7 +145,6 @@ public class TaskContext
             Session session,
             MemoryTrackingContext taskMemoryContext,
             Optional<PlanNode> taskPlan,
-            long taskBootstrapTimeMillis,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -162,7 +160,6 @@ public class TaskContext
                 session,
                 taskMemoryContext,
                 taskPlan,
-                taskBootstrapTimeMillis,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,
@@ -181,7 +178,6 @@ public class TaskContext
             Session session,
             MemoryTrackingContext taskMemoryContext,
             Optional<PlanNode> taskPlan,
-            long taskBootstrapTimeMillis,
             boolean perOperatorCpuTimerEnabled,
             boolean cpuTimerEnabled,
             boolean perOperatorAllocationTrackingEnabled,
@@ -204,7 +200,6 @@ public class TaskContext
         this.allocationTrackingEnabled = allocationTrackingEnabled;
         this.legacyLifespanCompletionCondition = legacyLifespanCompletionCondition;
         this.taskMetadataContext = new TaskMetadataContext();
-        this.taskBootstrapTimeMillis = taskBootstrapTimeMillis;
     }
 
     // the state change listener is added here in a separate initialize() method
@@ -585,7 +580,7 @@ public class TaskContext
                 executionEndTime.get(),
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
-                taskBootstrapTimeMillis,
+                0L,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,

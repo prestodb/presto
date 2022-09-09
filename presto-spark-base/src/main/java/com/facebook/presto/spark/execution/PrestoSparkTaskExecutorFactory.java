@@ -873,7 +873,7 @@ public class PrestoSparkTaskExecutorFactory
         {
             TaskId taskId = taskContext.getTaskId();
             TaskState taskState = taskContext.getState();
-            TaskStats taskStats = taskContext.getTaskStats().summarizeFinal(prestoSparkTaskBootstrapStats.getPrestoSparkServiceCreationTime());
+            TaskStats taskStats = taskContext.getTaskStats().summarizeFinal(prestoSparkTaskBootstrapStats.getPrestoSparkServiceCreationTimeMillis());
             List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (taskState == FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());
