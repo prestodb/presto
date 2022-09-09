@@ -73,7 +73,7 @@ class FunctionRegistry {
     });
   }
 
-  std::vector<std::string> getFunctionNames() {
+  std::vector<std::string> getFunctionNames() const {
     std::vector<std::string> result;
     result.reserve(registeredFunctions_.size());
 
@@ -85,7 +85,7 @@ class FunctionRegistry {
   }
 
   std::vector<const FunctionSignature*> getFunctionSignatures(
-      const std::string& name) {
+      const std::string& name) const {
     std::vector<const FunctionSignature*> signatures;
     if (auto signatureMap = getSignatureMap(name)) {
       signatures.reserve(signatureMap->size());
@@ -99,7 +99,7 @@ class FunctionRegistry {
 
   const FunctionEntry<Function, Metadata>* resolveFunction(
       const std::string& name,
-      const std::vector<TypePtr>& argTypes) {
+      const std::vector<TypePtr>& argTypes) const {
     const FunctionEntry<Function, Metadata>* selectedCandidate = nullptr;
 
     if (auto signatureMap = getSignatureMap(name)) {
@@ -142,7 +142,7 @@ class FunctionRegistry {
     }
   }
 
-  SignatureMap* getSignatureMap(const std::string& name) {
+  const SignatureMap* getSignatureMap(const std::string& name) const {
     auto sanitizedName = sanitizeFunctionName(name);
 
     auto it = registeredFunctions_.find(sanitizedName);

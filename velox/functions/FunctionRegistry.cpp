@@ -45,11 +45,9 @@ exec::TypeSignature typeToTypeSignature(std::shared_ptr<const Type> type) {
 }
 
 void populateSimpleFunctionSignatures(FunctionSignatureMap& map) {
-  auto& simpleFunctions = exec::SimpleFunctions();
-  auto functionNames = simpleFunctions.getFunctionNames();
-  for (const auto& functionName : functionNames) {
-    auto signatures = simpleFunctions.getFunctionSignatures(functionName);
-    map[functionName] = signatures;
+  const auto& simpleFunctions = exec::SimpleFunctions();
+  for (const auto& functionName : simpleFunctions.getFunctionNames()) {
+    map[functionName] = simpleFunctions.getFunctionSignatures(functionName);
   }
 }
 
