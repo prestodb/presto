@@ -62,15 +62,15 @@ public class PrestoSparkTaskProcessor<T extends PrestoSparkTaskOutput>
         int attemptNumber = TaskContext.get().attemptNumber();
         long startTimeInMs = System.currentTimeMillis();
         IPrestoSparkTaskExecutorFactory iPrestoSparkTaskExecutorFactory = taskExecutorFactoryProvider.get();
-        long taskBootstrapTimeMillis = System.currentTimeMillis() - startTimeInMs;
-        System.out.println("TaskBootstrapTimeMillis = " + taskBootstrapTimeMillis);
+        long taskBootstrapTimeInMillis = System.currentTimeMillis() - startTimeInMs;
+        System.out.println("TaskBootstrapTimeInMillis = " + taskBootstrapTimeInMillis);
         return iPrestoSparkTaskExecutorFactory.create(
                 partitionId,
                 attemptNumber,
                 serializedTaskDescriptor,
                 serializedTaskSources,
                 new PrestoSparkTaskInputs(shuffleInputs, broadcastInputs, emptyMap()),
-                new PrestoSparkTaskBootstrapStats(taskBootstrapTimeMillis),
+                new PrestoSparkTaskBootstrapStats(taskBootstrapTimeInMillis),
                 taskInfoCollector,
                 shuffleStatsCollector,
                 outputType);

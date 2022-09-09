@@ -616,7 +616,7 @@ public class TaskStats
         return summarizeFinal(0L);
     }
 
-    public TaskStats summarizeFinal(long bootstrapTimeMillis)
+    public TaskStats summarizeFinal(long bootstrapTimeInMillis)
     {
         return new TaskStats(
                 createTime,
@@ -626,7 +626,7 @@ public class TaskStats
                 endTime,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
-                bootstrapTimeMillis,
+                bootstrapTimeInMillis,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
