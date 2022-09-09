@@ -95,6 +95,7 @@ import com.google.common.collect.ListMultimap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -346,7 +347,10 @@ public class PlanBuilder
     {
         private final TypeProvider types;
         private PlanNode source;
-        private Map<VariableReferenceExpression, Aggregation> assignments = new HashMap<>();
+        // Preserve order when creating assignments, so it's consistent when printed/iterated. Some
+        // optimizations create variable names by iterating over it, and this will make plan more consistent
+        // in future runs.
+        private Map<VariableReferenceExpression, Aggregation> assignments = new LinkedHashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<VariableReferenceExpression> preGroupedVariables = new ArrayList<>();
         private Step step = Step.SINGLE;
