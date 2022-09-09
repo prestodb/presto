@@ -358,6 +358,20 @@ public class QueryContext
             boolean allocationTrackingEnabled,
             boolean legacyLifespanCompletionCondition)
     {
+        return addTaskContext(taskStateMachine, session, taskPlan, 0L, perOperatorCpuTimerEnabled, cpuTimerEnabled, perOperatorAllocationTrackingEnabled, allocationTrackingEnabled, legacyLifespanCompletionCondition);
+    }
+
+    public TaskContext addTaskContext(
+            TaskStateMachine taskStateMachine,
+            Session session,
+            Optional<PlanNode> taskPlan,
+            long taskBootstrapTimeMillis,
+            boolean perOperatorCpuTimerEnabled,
+            boolean cpuTimerEnabled,
+            boolean perOperatorAllocationTrackingEnabled,
+            boolean allocationTrackingEnabled,
+            boolean legacyLifespanCompletionCondition)
+    {
         TaskContext taskContext = TaskContext.createTaskContext(
                 this,
                 taskStateMachine,
@@ -367,6 +381,7 @@ public class QueryContext
                 session,
                 queryMemoryContext.newMemoryTrackingContext(),
                 taskPlan,
+                taskBootstrapTimeMillis,
                 perOperatorCpuTimerEnabled,
                 cpuTimerEnabled,
                 perOperatorAllocationTrackingEnabled,

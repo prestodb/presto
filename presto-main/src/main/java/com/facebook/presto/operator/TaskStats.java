@@ -42,6 +42,7 @@ public class TaskStats
 
     private final long elapsedTimeInNanos;
     private final long queuedTimeInNanos;
+    private final long bootstrapTimeMillis;
 
     private final int totalDrivers;
     private final int queuedDrivers;
@@ -100,6 +101,7 @@ public class TaskStats
                 endTime,
                 0L,
                 0L,
+                0L,
                 0,
                 0,
                 0,
@@ -146,6 +148,7 @@ public class TaskStats
             @JsonProperty("endTime") DateTime endTime,
             @JsonProperty("elapsedTimeInNanos") long elapsedTimeInNanos,
             @JsonProperty("queuedTimeInNanos") long queuedTimeInNanos,
+            @JsonProperty("bootstrapTimeMillis") long bootstrapTimeMillis,
 
             @JsonProperty("totalDrivers") int totalDrivers,
             @JsonProperty("queuedDrivers") int queuedDrivers,
@@ -199,6 +202,7 @@ public class TaskStats
         this.endTime = endTime;
         this.elapsedTimeInNanos = elapsedTimeInNanos;
         this.queuedTimeInNanos = queuedTimeInNanos;
+        this.bootstrapTimeMillis = bootstrapTimeMillis;
 
         checkArgument(totalDrivers >= 0, "totalDrivers is negative");
         this.totalDrivers = totalDrivers;
@@ -553,6 +557,13 @@ public class TaskStats
         return runtimeStats;
     }
 
+    @JsonProperty
+    @ThriftField(42)
+    public long getBootstrapTimeMillis()
+    {
+        return bootstrapTimeMillis;
+    }
+
     public TaskStats summarize()
     {
         return new TaskStats(
@@ -563,6 +574,7 @@ public class TaskStats
                 endTime,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
+                bootstrapTimeMillis,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,
@@ -601,6 +613,11 @@ public class TaskStats
 
     public TaskStats summarizeFinal()
     {
+        return summarizeFinal(0L);
+    }
+
+    public TaskStats summarizeFinal(long bootstrapTimeMillis)
+    {
         return new TaskStats(
                 createTime,
                 firstStartTime,
@@ -609,6 +626,7 @@ public class TaskStats
                 endTime,
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
+                bootstrapTimeMillis,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,

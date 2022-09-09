@@ -24,6 +24,7 @@ public interface IPrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor taskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
+            PrestoSparkTaskBootstrapStats taskBootstrapTimeMillis,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType);
