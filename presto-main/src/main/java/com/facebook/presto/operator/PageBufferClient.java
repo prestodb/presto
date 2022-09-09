@@ -408,7 +408,7 @@ public final class PageBufferClient
             {
                 checkNotHoldsLock(this);
 
-                log.error("Request to delete %s failed %s", location, t);
+                log.error(t, "Request to delete %s failed", location);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
                     String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
                             location,
