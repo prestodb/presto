@@ -417,13 +417,13 @@ ExprPtr compileExpression(
     } else if (
         auto simpleFunctionEntry =
             SimpleFunctions().resolveFunction(call->name(), inputTypes)) {
-      auto metadata = simpleFunctionEntry->getMetadata();
+      const auto& metadata = simpleFunctionEntry->getMetadata();
       VELOX_USER_CHECK(
-          resultType->kindEquals(metadata->returnType()),
+          resultType->kindEquals(metadata.returnType()),
           "Found incompatible return types for '{}' ({} vs. {}) "
           "for input types ({}).",
           call->name(),
-          metadata->returnType(),
+          metadata.returnType(),
           resultType,
           folly::join(", ", inputTypes));
       auto func = simpleFunctionEntry->createFunction()->createVectorFunction(

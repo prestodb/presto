@@ -95,7 +95,7 @@ std::shared_ptr<const Type> resolveSimpleFunction(
       exec::SimpleFunctions().resolveFunction(functionName, argTypes);
 
   if (resolvedFunction) {
-    return resolvedFunction->getMetadata()->returnType();
+    return resolvedFunction->getMetadata().returnType();
   }
 
   return nullptr;

@@ -37,8 +37,8 @@ struct FunctionEntry {
       const FunctionFactory& factory)
       : metadata_{metadata}, factory_{factory} {}
 
-  std::shared_ptr<const Metadata> getMetadata() const {
-    return metadata_;
+  const Metadata& getMetadata() const {
+    return *metadata_;
   }
 
   std::unique_ptr<Function> createFunction() const {
@@ -107,8 +107,8 @@ class FunctionRegistry {
         if (SignatureBinder(candidateSignature, argTypes).tryBind()) {
           auto* currentCandidate = functionEntry.get();
           if (!selectedCandidate ||
-              currentCandidate->getMetadata()->priority() <
-                  selectedCandidate->getMetadata()->priority()) {
+              currentCandidate->getMetadata().priority() <
+                  selectedCandidate->getMetadata().priority()) {
             selectedCandidate = currentCandidate;
           }
         }

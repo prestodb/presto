@@ -163,7 +163,7 @@ std::optional<bool> isDeterministic(
   // Check if this is a simple function.
   if (auto simpleFunctionEntry =
           exec::SimpleFunctions().resolveFunction(functionName, argTypes)) {
-    return simpleFunctionEntry->getMetadata()->isDeterministic();
+    return simpleFunctionEntry->getMetadata().isDeterministic();
   }
 
   // Vector functions are a bit more complicated. We need to fetch the list of
