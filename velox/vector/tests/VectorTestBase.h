@@ -33,6 +33,10 @@ void assertCopyableVector(const VectorPtr& vector);
 
 class VectorTestBase {
  protected:
+  VectorTestBase() {
+    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
+  }
+
   template <typename T>
   using EvalType = typename CppToType<T>::NativeType;
 

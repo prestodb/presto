@@ -19,7 +19,6 @@
 #include <random>
 #include "velox/common/base/VeloxException.h"
 #include "velox/expression/Expr.h"
-#include "velox/functions/Udf.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringImpl.h"
 #include "velox/functions/prestosql/tests/FunctionBaseTest.h"
@@ -83,27 +82,20 @@ std::string hexToDec(const std::string& str) {
 
 class StringFunctionsTest : public FunctionBaseTest {
  protected:
-  template <typename VC = FlatVector<StringView>>
   VectorPtr makeStrings(
       vector_size_t size,
       const std::vector<std::string>& inputStrings) {
-    auto strings = std::dynamic_pointer_cast<VC>(BaseVector::create(
-        CppToType<StringView>::create(), size, execCtx_.pool()));
-    for (int i = 0; i < size; i++) {
-      if (!expectNullString(i)) {
-        strings->set(i, StringView(inputStrings[i].c_str()));
-      } else {
-        strings->setNull(i, true);
-      }
-    }
-    return strings;
+    return makeFlatVector<StringView>(
+        size,
+        [&](auto row) { return StringView(inputStrings[row]); },
+        expectNullString);
   }
 
-  template <typename T>
-  int bufferRefCounts(FlatVector<T>* vector) {
+  int bufferRefCounts(FlatVector<StringView>* vector) {
     int refCounts = 0;
-    for (auto& buffer : vector->stringBuffers())
+    for (auto& buffer : vector->stringBuffers()) {
       refCounts += buffer->refCount();
+    }
     return refCounts;
   }
 
@@ -223,8 +215,18 @@ class StringFunctionsTest : public FunctionBaseTest {
       output += ")";
       return output;
     };
+
+    // Evaluate 'concat' expression and verify no excessive memory allocation.
+    // We expect 2 allocations: one for the values buffer and another for the
+    // strings buffer. I.e. FlatVector<StringView>::values and
+    // FlatVector<StringView>::stringBuffers.
+    auto numAllocsBefore = pool()->getMemoryUsageTracker()->getNumAllocs();
+
     auto result = evaluate<FlatVector<StringView>>(
         buildConcatQuery(), makeRowVector(inputVectors));
+
+    auto numAllocsAfter = pool()->getMemoryUsageTracker()->getNumAllocs();
+    ASSERT_EQ(numAllocsAfter - numAllocsBefore, 2);
 
     auto concatStd = [](const std::vector<std::string>& inputs) {
       std::string output;
@@ -235,19 +237,17 @@ class StringFunctionsTest : public FunctionBaseTest {
     };
 
     for (int i = 0; i < inputTable.size(); ++i) {
-      EXPECT_EQ(result->valueAt(i), StringView(concatStd(inputTable[i])));
+      EXPECT_EQ(result->valueAt(i), StringView(concatStd(inputTable[i])))
+          << "at " << i;
     }
   }
 
   void testLengthFlatVector(
       const std::vector<std::tuple<std::string, int64_t>>& tests,
       std::optional<bool> setAscii) {
-    auto inputsFlatVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
-        BaseVector::create(VARCHAR(), tests.size(), execCtx_.pool()));
-
-    for (int i = 0; i < tests.size(); i++) {
-      inputsFlatVector->set(i, StringView(std::get<0>(tests[i])));
-    }
+    auto inputsFlatVector = makeFlatVector<StringView>(
+        tests.size(),
+        [&](auto row) { return StringView(std::get<0>(tests[row])); });
     if (setAscii.has_value()) {
       inputsFlatVector->setAllIsAscii(setAscii.value());
     }
@@ -774,6 +774,8 @@ TEST_F(StringFunctionsTest, concat) {
         inputTable[row][col] = generateRandomString(rand() % maxStringLength);
       }
     }
+
+    SCOPED_TRACE(fmt::format("Number of arguments: {}", argsCount));
     testConcatFlatVector(inputTable, argsCount);
   }
 

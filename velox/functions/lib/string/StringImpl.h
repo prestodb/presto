@@ -103,21 +103,6 @@ void concatStatic(TOutString& output, const Args&... inputs) {
   }...);
 }
 
-/// Concat function that operates on a dynamic number of inputs packed in vector
-template <typename TOutString, typename TInString>
-void concatDynamic(TOutString& output, const std::vector<TInString>& inputs) {
-  for (const auto& curInput : inputs) {
-    if (curInput.size() == 0) {
-      continue;
-    }
-    applyAppendersRecursive(output, [&](TOutString& out) {
-      auto writeOffset = out.size();
-      out.resize(out.size() + curInput.size());
-      std::memcpy(out.data() + writeOffset, curInput.data(), curInput.size());
-    });
-  }
-}
-
 /// Return length of the input string in chars
 template <bool isAscii, typename T>
 FOLLY_ALWAYS_INLINE int64_t length(const T& input) {

@@ -121,29 +121,6 @@ TEST_F(StringImplTest, lowerUnicode) {
   }
 }
 
-TEST_F(StringImplTest, concatDynamic) {
-  core::StringWriter output;
-
-  concatDynamic(output, std::vector<std::string>{"AA"});
-  ASSERT_EQ(StringView("AA"), output);
-
-  output.resize(0);
-  concatDynamic(output, std::vector<std::string>{"AA", "BB"});
-  ASSERT_EQ(StringView("AABB"), output);
-
-  output.resize(0);
-  concatDynamic(output, std::vector<std::string>{"AA", "BB", "CC"});
-  ASSERT_EQ(StringView("AABBCC"), output);
-
-  output.resize(0);
-  concatDynamic(output, std::vector<std::string>{"AA", "", "CC"});
-  ASSERT_EQ(StringView("AACC"), output);
-
-  output.resize(0);
-  concatDynamic(output, std::vector<std::string>{"hello na\u00EFve", " world"});
-  ASSERT_EQ(StringView("hello na\u00EFve world"), output);
-}
-
 TEST_F(StringImplTest, concatLazy) {
   core::StringWriter output;
 
