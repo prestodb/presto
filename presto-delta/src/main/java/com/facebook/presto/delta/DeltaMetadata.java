@@ -36,6 +36,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.google.common.base.Strings;
@@ -122,6 +123,24 @@ public class DeltaMetadata
                 metastoreContext(session),
                 table,
                 principalPrivileges);
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        DeltaTableHandle handle = (DeltaTableHandle) tableHandle;
+        MetastoreContext metastoreContext = metastoreContext(session);
+
+        Optional<Table> target = metastore.getTable(metastoreContext, handle.getDeltaTable().getSchemaName(), handle.getDeltaTable().getTableName());
+        if (!target.isPresent()) {
+            throw new TableNotFoundException(handle.toSchemaTableName());
+        }
+
+        metastore.dropTable(
+                metastoreContext,
+                handle.getDeltaTable().getSchemaName(),
+                handle.getDeltaTable().getTableName(),
+                false);
     }
 
     private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
