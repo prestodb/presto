@@ -15,17 +15,22 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
+import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
+import com.facebook.presto.server.localtask.LocalTask;
+import com.facebook.presto.server.localtask.LocalTaskFactory;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -52,6 +57,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Paths;
@@ -63,6 +69,7 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -78,6 +85,7 @@ public class NativeEngineOperator
     private final JsonCodec<TableWriteInfo> tableWriteInfoCodec;
     private final PlanFragment planFragment;
     private final TableWriteInfo tableWriteInfo;
+    private final LocalTaskFactory localTaskFactory;
     private TaskSource taskSource;
     private final boolean isFirstOperator;
 
@@ -617,7 +625,7 @@ public class NativeEngineOperator
         }
     }
 
-    public NativeEngineOperator(PlanNodeId sourceId, OperatorContext operatorContext, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<PlanFragment> planFragmentCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, PlanFragment planFragment, TableWriteInfo tableWriteInfo, boolean isFirstOperator)
+    public NativeEngineOperator(PlanNodeId sourceId, OperatorContext operatorContext, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<PlanFragment> planFragmentCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, PlanFragment planFragment, TableWriteInfo tableWriteInfo, LocalTaskFactory localTaskFactory, boolean isFirstOperator)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -627,6 +635,7 @@ public class NativeEngineOperator
         this.tableWriteInfoCodec = requireNonNull(tableWriteInfoCodec, "tableWriteInfoCodec is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
         this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        this.localTaskFactory = requireNonNull(localTaskFactory, "localTaskFactory is null");
         this.taskSource = null;
         this.finished = false;
         this.isFirstOperator = isFirstOperator;
@@ -660,15 +669,34 @@ public class NativeEngineOperator
         String script = Paths.get("src", "test", "resources", "MockNativeEngine.py").toFile().getAbsolutePath();
         try {
             PrestoTaskSubmit prestoTaskSubmit = new PrestoTaskSubmit.Builder().setTaskSources(ImmutableList.of(taskSourceCodec.toJson(taskSource))).setPlanFragment(planFragmentCodec.toJson(planFragment)).setStagingPath("").setTableWriteInfo(tableWriteInfoCodec.toJson(tableWriteInfo)).build();
-            ResidentNativeEngine.startProcess(script + " --resident-mode");
-            ResidentNativeEngine.sendSparkPlan(prestoTaskSubmit);
-            org.apache.spark.TaskContext context = org.apache.spark.TaskContext.get();
-            long taskAttemptId = context != null ? context.taskAttemptId() : 0l;
-            log.info("Waiting for NativeEngine to complete task " + taskAttemptId);
-            TaskResult taskResult = ResidentNativeEngine.waitAndGetTaskResult(taskAttemptId);
+            // ResidentNativeEngine.startProcess(script + " --resident-mode");
+//            ResidentNativeEngine.sendSparkPlan(prestoTaskSubmit);
+//            org.apache.spark.TaskContext context = org.apache.spark.TaskContext.get();
+//            long taskAttemptId = context != null ? context.taskAttemptId() : 0l;
+//            log.info("Waiting for NativeEngine to complete task " + taskAttemptId);
+//            TaskResult taskResult = ResidentNativeEngine.waitAndGetTaskResult(taskAttemptId);
             // processTaskResult(taskResult)
+            LocalTask localTask = localTaskFactory.createLocalTask(
+                    operatorContext.getSession(),
+                    operatorContext.getDriverContext().getTaskId(),
+                    new InternalNode("node-id", URI.create("http://127.0.0.1/"), new NodeVersion("version"), false),
+                    planFragment,
+                    // ImmutableList.of(taskSource),
+                    ImmutableList.of(),
+                    createInitialEmptyOutputBuffers(OutputBuffers.BufferType.PARTITIONED),
+                    tableWriteInfo);
+
+            localTask.start();
+            boolean isDone = false;
+            while (!isDone) {
+                if (localTask.getTaskInfo().getTaskStatus().getState().isDone()) {
+                    isDone = true;
+                }
+                Thread.sleep(5000);    // flush logs every 5 seconds in local-mode
+            }
         }
-        catch (IOException | InterruptedException e) {
+        // catch (IOException | InterruptedException e) {
+        catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         finished = true;
@@ -753,10 +781,11 @@ public class NativeEngineOperator
         private final JsonCodec<TableWriteInfo> tableWriteInfoCodec;
         private final PlanFragment planFragment;
         private final TableWriteInfo tableWriteInfo;
+        private final LocalTaskFactory localTaskFactory;
         private boolean isFirstOperator = true;
         private boolean closed;
 
-        public NativeEngineOperatorFactory(int operatorId, PlanNodeId planNodeId, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<PlanFragment> planFragmentCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, PlanFragment planFragment, TableWriteInfo tableWriteInfo)
+        public NativeEngineOperatorFactory(int operatorId, PlanNodeId planNodeId, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<PlanFragment> planFragmentCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, PlanFragment planFragment, TableWriteInfo tableWriteInfo, LocalTaskFactory localTaskFactory)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -765,6 +794,7 @@ public class NativeEngineOperator
             this.tableWriteInfoCodec = requireNonNull(tableWriteInfoCodec, "tableWriteInfoCodec is null");
             this.planFragment = requireNonNull(planFragment, "planFragment is null");
             this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+            this.localTaskFactory = requireNonNull(localTaskFactory, "localTaskFactory is null");
         }
 
         @Override
@@ -786,6 +816,7 @@ public class NativeEngineOperator
                     tableWriteInfoCodec,
                     planFragment,
                     tableWriteInfo,
+                    localTaskFactory,
                     isFirstOperator);
             isFirstOperator = false;
             return operator;

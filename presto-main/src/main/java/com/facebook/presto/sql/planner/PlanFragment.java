@@ -233,6 +233,21 @@ public class PlanFragment
                 jsonRepresentation);
     }
 
+    public PlanFragment withSubPlan(PlanNode subPlan)
+    {
+        return new PlanFragment(
+                id,
+                subPlan,
+                variables,
+                partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                statsAndCosts,
+                jsonRepresentation);
+    }
+
     public PlanFragment withFixedLifespanScheduleGroupedExecution(List<PlanNodeId> capableTableScanNodes, int totalLifespans)
     {
         return new PlanFragment(

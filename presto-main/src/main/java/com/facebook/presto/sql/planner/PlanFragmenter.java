@@ -197,9 +197,9 @@ public class PlanFragmenter
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
-        if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class)) {
-            root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
-        }
+//        if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class)) {
+//            root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
+//        }
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
@@ -425,6 +425,11 @@ public class PlanFragmenter
                         "outputTableWriterNodeIds %s must include either all or none of tableWriterNodeIds %s",
                         outputTableWriterNodeIds,
                         tableWriterNodeIds);
+            }
+
+            if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
+                root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
+//                root = root;
             }
 
             PlanFragment fragment = new PlanFragment(

@@ -24,6 +24,7 @@ import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.TableCommitContext;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.index.IndexJoinLookupStats;
+import com.facebook.presto.server.localtask.LocalTaskFactory;
 import com.facebook.presto.spark.execution.NativeEngineOperator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
@@ -70,6 +71,7 @@ public class PrestoSparkLocalExecutionPlanner
     private final JsonCodec<TaskSource> taskSourceCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<TableWriteInfo> tableWriteInfoCodec;
+    private final LocalTaskFactory localTaskFactory;
 
     @Inject
     public PrestoSparkLocalExecutionPlanner(
@@ -102,7 +104,8 @@ public class PrestoSparkLocalExecutionPlanner
             StandaloneSpillerFactory standaloneSpillerFactory,
             JsonCodec<TaskSource> taskSourceCodec,
             JsonCodec<TableWriteInfo> tableWriteInfoCodec,
-            JsonCodec<PlanFragment> planFragmentCodec)
+            JsonCodec<PlanFragment> planFragmentCodec,
+            LocalTaskFactory localTaskFactory)
     {
         super(metadata,
                 explainAnalyzeContext,
@@ -134,6 +137,7 @@ public class PrestoSparkLocalExecutionPlanner
         this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
         this.tableWriteInfoCodec = requireNonNull(tableWriteInfoCodec, "tableWriteInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
+        this.localTaskFactory = requireNonNull(localTaskFactory, "localTaskFactory is null");
     }
 
     public LocalExecutionPlan plan(
@@ -168,7 +172,7 @@ public class PrestoSparkLocalExecutionPlanner
         Session session = taskContext.getSession();
         PlanNode plan = planFragment.getRoot();
         PrestoSparkLocalExecutionPlanContext context = new PrestoSparkLocalExecutionPlanContext(taskContext, tableWriteInfo, planFragment);
-        PhysicalOperation physicalOperation = plan.accept(new PrestoSparkVisitor(session, planFragment, remoteSourceFactory, pageSinkCommitRequired, taskSourceCodec, tableWriteInfoCodec, planFragmentCodec), context);
+        PhysicalOperation physicalOperation = plan.accept(new PrestoSparkVisitor(session, planFragment, remoteSourceFactory, pageSinkCommitRequired, taskSourceCodec, tableWriteInfoCodec, planFragmentCodec, localTaskFactory), context);
 
         Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
@@ -240,20 +244,22 @@ public class PrestoSparkLocalExecutionPlanner
         private final JsonCodec<TaskSource> taskSourceCodec;
         private final JsonCodec<PlanFragment> planFragmentCodec;
         private final JsonCodec<TableWriteInfo> tableWriteInfoCodec;
+        private final LocalTaskFactory localTaskFactory;
 
-        private PrestoSparkVisitor(Session session, PlanFragment planFragment, RemoteSourceFactory remoteSourceFactory, boolean pageSinkCommitRequired, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, JsonCodec<PlanFragment> planFragmentCodec)
+        private PrestoSparkVisitor(Session session, PlanFragment planFragment, RemoteSourceFactory remoteSourceFactory, boolean pageSinkCommitRequired, JsonCodec<TaskSource> taskSourceCodec, JsonCodec<TableWriteInfo> tableWriteInfoCodec, JsonCodec<PlanFragment> planFragmentCodec, LocalTaskFactory localTaskFactory)
         {
             super(session, planFragment.getStageExecutionDescriptor(), remoteSourceFactory, pageSinkCommitRequired);
             this.taskSourceCodec = requireNonNull(taskSourceCodec, "taskSourceCodec is null");
             this.tableWriteInfoCodec = requireNonNull(tableWriteInfoCodec, "tableWriteInfoCodec is null");
             this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
             this.planFragment = requireNonNull(planFragment, "planFragment is null");
+            this.localTaskFactory = requireNonNull(localTaskFactory, "localTaskFactory is null");
         }
 
         @Override
         public PhysicalOperation visitNativeEngine(NativeEngineNode node, LocalExecutionPlanContext context)
         {
-            OperatorFactory operatorFactory = new NativeEngineOperator.NativeEngineOperatorFactory(((PrestoSparkLocalExecutionPlanContext) context).getNextOperatorId(), node.getId(), taskSourceCodec, planFragmentCodec, tableWriteInfoCodec, planFragment, context.getTableWriteInfo());
+            OperatorFactory operatorFactory = new NativeEngineOperator.NativeEngineOperatorFactory(((PrestoSparkLocalExecutionPlanContext) context).getNextOperatorId(), node.getId(), taskSourceCodec, planFragmentCodec, tableWriteInfoCodec, planFragment.withSubPlan(node.getSubPlan()), context.getTableWriteInfo(), localTaskFactory);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, stageExecutionDescriptor.isScanGroupedExecution(node.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
         }
     }
