@@ -153,6 +153,6 @@ public abstract class AbstractDeltaDistributedQueryTestBase
      */
     private static void unregisterDeltaTableInHMS(QueryRunner queryRunner, String hiveTableName)
     {
-        queryRunner.execute(format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", HIVE_CATALOG, DELTA_SCHEMA, hiveTableName));
+        queryRunner.execute(format("DROP TABLE IF EXISTS %s.\"%s\".\"%s\"", DELTA_CATALOG, DELTA_SCHEMA, hiveTableName));
     }
 }
