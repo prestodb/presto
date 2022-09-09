@@ -64,13 +64,17 @@ class FunctionRegistry {
       std::shared_ptr<const Type> returnType = nullptr) {
     const auto& metadata =
         GetSingletonUdfMetadata<typename UDF::Metadata>(std::move(returnType));
-    auto&& names = aliases.empty()
-        ? std::vector<std::string>{metadata->getName()}
-        : aliases;
-
-    registerFunctionInternal(names, metadata, [metadata]() {
+    const auto factory = [metadata]() {
       return CreateUdf<UDF>(metadata->returnType());
-    });
+    };
+
+    if (aliases.empty()) {
+      registerFunctionInternal(metadata->getName(), metadata, factory);
+    } else {
+      for (const auto& name : aliases) {
+        registerFunctionInternal(name, metadata, factory);
+      }
+    }
   }
 
   std::vector<std::string> getFunctionNames() const {
@@ -125,17 +129,15 @@ class FunctionRegistry {
   }
 
   void registerFunctionInternal(
-      const std::vector<std::string>& names,
+      const std::string& name,
       const std::shared_ptr<const Metadata>& metadata,
       const typename FunctionEntry<Function, Metadata>::FunctionFactory&
           factory) {
-    for (const auto& name : names) {
-      const auto sanitizedName = sanitizeFunctionName(name);
-      SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
-      signatureMap[*metadata->signature()] =
-          std::make_unique<const FunctionEntry<Function, Metadata>>(
-              metadata, factory);
-    }
+    const auto sanitizedName = sanitizeFunctionName(name);
+    SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
+    signatureMap[*metadata->signature()] =
+        std::make_unique<const FunctionEntry<Function, Metadata>>(
+            metadata, factory);
   }
 
   const SignatureMap* getSignatureMap(const std::string& name) const {
