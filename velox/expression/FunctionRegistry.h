@@ -22,7 +22,7 @@ namespace facebook::velox::exec {
 class FunctionSignature;
 
 template <typename T>
-std::shared_ptr<const T> GetSingletonUdfMetadata(
+const std::shared_ptr<const T>& GetSingletonUdfMetadata(
     std::shared_ptr<const Type> returnType) {
   static auto instance = std::make_shared<const T>(std::move(returnType));
   return instance;
@@ -33,9 +33,9 @@ struct FunctionEntry {
   using FunctionFactory = std::function<std::unique_ptr<Function>()>;
 
   FunctionEntry(
-      const std::shared_ptr<const Metadata> metadata,
-      const FunctionFactory&& factory)
-      : metadata_(metadata), factory_(std::move(factory)) {}
+      const std::shared_ptr<const Metadata>& metadata,
+      const FunctionFactory& factory)
+      : metadata_{metadata}, factory_{factory} {}
 
   std::shared_ptr<const Metadata> getMetadata() const {
     return metadata_;
@@ -62,7 +62,7 @@ class FunctionRegistry {
   void registerFunction(
       const std::vector<std::string>& aliases = {},
       std::shared_ptr<const Type> returnType = nullptr) {
-    auto metadata =
+    const auto& metadata =
         GetSingletonUdfMetadata<typename UDF::Metadata>(std::move(returnType));
     auto&& names = aliases.empty()
         ? std::vector<std::string>{metadata->getName()}
@@ -87,7 +87,7 @@ class FunctionRegistry {
   std::vector<const FunctionSignature*> getFunctionSignatures(
       const std::string& name) const {
     std::vector<const FunctionSignature*> signatures;
-    if (auto signatureMap = getSignatureMap(name)) {
+    if (const auto* signatureMap = getSignatureMap(name)) {
       signatures.reserve(signatureMap->size());
       for (const auto& pair : *signatureMap) {
         signatures.emplace_back(&pair.first);
@@ -102,7 +102,7 @@ class FunctionRegistry {
       const std::vector<TypePtr>& argTypes) const {
     const FunctionEntry<Function, Metadata>* selectedCandidate = nullptr;
 
-    if (auto signatureMap = getSignatureMap(name)) {
+    if (const auto* signatureMap = getSignatureMap(name)) {
       for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
         if (SignatureBinder(candidateSignature, argTypes).tryBind()) {
           auto* currentCandidate = functionEntry.get();
@@ -127,30 +127,21 @@ class FunctionRegistry {
   void registerFunctionInternal(
       const std::vector<std::string>& names,
       const std::shared_ptr<const Metadata>& metadata,
-      typename FunctionEntry<Function, Metadata>::FunctionFactory factory) {
+      const typename FunctionEntry<Function, Metadata>::FunctionFactory&
+          factory) {
     for (const auto& name : names) {
-      auto sanitizedName = sanitizeFunctionName(name);
-
-      if (registeredFunctions_.find(sanitizedName) ==
-          registeredFunctions_.end()) {
-        registeredFunctions_[sanitizedName] = SignatureMap{};
-      }
-
-      registeredFunctions_[sanitizedName][*metadata->signature()] =
+      const auto sanitizedName = sanitizeFunctionName(name);
+      SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
+      signatureMap[*metadata->signature()] =
           std::make_unique<const FunctionEntry<Function, Metadata>>(
-              metadata, std::move(factory));
+              metadata, factory);
     }
   }
 
   const SignatureMap* getSignatureMap(const std::string& name) const {
-    auto sanitizedName = sanitizeFunctionName(name);
-
-    auto it = registeredFunctions_.find(sanitizedName);
-    if (it != registeredFunctions_.end()) {
-      return &it->second;
-    }
-
-    return nullptr;
+    const auto sanitizedName = sanitizeFunctionName(name);
+    const auto it = registeredFunctions_.find(sanitizedName);
+    return it != registeredFunctions_.end() ? &it->second : nullptr;
   }
 
   FunctionMap registeredFunctions_;
