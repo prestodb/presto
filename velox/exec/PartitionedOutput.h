@@ -18,10 +18,9 @@
 #include <folly/Random.h>
 #include "velox/exec/Operator.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
+#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
-
-class PartitionedOutput;
 
 class Destination {
  public:

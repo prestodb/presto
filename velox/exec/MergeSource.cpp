@@ -18,6 +18,7 @@
 
 #include <boost/circular_buffer.hpp>
 #include "velox/exec/Merge.h"
+#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
 namespace {

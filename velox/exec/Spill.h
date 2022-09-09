@@ -22,7 +22,7 @@
 #include "velox/exec/UnorderedStreamReader.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
-#include "velox/vector/FlatVector.h"
+#include "velox/vector/VectorStream.h"
 
 namespace facebook::velox::exec {
 

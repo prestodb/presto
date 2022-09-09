@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/common/memory/ByteStream.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox {

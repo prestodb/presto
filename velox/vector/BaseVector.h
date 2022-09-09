@@ -37,7 +37,6 @@
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/TypeAliases.h"
 #include "velox/vector/VectorEncoding.h"
-#include "velox/vector/VectorStream.h"
 #include "velox/vector/VectorUtil.h"
 
 namespace facebook {
