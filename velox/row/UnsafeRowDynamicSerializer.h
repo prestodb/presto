@@ -104,7 +104,7 @@ struct UnsafeRowDynamicSerializer : UnsafeRowSerializer {
             buffer,
             data->wrappedIndex(idx));
       default:
-        throw UnsupportedSerializationException();
+        VELOX_UNSUPPORTED("Unsupported type: {}", type->toString());
     }
   }
 
