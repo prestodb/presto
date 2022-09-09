@@ -1754,9 +1754,9 @@ void PrestoVectorSerde::deserialize(
   readColumns(source, pool, childTypes, children, useLosslessTimestamp);
 }
 
+// static
 void PrestoVectorSerde::registerVectorSerde() {
-  VELOX_REGISTER_VECTOR_SERDE(PrestoVectorSerde);
+  velox::registerVectorSerde(std::make_unique<PrestoVectorSerde>());
 }
 
-VELOX_DECLARE_VECTOR_SERDE(PrestoVectorSerde);
 } // namespace facebook::velox::serializer::presto

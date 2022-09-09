@@ -75,19 +75,6 @@ bool registerVectorSerde(std::unique_ptr<VectorSerde> serde);
 
 bool isRegisteredVectorSerde();
 
-#define _VELOX_REGISTER_VECTOR_SERDE_NAME(serde) registerVectorSerde_##serde
-
-#define VELOX_DECLARE_VECTOR_SERDE(serde)             \
-  void _VELOX_REGISTER_VECTOR_SERDE_NAME(serde)() {   \
-    registerVectorSerde((std::make_unique<serde>())); \
-  }
-
-#define VELOX_REGISTER_VECTOR_SERDE(serde)                  \
-  {                                                         \
-    extern void _VELOX_REGISTER_VECTOR_SERDE_NAME(serde)(); \
-    _VELOX_REGISTER_VECTOR_SERDE_NAME(serde)();             \
-  }
-
 class VectorStreamGroup : public StreamArena {
  public:
   explicit VectorStreamGroup(memory::MappedMemory* mappedMemory)
