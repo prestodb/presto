@@ -186,7 +186,8 @@ class Task : public std::enable_shared_from_this<Task> {
   /// subsequent calls.
   /// @param noMoreBuffers A flag indicating that numBuffers is the final number
   /// of buffers. No more calls are expected after the call with noMoreBuffers
-  /// == true.
+  /// == true, but occasionally the caller might resend it, so calls
+  /// received after a call with noMoreBuffers == true are ignored.
   void updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers);
 
   /// Returns true if state is 'running'.
@@ -739,6 +740,10 @@ class Task : public std::enable_shared_from_this<Task> {
   std::unordered_map<uint32_t, SplitGroupState> splitGroupStates_;
 
   std::weak_ptr<PartitionedOutputBufferManager> bufferManager_;
+
+  /// Boolean indicating that we have already recieved no-more-broadcast-buffers
+  /// message. Subsequent messagees will be ignored.
+  bool noMoreBroadcastBuffers_{false};
 
   // Thread counts and cancellation -related state.
   //

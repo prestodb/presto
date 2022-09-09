@@ -978,6 +978,18 @@ void Task::updateBroadcastOutputBuffers(int numBuffers, bool noMoreBuffers) {
       "Unable to initialize task. "
       "PartitionedOutputBufferManager was already destructed");
 
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    if (noMoreBroadcastBuffers_) {
+      // Ignore messages received after no-more-buffers message.
+      return;
+    }
+
+    if (noMoreBuffers) {
+      noMoreBroadcastBuffers_ = true;
+    }
+  }
+
   bufferManager->updateBroadcastOutputBuffers(
       taskId_, numBuffers, noMoreBuffers);
 }

@@ -420,6 +420,10 @@ TEST_F(MultiFragmentTest, broadcast) {
   for (auto& task : tasks) {
     ASSERT_TRUE(waitForTaskCompletion(task.get())) << task->taskId();
   }
+
+  // Make sure duplicate 'updateBroadcastOutputBuffers' message after task
+  // completion doesn't cause an error.
+  leafTask->updateBroadcastOutputBuffers(finalAggTaskIds.size(), true);
 }
 
 TEST_F(MultiFragmentTest, replicateNullsAndAny) {
