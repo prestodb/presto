@@ -87,4 +87,13 @@ class TestingCatalogServerClient
     {
         return "[\"hive.tpch.test_customer_base\"]";
     }
+
+    @Override
+    public CatalogServerCacheStats getCacheStats()
+    {
+        return new CatalogServerCacheStats();
+    }
+
+    @Override
+    public void refreshCache(){}
 }

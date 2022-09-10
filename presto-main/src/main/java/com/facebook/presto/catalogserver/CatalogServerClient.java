@@ -53,4 +53,10 @@ public interface CatalogServerClient
 
     @ThriftMethod
     String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName);
+
+    @ThriftMethod
+    CatalogServerCacheStats getCacheStats();
+
+    @ThriftMethod
+    void refreshCache();
 }
