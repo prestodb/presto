@@ -155,7 +155,7 @@ Running Presto Coordinator + Worker on MacOS
 * Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
 * Run 'HiveQueryRunnerExternal' from IntelliJ and wait until it started (`======== SERVER STARTED ========` in the log output).
 * Scroll up the log output and find `Discovery URL http://127.0.0.1:50555`. The port is 'random' with every start.
-* Copy that port (or the whole URL) to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
+* Copy that whole URL to the `discovery.uri` field in `presto/presto-native-execution/etc/config.properties` for the worker to discover the Coordinator.
 * In CLion run "presto_server" module. Connection success will be indicated by `Announcement succeeded: 202` line in the log output.
 * Two ways to run Presto client to start executing queries on the running local setup:
   1. In command line from presto root folder run the presto client:
@@ -182,4 +182,4 @@ Running Presto Coordinator + Worker on MacOS
 ### Creating PRs for presto/presto-native-execution/
 * Submit PRs as usual following [Presto repository guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines).
 * On top of it please add `[native]` prefix in the title for PRs modifying anything in `presto-native-execution`. 
-* PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.  
+* PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.
