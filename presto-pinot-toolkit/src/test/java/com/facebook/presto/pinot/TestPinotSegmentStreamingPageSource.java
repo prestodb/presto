@@ -18,9 +18,9 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
 import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 import org.apache.pinot.connector.presto.grpc.Utils;
@@ -42,7 +42,7 @@ public class TestPinotSegmentStreamingPageSource
     {
         private final ImmutableList<DataTable> dataTables;
 
-        MockPinotStreamingQueryClient(GrpcQueryClient.Config pinotConfig, List<DataTable> dataTables)
+        MockPinotStreamingQueryClient(GrpcConfig pinotConfig, List<DataTable> dataTables)
         {
             super(pinotConfig);
             this.dataTables = ImmutableList.copyOf(dataTables);
@@ -88,7 +88,7 @@ public class TestPinotSegmentStreamingPageSource
             PinotSplit mockPinotSplit,
             List<PinotColumnHandle> handlesSurviving)
     {
-        MockPinotStreamingQueryClient mockPinotQueryClient = new MockPinotStreamingQueryClient(new GrpcQueryClient.Config(pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(), true), dataTables);
+        MockPinotStreamingQueryClient mockPinotQueryClient = new MockPinotStreamingQueryClient(new GrpcConfig(pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(), true), dataTables);
         return new PinotSegmentStreamingPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, handlesSurviving);
     }
 
