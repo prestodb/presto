@@ -13,18 +13,22 @@
  */
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
+import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.metadata.Split;
+import com.google.inject.Inject;
 
-import java.util.List;
-
-public interface NodeSelection
+public class TaskCountNodeScorer implements NodeScorer
 {
-    /**
-     *
-     * Pick nodes according to different strategies for a split
-     * @param split
-     * @return picked nodes
-     */
-    List<InternalNode> pickNodes(Split split);
+    private final NodeTaskMap nodeTaskMap;
+
+    @Inject
+    public TaskCountNodeScorer(NodeTaskMap nodeTaskMap) {
+        this.nodeTaskMap = nodeTaskMap;
+    }
+
+    @Override
+    public long score(InternalNode node)
+    {
+        return nodeTaskMap.getPartitionedSplitsOnNode(node).getCount();
+    }
 }

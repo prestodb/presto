@@ -23,7 +23,7 @@ import com.facebook.presto.execution.scheduler.NetworkTopology;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
@@ -142,7 +142,7 @@ public class BenchmarkNodeScheduler
         private String topologyName = LEGACY;
 
         private FinalizerService finalizerService = new FinalizerService();
-        private NodeSelector nodeSelector;
+        private NodeSplitAssigner nodeSplitAssigner;
         private Map<InternalNode, MockRemoteTaskFactory.MockRemoteTask> taskMap = new HashMap<>();
         private List<Split> splits = new ArrayList<>();
 
@@ -184,7 +184,7 @@ public class BenchmarkNodeScheduler
             Session session = TestingSession.testSessionBuilder()
                     .setSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(Integer.MAX_VALUE))
                     .build();
-            nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+            nodeSplitAssigner = nodeScheduler.createNodeSplitAssigner(session, CONNECTOR_ID);
         }
 
         @TearDown
@@ -226,9 +226,9 @@ public class BenchmarkNodeScheduler
             return taskMap;
         }
 
-        public NodeSelector getNodeSelector()
+        public NodeSplitAssigner getNodeSelector()
         {
-            return nodeSelector;
+            return nodeSplitAssigner;
         }
 
         public List<Split> getSplits()

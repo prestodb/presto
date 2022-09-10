@@ -65,10 +65,10 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class SimpleNodeSelector
-        implements NodeSelector
+public class SimpleNodeSplitAssigner
+        implements NodeSplitAssigner
 {
-    private static final Logger log = Logger.get(SimpleNodeSelector.class);
+    private static final Logger log = Logger.get(SimpleNodeSplitAssigner.class);
 
     private final InternalNodeManager nodeManager;
     private final NodeSelectionStats nodeSelectionStats;
@@ -82,7 +82,7 @@ public class SimpleNodeSelector
     private final int maxTasksPerStage;
     private final NodeSelectionHashStrategy nodeSelectionHashStrategy;
 
-    public SimpleNodeSelector(
+    public SimpleNodeSplitAssigner(
             InternalNodeManager nodeManager,
             NodeSelectionStats nodeSelectionStats,
             NodeTaskMap nodeTaskMap,
@@ -122,25 +122,6 @@ public class SimpleNodeSelector
     }
 
     @Override
-    public List<InternalNode> getAllNodes()
-    {
-        return ImmutableList.copyOf(nodeMap.get().get().getAllNodes());
-    }
-
-    @Override
-    public InternalNode selectCurrentNode()
-    {
-        // TODO: this is a hack to force scheduling on the coordinator
-        return nodeManager.getCurrentNode();
-    }
-
-    @Override
-    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
-    {
-        return selectNodes(limit, randomizedNodes(nodeMap.get().get(), includeCoordinator, excludedNodes));
-    }
-
-    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
@@ -148,7 +129,7 @@ public class SimpleNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+        NodeSelectionStrategy randomNodeSelectionStrategy = new RandomNodeSelectionStrategy();
         Set<InternalNode> blockedExactNodes = new HashSet<>();
         boolean splitWaitingForAnyNode = false;
 
@@ -171,11 +152,17 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
                             .addAll(candidateNodes)
-                            .addAll(randomNodeSelection.pickNodes(split))
+                            .addAll(randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                                    .includeCoordinator(includeCoordinator)
+                                    .limit(minCandidates)
+                                    .build()))
                             .build();
                     break;
                 case NO_PREFERENCE:
-                    candidateNodes = randomNodeSelection.pickNodes(split);
+                    candidateNodes = randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                            .includeCoordinator(includeCoordinator)
+                            .limit(minCandidates)
+                            .build());
                     break;
                 default:
                     throw new PrestoException(NODE_SELECTION_NOT_SUPPORTED, format("Unsupported node selection strategy %s", split.getNodeSelectionStrategy()));

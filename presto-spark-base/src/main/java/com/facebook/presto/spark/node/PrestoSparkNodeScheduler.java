@@ -22,7 +22,7 @@ import com.facebook.presto.execution.scheduler.NetworkLocationCache;
 import com.facebook.presto.execution.scheduler.NodeScheduler;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.spi.ConnectorId;
@@ -56,13 +56,13 @@ public class PrestoSparkNodeScheduler
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId)
+    public NodeSplitAssigner createNodeSplitAssigner(Session session, ConnectorId connectorId)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public NodeSelector createNodeSelector(Session session, ConnectorId connectorId, int maxTasksPerStage)
+    public NodeSplitAssigner createNodeSplitAssigner(Session session, ConnectorId connectorId, int maxTasksPerStage)
     {
         throw new UnsupportedOperationException();
     }

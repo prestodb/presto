@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler.nodeselection;
 
-import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSplitAssigner;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
@@ -22,13 +22,13 @@ import java.util.concurrent.TimeUnit;
 
 import static org.testng.Assert.assertTrue;
 
-public class TestSimpleTtlNodeSelector
+public class TestSimpleTtlNodeSplitAssigner
 {
     @Test
     public void testTtlComparison()
     {
         ConfidenceBasedTtlInfo confidenceBasedTtlInfo = ConfidenceBasedTtlInfo.getInfiniteTtl();
         Duration estimatedExecutionTime = new Duration(1, TimeUnit.HOURS);
-        assertTrue(SimpleTtlNodeSelector.isTtlEnough(confidenceBasedTtlInfo, estimatedExecutionTime));
+        assertTrue(SimpleTtlNodeSplitAssigner.isTtlEnough(confidenceBasedTtlInfo, estimatedExecutionTime));
     }
 }

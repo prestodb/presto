@@ -29,7 +29,6 @@ import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import com.facebook.presto.spi.ttl.NodeTtl;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
@@ -67,10 +66,10 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class SimpleTtlNodeSelector
-        implements NodeSelector
+public class SimpleTtlNodeSplitAssigner
+        implements NodeSplitAssigner
 {
-    private static final Logger log = Logger.get(SimpleTtlNodeSelector.class);
+    private static final Logger log = Logger.get(SimpleTtlNodeSplitAssigner.class);
     private final NodeTtlFetcherManager nodeTtlFetcherManager;
     private final Session session;
     private final AtomicReference<Supplier<NodeMap>> nodeMap;
@@ -80,12 +79,12 @@ public class SimpleTtlNodeSelector
     private final long maxSplitsWeightPerNode;
     private final long maxPendingSplitsWeightPerTask;
     private final int maxTasksPerStage;
-    private final SimpleNodeSelector simpleNodeSelector;
+    private final SimpleNodeSplitAssigner simpleNodeSelector;
     private final QueryManager queryManager;
     private final Duration estimatedExecutionTime;
 
-    public SimpleTtlNodeSelector(
-            SimpleNodeSelector simpleNodeSelector,
+    public SimpleTtlNodeSplitAssigner(
+            SimpleNodeSplitAssigner simpleNodeSelector,
             SimpleTtlNodeSelectorConfig config,
             NodeTaskMap nodeTaskMap,
             Supplier<NodeMap> nodeMap,
@@ -128,43 +127,9 @@ public class SimpleTtlNodeSelector
     }
 
     @Override
-    public List<InternalNode> getAllNodes()
-    {
-        return simpleNodeSelector.getAllNodes();
-    }
-
-    @Override
-    public InternalNode selectCurrentNode()
-    {
-        return simpleNodeSelector.selectCurrentNode();
-    }
-
-    @Override
-    public List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes)
-    {
-        Map<InternalNode, NodeTtl> nodeTtlInfo = nodeTtlFetcherManager.getAllTtls();
-
-        Map<InternalNode, Optional<ConfidenceBasedTtlInfo>> ttlInfo = nodeTtlInfo
-                .entrySet()
-                .stream()
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue().getTtlInfo()
-                                .stream()
-                                .min(Comparator.comparing(ConfidenceBasedTtlInfo::getExpiryInstant))));
-
-        NodeMap nodeMap = this.nodeMap.get().get();
-        List<InternalNode> activeNodes = nodeMap.getActiveNodes();
-
-        Duration estimatedExecutionTimeRemaining = getEstimatedExecutionTimeRemaining();
-        List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo, estimatedExecutionTimeRemaining);
-        return selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
-    }
-
-    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
-        boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == NodeSelectionStrategy.NO_PREFERENCE);
+        boolean isNodeSelectionStrategyNoPreference = splits.stream().allMatch(split -> split.getNodeSelectionStrategy() == com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE);
         // Current NodeSelectionStrategy support is limited to NO_PREFERENCE
         if (!isNodeSelectionStrategyNoPreference) {
             return simpleNodeSelector.computeAssignments(splits, existingTasks);
@@ -175,19 +140,22 @@ public class SimpleTtlNodeSelector
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         List<InternalNode> eligibleNodes = getEligibleNodes(maxTasksPerStage, nodeMap, existingTasks);
-        NodeSelection randomNodeSelection = new RandomNodeSelection(eligibleNodes, minCandidates);
+        NodeSelectionStrategy randomNodeSelectionStrategy = new RandomNodeSelectionStrategy();
 
         boolean splitWaitingForAnyNode = false;
 
         OptionalInt preferredNodeCount = OptionalInt.empty();
         for (Split split : splits) {
-            if (split.getNodeSelectionStrategy() != NodeSelectionStrategy.NO_PREFERENCE) {
+            if (split.getNodeSelectionStrategy() != com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE) {
                 throw new PrestoException(
                         NODE_SELECTION_NOT_SUPPORTED,
                         format("Unsupported node selection strategy for TTL scheduling: %s", split.getNodeSelectionStrategy()));
             }
 
-            List<InternalNode> candidateNodes = randomNodeSelection.pickNodes(split);
+            List<InternalNode> candidateNodes = randomNodeSelectionStrategy.select(eligibleNodes, NodeSelectionHint.newBuilder()
+                    .includeCoordinator(includeCoordinator)
+                    .limit(minCandidates)
+                    .build());
             if (candidateNodes.isEmpty()) {
                 log.warn("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getActiveNodes());
                 throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");

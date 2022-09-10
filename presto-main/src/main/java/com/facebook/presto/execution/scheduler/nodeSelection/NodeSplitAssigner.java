@@ -18,27 +18,15 @@ import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.SplitPlacementResult;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Set;
 
-public interface NodeSelector
+public interface NodeSplitAssigner
 {
     void lockDownNodes();
 
     List<InternalNode> getActiveNodes();
-
-    List<InternalNode> getAllNodes();
-
-    InternalNode selectCurrentNode();
-
-    default List<InternalNode> selectRandomNodes(int limit)
-    {
-        return selectRandomNodes(limit, ImmutableSet.of());
-    }
-
-    List<InternalNode> selectRandomNodes(int limit, Set<InternalNode> excludedNodes);
 
     /**
      * Identifies the nodes for running the specified splits.

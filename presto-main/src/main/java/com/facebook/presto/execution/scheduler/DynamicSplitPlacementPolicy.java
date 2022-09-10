@@ -14,7 +14,7 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.execution.RemoteTask;
-import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
+import com.facebook.presto.execution.scheduler.nodeSelection.NodeSplitAssigner;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
 
@@ -27,30 +27,30 @@ import static java.util.Objects.requireNonNull;
 public class DynamicSplitPlacementPolicy
         implements SplitPlacementPolicy
 {
-    private final NodeSelector nodeSelector;
+    private final NodeSplitAssigner nodeSplitAssigner;
     private final Supplier<? extends List<RemoteTask>> remoteTasks;
 
-    public DynamicSplitPlacementPolicy(NodeSelector nodeSelector, Supplier<? extends List<RemoteTask>> remoteTasks)
+    public DynamicSplitPlacementPolicy(NodeSplitAssigner nodeSplitAssigner, Supplier<? extends List<RemoteTask>> remoteTasks)
     {
-        this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
+        this.nodeSplitAssigner = requireNonNull(nodeSplitAssigner, "nodeSelector is null");
         this.remoteTasks = requireNonNull(remoteTasks, "remoteTasks is null");
     }
 
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits)
     {
-        return nodeSelector.computeAssignments(splits, remoteTasks.get());
+        return nodeSplitAssigner.computeAssignments(splits, remoteTasks.get());
     }
 
     @Override
     public void lockDownNodes()
     {
-        nodeSelector.lockDownNodes();
+        nodeSplitAssigner.lockDownNodes();
     }
 
     @Override
     public List<InternalNode> getActiveNodes()
     {
-        return nodeSelector.getActiveNodes();
+        return nodeSplitAssigner.getActiveNodes();
     }
 }
