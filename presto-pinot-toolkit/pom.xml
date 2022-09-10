@@ -240,6 +240,14 @@
                     <groupId>io.perfmark</groupId>
                     <artifactId>perfmark-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -281,7 +289,7 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
-            <version>3.17.2</version>
+            <version>3.19.2</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
@@ -319,6 +327,10 @@
                 <exclusion>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>animal-sniffer-annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.protobuf</groupId>
+                    <artifactId>protobuf-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -641,6 +653,43 @@
                             </configuration>
                         </execution>
                     </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredDependencies>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>helix-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>helix-core</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>metadata-store-directory-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>metrics-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>zookeeper-api</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.logging.log4j</groupId>
+                                <artifactId>log4j-slf4j-impl</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.slf4j</groupId>
+                                <artifactId>slf4j-jdk14</artifactId>
+                            </dependency>
+                        </ignoredDependencies>
+                    </configuration>
                 </plugin>
             </plugins>
         </pluginManagement>

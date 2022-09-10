@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.JsonType;
@@ -133,6 +134,8 @@ public class PinotColumnUtils
                 return TimestampType.TIMESTAMP;
             case JSON:
                 return JsonType.JSON;
+            case BIG_DECIMAL:
+                return DecimalType.createDecimalType();
             default:
                 break;
         }
