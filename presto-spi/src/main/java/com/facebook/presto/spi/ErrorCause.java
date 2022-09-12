@@ -11,11 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.classloader_interface;
+package com.facebook.presto.spi;
 
-public enum RetryExecutionStrategy
+import com.facebook.drift.annotations.ThriftEnum;
+import com.facebook.drift.annotations.ThriftEnumValue;
+
+@ThriftEnum
+public enum ErrorCause
 {
-    DISABLE_BROADCAST_JOIN,
-    INCREASE_CONTAINER_SIZE,
-    INCREASE_HASH_PARTITION_COUNT
+    UNKNOWN(0),
+    LOW_PARTITION_COUNT(1),
+    EXCEEDS_BROADCAST_MEMORY_LIMIT(2);
+
+    private final int code;
+
+    ErrorCause(int code)
+    {
+        this.code = code;
+    }
+
+    @ThriftEnumValue
+    public int getCode()
+    {
+        return code;
+    }
 }

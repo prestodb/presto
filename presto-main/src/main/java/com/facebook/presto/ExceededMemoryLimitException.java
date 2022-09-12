@@ -13,12 +13,15 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.StandardErrorCode;
 import io.airlift.units.DataSize;
 
 import java.util.Optional;
 
+import static com.facebook.presto.spi.ErrorCause.EXCEEDS_BROADCAST_MEMORY_LIMIT;
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
@@ -29,6 +32,8 @@ import static java.lang.String.format;
 public class ExceededMemoryLimitException
         extends PrestoException
 {
+    private final ErrorCause errorCause;
+
     public static ExceededMemoryLimitException exceededGlobalUserLimit(DataSize maxMemory)
     {
         return new ExceededMemoryLimitException(EXCEEDED_GLOBAL_MEMORY_LIMIT, format("Query exceeded distributed user memory limit of %s", maxMemory));
@@ -43,28 +48,33 @@ public class ExceededMemoryLimitException
             DataSize maxMemory,
             String additionalFailureInfo,
             boolean heapDumpOnExceededMemoryLimitEnabled,
-            Optional<String> heapDumpFilePath)
+            Optional<String> heapDumpFilePath,
+            ErrorCause errorCause)
     {
         performHeapDumpIfEnabled(heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
-                format("Query exceeded per-node user memory limit of %s [%s]", maxMemory, additionalFailureInfo));
+                format("Query exceeded per-node user memory limit of %s [%s]", maxMemory, additionalFailureInfo),
+                errorCause);
     }
 
     public static ExceededMemoryLimitException exceededLocalBroadcastMemoryLimit(DataSize maxMemory, String additionalFailureInfo)
     {
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT,
-                format("Query exceeded per-node broadcast memory limit of %s [%s]", maxMemory, additionalFailureInfo));
+                format("Query exceeded per-node broadcast memory limit of %s [%s]", maxMemory, additionalFailureInfo),
+                EXCEEDS_BROADCAST_MEMORY_LIMIT);
     }
 
     public static ExceededMemoryLimitException exceededLocalTotalMemoryLimit(
             DataSize maxMemory,
             String additionalFailureInfo,
             boolean heapDumpOnExceededMemoryLimitEnabled,
-            Optional<String> heapDumpFilePath)
+            Optional<String> heapDumpFilePath,
+            ErrorCause errorCause)
     {
         performHeapDumpIfEnabled(heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
         return new ExceededMemoryLimitException(EXCEEDED_LOCAL_MEMORY_LIMIT,
-                format("Query exceeded per-node total memory limit of %s [%s]", maxMemory, additionalFailureInfo));
+                format("Query exceeded per-node total memory limit of %s [%s]", maxMemory, additionalFailureInfo),
+                errorCause);
     }
 
     public static ExceededMemoryLimitException exceededLocalRevocableMemoryLimit(
@@ -90,6 +100,17 @@ public class ExceededMemoryLimitException
 
     private ExceededMemoryLimitException(StandardErrorCode errorCode, String message)
     {
+        this(errorCode, message, UNKNOWN);
+    }
+
+    private ExceededMemoryLimitException(StandardErrorCode errorCode, String message, ErrorCause errorCause)
+    {
         super(errorCode, message);
+        this.errorCause = errorCause;
+    }
+
+    public ErrorCause getErrorCause()
+    {
+        return errorCause;
     }
 }

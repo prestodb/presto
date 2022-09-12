@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.ErrorCode;
 import com.google.common.collect.ImmutableList;
 
@@ -27,10 +28,13 @@ import java.util.Optional;
 
 import static com.facebook.presto.execution.ExecutionFailureInfo.toStackTraceElement;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryBroadcastJoinEnabled;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isRetryOnOutOfMemoryWithIncreasedMemoryEnabled;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.DISABLE_BROADCAST_JOIN;
 import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.INCREASE_CONTAINER_SIZE;
+import static com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy.INCREASE_HASH_PARTITION_COUNT;
+import static com.facebook.presto.spi.ErrorCause.LOW_PARTITION_COUNT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static com.google.common.base.Preconditions.checkState;
@@ -46,7 +50,10 @@ public class PrestoSparkFailureUtils
         PrestoSparkFailure prestoSparkFailure = toPrestoSparkFailure(executionFailureInfo);
         checkState(prestoSparkFailure != null);
 
-        Optional<RetryExecutionStrategy> retryExecutionStrategy = getRetryExecutionStrategy(session, executionFailureInfo.getErrorCode(), executionFailureInfo.getMessage());
+        Optional<RetryExecutionStrategy> retryExecutionStrategy = getRetryExecutionStrategy(session,
+                executionFailureInfo.getErrorCode(),
+                executionFailureInfo.getMessage(),
+                executionFailureInfo.getErrorCause());
         return new PrestoSparkFailure(
                 prestoSparkFailure.getMessage(),
                 prestoSparkFailure.getCause(),
@@ -81,19 +88,25 @@ public class PrestoSparkFailureUtils
         return prestoSparkFailure;
     }
 
-    private static Optional<RetryExecutionStrategy> getRetryExecutionStrategy(Session session, ErrorCode errorCode, String message)
+    private static Optional<RetryExecutionStrategy> getRetryExecutionStrategy(Session session, ErrorCode errorCode, String message, ErrorCause errorCause)
     {
         if (errorCode == null || message == null) {
             return Optional.empty();
         }
 
-        if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) && errorCode.equals(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode())) {
+        if (isRetryOnOutOfMemoryBroadcastJoinEnabled(session) &&
+                errorCode.equals(EXCEEDED_LOCAL_BROADCAST_JOIN_MEMORY_LIMIT.toErrorCode())) {
             return Optional.of(DISABLE_BROADCAST_JOIN);
         }
 
         if (isRetryOnOutOfMemoryWithIncreasedMemoryEnabled(session)
                 && (errorCode.equals(EXCEEDED_LOCAL_MEMORY_LIMIT.toErrorCode()) || errorCode.equals(SPARK_EXECUTOR_OOM.toErrorCode()))) {
             return Optional.of(INCREASE_CONTAINER_SIZE);
+        }
+
+        if (isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(session) &&
+                LOW_PARTITION_COUNT == errorCause) {
+            return Optional.of(INCREASE_HASH_PARTITION_COUNT);
         }
 
         return Optional.empty();

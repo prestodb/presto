@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.SingleStreamSpiller;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
@@ -374,7 +375,7 @@ public class HashBuilderOperator
         long maxUserMemoryBytes = getQueryMaxMemoryPerNode(operatorContext.getSession()).toBytes();
         if (getSpiller().getSpilledPagesInMemorySize() > maxUserMemoryBytes) {
             String additionalInfo = format("Spilled: %s, Operator: %s", succinctBytes(getSpiller().getSpilledPagesInMemorySize()), HashBuilderOperator.class.getSimpleName());
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxUserMemoryBytes), additionalInfo, false, Optional.empty());
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxUserMemoryBytes), additionalInfo, false, Optional.empty(), ErrorCause.UNKNOWN);
         }
     }
 

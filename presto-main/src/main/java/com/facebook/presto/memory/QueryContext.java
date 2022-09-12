@@ -20,8 +20,10 @@ import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskStateMachine;
 import com.facebook.presto.memory.context.MemoryReservationHandler;
 import com.facebook.presto.memory.context.MemoryTrackingContext;
+import com.facebook.presto.operator.OperatorMemoryReservationSummary;
 import com.facebook.presto.operator.TaskContext;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spiller.SpillSpaceTracker;
@@ -54,6 +56,8 @@ import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUser
 import static com.facebook.presto.ExceededSpillLimitException.exceededPerQueryLocalLimit;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static com.facebook.presto.operator.Operator.NOT_BLOCKED;
+import static com.facebook.presto.spi.ErrorCause.LOW_PARTITION_COUNT;
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -493,7 +497,22 @@ public class QueryContext
     private void enforceUserMemoryLimit(long allocated, long delta, long maxMemory, String allocationTag)
     {
         if (allocated + delta > maxMemory) {
-            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalUserMemoryLimit(succinctBytes(maxMemory),
+                    getAdditionalFailureInfo(allocated, delta, allocationTag),
+                    heapDumpOnExceededMemoryLimitEnabled,
+                    heapDumpFilePath,
+                    getErrorCause());
+        }
+    }
+
+    @GuardedBy("this")
+    private ErrorCause getErrorCause()
+    {
+        if (hasLowPartitionCount()) {
+            return LOW_PARTITION_COUNT;
+        }
+        else {
+            return UNKNOWN;
         }
     }
 
@@ -503,7 +522,11 @@ public class QueryContext
         long totalMemory = allocated + delta;
         peakNodeTotalMemory = Math.max(totalMemory, peakNodeTotalMemory);
         if (totalMemory > maxMemory) {
-            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory), getAdditionalFailureInfo(allocated, delta, allocationTag), heapDumpOnExceededMemoryLimitEnabled, heapDumpFilePath);
+            throw exceededLocalTotalMemoryLimit(succinctBytes(maxMemory),
+                    getAdditionalFailureInfo(allocated, delta, allocationTag),
+                    heapDumpOnExceededMemoryLimitEnabled,
+                    heapDumpFilePath,
+                    getErrorCause());
         }
     }
 
@@ -543,14 +566,53 @@ public class QueryContext
         String message = format("%s, Top Consumers: %s", additionalInfo, topConsumers);
 
         if (verboseExceededMemoryLimitErrorsEnabled) {
-            List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
-                    .map(TaskContext::getMemoryReservationSummary)
-                    .filter(summary -> summary.getReservation().toBytes() > 0)
-                    .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
-                    .limit(3)
-                    .collect(toImmutableList());
+            List<TaskMemoryReservationSummary> memoryReservationSummaries = getTaskMemoryReservationSummaries();
             message += ", Details: " + memoryReservationSummaryJsonCodec.toJson(memoryReservationSummaries);
         }
         return message;
+    }
+
+    @GuardedBy("this")
+    private List<TaskMemoryReservationSummary> getTaskMemoryReservationSummaries()
+    {
+        List<TaskMemoryReservationSummary> memoryReservationSummaries = taskContexts.values().stream()
+                .map(TaskContext::getMemoryReservationSummary)
+                .filter(summary -> summary.getReservation().toBytes() > 0)
+                .sorted(comparing(TaskMemoryReservationSummary::getReservation).reversed())
+                .limit(3)
+                .collect(toImmutableList());
+        return memoryReservationSummaries;
+    }
+
+    @GuardedBy("this")
+    private boolean hasLowPartitionCount()
+    {
+        List<TaskMemoryReservationSummary> memoryReservationSummaries = getTaskMemoryReservationSummaries();
+        if (memoryReservationSummaries == null || memoryReservationSummaries.isEmpty()) {
+            return false;
+        }
+        TaskMemoryReservationSummary topTask = memoryReservationSummaries.get(0);
+        List<OperatorMemoryReservationSummary> hashBuilderAllocations = topTask
+                .getTopConsumers()
+                .stream()
+                .filter(a -> "HashBuilderOperator".equalsIgnoreCase(a.getType()))
+                .collect(toList());
+        if (hashBuilderAllocations.isEmpty()) {
+            return false;
+        }
+        else {
+            return canPartitionsBrokenDown(hashBuilderAllocations.get(0).getReservations());
+        }
+    }
+
+    private boolean canPartitionsBrokenDown(List<DataSize> dataSizes)
+    {
+        if (dataSizes == null || dataSizes.isEmpty()) {
+            return false;
+        }
+        // If biggest data size is no more than 2x of smallest, we can break down partition
+        // This is done to avoid skew scenario for which we need different strategy of breaking down just the partitions with skew
+        List<DataSize> sortedDataSizes = dataSizes.stream().filter(a -> a.toBytes() > 0).sorted().collect(toList());
+        return sortedDataSizes.get(0).toBytes() * 2 >= sortedDataSizes.get(sortedDataSizes.size() - 1).toBytes();
     }
 }
