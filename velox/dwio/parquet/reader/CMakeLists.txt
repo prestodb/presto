@@ -27,8 +27,6 @@ target_link_libraries(
   velox_dwio_parquet_thrift
   velox_type
   velox_dwio_common
-  velox_dwio_dwrf_common
-  velox_dwio_dwrf_proto
   arrow
   thrift
   ${FMT})
