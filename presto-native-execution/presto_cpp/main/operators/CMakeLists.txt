@@ -13,7 +13,8 @@
 # limitations under the License.
 add_library(
         presto_operators
-        PartitionAndSerialize.cpp)
+        PartitionAndSerialize.cpp
+        ShuffleWrite.cpp)
 
 target_link_libraries(
         presto_operators
