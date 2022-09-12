@@ -939,6 +939,74 @@ TEST_F(ExprTest, selectiveLazyLoadingOr) {
   assertEqualVectors(expected, result);
 }
 
+TEST_F(ExprTest, lazyVectorAccessTwiceWithDifferentRows) {
+  const vector_size_t size = 4;
+
+  auto c0 = makeNullableFlatVector<int64_t>({1, 1, 1, std::nullopt});
+  // [0, 1, 2, 3] if fully loaded
+  std::vector<vector_size_t> loadedRows;
+  auto valueAt = [](auto row) { return row; };
+  VectorPtr c1 = std::make_shared<LazyVector>(
+      pool_.get(),
+      BIGINT(),
+      size,
+      std::make_unique<test::SimpleVectorLoader>([&](auto rows) {
+        for (auto row : rows) {
+          loadedRows.push_back(row);
+        }
+        return makeFlatVector<int64_t>(rows.back() + 1, valueAt);
+      }));
+
+  auto result = evaluate(
+      "row_constructor(c0 + c1, if (c1 >= 0, c1, 0))", makeRowVector({c0, c1}));
+
+  auto expected = makeRowVector(
+      {makeNullableFlatVector<int64_t>({1, 2, 3, std::nullopt}),
+       makeNullableFlatVector<int64_t>({0, 1, 2, 3})});
+
+  assertEqualVectors(expected, result);
+}
+
+TEST_F(ExprTest, lazyVectorAccessTwiceInDifferentExpressions) {
+  const vector_size_t size = 1'000;
+
+  // Fields referenced by multiple expressions will load lazy vector
+  // immediately in ExprSet::eval().
+  auto isNullAtColA = [](auto row) { return row % 4 == 0; };
+  auto isNullAtColC = [](auto row) { return row % 2 == 0; };
+
+  auto a = makeLazyFlatVector<int64_t>(
+      size,
+      [](auto row) { return row; },
+      isNullAtColA,
+      size,
+      [](auto row) { return row; });
+  auto b = makeLazyFlatVector<int64_t>(
+      size,
+      [](auto row) { return row * 2; },
+      nullptr,
+      size,
+      [](auto row) { return row; });
+  auto c = makeLazyFlatVector<int64_t>(
+      size,
+      [](auto row) { return row; },
+      isNullAtColC,
+      size,
+      [](auto row) { return row; });
+
+  auto result = evaluateMultiple(
+      {"if(c0 is not null, c0, c1)", "if (c2 is not null, c2, c1)"},
+      makeRowVector({a, b, c}));
+
+  auto expected = makeFlatVector<int64_t>(
+      size, [](auto row) { return row % 4 == 0 ? row * 2 : row; });
+  assertEqualVectors(expected, result[0]);
+
+  expected = makeFlatVector<int64_t>(
+      size, [](auto row) { return row % 2 == 0 ? row * 2 : row; });
+  assertEqualVectors(expected, result[1]);
+}
+
 TEST_F(ExprTest, selectiveLazyLoadingIf) {
   const vector_size_t size = 1'000;
 
