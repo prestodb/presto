@@ -325,27 +325,6 @@ public class InternalResourceGroup
         }
     }
 
-    @Managed
-    public int getWaitingQueuedQueries()
-    {
-        synchronized (root) {
-            // For leaf group, when no queries can run, all queued queries are waiting for resources on this resource group.
-            if (subGroups.isEmpty()) {
-                return queuedQueries.size();
-            }
-
-            // For internal groups, when no queries can run, only queries that could run on its subgroups are waiting for resources on this group.
-            int waitingQueuedQueries = 0;
-            for (InternalResourceGroup subGroup : subGroups.values()) {
-                if (subGroup.canRunMore()) {
-                    waitingQueuedQueries += min(subGroup.getQueuedQueries(), subGroup.getHardConcurrencyLimit() - subGroup.getRunningQueries());
-                }
-            }
-
-            return waitingQueuedQueries;
-        }
-    }
-
     @Override
     public DataSize getSoftMemoryLimit()
     {
