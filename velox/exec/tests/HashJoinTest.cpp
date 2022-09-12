@@ -70,7 +70,6 @@ class HashJoinTest : public HiveConnectorTestBase {
   }
 
   void runTest(
-      int32_t numDrivers,
       const std::vector<std::string>& leftKeys,
       std::vector<RowVectorPtr>& leftBatches,
       bool isLeftParallelizable,
@@ -95,7 +94,7 @@ class HashJoinTest : public HiveConnectorTestBase {
                               outputLayout,
                               joinType)
                           .planNode();
-    params.maxDrivers = numDrivers;
+    params.maxDrivers = numDrivers_;
 
     auto task = ::assertQuery(
         params, [](auto*) {}, referenceQuery, duckDbQueryRunner_);
@@ -108,7 +107,6 @@ class HashJoinTest : public HiveConnectorTestBase {
 
   void testJoin(
       const std::vector<TypePtr>& keyTypes,
-      int numDrivers,
       int leftBatchSize,
       int numLeftBatches,
       int rightBatchSize,
@@ -148,7 +146,6 @@ class HashJoinTest : public HiveConnectorTestBase {
     }
 
     testJoin(
-        numDrivers,
         leftType,
         makeKeyNames(keyTypes.size(), "t_"),
         leftBatches,
@@ -162,7 +159,6 @@ class HashJoinTest : public HiveConnectorTestBase {
   }
 
   void testJoin(
-      int32_t numDrivers,
       RowTypePtr leftType,
       const std::vector<std::string>& leftKeys,
       std::vector<RowVectorPtr>& leftBatches,
@@ -179,10 +175,10 @@ class HashJoinTest : public HiveConnectorTestBase {
     // combinations of build and probe sides, so populate duckdb with all the
     // data: 'allLeftBatches' and 'allRightBatches'.
     std::vector<RowVectorPtr> allLeftBatches;
-    allLeftBatches.reserve(leftBatches.size() * numDrivers);
+    allLeftBatches.reserve(leftBatches.size() * numDrivers_);
     std::vector<RowVectorPtr> allRightBatches;
-    allRightBatches.reserve(rightBatches.size() * numDrivers);
-    for (int i = 0; i < numDrivers; ++i) {
+    allRightBatches.reserve(rightBatches.size() * numDrivers_);
+    for (int i = 0; i < numDrivers_; ++i) {
       std::copy(
           leftBatches.begin(),
           leftBatches.end(),
@@ -196,61 +192,35 @@ class HashJoinTest : public HiveConnectorTestBase {
     createDuckDbTable("t", allLeftBatches);
     createDuckDbTable("u", allRightBatches);
 
-    {
-      SCOPED_TRACE(fmt::format(
-          "Run without spilling, {} probe drivers, {} build drivers",
-          numDrivers,
-          numDrivers));
-      runTest(
-          numDrivers,
-          leftKeys,
-          leftBatches,
-          true,
-          rightKeys,
-          rightBatches,
-          true,
-          referenceQuery,
-          filter,
-          outputLayout.empty() ? concat(leftType->names(), rightType->names())
-                               : outputLayout,
-          joinType);
+    struct TestSettings {
+      int leftParallelize;
+      int rightParallelize;
+
+      std::string debugString() const {
+        return fmt::format(
+            "leftParallelize: {}, rightParallelize: {}",
+            leftParallelize,
+            rightParallelize);
+      }
+    };
+
+    std::vector<TestSettings> testSettings;
+    testSettings.push_back({true, true});
+    if (numDrivers_ != 1) {
+      testSettings.push_back({true, false});
+      testSettings.push_back({false, true});
     }
 
-    if (numDrivers == 1) {
-      return;
-    }
+    for (const auto& testData : testSettings) {
+      SCOPED_TRACE(fmt::format("{}/{}", testData.debugString(), numDrivers_));
 
-    {
-      SCOPED_TRACE(fmt::format(
-          "Run without spilling, 1 probe driver, {} build drivers",
-          numDrivers));
       runTest(
-          numDrivers,
           leftKeys,
-          allLeftBatches,
-          false,
+          testData.leftParallelize ? leftBatches : allLeftBatches,
+          testData.leftParallelize,
           rightKeys,
-          rightBatches,
-          true,
-          referenceQuery,
-          filter,
-          outputLayout.empty() ? concat(leftType->names(), rightType->names())
-                               : outputLayout,
-          joinType);
-    }
-
-    {
-      SCOPED_TRACE(fmt::format(
-          "Run without spilling, {} probe driver, 1 build drivers",
-          numDrivers));
-      runTest(
-          numDrivers,
-          leftKeys,
-          leftBatches,
-          true,
-          rightKeys,
-          allRightBatches,
-          false,
+          testData.rightParallelize ? rightBatches : allRightBatches,
+          testData.rightParallelize,
           referenceQuery,
           filter,
           outputLayout.empty() ? concat(leftType->names(), rightType->names())
@@ -349,11 +319,10 @@ class MultiThreadedHashJoinTest
 TEST_P(MultiThreadedHashJoinTest, bigintArray) {
   testJoin(
       {BIGINT()},
-      numDrivers_,
-      16000,
-      3,
-      15000,
-      3,
+      1600,
+      5,
+      1500,
+      5,
       "SELECT t_k0, t_data, u_k0, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0");
@@ -374,7 +343,6 @@ TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
   }
 
   testJoin(
-      numDrivers_,
       leftType_,
       {"t_k2"},
       leftBatches,
@@ -391,11 +359,10 @@ TEST_P(MultiThreadedHashJoinTest, outOfJoinKeyColumnOrder) {
 TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
   testJoin(
       {BIGINT()},
-      numDrivers_,
-      16000,
-      3,
+      1600,
+      5,
       0,
-      3,
+      5,
       "SELECT t_k0, t_data, u_k0, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0");
@@ -404,11 +371,10 @@ TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
 TEST_P(MultiThreadedHashJoinTest, normalizedKey) {
   testJoin(
       {BIGINT(), VARCHAR()},
-      numDrivers_,
-      16000,
-      3,
-      15000,
-      3,
+      1600,
+      5,
+      1500,
+      5,
       "SELECT t_k0, t_k1, t_data, u_k0, u_k1, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0 AND t_k1 = u_k1");
@@ -417,11 +383,10 @@ TEST_P(MultiThreadedHashJoinTest, normalizedKey) {
 TEST_P(MultiThreadedHashJoinTest, normalizedKeyOverflow) {
   testJoin(
       {BIGINT(), VARCHAR(), BIGINT(), BIGINT(), BIGINT(), BIGINT()},
-      numDrivers_,
-      16000,
-      3,
-      15000,
-      3,
+      1600,
+      5,
+      1500,
+      5,
       "SELECT t_k0, t_k1, t_k2, t_k3, t_k4, t_k5, t_data, u_k0, u_k1, u_k2, u_k3, u_k4, u_k5, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0 AND t_k1 = u_k1 AND t_k2 = u_k2 AND t_k3 = u_k3 AND t_k4 = u_k4 AND t_k5 = u_k5  ");
@@ -430,11 +395,10 @@ TEST_P(MultiThreadedHashJoinTest, normalizedKeyOverflow) {
 TEST_P(MultiThreadedHashJoinTest, allTypes) {
   testJoin(
       {BIGINT(), VARCHAR(), REAL(), DOUBLE(), INTEGER(), SMALLINT(), TINYINT()},
-      numDrivers_,
-      16000,
-      3,
-      15000,
-      3,
+      1600,
+      5,
+      1500,
+      5,
       "SELECT t_k0, t_k1, t_k2, t_k3, t_k4, t_k5, t_k6, t_data, u_k0, u_k1, u_k2, u_k3, u_k4, u_k5, u_k6, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0 AND t_k1 = u_k1 AND t_k2 = u_k2 AND t_k3 = u_k3 AND t_k4 = u_k4 AND t_k5 = u_k5 AND t_k6 = u_k6 ");
@@ -443,11 +407,10 @@ TEST_P(MultiThreadedHashJoinTest, allTypes) {
 TEST_P(MultiThreadedHashJoinTest, filter) {
   testJoin(
       {BIGINT()},
-      numDrivers_,
-      16000,
-      3,
-      15000,
-      3,
+      1600,
+      5,
+      1500,
+      5,
       "SELECT t_k0, t_data, u_k0, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0 AND ((t_k0 % 100) + (u_k0 % 100)) % 40 < 20",
@@ -496,7 +459,6 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithNull) {
     }
 
     testJoin(
-        numDrivers_,
         leftType_,
         {"t_k2"},
         leftBatches,
