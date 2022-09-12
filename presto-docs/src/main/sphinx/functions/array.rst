@@ -208,6 +208,21 @@ Array Functions
 
     Flattens an ``array(array(T))`` to an ``array(T)`` by concatenating the contained arrays.
 
+.. function:: find_first(array(E), function(T,boolean)) -> E
+
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+
+.. function:: find_first(array(E), index, function(T,boolean)) -> E
+
+    Returns the first element of ``array`` which returns true for ``function(T,boolean)``. Returns ``NULL`` if no such element exists.
+    If ``index`` > 0, the search for element starts at position ``index`` until the end of array.
+    If ``index`` < 0, the search for element starts at position ``abs(index)`` counting from last, until the start of array. ::
+
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x > 0); -- 4
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 0); -- 5
+        SELECT find_first(ARRAY[3, 4, 5, 6], 2, x -> x < 4); -- NULL
+        SELECT find_first(ARRAY[3, 4, 5, 6], -2, x -> x > 5); -- NULL
+
 .. function:: ngrams(array(T), n) -> array(array(T))
 
     Returns ``n``-grams for the ``array``::

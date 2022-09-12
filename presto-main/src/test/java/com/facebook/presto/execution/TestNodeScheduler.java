@@ -437,7 +437,7 @@ public class TestNodeScheduler
                 nodeTaskMap,
                 nodeTtlFetcherManager,
                 queryManager,
-                new SimpleTtlNodeSelectorConfig());
+                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(true));
 
         // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 mins left
         // So only node2 and node3 have enough TTL to run additional work
@@ -445,6 +445,13 @@ public class TestNodeScheduler
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(3, TimeUnit.MINUTES));
         assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3)), ImmutableSet.of(node2, node3));
+
+        // Query is estimated to take 5 hours and has been executing for 1 hour, i.e, 4 hours left
+        // No nodes will have enough TTL, so we fall back to simple node selection as per the config above
+        session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(5, TimeUnit.HOURS));
+        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        queryManager.setExecutionTime(new Duration(1, TimeUnit.HOURS));
+        assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3)), ImmutableSet.of(node1, node2, node3));
 
         // Query is estimated to take 1 hour and has been executing for 45 mins, i.e, 15 mins left
         // So only node2 and node3 have enough TTL to work on new splits
@@ -460,14 +467,25 @@ public class TestNodeScheduler
         assertTrue(assignments.keySet().contains(node2));
         assertTrue(assignments.keySet().contains(node3));
 
+        // Query is estimated to take 5 hours and has been executing for 1 hour, i.e, 4 hours left
+        // No nodes will have enough TTL, so we fall back to simple node selection as per the config above
+        session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(5, TimeUnit.HOURS));
+        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        queryManager.setExecutionTime(new Duration(1, TimeUnit.HOURS));
+        splits.clear();
+        for (int i = 0; i < 3; i++) {
+            splits.add(new Split(CONNECTOR_ID, TestingTransactionHandle.create(), new TestSplitRemote()));
+        }
+
+        assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        assertEquals(assignments.size(), 3);
+        assertEquals(assignments.keySet().size(), 3);
+        assertTrue(assignments.keySet().contains(node1));
+        assertTrue(assignments.keySet().contains(node2));
+        assertTrue(assignments.keySet().contains(node3));
+
         // Query is estimated to take 1 hour and has been executing for 20 mins, i.e, 40 mins left
         // So only node3 has enough TTL to work on new splits
-        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
-        TaskId taskId = new TaskId("test", 1, 0, 1);
-        RemoteTask newRemoteTask = remoteTaskFactory.createTableScanTask(taskId, node2, ImmutableList.of(), nodeTaskMap.createTaskStatsTracker(node2, taskId));
-        taskMap.put(node2, newRemoteTask);
-        nodeTaskMap.addTask(node2, newRemoteTask);
-
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(1, TimeUnit.HOURS));
         nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(20, TimeUnit.MINUTES));
