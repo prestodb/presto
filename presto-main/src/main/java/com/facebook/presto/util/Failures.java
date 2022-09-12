@@ -13,9 +13,11 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.ExceededMemoryLimitException;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.HostAddress;
@@ -35,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
 import static com.google.common.base.Functions.toStringFunction;
@@ -110,7 +113,7 @@ public final class Failures
         }
 
         if (seenFailures.contains(throwable)) {
-            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost);
+            return new ExecutionFailureInfo(type, "[cyclic] " + throwable.getMessage(), null, ImmutableList.of(), ImmutableList.of(), null, GENERIC_INTERNAL_ERROR.toErrorCode(), remoteHost, UNKNOWN);
         }
         seenFailures.add(throwable);
 
@@ -135,7 +138,8 @@ public final class Failures
                 Lists.transform(asList(throwable.getStackTrace()), toStringFunction()),
                 getErrorLocation(throwable),
                 errorCode,
-                remoteHost);
+                remoteHost,
+                toErrorCause(throwable));
     }
 
     @Nullable
@@ -171,6 +175,16 @@ public final class Failures
             return SYNTAX_ERROR.toErrorCode();
         }
         return null;
+    }
+
+    private static ErrorCause toErrorCause(Throwable throwable)
+    {
+        requireNonNull(throwable);
+
+        if (throwable instanceof ExceededMemoryLimitException) {
+            return ((ExceededMemoryLimitException) throwable).getErrorCause();
+        }
+        return UNKNOWN;
     }
 
     public static PrestoException internalError(Throwable t)

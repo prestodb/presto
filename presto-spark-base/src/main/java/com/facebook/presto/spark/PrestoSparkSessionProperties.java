@@ -58,6 +58,8 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
     public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
     public static final String SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED = "spark_resource_allocation_strategy_enabled";
+    public static final String SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED = "spark_retry_on_out_of_memory_higher_hash_partition_count_enabled";
+    public static final String SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY = "spark_hash_partition_count_scaling_factor_on_out_of_memory";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -187,6 +189,16 @@ public class PrestoSparkSessionProperties
                         SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED,
                         "Flag to enable optimized resource allocation strategy",
                         prestoSparkConfig.isSparkResourceAllocationStrategyEnabled(),
+                        false),
+                booleanProperty(
+                        SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED,
+                        "Increases hash partition count by scaling factor specified by spark.hash-partition-count-scaling-factor-on-out-of-memory if query fails due to low hash partition count",
+                        prestoSparkConfig.isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(),
+                        false),
+                doubleProperty(
+                        SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY,
+                        "Scaling factor for hash partition count when a query fails with out of memory error due to low hash partition count",
+                        prestoSparkConfig.getHashPartitionCountScalingFactorOnOutOfMemory(),
                         false));
     }
 
@@ -307,5 +319,15 @@ public class PrestoSparkSessionProperties
     public static boolean isSparkResourceAllocationStrategyEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, Boolean.class);
+    }
+
+    public static double getHashPartitionCountScalingFactorOnOutOfMemory(Session session)
+    {
+        return session.getSystemProperty(SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY, Double.class);
     }
 }

@@ -56,7 +56,9 @@ public class TestPrestoSparkConfig
                 .setAverageInputDataSizePerPartition(new DataSize(2, GIGABYTE))
                 .setMaxHashPartitionCount(4096)
                 .setMinHashPartitionCount(1024)
-                .setSparkResourceAllocationStrategyEnabled(false));
+                .setSparkResourceAllocationStrategyEnabled(false)
+                .setRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(false)
+                .setHashPartitionCountScalingFactorOnOutOfMemory(2.0));
     }
 
     @Test
@@ -88,6 +90,8 @@ public class TestPrestoSparkConfig
                 .put("spark.max-hash-partition-count", "333")
                 .put("spark.min-hash-partition-count", "30")
                 .put("spark.resource-allocation-strategy-enabled", "true")
+                .put("spark.retry-on-out-of-memory-higher-hash-partition-count-enabled", "true")
+                .put("spark.hash-partition-count-scaling-factor-on-out-of-memory", "5.6")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -114,7 +118,9 @@ public class TestPrestoSparkConfig
                 .setAverageInputDataSizePerPartition(new DataSize(1, GIGABYTE))
                 .setMaxHashPartitionCount(333)
                 .setMinHashPartitionCount(30)
-                .setSparkResourceAllocationStrategyEnabled(true);
+                .setSparkResourceAllocationStrategyEnabled(true)
+                .setRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(true)
+                .setHashPartitionCountScalingFactorOnOutOfMemory(5.6);
         assertFullMapping(properties, expected);
     }
 }

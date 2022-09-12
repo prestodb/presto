@@ -18,6 +18,7 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.HostAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -51,6 +52,7 @@ public class ExecutionFailureInfo
     private final ErrorCode errorCode;
     // use for transport errors
     private final HostAddress remoteHost;
+    private final ErrorCause errorCause;
 
     @JsonCreator
     @ThriftConstructor
@@ -62,7 +64,8 @@ public class ExecutionFailureInfo
             @JsonProperty("stack") List<String> stack,
             @JsonProperty("errorLocation") @Nullable ErrorLocation errorLocation,
             @JsonProperty("errorCode") @Nullable ErrorCode errorCode,
-            @JsonProperty("remoteHost") @Nullable HostAddress remoteHost)
+            @JsonProperty("remoteHost") @Nullable HostAddress remoteHost,
+            @JsonProperty("errorCause") @Nullable ErrorCause errorCause)
     {
         requireNonNull(type, "type is null");
         requireNonNull(suppressed, "suppressed is null");
@@ -76,6 +79,7 @@ public class ExecutionFailureInfo
         this.errorLocation = errorLocation;
         this.errorCode = errorCode;
         this.remoteHost = remoteHost;
+        this.errorCause = errorCause;
     }
 
     @JsonProperty
@@ -137,6 +141,14 @@ public class ExecutionFailureInfo
     public HostAddress getRemoteHost()
     {
         return remoteHost;
+    }
+
+    @Nullable
+    @JsonProperty
+    @ThriftField(9)
+    public ErrorCause getErrorCause()
+    {
+        return errorCause;
     }
 
     public FailureInfo toFailureInfo()
