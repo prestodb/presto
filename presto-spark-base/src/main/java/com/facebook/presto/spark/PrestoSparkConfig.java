@@ -51,6 +51,8 @@ public class PrestoSparkConfig
     private double memoryRevokingTarget;
     private boolean retryOnOutOfMemoryBroadcastJoinEnabled;
     private boolean retryOnOutOfMemoryWithIncreasedMemorySettingsEnabled;
+    private boolean retryOnOutOfMemoryWithHigherHashPartitionCount;
+    private double hashPartitionCountScalingFactorOnOutOfMemory = 2.0;
     private Map<String, String> outOfMemoryRetryPrestoSessionProperties = ImmutableMap.of();
     private Map<String, String> outOfMemoryRetrySparkConfigs = ImmutableMap.of();
     private DataSize averageInputDataSizePerExecutor = new DataSize(10, GIGABYTE);
@@ -389,6 +391,34 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setSparkResourceAllocationStrategyEnabled(boolean isResourceAllocationStrategyEnabled)
     {
         this.isResourceAllocationStrategyEnabled = isResourceAllocationStrategyEnabled;
+        return this;
+    }
+
+    public boolean isRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled()
+    {
+        return retryOnOutOfMemoryWithHigherHashPartitionCount;
+    }
+
+    @Config("spark.retry-on-out-of-memory-higher-hash-partition-count-enabled")
+    @ConfigDescription("Increases hash partition count by scaling factor specified by spark.hash-partition-count-scaling-factor-on-out-of-memory if query fails due to low hash partition count")
+    public PrestoSparkConfig setRetryOnOutOfMemoryWithHigherHashPartitionCountEnabled(boolean retryOnOutOfMemoryWithHigherHashPartitionCount)
+    {
+        this.retryOnOutOfMemoryWithHigherHashPartitionCount = retryOnOutOfMemoryWithHigherHashPartitionCount;
+        return this;
+    }
+
+    @DecimalMin("1.0")
+    @DecimalMax("10.0")
+    public double getHashPartitionCountScalingFactorOnOutOfMemory()
+    {
+        return hashPartitionCountScalingFactorOnOutOfMemory;
+    }
+
+    @Config("spark.hash-partition-count-scaling-factor-on-out-of-memory")
+    @ConfigDescription("Scaling factor for hash partition count when a query fails with out of memory error due to low hash partition count")
+    public PrestoSparkConfig setHashPartitionCountScalingFactorOnOutOfMemory(double hashPartitionCountScalingFactorOnOutOfMemory)
+    {
+        this.hashPartitionCountScalingFactorOnOutOfMemory = hashPartitionCountScalingFactorOnOutOfMemory;
         return this;
     }
 }

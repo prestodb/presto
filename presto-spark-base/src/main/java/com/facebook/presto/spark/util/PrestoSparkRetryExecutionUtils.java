@@ -22,7 +22,10 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.google.common.collect.ImmutableMap;
 
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getHashPartitionCountScalingFactorOnOutOfMemory;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getOutOfMemoryRetryPrestoSessionProperties;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getOutOfMemoryRetrySparkConfigs;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_RETRY_EXECUTION_STRATEGY;
@@ -46,6 +49,13 @@ public class PrestoSparkRetryExecutionUtils
 
             case INCREASE_CONTAINER_SIZE:
                 return new PrestoSparkRetryExecutionSettings(getOutOfMemoryRetrySparkConfigs(session), getOutOfMemoryRetryPrestoSessionProperties(session));
+
+            case INCREASE_HASH_PARTITION_COUNT:
+                ImmutableMap.Builder<String, String> prestoSettingsWithScaledPartitionCount = new ImmutableMap.Builder<>();
+                Long updatedPartitionCount = Math.round(getHashPartitionCount(session) *
+                        getHashPartitionCountScalingFactorOnOutOfMemory(session));
+                prestoSettingsWithScaledPartitionCount.put(HASH_PARTITION_COUNT, updatedPartitionCount.toString());
+                return new PrestoSparkRetryExecutionSettings(ImmutableMap.of(), prestoSettingsWithScaledPartitionCount.build());
 
             default:
                 throw new PrestoException(INVALID_RETRY_EXECUTION_STRATEGY, "Retry execution strategy not supported: " + retryExecutionStrategy);

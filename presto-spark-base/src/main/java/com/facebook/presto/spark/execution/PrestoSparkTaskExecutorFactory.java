@@ -143,6 +143,7 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCom
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -480,7 +481,8 @@ public class PrestoSparkTaskExecutorFactory
                                             succinctBytes(pool.getQueryMemoryReservation(queryId)),
                                             succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
                             isHeapDumpOnExceededMemoryLimitEnabled(session),
-                            Optional.ofNullable(heapDumpFilePath));
+                            Optional.ofNullable(heapDumpFilePath),
+                            UNKNOWN);
                 }
             });
         }
