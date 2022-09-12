@@ -175,7 +175,7 @@ public class PrestoServer
             injector.getInstance(NodeTtlFetcherManager.class).loadNodeTtlFetcher();
             injector.getInstance(ClusterTtlProviderManager.class).loadClusterTtlProvider();
 
-            startAssociatedProcesses();
+            startAssociatedProcesses(injector);
 
             injector.getInstance(Announcer.class).start();
 
@@ -192,7 +192,7 @@ public class PrestoServer
         return ImmutableList.of();
     }
 
-    protected void startAssociatedProcesses()
+    protected void startAssociatedProcesses(Injector injector)
     {
     }
 
