@@ -16,6 +16,7 @@
 #include "folly/init/Init.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
+#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -108,6 +109,22 @@ class TestShuffle : public ShuffleInterface {
   std::vector<std::vector<BufferPtr>> readyPartitions_;
 };
 
+void registerExchangeSource(ShuffleInterface* shuffle) {
+  exec::ExchangeSource::registerFactory(
+      [shuffle](
+          const std::string& taskId,
+          int destination,
+          std::shared_ptr<exec::ExchangeQueue> queue,
+          memory::MemoryPool* FOLLY_NONNULL pool)
+          -> std::unique_ptr<exec::ExchangeSource> {
+        if (strncmp(taskId.c_str(), "spark://", 8) == 0) {
+          return std::make_unique<UnsafeRowExchangeSource>(
+              taskId, destination, std::move(queue), shuffle, pool);
+        }
+        return nullptr;
+      });
+}
+
 auto addPartitionAndSerializeNode(int numPartitions) {
   return [numPartitions](
              core::PlanNodeId nodeId,
@@ -135,6 +152,10 @@ auto addShuffleWriteNode(ShuffleInterface* shuffle) {
 
 class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
  protected:
+
+  void registerVectorSerde() override {
+    serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
+  }
 
   static std::string makeTaskId(const std::string& prefix, int num) {
     return fmt::format("spark://{}-{}", prefix, num);
@@ -212,7 +233,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     serializer->deserialize(input.get(), pool(), rowType, &result, nullptr);
     return result;
   }
-
 };
 
 TEST_F(UnsafeRowShuffleTest, operators) {
@@ -241,6 +261,61 @@ TEST_F(UnsafeRowShuffleTest, operators) {
   auto [taskCursor, serializedResults] =
       readCursor(params, [](auto /*task*/) {});
   ASSERT_EQ(serializedResults.size(), 0);
+}
+
+TEST_F(UnsafeRowShuffleTest, endToEnd) {
+  exec::Operator::registerOperator(
+      std::make_unique<PartitionAndSerializeTranslator>());
+  exec::Operator::registerOperator(std::make_unique<ShuffleWriteTranslator>());
+
+  size_t numPartitions = 5;
+  TestShuffle shuffle(pool(), numPartitions, 1 << 20 /* 1MB */);
+
+  registerExchangeSource(&shuffle);
+
+  // Create and run single leaf task to partition data and write it to shuffle.
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
+  });
+
+  auto dataType = asRowType(data->type());
+
+  auto leafPlan = exec::test::PlanBuilder()
+                      .values({data}, true)
+                      .addNode(addPartitionAndSerializeNode(numPartitions))
+                      .localPartition({})
+                      .addNode(addShuffleWriteNode(&shuffle))
+                      .planNode();
+
+  auto leafTaskId = makeTaskId("leaf", 0);
+  auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+  exec::Task::start(leafTask, 2);
+  ASSERT_TRUE(exec::test::waitForTaskCompletion(leafTask.get()));
+
+  // Create and run multiple downstream tasks, one per partition, to read data
+  // from shuffle.
+  for (auto i = 0; i < numPartitions; ++i) {
+    auto plan = exec::test::PlanBuilder()
+                    .exchange(dataType)
+                    .project(dataType->names())
+                    .planNode();
+
+    exec::test::CursorParameters params;
+    params.planNode = plan;
+    params.destination = i;
+
+    bool noMoreSplits = false;
+    auto [taskCursor, serializedResults] = readCursor(params, [&](auto* task) {
+      if (noMoreSplits) {
+        return;
+      }
+      addRemoteSplits(task, {leafTaskId});
+      noMoreSplits = true;
+    });
+
+    ASSERT_FALSE(shuffle.hasNext(i)) << i;
+  }
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeOperator) {
@@ -299,7 +374,7 @@ TEST_F(UnsafeRowShuffleTest, ShuffleWriterToString) {
 }
 
 TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
-  auto data = vectorMaker_.rowVector({
+  auto data = makeRowVector({
       makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
       makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
   });
