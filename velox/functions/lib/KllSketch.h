@@ -88,6 +88,17 @@ struct KllSketch {
   std::vector<T, Allocator> estimateQuantiles(
       const folly::Range<Iter>& quantiles) const;
 
+  /// Estimate the values of the given quantiles.  This is more
+  /// efficient than calling estimateQuantile(double) repeatedly.
+  /// @tparam Iter Iterator type dereferenceable to double
+  /// @param quantiles Range of quantiles in [0, 1] to be estimated
+  /// @param out Pre-allocated memory to hold the result, must be at least as
+  ///  large as `quantiles`
+  template <typename Iter>
+  void estimateQuantiles(
+      const folly::Range<Iter>& quantiles,
+      T* FOLLY_NONNULL out) const;
+
   /// The total number of values being added to the sketch.
   size_t totalCount() const {
     return n_;
@@ -98,11 +109,11 @@ struct KllSketch {
 
   /// Serialize the sketch into bytes.
   /// @param out Pre-allocated memory at least serializedByteSize() in size
-  void serialize(char* out) const;
+  void serialize(char* FOLLY_NONNULL out) const;
 
   /// Deserialize a sketch from bytes.
   static KllSketch<T, Allocator, Compare> deserialize(
-      const char* data,
+      const char* FOLLY_NONNULL data,
       const Allocator& = Allocator(),
       uint32_t seed = folly::Random::rand32());
 
@@ -124,7 +135,7 @@ struct KllSketch {
 
   /// Merge with another deserialized sketch.  This is more efficient
   /// than deserialize then merge.
-  void mergeDeserialized(const char* data);
+  void mergeDeserialized(const char* FOLLY_NONNULL data);
 
   /// Get frequencies of items being tracked.  The result is sorted by item.
   std::vector<std::pair<T, uint64_t>> getFrequencies() const;
@@ -136,9 +147,6 @@ struct KllSketch {
   int findLevelToCompact() const;
   void addEmptyTopLevelToCompletelyFullSketch();
   void shiftItems(uint32_t delta);
-
-  template <typename Iter>
-  void estimateQuantiles(const folly::Range<Iter>& fractions, T* out) const;
 
   uint8_t numLevels() const {
     return levels_.size() - 1;
@@ -168,7 +176,7 @@ struct KllSketch {
       return level < numLevels() ? levels[level + 1] - levels[level] : 0;
     }
 
-    void deserialize(const char*);
+    void deserialize(const char* FOLLY_NONNULL);
   };
 
   View toView() const;

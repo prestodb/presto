@@ -174,6 +174,17 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
     underlying implementation is KLL sketch thus has a stronger
     guarantee for accuracy than T-Digest.
 
+.. function:: approx_percentile(x, percentages) -> array<[same as x]>
+
+    Returns the approximate percentile for all input values of ``x`` at each of
+    the specified percentages. Each element of the ``percentages`` array must be
+    between zero and one, and the array must be constant for all input rows.
+
+.. function:: approx_percentile(x, percentages, accuracy) -> array<[same as x]>
+
+    As ``approx_percentile(x, percentages)``, but with a maximum rank error of
+    ``accuracy``.
+
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
 
     Returns the approximate weighed percentile for all input values of ``x``
@@ -186,6 +197,20 @@ __ https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFre
 
     As ``approx_percentile(x, w, percentage)``, but with a maximum
     rank error of ``accuracy``.
+
+.. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
+
+    Returns the approximate weighed percentile for all input values of ``x``
+    using the per-item weight ``w`` at each of the given percentages specified
+    in the array. The weight must be an integer value of at least one. It is
+    effectively a replication count for the value ``x`` in the percentile
+    set. Each element of the array must be between zero and one, and the array
+    must be constant for all input rows.
+
+.. function:: approx_percentile(x, w, percentages, accuracy) -> array<[same as x]>
+
+    As ``approx_percentile(x, w, percentages)``, but with a maximum rank error
+    of ``accuracy``.
 
 Statistical Aggregate Functions
 -------------------------------

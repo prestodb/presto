@@ -153,17 +153,46 @@ class ApproxPercentileAggregate : public exec::Aggregate {
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);
-    auto flatResult = (*result)->asFlatVector<T>();
-
-    extract(
-        groups,
-        numGroups,
-        flatResult,
-        [&](const KllSketch<T>& digest,
-            FlatVector<T>* result,
-            vector_size_t index) {
-          result->set(index, digest.estimateQuantile(percentile_));
-        });
+    if (percentiles_ && percentiles_->isArray) {
+      folly::Range percentiles(
+          percentiles_->values.begin(), percentiles_->values.end());
+      auto arrayResult = (*result)->asUnchecked<ArrayVector>();
+      vector_size_t elementsCount = 0;
+      for (auto i = 0; i < numGroups; ++i) {
+        char* group = groups[i];
+        auto accumulator = value<KllSketchAccumulator<T>>(group);
+        if (accumulator->getSketch().totalCount() > 0) {
+          elementsCount += percentiles.size();
+        }
+      }
+      arrayResult->elements()->resize(elementsCount);
+      elementsCount = 0;
+      auto rawValues =
+          arrayResult->elements()->asFlatVector<T>()->mutableRawValues();
+      extract(
+          groups,
+          numGroups,
+          arrayResult,
+          [&](const KllSketch<T>& digest,
+              ArrayVector* result,
+              vector_size_t index) {
+            digest.estimateQuantiles(percentiles, rawValues + elementsCount);
+            result->setOffsetAndSize(index, elementsCount, percentiles.size());
+            elementsCount += percentiles.size();
+          });
+    } else {
+      extract(
+          groups,
+          numGroups,
+          (*result)->asFlatVector<T>(),
+          [&](const KllSketch<T>& digest,
+              FlatVector<T>* result,
+              vector_size_t index) {
+            VELOX_DCHECK_EQ(percentiles_->values.size(), 1);
+            result->set(
+                index, digest.estimateQuantile(percentiles_->values.back()));
+          });
+    }
   }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
@@ -186,8 +215,6 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     decodeArguments(rows, args);
-    checkSetPercentile();
-    checkSetAccuracy();
 
     if (hasWeight_) {
       rows.applyToSelected([&](auto row) {
@@ -251,8 +278,6 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     decodeArguments(rows, args);
-    checkSetPercentile();
-    checkSetAccuracy();
 
     auto tracker = trackRowSize(group);
     auto accumulator = initRawAccumulator(group);
@@ -316,11 +341,11 @@ class ApproxPercentileAggregate : public exec::Aggregate {
   }
 
  private:
-  template <typename ExtractResult, typename ExtractFunc>
+  template <typename VectorType, typename ExtractFunc>
   void extract(
       char** groups,
       int32_t numGroups,
-      FlatVector<ExtractResult>* result,
+      VectorType* result,
       ExtractFunc extractFunction) {
     VELOX_CHECK(result);
     result->resize(numGroups);
@@ -353,33 +378,70 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     if (hasWeight_) {
       decodedWeight_.decode(*args[argIndex++], rows, true);
     }
-    decodedPercentile_.decode(*args[argIndex++], rows, true);
+    checkSetPercentile(rows, *args[argIndex++]);
     if (hasAccuracy_) {
       decodedAccuracy_.decode(*args[argIndex++], rows, true);
+      checkSetAccuracy();
     }
     VELOX_CHECK_EQ(argIndex, args.size());
   }
 
-  void checkSetPercentile() {
+  void checkSetPercentile(
+      const SelectivityVector& rows,
+      const BaseVector& vec) {
+    DecodedVector decoded(vec, rows);
     VELOX_CHECK(
-        decodedPercentile_.isConstantMapping(),
+        decoded.isConstantMapping(),
         "Percentile argument must be constant for all input rows");
-
-    auto percentile = decodedPercentile_.valueAt<double>(0);
-    checkSetPercentile(percentile);
+    bool isArray;
+    const double* data;
+    vector_size_t len;
+    auto i = decoded.index(0);
+    if (decoded.base()->typeKind() == TypeKind::DOUBLE) {
+      isArray = false;
+      data =
+          decoded.base()->asUnchecked<ConstantVector<double>>()->rawValues() +
+          i;
+      len = 1;
+    } else if (decoded.base()->typeKind() == TypeKind::ARRAY) {
+      isArray = true;
+      auto arrays = decoded.base()->asUnchecked<ArrayVector>();
+      auto elements = arrays->elements()->asFlatVector<double>();
+      data = elements->rawValues() + arrays->offsetAt(i);
+      len = arrays->sizeAt(i);
+    } else {
+      VELOX_UNREACHABLE();
+    }
+    checkSetPercentile(isArray, data, len);
   }
 
-  void checkSetPercentile(double percentile) {
-    VELOX_USER_CHECK_GE(percentile, 0, "Percentile must be between 0 and 1");
-    VELOX_USER_CHECK_LE(percentile, 1, "Percentile must be between 0 and 1");
-
-    if (percentile_ == kMissingNormalizedValue) {
-      percentile_ = percentile;
+  void checkSetPercentile(bool isArray, const double* data, vector_size_t len) {
+    if (!percentiles_) {
+      VELOX_USER_CHECK_GT(len, 0, "Percentile cannot be empty");
+      percentiles_ = {
+          .values = std::vector<double>(len),
+          .isArray = isArray,
+      };
+      for (vector_size_t i = 0; i < len; ++i) {
+        VELOX_USER_CHECK_GE(data[i], 0, "Percentile must be between 0 and 1");
+        VELOX_USER_CHECK_LE(data[i], 1, "Percentile must be between 0 and 1");
+        percentiles_->values[i] = data[i];
+      }
     } else {
       VELOX_USER_CHECK_EQ(
-          percentile,
-          percentile_,
+          isArray,
+          percentiles_->isArray,
           "Percentile argument must be constant for all input rows");
+      VELOX_USER_CHECK_EQ(
+          len,
+          percentiles_->values.size(),
+          "Percentile argument must be constant for all input rows");
+      for (vector_size_t i = 0; i < len; ++i) {
+        VELOX_USER_CHECK_EQ(
+            data[i],
+            percentiles_->values[i],
+            "Percentile argument must be constant for all input rows");
+      }
     }
   }
 
@@ -418,12 +480,20 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const KllSketch<T>& digest,
       FlatVector<StringView>* result,
       vector_size_t index) {
-    auto size =
-        sizeof percentile_ + sizeof accuracy_ + digest.serializedByteSize();
+    auto size = sizeof(int32_t) + sizeof(double) * percentiles_->values.size() +
+        sizeof accuracy_ + digest.serializedByteSize();
     Buffer* buffer = result->getBufferWithSpace(size);
     char* data = buffer->asMutable<char>() + buffer->size();
     common::OutputByteStream stream(data);
-    stream.appendOne(percentile_);
+    if (percentiles_) {
+      stream.appendOne<int32_t>(
+          percentiles_->isArray ? percentiles_->values.size() : -1);
+      for (double p : percentiles_->values) {
+        stream.appendOne(p);
+      }
+    } else {
+      stream.appendOne<int32_t>(0);
+    }
     stream.appendOne(accuracy_);
     digest.serialize(data + stream.offset());
     buffer->setSize(buffer->size() + size);
@@ -433,8 +503,21 @@ class ApproxPercentileAggregate : public exec::Aggregate {
   const char* getDeserializedDigest(vector_size_t row) {
     auto data = decodedDigest_.valueAt<StringView>(row);
     common::InputByteStream stream(data.data());
-    auto percentile = stream.read<double>();
-    checkSetPercentile(percentile);
+    auto percentileCount = stream.read<int32_t>();
+    bool percentileIsArray;
+    if (percentileCount == -1) {
+      percentileIsArray = false;
+      percentileCount = 1;
+    } else {
+      percentileIsArray = true;
+    }
+    VELOX_DCHECK_GE(percentileCount, 0);
+    if (percentileCount > 0) {
+      checkSetPercentile(
+          percentileIsArray,
+          stream.read<double>(percentileCount),
+          percentileCount);
+    }
     if (auto accuracy = stream.read<double>();
         accuracy != kMissingNormalizedValue) {
       checkSetAccuracy(accuracy);
@@ -449,53 +532,78 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     VELOX_UNSUPPRESS_RETURN_LOCAL_ADDR_WARNING
   }
 
+  struct Percentiles {
+    std::vector<double> values;
+    bool isArray;
+  };
+
   static constexpr double kMissingNormalizedValue = -1;
   const bool hasWeight_;
   const bool hasAccuracy_;
-  double percentile_{kMissingNormalizedValue};
+  std::optional<Percentiles> percentiles_;
   double accuracy_{kMissingNormalizedValue};
   DecodedVector decodedValue_;
   DecodedVector decodedWeight_;
-  DecodedVector decodedPercentile_;
   DecodedVector decodedAccuracy_;
   DecodedVector decodedDigest_;
 };
+
+bool validPercentileType(const Type& type) {
+  if (type.kind() == TypeKind::DOUBLE) {
+    return true;
+  }
+  if (type.kind() != TypeKind::ARRAY) {
+    return false;
+  }
+  return type.as<TypeKind::ARRAY>().elementType()->kind() == TypeKind::DOUBLE;
+}
+
+void addSignatures(
+    const std::string& inputType,
+    const std::string& percentileType,
+    const std::string& returnType,
+    std::vector<std::shared_ptr<exec::AggregateFunctionSignature>>&
+        signatures) {
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType(returnType)
+                           .intermediateType("varbinary")
+                           .argumentType(inputType)
+                           .argumentType(percentileType)
+                           .build());
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType(returnType)
+                           .intermediateType("varbinary")
+                           .argumentType(inputType)
+                           .argumentType("bigint")
+                           .argumentType(percentileType)
+                           .build());
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType(returnType)
+                           .intermediateType("varbinary")
+                           .argumentType(inputType)
+                           .argumentType(percentileType)
+                           .argumentType("double")
+                           .build());
+  signatures.push_back(exec::AggregateFunctionSignatureBuilder()
+                           .returnType(returnType)
+                           .intermediateType("varbinary")
+                           .argumentType(inputType)
+                           .argumentType("bigint")
+                           .argumentType(percentileType)
+                           .argumentType("double")
+                           .build());
+}
 
 bool registerApproxPercentile(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures;
   for (const auto& inputType :
        {"tinyint", "smallint", "integer", "bigint", "real", "double"}) {
-    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .returnType(inputType)
-                             .intermediateType("varbinary")
-                             .argumentType(inputType)
-                             .argumentType("double")
-                             .build());
-
-    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .returnType(inputType)
-                             .intermediateType("varbinary")
-                             .argumentType(inputType)
-                             .argumentType("bigint")
-                             .argumentType("double")
-                             .build());
-
-    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .returnType(inputType)
-                             .intermediateType("varbinary")
-                             .argumentType(inputType)
-                             .argumentType("double")
-                             .argumentType("double")
-                             .build());
-
-    signatures.push_back(exec::AggregateFunctionSignatureBuilder()
-                             .returnType(inputType)
-                             .intermediateType("varbinary")
-                             .argumentType(inputType)
-                             .argumentType("bigint")
-                             .argumentType("double")
-                             .argumentType("double")
-                             .build());
+    addSignatures(inputType, "double", inputType, signatures);
+    addSignatures(
+        inputType,
+        "array(double)",
+        fmt::format("array({})", inputType),
+        signatures);
   }
   exec::registerAggregateFunction(
       name,
@@ -529,10 +637,9 @@ bool registerApproxPercentile(const std::string& name) {
                 "The type of the accuracy argument of {} must be DOUBLE",
                 name);
           }
-          VELOX_USER_CHECK_EQ(
-              argTypes[argTypes.size() - 1 - hasAccuracy]->kind(),
-              TypeKind::DOUBLE,
-              "The type of the percentile argument of {} must be DOUBLE",
+          VELOX_USER_CHECK(
+              validPercentileType(*argTypes[argTypes.size() - 1 - hasAccuracy]),
+              "The type of the percentile argument of {} must be DOUBLE or ARRAY(DOUBLE)",
               name);
         } else {
           VELOX_USER_CHECK_EQ(
@@ -548,11 +655,20 @@ bool registerApproxPercentile(const std::string& name) {
         }
 
         if (!isRawInput && exec::isPartialOutput(step)) {
+          // FIXME: This is not working for non-double type, issue #2430 to
+          // track this.
           return std::make_unique<ApproxPercentileAggregate<double>>(
               false, false, VARBINARY());
         }
 
-        TypePtr type = isRawInput ? argTypes[0] : resultType;
+        TypePtr type;
+        if (isRawInput) {
+          type = argTypes[0];
+        } else if (resultType->isArray()) {
+          type = resultType->as<TypeKind::ARRAY>().elementType();
+        } else {
+          type = resultType;
+        }
 
         switch (type->kind()) {
           case TypeKind::TINYINT:

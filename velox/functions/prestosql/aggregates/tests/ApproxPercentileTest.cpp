@@ -24,40 +24,32 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-std::string
-functionCall(bool keyed, bool weighted, double percentile, double accuracy) {
+std::string functionCall(
+    bool keyed,
+    bool weighted,
+    double percentile,
+    double accuracy,
+    int percentileCount) {
   std::ostringstream buf;
   int columnIndex = keyed;
   buf << "approx_percentile(c" << columnIndex++;
   if (weighted) {
     buf << ", c" << columnIndex++;
   }
-  buf << ", " << percentile;
+  buf << ", ";
+  if (percentileCount == -1) {
+    buf << percentile;
+  } else {
+    buf << "ARRAY[";
+    for (int i = 0; i < percentileCount; ++i) {
+      buf << (i == 0 ? "" : ",") << percentile;
+    }
+    buf << ']';
+  }
   if (accuracy > 0) {
     buf << ", " << accuracy;
   }
   buf << ')';
-  return buf.str();
-}
-
-std::string label(
-    const char* prefix,
-    bool weighted,
-    bool singleAgg,
-    double percentile,
-    double accuracy) {
-  std::ostringstream buf;
-  buf << prefix;
-  if (weighted) {
-    buf << "_weighted";
-  }
-  if (singleAgg) {
-    buf << "_single_agg";
-  }
-  buf << '_' << percentile << "_pct";
-  if (accuracy > 0) {
-    buf << "_" << accuracy << "_accuracy";
-  }
   return buf.str();
 }
 
@@ -68,6 +60,7 @@ class ApproxPercentileTest : public AggregationTestBase {
     random::setSeed(0);
   }
 
+  // TODO: Use `testAggregations` once issue #2430 is fixed.
   template <typename T>
   void testGlobalAgg(
       const VectorPtr& values,
@@ -75,30 +68,44 @@ class ApproxPercentileTest : public AggregationTestBase {
       double percentile,
       double accuracy,
       T expectedResult) {
-    auto call = functionCall(false, weights.get(), percentile, accuracy);
+    SCOPED_TRACE(fmt::format(
+        "weighted={} percentile={} accuracy={}",
+        weights != nullptr,
+        percentile,
+        accuracy));
+    auto call = functionCall(false, weights.get(), percentile, accuracy, -1);
     auto rows =
         weights ? makeRowVector({values, weights}) : makeRowVector({values});
     auto op =
         PlanBuilder().values({rows}).singleAggregation({}, {call}).planNode();
-    assertQuery(
-        op,
-        fmt::format(
-            "/* {} */ SELECT {}",
-            label("global", weights.get(), false, percentile, accuracy),
-            expectedResult));
+    {
+      SCOPED_TRACE("single_agg=false");
+      assertQuery(op, fmt::format("SELECT {}", expectedResult));
+    }
     op = PlanBuilder()
              .values({rows})
              .partialAggregation({}, {call})
              .finalAggregation()
              .planNode();
-    assertQuery(
-        op,
-        fmt::format(
-            "/* {} */ SELECT {}",
-            label("global", weights.get(), true, percentile, accuracy),
-            expectedResult));
+    {
+      SCOPED_TRACE("single_agg=true");
+      assertQuery(op, fmt::format("SELECT {}", expectedResult));
+    }
+    call = functionCall(false, weights.get(), percentile, accuracy, 3);
+    op = PlanBuilder(pool())
+             .values({rows})
+             .partialAggregation({}, {call})
+             .finalAggregation()
+             .planNode();
+    {
+      SCOPED_TRACE("Percentile array");
+      auto expected = makeRowVector(
+          {makeArrayVector<T>({std::vector<T>(3, expectedResult)})});
+      assertQuery(op, expected);
+    }
   }
 
+  // TODO: Use `testAggregations` once issue #2430 is fixed.
   void testGroupByAgg(
       const VectorPtr& keys,
       const VectorPtr& values,
@@ -106,7 +113,7 @@ class ApproxPercentileTest : public AggregationTestBase {
       double percentile,
       double accuracy,
       const RowVectorPtr& expectedResult) {
-    auto call = functionCall(true, weights.get(), percentile, accuracy);
+    auto call = functionCall(true, weights.get(), percentile, accuracy, -1);
     auto rows = weights ? makeRowVector({keys, values, weights})
                         : makeRowVector({keys, values});
     auto op = PlanBuilder()
@@ -120,6 +127,40 @@ class ApproxPercentileTest : public AggregationTestBase {
              .finalAggregation()
              .planNode();
     assertQuery(op, expectedResult);
+    call = functionCall(true, weights.get(), percentile, accuracy, 3);
+    op = PlanBuilder(pool())
+             .values({rows})
+             .partialAggregation({"c0"}, {call})
+             .finalAggregation()
+             .planNode();
+    {
+      SCOPED_TRACE("Percentile array");
+      auto resultValues = expectedResult->childAt(1);
+      auto elements = BaseVector::create(
+          resultValues->type(), 3 * resultValues->size(), pool());
+      auto offsets = allocateOffsets(resultValues->size(), pool());
+      auto rawOffsets = offsets->asMutable<vector_size_t>();
+      auto sizes = allocateSizes(resultValues->size(), pool());
+      auto rawSizes = sizes->asMutable<vector_size_t>();
+      for (int i = 0; i < resultValues->size(); ++i) {
+        rawOffsets[i] = 3 * i;
+        rawSizes[i] = 3;
+        elements->copy(resultValues.get(), 3 * i + 0, i, 1);
+        elements->copy(resultValues.get(), 3 * i + 1, i, 1);
+        elements->copy(resultValues.get(), 3 * i + 2, i, 1);
+      }
+      auto expected = makeRowVector(
+          {expectedResult->childAt(0),
+           std::make_shared<ArrayVector>(
+               pool(),
+               ARRAY(elements->type()),
+               nullptr,
+               resultValues->size(),
+               offsets,
+               sizes,
+               elements)});
+      assertQuery(op, expected);
+    }
   }
 };
 
