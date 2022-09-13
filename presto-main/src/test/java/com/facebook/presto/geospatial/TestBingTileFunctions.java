@@ -46,6 +46,7 @@ import static com.facebook.presto.geospatial.type.BingTileType.BING_TILE;
 import static com.facebook.presto.operator.aggregation.AggregationTestUtils.assertAggregation;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
@@ -602,7 +603,7 @@ public class TestBingTileFunctions
     public void testLargeGeometryToBingTiles()
             throws Exception
     {
-        Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
+        Path filePath = Paths.get(getResourceFile("large_polygon.txt").getAbsolutePath());
         List<String> lines = Files.readAllLines(filePath);
         for (String line : lines) {
             String[] parts = line.split("\\|");
@@ -715,7 +716,7 @@ public class TestBingTileFunctions
                 112L);
 
         // Complex input polygon
-        String filePath = this.getClass().getClassLoader().getResource("too_large_polygon.txt").getPath();
+        String filePath = getResourceFile("too_large_polygon.txt").getAbsolutePath();
         String largeWkt = Files.lines(Paths.get(filePath)).findFirst().get();
         assertFunction(
                 "cardinality(geometry_to_bing_tiles(ST_GeometryFromText('" + largeWkt + "'), 16))",

@@ -31,8 +31,6 @@ import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.util.Optional;
 import java.util.Set;
 
@@ -43,6 +41,7 @@ import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static com.google.common.io.Files.copy;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -532,25 +531,16 @@ public class TestFileBasedSystemAccessControl
 
         return accessControlManager;
     }
-
-    private File getResourceFile(String resourceName) throws IOException
-    {
-        File resourceFile = newTemporaryFile();
-        resourceFile.deleteOnExit();
-        Files.copy(this.getClass().getClassLoader().getResourceAsStream(resourceName), resourceFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-        return resourceFile;
-    }
-
     @Test
-    public void parseUnknownRules()
+    public void parseUnknownRules() throws IOException
     {
-        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+        assertThatThrownBy(() -> parse("security-config-file-with-unknown-rules.json"))
                 .hasMessageContaining("Invalid JSON");
     }
 
     private SystemAccessControl parse(String path)
+            throws IOException
     {
-        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path));
+        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, getResourceFile(path).getPath()));
     }
 }

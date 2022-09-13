@@ -38,6 +38,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
+
 @State(Scope.Thread)
 @Fork(2)
 @Warmup(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
@@ -69,7 +71,7 @@ public class BenchmarkGeometryToBingTiles
         public void setup()
                 throws IOException
         {
-            Path filePath = Paths.get(this.getClass().getClassLoader().getResource("large_polygon.txt").getPath());
+            Path filePath = Paths.get(getResourceFile("large_polygon.txt").getAbsolutePath());
             List<String> lines = Files.readAllLines(filePath);
             String line = lines.get(0);
             String[] parts = line.split("\\|");
