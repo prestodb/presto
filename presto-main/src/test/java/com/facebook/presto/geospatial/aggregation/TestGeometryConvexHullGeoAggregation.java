@@ -22,6 +22,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
+
 public class TestGeometryConvexHullGeoAggregation
         extends AbstractTestGeoAggregationFunctions
 {
@@ -341,7 +343,7 @@ public class TestGeometryConvexHullGeoAggregation
     public Object[][] points1000()
             throws IOException
     {
-        Path filePath = Paths.get(this.getClass().getClassLoader().getResource("1000_points.txt").getPath());
+        Path filePath = Paths.get(getResourceFile("1000_points.txt").getAbsolutePath());
         List<String> points = Files.readAllLines(filePath);
         return new Object[][] {
                 {
