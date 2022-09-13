@@ -51,6 +51,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OffsetNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -753,6 +754,13 @@ public final class ValidateDependenciesChecker
                     node.getCorrelation(),
                     "not all LATERAL correlation symbols are used in subquery");
 
+            return null;
+        }
+
+        @Override
+        public Void visitNativeEngine(NativeEngineNode node, Set<VariableReferenceExpression> boundVariables)
+        {
+            node.getSubPlan().accept(this, boundVariables); // visit child
             return null;
         }
 

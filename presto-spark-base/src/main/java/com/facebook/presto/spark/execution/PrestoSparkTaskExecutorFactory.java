@@ -67,6 +67,7 @@ import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoS
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeterminedPartitionFunction;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
+import com.facebook.presto.spark.planner.PrestoSparkLocalExecutionPlanner;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
@@ -78,7 +79,6 @@ import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.spiller.SpillSpaceTracker;
-import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import com.facebook.presto.sql.planner.OutputPartitioning;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -175,7 +175,7 @@ public class PrestoSparkTaskExecutorFactory
     private final ScheduledExecutorService memoryUpdateExecutor;
     private final ExecutorService memoryRevocationExecutor;
 
-    private final LocalExecutionPlanner localExecutionPlanner;
+    private final PrestoSparkLocalExecutionPlanner localExecutionPlanner;
     private final PrestoSparkExecutionExceptionFactory executionExceptionFactory;
     private final TaskExecutor taskExecutor;
     private final SplitMonitor splitMonitor;
@@ -212,7 +212,7 @@ public class PrestoSparkTaskExecutorFactory
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
             ExecutorService memoryRevocationExecutor,
-            LocalExecutionPlanner localExecutionPlanner,
+            PrestoSparkLocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -266,7 +266,7 @@ public class PrestoSparkTaskExecutorFactory
             ScheduledExecutorService yieldExecutor,
             ScheduledExecutorService memoryUpdateExecutor,
             ExecutorService memoryRevocationExecutor,
-            LocalExecutionPlanner localExecutionPlanner,
+            PrestoSparkLocalExecutionPlanner localExecutionPlanner,
             PrestoSparkExecutionExceptionFactory executionExceptionFactory,
             TaskExecutor taskExecutor,
             SplitMonitor splitMonitor,
@@ -570,10 +570,7 @@ public class PrestoSparkTaskExecutorFactory
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
                 taskContext,
-                fragment.getRoot(),
-                fragment.getPartitioningScheme(),
-                fragment.getStageExecutionDescriptor(),
-                fragment.getTableScanSchedulingOrder(),
+                fragment,
                 output.getOutputFactory(),
                 new PrestoSparkRemoteSourceFactory(
                         blockEncodingManager,

@@ -40,6 +40,7 @@ import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoS
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_SPARK_CONFIGS;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_NATIVE_ENGINE_EXECUTION_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
@@ -1259,6 +1260,28 @@ public class TestPrestoSparkQueryRunner
         // 2 new partitions added
         assertEquals(actual.getOnlyValue().toString(), "5");
         assertQuerySucceeds("DROP TABLE test_partition_table");
+    }
+
+    @Test
+    public void testNativeEngineExeGggcution()
+    {
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_NATIVE_ENGINE_EXECUTION_ENABLED, "true")
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
+
+//        Session session = Session.builder(getSession()).build();
+
+//        getQueryRunner().execute(session,
+//                "SELECT id, name FROM (\n"
+//                        + "    VALUES\n"
+//                        + "        (1, 'a'),\n"
+//                        + "        (2, 'b'),\n"
+//                        + "        (3, 'c')\n"
+//                        + ") AS t (id, name)\n");
+        getQueryRunner().execute(session, "CREATE TABLE test_value as SELECT a FROM (VALUES -1, 0, 2) t(a)");
     }
 
     private void assertBucketedQuery(String sql)

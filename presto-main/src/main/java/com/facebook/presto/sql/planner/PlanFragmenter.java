@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -195,6 +196,10 @@ public class PlanFragmenter
             properties = properties.setSingleNodeDistribution();
         }
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
+
+//        if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class)) {
+//            root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
+//        }
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
         subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
@@ -422,6 +427,11 @@ public class PlanFragmenter
                         tableWriterNodeIds);
             }
 
+            if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
+                root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
+//                root = root;
+            }
+
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
                     root,
@@ -518,6 +528,13 @@ public class PlanFragmenter
                 default:
                     throw new IllegalArgumentException("Unexpected exchange scope: " + exchange.getScope());
             }
+        }
+
+        @Override
+        public PlanNode visitNativeEngine(NativeEngineNode nativeEngineNode, RewriteContext<FragmentProperties> context)
+        {
+            // return nativeEngineNode.getSubPlan().accept(this, context);
+            return context.defaultRewrite(nativeEngineNode, context.get());
         }
 
         private PlanNode createRemoteStreamingExchange(ExchangeNode exchange, RewriteContext<FragmentProperties> context)

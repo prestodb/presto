@@ -19,6 +19,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
@@ -30,8 +31,9 @@ public final class VerifyOnlyOneOutputNode
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, SqlParser sqlParser, TypeProvider types, WarningCollector warningCollector)
     {
-        int outputPlanNodesCount = searchFrom(plan)
-                .where(OutputNode.class::isInstance)
+        int outputPlanNodesCount = searchFrom(plan).where(node -> {
+                    return node instanceof OutputNode || (node instanceof NativeEngineNode && ((NativeEngineNode) node).getSubPlan() instanceof OutputNode);
+                })
                 .findAll()
                 .size();
         checkState(outputPlanNodesCount == 1, "Expected plan to have single instance of OutputNode");

@@ -52,6 +52,7 @@ import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithSort;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimitWithTopN;
 import com.facebook.presto.sql.planner.iterative.rule.MergeLimits;
 import com.facebook.presto.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import com.facebook.presto.sql.planner.iterative.rule.NativeEngineExecutionRewrite;
 import com.facebook.presto.sql.planner.iterative.rule.PickTableLayout;
 import com.facebook.presto.sql.planner.iterative.rule.PlanRemoteProjections;
 import com.facebook.presto.sql.planner.iterative.rule.PruneAggregationColumns;
@@ -670,6 +671,12 @@ public class PlanOptimizers
         builder.add(new HashBasedPartialDistinctLimit(metadata.getFunctionAndTypeManager()));
 
         builder.add(new MetadataDeleteOptimizer(metadata));
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                costCalculator,
+                ImmutableSet.of(
+                        new NativeEngineExecutionRewrite())));
 
         // TODO: consider adding a formal final plan sanitization optimizer that prepares the plan for transmission/execution/logging
         // TODO: figure out how to improve the set flattening optimizer so that it can run at any point

@@ -5,6 +5,7 @@ target/
 /var
 /*/var/
 /presto-product-tests/**/var/
+/presto-native-execution/
 pom.xml.versionsBackup
 test-output/
 test-reports/

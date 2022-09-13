@@ -361,15 +361,15 @@ public class LocalExecutionPlanner
     private final SpillerFactory spillerFactory;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
-    private final BlockEncodingSerde blockEncodingSerde;
+    protected final BlockEncodingSerde blockEncodingSerde;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
     private final LookupJoinOperators lookupJoinOperators;
     private final OrderingCompiler orderingCompiler;
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
-    private final FragmentResultCacheManager fragmentResultCacheManager;
-    private final ObjectMapper objectMapper;
+    protected final FragmentResultCacheManager fragmentResultCacheManager;
+    protected final ObjectMapper objectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
 
@@ -504,7 +504,7 @@ public class LocalExecutionPlanner
         }
     }
 
-    private Optional<OutputPartitioning> createOutputPartitioning(TaskContext taskContext, PartitioningScheme partitioningScheme)
+    protected Optional<OutputPartitioning> createOutputPartitioning(TaskContext taskContext, PartitioningScheme partitioningScheme)
     {
         if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_BROADCAST_DISTRIBUTION) ||
                 partitioningScheme.getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION) ||
@@ -617,7 +617,7 @@ public class LocalExecutionPlanner
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder, stageExecutionDescriptor);
     }
 
-    private static void addLookupOuterDrivers(LocalExecutionPlanContext context)
+    protected static void addLookupOuterDrivers(LocalExecutionPlanContext context)
     {
         // For an outer join on the lookup side (RIGHT or FULL) add an additional
         // driver to output the unused rows in the lookup source
@@ -647,10 +647,10 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static class LocalExecutionPlanContext
+    protected static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
-        private final List<DriverFactory> driverFactories;
+        protected final List<DriverFactory> driverFactories;
         private final Optional<IndexSourceContext> indexSourceContext;
 
         // the collector is shared with all subContexts to allow local dynamic filtering
@@ -661,8 +661,8 @@ public class LocalExecutionPlanner
         private final AtomicInteger nextPipelineId;
         private final TableWriteInfo tableWriteInfo;
 
-        private int nextOperatorId;
-        private boolean inputDriver = true;
+        protected int nextOperatorId;
+        protected boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
         public LocalExecutionPlanContext(TaskContext taskContext, TableWriteInfo tableWriteInfo)
@@ -831,15 +831,15 @@ public class LocalExecutionPlanner
         }
     }
 
-    private class Visitor
+    protected class Visitor
             extends InternalPlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
         private final Session session;
-        private final StageExecutionDescriptor stageExecutionDescriptor;
+        protected final StageExecutionDescriptor stageExecutionDescriptor;
         private final RemoteSourceFactory remoteSourceFactory;
         private final boolean pageSinkCommitRequired;
 
-        private Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, RemoteSourceFactory remoteSourceFactory, boolean pageSinkCommitRequired)
+        protected Visitor(Session session, StageExecutionDescriptor stageExecutionDescriptor, RemoteSourceFactory remoteSourceFactory, boolean pageSinkCommitRequired)
         {
             this.session = requireNonNull(session, "session is null");
             this.stageExecutionDescriptor = requireNonNull(stageExecutionDescriptor, "stageExecutionDescriptor is null");
@@ -1590,7 +1590,7 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.build(), context, source);
         }
 
-        private ImmutableMap<VariableReferenceExpression, Integer> makeLayout(PlanNode node)
+        protected ImmutableMap<VariableReferenceExpression, Integer> makeLayout(PlanNode node)
         {
             return makeLayoutFromOutputVariables(node.getOutputVariables());
         }
@@ -3251,7 +3251,7 @@ public class LocalExecutionPlanner
         };
     }
 
-    private static Function<Page, Page> enforceLayoutProcessor(List<VariableReferenceExpression> expectedLayout, Map<VariableReferenceExpression, Integer> inputLayout)
+    protected static Function<Page, Page> enforceLayoutProcessor(List<VariableReferenceExpression> expectedLayout, Map<VariableReferenceExpression, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
                 .peek(variable -> checkArgument(inputLayout.containsKey(variable), "channel not found for variable: %s", variable))
@@ -3296,7 +3296,7 @@ public class LocalExecutionPlanner
     /**
      * Encapsulates an physical operator plus the mapping of logical variables to channel/field
      */
-    private static class PhysicalOperation
+    protected static class PhysicalOperation
     {
         private final List<OperatorFactory> operatorFactories;
         private final Map<VariableReferenceExpression, Integer> layout;
@@ -3367,7 +3367,7 @@ public class LocalExecutionPlanner
             return layout;
         }
 
-        private List<OperatorFactory> getOperatorFactories()
+        public List<OperatorFactory> getOperatorFactories()
         {
             return operatorFactories;
         }

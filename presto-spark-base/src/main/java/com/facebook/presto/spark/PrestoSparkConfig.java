@@ -60,6 +60,7 @@ public class PrestoSparkConfig
     private int maxHashPartitionCount = 4096;
     private int minHashPartitionCount = 1024;
     private boolean isResourceAllocationStrategyEnabled;
+    private boolean nativeEngineExecutionEnabled = false;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -390,5 +391,18 @@ public class PrestoSparkConfig
     {
         this.isResourceAllocationStrategyEnabled = isResourceAllocationStrategyEnabled;
         return this;
+    }
+
+    @Config("spark.native-engine-execution-enabled")
+    @ConfigDescription("Enable execution on native engine.")
+    public PrestoSparkConfig setNativeEngineExecutionEnabled(boolean nativeEngineExecutionEnabled)
+    {
+        this.nativeEngineExecutionEnabled = nativeEngineExecutionEnabled;
+        return this;
+    }
+
+    public boolean isNativeEngineExecutionEnabled()
+    {
+        return this.nativeEngineExecutionEnabled;
     }
 }

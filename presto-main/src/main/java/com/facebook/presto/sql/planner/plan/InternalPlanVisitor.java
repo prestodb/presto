@@ -181,4 +181,9 @@ public abstract class InternalPlanVisitor<R, C>
     {
         return visitPlan(node, context);
     }
+
+    public R visitNativeEngine(NativeEngineNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
 }

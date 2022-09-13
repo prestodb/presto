@@ -58,6 +58,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_MAX_HASH_PARTITION_COUNT = "spark_max_hash_partition_count";
     public static final String SPARK_MIN_HASH_PARTITION_COUNT = "spark_min_hash_partition_count";
     public static final String SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED = "spark_resource_allocation_strategy_enabled";
+    public static final String SPARK_NATIVE_ENGINE_EXECUTION_ENABLED = "spark_native_engine_execution_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -157,7 +158,7 @@ public class PrestoSparkSessionProperties
                         SPARK_AVERAGE_INPUT_DATA_SIZE_PER_EXECUTOR,
                         "Average input data size per executor",
                         prestoSparkConfig.getAverageInputDataSizePerExecutor(),
-                       false),
+                        false),
                 integerProperty(
                         SPARK_MAX_EXECUTOR_COUNT,
                         "Maximum count of executors to run a query",
@@ -187,6 +188,11 @@ public class PrestoSparkSessionProperties
                         SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED,
                         "Flag to enable optimized resource allocation strategy",
                         prestoSparkConfig.isSparkResourceAllocationStrategyEnabled(),
+                        false),
+                booleanProperty(
+                        SPARK_NATIVE_ENGINE_EXECUTION_ENABLED,
+                        "Enable execution on native engine.",
+                        prestoSparkConfig.isNativeEngineExecutionEnabled(),
                         false));
     }
 
@@ -299,6 +305,7 @@ public class PrestoSparkSessionProperties
     {
         return session.getSystemProperty(SPARK_MAX_HASH_PARTITION_COUNT, Integer.class);
     }
+
     public static int getMinHashPartitionCount(Session session)
     {
         return session.getSystemProperty(SPARK_MIN_HASH_PARTITION_COUNT, Integer.class);
@@ -307,5 +314,10 @@ public class PrestoSparkSessionProperties
     public static boolean isSparkResourceAllocationStrategyEnabled(Session session)
     {
         return session.getSystemProperty(SPARK_RESOURCE_ALLOCATION_STRATEGY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isNativeEngineExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(SPARK_NATIVE_ENGINE_EXECUTION_ENABLED, Boolean.class);
     }
 }
