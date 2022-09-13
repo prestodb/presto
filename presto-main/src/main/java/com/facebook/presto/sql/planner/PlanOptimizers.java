@@ -581,6 +581,16 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughUnion())));
 
+        // PredicatePushDown, may bring up some filters, even when table layouts have them.
+        // These are usually removed again by PHYSICAL connector optimizers. These filters,
+        // if redundant, can mess up History Based Optimizations as they rely on canonicalizing table layouts.
+        // Here, we run connector optimizers once more to push filters to table layouts, so we can get better
+        // histories in HistoricalStatisticsEquivalentPlanMarkingOptimizer
+        builder.add(
+                new ApplyConnectorOptimization(() -> planOptimizerManager.getOptimizers(LOGICAL)),
+                projectionPushDown,
+                new PruneUnreferencedOutputs());
+
         // We do a single pass, and assign `statsEquivalentPlanNode` to each node.
         // After this step, nodes with same `statsEquivalentPlanNode` will share same history based statistics.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
