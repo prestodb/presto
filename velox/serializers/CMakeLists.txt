@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(velox_presto_serializer PrestoSerializer.cpp
-                                    UnsafeRowSerializer.cpp UnsafeRowSerde.cpp)
+                                    UnsafeRowSerializer.cpp)
 
 target_link_libraries(velox_presto_serializer velox_vector)
 

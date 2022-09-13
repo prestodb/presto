@@ -14,7 +14,7 @@
 
 add_executable(
   velox_row_test UnsafeRowSerializerTest.cpp UnsafeRowDeserializerTest.cpp
-                 UnsafeRowFuzzTests.cpp UnsafeRowBatchSerdeFuzzTests.cpp)
+                 UnsafeRowFuzzTests.cpp)
 
 add_test(velox_row_test velox_row_test)
 
