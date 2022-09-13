@@ -34,10 +34,11 @@ std::shared_ptr<cache::AsyncDataCache> OperatorTestBase::asyncDataCache_;
 OperatorTestBase::OperatorTestBase() {
   using memory::MappedMemory;
   facebook::velox::exec::ExchangeSource::registerFactory();
-  if (!isRegisteredVectorSerde()) {
-    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
-  }
   parse::registerTypeResolver();
+}
+
+void OperatorTestBase::registerVectorSerde() {
+  velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
 }
 
 OperatorTestBase::~OperatorTestBase() {
@@ -53,6 +54,9 @@ void OperatorTestBase::SetUp() {
         memory::MappedMemory::createDefaultInstance(), 4UL << 30);
   }
   memory::MappedMemory::setDefaultInstance(asyncDataCache_.get());
+  if (!isRegisteredVectorSerde()) {
+    this->registerVectorSerde();
+  }
 }
 
 void OperatorTestBase::SetUpTestCase() {

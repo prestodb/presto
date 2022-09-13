@@ -49,6 +49,9 @@ class OrderByTest : public OperatorTestBase {
  protected:
   void SetUp() override {
     filesystems::registerLocalFileSystem();
+    if (!isRegisteredVectorSerde()) {
+      this->registerVectorSerde();
+    }
   }
 
   void testSingleKey(

@@ -269,6 +269,9 @@ class AggregationTest : public OperatorTestBase {
   void SetUp() override {
     filesystems::registerLocalFileSystem();
     mappedMemory_ = memory::MappedMemory::getInstance();
+    if (!isRegisteredVectorSerde()) {
+      this->registerVectorSerde();
+    }
   }
 
   std::vector<RowVectorPtr>

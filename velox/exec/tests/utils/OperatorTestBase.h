@@ -35,6 +35,10 @@ class OperatorTestBase : public testing::Test,
 
   void SetUp() override;
 
+  /// Allow base classes to register custom vector serde.
+  /// By default, registers Presto-compatible serde.
+  virtual void registerVectorSerde();
+
   static void SetUpTestCase();
 
   void createDuckDbTable(const std::vector<RowVectorPtr>& data) {
