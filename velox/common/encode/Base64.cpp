@@ -20,8 +20,6 @@
 #include <folly/io/Cursor.h>
 #include <stdint.h>
 
-using namespace std;
-
 namespace facebook::velox::encoding {
 
 constexpr const Base64::Charset kBase64Charset = {
@@ -220,11 +218,11 @@ template <class T>
   }
 }
 
-string Base64::encode(folly::StringPiece text) {
+std::string Base64::encode(folly::StringPiece text) {
   return encodeImpl(text, kBase64Charset, true);
 }
 
-string Base64::encode(const char* data, size_t len) {
+std::string Base64::encode(const char* data, size_t len) {
   return encode(folly::StringPiece(data, len));
 }
 
@@ -274,11 +272,11 @@ class IOBufWrapper {
 
 } // namespace
 
-string Base64::encode(const folly::IOBuf* data) {
+std::string Base64::encode(const folly::IOBuf* data) {
   return encodeImpl(IOBufWrapper(data), kBase64Charset, true);
 }
 
-void Base64::encodeAppend(folly::StringPiece text, string& out) {
+void Base64::encodeAppend(folly::StringPiece text, std::string& out) {
   size_t outlen = calculateEncodedSize(text.size(), true);
 
   size_t initialLen = out.size();
@@ -286,13 +284,15 @@ void Base64::encodeAppend(folly::StringPiece text, string& out) {
   encodeImpl(text, kBase64Charset, true, out.data() + initialLen);
 }
 
-string Base64::decode(folly::StringPiece encoded) {
-  string output;
-  Base64::decode(make_pair(encoded.data(), encoded.size()), output);
+std::string Base64::decode(folly::StringPiece encoded) {
+  std::string output;
+  Base64::decode(std::make_pair(encoded.data(), encoded.size()), output);
   return output;
 }
 
-void Base64::decode(const pair<const char*, int32_t>& payload, string& output) {
+void Base64::decode(
+    const std::pair<const char*, int32_t>& payload,
+    std::string& output) {
   size_t out_len = payload.second / 4 * 3;
   output.resize(out_len, '\0');
   out_len = Base64::decode(payload.first, payload.second, &output[0], out_len);
@@ -416,27 +416,27 @@ size_t Base64::decodeImpl(
   return needed;
 }
 
-string Base64::encode_url(folly::StringPiece text) {
+std::string Base64::encode_url(folly::StringPiece text) {
   return encodeImpl(text, kBase64UrlCharset, false);
 }
 
-string Base64::encode_url(const char* data, size_t len) {
+std::string Base64::encode_url(const char* data, size_t len) {
   return encode_url(folly::StringPiece(data, len));
 }
 
-string Base64::encode_url(const folly::IOBuf* data) {
+std::string Base64::encode_url(const folly::IOBuf* data) {
   return encodeImpl(IOBufWrapper(data), kBase64UrlCharset, false);
 }
 
-string Base64::decode_url(folly::StringPiece encoded) {
-  string output;
-  Base64::decode_url(make_pair(encoded.data(), encoded.size()), output);
+std::string Base64::decode_url(folly::StringPiece encoded) {
+  std::string output;
+  Base64::decode_url(std::make_pair(encoded.data(), encoded.size()), output);
   return output;
 }
 
 void Base64::decode_url(
-    const pair<const char*, int32_t>& payload,
-    string& output) {
+    const std::pair<const char*, int32_t>& payload,
+    std::string& output) {
   size_t out_len = (payload.second + 3) / 4 * 3;
   output.resize(out_len, '\0');
   out_len = Base64::decodeImpl(

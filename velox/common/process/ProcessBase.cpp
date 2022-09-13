@@ -36,12 +36,10 @@ namespace facebook {
 namespace velox {
 namespace process {
 
-using namespace std;
-
 /**
  * Current executable's name.
  */
-string getAppName() {
+std::string getAppName() {
   const char* result = getenv("_");
   if (result) {
     return result;
@@ -64,7 +62,7 @@ string getAppName() {
 /**
  * This machine's name.
  */
-string getHostName() {
+std::string getHostName() {
   char hostbuf[_POSIX_HOST_NAME_MAX + 1];
   if (gethostname(hostbuf, _POSIX_HOST_NAME_MAX + 1) < 0) {
     return "";
@@ -94,7 +92,7 @@ pthread_t getThreadId() {
 /**
  * Get current working directory.
  */
-string getCurrentDirectory() {
+std::string getCurrentDirectory() {
   char buf[PATH_MAX];
   return getcwd(buf, PATH_MAX);
 }
