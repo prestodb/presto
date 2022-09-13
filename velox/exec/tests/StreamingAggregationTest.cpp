@@ -15,6 +15,7 @@
  */
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/SumNonPODAggregate.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
@@ -56,27 +57,34 @@ class StreamingAggregationTest : public OperatorTestBase {
                          "min(c1)",
                          "max(c1)",
                          "sum(c1)",
+                         "sumnonpod(1)",
                          "approx_percentile(c1, 0.95)"})
                     .finalAggregation()
                     .planNode();
 
     assertQuery(
         makeCursorParameters(plan, outputBatchSize),
-        "SELECT c0, count(1), min(c1), max(c1), sum(c1)"
+        "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1)"
         "     , approx_quantile(c1, 0.95) "
         "FROM tmp GROUP BY 1");
 
-    plan = PlanBuilder()
-               .values(data)
-               .project({"c1", "c0"})
-               .partialStreamingAggregation(
-                   {"c0"}, {"count(1)", "min(c1)", "max(c1)", "sum(c1)"})
-               .finalAggregation()
-               .planNode();
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
+
+    plan =
+        PlanBuilder()
+            .values(data)
+            .project({"c1", "c0"})
+            .partialStreamingAggregation(
+                {"c0"},
+                {"count(1)", "min(c1)", "max(c1)", "sum(c1)", "sumnonpod(1)"})
+            .finalAggregation()
+            .planNode();
 
     assertQuery(
         makeCursorParameters(plan, outputBatchSize),
-        "SELECT c0, count(1), min(c1), max(c1), sum(c1) FROM tmp GROUP BY 1");
+        "SELECT c0, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY 1");
+
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
 
     // Test aggregation masks: one aggregate without a mask, two with the same
     // mask, one with a different mask.
@@ -135,17 +143,18 @@ class StreamingAggregationTest : public OperatorTestBase {
     auto data = addPayload(keys);
     createDuckDbTable(data);
 
-    auto plan = PlanBuilder()
-                    .values(data)
-                    .aggregation(
-                        keys[0]->type()->asRow().names(),
-                        preGroupedKeys,
-                        {"count(1)", "min(c1)", "max(c1)", "sum(c1)"},
-                        {},
-                        core::AggregationNode::Step::kPartial,
-                        false)
-                    .finalAggregation()
-                    .planNode();
+    auto plan =
+        PlanBuilder()
+            .values(data)
+            .aggregation(
+                keys[0]->type()->asRow().names(),
+                preGroupedKeys,
+                {"count(1)", "min(c1)", "max(c1)", "sum(c1)", "sumnonpod(1)"},
+                {},
+                core::AggregationNode::Step::kPartial,
+                false)
+            .finalAggregation()
+            .planNode();
 
     // Generate a list of grouping keys to use in the query: c0, c1, c2,..
     std::ostringstream keySql;
@@ -157,9 +166,11 @@ class StreamingAggregationTest : public OperatorTestBase {
     assertQuery(
         makeCursorParameters(plan, outputBatchSize),
         fmt::format(
-            "SELECT {}, count(1), min(c1), max(c1), sum(c1) FROM tmp GROUP BY {}",
+            "SELECT {}, count(1), min(c1), max(c1), sum(c1), sum(1) FROM tmp GROUP BY {}",
             keySql.str(),
             keySql.str()));
+
+    EXPECT_EQ(NonPODInt64::constructed, NonPODInt64::destructed);
   }
 };
 

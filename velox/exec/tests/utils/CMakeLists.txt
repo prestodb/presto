@@ -24,6 +24,7 @@ add_library(
   OperatorTestBase.cpp
   PlanBuilder.cpp
   QueryAssertions.cpp
+  SumNonPODAggregate.cpp
   TpchQueryBuilder.cpp)
 
 target_link_libraries(
