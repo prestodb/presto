@@ -79,8 +79,8 @@ the datasets above:
 	(3 rows)
 
 	> WITH
-		t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
-		u as (SELECT * FROM unnest(array[null, 2, 3], array[0, 1, 2]) as _t(id, value))
+	     t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
+	     u as (SELECT * FROM unnest(array[null, 2, 3], array[0, 1, 2]) as _t(id, value))
 	SELECT * FROM t FULL JOIN u ON t.id = u.id;
 
 	  id  | value |  id  | value
@@ -198,10 +198,10 @@ This query returns all rows from t, including the row with NULL id.
 
 .. code-block:: sql
 
-	> WITH
-	        ->     t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
-	        ->     u as (SELECT * FROM unnest(array[], array[]) as _t(id, value))
-	        -> SELECT * from t WHERE t.id NOT IN (SELECT id FROM u);
+    > WITH
+        t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
+        u as (SELECT * FROM unnest(array[], array[]) as _t(id, value))
+    SELECT * from t WHERE t.id NOT IN (SELECT id FROM u);
 
 	  id  | value
 	------+-------
@@ -300,10 +300,10 @@ query is not sensitive for NULLs in the subquery.
 
 .. code-block:: sql
 
-	> WITH
-        ->     t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
-        ->     u as (SELECT * FROM unnest(array[2, 3], array[1, 2]) as _t(id, value))
-        -> SELECT * from t WHERE NOT EXISTS (SELECT * FROM u WHERE u.id = t.id);
+    > WITH
+        t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
+        u as (SELECT * FROM unnest(array[2, 3], array[1, 2]) as _t(id, value))
+    SELECT * from t WHERE NOT EXISTS (SELECT * FROM u WHERE u.id = t.id);
 
 	  id  | value
 	------+-------
@@ -328,10 +328,10 @@ queries are the same.
 
 .. code-block:: sql
 
-	> WITH
-        ->     t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
-        ->     u as (SELECT * FROM unnest(array[], array[]) as _t(id, value))
-        -> SELECT * from t WHERE NOT EXISTS (SELECT * FROM u WHERE u.id = t.id);
+    > WITH
+        t as (SELECT * FROM unnest(array[null, 1, 2], array[0, 1, 2]) as _t(id, value)),
+        u as (SELECT * FROM unnest(array[], array[]) as _t(id, value))
+    SELECT * from t WHERE NOT EXISTS (SELECT * FROM u WHERE u.id = t.id);
 
 	  id  | value
 	------+-------
