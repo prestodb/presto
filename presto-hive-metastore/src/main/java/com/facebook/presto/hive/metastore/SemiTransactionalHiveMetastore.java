@@ -115,7 +115,6 @@ import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 public class SemiTransactionalHiveMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
-    private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
     private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TABLE = 100;
     private static final int MAX_LAST_DATA_COMMIT_TIME_ENTRY_PER_TRANSACTION = 10_000;
 
@@ -1513,7 +1512,7 @@ public class SemiTransactionalHiveMetastore
 
             PartitionAdder partitionAdder = partitionAdders.computeIfAbsent(
                     partition.getSchemaTableName(),
-                    ignored -> new PartitionAdder(metastoreContext, partition.getDatabaseName(), partition.getTableName(), delegate, PARTITION_COMMIT_BATCH_SIZE));
+                    ignored -> new PartitionAdder(metastoreContext, partition.getDatabaseName(), partition.getTableName(), delegate));
 
             // we can bypass the file storage path checking logic for sync partition code path
             // because the file paths have been verified during early phase of the sync logic already
@@ -2961,13 +2960,13 @@ public class SemiTransactionalHiveMetastore
         private List<List<String>> createdPartitionValues = new ArrayList<>();
         private List<MetastoreOperationResult> operationResults;
 
-        public PartitionAdder(MetastoreContext metastoreContext, String schemaName, String tableName, ExtendedHiveMetastore metastore, int batchSize)
+        public PartitionAdder(MetastoreContext metastoreContext, String schemaName, String tableName, ExtendedHiveMetastore metastore)
         {
             this.metastoreContext = requireNonNull(metastoreContext, "metastoreContext is null");
             this.schemaName = schemaName;
             this.tableName = tableName;
             this.metastore = metastore;
-            this.batchSize = batchSize;
+            this.batchSize = metastore.getPartitionCommitBatchSize();
             this.partitions = new ArrayList<>(batchSize);
             this.operationResults = new ArrayList<>();
         }

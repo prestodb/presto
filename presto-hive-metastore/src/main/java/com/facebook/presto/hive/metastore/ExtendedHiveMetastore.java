@@ -145,4 +145,11 @@ public interface ExtendedHiveMetastore
     {
         return ImmutableList.of();
     }
+
+    // Different metastore systems could implement this commit batch size differently based on different underlying database capacity.
+    // Default batch partition commit size is set to 10.
+    default int getPartitionCommitBatchSize()
+    {
+        return 10;
+    }
 }
