@@ -88,7 +88,7 @@ class MemConfig : public Config {
   explicit MemConfig() : values_{} {}
 
   explicit MemConfig(std::unordered_map<std::string, std::string>&& values)
-      : values_(move(values)) {}
+      : values_(std::move(values)) {}
 
   folly::Optional<std::string> get(const std::string& key) const override;
 
@@ -113,7 +113,7 @@ class ConfigStack : public Config {
   }
 
   explicit ConfigStack(std::vector<std::shared_ptr<const Config>>&& configs)
-      : configs_(move(configs)) {
+      : configs_(std::move(configs)) {
     for (const auto& config : configs_) {
       VELOX_USER_CHECK_NOT_NULL(config);
     }
@@ -169,7 +169,7 @@ class BaseConfigManager {
   void setConfigOverrides(
       std::unordered_map<std::string, std::string>&& configOverrides) {
     setConfigOverrides(
-        std::make_shared<const MemConfig>(move(configOverrides)));
+        std::make_shared<const MemConfig>(std::move(configOverrides)));
   }
 
   // template<class T> set(shared_ptr<const T>& obj) {}
@@ -285,7 +285,7 @@ class RawConfigUpdate {
   }
 
   const std::shared_ptr<const Config>&& getConfig() && {
-    return move(config_);
+    return std::move(config_);
   }
 
  private:

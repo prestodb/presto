@@ -132,14 +132,14 @@ class FieldAccessExpr : public core::IExpr {
       std::vector<std::shared_ptr<const IExpr>>&& inputs =
           std::vector<std::shared_ptr<const IExpr>>{
               std::make_shared<const InputExpr>()})
-      : IExpr{std::move(alias)}, name_{name}, inputs_{move(inputs)} {
+      : IExpr{std::move(alias)}, name_{name}, inputs_{std::move(inputs)} {
     CHECK_EQ(inputs_.size(), 1);
   }
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> inputs) const override {
     return std::make_shared<FieldAccessExpr>(
-        std::string{name_}, alias_, move(inputs));
+        std::string{name_}, alias_, std::move(inputs));
   }
 
   const std::string& getFieldName() const {
@@ -180,12 +180,12 @@ class FieldAccessExpr : public core::IExpr {
     auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
 
     return std::make_shared<const FieldAccessExpr>(
-        move(fieldName), std::nullopt, move(inputs));
+        std::move(fieldName), std::nullopt, std::move(inputs));
   }
 
   static std::shared_ptr<const FieldAccessExpr> column(std::string columnName) {
     return std::make_shared<const FieldAccessExpr>(
-        move(columnName), std::nullopt);
+        std::move(columnName), std::nullopt);
   }
 
   bool equalsNonRecursive(const IExpr& other) const override {
@@ -218,14 +218,14 @@ class SortExpr : public core::IExpr {
   SortExpr(
       std::vector<bool>&& orders,
       std::vector<std::shared_ptr<const IExpr>>&& inputs)
-      : orders_(move(orders)), inputs_{move(inputs)} {
+      : orders_(std::move(orders)), inputs_{std::move(inputs)} {
     CHECK_EQ(inputs_.size(), orders_.size());
   }
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> inputs) const override {
     return std::make_shared<SortExpr>(
-        std::vector<bool>(this->orders_), move(inputs));
+        std::vector<bool>(this->orders_), std::move(inputs));
   }
 
   const std::vector<bool>& getOrders() const {
@@ -277,8 +277,8 @@ class CallExpr : public core::IExpr {
       std::vector<std::shared_ptr<const IExpr>>&& inputs,
       std::optional<std::string> alias)
       : core::IExpr{std::move(alias)},
-        name_{move(funcName)},
-        inputs_{move(inputs)} {
+        name_{std::move(funcName)},
+        inputs_{std::move(inputs)} {
     VELOX_CHECK(!name_.empty());
   }
 
@@ -288,7 +288,8 @@ class CallExpr : public core::IExpr {
 
   std::shared_ptr<const IExpr> withInputs(
       std::vector<std::shared_ptr<const IExpr>> inputs) const override {
-    return std::make_shared<CallExpr>(std::string{name_}, move(inputs), alias_);
+    return std::make_shared<CallExpr>(
+        std::string{name_}, std::move(inputs), alias_);
   }
 
   std::string toString() const override {
@@ -324,7 +325,7 @@ class CallExpr : public core::IExpr {
     auto inputs = ISerializable::deserialize<std::vector<IExpr>>(obj["inputs"]);
 
     return std::make_shared<const CallExpr>(
-        move(functionName), move(inputs), std::nullopt);
+        std::move(functionName), std::move(inputs), std::nullopt);
   }
 
   template <typename... T>

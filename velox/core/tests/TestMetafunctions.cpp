@@ -29,6 +29,6 @@ TEST(Metafunctions, ForEachWithIndex) {
         result += folly::to<std::string>(elem);
         result += ";";
       },
-      move(tup));
+      std::move(tup));
   ASSERT_EQ(result, "0:1;1:hello;2:3.1;");
 }

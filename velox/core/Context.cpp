@@ -70,7 +70,7 @@ std::shared_ptr<const ConfigStack> ConfigStack::stack(
   }
   std::vector<std::shared_ptr<const Config>> configs(configs_);
   configs.push_back(config);
-  return std::make_shared<const ConfigStack>(move(configs));
+  return std::make_shared<const ConfigStack>(std::move(configs));
 }
 
 std::shared_ptr<const ConfigStack> ConfigStack::stack(
@@ -79,9 +79,9 @@ std::shared_ptr<const ConfigStack> ConfigStack::stack(
     throw std::invalid_argument(
         "Null Config or ConfigStack are not supported for stacking");
   }
-  std::vector<std::shared_ptr<const Config>> configs(move(configs_));
+  std::vector<std::shared_ptr<const Config>> configs(std::move(configs_));
   configs.push_back(config);
-  return std::make_shared<const ConfigStack>(move(configs));
+  return std::make_shared<const ConfigStack>(std::move(configs));
 }
 
 std::shared_ptr<const ConfigStack> ConfigStackHelper::stack(
@@ -94,7 +94,7 @@ std::shared_ptr<const ConfigStack> ConfigStackHelper::stack(
     return configStack->stack(config2);
   }
   std::vector<std::shared_ptr<const Config>> configs{config1, config2};
-  return std::make_shared<const ConfigStack>(move(configs));
+  return std::make_shared<const ConfigStack>(std::move(configs));
 }
 
 Context::Context(

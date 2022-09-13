@@ -170,7 +170,7 @@ TypedExprPtr createWithImplicitCast(
   }
   auto type = resolveTypeImpl(inputs, expr, false /*nullOnFailure*/);
   return std::make_shared<CallTypedExpr>(
-      type, move(inputs), std::string{expr->getFunctionName()});
+      type, std::move(inputs), std::string{expr->getFunctionName()});
 }
 } // namespace
 
@@ -220,7 +220,7 @@ TypedExprPtr Expressions::inferTypes(
         std::string{fae->getFieldName()});
   }
   if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
-    return createWithImplicitCast(move(fun), move(children));
+    return createWithImplicitCast(std::move(fun), std::move(children));
   }
   if (auto input = std::dynamic_pointer_cast<const InputExpr>(expr)) {
     return std::make_shared<const InputTypedExpr>(inputRow);
@@ -241,7 +241,7 @@ TypedExprPtr Expressions::inferTypes(
   }
   if (auto cast = std::dynamic_pointer_cast<const CastExpr>(expr)) {
     return std::make_shared<const CastTypedExpr>(
-        cast->type(), move(children), cast->nullOnFailure());
+        cast->type(), std::move(children), cast->nullOnFailure());
   }
   if (auto alreadyTyped = std::dynamic_pointer_cast<const ITypedExpr>(expr)) {
     return alreadyTyped;

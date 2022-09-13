@@ -222,12 +222,14 @@ class FieldAccessTypedExpr : public ITypedExpr {
  public:
   /// Used as a leaf in an expression tree specifying input column by name.
   FieldAccessTypedExpr(TypePtr type, std::string name)
-      : ITypedExpr{move(type)}, name_(std::move(name)), isInputColumn_(true) {}
+      : ITypedExpr{std::move(type)},
+        name_(std::move(name)),
+        isInputColumn_(true) {}
 
   /// Used as a dereference expression which selects a subfield in a struct by
   /// name.
   FieldAccessTypedExpr(TypePtr type, TypedExprPtr input, std::string name)
-      : ITypedExpr{move(type), {move(input)}},
+      : ITypedExpr{std::move(type), {std::move(input)}},
         name_(std::move(name)),
         isInputColumn_(dynamic_cast<const InputTypedExpr*>(inputs()[0].get())) {
   }
@@ -353,7 +355,7 @@ class ConcatTypedExpr : public ITypedExpr {
       namesCopy.push_back(names.at(i));
       children.push_back(expressions.at(i)->type());
     }
-    return ROW(move(namesCopy), move(children));
+    return ROW(std::move(namesCopy), std::move(children));
   }
 };
 
