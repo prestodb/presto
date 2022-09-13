@@ -440,6 +440,9 @@ void GroupingSet::extractGroups(
     folly::Range<char**> groups,
     const RowVectorPtr& result) {
   result->resize(groups.size());
+  if (groups.empty()) {
+    return;
+  }
   RowContainer& rows = table_ ? *table_->rows() : *rowsWhileReadingSpill_;
   auto totalKeys = rows.keyTypes().size();
   for (int32_t i = 0; i < totalKeys; ++i) {
@@ -678,8 +681,10 @@ void GroupingSet::initializeRow(
 void GroupingSet::extractSpillResult(const RowVectorPtr& result) {
   std::vector<char*> rows(mergeRows_->numRows());
   RowContainerIterator iter;
-  mergeRows_->listRows(
-      &iter, rows.size(), RowContainer::kUnlimited, rows.data());
+  if (!rows.empty()) {
+    mergeRows_->listRows(
+        &iter, rows.size(), RowContainer::kUnlimited, rows.data());
+  }
   extractGroups(folly::Range<char**>(rows.data(), rows.size()), result);
   mergeRows_->clear();
 }
