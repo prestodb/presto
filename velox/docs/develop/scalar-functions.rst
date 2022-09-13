@@ -58,22 +58,16 @@ above could be re-written as follows:
 
 The argument list must start with an output parameter “result” followed by the
 function arguments. The “result” argument must be a reference. Function
-arguments must be const references. The C++ types of the arguments must match
-Velox types as specified in the following mapping:
+arguments must be const references. The C++ types of the function arguments and
+the result argument must match :doc:`Velox types</develop/types>`.
+Since the result argument must be a reference, some of the types listed below
+have a different result argument type:
 
 ==========  ==============================  =============================
 Velox Type  C++ Argument Type               C++ Result Type
 ==========  ==============================  =============================
-BOOLEAN     bool                            bool
-TINYINT     int8_t                          int8_t
-SMALLINT    int16_t                         int16_t
-INTEGER     int32_t                         int32_t
-BIGINT      int64_t                         int64_t
-REAL        float                           float
-DOUBLE      double                          double
 VARCHAR     StringView                      out_type<Varchar>
 VARBINARY   StringView                      out_type<Varbinary>
-TIMESTAMP   Timestamp                       Timestamp
 ARRAY       arg_type<Array<E>>              out_type<Array<E>>
 MAP         arg_type<Map<K,V>>              out_type<Map<K, V>>
 ROW         arg_type<Row<T1, T2, T3,...>>   out_type<Row<T1, T2, T3,...>>
@@ -365,6 +359,11 @@ we need to call registerFunction again:
 
 We need to call registerFunction for each signature we want to support.
 
+For decimal arguments, we use UnscaledLongDecimal or UnscaledShortDecimal for
+registration. Simple functions always require decimal arguments to have the same
+precision and scale. We must explicitly :func:`cast` the decimal arguments if
+required before passing them to simple functions.
+
 Codegen
 ^^^^^^^
 
@@ -438,7 +437,7 @@ The object supports the following methods:
 
 - arg_type<E> value()      : unchecked access to the underlying value.
 
-- arg_type<E> operator *() : unchecked access to the underlying value.
+- arg_type<E> operator \*() : unchecked access to the underlying value.
 
 - bool has_value()         : return true if the value is not null.
 
@@ -581,7 +580,7 @@ MapView<K, V>::Element is the type returned by dereferencing MapView<K, V>::Iter
 
 - second: OptionalAccessor<V> | null_free_arg_type<V>
 
-- MapView<K, V>::Element participates in struct binding: auto [v, k] = *map.begin();
+- MapView<K, V>::Element participates in struct binding: auto [v, k] = \*map.begin();
 
 Note: iterator de-referencing and iterator pointer de-referencing result in temporaries. Hence those can be bound to
 const references or value variables but not normal references.
@@ -625,6 +624,7 @@ Note that in the range-loop, the range expression is assigned to a universal ref
      for(const auto& e : *itt){..}
 
 .. _outputs-write:
+
 Outputs (Writer Types)
 **********************
 
@@ -1227,6 +1227,24 @@ element of the array and returns a new array of the results.
       .argumentType("function(T, U)")
       .build();
 
+The signature of a function that handles DECIMAL types can additionally take
+variables and constraints to represent the precision and scale values.
+The constraints are evaluated using a type calculator built from Flex and Bison
+tools. The decimal arithmetic addition function has the following signature:
+
+.. code-block:: c++
+
+    // decimal, decimal -> decimal
+    exec::FunctionSignatureBuilder()
+      .returnType("DECIMAL(r_precision, r_scale)")
+      .argumentType("DECIMAL(a_precision, a_scale)")
+      .argumentType("DECIMAL(b_precision, b_scale)")
+      .variableConstraint(
+          "r_precision",
+          "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
+      .variableConstraint("r_scale", "max(a_scale, b_scale)")
+      .build();
+
 The type names used in FunctionSignatureBuilder can be either lowercase
 standard types, a special type “any”, or the ones defined by calling
 typeVariable() method. “any” type can be used to specify a printf-like
@@ -1308,7 +1326,7 @@ result. Here is an example of a test for simple function “sqrt”:
     }
 
 Function names
-------------
+--------------
 
 For both simple and vector functions, their names are case insensitive. Function
 names are converted to lower case automatically when the functions are

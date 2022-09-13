@@ -7,7 +7,7 @@ execution. It is similar to Arrow, but features more encodings and different
 layout for strings, arrays and maps which support out-of-order writes. Vectors
 form the very foundation of the Velox library.
 
-Velox vectors support scalar and complex types and come in a few different
+Velox vectors support :doc:`scalar and complex types</develop/types>` and come in a few different
 encodings.
 
 Supported encodings are:
@@ -20,32 +20,6 @@ Supported encodings are:
 
 In this guide we’ll discuss flat, constant and dictionary encoding. Bias and
 sequence encodings are not in scope for this guide.
-
-Supported types are:
-
-* Scalar types:
-
-  * BOOLEAN
-  * TINYINT
-  * SMALLINT
-  * INTEGER
-  * BIGINT
-  * TIMESTAMP
-  * REAL
-  * DOUBLE
-  * DECIMAL
-  * VARCHAR
-  * VARBINARY
-  * OPAQUE*
-
-* Complex types:
-
-  * ARRAY
-  * MAP
-  * ROW
-
-(*) Opaque type is mentioned here for completeness. This guide will not discuss
-it.
 
 A single vector represents multiple rows of a single column. RowVector is used
 to represent a set of rows for multiple columns as well as a set of rows for a
@@ -178,22 +152,8 @@ Flat Vectors - Scalar Types
 ---------------------------
 
 Flat vectors of scalar types are represented using the FlatVector<T> template,
-where T is the type of values stored in the vector. These types are:
-
-==========  ==================  ==================
-Velox Type  C++ Type            Bytes per Value
-==========  ==================  ==================
-BOOLEAN     bool		        0.125 (e.g. 1 bit)
-TINYINT     int8_t		        1
-SMALLINT    int16_t		        2
-INTEGER     int32_t		        4
-BIGINT      int64_t		        8
-REAL        float		        4
-DOUBLE      double		        8
-TIMESTAMP   struct Timestamp	16
-VARCHAR     struct StringView	16
-VARBINARY   struct StringView	16
-==========  ==================  ==================
+where T is the C++ type of the scalar type. The values stored in the vector
+naturally use the C++ type.
 
 FlatVector<T> contains a values buffer and in case of T = StringView one or more
 string buffers. Values buffer is a contiguous byte buffer with sizeof(T) bytes
@@ -418,11 +378,11 @@ entry in the indices buffer contains garbage and should not be accessed.
 Flat Vectors - Complex Types
 ----------------------------
 
-Arrays
-~~~~~~
-
 Flat vectors of complex types ARRAY, MAP and ROW / STRUCT are represented using
 ArrayVector, MapVector and RowVector.
+
+ArrayVector
+~~~~~~~~~~~
 
 ArrayVector stores values of type ARRAY. In addition to nulls buffer, it
 contains offsets and sizes buffers and an elements vector. Offsets and sizes
@@ -478,8 +438,8 @@ Elements vector may have a nulls buffer independent of the nulls buffer of the
 array vector itself. This allows us to specify non-null arrays with some or all
 null elements. Null array and array of all null elements are not the same.
 
-Maps
-~~~~
+MapVector
+~~~~~~~~~
 
 MapVector stores values of type MAP. In addition to nulls buffer, it contains
 offsets and sizes buffers, keys and values vectors. Offsets and sizes are
@@ -518,8 +478,8 @@ Map vector layout does not guarantee or require that keys of individual maps are
 unique. However, in practice, places which create maps, e.g. ORC and Parquet
 readers, :func:`map` function, etc., ensure that map keys are unique.
 
-Structs
-~~~~~~~
+RowVector
+~~~~~~~~~
 
 Finally, RowVector stores values of type ROW (e.g. structs). In addition to the
 nulls buffer, it contains a list of child vectors.
