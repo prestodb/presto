@@ -145,7 +145,10 @@ class MemoryPool : public AbstractMemoryPool {
   virtual void reserve(int64_t /* bytes */) {
     VELOX_NYI("reserve() needs to be implemented in derived memory pool.");
   }
-  virtual void release(int64_t /* bytes */) {
+  // Sometimes in memory governance we want to mock an update for quota
+  // accounting purposes and different implementations can
+  // choose to accommodate this differently.
+  virtual void release(int64_t /* bytes */, bool /* mock */ = false) {
     VELOX_NYI("release() needs to be implemented in derived memory pool.");
   }
 };
@@ -296,8 +299,8 @@ class ScopedMemoryPool final : public MemoryPool {
     pool_.reserve(bytes);
   }
 
-  void release(int64_t bytes) override {
-    pool_.release(bytes);
+  void release(int64_t bytes, bool mock = false) override {
+    pool_.release(bytes, mock);
   }
 
  private:
@@ -489,7 +492,7 @@ class MemoryPoolImpl : public MemoryPoolBase {
 
   // TODO: consider returning bool instead.
   void reserve(int64_t size) override;
-  void release(int64_t size) override;
+  void release(int64_t size, bool mock = false) override;
 
  private:
   VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
@@ -694,7 +697,7 @@ void* FOLLY_NULLABLE MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
   int64_t difference = alignedNewSize - alignedSize;
   if (UNLIKELY(difference <= 0)) {
     // Track and pretend the shrink took place for accounting purposes.
-    release(-difference);
+    release(-difference, true);
     return p;
   }
 
@@ -881,11 +884,11 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size) {
+void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size, bool mock) {
   memoryManager_.release(size);
   localMemoryUsage_.incrementCurrentBytes(-size);
   if (memoryUsageTracker_) {
-    memoryUsageTracker_->update(-size);
+    memoryUsageTracker_->update(-size, mock);
   }
 }
 

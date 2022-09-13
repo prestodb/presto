@@ -143,7 +143,12 @@ SimpleMemoryTracker::SimpleMemoryTracker(const MemoryUsageConfig& config)
     : MemoryUsageTracker{nullptr, UsageType::kUserMem, config},
       userMemoryQuota_{config.maxUserMemory.value_or(kMaxMemory)} {}
 
-void SimpleMemoryTracker::update(int64_t size) {
+// Simple memory tracker wants to be accurate for its memory accounting, so
+// it ignores mock updates.
+void SimpleMemoryTracker::update(int64_t size, bool mock) {
+  if (mock) {
+    return;
+  }
   int64_t previousUsage =
       totalUserMemory_.fetch_add(size, std::memory_order_relaxed);
   if (previousUsage + size > userMemoryQuota_) {

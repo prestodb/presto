@@ -680,6 +680,38 @@ TEST(MemoryPoolTest, scopedChildUsageTest) {
   }
 }
 
+TEST(MemoryPoolTest, mockUpdatesTest) {
+  MemoryManager<MemoryAllocator> manager{};
+  auto& root = manager.getRoot();
+  const int64_t kChunkSize{32L * MB};
+  {
+    auto& defaultTrackerPool = root.addChild("default_tracker_pool");
+    auto defaultTracker = MemoryUsageTracker::create();
+    defaultTrackerPool.setMemoryUsageTracker(defaultTracker);
+    EXPECT_EQ(0, defaultTracker->getCurrentUserBytes());
+    void* twoChunks = defaultTrackerPool.allocate(2 * kChunkSize);
+    EXPECT_EQ(2 * kChunkSize, defaultTracker->getCurrentUserBytes());
+    twoChunks =
+        defaultTrackerPool.reallocate(twoChunks, 2 * kChunkSize, kChunkSize);
+    EXPECT_EQ(kChunkSize, defaultTracker->getCurrentUserBytes());
+    // We didn't do any real reallocation.
+    defaultTrackerPool.free(twoChunks, 2 * kChunkSize);
+  }
+  {
+    auto& simpleTrackerPool = root.addChild("simple_tracker_pool");
+    auto simpleTracker = SimpleMemoryTracker::create();
+    simpleTrackerPool.setMemoryUsageTracker(simpleTracker);
+    EXPECT_EQ(0, simpleTracker->getCurrentUserBytes());
+    void* twoChunks = simpleTrackerPool.allocate(2 * kChunkSize);
+    EXPECT_EQ(2 * kChunkSize, simpleTracker->getCurrentUserBytes());
+    twoChunks =
+        simpleTrackerPool.reallocate(twoChunks, 2 * kChunkSize, kChunkSize);
+    EXPECT_EQ(2 * kChunkSize, simpleTracker->getCurrentUserBytes());
+    // We didn't do any real reallocation.
+    simpleTrackerPool.free(twoChunks, 2 * kChunkSize);
+  }
+}
+
 TEST(MemoryPoolTest, getPreferredSize) {
   MemoryManager<MemoryAllocator, 64> manager{};
   auto& pool =

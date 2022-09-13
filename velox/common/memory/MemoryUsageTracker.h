@@ -185,7 +185,10 @@ class MemoryUsageTracker
   // allocation and negative for free. If there is no reservation or
   // the new allocated amount exceeds the reservation, propagates the
   // change upward.
-  virtual void update(int64_t size) {
+  // Sometimes the memory pool wants to mock an update for quota
+  // accounting purposes and different memory usage trackers can
+  // choose to accommodate this differently.
+  virtual void update(int64_t size, bool /* mock */ = false) {
     if (size > 0) {
       int64_t increment = 0;
       {
@@ -461,7 +464,7 @@ class SimpleMemoryTracker : public MemoryUsageTracker {
   explicit SimpleMemoryTracker(const MemoryUsageConfig& config);
   virtual ~SimpleMemoryTracker() override = default;
 
-  virtual void update(int64_t size) override;
+  virtual void update(int64_t size, bool mock = false) override;
   virtual int64_t getCurrentUserBytes() const override;
 
   static std::shared_ptr<SimpleMemoryTracker> create(
