@@ -196,14 +196,15 @@ by setting boolean flag "broadcast" in the PartitionedOutputNode to true.
 Anti Joins
 ~~~~~~~~~~
 
-Anti join is used for queries like this:
+Anti join is used for queries with NOT IN <subquery> clause:
 
 .. code-block:: sql
 
     SELECT * FROM t WHERE t.key NOT IN (SELECT key FROM u)
 
 Anti join returns probe-side rows which have no match in the build side. The
-exact semantics of the anti join is tricky:
+exact semantics of the anti join is tricky. These are described in detail in
+a separate article: :doc:`Anti joins <../develop/anti-join>`.
 
 #. when the build side contains an entry with a null in any of the join keys, the join returns no rows;
 
@@ -213,7 +214,7 @@ exact semantics of the anti join is tricky:
 
 The cases (1) and (2) cannot be identified locally (unless the join runs in
 broadcast mode) as they require knowledge about the whole build side. It is
-necessar to know whether the combined build side across all nodes is empty and
+necessary to know whether the combined build side across all nodes is empty and
 if not if it contains a null key. To provide this information locally,
 PartitionedOutput operator supports a mode where it replicates all rows with
 nulls in the partitioning keys to all destinations and in case there are no
