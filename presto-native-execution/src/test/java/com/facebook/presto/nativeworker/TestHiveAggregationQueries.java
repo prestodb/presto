@@ -61,11 +61,21 @@ public class TestHiveAggregationQueries
 
         assertQuery("SELECT linenumber = 2 AND quantity > 10, sum(quantity / 7) FROM lineitem GROUP BY 1");
 
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25) FROM orders");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25) FROM orders");
+        assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, 0.25) FROM orders GROUP BY 1");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25, 0.005) FROM orders");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005) FROM orders");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25), approx_percentile(totalprice, orderkey, 0.5) FROM orders");
         assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, 0.25), approx_percentile(totalprice, 0.5) FROM orders GROUP BY 1");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, 0.25, 0.005), approx_percentile(totalprice, 0.5, 0.005) FROM orders");
         assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, 0.25, 0.005), approx_percentile(totalprice, orderkey, 0.5, 0.005) FROM orders");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5]) FROM orders");
+        assertQuerySucceeds("SELECT clerk, approx_percentile(totalprice, ARRAY[0.25, 0.5]) FROM orders GROUP BY 1");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, ARRAY[0.25, 0.5], 0.005) FROM orders");
+        assertQuerySucceeds("SELECT approx_percentile(totalprice, orderkey, ARRAY[0.25, 0.5], 0.005) FROM orders");
 
         // count is not using any channel or mask.
         // sum1 and sum3 are using different channels, but the same mask.
