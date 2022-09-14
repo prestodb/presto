@@ -30,7 +30,7 @@ namespace {
 class UnsafeRowVectorSerializer : public VectorSerializer {
  public:
   explicit UnsafeRowVectorSerializer(StreamArena* streamArena)
-      : streamArena_{streamArena} {}
+      : mappedMemory_{streamArena->mappedMemory()} {}
 
   void append(
       RowVectorPtr vector,
@@ -48,11 +48,9 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       return;
     }
 
-    // Try to allocate 'totalSize' bytes, but handle cases where allocated size
-    // is less.
-    ByteRange byteRange;
-    streamArena_->newRange(totalSize, &byteRange);
-    VELOX_CHECK_EQ(byteRange.position, 0);
+    auto* buffer = (char*)mappedMemory_->allocateBytes(totalSize);
+    buffers_.push_back(
+        ByteRange{(uint8_t*)buffer, (int32_t)totalSize, (int32_t)totalSize});
 
     size_t offset = 0;
     for (auto& range : ranges) {
@@ -61,52 +59,32 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
         auto rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
             vector->type(), vector.get(), i);
 
-        // Check if there is enough space in the buffer. If not, allocate a new
-        // buffer.
-        if (byteRange.size < offset + rowSize + sizeof(size_t)) {
-          byteRange.position = offset;
-          buffers_.push_back(byteRange);
-
-          totalSize -= offset;
-          streamArena_->newRange(totalSize, &byteRange);
-          offset = 0;
-
-          // Give up if cannot allocate enough contiguous memory for a single
-          // row.
-          VELOX_CHECK_LE(
-              rowSize + sizeof(size_t),
-              byteRange.size,
-              "Single row is too large for serialization");
-        }
-
-        auto size = velox::row::UnsafeRowDynamicSerializer::serialize(
-                        vector->type(),
-                        vector,
-                        (char*)byteRange.buffer + offset + sizeof(size_t),
-                        i)
-                        .value_or(0);
+        auto size =
+            velox::row::UnsafeRowDynamicSerializer::serialize(
+                vector->type(), vector, buffer + offset + sizeof(size_t), i)
+                .value_or(0);
 
         // Sanity check.
         VELOX_CHECK_EQ(rowSize, size);
 
         // Write raw size.
-        *(size_t*)(byteRange.buffer + offset) = size;
+        *(size_t*)(buffer + offset) = size;
 
         offset += sizeof(size_t) + size;
       }
     }
-    byteRange.position = offset;
-    buffers_.push_back(byteRange);
   }
 
   void flush(OutputStream* stream) override {
     for (auto& buffer : buffers_) {
       stream->write((char*)buffer.buffer, buffer.position);
+      mappedMemory_->freeBytes(buffer.buffer, buffer.size);
     }
+    buffers_.clear();
   }
 
  private:
-  StreamArena* streamArena_;
+  memory::MappedMemory* mappedMemory_;
   std::vector<ByteRange> buffers_;
 };
 } // namespace
