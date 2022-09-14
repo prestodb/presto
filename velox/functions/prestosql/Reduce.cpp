@@ -120,6 +120,12 @@ class ReduceFunction : public exec::VectorFunction {
 
       vector_size_t n = 0;
       while (true) {
+        // 'state' might use the 'elementIndices', in that case we need to
+        // reallocate them to avoid overwriting.
+        if (not elementIndices->unique()) {
+          elementIndices = allocateIndices(flatArray->size(), context.pool());
+        }
+
         // Sets arrayRows[row] to true if array at that row has n-th element, to
         // false otherwise.
         // Set elementIndices[row] to the index of the n-th element in the

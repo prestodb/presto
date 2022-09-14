@@ -168,3 +168,22 @@ TEST_F(ReduceTest, finalSelection) {
       nullEvery(11))});
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(ReduceTest, elementIndicesOverwrite) {
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2}),
+      makeFlatVector<int64_t>({3, 4}),
+  });
+
+  registerLambda(
+      "input",
+      rowType("s", BIGINT(), "x", BIGINT()),
+      ROW({ARRAY(BIGINT())}),
+      "s + x");
+  registerLambda("output", rowType("s", BIGINT()), ROW({ARRAY(BIGINT())}), "s");
+
+  auto result = evaluate(
+      "reduce(array[c0, c1], 100, function('input'), function('output'))",
+      data);
+  assertEqualVectors(makeFlatVector<int64_t>({104, 106}), result);
+}
