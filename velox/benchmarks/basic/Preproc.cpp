@@ -334,7 +334,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     suspender.dismiss();
 
     size_t cnt = 0;
-    for (auto i = 0; i < times * 1'0000; i++) {
+    for (auto i = 0; i < times * 10'000; i++) {
       exec::EvalCtx evalCtx(&execCtx_, &exprSet, data.get());
       exprSet.eval(rows, evalCtx, results);
       cnt += results[0]->size();
@@ -346,22 +346,25 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
   static auto const scaleFactor_ = 1;
 };
 
-BENCHMARK_MULTI(simple, n) {
-  PreprocBenchmark benchmark;
-  return benchmark.run(RunConfig::Simple, n);
-}
-
-BENCHMARK_MULTI(original, n) {
+BENCHMARK_MULTI(ifFloor, n) {
   PreprocBenchmark benchmark;
   return benchmark.run(RunConfig::Basic, n);
 }
 
+// Same as ifFloor, but uses non-SIMD version of the equality operation.
+BENCHMARK_MULTI(ifFloorWithSimpleEq, n) {
+  PreprocBenchmark benchmark;
+  return benchmark.run(RunConfig::Simple, n);
+}
+
+// Replaces if + floor expression with a one_hot function call.
 BENCHMARK_MULTI(oneHot, n) {
   PreprocBenchmark benchmark;
   return benchmark.run(RunConfig::OneHot, n);
 }
 
-BENCHMARK_MULTI(vectorAndOneHot, n) {
+// Same as oneHot, but uses vector functions for plus and multiply.
+BENCHMARK_MULTI(oneHotWithVectorArithmetic, n) {
   PreprocBenchmark benchmark;
   return benchmark.run(RunConfig::VectorAndOneHot, n);
 }
