@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.drift.TApplicationException;
 import com.facebook.drift.client.ExceptionClassification;
 import com.facebook.drift.client.ExceptionClassification.HostStatus;
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
@@ -53,7 +54,13 @@ public class ThriftModule
         driftClientBinder(binder)
                 .bindDriftClient(PrestoThriftService.class)
                 .withExceptionClassifier(t -> {
-                    if (t instanceof PrestoThriftServiceException) {
+                    // Handle scenarios where the server accepts the client request
+                    // and dies before sending a response.
+                    if (t instanceof TApplicationException
+                            && (t.getMessage().contains("server shutting down") || t.getMessage().contains("server not ready"))) {
+                        return new ExceptionClassification(Optional.of(true), HostStatus.DOWN);
+                    }
+                    else if (t instanceof PrestoThriftServiceException) {
                         boolean retryable = ((PrestoThriftServiceException) t).isRetryable();
                         return new ExceptionClassification(Optional.of(retryable), HostStatus.NORMAL);
                     }
