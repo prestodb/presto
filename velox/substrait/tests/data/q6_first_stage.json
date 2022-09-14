@@ -1,701 +1,797 @@
 {
- "extension_uris": [],
- "extensions": [
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 4,
-    "name": "lte:fp64_fp64"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 5,
-    "name": "sum:opt_fp64"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 3,
-    "name": "lt:fp64_fp64"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 0,
-    "name": "is_not_null:fp64"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 1,
-    "name": "and:bool_bool"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 2,
-    "name": "gte:fp64_fp64"
-   }
-  },
-  {
-   "extension_function": {
-    "extension_uri_reference": 0,
-    "function_anchor": 6,
-    "name": "multiply:opt_fp64_fp64"
-   }
-  }
- ],
- "relations": [
-  {
-   "root": {
-    "input": {
-     "aggregate": {
-      "common": {
-       "direct": {}
-      },
-      "input": {
-       "project": {
-        "common": {
-         "direct": {}
+    "extension_uris": [],
+    "extensions": [
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 4,
+                "name": "lte:fp64_fp64"
+            }
         },
-        "input": {
-         "filter": {
-          "common": {
-           "direct": {}
-          },
-          "input": {
-           "read": {
-            "common": {
-             "direct": {}
-            },
-            "base_schema": {
-             "names": [
-              "l_quantity",
-              "l_extendedprice",
-              "l_discount",
-              "l_shipdate_new"
-             ],
-             "struct": {
-              "types": [
-               {
-                "fp64": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               },
-               {
-                "fp64": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               },
-               {
-                "fp64": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               },
-               {
-                "fp64": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               }
-              ],
-              "type_variation_reference": 0,
-              "nullability": "NULLABILITY_UNSPECIFIED"
-             }
-            },
-            "filter": {
-             "scalar_function": {
-              "function_reference": 1,
-              "args": [
-               {
-                "scalar_function": {
-                 "function_reference": 1,
-                 "args": [
-                  {
-                   "scalar_function": {
-                    "function_reference": 1,
-                    "args": [
-                     {
-                      "scalar_function": {
-                       "function_reference": 1,
-                       "args": [
-                        {
-                         "scalar_function": {
-                          "function_reference": 1,
-                          "args": [
-                           {
-                            "scalar_function": {
-                             "function_reference": 1,
-                             "args": [
-                              {
-                               "scalar_function": {
-                                "function_reference": 1,
-                                "args": [
-                                 {
-                                  "scalar_function": {
-                                   "function_reference": 0,
-                                   "args": [
-                                    {
-                                     "selection": {
-                                      "direct_reference": {
-                                       "struct_field": {
-                                        "field": 3
-                                       }
-                                      }
-                                     }
-                                    }
-                                   ],
-                                   "output_type": {
-                                    "bool": {
-                                     "type_variation_reference": 0,
-                                     "nullability": "NULLABILITY_NULLABLE"
-                                    }
-                                   }
-                                  }
-                                 },
-                                 {
-                                  "scalar_function": {
-                                   "function_reference": 0,
-                                   "args": [
-                                    {
-                                     "selection": {
-                                      "direct_reference": {
-                                       "struct_field": {
-                                        "field": 2
-                                       }
-                                      }
-                                     }
-                                    }
-                                   ],
-                                   "output_type": {
-                                    "bool": {
-                                     "type_variation_reference": 0,
-                                     "nullability": "NULLABILITY_NULLABLE"
-                                    }
-                                   }
-                                  }
-                                 }
-                                ],
-                                "output_type": {
-                                 "bool": {
-                                  "type_variation_reference": 0,
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                 }
-                                }
-                               }
-                              },
-                              {
-                               "scalar_function": {
-                                "function_reference": 0,
-                                "args": [
-                                 {
-                                  "selection": {
-                                   "direct_reference": {
-                                    "struct_field": {
-                                     "field": 0
-                                    }
-                                   }
-                                  }
-                                 }
-                                ],
-                                "output_type": {
-                                 "bool": {
-                                  "type_variation_reference": 0,
-                                  "nullability": "NULLABILITY_NULLABLE"
-                                 }
-                                }
-                               }
-                              }
-                             ],
-                             "output_type": {
-                              "bool": {
-                               "type_variation_reference": 0,
-                               "nullability": "NULLABILITY_NULLABLE"
-                              }
-                             }
-                            }
-                           },
-                           {
-                            "scalar_function": {
-                             "function_reference": 2,
-                             "args": [
-                              {
-                               "selection": {
-                                "direct_reference": {
-                                 "struct_field": {
-                                  "field": 3
-                                 }
-                                }
-                               }
-                              },
-                              {
-                               "literal": {
-                                "nullable": false,
-                                "fp64": 8766
-                               }
-                              }
-                             ],
-                             "output_type": {
-                              "bool": {
-                               "type_variation_reference": 0,
-                               "nullability": "NULLABILITY_NULLABLE"
-                              }
-                             }
-                            }
-                           }
-                          ],
-                          "output_type": {
-                           "bool": {
-                            "type_variation_reference": 0,
-                            "nullability": "NULLABILITY_NULLABLE"
-                           }
-                          }
-                         }
-                        },
-                        {
-                         "scalar_function": {
-                          "function_reference": 3,
-                          "args": [
-                           {
-                            "selection": {
-                             "direct_reference": {
-                              "struct_field": {
-                               "field": 3
-                              }
-                             }
-                            }
-                           },
-                           {
-                            "literal": {
-                             "nullable": false,
-                             "fp64": 9131
-                            }
-                           }
-                          ],
-                          "output_type": {
-                           "bool": {
-                            "type_variation_reference": 0,
-                            "nullability": "NULLABILITY_NULLABLE"
-                           }
-                          }
-                         }
-                        }
-                       ],
-                       "output_type": {
-                        "bool": {
-                         "type_variation_reference": 0,
-                         "nullability": "NULLABILITY_NULLABLE"
-                        }
-                       }
-                      }
-                     },
-                     {
-                      "scalar_function": {
-                       "function_reference": 2,
-                       "args": [
-                        {
-                         "selection": {
-                          "direct_reference": {
-                           "struct_field": {
-                            "field": 2
-                           }
-                          }
-                         }
-                        },
-                        {
-                         "literal": {
-                          "nullable": false,
-                          "fp64": 0.05
-                         }
-                        }
-                       ],
-                       "output_type": {
-                        "bool": {
-                         "type_variation_reference": 0,
-                         "nullability": "NULLABILITY_NULLABLE"
-                        }
-                       }
-                      }
-                     }
-                    ],
-                    "output_type": {
-                     "bool": {
-                      "type_variation_reference": 0,
-                      "nullability": "NULLABILITY_NULLABLE"
-                     }
-                    }
-                   }
-                  },
-                  {
-                   "scalar_function": {
-                    "function_reference": 4,
-                    "args": [
-                     {
-                      "selection": {
-                       "direct_reference": {
-                        "struct_field": {
-                         "field": 2
-                        }
-                       }
-                      }
-                     },
-                     {
-                      "literal": {
-                       "nullable": false,
-                       "fp64": 0.07
-                      }
-                     }
-                    ],
-                    "output_type": {
-                     "bool": {
-                      "type_variation_reference": 0,
-                      "nullability": "NULLABILITY_NULLABLE"
-                     }
-                    }
-                   }
-                  }
-                 ],
-                 "output_type": {
-                  "bool": {
-                   "type_variation_reference": 0,
-                   "nullability": "NULLABILITY_NULLABLE"
-                  }
-                 }
-                }
-               },
-               {
-                "scalar_function": {
-                 "function_reference": 3,
-                 "args": [
-                  {
-                   "selection": {
-                    "direct_reference": {
-                     "struct_field": {
-                      "field": 0
-                     }
-                    }
-                   }
-                  },
-                  {
-                   "literal": {
-                    "nullable": false,
-                    "fp64": 24
-                   }
-                  }
-                 ],
-                 "output_type": {
-                  "bool": {
-                   "type_variation_reference": 0,
-                   "nullability": "NULLABILITY_NULLABLE"
-                  }
-                 }
-                }
-               }
-              ],
-              "output_type": {
-               "bool": {
-                "type_variation_reference": 0,
-                "nullability": "NULLABILITY_NULLABLE"
-               }
-              }
-             }
-            },
-            "local_files": {
-             "items": [
-              {
-               "partition_index": "0",
-               "start": "0",
-               "length": "3719",
-               "uri_file": "/mock_lineitem.orc",
-               "orc": {}
-              }
-             ]
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 5,
+                "name": "sum:opt_fp64"
             }
-           }
-          },
-          "condition": {
-           "scalar_function": {
-            "function_reference": 1,
-            "args": [
-             {
-              "scalar_function": {
-               "function_reference": 1,
-               "args": [
-                {
-                 "scalar_function": {
-                  "function_reference": 1,
-                  "args": [
-                   {
-                    "scalar_function": {
-                     "function_reference": 1,
-                     "args": [
-                      {
-                       "scalar_function": {
-                        "function_reference": 2,
-                        "args": [
-                         {
-                          "selection": {
-                           "direct_reference": {
-                            "struct_field": {
-                             "field": 3
-                            }
-                           }
-                          }
-                         },
-                         {
-                          "literal": {
-                           "nullable": false,
-                           "fp64": 8766
-                          }
-                         }
-                        ],
-                        "output_type": {
-                         "bool": {
-                          "type_variation_reference": 0,
-                          "nullability": "NULLABILITY_NULLABLE"
-                         }
-                        }
-                       }
-                      },
-                      {
-                       "scalar_function": {
-                        "function_reference": 3,
-                        "args": [
-                         {
-                          "selection": {
-                           "direct_reference": {
-                            "struct_field": {
-                             "field": 3
-                            }
-                           }
-                          }
-                         },
-                         {
-                          "literal": {
-                           "nullable": false,
-                           "fp64": 9131
-                          }
-                         }
-                        ],
-                        "output_type": {
-                         "bool": {
-                          "type_variation_reference": 0,
-                          "nullability": "NULLABILITY_NULLABLE"
-                         }
-                        }
-                       }
-                      }
-                     ],
-                     "output_type": {
-                      "bool": {
-                       "type_variation_reference": 0,
-                       "nullability": "NULLABILITY_NULLABLE"
-                      }
-                     }
-                    }
-                   },
-                   {
-                    "scalar_function": {
-                     "function_reference": 2,
-                     "args": [
-                      {
-                       "selection": {
-                        "direct_reference": {
-                         "struct_field": {
-                          "field": 2
-                         }
-                        }
-                       }
-                      },
-                      {
-                       "literal": {
-                        "nullable": false,
-                        "fp64": 0.05
-                       }
-                      }
-                     ],
-                     "output_type": {
-                      "bool": {
-                       "type_variation_reference": 0,
-                       "nullability": "NULLABILITY_NULLABLE"
-                      }
-                     }
-                    }
-                   }
-                  ],
-                  "output_type": {
-                   "bool": {
-                    "type_variation_reference": 0,
-                    "nullability": "NULLABILITY_NULLABLE"
-                   }
-                  }
-                 }
-                },
-                {
-                 "scalar_function": {
-                  "function_reference": 4,
-                  "args": [
-                   {
-                    "selection": {
-                     "direct_reference": {
-                      "struct_field": {
-                       "field": 2
-                      }
-                     }
-                    }
-                   },
-                   {
-                    "literal": {
-                     "nullable": false,
-                     "fp64": 0.07
-                    }
-                   }
-                  ],
-                  "output_type": {
-                   "bool": {
-                    "type_variation_reference": 0,
-                    "nullability": "NULLABILITY_NULLABLE"
-                   }
-                  }
-                 }
-                }
-               ],
-               "output_type": {
-                "bool": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               }
-              }
-             },
-             {
-              "scalar_function": {
-               "function_reference": 3,
-               "args": [
-                {
-                 "selection": {
-                  "direct_reference": {
-                   "struct_field": {
-                    "field": 0
-                   }
-                  }
-                 }
-                },
-                {
-                 "literal": {
-                  "nullable": false,
-                  "fp64": 24
-                 }
-                }
-               ],
-               "output_type": {
-                "bool": {
-                 "type_variation_reference": 0,
-                 "nullability": "NULLABILITY_NULLABLE"
-                }
-               }
-              }
-             }
-            ],
-            "output_type": {
-             "bool": {
-              "type_variation_reference": 0,
-              "nullability": "NULLABILITY_NULLABLE"
-             }
-            }
-           }
-          }
-         }
         },
-        "expressions": [
-         {
-          "selection": {
-           "direct_reference": {
-            "struct_field": {
-             "field": 1
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 3,
+                "name": "lt:fp64_fp64"
             }
-           }
-          }
-         },
-         {
-          "selection": {
-           "direct_reference": {
-            "struct_field": {
-             "field": 2
+        },
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 0,
+                "name": "is_not_null:fp64"
             }
-           }
-          }
-         }
-        ]
-       }
-      },
-      "groupings": [
-       {
-        "grouping_expressions": []
-       }
-      ],
-      "measures": [
-       {
-        "measure": {
-         "function_reference": 5,
-         "args": [
-          {
-           "scalar_function": {
-            "function_reference": 6,
-            "args": [
-             {
-              "selection": {
-               "direct_reference": {
-                "struct_field": {
-                 "field": 0
-                }
-               }
-              }
-             },
-             {
-              "selection": {
-               "direct_reference": {
-                "struct_field": {
-                 "field": 1
-                }
-               }
-              }
-             }
-            ],
-            "output_type": {
-             "fp64": {
-              "type_variation_reference": 0,
-              "nullability": "NULLABILITY_NULLABLE"
-             }
+        },
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 1,
+                "name": "and:bool_bool"
             }
-           }
-          }
-         ],
-         "sorts": [],
-         "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
-         "output_type": {
-          "fp64": {
-           "type_variation_reference": 0,
-           "nullability": "NULLABILITY_NULLABLE"
-          }
-         }
+        },
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 2,
+                "name": "gte:fp64_fp64"
+            }
+        },
+        {
+            "extension_function": {
+                "extension_uri_reference": 0,
+                "function_anchor": 6,
+                "name": "multiply:opt_fp64_fp64"
+            }
         }
-       }
-      ]
-     }
-    },
-    "names": []
-   }
-  }
- ],
- "expected_type_urls": []
+    ],
+    "relations": [
+        {
+            "root": {
+                "input": {
+                    "aggregate": {
+                        "common": {
+                            "direct": {}
+                        },
+                        "input": {
+                            "project": {
+                                "common": {
+                                    "direct": {}
+                                },
+                                "input": {
+                                    "filter": {
+                                        "common": {
+                                            "direct": {}
+                                        },
+                                        "input": {
+                                            "read": {
+                                                "common": {
+                                                    "direct": {}
+                                                },
+                                                "base_schema": {
+                                                    "names": [
+                                                        "l_quantity",
+                                                        "l_extendedprice",
+                                                        "l_discount",
+                                                        "l_shipdate_new"
+                                                    ],
+                                                    "struct": {
+                                                        "types": [
+                                                            {
+                                                                "fp64": {
+                                                                    "type_variation_reference": 0,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "fp64": {
+                                                                    "type_variation_reference": 0,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "fp64": {
+                                                                    "type_variation_reference": 0,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            },
+                                                            {
+                                                                "fp64": {
+                                                                    "type_variation_reference": 0,
+                                                                    "nullability": "NULLABILITY_NULLABLE"
+                                                                }
+                                                            }
+                                                        ],
+                                                        "type_variation_reference": 0,
+                                                        "nullability": "NULLABILITY_UNSPECIFIED"
+                                                    }
+                                                },
+                                                "filter": {
+                                                    "scalar_function": {
+                                                        "function_reference": 1,
+                                                        "arguments": [
+                                                            {
+                                                                "value": {
+                                                                    "scalar_function": {
+                                                                        "function_reference": 1,
+                                                                        "arguments": [
+                                                                            {
+                                                                                "value": {
+                                                                                    "scalar_function": {
+                                                                                        "function_reference": 1,
+                                                                                        "arguments": [
+                                                                                            {
+                                                                                                "value": {
+                                                                                                    "scalar_function": {
+                                                                                                        "function_reference": 1,
+                                                                                                        "arguments": [
+                                                                                                            {
+                                                                                                                "value": {
+                                                                                                                    "scalar_function": {
+                                                                                                                        "function_reference": 1,
+                                                                                                                        "arguments": [
+                                                                                                                            {
+                                                                                                                                "value": {
+                                                                                                                                    "scalar_function": {
+                                                                                                                                        "function_reference": 1,
+                                                                                                                                        "arguments": [
+                                                                                                                                            {
+                                                                                                                                                "value": {
+                                                                                                                                                    "scalar_function": {
+                                                                                                                                                        "function_reference": 1,
+                                                                                                                                                        "arguments": [
+                                                                                                                                                            {
+                                                                                                                                                                "value": {
+                                                                                                                                                                    "scalar_function": {
+                                                                                                                                                                        "function_reference": 0,
+                                                                                                                                                                        "arguments": [
+                                                                                                                                                                            {
+                                                                                                                                                                                "value": {
+                                                                                                                                                                                    "selection": {
+                                                                                                                                                                                        "direct_reference": {
+                                                                                                                                                                                            "struct_field": {
+                                                                                                                                                                                                "field": 3
+                                                                                                                                                                                            }
+                                                                                                                                                                                        }
+                                                                                                                                                                                    }
+                                                                                                                                                                                }
+                                                                                                                                                                            }
+                                                                                                                                                                        ],
+                                                                                                                                                                        "output_type": {
+                                                                                                                                                                            "bool": {
+                                                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                                                            }
+                                                                                                                                                                        }
+                                                                                                                                                                    }
+                                                                                                                                                                }
+                                                                                                                                                            },
+                                                                                                                                                            {
+                                                                                                                                                                "value": {
+                                                                                                                                                                    "scalar_function": {
+                                                                                                                                                                        "function_reference": 0,
+                                                                                                                                                                        "arguments": [
+                                                                                                                                                                            {
+                                                                                                                                                                                "value": {
+                                                                                                                                                                                    "selection": {
+                                                                                                                                                                                        "direct_reference": {
+                                                                                                                                                                                            "struct_field": {
+                                                                                                                                                                                                "field": 2
+                                                                                                                                                                                            }
+                                                                                                                                                                                        }
+                                                                                                                                                                                    }
+                                                                                                                                                                                }
+                                                                                                                                                                            }
+                                                                                                                                                                        ],
+                                                                                                                                                                        "output_type": {
+                                                                                                                                                                            "bool": {
+                                                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                                                            }
+                                                                                                                                                                        }
+                                                                                                                                                                    }
+                                                                                                                                                                }
+                                                                                                                                                            }
+                                                                                                                                                        ],
+                                                                                                                                                        "output_type": {
+                                                                                                                                                            "bool": {
+                                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                                            }
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                }
+                                                                                                                                            },
+                                                                                                                                            {
+                                                                                                                                                "value": {
+                                                                                                                                                    "scalar_function": {
+                                                                                                                                                        "function_reference": 0,
+                                                                                                                                                        "arguments": [
+                                                                                                                                                            {
+                                                                                                                                                                "value": {
+                                                                                                                                                                    "selection": {
+                                                                                                                                                                        "direct_reference": {
+                                                                                                                                                                            "struct_field": {
+                                                                                                                                                                                "field": 0
+                                                                                                                                                                            }
+                                                                                                                                                                        }
+                                                                                                                                                                    }
+                                                                                                                                                                }
+                                                                                                                                                            }
+                                                                                                                                                        ],
+                                                                                                                                                        "output_type": {
+                                                                                                                                                            "bool": {
+                                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                                            }
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                }
+                                                                                                                                            }
+                                                                                                                                        ],
+                                                                                                                                        "output_type": {
+                                                                                                                                            "bool": {
+                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                            }
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "value": {
+                                                                                                                                    "scalar_function": {
+                                                                                                                                        "function_reference": 2,
+                                                                                                                                        "arguments": [
+                                                                                                                                            {
+                                                                                                                                                "value": {
+                                                                                                                                                    "selection": {
+                                                                                                                                                        "direct_reference": {
+                                                                                                                                                            "struct_field": {
+                                                                                                                                                                "field": 3
+                                                                                                                                                            }
+                                                                                                                                                        }
+                                                                                                                                                    }
+                                                                                                                                                }
+                                                                                                                                            },
+                                                                                                                                            {
+                                                                                                                                                "value": {
+                                                                                                                                                    "literal": {
+                                                                                                                                                        "nullable": false,
+                                                                                                                                                        "fp64": 8766
+                                                                                                                                                    }
+                                                                                                                                                }
+                                                                                                                                            }
+                                                                                                                                        ],
+                                                                                                                                        "output_type": {
+                                                                                                                                            "bool": {
+                                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                                            }
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                                        "output_type": {
+                                                                                                                            "bool": {
+                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "value": {
+                                                                                                                    "scalar_function": {
+                                                                                                                        "function_reference": 3,
+                                                                                                                        "arguments": [
+                                                                                                                            {
+                                                                                                                                "value": {
+                                                                                                                                    "selection": {
+                                                                                                                                        "direct_reference": {
+                                                                                                                                            "struct_field": {
+                                                                                                                                                "field": 3
+                                                                                                                                            }
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            },
+                                                                                                                            {
+                                                                                                                                "value": {
+                                                                                                                                    "literal": {
+                                                                                                                                        "nullable": false,
+                                                                                                                                        "fp64": 9131
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                        ],
+                                                                                                                        "output_type": {
+                                                                                                                            "bool": {
+                                                                                                                                "type_variation_reference": 0,
+                                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        ],
+                                                                                                        "output_type": {
+                                                                                                            "bool": {
+                                                                                                                "type_variation_reference": 0,
+                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "value": {
+                                                                                                    "scalar_function": {
+                                                                                                        "function_reference": 2,
+                                                                                                        "arguments": [
+                                                                                                            {
+                                                                                                                "value": {
+                                                                                                                    "selection": {
+                                                                                                                        "direct_reference": {
+                                                                                                                            "struct_field": {
+                                                                                                                                "field": 2
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            },
+                                                                                                            {
+                                                                                                                "value": {
+                                                                                                                    "literal": {
+                                                                                                                        "nullable": false,
+                                                                                                                        "fp64": 0.05
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        ],
+                                                                                                        "output_type": {
+                                                                                                            "bool": {
+                                                                                                                "type_variation_reference": 0,
+                                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        ],
+                                                                                        "output_type": {
+                                                                                            "bool": {
+                                                                                                "type_variation_reference": 0,
+                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "value": {
+                                                                                    "scalar_function": {
+                                                                                        "function_reference": 4,
+                                                                                        "arguments": [
+                                                                                            {
+                                                                                                "value": {
+                                                                                                    "selection": {
+                                                                                                        "direct_reference": {
+                                                                                                            "struct_field": {
+                                                                                                                "field": 2
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            },
+                                                                                            {
+                                                                                                "value": {
+                                                                                                    "literal": {
+                                                                                                        "nullable": false,
+                                                                                                        "fp64": 0.07
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        ],
+                                                                                        "output_type": {
+                                                                                            "bool": {
+                                                                                                "type_variation_reference": 0,
+                                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        ],
+                                                                        "output_type": {
+                                                                            "bool": {
+                                                                                "type_variation_reference": 0,
+                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            {
+                                                                "value": {
+                                                                    "scalar_function": {
+                                                                        "function_reference": 3,
+                                                                        "arguments": [
+                                                                            {
+                                                                                "value": {
+                                                                                    "selection": {
+                                                                                        "direct_reference": {
+                                                                                            "struct_field": {
+                                                                                                "field": 0
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            },
+                                                                            {
+                                                                                "value": {
+                                                                                    "literal": {
+                                                                                        "nullable": false,
+                                                                                        "fp64": 24
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        ],
+                                                                        "output_type": {
+                                                                            "bool": {
+                                                                                "type_variation_reference": 0,
+                                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        ],
+                                                        "output_type": {
+                                                            "bool": {
+                                                                "type_variation_reference": 0,
+                                                                "nullability": "NULLABILITY_NULLABLE"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "local_files": {
+                                                    "items": [
+                                                        {
+                                                            "partition_index": "0",
+                                                            "start": "0",
+                                                            "length": "3719",
+                                                            "uri_file": "/mock_lineitem.orc",
+                                                            "orc": {}
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "condition": {
+                                            "scalar_function": {
+                                                "function_reference": 1,
+                                                "arguments": [
+                                                    {
+                                                        "value": {
+                                                            "scalar_function": {
+                                                                "function_reference": 1,
+                                                                "arguments": [
+                                                                    {
+                                                                        "value": {
+                                                                            "scalar_function": {
+                                                                                "function_reference": 1,
+                                                                                "arguments": [
+                                                                                    {
+                                                                                        "value": {
+                                                                                            "scalar_function": {
+                                                                                                "function_reference": 1,
+                                                                                                "arguments": [
+                                                                                                    {
+                                                                                                        "value": {
+                                                                                                            "scalar_function": {
+                                                                                                                "function_reference": 2,
+                                                                                                                "arguments": [
+                                                                                                                    {
+                                                                                                                        "value": {
+                                                                                                                            "selection": {
+                                                                                                                                "direct_reference": {
+                                                                                                                                    "struct_field": {
+                                                                                                                                        "field": 3
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "value": {
+                                                                                                                            "literal": {
+                                                                                                                                "nullable": false,
+                                                                                                                                "fp64": 8766
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                                "output_type": {
+                                                                                                                    "bool": {
+                                                                                                                        "type_variation_reference": 0,
+                                                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    },
+                                                                                                    {
+                                                                                                        "value": {
+                                                                                                            "scalar_function": {
+                                                                                                                "function_reference": 3,
+                                                                                                                "arguments": [
+                                                                                                                    {
+                                                                                                                        "value": {
+                                                                                                                            "selection": {
+                                                                                                                                "direct_reference": {
+                                                                                                                                    "struct_field": {
+                                                                                                                                        "field": 3
+                                                                                                                                    }
+                                                                                                                                }
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "value": {
+                                                                                                                            "literal": {
+                                                                                                                                "nullable": false,
+                                                                                                                                "fp64": 9131
+                                                                                                                            }
+                                                                                                                        }
+                                                                                                                    }
+                                                                                                                ],
+                                                                                                                "output_type": {
+                                                                                                                    "bool": {
+                                                                                                                        "type_variation_reference": 0,
+                                                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                ],
+                                                                                                "output_type": {
+                                                                                                    "bool": {
+                                                                                                        "type_variation_reference": 0,
+                                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    },
+                                                                                    {
+                                                                                        "value": {
+                                                                                            "scalar_function": {
+                                                                                                "function_reference": 2,
+                                                                                                "arguments": [
+                                                                                                    {
+                                                                                                        "value": {
+                                                                                                            "selection": {
+                                                                                                                "direct_reference": {
+                                                                                                                    "struct_field": {
+                                                                                                                        "field": 2
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
+                                                                                                        }
+                                                                                                    },
+                                                                                                    {
+                                                                                                        "value": {
+                                                                                                            "literal": {
+                                                                                                                "nullable": false,
+                                                                                                                "fp64": 0.05
+                                                                                                            }
+                                                                                                        }
+                                                                                                    }
+                                                                                                ],
+                                                                                                "output_type": {
+                                                                                                    "bool": {
+                                                                                                        "type_variation_reference": 0,
+                                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                ],
+                                                                                "output_type": {
+                                                                                    "bool": {
+                                                                                        "type_variation_reference": 0,
+                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "value": {
+                                                                            "scalar_function": {
+                                                                                "function_reference": 4,
+                                                                                "arguments": [
+                                                                                    {
+                                                                                        "value": {
+                                                                                            "selection": {
+                                                                                                "direct_reference": {
+                                                                                                    "struct_field": {
+                                                                                                        "field": 2
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    },
+                                                                                    {
+                                                                                        "value": {
+                                                                                            "literal": {
+                                                                                                "nullable": false,
+                                                                                                "fp64": 0.07
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                ],
+                                                                                "output_type": {
+                                                                                    "bool": {
+                                                                                        "type_variation_reference": 0,
+                                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ],
+                                                                "output_type": {
+                                                                    "bool": {
+                                                                        "type_variation_reference": 0,
+                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                    {
+                                                        "value": {
+                                                            "scalar_function": {
+                                                                "function_reference": 3,
+                                                                "arguments": [
+                                                                    {
+                                                                        "value": {
+                                                                            "selection": {
+                                                                                "direct_reference": {
+                                                                                    "struct_field": {
+                                                                                        "field": 0
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    },
+                                                                    {
+                                                                        "value": {
+                                                                            "literal": {
+                                                                                "nullable": false,
+                                                                                "fp64": 24
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                ],
+                                                                "output_type": {
+                                                                    "bool": {
+                                                                        "type_variation_reference": 0,
+                                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                ],
+                                                "output_type": {
+                                                    "bool": {
+                                                        "type_variation_reference": 0,
+                                                        "nullability": "NULLABILITY_NULLABLE"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "expressions": [
+                                    {
+                                        "selection": {
+                                            "direct_reference": {
+                                                "struct_field": {
+                                                    "field": 1
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "selection": {
+                                            "direct_reference": {
+                                                "struct_field": {
+                                                    "field": 2
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        "groupings": [
+                            {
+                                "grouping_expressions": []
+                            }
+                        ],
+                        "measures": [
+                            {
+                                "measure": {
+                                    "function_reference": 5,
+                                    "arguments": [
+                                        {
+                                            "value": {
+                                                "scalar_function": {
+                                                    "function_reference": 6,
+                                                    "arguments": [
+                                                        {
+                                                            "value": {
+                                                                "selection": {
+                                                                    "direct_reference": {
+                                                                        "struct_field": {
+                                                                            "field": 0
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        {
+                                                            "value": {
+                                                                "selection": {
+                                                                    "direct_reference": {
+                                                                        "struct_field": {
+                                                                            "field": 1
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    ],
+                                                    "output_type": {
+                                                        "fp64": {
+                                                            "type_variation_reference": 0,
+                                                            "nullability": "NULLABILITY_NULLABLE"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "sorts": [],
+                                    "phase": "AGGREGATION_PHASE_INITIAL_TO_INTERMEDIATE",
+                                    "output_type": {
+                                        "fp64": {
+                                            "type_variation_reference": 0,
+                                            "nullability": "NULLABILITY_NULLABLE"
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "names": []
+            }
+        }
+    ],
+    "expected_type_urls": []
 }

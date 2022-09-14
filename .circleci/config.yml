@@ -18,7 +18,7 @@ workflows:
     jobs:
       - linux-build
       - linux-build-options
-      - linux-parquet-hive-storage-adapters-build
+      - linux-adapters
       - macos-build
       - format-check
       - header-check
@@ -59,7 +59,7 @@ workflows:
       - linux-build
       - linux-build-release
       - linux-build-options
-      - linux-parquet-hive-storage-adapters-build
+      - linux-adapters
       - macos-build
 
 executors:
@@ -390,17 +390,6 @@ jobs:
             make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
             ccache -s
           no_output_timeout: 1h
-      - run:
-          name: Build velox with substrait
-          command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
-            make clean
-            make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF -DVELOX_ENABLE_SUBSTRAIT=ON" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
-            ccache -s
-          no_output_timeout: 1h
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:
@@ -409,7 +398,7 @@ jobs:
           paths:
             - .ccache/
 
-  linux-parquet-hive-storage-adapters-build:
+  linux-adapters:
     executor: build
     steps:
       - checkout
@@ -452,7 +441,7 @@ jobs:
             export CCACHE_DIR=$(realpath .ccache)
             ccache -sz -M 5Gi
             source /opt/rh/gcc-toolset-9/enable
-            make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON -DVELOX_ENABLE_SUBSTRAIT=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
       - store_artifacts:

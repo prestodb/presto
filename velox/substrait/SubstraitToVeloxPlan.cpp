@@ -138,30 +138,32 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     auto aggFunction = measure.measure();
     // Get the params of this Aggregate function.
     std::vector<core::TypedExprPtr> aggParams;
-    auto args = aggFunction.args();
+    auto args = aggFunction.arguments();
     aggParams.reserve(args.size());
     for (auto arg : args) {
-      auto typeCase = arg.rex_type_case();
+      auto argExpr = arg.value();
+      auto typeCase = argExpr.rex_type_case();
       switch (typeCase) {
         case ::substrait::Expression::RexTypeCase::kSelection: {
           aggParams.emplace_back(
-              exprConverter_->toVeloxExpr(arg.selection(), inputTypes));
+              exprConverter_->toVeloxExpr(argExpr.selection(), inputTypes));
           break;
         }
         case ::substrait::Expression::RexTypeCase::kCast: {
           aggParams.emplace_back(
-              exprConverter_->toVeloxExpr(arg.cast(), inputTypes));
+              exprConverter_->toVeloxExpr(argExpr.cast(), inputTypes));
           break;
         }
         case ::substrait::Expression::RexTypeCase::kLiteral: {
-          aggParams.emplace_back(exprConverter_->toVeloxExpr(arg.literal()));
+          aggParams.emplace_back(
+              exprConverter_->toVeloxExpr(argExpr.literal()));
           break;
         }
         case ::substrait::Expression::RexTypeCase::kScalarFunction: {
           // Pre-projection is needed before Aggregate.
           // The input of Aggregatation will be the output of the
           // pre-projection.
-          auto sFunc = arg.scalar_function();
+          auto sFunc = argExpr.scalar_function();
           projectExprs.emplace_back(
               exprConverter_->toVeloxExpr(sFunc, inputTypes));
           auto colOutName = substraitParser_->makeNodeName(planNodeId_, outIdx);
@@ -601,18 +603,19 @@ connector::hive::SubfieldFilters SubstraitVeloxPlanConverter::toVeloxFilter(
     int32_t colIdx;
     // TODO: Add different types' support here.
     double val;
-    for (auto& param : scalarFunction.args()) {
-      auto typeCase = param.rex_type_case();
+    for (auto& arg : scalarFunction.arguments()) {
+      auto argExpr = arg.value();
+      auto typeCase = argExpr.rex_type_case();
       switch (typeCase) {
         case ::substrait::Expression::RexTypeCase::kSelection: {
-          auto sel = param.selection();
+          auto sel = argExpr.selection();
           // TODO: Only direct reference is considered here.
           auto dRef = sel.direct_reference();
           colIdx = substraitParser_->parseReferenceSegment(dRef);
           break;
         }
         case ::substrait::Expression::RexTypeCase::kLiteral: {
-          auto sLit = param.literal();
+          auto sLit = argExpr.literal();
           // TODO: Only double is considered here.
           val = sLit.fp64();
           break;
@@ -685,8 +688,8 @@ void SubstraitVeloxPlanConverter::flattenConditions(
           functionMap_, sFunc.function_reference());
       // TODO: Only and relation is supported here.
       if (substraitParser_->getFunctionName(filterNameSpec) == "and") {
-        for (const auto& sCondition : sFunc.args()) {
-          flattenConditions(sCondition, scalarFunctions);
+        for (const auto& sCondition : sFunc.arguments()) {
+          flattenConditions(sCondition.value(), scalarFunctions);
         }
       } else {
         scalarFunctions.emplace_back(sFunc);
