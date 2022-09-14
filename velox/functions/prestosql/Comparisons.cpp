@@ -15,6 +15,7 @@
  */
 
 #include "velox/functions/prestosql/Comparisons.h"
+#include <velox/common/base/Exceptions.h>
 #include "velox/functions/Udf.h"
 #include "velox/vector/BaseVector.h"
 
@@ -102,41 +103,50 @@ struct SimdComparator {
           int> = 0>
   void applyComparison(
       const SelectivityVector& rows,
-      DecodedVector& lhs,
-      DecodedVector& rhs,
+      BaseVector& lhs,
+      BaseVector& rhs,
       exec::EvalCtx& context,
       VectorPtr& result) {
     using T = typename TypeTraits<kind>::NativeType;
 
-    auto rawRhs = rhs.template data<T>();
-    auto rawLhs = lhs.template data<T>();
     auto resultVector = result->asUnchecked<FlatVector<bool>>();
     auto rawResult = resultVector->mutableRawValues<uint8_t>();
 
-    auto isSimdizable = (lhs.isConstantMapping() || lhs.isIdentityMapping()) &&
-        (rhs.isConstantMapping() || rhs.isIdentityMapping()) &&
+    auto isSimdizable = (lhs.isConstantEncoding() || lhs.isFlatEncoding()) &&
+        (rhs.isConstantEncoding() || rhs.isFlatEncoding()) &&
         rows.isAllSelected();
 
     if (!isSimdizable) {
+      exec::LocalDecodedVector lhsDecoded(context, lhs, rows);
+      exec::LocalDecodedVector rhsDecoded(context, rhs, rows);
+
       context.template applyToSelectedNoThrow(rows, [&](auto row) {
-        auto l = lhs.template valueAt<T>(row);
-        auto r = rhs.template valueAt<T>(row);
+        auto l = lhsDecoded->template valueAt<T>(row);
+        auto r = rhsDecoded->template valueAt<T>(row);
         auto filtered = ComparisonOp()(l, r);
         resultVector->set(row, filtered);
       });
       return;
     }
 
-    if (lhs.isConstantMapping() && rhs.isConstantMapping()) {
+    if (lhs.isConstantEncoding() && rhs.isConstantEncoding()) {
+      auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+      auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
       applySimdComparison<T, true, true>(
-          rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
-    } else if (lhs.isConstantMapping()) {
+          rows.begin(), rows.end(), &l, &r, rawResult);
+    } else if (lhs.isConstantEncoding()) {
+      auto l = lhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
+      auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
       applySimdComparison<T, true, false>(
-          rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
-    } else if (rhs.isConstantMapping()) {
+          rows.begin(), rows.end(), &l, rawRhs, rawResult);
+    } else if (rhs.isConstantEncoding()) {
+      auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
+      auto r = rhs.asUnchecked<ConstantVector<T>>()->valueAt(0);
       applySimdComparison<T, false, true>(
-          rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
+          rows.begin(), rows.end(), rawLhs, &r, rawResult);
     } else {
+      auto rawLhs = lhs.asUnchecked<FlatVector<T>>()->rawValues();
+      auto rawRhs = rhs.asUnchecked<FlatVector<T>>()->rawValues();
       applySimdComparison<T, false, false>(
           rows.begin(), rows.end(), rawLhs, rawRhs, rawResult);
     }
@@ -152,12 +162,12 @@ struct SimdComparator {
               kind == TypeKind::BOOLEAN,
           int> = 0>
   void applyComparison(
-      const SelectivityVector& rows,
-      DecodedVector& lhs,
-      DecodedVector& rhs,
-      exec::EvalCtx& context,
-      VectorPtr& result) {
-    VELOX_FAIL("Unsupported type for SIMD comparison");
+      const SelectivityVector& /* rows */,
+      BaseVector& /* lhs */,
+      BaseVector& /* rhs */,
+      exec::EvalCtx& /* context */,
+      VectorPtr& /* result */) {
+    VELOX_UNSUPPORTED("Unsupported type for SIMD comparison");
   }
 };
 
@@ -172,20 +182,17 @@ class ComparisonSimdFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 2, "Comparison requires two arguments");
     VELOX_CHECK_EQ(args[0]->typeKind(), args[1]->typeKind());
-    VELOX_USER_CHECK_EQ(outputType, BOOLEAN());
+    VELOX_USER_CHECK_EQ(outputType->kind(), TypeKind::BOOLEAN);
 
     context.ensureWritable(rows, outputType, result);
-
-    exec::LocalDecodedVector lhs(context, *args[0], rows);
-    exec::LocalDecodedVector rhs(context, *args[1], rows);
     auto comparator = SimdComparator<ComparisonOp>{};
 
     VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
         comparator.template applyComparison,
         args[0]->typeKind(),
         rows,
-        *lhs.get(),
-        *rhs.get(),
+        *args[0],
+        *args[1],
         context,
         result);
   }
