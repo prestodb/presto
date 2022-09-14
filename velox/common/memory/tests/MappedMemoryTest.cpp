@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/MmapAllocator.h"
+#include "velox/common/memory/MmapArena.h"
 
 #include <thread>
 
@@ -696,6 +697,98 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
     EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
     alloc.deallocate(p, 1);
   }
+}
+
+class MmapArenaTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    rng_.seed(1);
+  }
+
+  void* allocateAndPad(MmapArena* arena, uint64_t bytes) {
+    void* buffer = arena->allocate(bytes);
+    memset(buffer, 0xff, bytes);
+    return buffer;
+  }
+
+  void unpadAndFree(MmapArena* arena, void* buffer, uint64_t bytes) {
+    memset(buffer, 0x00, bytes);
+    arena->free(buffer, bytes);
+  }
+
+  uint64_t randomPowTwo(uint64_t lowerBound, uint64_t upperBound) {
+    lowerBound = bits::nextPowerOfTwo(lowerBound);
+    auto attemptedUpperBound = bits::nextPowerOfTwo(upperBound);
+    upperBound = attemptedUpperBound == upperBound ? upperBound
+                                                   : attemptedUpperBound / 2;
+    uint64_t moveSteps;
+    if (lowerBound == 0) {
+      uint64_t one = 1;
+      moveSteps =
+          (folly::Random::rand64(
+               bits::countLeadingZeros(one) + 1 -
+                   bits::countLeadingZeros(upperBound),
+               rng_) +
+           1);
+      return moveSteps == 0 ? 0 : (1l << (moveSteps - 1));
+    }
+    moveSteps =
+        (folly::Random::rand64(
+             bits::countLeadingZeros(lowerBound) -
+                 bits::countLeadingZeros(upperBound),
+             rng_) +
+         1);
+    return lowerBound << moveSteps;
+  }
+
+  folly::Random::DefaultGenerator rng_;
+};
+
+TEST_F(MmapArenaTest, basic) {
+  // 32 MB arena space
+  const uint64_t kArenaCapacityBytes = 1l << 25;
+
+  // 0 Byte lower bound for revealing edge cases.
+  const uint64_t kAllocLowerBound = 0;
+
+  // 1 KB upper bound
+  const uint64_t kAllocUpperBound = 1l << 10;
+  std::unique_ptr<MmapArena> arena =
+      std::make_unique<MmapArena>(kArenaCapacityBytes);
+  memset(arena->address(), 0x00, kArenaCapacityBytes);
+
+  std::unordered_map<uint64_t, uint64_t> allocations;
+
+  // First phase allocate only
+  for (size_t i = 0; i < 1000; i++) {
+    auto bytes = randomPowTwo(kAllocLowerBound, kAllocUpperBound);
+    allocations.emplace(
+        reinterpret_cast<uint64_t>(allocateAndPad(arena.get(), bytes)), bytes);
+  }
+  EXPECT_TRUE(arena->checkConsistency());
+
+  // Second phase alloc and free called in an interleaving way
+  for (size_t i = 0; i < 10000; i++) {
+    auto bytes = randomPowTwo(kAllocLowerBound, kAllocUpperBound);
+    allocations.emplace(
+        reinterpret_cast<uint64_t>(allocateAndPad(arena.get(), bytes)), bytes);
+
+    auto itrToFree = allocations.begin();
+    auto bytesFree = itrToFree->second;
+    unpadAndFree(
+        arena.get(), reinterpret_cast<void*>(itrToFree->first), bytesFree);
+    allocations.erase(itrToFree);
+  }
+  EXPECT_TRUE(arena->checkConsistency());
+
+  // Third phase free only
+  auto itr = allocations.begin();
+  while (itr != allocations.end()) {
+    auto bytes = itr->second;
+    unpadAndFree(arena.get(), reinterpret_cast<void*>(itr->first), bytes);
+    itr++;
+  }
+  EXPECT_TRUE(arena->checkConsistency());
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

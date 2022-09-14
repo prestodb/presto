@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <unordered_set>
@@ -36,6 +37,7 @@ struct MmapAllocatorOptions {
   //  Capacity in bytes, default 512MB
   uint64_t capacity = 1L << 29;
 };
+
 // Implementation of MappedMemory with mmap and madvise. Each size
 // class is mmapped for the whole capacity. Each size class has a
 // bitmap of allocated entries and entries that are backed by
