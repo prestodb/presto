@@ -31,7 +31,10 @@ class LocalExchangeMemoryManager {
   /// will be complete when memory usage is update to be below the limit.
   bool increaseMemoryUsage(ContinueFuture* future, int64_t added);
 
-  void decreaseMemoryUsage(int64_t removed);
+  /// Decreases the memory usage by 'removed' bytes. If the memory usage goes
+  /// below the limit after the decrease, the function returns 'promises_' to
+  /// caller to fulfill.
+  std::vector<ContinuePromise> decreaseMemoryUsage(int64_t removed);
 
  private:
   const int64_t maxBufferSize_;
