@@ -217,7 +217,7 @@ class LocalReadFile final : public ReadFile {
       const;
 
   int32_t fd_;
-  mutable long size_ = -1;
+  long size_;
 };
 
 class LocalWriteFile final : public WriteFile {

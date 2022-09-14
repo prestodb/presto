@@ -225,14 +225,14 @@ BlockingReason PartitionedOutputBuffer::enqueue(
     int destination,
     std::unique_ptr<SerializedPage> data,
     ContinueFuture* future) {
-  VELOX_CHECK(data);
+  VELOX_CHECK_NOT_NULL(data);
+  VELOX_CHECK(
+      task_->isRunning(), "Task is terminated, cannot add data to output.");
   std::vector<DataAvailable> dataAvailableCallbacks;
   bool blocked = false;
   {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_LT(destination, buffers_.size());
-    VELOX_CHECK(
-        task_->isRunning(), "Task is terminated, cannot add data to output.");
 
     totalSize_ += data->size();
     if (broadcast_) {
@@ -438,10 +438,11 @@ void PartitionedOutputBuffer::getData(
 }
 
 void PartitionedOutputBuffer::terminate() {
+  VELOX_CHECK(not task_->isRunning());
+
   std::vector<ContinuePromise> outstandingPromises;
   {
     std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(not task_->isRunning());
     outstandingPromises.swap(promises_);
   }
   for (auto& promise : outstandingPromises) {

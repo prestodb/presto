@@ -76,6 +76,15 @@ LocalReadFile::LocalReadFile(std::string_view path) {
       fd_,
       path,
       strerror(errno));
+  const off_t rc = lseek(fd_, 0, SEEK_END);
+  VELOX_CHECK_GE(
+      rc,
+      0,
+      "fseek failure in LocalReadFile constructor, {} {} {}.",
+      rc,
+      path,
+      strerror(errno));
+  size_ = rc;
 }
 
 LocalReadFile::LocalReadFile(int32_t fd) : fd_(fd) {}
@@ -110,15 +119,15 @@ uint64_t LocalReadFile::preadv(
     const std::vector<folly::Range<char*>>& buffers) const {
   // Dropped bytes sized so that a typical dropped range of 50K is not
   // too many iovecs.
-  static char droppedBytes[16 * 1024];
+  static thread_local std::vector<char> droppedBytes(16 * 1024);
   std::vector<struct iovec> iovecs;
   iovecs.reserve(buffers.size());
   for (auto& range : buffers) {
     if (!range.data()) {
       auto skipSize = range.size();
       while (skipSize) {
-        auto bytes = std::min<size_t>(sizeof(droppedBytes), skipSize);
-        iovecs.push_back({droppedBytes, bytes});
+        auto bytes = std::min<size_t>(droppedBytes.size(), skipSize);
+        iovecs.push_back({droppedBytes.data(), bytes});
         skipSize -= bytes;
       }
     } else {
@@ -129,12 +138,6 @@ uint64_t LocalReadFile::preadv(
 }
 
 uint64_t LocalReadFile::size() const {
-  if (size_ != -1) {
-    return size_;
-  }
-  const off_t rc = lseek(fd_, 0, SEEK_END);
-  VELOX_CHECK_GE(rc, 0, "fseek failure in LocalReadFile::size, {}.", rc);
-  size_ = rc;
   return size_;
 }
 

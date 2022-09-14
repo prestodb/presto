@@ -28,7 +28,9 @@ using memory::MachinePageCount;
 using memory::MappedMemory;
 
 AsyncDataCacheEntry::AsyncDataCacheEntry(CacheShard* shard)
-    : shard_(shard), data_(shard->cache()) {}
+    : shard_(shard), data_(shard->cache()) {
+  accessStats_.reset();
+}
 
 void AsyncDataCacheEntry::setExclusiveToShared() {
   VELOX_CHECK(isExclusive());
@@ -96,7 +98,6 @@ memory::MachinePageCount AsyncDataCacheEntry::setPrefetch(bool flag) {
 void AsyncDataCacheEntry::initialize(FileCacheKey key) {
   VELOX_CHECK(isExclusive());
   setSsdFile(nullptr, 0);
-  accessStats_.reset();
   key_ = std::move(key);
   auto cache = shard_->cache();
   ClockTimer t(shard_->allocClocks());
@@ -110,8 +111,6 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
       cache->incrementCachedPages(data().numPages());
     } else {
       // No memory to cover 'this'.
-      // Remove from 'shard_'s map and unpin.
-      shard_->removeEntry(this);
       release();
       _VELOX_THROW(
           VeloxRuntimeError,

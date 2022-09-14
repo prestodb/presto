@@ -154,7 +154,7 @@ class PartitionedOutputBuffer {
   /// and enqueue data that has been produced so far (e.g. dataToBroadcast_).
   void addBroadcastOutputBuffersLocked(int numBuffers);
 
-  std::shared_ptr<Task> task_;
+  const std::shared_ptr<Task> task_;
   const bool broadcast_;
   /// Total number of drivers expected to produce results. This number will
   /// decrease in the end of grouped execution, when we understand the real

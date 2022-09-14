@@ -268,6 +268,7 @@ RowVectorPtr PartitionedOutput::getOutput() {
       }
     }
   } while (workLeft);
+
   if (blockedDestination) {
     // If we are going off-thread, we may as well make the output in
     // progress for other destinations available, unless it is too
