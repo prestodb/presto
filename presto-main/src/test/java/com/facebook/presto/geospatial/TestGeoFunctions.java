@@ -444,12 +444,12 @@ public class TestGeoFunctions
         assertInvalidReason("POLYGON ((0 0, 1 1, 0 1, 1 0, 0 0))", "Error constructing Polygon: shell is empty but holes are not");
         assertInvalidReason("POLYGON ((0 0, 0 1, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
         assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (2 2, 2 3, 3 3, 3 2, 2 2))", "Hole lies outside shell");
-        assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Self-intersection");
+        assertInvalidReason("POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0))", "Ring Self-intersection");
         assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 1, 1 1, 0.5 0.5, 0 1))", "Self-intersection");
         assertInvalidReason("POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0), (0 0, 0.5 0.7, 1 1, 0.5 0.4, 0 0))", "Interior is disconnected");
         assertInvalidReason("POLYGON ((0 0, -1 0.5, 0 1, 1 1, 1 0, 0 1, 0 0))", "Ring Self-intersection");
         assertInvalidReason("MULTIPOLYGON (((0 0, 0 1, 1 1, 1 0, 0 0)), ((0.5 0.5, 0.5 2, 2 2, 2 0.5, 0.5 0.5)))", "Self-intersection");
-        assertInvalidReason("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Self-intersection");
+        assertInvalidReason("GEOMETRYCOLLECTION (POINT (1 2), POLYGON ((0 0, 0 1, 2 1, 1 1, 1 0, 0 0)))", "Ring Self-intersection");
 
         // non-simple geometries
         assertInvalidReason("MULTIPOINT (1 2, 2 4, 3 6, 1 2)", "[MultiPoint] Repeated point: (1.0 2.0)");
@@ -1254,8 +1254,8 @@ public class TestGeoFunctions
     {
         assertInvalidFunction("ST_GeometryFromText('xyz')", "Invalid WKT: Unknown geometry type: XYZ (line 1)");
         assertInvalidFunction("ST_GeometryFromText('LINESTRING (-71.3839245 42.3128124)')", "Invalid WKT: Invalid number of points in LineString (found 1 - must be 0 or >= 2)");
-        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.719076 9.508430, -13.723493 9.510049, -13.719076 9.508430))')", "Invalid WKT: Invalid number of points in LinearRing (found 3 - must be 0 or >= 4)");
-        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.637339 9.617113, -13.637339 9.617113))')", "Invalid WKT: Invalid number of points in LinearRing (found 2 - must be 0 or >= 4)");
+        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.719076 9.508430, -13.723493 9.510049, -13.719076 9.508430))')", "corrupted geometry");
+        assertInvalidFunction("ST_GeometryFromText('POLYGON ((-13.637339 9.617113, -13.637339 9.617113))')", "Invalid WKT: Invalid number of points in LinearRing (found 2 - must be 0 or >= 3)");
         assertInvalidFunction("ST_GeometryFromText('POLYGON(0 0)')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: Expected EMPTY or ( but found '0' (line 1)");
         assertInvalidFunction("ST_GeometryFromText('POLYGON((0 0))')", INVALID_FUNCTION_ARGUMENT, "Invalid WKT: Invalid number of points in LineString (found 1 - must be 0 or >= 2)");
     }
@@ -1335,10 +1335,10 @@ public class TestGeoFunctions
         assertValidGeometryJson("{\"type\":\"MultiPoint\",\"coordinates\":[]}", "MULTIPOINT EMPTY");
         assertValidGeometryJson("{\"type\":\"MultiPolygon\",\"coordinates\":[]}", "MULTIPOLYGON EMPTY");
         assertValidGeometryJson("{\"type\":\"MultiLineString\",\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}", "MULTILINESTRING ((0 0, 1 10), (10 10, 20 30), (123 123, 456 789))");
+        assertValidGeometryJson("{\"type\":\"Polygon\",\"coordinates\":[]}", "POLYGON EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPoint\",\"invalidField\":[]}", "MULTIPOINT EMPTY");
 
         // Valid JSON with invalid Geometry definition
-        assertInvalidGeometryJson("{\"type\":\"Polygon\",\"coordinates\":[]}");
-        assertInvalidGeometryJson("{\"type\":\"MultiPoint\",\"invalidField\":[]}");
         assertInvalidGeometryJson("{\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}");
 
         // Invalid JSON
