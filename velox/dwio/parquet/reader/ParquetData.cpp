@@ -36,14 +36,14 @@ std::vector<uint32_t> ParquetData::filterRowGroups(
   }
   std::vector<uint32_t> toSkip;
   for (auto i = 0; i < rowGroups_.size(); ++i) {
-    if (!stripeMatches(i, scanSpec.filter())) {
+    if (!rowGroupMatches(i, scanSpec.filter())) {
       toSkip.push_back(i);
     }
   }
   return toSkip;
 }
 
-bool ParquetData::stripeMatches(
+bool ParquetData::rowGroupMatches(
     uint32_t rowGroupId,
     common::Filter* FOLLY_NULLABLE filter) {
   auto column = type_->column;

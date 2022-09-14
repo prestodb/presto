@@ -345,7 +345,7 @@ class SelectiveColumnReader {
     initTimeClocks_ = 0;
   }
 
-  virtual bool stripeMatches(uint32_t stripeIndex) const;
+  virtual bool rowGroupMatches(uint32_t rowGroupId) const;
 
   virtual std::vector<uint32_t> filterRowGroups(
       uint64_t rowGroupSize,

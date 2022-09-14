@@ -61,8 +61,9 @@ class ParquetData : public dwio::common::FormatData {
 
   /// True if 'filter' may have hits for the column of 'this' according to the
   /// stats in 'rowGroup'.
-  bool stripeMatches(uint32_t rowGroupId, common::Filter* FOLLY_NULLABLE filter)
-      override;
+  bool rowGroupMatches(
+      uint32_t rowGroupId,
+      common::Filter* FOLLY_NULLABLE filter) override;
 
   std::vector<uint32_t> filterRowGroups(
       const common::ScanSpec& scanSpec,
@@ -81,7 +82,7 @@ class ParquetData : public dwio::common::FormatData {
 
   void readNulls(
       vector_size_t numValues,
-      const uint64_t* FOLLY_NULLABLE /*incomingNulls*/,
+      const uint64_t* FOLLY_NULLABLE incomingNulls,
       BufferPtr& nulls,
       bool nullsOnly = false) override {
     // If the query accesses only nulls, read the nulls from the pages in range.

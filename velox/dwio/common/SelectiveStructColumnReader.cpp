@@ -43,9 +43,9 @@ std::vector<uint32_t> SelectiveStructColumnReader::filterRowGroups(
   return stridesToSkip;
 }
 
-bool SelectiveStructColumnReader::stripeMatches(uint32_t stripeIndex) const {
+bool SelectiveStructColumnReader::rowGroupMatches(uint32_t rowGroupId) const {
   for (const auto& child : children_) {
-    if (!child->stripeMatches(stripeIndex)) {
+    if (!child->rowGroupMatches(rowGroupId)) {
       return false;
     }
   }

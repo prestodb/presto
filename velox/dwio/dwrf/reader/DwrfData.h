@@ -55,10 +55,10 @@ class DwrfData : public dwio::common::FormatData {
       uint64_t rowsPerRowGroup,
       const dwio::common::StatsContext& writerContext) override;
 
-  // TODO: Refactor filterRowGroups() and implement stripeMatches() for DWRF.
-  virtual bool stripeMatches(
-      uint32_t /*stripeIndex*/,
-      velox::common::Filter* FOLLY_NULLABLE /*filter*/) override {
+  // TODO: Refactor filterRowGroups() and implement rowGroupMatches() for DWRF.
+  virtual bool rowGroupMatches(
+      uint32_t rowGroupId,
+      velox::common::Filter* FOLLY_NULLABLE filter) override {
     VELOX_UNREACHABLE();
   }
 

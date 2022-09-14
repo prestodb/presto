@@ -59,8 +59,8 @@ std::vector<uint32_t> SelectiveColumnReader::filterRowGroups(
   return formatData_->filterRowGroups(*scanSpec_, rowGroupSize, context);
 }
 
-bool SelectiveColumnReader::stripeMatches(uint32_t stripeIndex) const {
-  return formatData_->stripeMatches(stripeIndex, scanSpec_->filter());
+bool SelectiveColumnReader::rowGroupMatches(uint32_t rowGroupId) const {
+  return formatData_->rowGroupMatches(rowGroupId, scanSpec_->filter());
 }
 
 void SelectiveColumnReader::seekTo(vector_size_t offset, bool readsNullsOnly) {
