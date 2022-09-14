@@ -1047,7 +1047,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       joinType = JoinType::kLeftSemi;
     } else if (auto notCall = isNot(node->predicate)) {
       if (equal(notCall->arguments[0], semiJoin->semiJoinOutput)) {
-        joinType = JoinType::kAnti;
+        joinType = JoinType::kNullAwareAnti;
       }
     }
 
