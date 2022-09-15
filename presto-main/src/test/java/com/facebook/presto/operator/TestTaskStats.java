@@ -34,7 +34,7 @@ public class TestTaskStats
             new DateTime(3),
             4,
             5,
-
+            888,
             6,
             7,
             5,
@@ -98,6 +98,7 @@ public class TestTaskStats
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));
         assertEquals(actual.getElapsedTimeInNanos(), 4);
         assertEquals(actual.getQueuedTimeInNanos(), 5);
+        assertEquals(actual.getBootstrapTimeInMillis(), 888);
 
         assertEquals(actual.getTotalDrivers(), 6);
         assertEquals(actual.getQueuedDrivers(), 7);

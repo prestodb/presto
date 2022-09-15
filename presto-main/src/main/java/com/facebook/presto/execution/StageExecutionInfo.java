@@ -90,6 +90,7 @@ public class StageExecutionInfo
         long retriedCpuTime = 0;
         long totalBlockedTime = 0;
 
+        long totalBootstrapTimeInMillis = 0;
         long totalAllocation = 0;
 
         long rawInputDataSize = 0;
@@ -151,6 +152,8 @@ public class StageExecutionInfo
                 fullyBlocked &= taskStats.isFullyBlocked();
                 blockedReasons.addAll(taskStats.getBlockedReasons());
             }
+
+            totalBootstrapTimeInMillis += taskStats.getBootstrapTimeInMillis();
 
             totalAllocation += taskStats.getTotalAllocationInBytes();
 
@@ -217,6 +220,8 @@ public class StageExecutionInfo
                 succinctDuration(totalBlockedTime, NANOSECONDS),
                 fullyBlocked && runningTasks > 0,
                 blockedReasons,
+
+                totalBootstrapTimeInMillis,
 
                 succinctBytes(totalAllocation),
 

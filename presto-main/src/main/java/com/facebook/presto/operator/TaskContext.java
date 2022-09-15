@@ -580,6 +580,7 @@ public class TaskContext
                 executionEndTime.get(),
                 elapsedTimeInNanos,
                 queuedTimeInNanos,
+                0L,
                 totalDrivers,
                 queuedDrivers,
                 queuedPartitionedDrivers,

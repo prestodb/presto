@@ -631,12 +631,14 @@ public class QueryMonitor
     {
         Distribution cpuDistribution = new Distribution();
         Distribution memoryDistribution = new Distribution();
+        Distribution boostrapTimeDistribution = new Distribution();
 
         StageExecutionInfo executionInfo = stageInfo.getLatestAttemptExecutionInfo();
 
         for (TaskInfo taskInfo : executionInfo.getTasks()) {
             cpuDistribution.add(NANOSECONDS.toMillis(taskInfo.getStats().getTotalCpuTimeInNanos()));
             memoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
+            boostrapTimeDistribution.add(taskInfo.getStats().getBootstrapTimeInMillis());
         }
 
         stageStatisticsBuilder.add(new StageStatistics(
@@ -652,7 +654,8 @@ public class QueryMonitor
                 executionInfo.getStats().getPhysicalWrittenDataSize(),
                 executionInfo.getStats().getGcInfo(),
                 createResourceDistribution(cpuDistribution.snapshot()),
-                createResourceDistribution(memoryDistribution.snapshot())));
+                createResourceDistribution(memoryDistribution.snapshot()),
+                createResourceDistribution(boostrapTimeDistribution.snapshot())));
 
         stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
     }

@@ -36,6 +36,7 @@ public class StageStatistics
     private final StageGcStatistics gcStatistics;
     private final ResourceDistribution cpuDistribution;
     private final ResourceDistribution memoryDistribution;
+    private final ResourceDistribution bootstrapTimeDistribution;
 
     public StageStatistics(
             int stageId,
@@ -50,7 +51,8 @@ public class StageStatistics
             DataSize physicalWrittenDataSize,
             StageGcStatistics gcStatistics,
             ResourceDistribution cpuDistribution,
-            ResourceDistribution memoryDistribution)
+            ResourceDistribution memoryDistribution,
+            ResourceDistribution bootstrapTimeDistribution)
     {
         this.stageId = stageId;
         this.stageExecutionId = stageExecutionId;
@@ -65,6 +67,7 @@ public class StageStatistics
         this.gcStatistics = requireNonNull(gcStatistics, "gcStatistics is null");
         this.cpuDistribution = requireNonNull(cpuDistribution, "cpuDistribution is null");
         this.memoryDistribution = requireNonNull(memoryDistribution, "memoryDistribution is null");
+        this.bootstrapTimeDistribution = requireNonNull(bootstrapTimeDistribution, "bootstrapTimeDistribution is null");
     }
 
     public int getStageId()
@@ -130,5 +133,10 @@ public class StageStatistics
     public ResourceDistribution getMemoryDistribution()
     {
         return memoryDistribution;
+    }
+
+    public ResourceDistribution getBootstrapTimeDistribution()
+    {
+        return bootstrapTimeDistribution;
     }
 }

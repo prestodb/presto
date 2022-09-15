@@ -68,6 +68,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleSeriali
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats.Operation;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskBootstrapStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
@@ -1178,6 +1179,7 @@ public class PrestoSparkQueryExecutionFactory
                         serializedTaskDescriptor,
                         emptyScalaIterator(),
                         new PrestoSparkTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
+                        new PrestoSparkTaskBootstrapStats(0L),
                         taskInfoCollector,
                         shuffleStatsCollector,
                         PrestoSparkSerializedPage.class);

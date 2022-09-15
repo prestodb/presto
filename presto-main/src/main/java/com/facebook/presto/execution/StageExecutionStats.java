@@ -74,6 +74,8 @@ public class StageExecutionStats
     private final boolean fullyBlocked;
     private final Set<BlockedReason> blockedReasons;
 
+    private final long totalBootstrapTimeInMillis;
+
     private final DataSize totalAllocation;
 
     private final DataSize rawInputDataSize;
@@ -127,6 +129,8 @@ public class StageExecutionStats
             @JsonProperty("totalBlockedTime") Duration totalBlockedTime,
             @JsonProperty("fullyBlocked") boolean fullyBlocked,
             @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
+
+            @JsonProperty("totalBootstrapTimeInMillis") long totalBootstrapTimeInMillis,
 
             @JsonProperty("totalAllocation") DataSize totalAllocation,
 
@@ -187,6 +191,8 @@ public class StageExecutionStats
         this.totalBlockedTime = requireNonNull(totalBlockedTime, "totalBlockedTime is null");
         this.fullyBlocked = fullyBlocked;
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
+
+        this.totalBootstrapTimeInMillis = totalBootstrapTimeInMillis;
 
         this.totalAllocation = requireNonNull(totalAllocation, "totalAllocation is null");
 
@@ -356,6 +362,12 @@ public class StageExecutionStats
     }
 
     @JsonProperty
+    public long getTotalBootstrapTimeInMillis()
+    {
+        return totalBootstrapTimeInMillis;
+    }
+
+    @JsonProperty
     public DataSize getTotalAllocation()
     {
         return totalAllocation;
@@ -483,6 +495,7 @@ public class StageExecutionStats
                 new Duration(0, NANOSECONDS),
                 false,
                 ImmutableSet.of(),
+                0L,
                 new DataSize(0, BYTE),
                 new DataSize(0, BYTE),
                 0,
