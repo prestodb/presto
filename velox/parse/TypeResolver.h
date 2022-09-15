@@ -15,11 +15,20 @@
  */
 
 #pragma once
+#include "velox/type/Type.h"
 
 namespace facebook::velox::parse {
 
 // Registers type resolver with the parser to resolve return types of special
 // forms (if, switch, and, or, etc.) and vector functions.
 void registerTypeResolver();
+
+// Given scalar function name and input types, resolves the return type. Throws
+// an exception if return type cannot be resolved. Returns null if return type
+// cannot be resolved and 'nullOnFailure' is true.
+TypePtr resolveScalarFunctionType(
+    const std::string& name,
+    const std::vector<TypePtr>& args,
+    bool nullOnFailure = false);
 
 } // namespace facebook::velox::parse

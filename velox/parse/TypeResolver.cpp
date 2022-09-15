@@ -25,15 +25,15 @@ namespace facebook::velox::parse {
 namespace {
 
 std::string toString(
-    const std::shared_ptr<const core::CallExpr>& expr,
-    const std::vector<core::TypedExprPtr>& inputs) {
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes) {
   std::ostringstream signature;
-  signature << expr->getFunctionName() << "(";
-  for (auto i = 0; i < inputs.size(); i++) {
+  signature << functionName << "(";
+  for (auto i = 0; i < argTypes.size(); i++) {
     if (i > 0) {
       signature << ", ";
     }
-    signature << inputs[i]->type()->toString();
+    signature << argTypes[i]->toString();
   }
   signature << ")";
   return signature.str();
@@ -100,7 +100,21 @@ TypePtr resolveType(
     inputTypes.emplace_back(input->type());
   }
 
-  auto returnType = resolveFunction(expr->getFunctionName(), inputTypes);
+  return resolveScalarFunctionType(
+      expr->getFunctionName(), inputTypes, nullOnFailure);
+}
+
+} // namespace
+
+void registerTypeResolver() {
+  core::Expressions::setTypeResolverHook(&resolveType);
+}
+
+TypePtr resolveScalarFunctionType(
+    const std::string& name,
+    const std::vector<TypePtr>& argTypes,
+    bool nullOnFailure) {
+  auto returnType = resolveFunction(name, argTypes);
   if (returnType) {
     return returnType;
   }
@@ -110,23 +124,15 @@ TypePtr resolveType(
   }
 
   auto allSignatures = getFunctionSignatures();
-  auto it = allSignatures.find(expr->getFunctionName());
+  auto it = allSignatures.find(name);
   if (it == allSignatures.end()) {
-    VELOX_USER_FAIL(
-        "Scalar function doesn't exist: {}.", expr->getFunctionName());
+    VELOX_USER_FAIL("Scalar function doesn't exist: {}.", name);
   } else {
     const auto& functionSignatures = it->second;
     VELOX_USER_FAIL(
         "Scalar function signature is not supported: {}. Supported signatures: {}.",
-        toString(expr, inputs),
+        toString(name, argTypes),
         toString(functionSignatures));
   }
 }
-
-} // namespace
-
-void registerTypeResolver() {
-  core::Expressions::setTypeResolverHook(&resolveType);
-}
-
 } // namespace facebook::velox::parse

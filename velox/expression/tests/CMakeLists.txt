@@ -16,6 +16,7 @@ add_executable(
   velox_expression_test
   ExprEncodingsTest.cpp
   ExprTest.cpp
+  ExprCompilerTest.cpp
   EvalCtxTest.cpp
   ExprStatsTest.cpp
   CastExprTest.cpp
