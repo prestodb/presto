@@ -278,7 +278,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   const int destination_;
   int64_t sequence_ = 0;
   std::shared_ptr<ExchangeQueue> queue_;
-  bool requestPending_ = false;
+  std::atomic<bool> requestPending_{false};
   bool atEnd_ = false;
 
  protected:

@@ -90,9 +90,7 @@ class LocalExchangeSource : public ExchangeSource {
     if (atEnd_) {
       return false;
     }
-    bool pending = requestPending_;
-    requestPending_ = true;
-    return !pending;
+    return !requestPending_.exchange(true);
   }
 
   void request() override {
