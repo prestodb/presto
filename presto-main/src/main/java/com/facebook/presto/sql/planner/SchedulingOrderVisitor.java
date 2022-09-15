@@ -88,5 +88,12 @@ public class SchedulingOrderVisitor
             schedulingOrder.accept(node.getId());
             return null;
         }
+//
+//        @Override
+//        public Void visitNativeEngine(NativeEngineNode node, Consumer<PlanNodeId> schedulingOrder)
+//        {
+//            schedulingOrder.accept(node.getId());
+//            return null;
+//        }
     }
 }

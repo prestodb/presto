@@ -681,8 +681,8 @@ public class NativeEngineOperator
                     operatorContext.getDriverContext().getTaskId(),
                     new InternalNode("node-id", URI.create("http://127.0.0.1/"), new NodeVersion("version"), false),
                     planFragment,
-                    // ImmutableList.of(taskSource),
-                    ImmutableList.of(),
+                    ImmutableList.of(taskSource),
+                    // ImmutableList.of(),
                     createInitialEmptyOutputBuffers(OutputBuffers.BufferType.PARTITIONED),
                     tableWriteInfo);
 

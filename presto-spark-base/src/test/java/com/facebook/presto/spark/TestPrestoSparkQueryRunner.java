@@ -1281,7 +1281,8 @@ public class TestPrestoSparkQueryRunner
 //                        + "        (2, 'b'),\n"
 //                        + "        (3, 'c')\n"
 //                        + ") AS t (id, name)\n");
-        getQueryRunner().execute(session, "CREATE TABLE test_value as SELECT a FROM (VALUES -1, 0, 2) t(a)");
+        // getQueryRunner().execute(session, "CREATE TABLE test_value as SELECT a FROM (VALUES -1, 0, 2) t(a)");
+        getQueryRunner().execute(session, "CREATE TABLE test_tablescan as SELECT orderkey, custkey FROM orders");
     }
 
     private void assertBucketedQuery(String sql)

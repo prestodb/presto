@@ -47,6 +47,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeEngineNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -405,6 +406,12 @@ public class SplitSourceFactory
             }
 
             return result.build();
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitNativeEngine(NativeEngineNode node, Context context)
+        {
+            return processSources(node.getSources(), context);
         }
 
         @Override

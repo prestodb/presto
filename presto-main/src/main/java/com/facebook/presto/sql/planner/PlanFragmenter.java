@@ -407,12 +407,22 @@ public class PlanFragmenter
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
-            List<PlanNodeId> schedulingOrder = scheduleOrder(root);
-            checkArgument(
-                    properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder)),
-                    "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)",
-                    schedulingOrder,
-                    properties.getPartitionedSources());
+            List<PlanNodeId> schedulingOrder = new ArrayList<>();
+            if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
+                root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
+                // schedulingOrder.add(root.getId());
+                schedulingOrder.addAll(scheduleOrder(root));
+            }
+            else {
+                schedulingOrder.addAll(scheduleOrder(root));
+                checkArgument(
+                        properties.getPartitionedSources().equals(ImmutableSet.copyOf(schedulingOrder)),
+                        "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)",
+                        schedulingOrder,
+                        properties.getPartitionedSources());
+            }
+
+            // List<PlanNodeId> schedulingOrder = scheduleOrder(root);
 
             Set<VariableReferenceExpression> fragmentVariableTypes = extractOutputVariables(root);
             planChecker.validatePlanFragment(root, session, metadata, sqlParser, TypeProvider.fromVariables(fragmentVariableTypes), warningCollector);
@@ -425,11 +435,6 @@ public class PlanFragmenter
                         "outputTableWriterNodeIds %s must include either all or none of tableWriterNodeIds %s",
                         outputTableWriterNodeIds,
                         tableWriterNodeIds);
-            }
-
-            if (session.getSystemProperty("spark_native_engine_execution_enabled", Boolean.class) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
-                root = new NativeEngineNode(root.getSourceLocation(), root.getId(), root.getStatsEquivalentPlanNode(), root);
-//                root = root;
             }
 
             PlanFragment fragment = new PlanFragment(
