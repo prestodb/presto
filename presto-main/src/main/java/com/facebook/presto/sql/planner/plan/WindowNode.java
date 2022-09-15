@@ -52,7 +52,7 @@ public class WindowNode
 
     @JsonCreator
     public WindowNode(
-            Optional<SourceLocation> sourceLocation,
+            @JsonProperty("sourceLocation") Optional<SourceLocation> sourceLocation,
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("source") PlanNode source,
             @JsonProperty("specification") Specification specification,
