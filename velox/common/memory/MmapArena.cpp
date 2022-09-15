@@ -264,4 +264,46 @@ bool MmapArena::checkConsistency() const {
   return numErrors == 0;
 }
 
+ManagedMmapArenas::ManagedMmapArenas(uint64_t singleArenaCapacity)
+    : singleArenaCapacity_(singleArenaCapacity) {
+  auto arena = std::make_shared<MmapArena>(singleArenaCapacity);
+  arenas_.emplace(reinterpret_cast<uint64_t>(arena->address()), arena);
+  currentArena_ = arena;
+}
+
+void* FOLLY_NULLABLE ManagedMmapArenas::allocate(uint64_t bytes) {
+  auto* result = currentArena_->allocate(bytes);
+  if (result) {
+    return result;
+  }
+
+  // If first allocation fails we create a new MmapArena for another attempt. If
+  // it ever fails again then it means requested bytes is larger than a single
+  // MmapArena's capacity. No further attempts will happen.
+  auto newArena = std::make_shared<MmapArena>(singleArenaCapacity_);
+  arenas_.emplace(reinterpret_cast<uint64_t>(newArena->address()), newArena);
+  currentArena_ = newArena;
+  return currentArena_->allocate(bytes);
+}
+
+void ManagedMmapArenas::free(void* FOLLY_NONNULL address, uint64_t bytes) {
+  uint64_t addressUint64 = reinterpret_cast<uint64_t>(address);
+  auto iter = arenas_.lower_bound(addressUint64);
+  if (iter == arenas_.end()) {
+    return;
+  }
+  if (iter->first == addressUint64) {
+    iter->second->free(address, bytes);
+  } else if (iter == arenas_.begin()) {
+    return;
+  } else {
+    iter--;
+    iter->second->free(address, bytes);
+  }
+
+  if (iter->second->empty() && iter->second != currentArena_) {
+    arenas_.erase(iter);
+  }
+}
+
 } // namespace facebook::velox::memory

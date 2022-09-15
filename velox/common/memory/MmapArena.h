@@ -108,4 +108,31 @@ class MmapArena {
   std::map<uint64_t, std::unordered_set<uint64_t>> freeLookup_;
 };
 
+/// A class that manages a set of MmapArenas. It is able to adapt itself by
+/// growing the number of its managed MmapArena's when extreme memory
+/// fragmentation happens.
+class ManagedMmapArenas {
+ public:
+  ManagedMmapArenas(uint64_t singleArenaCapacity);
+
+  void* FOLLY_NULLABLE allocate(uint64_t bytes);
+
+  void free(void* FOLLY_NONNULL address, uint64_t bytes);
+
+  const std::map<uint64_t, std::shared_ptr<MmapArena>>& arenas() const {
+    return arenas_;
+  }
+
+ private:
+  /// A sorted list of MmapArena by its initial address
+  std::map<uint64_t, std::shared_ptr<MmapArena>> arenas_;
+
+  /// All allocations should come from this MmapArena. When it is no longer able
+  /// to handle allocations it will be updated to a newly created MmapArena.
+  std::shared_ptr<MmapArena> currentArena_;
+
+  /// Capacity in bytes for a single MmapArena managed by this.
+  const uint64_t singleArenaCapacity_;
+};
+
 } // namespace facebook::velox::memory

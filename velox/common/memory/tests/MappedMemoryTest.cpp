@@ -700,6 +700,10 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
 }
 
 class MmapArenaTest : public testing::Test {
+ public:
+  // 32 MB arena space
+  static constexpr uint64_t kArenaCapacityBytes = 1l << 25;
+
  protected:
   void SetUp() override {
     rng_.seed(1);
@@ -745,9 +749,6 @@ class MmapArenaTest : public testing::Test {
 };
 
 TEST_F(MmapArenaTest, basic) {
-  // 32 MB arena space
-  const uint64_t kArenaCapacityBytes = 1l << 25;
-
   // 0 Byte lower bound for revealing edge cases.
   const uint64_t kAllocLowerBound = 0;
 
@@ -789,6 +790,50 @@ TEST_F(MmapArenaTest, basic) {
     itr++;
   }
   EXPECT_TRUE(arena->checkConsistency());
+}
+
+TEST_F(MmapArenaTest, managedMmapArenas) {
+  {
+    // Test natural growing of ManagedMmapArena
+    std::unique_ptr<ManagedMmapArenas> managedArenas =
+        std::make_unique<ManagedMmapArenas>(kArenaCapacityBytes);
+    EXPECT_EQ(managedArenas->arenas().size(), 1);
+    void* alloc1 = managedArenas->allocate(kArenaCapacityBytes);
+    EXPECT_EQ(managedArenas->arenas().size(), 1);
+    void* alloc2 = managedArenas->allocate(kArenaCapacityBytes);
+    EXPECT_EQ(managedArenas->arenas().size(), 2);
+
+    managedArenas->free(alloc2, kArenaCapacityBytes);
+    EXPECT_EQ(managedArenas->arenas().size(), 2);
+    managedArenas->free(alloc1, kArenaCapacityBytes);
+    EXPECT_EQ(managedArenas->arenas().size(), 1);
+  }
+
+  {
+    // Test growing of ManagedMmapArena due to fragmentation
+    std::unique_ptr<ManagedMmapArenas> managedArenas =
+        std::make_unique<ManagedMmapArenas>(kArenaCapacityBytes);
+    const uint64_t kNumAllocs = 128;
+    const uint64_t kAllocSize = kArenaCapacityBytes / kNumAllocs;
+    std::vector<uint64_t> evenAllocAddresses;
+    for (int i = 0; i < kNumAllocs; i++) {
+      auto* allocResult = managedArenas->allocate(kAllocSize);
+      if (i % 2 == 0) {
+        evenAllocAddresses.emplace_back(
+            reinterpret_cast<uint64_t>(allocResult));
+      }
+    }
+    EXPECT_EQ(managedArenas->arenas().size(), 1);
+
+    // Free every other allocations so that the single MmapArena is fragmented
+    // that it can no longer handle allocations of size larger than kAllocSize
+    for (auto address : evenAllocAddresses) {
+      managedArenas->free(reinterpret_cast<void*>(address), kAllocSize);
+    }
+
+    managedArenas->allocate(kAllocSize * 2);
+    EXPECT_EQ(managedArenas->arenas().size(), 2);
+  }
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
