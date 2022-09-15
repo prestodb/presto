@@ -454,7 +454,7 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
   LOG(INFO) << "STARTUP: Using AsyncDataCache";
   return facebook::velox::connector::getConnectorFactory(connectorName)
       ->newConnector(
-          connectorName, std::move(properties), connectorIoExecutor_.get());
+          catalogName, std::move(properties), connectorIoExecutor_.get());
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

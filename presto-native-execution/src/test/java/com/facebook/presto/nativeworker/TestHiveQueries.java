@@ -15,7 +15,10 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -27,6 +30,30 @@ abstract class TestHiveQueries
     protected TestHiveQueries(boolean useThrift)
     {
         super(useThrift);
+    }
+
+    @Test
+    public void testCatalogWithCacheEnabled()
+    {
+        Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                .put("hive.storage-format", "DWRF")
+                .put("hive.pushdown-filter-enabled", "true")
+                .build();
+
+        getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalog("hivecached")
+                .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
+                .build();
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
+            assertQuery("SELECT * FROM tmp");
+        }
+        finally {
+            dropTable("tmp");
+        }
     }
 
     @Test
