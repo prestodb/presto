@@ -163,11 +163,20 @@ TEST_F(VectorToStringTest, constant) {
   auto nullConstant = makeConstant<int32_t>(std::nullopt, 100);
   ASSERT_EQ(
       nullConstant->toString(true), "[CONSTANT INTEGER: 100 elements, null]");
+  ASSERT_EQ(nullConstant->toString(17), "null");
+
+  // Null constant of UNKNOWN type.
+  auto unknownNullConstant = makeConstant<UnknownValue>(std::nullopt, 123);
+  ASSERT_EQ(
+      unknownNullConstant->toString(true),
+      "[CONSTANT UNKNOWN: 123 elements, null]");
+  ASSERT_EQ(unknownNullConstant->toString(21), "null");
 
   // Non-null constant.
   auto nonNullConstant = makeConstant<int32_t>(75, 100);
   ASSERT_EQ(
       nonNullConstant->toString(true), "[CONSTANT INTEGER: 100 elements, 75]");
+  ASSERT_EQ(nonNullConstant->toString(44), "75");
 
   // Non-null complex-type constant.
   auto arrayVector = makeArrayVector<int32_t>({
@@ -181,6 +190,7 @@ TEST_F(VectorToStringTest, constant) {
       constant->toString(true),
       "[CONSTANT ARRAY<INTEGER>: 100 elements, 2 elements starting at 3 {4, 5}], "
       "[ARRAY ARRAY<INTEGER>: 3 elements, no nulls]");
+  ASSERT_EQ(constant->toString(3), "2 elements starting at 3 {4, 5}");
 }
 
 TEST_F(VectorToStringTest, dictionary) {

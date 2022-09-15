@@ -313,11 +313,11 @@ class ConstantVector final : public SimpleVector<T> {
   }
 
   std::string toString(vector_size_t index) const override {
-    if (isScalar()) {
-      return SimpleVector<T>::toString(index);
+    if (valueVector_) {
+      return valueVector_->toString(index_);
     }
 
-    return valueVector_->toString(index_);
+    return SimpleVector<T>::toString(index);
   }
 
   bool isNullsWritable() const override {
