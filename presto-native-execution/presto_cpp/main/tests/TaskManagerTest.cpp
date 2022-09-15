@@ -17,6 +17,7 @@
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -26,6 +27,7 @@
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
@@ -34,6 +36,24 @@
 
 using namespace facebook::velox;
 using namespace facebook::presto;
+
+namespace {
+int64_t sumOpSpillBytes(
+    const std::string& opType,
+    const protocol::TaskInfo& taskInfo) {
+  int64_t sum = 0;
+  const auto& taskStats = taskInfo.stats;
+  for (const auto& pipelineStats : taskStats.pipelines) {
+    for (const auto opStats : pipelineStats.operatorSummaries) {
+      if (opStats.operatorType != opType) {
+        continue;
+      }
+      sum += opStats.spilledDataSize.getValue(protocol::DataUnit::BYTE);
+    }
+  }
+  return sum;
+}
+} // namespace
 
 class Cursor {
  public:
@@ -367,27 +387,37 @@ class TaskManagerTest : public testing::Test {
   //  - output
   std::pair<int64_t, int64_t> testCountAggregation(
       const protocol::QueryId& queryId,
-      std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
-      bool expectTaskFailure = false) {
+      const std::vector<std::shared_ptr<exec::test::TempFilePath>>& filePaths,
+      const std::unordered_map<std::string, std::string>& queryConfigStrings =
+          {},
+      bool expectTaskFailure = false,
+      bool expectSpill = false) {
     std::vector<std::string> allTaskIds;
 
+    const int numPartitions = 3;
     // Create scan + partial agg tasks
     auto partialAggPlanFragment =
         exec::test::PlanBuilder()
             .tableScan(rowType_)
             .project({"c0 % 5"})
             .partialAggregation({"p0"}, {"count(1)"})
-            .partitionedOutput({"p0"}, 3, {"p0", "a0"})
+            .partitionedOutput({"p0"}, numPartitions, {"p0", "a0"})
             .planFragment();
 
     std::vector<std::string> partialAggTasks;
     long splitSequenceId{0};
-    for (int i = 0; i < filePaths.size(); i++) {
+    for (int i = 0; i < filePaths.size(); ++i) {
       protocol::TaskId taskId = fmt::format("{}.0.0.{}", queryId, i);
       allTaskIds.emplace_back(taskId);
       auto source = makeSource("0", {filePaths[i]}, true, splitSequenceId);
+      auto taskQueryConfig = queryConfigStrings;
       auto taskInfo = taskManager_->createOrUpdateTask(
-          taskId, partialAggPlanFragment, {source}, {}, {}, {});
+          taskId,
+          partialAggPlanFragment,
+          {source},
+          {},
+          std::move(taskQueryConfig),
+          {});
       partialAggTasks.emplace_back(taskInfo->taskStatus.self);
     }
 
@@ -408,21 +438,24 @@ class TaskManagerTest : public testing::Test {
             .planFragment();
 
     std::vector<std::string> finalAggTasks;
-    for (int i = 0; i < 3; i++) {
+    std::vector<protocol::TaskId> finalAggTaskIds;
+    for (int i = 0; i < numPartitions; ++i) {
       protocol::TaskId finalAggTaskId = fmt::format("{}.1.0.{}", queryId, i);
       allTaskIds.emplace_back(finalAggTaskId);
+      finalAggTaskIds.emplace_back(finalAggTaskId);
 
       std::vector<std::string> locations;
       for (auto& taskUri : partialAggTasks) {
         locations.emplace_back(fmt::format("{}/results/{}", taskUri, i));
       }
 
+      auto taskQueryConfig = queryConfigStrings;
       auto taskInfo = taskManager_->createOrUpdateTask(
           finalAggTaskId,
           finalAggPlanFragment,
           {makeRemoteSource("0", locations, true, splitSequenceId)},
           {},
-          {},
+          std::move(taskQueryConfig),
           {});
 
       finalAggTasks.emplace_back(taskInfo->taskStatus.self);
@@ -446,6 +479,21 @@ class TaskManagerTest : public testing::Test {
       EXPECT_EQ(resultsOrFailures.status->state, protocol::TaskState::FAILED);
       for (const auto& taskId : allTaskIds) {
         taskManager_->deleteTask(taskId, true);
+      }
+    }
+
+    for (const auto& finalAggTaskId : finalAggTaskIds) {
+      auto cbState = std::make_shared<http::CallbackRequestHandlerState>();
+      auto taskInfo =
+          taskManager_
+              ->getTaskInfo(
+                  finalAggTaskId, false, std::nullopt, std::nullopt, cbState)
+              .get();
+      const int64_t spilledBytes = sumOpSpillBytes("Aggregation", *taskInfo);
+      if (expectSpill) {
+        EXPECT_GT(spilledBytes, 0);
+      } else {
+        EXPECT_EQ(spilledBytes, 0);
       }
     }
 
@@ -633,11 +681,11 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
   auto [peakUser, peakTotal] = testCountAggregation("initial", filePaths);
 
   setMemoryLimits(peakUser - 1, 20 * kGB);
-  testCountAggregation("max-memory", filePaths, true);
+  testCountAggregation("max-memory", filePaths, {}, true);
 
   // Verify query.max-total-memory-per-node is respected.
   setMemoryLimits(20 * kGB, peakTotal - 1);
-  testCountAggregation("max-total-memory", filePaths, true);
+  testCountAggregation("max-total-memory", filePaths, {}, true);
 
   // Verify the query is successful with some limits.
   setMemoryLimits(20 * kGB, 20 * kGB);
@@ -735,3 +783,43 @@ TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
           .within(longWait)
           .getVia(eventBase));
 }
+
+TEST_F(TaskManagerTest, aggregationSpilll) {
+  // NOTE: we need to write more than one batches to each file (source split) to
+  // trigger spill.
+  const int numBatchesPerFile = 5;
+  const int numFiles = 5;
+  auto filePaths = makeFilePaths(numFiles);
+  std::vector<std::vector<RowVectorPtr>> batches(numFiles);
+  for (int i = 0; i < numFiles; ++i) {
+    batches[i] = makeVectors(numBatchesPerFile, 1'000);
+  }
+  std::vector<RowVectorPtr> vectors;
+  for (int i = 0; i < filePaths.size(); ++i) {
+    writeToFile(filePaths[i]->path, batches[i]);
+    std::move(
+        batches[i].begin(), batches[i].end(), std::back_inserter(vectors));
+  }
+  duckDbQueryRunner_.createTable("tmp", vectors);
+
+  // Keep bumping up query id per each test iteration to generate a new query
+  // id.
+  int queryId = 0;
+  for (const bool doSpill : {true, true}) {
+    SCOPED_TRACE(fmt::format("doSpill: {}", doSpill));
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    std::unordered_map<std::string, std::string> queryConfigs;
+    if (doSpill) {
+      queryConfigs.emplace(core::QueryConfig::kSpillPath, tempDirectory->path);
+      queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
+    }
+    testCountAggregation(
+        fmt::format("aggregationSpilll:{}", queryId++),
+        filePaths,
+        queryConfigs,
+        false,
+        doSpill);
+  }
+}
+
+// TODO: add disk spilling test for order by and hash join later.

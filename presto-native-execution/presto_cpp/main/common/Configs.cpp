@@ -81,6 +81,11 @@ int32_t SystemConfig::numIoThreads() const {
   return opt.hasValue() ? opt.value() : kNumIoThreadsDefault;
 }
 
+int32_t SystemConfig::numSpillThreads() const {
+  auto opt = optionalProperty<int32_t>(std::string(kNumSpillThreads));
+  return opt.hasValue() ? opt.value() : std::thread::hardware_concurrency();
+}
+
 int32_t SystemConfig::shutdownOnsetSec() const {
   auto opt = optionalProperty<int32_t>(std::string(kShutdownOnsetSec));
   return opt.hasValue() ? opt.value() : kShutdownOnsetSecDefault;
