@@ -253,6 +253,13 @@ class Operator {
       std::string planNodeId,
       std::string operatorType);
 
+  /// This is only used by test to create mock operator.
+  Operator(
+      int32_t operatorId,
+      int32_t pipelineId,
+      std::string planNodeId,
+      std::string operatorType);
+
   virtual ~Operator() = default;
 
   // Returns true if 'this' can accept input. Not used if operator is a source

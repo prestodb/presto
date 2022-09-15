@@ -47,6 +47,7 @@ add_executable(
   RowContainerTest.cpp
   MemoryCapExceededTest.cpp
   SpillTest.cpp
+  SpillOperatorGroupTest.cpp
   SpillerTest.cpp
   StreamingAggregationTest.cpp
   TableScanTest.cpp

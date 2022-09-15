@@ -109,6 +109,17 @@ Operator::Operator(
   }
 }
 
+Operator::Operator(
+    int32_t operatorId,
+    int32_t pipelineId,
+    std::string planNodeId,
+    std::string operatorType)
+    : stats_(
+          operatorId,
+          pipelineId,
+          std::move(planNodeId),
+          std::move(operatorType)) {}
+
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {
   static std::vector<std::unique_ptr<PlanNodeTranslator>> translators;

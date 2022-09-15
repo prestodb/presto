@@ -29,8 +29,6 @@ add_library(
   HashBuild.cpp
   HashPartitionFunction.cpp
   HashProbe.cpp
-  Spill.cpp
-  Spiller.cpp
   HashTable.cpp
   JoinBridge.cpp
   Limit.cpp
@@ -46,6 +44,8 @@ add_library(
   PartitionedOutputBufferManager.cpp
   PlanNodeStats.cpp
   RowContainer.cpp
+  Spill.cpp
+  SpillOperatorGroup.cpp
   Spiller.cpp
   StreamingAggregation.cpp
   TableScan.cpp
