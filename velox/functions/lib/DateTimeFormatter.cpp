@@ -527,7 +527,10 @@ std::string getSpecifierName(int enumInt) {
   }
 }
 
-int getMaxDigitConsume(FormatPattern curPattern, bool specifierNext) {
+int getMaxDigitConsume(
+    FormatPattern curPattern,
+    bool specifierNext,
+    DateTimeFormatterType type) {
   // Does not support WEEK_YEAR, WEEK_OF_WEEK_YEAR, time zone names
   switch (curPattern.specifier) {
     case DateTimeFormatSpecifier::CENTURY_OF_ERA:
@@ -541,6 +544,11 @@ int getMaxDigitConsume(FormatPattern curPattern, bool specifierNext) {
       if (specifierNext) {
         return curPattern.minRepresentDigits;
       } else {
+        if (type == DateTimeFormatterType::MYSQL) {
+          // MySQL format will try to read in at most 4 digits when supplied a
+          // year, never more.
+          return 4;
+        }
         return curPattern.minRepresentDigits > 9 ? curPattern.minRepresentDigits
                                                  : 9;
       }
@@ -574,7 +582,8 @@ void parseFromPattern(
     const char*& cur,
     const char* end,
     Date& date,
-    bool specifierNext) {
+    bool specifierNext,
+    DateTimeFormatterType type) {
   if (curPattern.specifier == DateTimeFormatSpecifier::TIMEZONE_OFFSET_ID) {
     try {
       cur += parseTimezoneOffset(cur, end, date);
@@ -633,7 +642,7 @@ void parseFromPattern(
 
     auto startPos = cur;
     int64_t number = 0;
-    int maxDigitConsume = getMaxDigitConsume(curPattern, specifierNext);
+    int maxDigitConsume = getMaxDigitConsume(curPattern, specifierNext, type);
 
     if (curPattern.specifier == DateTimeFormatSpecifier::FRACTION_OF_SECOND) {
       int count = 0;
@@ -670,6 +679,10 @@ void parseFromPattern(
         } else if (number >= 0 && number < 70) {
           number += 2000;
         }
+      } else if (type == DateTimeFormatterType::MYSQL) {
+        // In MySQL format, year read in must have exactly two digits, otherwise
+        // throw an error
+        parseFail(input, cur - count + 2, end);
       }
     } else {
       while (cur < end && cur < startPos + maxDigitConsume &&
@@ -1082,9 +1095,9 @@ DateTimeResult DateTimeFormatter::parse(const std::string_view& input) const {
       case DateTimeToken::Type::kPattern:
         if (i + 1 < tokens_.size() &&
             tokens_[i + 1].type == DateTimeToken::Type::kPattern) {
-          parseFromPattern(tok.pattern, input, cur, end, date, true);
+          parseFromPattern(tok.pattern, input, cur, end, date, true, type_);
         } else {
-          parseFromPattern(tok.pattern, input, cur, end, date, false);
+          parseFromPattern(tok.pattern, input, cur, end, date, false, type_);
         }
         break;
     }
@@ -1270,7 +1283,7 @@ std::shared_ptr<DateTimeFormatter> buildMysqlDateTimeFormatter(
     }
     cur = tokenEnd;
   }
-  return builder.build();
+  return builder.setType(DateTimeFormatterType::MYSQL).build();
 }
 
 std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
@@ -1392,7 +1405,7 @@ std::shared_ptr<DateTimeFormatter> buildJodaDateTimeFormatter(
       }
     }
   }
-  return builder.build();
+  return builder.setType(DateTimeFormatterType::JODA).build();
 }
 
 } // namespace facebook::velox::functions

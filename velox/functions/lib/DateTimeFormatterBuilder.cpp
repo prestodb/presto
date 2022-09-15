@@ -203,9 +203,16 @@ DateTimeFormatterBuilder& DateTimeFormatterBuilder::appendLiteral(
   return *this;
 }
 
+DateTimeFormatterBuilder& DateTimeFormatterBuilder::setType(
+    DateTimeFormatterType type) {
+  type_ = type;
+  return *this;
+}
+
 std::shared_ptr<DateTimeFormatter> DateTimeFormatterBuilder::build() {
+  VELOX_CHECK_NE(type_, DateTimeFormatterType::UNKNOWN);
   return std::make_shared<DateTimeFormatter>(
-      std::move(literalBuf_), bufEnd_, std::move(tokens_));
+      std::move(literalBuf_), bufEnd_, std::move(tokens_), type_);
 }
 
 } // namespace facebook::velox::functions

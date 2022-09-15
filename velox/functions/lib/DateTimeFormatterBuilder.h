@@ -18,10 +18,12 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "velox/functions/lib/DateTimeFormatter.h"
 
 namespace facebook::velox::functions {
 
 class DateTimeFormatter;
+enum class DateTimeFormatterType;
 struct DateTimeToken;
 
 /// Builder class that builds DateTimeFormatter object. For example, let's
@@ -260,12 +262,15 @@ class DateTimeFormatterBuilder {
       const char* literalStart,
       size_t literalSize);
 
+  DateTimeFormatterBuilder& setType(DateTimeFormatterType type);
+
   std::shared_ptr<DateTimeFormatter> build();
 
  private:
   std::unique_ptr<char[]> literalBuf_;
   size_t bufEnd_{0};
   std::vector<DateTimeToken> tokens_;
+  DateTimeFormatterType type_{DateTimeFormatterType::UNKNOWN};
 };
 
 } // namespace facebook::velox::functions
