@@ -24,7 +24,6 @@ add_library(
   Writer.cpp
   WriterBase.cpp
   WriterContext.cpp
-  WriterShared.cpp
   WriterSink.cpp)
 
 target_link_libraries(

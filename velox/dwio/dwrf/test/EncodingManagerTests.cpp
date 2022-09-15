@@ -19,7 +19,7 @@
 #include <iterator>
 
 #include "velox/dwio/dwrf/common/Encryption.h"
-#include "velox/dwio/dwrf/writer/WriterShared.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 
 using namespace ::testing;
 

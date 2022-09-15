@@ -17,14 +17,13 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "velox/dwio/dwrf/writer/FlushPolicy.h"
-#include "velox/dwio/dwrf/writer/WriterShared.h"
+#include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
 using namespace ::testing;
 using facebook::velox::dwrf::MemoryUsageCategory;
 using facebook::velox::dwrf::WriterContext;
-using facebook::velox::dwrf::WriterOptionsShared;
+using facebook::velox::dwrf::WriterOptions;
 
 namespace {
 constexpr size_t kSizeKB = 1024;
@@ -135,15 +134,15 @@ class MockMemoryPool : public velox::memory::MemoryPoolBase {
   std::shared_ptr<velox::memory::MemoryUsageTracker> memoryUsageTracker_;
 };
 
-// For testing functionality of WriterShared we need to instantiate
+// For testing functionality of Writer we need to instantiate
 // it.
-class DummyWriter : public velox::dwrf::WriterShared {
+class DummyWriter : public velox::dwrf::Writer {
  public:
   explicit DummyWriter(
-      WriterOptionsShared& options,
+      WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
       memory::MemoryPool& pool)
-      : WriterShared{options, std::move(sink), pool} {}
+      : Writer{options, std::move(sink), pool} {}
 
   MOCK_METHOD1(
       flushImpl,
@@ -254,7 +253,7 @@ class WriterFlushTestHelper {
   static std::unique_ptr<DummyWriter> prepWriter(
       MockMemoryPool& pool,
       int64_t writerMemoryBudget) {
-    WriterOptionsShared options;
+    WriterOptions options;
     options.config = std::make_shared<Config>();
     options.schema = dwio::type::fbhive::HiveTypeParser().parse(
         "struct<int_val:int,string_val:string>");
