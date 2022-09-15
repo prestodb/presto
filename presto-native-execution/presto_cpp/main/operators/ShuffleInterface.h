@@ -22,6 +22,15 @@ class ShuffleInterface {
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
+  /// Write a serialized vector to a shuffle partition. In case of
+  /// broadcast, the partition is not set/used.
+  virtual void writeColumnar(
+      std::string_view data,
+      std::optional<std::string> writerId = std::nullopt,
+      std::optional<int32_t> partition = std::nullopt) {
+    VELOX_FAIL("This method is for columnar or broadcast shuffle");
+  }
+
   /// Tell the shuffle system the writer is done.
   /// @param success set to false indicate aborted client.
   virtual void noMoreData(bool success) = 0;
