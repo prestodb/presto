@@ -256,15 +256,18 @@ class SpillOperatorGroupTest : public testing::Test {
   }
 
   uint32_t randInt(uint32_t n) {
+    std::lock_guard<std::mutex> l(mutex_);
     return folly::Random().rand64(rng_) % (n + 1);
   }
 
   bool oneIn(uint32_t n) {
+    std::lock_guard<std::mutex> l(mutex_);
     return folly::Random().oneIn(n, rng_);
   }
 
   const int32_t numOperators_;
 
+  std::mutex mutex_;
   folly::Random::DefaultGenerator rng_;
 
   uint32_t operatorId_;
