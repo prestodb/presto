@@ -618,8 +618,16 @@ TEST_F(ArithmeticTest, clamp) {
   EXPECT_EQ(1, clamp(1, -1, 1));
   // lo == hi != v => lo.
   EXPECT_EQ(-1, clamp(2, -1, -1));
-  // lo > hi => VeloxUserError.
-  EXPECT_THROW(clamp(0, 1, -1), VeloxUserError);
+  // lo == hi == v => v.
+  EXPECT_EQ(-1, clamp(-1, -1, -1));
+
+  // lo > hi -> hi.
+  EXPECT_EQ(clamp(-123, 1, -1), -1);
+  EXPECT_EQ(clamp(-1, 1, -1), -1);
+  EXPECT_EQ(clamp(0, 1, -1), -1);
+  EXPECT_EQ(clamp(1, 1, -1), -1);
+  EXPECT_EQ(clamp(2, 1, -1), -1);
+  EXPECT_EQ(clamp(123456, 1, -1), -1);
 }
 
 } // namespace

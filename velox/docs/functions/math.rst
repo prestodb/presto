@@ -21,7 +21,11 @@ Mathematical Functions
 .. function:: clamp(x, low, high) -> [same as x]
 
     Returns ``low`` if ``x`` is less than ``low``. Returns ``high`` if ``x`` is greater than ``high``.
-    Returns ``x`` otherwise. ``low`` must be less than or equal to ``high``.
+    Returns ``x`` otherwise.
+
+    ``low`` is expected to be less than or equal to ``high``. This expection is not
+    verified for performance reasons. Returns ``high`` for all values of ``x``
+    when ``low`` is greater than ``high``.
 
 .. function:: degrees(x) -> double
 
