@@ -18,7 +18,7 @@ target_link_libraries(
   velox_tpch_benchmark
   velox_aggregates
   velox_exec
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_dwio_common
   velox_dwio_common_exception
   velox_dwio_parquet_reader

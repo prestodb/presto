@@ -20,7 +20,7 @@
 #include "velox/type/Type.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 DEFINE_int64(fuzzer_seed, 99887766, "Seed for random input dataset generator");
 

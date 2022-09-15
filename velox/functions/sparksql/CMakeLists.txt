@@ -36,6 +36,9 @@ set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
-  add_subdirectory(benchmarks)
   add_subdirectory(aggregates)
+endif()
+
+if(${VELOX_ENABLE_BENCHMARKS})
+  add_subdirectory(benchmarks)
 endif()

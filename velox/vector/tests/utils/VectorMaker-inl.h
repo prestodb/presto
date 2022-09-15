@@ -17,7 +17,7 @@
 #include <algorithm>
 
 #include "velox/vector/SimpleVector.h"
-#include "velox/vector/tests/VectorMakerStats.h"
+#include "velox/vector/tests/utils/VectorMakerStats.h"
 
 namespace facebook::velox::test {
 

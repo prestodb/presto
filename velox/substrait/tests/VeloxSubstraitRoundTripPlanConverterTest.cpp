@@ -18,7 +18,7 @@
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/substrait/VeloxToSubstraitPlan.h"

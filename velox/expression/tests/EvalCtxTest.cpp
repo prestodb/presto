@@ -17,7 +17,7 @@
 #include "gtest/gtest.h"
 
 #include "velox/expression/EvalCtx.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

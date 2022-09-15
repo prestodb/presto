@@ -15,7 +15,7 @@
  */
 
 #include <optional>
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
 

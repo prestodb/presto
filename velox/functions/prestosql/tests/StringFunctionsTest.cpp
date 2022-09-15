@@ -21,7 +21,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringImpl.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/parse/Expressions.h"
 #include "velox/type/Type.h"
 

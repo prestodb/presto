@@ -26,7 +26,7 @@
 #include "folly/container/F14Map.h"
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/StringView.h"
 #include "velox/type/Type.h"
 namespace facebook::velox {

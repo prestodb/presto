@@ -15,7 +15,7 @@
  */
 
 #include "velox/exec/HashPartitionFunction.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

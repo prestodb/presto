@@ -32,7 +32,7 @@ target_link_libraries(
   velox_core
   velox_type
   velox_serialization
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_functions_json
   velox_vector
   velox_memory

@@ -28,7 +28,7 @@
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;

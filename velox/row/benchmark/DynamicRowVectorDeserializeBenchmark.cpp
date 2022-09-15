@@ -23,7 +23,7 @@
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::spark::benchmarks {
 namespace {

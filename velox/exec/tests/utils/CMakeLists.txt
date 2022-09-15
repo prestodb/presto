@@ -17,7 +17,7 @@ add_library(velox_temp_path TempFilePath.cpp TempDirectoryPath.cpp)
 target_link_libraries(velox_temp_path velox_exception)
 
 add_library(
-  velox_exec_test_util
+  velox_exec_test_lib
   AssertQueryBuilder.cpp
   Cursor.cpp
   HiveConnectorTestBase.cpp
@@ -28,7 +28,7 @@ add_library(
   TpchQueryBuilder.cpp)
 
 target_link_libraries(
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_temp_path
   velox_core
   velox_exception

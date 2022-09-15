@@ -18,7 +18,7 @@ target_link_libraries(
   velox_file_test
   velox_file
   velox_exception
-  velox_exec_test_util
+  velox_exec_test_lib
   ${FMT}
   ${FOLLY_WITH_DEPENDENCIES}
   gtest

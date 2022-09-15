@@ -32,7 +32,7 @@
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/DictionaryVector.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;

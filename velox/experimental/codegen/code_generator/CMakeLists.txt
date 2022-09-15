@@ -19,7 +19,7 @@ target_link_libraries(
   velox_codegen_utils_resource_path
   velox_core
   velox_parse_parser
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_functions_lib
   velox_functions_prestosql_impl
   ${FOLLY_WITH_DEPENDENCIES}

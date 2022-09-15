@@ -18,7 +18,7 @@
 #include "gtest/gtest.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

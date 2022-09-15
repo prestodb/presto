@@ -34,7 +34,7 @@ target_link_libraries(
   velox_functions_spark_test
   velox_functions_spark
   velox_functions_test_lib
-  velox_exec_test_util
+  velox_exec_test_lib
   ${FMT}
   gtest
   gtest_main

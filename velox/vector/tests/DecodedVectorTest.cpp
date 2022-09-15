@@ -25,8 +25,8 @@
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/TypeAliases.h"
-#include "velox/vector/tests/VectorTestBase.h"
 #include "velox/vector/tests/VectorTestUtils.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::test {
 

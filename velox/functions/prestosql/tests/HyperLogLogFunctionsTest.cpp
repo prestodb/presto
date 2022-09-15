@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/hyperloglog/SparseHll.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #define XXH_INLINE_ALL
 #include <xxhash.h>

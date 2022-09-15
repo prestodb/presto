@@ -24,8 +24,8 @@
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
-#include "velox/vector/tests/VectorMaker.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::exec::test {
 

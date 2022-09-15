@@ -43,7 +43,7 @@ add_test(
 target_link_libraries(
   velox_dwio_parquet_tpch_test
   velox_dwio_parquet_reader
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_exec
   velox_hive_connector
   velox_aggregates

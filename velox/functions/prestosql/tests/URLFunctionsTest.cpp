@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <gmock/gmock.h>
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using string_t = std::string;
 

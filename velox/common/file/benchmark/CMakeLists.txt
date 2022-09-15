@@ -15,7 +15,7 @@
 add_library(velox_read_benchmark_lib ReadBenchmark.cpp)
 
 target_link_libraries(velox_read_benchmark_lib velox_file velox_exception
-                      velox_exec_test_util ${FMT} ${FOLLY_WITH_DEPENDENCIES})
+                      velox_exec_test_lib ${FMT} ${FOLLY_WITH_DEPENDENCIES})
 
 add_executable(velox_read_benchmark ReadBenchmarkMain.cpp)
 

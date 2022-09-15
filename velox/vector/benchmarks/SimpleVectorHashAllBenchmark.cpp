@@ -18,8 +18,8 @@
 #include <folly/init/Init.h>
 
 #include "velox/vector/SimpleVector.h"
-#include "velox/vector/tests/VectorMaker.h"
 #include "velox/vector/tests/VectorTestUtils.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::test {
 namespace {

@@ -22,7 +22,7 @@
 #include "velox/row/UnsafeRowSerializer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::row {
 using namespace facebook::velox;

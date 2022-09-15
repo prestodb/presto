@@ -15,7 +15,7 @@
  */
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include <gtest/gtest.h>
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 

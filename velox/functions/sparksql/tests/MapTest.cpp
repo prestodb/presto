@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/sparksql/tests/SparkFunctionBaseTest.h"
 
 #include <stdint.h>

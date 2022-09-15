@@ -40,7 +40,7 @@ target_link_libraries(
   ${FMT}
   velox_core
   velox_parse_parser
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_functions_lib
   velox_functions_prestosql
   velox_all_link)
@@ -59,7 +59,7 @@ target_link_libraries(
   ${FMT}
   velox_core
   velox_parse_parser
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_functions_lib
   velox_functions_prestosql
   velox_all_link)

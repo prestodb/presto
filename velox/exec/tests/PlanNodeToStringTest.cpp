@@ -19,7 +19,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include <gtest/gtest.h>
 

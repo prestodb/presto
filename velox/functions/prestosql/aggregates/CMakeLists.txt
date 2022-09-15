@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-  add_subdirectory(benchmarks)
-endif()
-
 add_library(
   velox_aggregates OBJECT
   AggregateNames.h
@@ -49,3 +44,11 @@ add_library(
 
 target_link_libraries(velox_aggregates velox_common_hyperloglog velox_exec
                       velox_presto_serializer ${FOLLY_WITH_DEPENDENCIES})
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
+
+if(${VELOX_ENABLE_BENCHMARKS})
+  add_subdirectory(benchmarks)
+endif()

@@ -22,7 +22,7 @@
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/Comparisons.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

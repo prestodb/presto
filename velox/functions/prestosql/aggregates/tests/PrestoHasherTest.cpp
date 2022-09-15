@@ -19,7 +19,7 @@
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/tz/TimeZoneMap.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox::aggregate::test {
 template <typename T>

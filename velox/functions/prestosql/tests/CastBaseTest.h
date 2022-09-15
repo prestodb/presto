@@ -19,7 +19,7 @@
 
 #include "velox/core/Expressions.h"
 #include "velox/core/ITypedExpr.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/tests/TestingDictionaryFunction.h"
 
 namespace facebook::velox::functions::test {

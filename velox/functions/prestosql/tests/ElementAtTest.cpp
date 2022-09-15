@@ -16,7 +16,7 @@
 
 #include <optional>
 #include "velox/functions/lib/SubscriptUtil.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;

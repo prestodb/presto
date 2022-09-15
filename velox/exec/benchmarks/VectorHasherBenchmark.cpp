@@ -16,7 +16,7 @@
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
 #include "velox/exec/VectorHasher.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;

@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "velox/vector/tests/VectorMaker.h"
-#include "velox/vector/tests/VectorMakerStats.h"
 #include "velox/vector/tests/VectorValueGenerator.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMakerStats.h"
 
 namespace facebook::velox::test {
 

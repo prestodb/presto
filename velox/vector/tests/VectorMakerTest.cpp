@@ -18,7 +18,7 @@
 
 #include "velox/common/base/VeloxException.h"
 #include "velox/common/memory/Memory.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using facebook::velox::test::VectorMaker;

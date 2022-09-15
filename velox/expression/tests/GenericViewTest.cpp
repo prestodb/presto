@@ -21,7 +21,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/VectorReaders.h"
 #include "velox/functions/Udf.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {

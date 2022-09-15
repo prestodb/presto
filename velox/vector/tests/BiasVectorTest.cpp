@@ -18,7 +18,7 @@
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/vector/SimpleVector.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::test {
 

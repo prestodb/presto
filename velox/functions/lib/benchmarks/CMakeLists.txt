@@ -16,7 +16,7 @@ add_executable(velox_re2_functions_benchmarks Re2FunctionsBenchmarks.cpp)
 target_link_libraries(
   velox_re2_functions_benchmarks
   velox_functions_lib
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_expression
   velox_vector_test_lib
   velox_vector_fuzzer

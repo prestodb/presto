@@ -16,7 +16,7 @@
 #include <exception>
 #include <optional>
 
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox {
 namespace {

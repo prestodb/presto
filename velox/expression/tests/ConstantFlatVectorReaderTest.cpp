@@ -19,7 +19,7 @@
 #include <cstdint>
 
 #include "velox/expression/VectorReaders.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/vector/BaseVector.h"
 
 namespace facebook::velox::exec {

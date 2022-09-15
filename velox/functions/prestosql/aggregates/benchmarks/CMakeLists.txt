@@ -19,7 +19,7 @@ target_link_libraries(
   velox_aggregates
   velox_hive_connector
   velox_functions_lib
-  velox_exec_test_util
+  velox_exec_test_lib
   velox_functions_prestosql
   velox_dwio_common_exception
   velox_vector_fuzzer

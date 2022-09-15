@@ -17,7 +17,7 @@
 #pragma once
 
 #include "velox/dwio/common/tests/utils/DataFiles.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <gtest/gtest.h>
 

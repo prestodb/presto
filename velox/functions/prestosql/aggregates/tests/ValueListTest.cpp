@@ -15,8 +15,8 @@
  */
 #include "velox/functions/prestosql/aggregates/ValueList.h"
 #include <gtest/gtest.h>
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;

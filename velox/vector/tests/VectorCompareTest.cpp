@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <optional>
 
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 namespace facebook::velox {
 class VectorCompareTest : public testing::Test,

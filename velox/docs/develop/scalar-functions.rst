@@ -1255,7 +1255,7 @@ Testing
 -------
 
 Add a test using FunctionBaseTest from
-velox/functions/prestosql/tests/FunctionBaseTest.h as a base class. Name your test
+velox/functions/prestosql/tests/utils/FunctionBaseTest.h as a base class. Name your test
 and the .cpp file <function-name>Test, e.g. CardinalityTest in
 CardinalityTest.cpp or IsNullTest in IsNullTest.cpp.
 

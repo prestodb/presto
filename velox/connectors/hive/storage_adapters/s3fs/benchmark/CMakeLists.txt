@@ -20,6 +20,6 @@ target_link_libraries(
   velox_read_benchmark_lib
   velox_s3fs
   velox_exception
-  velox_exec_test_util
+  velox_exec_test_lib
   ${FMT}
   ${FOLLY_WITH_DEPENDENCIES})

@@ -11,28 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-add_executable(
-  velox_functions_lib_test
-  ApproxMostFrequentStreamSummaryTest.cpp
-  ArrayBuilderTest.cpp
-  DateTimeFormatterTest.cpp
-  IsNullTest.cpp
-  IsNotNullTest.cpp
-  JodaDateTimeTest.cpp
-  KllSketchTest.cpp
-  Re2FunctionsTest.cpp
-  ZetaDistributionTest.cpp)
+add_library(velox_vector_test_lib VectorMaker.cpp VectorTestBase.cpp)
 
-add_test(velox_functions_lib_test velox_functions_lib_test)
-
-target_link_libraries(
-  velox_functions_lib_test
-  velox_functions_lib
-  velox_functions_test_lib
-  velox_exec_test_lib
-  velox_expression
-  velox_memory
-  gtest
-  gtest_main
-  gmock
-  ${gflags_LIBRARIES})
+target_link_libraries(velox_vector_test_lib velox_vector)

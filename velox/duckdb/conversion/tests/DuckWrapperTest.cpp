@@ -15,7 +15,7 @@
  */
 #include "velox/duckdb/conversion/DuckWrapper.h"
 #include "velox/external/duckdb/duckdb.hpp"
-#include "velox/vector/tests/VectorMaker.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <gtest/gtest.h>
 

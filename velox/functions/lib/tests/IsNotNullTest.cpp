@@ -15,7 +15,7 @@
  */
 
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/parse/TypeResolver.h"
 
 namespace facebook::velox::functions {

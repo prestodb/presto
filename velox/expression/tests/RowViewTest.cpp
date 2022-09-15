@@ -17,7 +17,7 @@
 #include <optional>
 #include "gtest/gtest.h"
 #include "velox/expression/VectorReaders.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace {
 

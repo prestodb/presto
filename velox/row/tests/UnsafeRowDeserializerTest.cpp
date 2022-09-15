@@ -22,7 +22,7 @@
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 #include "velox/row/UnsafeRowParser.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
-#include "velox/vector/tests/VectorTestBase.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/TypeAliases.h"

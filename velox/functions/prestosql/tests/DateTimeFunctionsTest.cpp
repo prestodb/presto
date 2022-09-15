@@ -17,7 +17,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
 #include "velox/type/Timestamp.h"

@@ -18,7 +18,7 @@
 #include "folly/Range.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
-#include "velox/functions/prestosql/tests/FunctionBaseTest.h"
+#include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 namespace facebook::velox::expressions::test {
 
