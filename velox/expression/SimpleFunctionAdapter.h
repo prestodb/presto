@@ -165,38 +165,27 @@ class SimpleFunctionAdapter : public VectorFunction {
     bool mayHaveNullsRecursive{false};
   };
 
-  template <
-      int32_t POSITION,
-      typename... Values,
-      typename std::enable_if_t<POSITION<FUNC::num_args, int32_t> = 0> void
-          unpackInitialize(
-              const core::QueryConfig& config,
-              const std::vector<VectorPtr>& packed,
-              const Values*... values) const {
-    if (packed.at(POSITION) != nullptr) {
-      SelectivityVector rows(1);
-      DecodedVector decodedVector(*packed.at(POSITION), rows);
-      auto oneReader = VectorReader<arg_at<POSITION>>(&decodedVector);
-      auto oneValue = oneReader[0];
-
-      unpackInitialize<POSITION + 1>(config, packed, values..., &oneValue);
-    } else {
-      using temp_type = exec_arg_at<POSITION>;
-      unpackInitialize<POSITION + 1>(
-          config, packed, values..., (const temp_type*)nullptr);
-    }
-  }
-
-  // unpackInitialize: base case
-  template <
-      int32_t POSITION,
-      typename... Values,
-      typename std::enable_if_t<POSITION == FUNC::num_args, int32_t> = 0>
+  template <int32_t POSITION, typename... Values>
   void unpackInitialize(
       const core::QueryConfig& config,
-      const std::vector<VectorPtr>& /*packed*/,
+      const std::vector<VectorPtr>& packed,
       const Values*... values) const {
-    return (*fn_).initialize(config, values...);
+    if constexpr (POSITION == FUNC::num_args) {
+      return (*fn_).initialize(config, values...);
+    } else {
+      if (packed.at(POSITION) != nullptr) {
+        SelectivityVector rows(1);
+        DecodedVector decodedVector(*packed.at(POSITION), rows);
+        auto oneReader = VectorReader<arg_at<POSITION>>(&decodedVector);
+        auto oneValue = oneReader[0];
+
+        unpackInitialize<POSITION + 1>(config, packed, values..., &oneValue);
+      } else {
+        using temp_type = exec_arg_at<POSITION>;
+        unpackInitialize<POSITION + 1>(
+            config, packed, values..., (const temp_type*)nullptr);
+      }
+    }
   }
 
  public:
