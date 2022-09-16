@@ -164,6 +164,12 @@ public final class TinyintType
         return getClass().hashCode();
     }
 
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.TINYINT;
+    }
+
     public static long hash(byte value)
     {
         // xxhash64 mix

@@ -165,6 +165,12 @@ public final class SmallintType
         return getClass().hashCode();
     }
 
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.SMALLINT;
+    }
+
     public static long hash(short value)
     {
         // xxhash64 mix

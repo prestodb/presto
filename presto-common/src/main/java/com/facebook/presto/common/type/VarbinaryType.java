@@ -123,4 +123,10 @@ public final class VarbinaryType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.VARBINARY;
+    }
 }

@@ -77,6 +77,12 @@ public final class TimestampType
         return Objects.hash(getClass(), precision);
     }
 
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.TIMESTAMP;
+    }
+
     private static String getType(TimeUnit precision)
     {
         if (precision == MICROSECONDS) {

@@ -94,4 +94,10 @@ public final class RealType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.REAL;
+    }
 }

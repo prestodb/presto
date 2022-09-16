@@ -47,4 +47,10 @@ public final class VarcharType
                         StandardTypes.VARCHAR,
                         singletonList(TypeSignatureParameter.of((long) length))));
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.VARCHAR;
+    }
 }

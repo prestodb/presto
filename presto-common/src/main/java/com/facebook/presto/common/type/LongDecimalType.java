@@ -142,4 +142,10 @@ final class LongDecimalType
                 block.getLong(position, 0),
                 block.getLong(position, SIZE_OF_LONG));
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.LONG_DECIMAL;
+    }
 }

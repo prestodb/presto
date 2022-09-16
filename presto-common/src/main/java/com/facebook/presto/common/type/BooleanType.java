@@ -172,4 +172,10 @@ public final class BooleanType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.BOOLEAN;
+    }
 }

@@ -59,4 +59,10 @@ public final class TimeType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.TIME;
+    }
 }

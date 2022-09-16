@@ -96,4 +96,10 @@ public class JsonType
     {
         blockBuilder.writeBytes(value, offset, length).closeEntry();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.JSON;
+    }
 }

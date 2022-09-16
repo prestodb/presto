@@ -128,4 +128,10 @@ final class ShortDecimalType
     {
         blockBuilder.writeLong(value).closeEntry();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.SHORT_DECIMAL;
+    }
 }

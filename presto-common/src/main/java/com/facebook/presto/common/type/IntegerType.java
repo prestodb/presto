@@ -66,4 +66,10 @@ public final class IntegerType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.INTEGER;
+    }
 }

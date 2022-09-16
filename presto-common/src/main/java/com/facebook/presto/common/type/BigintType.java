@@ -50,4 +50,10 @@ public final class BigintType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.BIGINT;
+    }
 }

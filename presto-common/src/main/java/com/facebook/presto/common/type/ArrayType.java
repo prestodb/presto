@@ -233,4 +233,10 @@ public class ArrayType
     {
         return ARRAY + "(" + elementType.getDisplayName() + ")";
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.ARRAY;
+    }
 }

@@ -56,6 +56,15 @@ public interface Type
     Class<?> getJavaType();
 
     /**
+     * Gets the type kind of this type. It's defined for a sub-set of standard types,
+     * for the rest of the types the {@code TypeKind.OTHER} will be returned.
+     */
+    default TypeKind getKind()
+    {
+        return TypeKind.OTHER;
+    }
+
+    /**
      * For parameterized types returns the list of parameters.
      */
     List<Type> getTypeParameters();

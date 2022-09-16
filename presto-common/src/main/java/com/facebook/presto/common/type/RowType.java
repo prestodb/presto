@@ -291,6 +291,12 @@ public class RowType
         return result;
     }
 
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.ROW;
+    }
+
     private static void checkElementNotNull(boolean isNull)
     {
         if (isNull) {

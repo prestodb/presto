@@ -157,4 +157,10 @@ public final class DoubleType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.DOUBLE;
+    }
 }

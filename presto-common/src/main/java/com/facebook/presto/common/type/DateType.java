@@ -59,4 +59,10 @@ public final class DateType
     {
         return getClass().hashCode();
     }
+
+    @Override
+    public TypeKind getKind()
+    {
+        return TypeKind.DATE;
+    }
 }
