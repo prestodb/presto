@@ -181,5 +181,5 @@ Running Presto Coordinator + Worker on MacOS
 
 ### Creating PRs for presto/presto-native-execution/
 * Submit PRs as usual following [Presto repository guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines).
-* On top of it please add `[native]` prefix in the title for PRs modifying anything in `presto-native-execution`. 
+* On top of it please add `[native]` prefix in the `title` as well as to the `commit message` for PRs modifying anything in `presto-native-execution`. 
 * PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.  
