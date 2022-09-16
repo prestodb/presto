@@ -78,13 +78,9 @@ jobs:
           ninja -C _build/debug
           ccache -s
 
-  native-specific-linux:
+  native-specific-check:
     runs-on: ubuntu-latest
-    container: prestocpp/prestocpp-avx-circleci:mikesh-20220804
-
-    env:
-      CC: /opt/rh/gcc-toolset-9/root/bin/gcc
-      CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+    container: prestocpp/velox-check:mikesh-20210609
 
     steps:
       - uses: actions/checkout@v3
@@ -108,6 +104,15 @@ jobs:
           echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
         shell: bash
 
+  native-specific-s3-adapter:
+    runs-on: ubuntu-latest
+    container: prestocpp/prestocpp-avx-circleci:mikesh-20220804
+
+    env:
+      CC: /opt/rh/gcc-toolset-9/root/bin/gcc
+      CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+
+    steps:
       - name: Setup ccache cache
         id: presto_cpp_ccache
         uses: actions/cache@v3
