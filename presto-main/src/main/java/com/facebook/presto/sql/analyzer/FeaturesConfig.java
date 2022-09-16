@@ -236,6 +236,7 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
+    private boolean randomizeOuterJoinNullKey;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2217,5 +2218,18 @@ public class FeaturesConfig
     public String getNativeExecutionExecutablePath()
     {
         return this.nativeExecutionExecutablePath;
+    }
+
+    public boolean isRandomizeOuterJoinNullKeyEnabled()
+    {
+        return randomizeOuterJoinNullKey;
+    }
+
+    @Config("optimizer.randomize-outer-join-null-key")
+    @ConfigDescription("Randomize null join key for outer join")
+    public FeaturesConfig setRandomizeOuterJoinNullKeyEnabled(boolean randomizeOuterJoinNullKey)
+    {
+        this.randomizeOuterJoinNullKey = randomizeOuterJoinNullKey;
+        return this;
     }
 }
