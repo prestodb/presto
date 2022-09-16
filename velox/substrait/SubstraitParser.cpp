@@ -16,6 +16,7 @@
 
 #include "velox/substrait/SubstraitParser.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/substrait/TypeUtils.h"
 
 namespace facebook::velox::substrait {
 
@@ -213,47 +214,12 @@ const std::string& SubstraitParser::findFunctionSpec(
   return map[id];
 }
 
-std::string SubstraitParser::getFunctionName(
-    const std::string& functionSpec) const {
-  // Get the position of ":" in the function name.
-  std::size_t pos = functionSpec.find(":");
-  if (pos == std::string::npos) {
-    return functionSpec;
-  }
-  return functionSpec.substr(0, pos);
-}
-
-void SubstraitParser::getFunctionTypes(
-    const std::string& functionSpec,
-    std::vector<std::string>& types) const {
-  types.clear();
-  // Get the position of ":" in the function name.
-  std::size_t pos = functionSpec.find(":");
-  // Get the parameter types.
-  std::string funcTypes;
-  if (pos == std::string::npos) {
-    return;
-  } else {
-    if (pos == functionSpec.size() - 1) {
-      return;
-    }
-    funcTypes = functionSpec.substr(pos + 1);
-  }
-  // Split the types with delimiter.
-  std::string delimiter = "_";
-  while ((pos = funcTypes.find(delimiter)) != std::string::npos) {
-    types.emplace_back(funcTypes.substr(0, pos));
-    funcTypes.erase(0, pos + delimiter.length());
-  }
-  types.emplace_back(funcTypes);
-}
-
 std::string SubstraitParser::findVeloxFunction(
     const std::unordered_map<uint64_t, std::string>& functionMap,
     uint64_t id) const {
   std::string funcSpec = findFunctionSpec(functionMap, id);
-  std::string funcName = getFunctionName(funcSpec);
-  return mapToVeloxFunction(funcName);
+  std::string_view funcName = getNameBeforeDelimiter(funcSpec, ":");
+  return mapToVeloxFunction({funcName.begin(), funcName.end()});
 }
 
 std::string SubstraitParser::mapToVeloxFunction(

@@ -47,7 +47,6 @@ function install_libhdfs3 {
 }
 
 function install_protobuf {
-  #yum -y install gcc-c++
   wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz
   tar -xzf protobuf-all-21.4.tar.gz --no-same-owner
   cd protobuf-21.4

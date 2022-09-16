@@ -121,7 +121,6 @@ VeloxToSubstraitExprConvertor::toSubstraitExpr(
       substraitFieldExpr->mutable_direct_reference()->mutable_struct_field();
 
   directStruct->set_field(inputType->getChildIdx(exprName));
-
   return *substraitFieldExpr;
 }
 

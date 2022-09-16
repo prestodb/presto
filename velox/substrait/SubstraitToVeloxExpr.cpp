@@ -29,12 +29,10 @@ SubstraitVeloxExprConverter::toVeloxExpr(
         kDirectReference: {
       const auto& directRef = substraitField.direct_reference();
       int32_t colIdx = substraitParser_.parseReferenceSegment(directRef);
-
-      const auto& inputTypes = inputType->children();
       const auto& inputNames = inputType->names();
       const int64_t inputSize = inputNames.size();
-
       if (colIdx <= inputSize) {
+        const auto& inputTypes = inputType->children();
         // Convert type to row.
         return std::make_shared<core::FieldAccessTypedExpr>(
             inputTypes[colIdx],
@@ -54,18 +52,17 @@ std::shared_ptr<const core::ITypedExpr>
 SubstraitVeloxExprConverter::toVeloxExpr(
     const ::substrait::Expression::ScalarFunction& substraitFunc,
     const RowTypePtr& inputType) {
-  std::vector<std::shared_ptr<const core::ITypedExpr>> params;
+  std::vector<core::TypedExprPtr> params;
   params.reserve(substraitFunc.arguments().size());
   for (const auto& sArg : substraitFunc.arguments()) {
     params.emplace_back(toVeloxExpr(sArg.value(), inputType));
   }
   const auto& veloxFunction = substraitParser_.findVeloxFunction(
       functionMap_, substraitFunc.function_reference());
-  const auto& veloxType = toVeloxType(
-      substraitParser_.parseType(substraitFunc.output_type())->type);
-
+  std::string typeName =
+      substraitParser_.parseType(substraitFunc.output_type())->type;
   return std::make_shared<const core::CallTypedExpr>(
-      veloxType, std::move(params), veloxFunction);
+      toVeloxType(typeName), std::move(params), veloxFunction);
 }
 
 std::shared_ptr<const core::ConstantTypedExpr>

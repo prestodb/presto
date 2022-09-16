@@ -318,6 +318,8 @@ void VeloxToSubstraitPlanConvertor::constructFunctionMap() {
   functionMap_["sum"] = 5;
   functionMap_["mod"] = 6;
   functionMap_["eq"] = 7;
+  functionMap_["row_constructor"] = 8;
+  functionMap_["avg"] = 9;
 }
 
 ::substrait::Plan& VeloxToSubstraitPlanConvertor::addExtensionFunc(
@@ -364,7 +366,7 @@ void VeloxToSubstraitPlanConvertor::constructFunctionMap() {
       substraitPlan->add_extensions()->mutable_extension_function();
   extensionFunction->set_extension_uri_reference(0);
   extensionFunction->set_function_anchor(5);
-  extensionFunction->set_name("sum:opt_i32");
+  extensionFunction->set_name("sum:opt_f64");
 
   extensionFunction =
       substraitPlan->add_extensions()->mutable_extension_function();
@@ -378,6 +380,17 @@ void VeloxToSubstraitPlanConvertor::constructFunctionMap() {
   extensionFunction->set_function_anchor(7);
   extensionFunction->set_name("equal:i64_i64");
 
+  extensionFunction =
+      substraitPlan->add_extensions()->mutable_extension_function();
+  extensionFunction->set_extension_uri_reference(0);
+  extensionFunction->set_function_anchor(8);
+  extensionFunction->set_name("row_constructor:f64_i32");
+
+  extensionFunction =
+      substraitPlan->add_extensions()->mutable_extension_function();
+  extensionFunction->set_extension_uri_reference(0);
+  extensionFunction->set_function_anchor(9);
+  extensionFunction->set_name("avg:opt_f64");
   return *substraitPlan;
 }
 

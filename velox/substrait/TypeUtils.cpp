@@ -18,7 +18,6 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox::substrait {
-namespace {
 std::vector<std::string_view> getTypesFromCompoundName(
     std::string_view compoundName) {
   // CompoundName is like ARRAY<BIGINT> or MAP<BIGINT,DOUBLE>
@@ -65,7 +64,6 @@ std::string_view getNameBeforeDelimiter(
   }
   return std::string_view(compoundName.data(), pos);
 }
-} // namespace
 
 TypePtr toVeloxType(const std::string& typeName) {
   VELOX_CHECK(!typeName.empty(), "Cannot convert empty string to Velox type.");
