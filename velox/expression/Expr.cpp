@@ -26,6 +26,7 @@
 #include "velox/expression/FieldReference.h"
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/vector/SelectivityVector.h"
 
 DEFINE_bool(
     force_eval_simplified,
@@ -105,7 +106,6 @@ bool hasConditionals(Expr* expr) {
 
   return false;
 }
-
 } // namespace
 
 Expr::Expr(
@@ -1037,25 +1037,37 @@ void Expr::evalAll(
     evalSpecialForm(rows, context, result);
     return;
   }
-  LocalSelectivityVector nonNulls(context);
-  auto* remainingRows = &rows;
   bool tryPeelArgs = deterministic_ ? true : false;
   bool defaultNulls = vectorFunction_->isDefaultNullBehavior();
+
+  // Tracks what subset of rows shall un-evaluated inputs and current expression
+  // evaluates. Initially points to rows.
+  const SelectivityVector* remainingRows = &rows;
+
+  // Points to a mutable remainingRows, allocated using
+  // mutableRemainingRowsHolder only if needed.
+  SelectivityVector* mutableRemainingRows = nullptr;
+  LocalSelectivityVector mutableRemainingRowsHolder(context);
+
   inputValues_.resize(inputs_.size());
   for (int32_t i = 0; i < inputs_.size(); ++i) {
     inputs_[i]->eval(*remainingRows, context, inputValues_[i]);
     tryPeelArgs = tryPeelArgs && isPeelable(inputValues_[i]->encoding());
+
+    // Avoid subsequent computation on rows with known null output.
     if (defaultNulls && inputValues_[i]->mayHaveNulls()) {
-      if (remainingRows == &rows) {
-        nonNulls.allocate(rows.end());
-        *nonNulls.get() = rows;
-        remainingRows = nonNulls.get();
-        VELOX_DCHECK(remainingRows != nullptr);
-      }
-      LocalDecodedVector decoded(context, *inputValues_[i], rows);
+      LocalDecodedVector decoded(context, *inputValues_[i], *remainingRows);
+
       if (auto* rawNulls = decoded->nulls()) {
-        nonNulls.get()->deselectNulls(
+        // Allocate remainingRows before the first time writing to it.
+        if (mutableRemainingRows == nullptr) {
+          mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
+          remainingRows = mutableRemainingRows;
+        }
+
+        mutableRemainingRows->deselectNulls(
             rawNulls, remainingRows->begin(), remainingRows->end());
+
         if (!remainingRows->hasSelections()) {
           releaseInputValues(context);
           setAllNulls(rows, context, result);
@@ -1071,12 +1083,14 @@ void Expr::evalAll(
   // them.  It's safe to skip evaluating them since the value for this branch
   // of the expression tree will be NULL for those rows anyway.
   if (context.errors()) {
-    if (remainingRows == &rows) {
-      nonNulls.allocate(rows.end());
-      *nonNulls.get() = rows;
-      remainingRows = nonNulls.get();
+    // Allocate remainingRows before the first time writing to it.
+    if (mutableRemainingRows == nullptr) {
+      mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
+      remainingRows = mutableRemainingRows;
     }
-    deselectErrors(context, *nonNulls.get());
+    deselectErrors(context, *mutableRemainingRows);
+
+    // All rows have at least one null output or error.
     if (!remainingRows->hasSelections()) {
       releaseInputValues(context);
       setAllNulls(rows, context, result);
@@ -1088,8 +1102,11 @@ void Expr::evalAll(
       !applyFunctionWithPeeling(rows, *remainingRows, context, result)) {
     applyFunction(*remainingRows, context, result);
   }
-  if (remainingRows != &rows) {
-    addNulls(rows, remainingRows->asRange().bits(), context, result);
+
+  // Write non-selected rows in remainingRows as nulls in the result if some
+  // rows have been skipped.
+  if (mutableRemainingRows != nullptr) {
+    addNulls(rows, mutableRemainingRows->asRange().bits(), context, result);
   }
   releaseInputValues(context);
 }
