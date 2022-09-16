@@ -38,9 +38,13 @@ struct VectorWriter {
   using exec_out_t = typename VectorExec::template resolver<T>::out_type;
   using vector_t = typename TypeToFlatVector<T>::type;
 
-  void init(vector_t& vector) {
+  void init(vector_t& vector, bool uniqueAndMutable = false) {
     vector_ = &vector;
-    data_ = vector.mutableRawValues();
+    if (!uniqueAndMutable || vector.rawValues() == nullptr) {
+      data_ = vector.mutableRawValues();
+    } else {
+      data_ = const_cast<exec_out_t*>(vector.rawValues());
+    }
   }
 
   void finish() {}
@@ -355,7 +359,7 @@ struct VectorWriter<
   using vector_t = typename TypeToFlatVector<T>::type;
   using exec_out_t = StringWriter<>;
 
-  void init(vector_t& vector) {
+  void init(vector_t& vector, bool uniqueAndMutable = false) {
     proxy_.vector_ = &vector;
   }
 
@@ -402,7 +406,7 @@ struct VectorWriter<T, std::enable_if_t<std::is_same_v<T, bool>>> {
   using vector_t = typename TypeToFlatVector<T>::type;
   using exec_out_t = bool;
 
-  void init(vector_t& vector) {
+  void init(vector_t& vector, bool uniqueAndMutable = false) {
     vector_ = &vector;
   }
 
