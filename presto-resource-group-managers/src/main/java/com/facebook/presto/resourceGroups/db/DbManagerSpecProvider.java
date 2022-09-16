@@ -108,6 +108,7 @@ public class DbManagerSpecProvider
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
                                 selectorRecord.getSelectorResourceEstimate(),
+                                selectorRecord.getClientInfoRegex(),
                                 resourceGroupIdTemplateMap.get(selectorRecord.getResourceGroupId()))
                 ).collect(toList());
         ManagerSpec managerSpec = new ManagerSpec(rootGroups, selectors, getCpuQuotaPeriodFromDb());
