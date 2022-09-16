@@ -194,7 +194,8 @@ public class DispatchManager
                     Optional.ofNullable(sessionContext.getSource()),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
-                    queryType.map(Enum::name)));
+                    queryType.map(Enum::name),
+                    Optional.ofNullable(sessionContext.getClientInfo())));
 
             // apply system default session properties (does not override user set properties)
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));

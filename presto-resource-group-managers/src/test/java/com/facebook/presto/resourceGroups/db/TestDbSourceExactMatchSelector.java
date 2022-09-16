@@ -56,22 +56,22 @@ public class TestDbSourceExactMatchSelector
         DbSourceExactMatchSelector selector = new DbSourceExactMatchSelector("test", dao);
 
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.empty())),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.empty(), Optional.empty())),
                 Optional.empty());
 
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()))).map(SelectionContext::getResourceGroupId),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()), Optional.empty())).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId1));
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(SELECT.name()))).map(SelectionContext::getResourceGroupId),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(SELECT.name()), Optional.empty())).map(SelectionContext::getResourceGroupId),
                 Optional.of(resourceGroupId2));
 
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(DELETE.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_pipeline"), ImmutableSet.of("tag"), EMPTY_RESOURCE_ESTIMATES, Optional.of(DELETE.name()), Optional.empty())),
                 Optional.empty());
 
         assertEquals(
-                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()))),
+                selector.match(new SelectionCriteria(true, "testuser", Optional.of("@test@test_new"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.of(INSERT.name()), Optional.empty())),
                 Optional.empty());
     }
 }
