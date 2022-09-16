@@ -72,7 +72,7 @@ class FunctionBaseTest : public testing::Test,
     return ROW({name, name2}, {type, type2});
   }
 
-  std::shared_ptr<const core::ITypedExpr> makeTypedExpr(
+  core::TypedExprPtr makeTypedExpr(
       const std::string& text,
       const RowTypePtr& rowType) {
     auto untyped = parse::parseExpr(text, options_);
@@ -82,7 +82,7 @@ class FunctionBaseTest : public testing::Test,
   // Use this directly if you want to evaluate a manually-constructed expression
   // tree and don't want it to cast the returned vector.
   VectorPtr evaluate(
-      const std::shared_ptr<const core::ITypedExpr>& typedExpr,
+      const core::TypedExprPtr& typedExpr,
       const RowVectorPtr& data) {
     return evaluateImpl<exec::ExprSet>(typedExpr, data);
   }
@@ -99,7 +99,7 @@ class FunctionBaseTest : public testing::Test,
   // tree.
   template <typename T>
   std::shared_ptr<T> evaluate(
-      const std::shared_ptr<const core::ITypedExpr>& typedExpr,
+      const core::TypedExprPtr& typedExpr,
       const RowVectorPtr& data) {
     auto result = evaluate(typedExpr, data);
     return castEvaluateResult<T>(result, typedExpr->toString());
@@ -300,7 +300,7 @@ class FunctionBaseTest : public testing::Test,
 
   template <typename ExprSet>
   VectorPtr evaluateImpl(
-      const std::shared_ptr<const core::ITypedExpr>& typedExpr,
+      const core::TypedExprPtr& typedExpr,
       const RowVectorPtr& data) {
     SelectivityVector rows(data->size());
     std::vector<VectorPtr> results(1);

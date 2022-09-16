@@ -141,7 +141,7 @@ std::shared_ptr<core::FieldAccessTypedExpr> OperatorTestBase::toFieldExpr(
       rowType->findChild(name), name);
 }
 
-std::shared_ptr<const core::ITypedExpr> OperatorTestBase::parseExpr(
+core::TypedExprPtr OperatorTestBase::parseExpr(
     const std::string& text,
     RowTypePtr rowType,
     const parse::ParseOptions& options) {

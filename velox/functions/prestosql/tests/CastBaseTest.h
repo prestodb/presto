@@ -41,13 +41,10 @@ class CastBaseTest : public FunctionBaseTest {
       const TypePtr& toType,
       const RowVectorPtr& input,
       bool tryCast = false) {
-    std::shared_ptr<const core::ITypedExpr> inputField =
+    core::TypedExprPtr inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
-    std::shared_ptr<const core::ITypedExpr> castExpr =
-        std::make_shared<const core::CastTypedExpr>(
-            toType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
-            tryCast);
+    core::TypedExprPtr castExpr = std::make_shared<const core::CastTypedExpr>(
+        toType, std::vector<core::TypedExprPtr>{inputField}, tryCast);
 
     if constexpr (std::is_same_v<TTo, ComplexType>) {
       return evaluate(castExpr, input);
@@ -74,18 +71,14 @@ class CastBaseTest : public FunctionBaseTest {
       const RowVectorPtr& input,
       const VectorPtr& expected,
       bool tryCast = false) {
-    std::shared_ptr<const core::ITypedExpr> inputField =
+    core::TypedExprPtr inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
-    std::shared_ptr<const core::ITypedExpr> callExpr =
-        std::make_shared<const core::CallTypedExpr>(
-            fromType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{inputField},
-            "testing_dictionary");
-    std::shared_ptr<const core::ITypedExpr> castExpr =
-        std::make_shared<const core::CastTypedExpr>(
-            toType,
-            std::vector<std::shared_ptr<const core::ITypedExpr>>{callExpr},
-            tryCast);
+    core::TypedExprPtr callExpr = std::make_shared<const core::CallTypedExpr>(
+        fromType,
+        std::vector<core::TypedExprPtr>{inputField},
+        "testing_dictionary");
+    core::TypedExprPtr castExpr = std::make_shared<const core::CastTypedExpr>(
+        toType, std::vector<core::TypedExprPtr>{callExpr}, tryCast);
 
     VectorPtr result;
     if constexpr (std::is_same_v<TTo, ComplexType>) {

@@ -701,7 +701,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<TempDirectoryPath> tempDirPath_;
   std::shared_ptr<FileSystem> fs_;
-  std::shared_ptr<const RowType> rowType_;
+  RowTypePtr rowType_;
   int numKeys_;
   std::vector<column_index_t> keyChannels_;
   std::vector<uint32_t> spillPartitions_;
@@ -869,8 +869,7 @@ TEST_P(NoHashJoinNoOrderBy, spillWithEmptyPartitions) {
 
 TEST_P(NoHashJoinNoOrderBy, spillWithNonSpillingPartitions) {
   // kOrderBy type which has only one partition, is irrelevant for this test.
-  std::shared_ptr<const RowType> rowType =
-      ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
+  RowTypePtr rowType = ROW({{"long_val", BIGINT()}, {"string_val", VARCHAR()}});
   struct {
     std::vector<int> rowsPerPartition;
     int numDuplicates;

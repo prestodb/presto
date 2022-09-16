@@ -41,7 +41,7 @@ TopN::TopN(
       decodedVectors_(outputType_->children().size()) {}
 
 TopN::Comparator::Comparator(
-    const std::shared_ptr<const RowType>& type,
+    const RowTypePtr& type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         sortingKeys,
     const std::vector<core::SortOrder>& sortingOrders,

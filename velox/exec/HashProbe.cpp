@@ -25,7 +25,7 @@ namespace {
 
 // Returns the type for the hash table row. Build side keys first,
 // then dependent build side columns.
-std::shared_ptr<const RowType> makeTableType(
+RowTypePtr makeTableType(
     const RowType* type,
     const std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>>&
         keys) {
@@ -46,7 +46,7 @@ std::shared_ptr<const RowType> makeTableType(
       types.emplace_back(type->childAt(i));
     }
   }
-  return std::make_shared<RowType>(std::move(names), std::move(types));
+  return ROW(std::move(names), std::move(types));
 }
 
 // Copy values from 'rows' of 'table' according to 'projections' in
@@ -140,10 +140,10 @@ HashProbe::HashProbe(
 }
 
 void HashProbe::initializeFilter(
-    const std::shared_ptr<const core::ITypedExpr>& filter,
+    const core::TypedExprPtr& filter,
     const RowTypePtr& probeType,
     const RowTypePtr& tableType) {
-  std::vector<std::shared_ptr<const core::ITypedExpr>> filters = {filter};
+  std::vector<core::TypedExprPtr> filters = {filter};
   filter_ =
       std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
 

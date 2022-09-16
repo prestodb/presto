@@ -57,7 +57,7 @@ class HashProbe : public Operator {
  private:
   // Sets up 'filter_' and related members.
   void initializeFilter(
-      const std::shared_ptr<const core::ITypedExpr>& filter,
+      const core::TypedExprPtr& filter,
       const RowTypePtr& probeType,
       const RowTypePtr& tableType);
 

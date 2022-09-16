@@ -722,8 +722,7 @@ class PlanBuilder {
   std::shared_ptr<const core::FieldAccessTypedExpr> field(
       const std::string& name);
 
-  std::vector<std::shared_ptr<const core::ITypedExpr>> exprs(
-      const std::vector<std::string>& names);
+  std::vector<core::TypedExprPtr> exprs(const std::vector<std::string>& names);
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
       const std::vector<std::string>& names);
@@ -748,7 +747,7 @@ class PlanBuilder {
       core::AggregationNode::Step step,
       const core::AggregationNode* partialAggNode);
 
-  std::shared_ptr<const core::ITypedExpr> inferTypes(
+  core::TypedExprPtr inferTypes(
       const std::shared_ptr<const core::IExpr>& untypedExpr);
 
   struct ExpressionsAndNames {

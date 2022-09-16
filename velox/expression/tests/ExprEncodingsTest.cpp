@@ -182,7 +182,7 @@ class ExprEncodingsTest
          EncodingOptions::sequence(10)});
   }
 
-  std::shared_ptr<const core::ITypedExpr> parseExpression(
+  core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
     auto untyped = parse::parseExpr(text, options_);

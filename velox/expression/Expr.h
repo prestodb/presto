@@ -389,7 +389,7 @@ using ExprPtr = std::shared_ptr<Expr>;
 class ExprSet {
  public:
   explicit ExprSet(
-      std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
+      std::vector<core::TypedExprPtr>&& source,
       core::ExecCtx* FOLLY_NONNULL execCtx,
       bool enableConstantFolding = true);
 
@@ -462,7 +462,7 @@ class ExprSet {
 class ExprSetSimplified : public ExprSet {
  public:
   ExprSetSimplified(
-      std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
+      std::vector<core::TypedExprPtr>&& source,
       core::ExecCtx* FOLLY_NONNULL execCtx)
       : ExprSet(std::move(source), execCtx, /*enableConstantFolding*/ false) {}
 
@@ -488,7 +488,7 @@ class ExprSetSimplified : public ExprSet {
 // Factory method that takes `kExprEvalSimplified` (query parameter) into
 // account and instantiates the correct ExprSet class.
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
-    std::vector<std::shared_ptr<const core::ITypedExpr>>&& source,
+    std::vector<core::TypedExprPtr>&& source,
     core::ExecCtx* FOLLY_NONNULL execCtx);
 
 /// Returns a string representation of the expression trees annotated with

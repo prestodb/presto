@@ -38,7 +38,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
     parse::registerTypeResolver();
   }
 
-  std::shared_ptr<const core::ITypedExpr> parseExpression(
+  core::TypedExprPtr parseExpression(
       const std::string& text,
       const RowTypePtr& rowType) {
     auto untyped = parse::parseExpr(text, options_);
@@ -48,7 +48,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::unique_ptr<exec::ExprSet> compileExpression(
       const std::string& expr,
       const RowTypePtr& rowType) {
-    std::vector<std::shared_ptr<const core::ITypedExpr>> expressions = {
+    std::vector<core::TypedExprPtr> expressions = {
         parseExpression(expr, rowType)};
     return std::make_unique<exec::ExprSet>(
         std::move(expressions), execCtx_.get());
@@ -57,7 +57,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::unique_ptr<exec::ExprSet> compileMultiple(
       const std::vector<std::string>& texts,
       const RowTypePtr& rowType) {
-    std::vector<std::shared_ptr<const core::ITypedExpr>> expressions;
+    std::vector<core::TypedExprPtr> expressions;
     expressions.reserve(texts.size());
     for (const auto& text : texts) {
       expressions.emplace_back(parseExpression(text, rowType));
@@ -334,7 +334,7 @@ TEST_F(ExprTest, constantArray) {
   auto b = makeArrayVector<int64_t>(
       10, [](auto /*row*/) { return 7; }, [](auto row) { return row; });
 
-  std::vector<std::shared_ptr<const core::ITypedExpr>> expressions = {
+  std::vector<core::TypedExprPtr> expressions = {
       makeConstantExpr(a, 3), makeConstantExpr(b, 5)};
 
   auto exprSet =

@@ -41,7 +41,7 @@ class TestingPauserNode : public core::PlanNode {
   TestingPauserNode(const core::PlanNodeId& id, core::PlanNodePtr input)
       : PlanNode(id), sources_{input} {}
 
-  const std::shared_ptr<const RowType>& outputType() const override {
+  const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }
 
@@ -94,7 +94,7 @@ class DriverTest : public OperatorTestBase {
   }
 
   core::PlanNodePtr makeValuesFilterProject(
-      const std::shared_ptr<const RowType>& rowType,
+      const RowTypePtr& rowType,
       const std::string& filter,
       const std::string& project,
       int32_t numBatches,
@@ -305,7 +305,7 @@ class DriverTest : public OperatorTestBase {
   // Set to true when it is time to exit 'wakeupThread_'.
   std::atomic<bool> wakeupCancelled_{false};
 
-  std::shared_ptr<const RowType> rowType_;
+  RowTypePtr rowType_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<Task>> tasks_;
   ContinueFuture cancelFuture_;
@@ -701,7 +701,7 @@ class ThrowNode : public core::PlanNode {
   ThrowNode(const core::PlanNodeId& id, core::PlanNodePtr input)
       : PlanNode(id), sources_{input} {}
 
-  const std::shared_ptr<const RowType>& outputType() const override {
+  const RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }
 

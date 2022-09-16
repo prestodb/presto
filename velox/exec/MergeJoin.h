@@ -45,7 +45,7 @@ class MergeJoin : public Operator {
  private:
   // Sets up 'filter_' and related member variables.
   void initializeFilter(
-      const std::shared_ptr<const core::ITypedExpr>& filter,
+      const core::TypedExprPtr& filter,
       const RowTypePtr& leftType,
       const RowTypePtr& rightType);
 

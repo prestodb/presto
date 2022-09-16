@@ -92,7 +92,7 @@ TEST_F(SimpleFunctionInitTest, initializationArray) {
           const std::vector<std::optional<int32_t>>& second,
           const std::vector<std::optional<std::vector<std::optional<int32_t>>>>&
               expected) {
-        std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
+        std::vector<core::TypedExprPtr> args;
         args.push_back(
             std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
 
@@ -175,7 +175,7 @@ TEST_F(SimpleFunctionInitTest, initializationMap) {
   auto inputVector = makeNullableFlatVector<int32_t>({1, 2, 3});
   auto expectedResults = makeFlatVector<int64_t>({4, 5, 6});
 
-  std::vector<std::shared_ptr<const velox::core::ITypedExpr>> args;
+  std::vector<core::TypedExprPtr> args;
   args.push_back(std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
 
   args.push_back(std::make_shared<core::ConstantTypedExpr>(

@@ -76,10 +76,10 @@ MergeJoin::MergeJoin(
 }
 
 void MergeJoin::initializeFilter(
-    const std::shared_ptr<const core::ITypedExpr>& filter,
+    const core::TypedExprPtr& filter,
     const RowTypePtr& leftType,
     const RowTypePtr& rightType) {
-  std::vector<std::shared_ptr<const core::ITypedExpr>> filters = {filter};
+  std::vector<core::TypedExprPtr> filters = {filter};
   filter_ =
       std::make_unique<ExprSet>(std::move(filters), operatorCtx_->execCtx());
 

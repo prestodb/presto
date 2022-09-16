@@ -89,10 +89,10 @@ class CastExprTest : public functions::test::FunctionBaseTest {
   }
 
   std::shared_ptr<core::CastTypedExpr> makeCastExpr(
-      const std::shared_ptr<const core::ITypedExpr>& input,
+      const core::TypedExprPtr& input,
       const TypePtr& toType,
       bool nullOnFailure) {
-    std::vector<std::shared_ptr<const core::ITypedExpr>> inputs = {input};
+    std::vector<core::TypedExprPtr> inputs = {input};
     return std::make_shared<core::CastTypedExpr>(toType, inputs, nullOnFailure);
   }
 
@@ -102,7 +102,7 @@ class CastExprTest : public functions::test::FunctionBaseTest {
       const VectorPtr& expected,
       bool nullOnFailure = false) {
     auto rowVector = makeRowVector({data});
-    auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
+    auto rowType = asRowType(rowVector->type());
     auto castExpr = makeCastExpr(
         makeTypedExpr(fromExpression, rowType),
         expected->type(),

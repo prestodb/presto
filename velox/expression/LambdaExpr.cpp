@@ -28,8 +28,8 @@ namespace {
 class ExprCallable : public Callable {
  public:
   ExprCallable(
-      std::shared_ptr<const RowType> signature,
-      std::shared_ptr<RowVector> capture,
+      RowTypePtr signature,
+      RowVectorPtr capture,
       std::shared_ptr<Expr> body)
       : signature_(std::move(signature)),
         capture_(std::move(capture)),
@@ -70,7 +70,7 @@ class ExprCallable : public Callable {
   }
 
  private:
-  std::shared_ptr<const RowType> signature_;
+  RowTypePtr signature_;
   RowVectorPtr capture_;
   std::shared_ptr<Expr> body_;
 };

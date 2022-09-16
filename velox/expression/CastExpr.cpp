@@ -471,8 +471,7 @@ VectorPtr CastExpr::applyRow(
   // Assemble the output row
   auto toNames = toType.names();
   auto toTypes = toType.children();
-  auto finalRowType =
-      std::make_shared<RowType>(std::move(toNames), std::move(toTypes));
+  auto finalRowType = ROW(std::move(toNames), std::move(toTypes));
   return std::make_shared<RowVector>(
       context.pool(),
       finalRowType,

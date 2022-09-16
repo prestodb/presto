@@ -23,7 +23,7 @@ class LambdaExpr : public SpecialForm {
  public:
   LambdaExpr(
       TypePtr type,
-      std::shared_ptr<const RowType>&& signature,
+      RowTypePtr&& signature,
       std::vector<std::shared_ptr<FieldReference>>&& capture,
       std::shared_ptr<Expr>&& body,
       bool trackCpuUsage)
@@ -56,11 +56,11 @@ class LambdaExpr : public SpecialForm {
  private:
   void makeTypeWithCapture(EvalCtx& context);
 
-  std::shared_ptr<const RowType> signature_;
+  RowTypePtr signature_;
   std::vector<std::shared_ptr<FieldReference>> capture_;
   ExprPtr body_;
   // Filled on first use.
-  std::shared_ptr<const RowType> typeWithCapture_;
+  RowTypePtr typeWithCapture_;
   std::vector<column_index_t> captureChannels_;
 };
 } // namespace facebook::velox::exec

@@ -31,8 +31,7 @@ class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
       : execCtx_(execCtx) {}
 
   std::unique_ptr<exec::ExprSet> compile(
-      const std::shared_ptr<const core::ITypedExpr>& expression)
-      const override {
+      const core::TypedExprPtr& expression) const override {
     auto expressions = {expression};
     return std::make_unique<exec::ExprSet>(std::move(expressions), execCtx_);
   }
@@ -84,7 +83,7 @@ OperatorCtx::createConnectorQueryCtx(
 
 Operator::Operator(
     DriverCtx* driverCtx,
-    std::shared_ptr<const RowType> outputType,
+    RowTypePtr outputType,
     int32_t operatorId,
     std::string planNodeId,
     std::string operatorType)
@@ -261,7 +260,7 @@ std::string Operator::toString() const {
 
 std::vector<column_index_t> toChannels(
     const RowTypePtr& rowType,
-    const std::vector<std::shared_ptr<const core::ITypedExpr>>& exprs) {
+    const std::vector<core::TypedExprPtr>& exprs) {
   std::vector<column_index_t> channels;
   channels.reserve(exprs.size());
   for (const auto& expr : exprs) {

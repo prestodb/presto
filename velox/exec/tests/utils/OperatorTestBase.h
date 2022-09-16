@@ -124,7 +124,7 @@ class OperatorTestBase : public testing::Test,
       const std::string& name,
       const RowTypePtr& rowType);
 
-  std::shared_ptr<const core::ITypedExpr> parseExpr(
+  core::TypedExprPtr parseExpr(
       const std::string& text,
       RowTypePtr rowType,
       const parse::ParseOptions& options = {});

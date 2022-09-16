@@ -20,8 +20,8 @@
 namespace facebook::velox::exec {
 namespace {
 bool checkAddIdentityProjection(
-    const std::shared_ptr<const core::ITypedExpr>& projection,
-    const std::shared_ptr<const RowType>& inputType,
+    const core::TypedExprPtr& projection,
+    const RowTypePtr& inputType,
     column_index_t outputChannel,
     std::vector<IdentityProjection>& identityProjections) {
   if (auto field = std::dynamic_pointer_cast<const core::FieldAccessTypedExpr>(
@@ -52,7 +52,7 @@ FilterProject::FilterProject(
           project ? project->id() : filter->id(),
           "FilterProject"),
       hasFilter_(filter != nullptr) {
-  std::vector<std::shared_ptr<const core::ITypedExpr>> allExprs;
+  std::vector<core::TypedExprPtr> allExprs;
   if (hasFilter_) {
     allExprs.push_back(filter->filter());
   }
