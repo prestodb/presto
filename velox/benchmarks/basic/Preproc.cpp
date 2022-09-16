@@ -203,7 +203,7 @@ void registerMultiply(const std::string& name) {
       name, signatures(), make<Multiplication>);
 }
 
-enum class RunConfig { Basic, OneHot, VectorAndOneHot, Simple };
+enum class RunConfig { Basic, OneHot, VectorAndOneHot, Simple, AllFused };
 
 std::vector<float> kBenchmarkData{
     2.1476,  -1.3686, 0.7764,  -1.1965, 0.3452,  0.9735,  -1.5781, -1.4886,
@@ -227,6 +227,23 @@ struct OneHotFunction {
   }
 };
 
+template <typename T>
+struct AllFused {
+  FOLLY_ALWAYS_INLINE void call(float& result, float input, float n) {
+    auto oneHot = [](float a, float b) {
+      return (std::floor(a) == b) ? 1.0f : 0.0f;
+    };
+
+    auto clamp = [](float v, float lo, float hi) {
+      VELOX_USER_CHECK_LE(lo, hi, "Lo > hi in clamp.");
+      auto a = v < lo ? lo : v;
+      return a > hi ? hi : a;
+    };
+
+    result = clamp(0.05f * (20.5f + oneHot(input, n)), -10.0f, 10.0f);
+  }
+};
+
 /// Measures performance of a typical ML preprocessing workload.
 class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
  public:
@@ -236,6 +253,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     registerPlus("add_v");
     registerMultiply("mult_v");
     registerFunction<OneHotFunction, float, float, float>({"one_hot"});
+    registerFunction<AllFused, float, float, float>({"all_fused"});
   }
 
   exec::ExprSet compile(const std::vector<std::string>& texts) {
@@ -268,6 +286,8 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
         return fmt::format(
             "clamp(mult_v(0.05::REAL, add_v(20.5::REAL, one_hot(c0, {}::REAL))), (-10.0)::REAL, 10.0::REAL)",
             n);
+      case RunConfig::AllFused:
+        return fmt::format("all_fused(c0 , {}::REAL)", n);
     }
     return "";
   }
@@ -293,19 +313,22 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
   // Verify that results of the calculation using one_hot function match the
   // results when using if+floor.
   void test() {
-    auto onehot = evaluateOnce(RunConfig::OneHot);
     auto original = evaluateOnce(RunConfig::Basic);
-    auto vcectorAndOneHot = evaluateOnce(RunConfig::VectorAndOneHot);
 
-    VELOX_CHECK_EQ(onehot.size(), original.size());
-    for (auto i = 0; i < original.size(); ++i) {
-      test::assertEqualVectors(onehot[i], original[i]);
-    }
+    auto onehot = evaluateOnce(RunConfig::OneHot);
+    auto vectorAndOneHot = evaluateOnce(RunConfig::VectorAndOneHot);
+    auto allFused = evaluateOnce(RunConfig::AllFused);
 
-    VELOX_CHECK_EQ(vcectorAndOneHot.size(), original.size());
-    for (auto i = 0; i < original.size(); ++i) {
-      test::assertEqualVectors(vcectorAndOneHot[i], original[i]);
-    }
+    auto checkResult = [&](auto result) {
+      VELOX_CHECK_EQ(result.size(), original.size());
+      for (auto i = 0; i < original.size(); ++i) {
+        test::assertEqualVectors(result[i], original[i]);
+      }
+    };
+
+    checkResult(onehot);
+    checkResult(vectorAndOneHot);
+    checkResult(allFused);
   }
 
   size_t run(RunConfig config, size_t times) {
@@ -367,6 +390,11 @@ BENCHMARK_MULTI(oneHot, n) {
 BENCHMARK_MULTI(oneHotWithVectorArithmetic, n) {
   PreprocBenchmark benchmark;
   return benchmark.run(RunConfig::VectorAndOneHot, n);
+}
+
+BENCHMARK_MULTI(allFused, n) {
+  PreprocBenchmark benchmark;
+  return benchmark.run(RunConfig::AllFused, n);
 }
 
 } // namespace
