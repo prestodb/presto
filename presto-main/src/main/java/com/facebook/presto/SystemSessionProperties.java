@@ -238,6 +238,7 @@ public final class SystemSessionProperties
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
     public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
+    public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
@@ -1371,6 +1372,11 @@ public final class SystemSessionProperties
                         NATIVE_EXECUTION_EXECUTABLE_PATH,
                         "The native engine executable file path for native engine execution",
                         featuresConfig.getNativeExecutionExecutablePath(),
+                        false),
+                booleanProperty(
+                        RANDOMIZE_OUTER_JOIN_NULL_KEY,
+                        "Randomize null join key for outer join",
+                        featuresConfig.isRandomizeOuterJoinNullKeyEnabled(),
                         false));
     }
 
@@ -2305,5 +2311,10 @@ public final class SystemSessionProperties
     public static String getNativeExecutionExecutablePath(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
+    }
+
+    public static boolean randomizeOuterJoinNullKeyEnabled(Session session)
+    {
+        return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, Boolean.class);
     }
 }
