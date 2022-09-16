@@ -45,6 +45,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.hive.HudiRecordCursors.createRecordCursor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Lists.newArrayList;
@@ -78,7 +79,14 @@ class HudiRecordCursors
                 split.getTable().getTableName(),
                 baseFile.getPath(),
                 false);
-        Configuration configuration = hdfsEnvironment.getConfiguration(context, path);
+        Configuration conf = null;
+        try {
+            conf = hdfsEnvironment.getFileSystem(context, path).getConf();
+        }
+        catch (IOException e) {
+            throw new PrestoException(HUDI_FILESYSTEM_ERROR, "Could not open file system for " + split.getTable(), e);
+        }
+        final Configuration configuration = conf;
         return hdfsEnvironment.doAs(session.getUser(), () -> {
             RecordReader<?, ?> recordReader = createRecordReader(configuration, schema, split, dataColumns);
             @SuppressWarnings("unchecked") RecordReader<?, ? extends Writable> reader = (RecordReader<?, ? extends Writable>) recordReader;
