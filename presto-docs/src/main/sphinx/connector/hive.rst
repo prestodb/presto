@@ -761,11 +761,17 @@ The Hive connector supports querying and manipulating Hive tables and schemas
 (databases). While some uncommon operations will need to be performed using
 Hive directly, most operations can be performed using Presto.
 
+Create a schema
+^^^^^^^^^^^^^^^
+
 Create a new Hive schema named ``web`` that will store tables in an
 S3 bucket named ``my-bucket``::
 
     CREATE SCHEMA hive.web
     WITH (location = 's3://my-bucket/')
+
+Create a managed table
+^^^^^^^^^^^^^^^^^^^^^^
 
 Create a new Hive table named ``page_views`` in the ``web`` schema
 that is stored using the ORC file format, partitioned by date and
@@ -786,11 +792,17 @@ requires the partition columns to be the last columns in the table)::
       bucket_count = 50
     )
 
+Drop a partition
+^^^^^^^^^^^^^^^^
+
 Drop a partition from the ``page_views`` table::
 
     DELETE FROM hive.web.page_views
     WHERE ds = DATE '2016-08-09'
       AND country = 'US'
+
+Add an empty partition
+^^^^^^^^^^^^^^^^^^^^^^
 
 Add an empty partition to the ``page_views`` table::
 
@@ -800,13 +812,22 @@ Add an empty partition to the ``page_views`` table::
         partition_columns => ARRAY['ds', 'country'],
         partition_values => ARRAY['2016-08-09', 'US']);
 
+Query a table
+^^^^^^^^^^^^^
+
 Query the ``page_views`` table::
 
     SELECT * FROM hive.web.page_views
 
+List partitions
+^^^^^^^^^^^^^^^
+
 List the partitions of the ``page_views`` table::
 
     SELECT * FROM hive.web."page_views$partitions"
+
+Create an external table
+^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create an external Hive table named ``request_logs`` that points at
 existing data in S3::
@@ -822,10 +843,16 @@ existing data in S3::
       external_location = 's3://my-bucket/data/logs/'
     )
 
+Drop external table
+^^^^^^^^^^^^^^^^^^^
+
 Drop the external table ``request_logs``. This only drops the metadata
 for the table. The referenced data directory is not deleted::
 
     DROP TABLE hive.web.request_logs
+
+Drop schema
+^^^^^^^^^^^
 
 Drop a schema::
 
