@@ -511,10 +511,14 @@ class SimpleFunctionAdapter : public VectorFunction {
 
     // Compute allNotNull.
     bool allNotNull;
-    if (applyContext.context.nullsPruned()) {
+    if constexpr (FUNC::is_default_null_behavior) {
       allNotNull = true;
     } else {
-      allNotNull = (!readers.mayHaveNulls() && ...);
+      if (applyContext.context.nullsPruned()) {
+        allNotNull = true;
+      } else {
+        allNotNull = (!readers.mayHaveNulls() && ...);
+      }
     }
 
     // Iterate the rows.
