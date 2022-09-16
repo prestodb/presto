@@ -206,12 +206,30 @@ class Expr {
     return stats_;
   }
 
- private:
+  // Adds nulls from 'rawNulls' to positions of 'result' given by
+  // 'rows'. Ensures that '*result' is writable, of sufficient size
+  // and that it can take nulls. Makes a new '*result' when
+  // appropriate.
+  void addNulls(
+      const SelectivityVector& rows,
+      const uint64_t* FOLLY_NULLABLE rawNulls,
+      EvalCtx& context,
+      VectorPtr& result);
+
+  auto& vectorFunction() const {
+    return vectorFunction_;
+  }
+
+  auto& inputValues() {
+    return inputValues_;
+  }
+
   void setAllNulls(
       const SelectivityVector& rows,
       EvalCtx& context,
       VectorPtr& result) const;
 
+ private:
   struct PeelEncodingsResult {
     SelectivityVector* FOLLY_NULLABLE newRows;
     SelectivityVector* FOLLY_NULLABLE newFinalSelection;
@@ -247,16 +265,6 @@ class Expr {
 
   void
   evalAll(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);
-
-  // Adds nulls from 'rawNulls' to positions of 'result' given by
-  // 'rows'. Ensures that '*result' is writable, of sufficient size
-  // and that it can take nulls. Makes a new '*result' when
-  // appropriate.
-  void addNulls(
-      const SelectivityVector& rows,
-      const uint64_t* FOLLY_NULLABLE rawNulls,
-      EvalCtx& context,
-      VectorPtr& result);
 
   // Checks 'inputValues_' for peelable wrappers (constants,
   // dictionaries etc) and applies the function of 'this' to distinct
@@ -416,6 +424,10 @@ class ExprSet {
 
   core::ExecCtx* FOLLY_NULLABLE execCtx() const {
     return execCtx_;
+  }
+
+  auto size() const {
+    return exprs_.size();
   }
 
   const std::vector<std::shared_ptr<Expr>>& exprs() const {
