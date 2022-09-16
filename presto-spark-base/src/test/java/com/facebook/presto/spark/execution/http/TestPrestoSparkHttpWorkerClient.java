@@ -22,6 +22,7 @@ import com.facebook.airlift.http.client.Response;
 import com.facebook.airlift.http.client.ResponseHandler;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.PageBufferClient;
+import com.facebook.presto.spark.execution.HttpNativeExecutionTaskResultFetcher;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -30,13 +31,17 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilder;
@@ -48,7 +53,9 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_PAGE_TOKEN;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.fail;
 
 public class TestPrestoSparkHttpWorkerClient
@@ -59,6 +66,9 @@ public class TestPrestoSparkHttpWorkerClient
             .host("localhost")
             .port(8080)
             .build();
+    private static final Duration NO_DURATION = new Duration(
+            0,
+            TimeUnit.MILLISECONDS);
 
     @Test
     public void testResultGet()
@@ -69,8 +79,13 @@ public class TestPrestoSparkHttpWorkerClient
                 0,
                 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new MockHttpClient(), taskId, uri);
-        ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(0, new DataSize(32, DataSize.Unit.MEGABYTE));
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new MockHttpClient(NO_DURATION),
+                taskId,
+                uri);
+        ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(
+                0,
+                new DataSize(32, DataSize.Unit.MEGABYTE));
         try {
             PageBufferClient.PagesResponse page = future.get();
             assertEquals(0, page.getToken());
@@ -89,7 +104,7 @@ public class TestPrestoSparkHttpWorkerClient
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
         PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(),
+                new MockHttpClient(NO_DURATION),
                 taskId,
                 uri);
         workerClient.acknowledgeResultsAsync(1);
@@ -100,7 +115,10 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new MockHttpClient(), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new MockHttpClient(NO_DURATION),
+                taskId,
+                uri);
         ListenableFuture<?> future = workerClient.abortResults();
         try {
             future.get();
@@ -111,22 +129,59 @@ public class TestPrestoSparkHttpWorkerClient
         }
     }
 
-    public static class MockImmediateHttpResponseFuture<T>
+    @Test
+    public void testResultFetcher()
+    {
+        TaskId taskId = new TaskId("testid", 0, 0, 0);
+        URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new MockHttpClient(NO_DURATION),
+                taskId,
+                uri);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
+                newScheduledThreadPool(1),
+                workerClient,
+                taskId,
+                new Duration(30, TimeUnit.SECONDS));
+        CompletableFuture<List<SerializedPage>> future = taskResultFetcher.start();
+        try {
+            List<SerializedPage> pages = future.get();
+            assertEquals(1, pages.size());
+            assertEquals(0, pages.get(0).getSizeInBytes());
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+            fail();
+        }
+        catch (ExecutionException e) {
+            e.printStackTrace();
+            fail();
+        }
+    }
+
+    @Test
+    public void testResultFetcherFail()
+    {
+        // Test request timeout.
+        TaskId taskId = new TaskId("testid", 0, 0, 0);
+        URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new MockHttpClient(new Duration(500, TimeUnit.MILLISECONDS)),
+                taskId,
+                uri);
+        HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
+                newScheduledThreadPool(1),
+                workerClient,
+                taskId,
+                new Duration(200, TimeUnit.MILLISECONDS));
+        CompletableFuture<List<SerializedPage>> future = taskResultFetcher.start();
+        assertThrows(ExecutionException.class, () -> future.get());
+    }
+
+    public static class MockHttpResponseFuture<T>
+            extends CompletableFuture<T>
             implements HttpClient.HttpResponseFuture<T>
     {
-        private T result;
-        private Throwable e;
-
-        public MockImmediateHttpResponseFuture(T result)
-        {
-            this.result = result;
-        }
-
-        public MockImmediateHttpResponseFuture(Throwable e)
-        {
-            this.e = e;
-        }
-
         @Override
         public String getState()
         {
@@ -136,46 +191,19 @@ public class TestPrestoSparkHttpWorkerClient
         @Override
         public void addListener(Runnable listener, Executor executor)
         {}
-
-        @Override
-        public boolean cancel(boolean mayInterruptIfRunning)
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isCancelled()
-        {
-            return false;
-        }
-
-        @Override
-        public boolean isDone()
-        {
-            return true;
-        }
-
-        @Override
-        public T get()
-                throws ExecutionException
-        {
-            if (e == null) {
-                return result;
-            }
-            throw new ExecutionException(e);
-        }
-
-        @Override
-        public T get(long timeout, TimeUnit unit)
-                throws ExecutionException
-        {
-            return get();
-        }
     }
 
     public static class MockHttpClient
             implements com.facebook.airlift.http.client.HttpClient
     {
+        private final Duration mockDelay;
+        private final ScheduledExecutorService executor;
+
+        public MockHttpClient(Duration mockDelay)
+        {
+            this.mockDelay = mockDelay;
+            this.executor = newScheduledThreadPool(1);
+        }
 
         @Override
         public <T, E extends Exception> T execute(Request request,
@@ -195,67 +223,64 @@ public class TestPrestoSparkHttpWorkerClient
         public <T, E extends Exception> HttpResponseFuture<T> executeAsync(
                 Request request, ResponseHandler<T, E> responseHandler)
         {
-            URI uri = request.getUri();
-            String method = request.getMethod();
-            ListMultimap<String, String> headers = request.getHeaders();
-            String path = uri.getPath();
-            String taskId = getTaskId(uri);
-            if (method.equalsIgnoreCase("GET")) {
-                if (path.contains("/results")) {
-
-                    // GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge
-                    if (path.contains("acknowledge")) {
-                        try {
-                            responseHandler.handle(
-                                    request,
-                                    MockResponse.createDummyResultResponse());
-                            return new MockImmediateHttpResponseFuture<>(
-                                    responseHandler.handle(
-                                            request,
-                                            MockResponse.createDummyResultResponse()));
+            MockHttpResponseFuture<T> future = new MockHttpResponseFuture<T>();
+            executor.schedule(
+                    () -> {
+                        URI uri = request.getUri();
+                        String method = request.getMethod();
+                        ListMultimap<String, String> headers = request.getHeaders();
+                        String path = uri.getPath();
+                        String taskId = getTaskId(uri);
+                        if (method.equalsIgnoreCase("GET")) {
+                            if (path.contains("/results")) {
+                                // GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge
+                                if (path.contains("acknowledge")) {
+                                    try {
+                                        future.complete(responseHandler.handle(
+                                                request,
+                                                MockResponse.createDummyResultResponse()));
+                                    }
+                                    catch (Exception e) {
+                                        e.printStackTrace();
+                                        future.completeExceptionally(e);
+                                    }
+                                }
+                                // GET /v1/task/{taskId}/results/{bufferId}/{token}
+                                else {
+                                    try {
+                                        future.complete(responseHandler.handle(
+                                                request,
+                                                MockResponse.createResultResponse(
+                                                        HttpStatus.OK,
+                                                        taskId,
+                                                        0,
+                                                        1,
+                                                        true)));
+                                    }
+                                    catch (Exception e) {
+                                        e.printStackTrace();
+                                        future.completeExceptionally(e);
+                                    }
+                                }
+                            }
                         }
-                        catch (Exception e) {
-                            e.printStackTrace();
-                            return new MockImmediateHttpResponseFuture<>(e);
+                        else if (method.equalsIgnoreCase("DELETE")) {
+                            // DELETE /v1/task/{taskId}
+                            try {
+                                future.complete(responseHandler.handle(request,
+                                        MockResponse.createDummyResultResponse()));
+                            }
+                            catch (Exception e) {
+                                e.printStackTrace();
+                                future.completeExceptionally(e);
+                            }
                         }
-                    }
-
-                    // GET /v1/task/{taskId}/results/{bufferId}/{token}
-                    else {
-                        try {
-                            return new MockImmediateHttpResponseFuture<>(
-                                    responseHandler.handle(
-                                            request,
-                                            MockResponse.createResultResponse(
-                                                    HttpStatus.OK,
-                                                    taskId,
-                                                    0,
-                                                    1,
-                                                    true)));
-                        }
-                        catch (Exception e) {
-                            e.printStackTrace();
-                            return new MockImmediateHttpResponseFuture<>(e);
-                        }
-                    }
-                }
-            }
-            else if (method.equalsIgnoreCase("DELETE")) {
-
-                // DELETE /v1/task/{taskId}
-                try {
-                    return new MockImmediateHttpResponseFuture<>(
-                            responseHandler.handle(
-                                    request,
-                                    MockResponse.createDummyResultResponse()));
-                }
-                catch (Exception e) {
-                    e.printStackTrace();
-                    return new MockImmediateHttpResponseFuture<>(e);
-                }
-            }
-            return new MockImmediateHttpResponseFuture<>(
-                    new Exception("Unknown path " + path));
+                        future.completeExceptionally(
+                                new Exception("Unknown path " + path));
+                    },
+                    (long) mockDelay.getValue(),
+                    mockDelay.getUnit());
+            return future;
         }
 
         @Override
