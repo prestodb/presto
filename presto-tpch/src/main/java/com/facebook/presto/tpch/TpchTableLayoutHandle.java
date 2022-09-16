@@ -60,7 +60,7 @@ public class TpchTableLayoutHandle
     {
         return ImmutableMap.builder()
                 .put("table", table)
-                .put("predicate", predicate.canonicalize(false))
+                .put("predicate", predicate.canonicalize(ignored -> false))
                 .build();
     }
 }
