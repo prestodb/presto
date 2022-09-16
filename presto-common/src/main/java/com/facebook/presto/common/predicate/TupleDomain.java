@@ -485,11 +485,11 @@ public final class TupleDomain<T>
         return TupleDomain.withColumnDomains(unmodifiableMap(compactedDomains));
     }
 
-    public TupleDomain<T> canonicalize(boolean removeConstants)
+    public TupleDomain<T> canonicalize(Function<T, Boolean> removeConstants)
     {
         return new TupleDomain<>(domains.map(d -> unmodifiableMap(d.entrySet().stream()
                 .sorted(comparing(domain -> domain.getKey().toString()))
-                .collect(toLinkedMap(Entry::getKey, entry -> entry.getValue().canonicalize(removeConstants))))));
+                .collect(toLinkedMap(Entry::getKey, entry -> entry.getValue().canonicalize(removeConstants.apply(entry.getKey())))))));
     }
 
     public static <T, K, U> Collector<T, ?, Map<K, U>> toLinkedMap(Function<? super T, ? extends K> keyMapper, Function<? super T, ? extends U> valueMapper)
