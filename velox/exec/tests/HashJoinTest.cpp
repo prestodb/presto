@@ -468,7 +468,7 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithNull) {
         "SELECT t_k1, t_k2 FROM t WHERE t.t_k2 NOT IN (SELECT u_k2 FROM u)",
         "",
         {"t_k1", "t_k2"},
-        core::JoinType::kAnti);
+        core::JoinType::kNullAwareAnti);
   }
 }
 
@@ -1012,7 +1012,7 @@ TEST_F(HashJoinTest, antiJoin) {
                         .planNode(),
                     "",
                     {"c1"},
-                    core::JoinType::kAnti)
+                    core::JoinType::kNullAwareAnti)
                 .planNode();
 
   assertQuery(
@@ -1032,7 +1032,7 @@ TEST_F(HashJoinTest, antiJoin) {
                    .planNode(),
                "",
                {"c1"},
-               core::JoinType::kAnti)
+               core::JoinType::kNullAwareAnti)
            .planNode();
 
   assertQuery(
@@ -1051,7 +1051,7 @@ TEST_F(HashJoinTest, antiJoin) {
                    .planNode(),
                "",
                {"c1"},
-               core::JoinType::kAnti)
+               core::JoinType::kNullAwareAnti)
            .planNode();
 
   assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u)");
@@ -1086,7 +1086,7 @@ TEST_F(HashJoinTest, antiJoinWithFilter) {
                         .planNode(),
                     "",
                     {"t0", "t1"},
-                    core::JoinType::kAnti)
+                    core::JoinType::kNullAwareAnti)
                 .planNode();
 
   assertQuery(
@@ -1102,7 +1102,7 @@ TEST_F(HashJoinTest, antiJoinWithFilter) {
                    .planNode(),
                "t1 != u1",
                {"t0", "t1"},
-               core::JoinType::kAnti)
+               core::JoinType::kNullAwareAnti)
            .planNode();
 
   assertQuery(

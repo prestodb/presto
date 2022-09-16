@@ -1035,7 +1035,7 @@ TpchPlan TpchQueryBuilder::getQ16Plan() const {
               supplier,
               "",
               {"ps_suppkey", "p_brand", "p_type", "p_size"},
-              core::JoinType::kAnti)
+              core::JoinType::kNullAwareAnti)
           // Empty aggregate is used here to get the distinct count of
           // ps_suppkey.
           // approx_distinct could be used instead for getting the count of
@@ -1272,7 +1272,7 @@ TpchPlan TpchQueryBuilder::getQ22Plan() const {
               orders,
               "",
               {"c_acctbal", "c_phone"},
-              core::JoinType::kAnti)
+              core::JoinType::kNullAwareAnti)
           .project({"substr(c_phone, 1, 2) AS country_code", "c_acctbal"})
           .partialAggregation(
               {"country_code"},

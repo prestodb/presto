@@ -195,7 +195,7 @@ BlockingReason HashProbe::isBlocked(ContinueFuture* future) {
 
   if (hashBuildResult->antiJoinHasNullKeys) {
     // Anti join with null keys on the build side always returns nothing.
-    VELOX_CHECK(isAntiJoin(joinType_));
+    VELOX_CHECK(isNullAwareAntiJoin(joinType_));
     finished_ = true;
   } else {
     table_ = hashBuildResult->table;
@@ -254,7 +254,7 @@ void HashProbe::addInput(RowVectorPtr input) {
     // Build side is empty. This state is valid only for anti, left and full
     // joins.
     VELOX_CHECK(
-        isAntiJoin(joinType_) || isLeftJoin(joinType_) ||
+        isNullAwareAntiJoin(joinType_) || isLeftJoin(joinType_) ||
         isFullJoin(joinType_));
     return;
   }
@@ -295,7 +295,8 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
 
   passingInputRowsInitialized_ = false;
-  if (isLeftJoin(joinType_) || isFullJoin(joinType_) || isAntiJoin(joinType_)) {
+  if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
+      isNullAwareAntiJoin(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -438,7 +439,7 @@ RowVectorPtr HashProbe::getOutput() {
   }
 
   const bool isLeftSemiOrAntiJoinNoFilter = !filter_ &&
-      (core::isLeftSemiJoin(joinType_) || core::isAntiJoin(joinType_));
+      (core::isLeftSemiJoin(joinType_) || core::isNullAwareAntiJoin(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
@@ -460,7 +461,7 @@ RowVectorPtr HashProbe::getOutput() {
       // rows, including ones with null join keys.
       std::iota(mapping.begin(), mapping.end(), 0);
       numOut = inputSize;
-    } else if (isAntiJoin(joinType_) && !filter_) {
+    } else if (isNullAwareAntiJoin(joinType_) && !filter_) {
       // When build side is not empty, anti join without a filter returns probe
       // rows with no nulls in the join key and no match in the build side.
       for (auto i = 0; i < inputSize; i++) {
@@ -474,7 +475,7 @@ RowVectorPtr HashProbe::getOutput() {
       numOut = table_->listJoinResults(
           results_,
           isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-              isAntiJoin(joinType_),
+              isNullAwareAntiJoin(joinType_),
           mapping,
           folly::Range(outputRows_.data(), outputRows_.size()));
     }
@@ -585,7 +586,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     if (results_.atEnd()) {
       leftSemiJoinTracker_.finish(addLastMatch);
     }
-  } else if (isAntiJoin(joinType_)) {
+  } else if (isNullAwareAntiJoin(joinType_)) {
     // Identify probe rows with no matches.
     auto addMiss = [&](auto row) {
       outputRows_[numPassed] = nullptr;
@@ -612,7 +613,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 }
 
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
-  if (core::isLeftSemiJoin(joinType_) || core::isAntiJoin(joinType_) ||
+  if (core::isLeftSemiJoin(joinType_) || core::isNullAwareAntiJoin(joinType_) ||
       results_.atEnd()) {
     return;
   }

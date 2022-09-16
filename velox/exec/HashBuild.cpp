@@ -134,7 +134,7 @@ void HashBuild::setupTable() {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
     const bool dropDuplicates = !joinNode_->filter() &&
-        (joinNode_->isLeftSemiJoin() || joinNode_->isAntiJoin());
+        (joinNode_->isLeftSemiJoin() || joinNode_->isNullAwareAntiJoin());
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiJoin();
     // Ignore null keys
@@ -163,9 +163,9 @@ void HashBuild::addInput(RowVectorPtr input) {
     deselectRowsWithNulls(hashers, activeRows_);
   }
 
-  if (joinType_ == core::JoinType::kAnti) {
-    // Anti join returns no rows if build side has nulls in join keys. Hence, we
-    // can stop processing on first null.
+  if (joinType_ == core::JoinType::kNullAwareAnti) {
+    // Null-aware anti join returns no rows if build side has nulls in join
+    // keys. Hence, we can stop processing on first null.
     if (activeRows_.countSelected() < input->size()) {
       antiJoinHasNullKeys_ = true;
       noMoreInput();
