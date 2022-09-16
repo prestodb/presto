@@ -121,9 +121,9 @@ Specifier Description
 
 **Warning**: The following specifiers are not currently supported: ``%D``, ``%U``, ``%u``, ``%V``, ``%w``, ``%X``.
 
-.. function:: date_format(timestamp, format) -> varchar
+.. function:: date_format(x, format) -> varchar
 
-    Formats ``timestamp`` as a string using ``format``.
+    Formats ``x`` as a string using ``format``. ``x`` is a timestamp or a timestamp with time zone.
 
 Java Date Functions
 -------------------

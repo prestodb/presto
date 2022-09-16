@@ -2569,6 +2569,39 @@ TEST_F(DateTimeFunctionsTest, dateFormat) {
       VeloxUserError);
 }
 
+TEST_F(DateTimeFunctionsTest, dateFormatTimestampWithTimezone) {
+  const auto testDateFormat =
+      [&](const std::string& formatString,
+          std::optional<int64_t> timestamp,
+          const std::optional<std::string>& timeZoneName) {
+        return evaluateWithTimestampWithTimezone<std::string>(
+            fmt::format("date_format(c0, '{}')", formatString),
+            timestamp,
+            timeZoneName);
+      };
+
+  EXPECT_EQ(
+      "1969-12-31 11:00:00 PM", testDateFormat("%Y-%m-%d %r", 0, "-01:00"));
+  EXPECT_EQ(
+      "1973-11-30 12:33:09 AM",
+      testDateFormat("%Y-%m-%d %r", 123456789000, "+03:00"));
+  EXPECT_EQ(
+      "1966-02-01 12:26:51 PM",
+      testDateFormat("%Y-%m-%d %r", -123456789000, "-14:00"));
+  EXPECT_EQ(
+      "2001-04-19 18:25:21.000000",
+      testDateFormat("%Y-%m-%d %H:%i:%s.%f", 987654321000, "+14:00"));
+  EXPECT_EQ(
+      "1938-09-14 23:34:39.000000",
+      testDateFormat("%Y-%m-%d %H:%i:%s.%f", -987654321000, "+04:00"));
+  EXPECT_EQ(
+      "70-August-22 17:55:15 PM",
+      testDateFormat("%y-%M-%e %T %p", 20220915000, "-07:00"));
+  EXPECT_EQ(
+      "69-May-11 20:04:45 PM",
+      testDateFormat("%y-%M-%e %T %p", -20220915000, "-03:00"));
+}
+
 TEST_F(DateTimeFunctionsTest, dateParse) {
   // Check null behavior.
   EXPECT_EQ(std::nullopt, dateParse("1970-01-01", std::nullopt));
