@@ -1338,10 +1338,9 @@ ExprSet::ExprSet(
     : execCtx_(execCtx) {
   exprs_ = compileExpressions(
       std::move(sources), execCtx, this, enableConstantFolding);
-  std::vector<FieldReference*> allDistinctFields;
   for (auto& expr : exprs_) {
     mergeFields(
-        allDistinctFields, multiplyReferencedFields_, expr->distinctFields());
+        distinctFields_, multiplyReferencedFields_, expr->distinctFields());
   }
 }
 
@@ -1445,6 +1444,7 @@ void ExprSet::clear() {
   for (auto* memo : memoizingExprs_) {
     memo->clearMemo();
   }
+  distinctFields_.clear();
   multiplyReferencedFields_.clear();
 }
 

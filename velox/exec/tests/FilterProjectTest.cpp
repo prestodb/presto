@@ -308,3 +308,28 @@ TEST_F(FilterProjectTest, filterProjectFused) {
       plan,
       "SELECT c0, c1, c0 %100 + c1 % 50, c0 % 100 FROM tmp WHERE c0 % 10 < 5");
 }
+
+TEST_F(FilterProjectTest, projectAndIdentityOverLazy) {
+  // Verify that a lazy column which is a part of both an identity projection
+  // and a regular projection is loaded correctly. This is done by running a
+  // projection that only operates over a subset of the rows of the lazy vector.
+  vector_size_t size = 20;
+  auto valueAt = [](auto row) -> int32_t { return row; };
+  auto lazyVectors = makeRowVector({
+      makeFlatVector<int32_t>(size, valueAt),
+      vectorMaker_.lazyFlatVector<int32_t>(size, valueAt),
+  });
+
+  auto vectors = makeRowVector({
+      makeFlatVector<int32_t>(size, valueAt),
+      makeFlatVector<int32_t>(size, valueAt),
+  });
+
+  createDuckDbTable({vectors});
+
+  auto plan = PlanBuilder()
+                  .values({lazyVectors})
+                  .project({"c0 < 10 AND c1 < 10", "c1"})
+                  .planNode();
+  assertQuery(plan, "SELECT c0 < 10 AND c1 < 10, c1 FROM tmp");
+}
