@@ -186,6 +186,49 @@ class Multiply {
   }
 };
 
+class Divide {
+ public:
+  template <typename R, typename A, typename B>
+  inline static void
+  apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t /*bRescale*/) {
+    VELOX_CHECK_NE(b.unscaledValue(), 0, "Division by zero");
+    int resultSign = 1;
+    R unsignedDividendRescaled(a);
+    if (a < 0) {
+      resultSign = -1;
+      unsignedDividendRescaled *= -1;
+    }
+    R unsignedDivisor(b);
+    if (b < 0) {
+      resultSign *= -1;
+      unsignedDivisor *= -1;
+    }
+    unsignedDividendRescaled = checkedMultiply<R>(
+        unsignedDividendRescaled, R(DecimalUtil::kPowersOfTen[aRescale]));
+    R quotient = unsignedDividendRescaled / unsignedDivisor;
+    R remainder = unsignedDividendRescaled % unsignedDivisor;
+    if (remainder * 2 >= unsignedDivisor) {
+      ++quotient;
+    }
+    r = quotient * resultSign;
+  }
+
+  inline static uint8_t
+  computeRescaleFactor(uint8_t fromScale, uint8_t toScale, uint8_t rScale) {
+    return rScale - fromScale + toScale;
+  }
+
+  inline static std::pair<uint8_t, uint8_t> computeResultPrecisionScale(
+      const uint8_t aPrecision,
+      const uint8_t aScale,
+      const uint8_t /*bPrecision*/,
+      const uint8_t bScale) {
+    return {
+        std::min(38, aPrecision + bScale + std::max(0, bScale - aScale)),
+        std::max(aScale, bScale)};
+  }
+};
+
 std::vector<std::shared_ptr<exec::FunctionSignature>>
 decimalMultiplySignature() {
   return {exec::FunctionSignatureBuilder()
@@ -210,6 +253,18 @@ decimalAddSubtractSignature() {
               "min(38, max(a_precision - a_scale, b_precision - b_scale) + max(a_scale, b_scale) + 1)")
           .variableConstraint("r_scale", "max(a_scale, b_scale)")
           .build()};
+}
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> decimalDivideSignature() {
+  return {exec::FunctionSignatureBuilder()
+              .returnType("DECIMAL(r_precision, r_scale)")
+              .argumentType("DECIMAL(a_precision, a_scale)")
+              .argumentType("DECIMAL(b_precision, b_scale)")
+              .variableConstraint(
+                  "r_precision",
+                  "min(38, a_precision + b_scale + max(0, b_scale - a_scale))")
+              .variableConstraint("r_scale", "max(a_scale, b_scale)")
+              .build()};
 }
 
 template <typename Operation>
@@ -284,4 +339,9 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_decimal_mul,
     decimalMultiplySignature(),
     createDecimalFunction<Multiply>);
+
+VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
+    udf_decimal_div,
+    decimalDivideSignature(),
+    createDecimalFunction<Divide>);
 }; // namespace facebook::velox::functions

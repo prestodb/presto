@@ -71,6 +71,10 @@ struct UnscaledShortDecimal {
     return unscaledValue_ <= other.unscaledValue_;
   }
 
+  bool operator<(int other) const {
+    return unscaledValue_ < other;
+  }
+
   bool operator>(const UnscaledShortDecimal& other) const {
     return unscaledValue_ > other.unscaledValue_;
   }
@@ -83,12 +87,34 @@ struct UnscaledShortDecimal {
     return UnscaledShortDecimal(unscaledValue_ + other.unscaledValue_);
   }
 
+  UnscaledShortDecimal operator*(int value) const {
+    return UnscaledShortDecimal(unscaledValue_ * value);
+  }
+
+  UnscaledShortDecimal& operator*=(int value) {
+    unscaledValue_ *= value;
+    return *this;
+  }
+
   bool operator>=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ >= other.unscaledValue_;
   }
 
   UnscaledShortDecimal operator=(int value) const {
     return UnscaledShortDecimal(static_cast<int64_t>(value));
+  }
+
+  UnscaledShortDecimal operator/(const UnscaledShortDecimal& other) const {
+    return UnscaledShortDecimal(unscaledValue_ / other.unscaledValue_);
+  }
+
+  UnscaledShortDecimal operator%(const UnscaledShortDecimal& other) const {
+    return UnscaledShortDecimal(unscaledValue_ % other.unscaledValue_);
+  }
+
+  UnscaledShortDecimal& operator++() {
+    unscaledValue_++;
+    return *this;
   }
 
  private:

@@ -108,6 +108,14 @@ struct UnscaledLongDecimal {
     return unscaledValue_ <= other.unscaledValue_;
   }
 
+  bool operator>=(const UnscaledLongDecimal& other) const {
+    return unscaledValue_ >= other.unscaledValue_;
+  }
+
+  bool operator<(int other) const {
+    return unscaledValue_ < other;
+  }
+
   UnscaledLongDecimal operator+(const UnscaledLongDecimal& other) const {
     return UnscaledLongDecimal(add(unscaledValue_, other.unscaledValue_));
   }
@@ -118,6 +126,24 @@ struct UnscaledLongDecimal {
 
   UnscaledLongDecimal operator=(int value) const {
     return UnscaledLongDecimal(static_cast<int64_t>(value));
+  }
+
+  UnscaledLongDecimal& operator*=(int value) {
+    unscaledValue_ *= value;
+    return *this;
+  }
+
+  UnscaledLongDecimal operator/(const UnscaledLongDecimal& other) const {
+    return UnscaledLongDecimal(unscaledValue_ / other.unscaledValue_);
+  }
+
+  UnscaledLongDecimal operator%(const UnscaledLongDecimal& other) const {
+    return UnscaledLongDecimal(unscaledValue_ % other.unscaledValue_);
+  }
+
+  UnscaledLongDecimal& operator++() {
+    unscaledValue_++;
+    return *this;
   }
 
  private:

@@ -96,9 +96,7 @@ inline UnscaledShortDecimal checkedMultiply(
       __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
   if (UNLIKELY(overflow)) {
     VELOX_ARITHMETIC_ERROR(
-        "short decimal multiply overflow: {} * {}",
-        a.unscaledValue(),
-        b.unscaledValue());
+        "Decimal overflow: {} * {}", a.unscaledValue(), b.unscaledValue());
   }
   return UnscaledShortDecimal(result);
 }
@@ -112,9 +110,7 @@ inline UnscaledLongDecimal checkedMultiply(
       __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
   if (UNLIKELY(overflow)) {
     VELOX_ARITHMETIC_ERROR(
-        "long decimal multiply overflow: {} * {}",
-        a.unscaledValue(),
-        b.unscaledValue());
+        "Decimal overflow: {} * {}", a.unscaledValue(), b.unscaledValue());
   }
   return UnscaledLongDecimal(result);
 }
