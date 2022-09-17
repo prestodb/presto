@@ -254,7 +254,7 @@
         <dependency>
             <groupId>org.apache.calcite</groupId>
             <artifactId>calcite-core</artifactId>
-            <version>1.29.0</version>
+            <version>1.32.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
