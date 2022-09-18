@@ -639,6 +639,28 @@ TEST(ExceptionTest, context) {
       "\nExpression: 1 == 3"
       "\nFunction: operator()"
       "\nFile: ");
+
+  // With message function throwing an exception.
+  auto throwingMessageFunction = [](auto* arg) -> std::string {
+    VELOX_FAIL("Test failure.");
+  };
+  {
+    std::string debuggingInfo = "Debugging info.";
+    facebook::velox::ExceptionContextSetter context(
+        {throwingMessageFunction, debuggingInfo.data()});
+
+    verifyVeloxException(
+        [&]() { VELOX_CHECK_EQ(1, 3); },
+        "Exception: VeloxRuntimeError"
+        "\nError Source: RUNTIME"
+        "\nError Code: INVALID_STATE"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: Failed to produce additional context."
+        "\nFunction: operator()"
+        "\nFile: ");
+  }
 }
 
 TEST(ExceptionTest, traceCollectionEnabling) {

@@ -55,8 +55,25 @@ struct ExceptionContext {
   /// Calls `messageFunc(arg)` and returns the result. Returns empty string if
   /// `messageFunc` is null.
   std::string message() {
-    return messageFunc ? messageFunc(arg) : "";
+    if (!messageFunc || suspended) {
+      return "";
+    }
+
+    std::string theMessage;
+
+    try {
+      // Make sure not to call messageFunc again in case it throws.
+      suspended = true;
+      theMessage = messageFunc(arg);
+      suspended = false;
+    } catch (...) {
+      return "Failed to produce additional context.";
+    }
+
+    return theMessage;
   }
+
+  bool suspended{false};
 };
 
 /// Returns a reference to thread_local variable that holds a function that can
