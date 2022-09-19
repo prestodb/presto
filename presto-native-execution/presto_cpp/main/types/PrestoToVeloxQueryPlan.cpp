@@ -17,6 +17,7 @@
 #include <velox/type/Filter.h>
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HivePartitionFunction.h"
+#include "velox/connectors/tpch/TpchConnector.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
 #include "velox/vector/ComplexVector.h"
@@ -100,6 +101,12 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
         hiveColumn->name,
         toHiveColumnType(hiveColumn->columnType),
         stringToType(hiveColumn->typeSignature));
+  }
+
+  if (auto tpchColumn =
+          dynamic_cast<const protocol::TpchColumnHandle*>(column)) {
+    return std::make_shared<connector::tpch::TpchColumnHandle>(
+        tpchColumn->columnName);
   }
 
   throw std::invalid_argument("Unknown column handle type: " + column->_type);
@@ -622,6 +629,14 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
         remainingFilter);
   }
 
+  if (auto tpchLayout =
+          std::dynamic_pointer_cast<const protocol::TpchTableLayoutHandle>(
+              tableHandle.connectorTableLayout)) {
+    return std::make_shared<connector::tpch::TpchTableHandle>(
+        tableHandle.connectorId,
+        tpch::fromTableName(tpchLayout->table.tableName),
+        tpchLayout->table.scaleFactor);
+  }
   throw std::invalid_argument("Unsupported TableHandle type");
 }
 

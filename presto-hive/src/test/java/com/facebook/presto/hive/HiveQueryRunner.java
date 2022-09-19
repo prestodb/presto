@@ -175,6 +175,10 @@ public final class HiveQueryRunner
             queryRunner.installPlugin(new TestingHiveEventListenerPlugin());
             queryRunner.createCatalog("tpch", "tpch");
             queryRunner.createCatalog("tpcds", "tpcds");
+            Map<String, String> tpchProperties = ImmutableMap.<String, String>builder()
+                    .put("tpch.column-naming", "standard")
+                    .build();
+            queryRunner.createCatalog("tpchstandard", "tpch", tpchProperties);
 
             ExtendedHiveMetastore metastore;
             metastore = externalMetastore.orElse(getFileHiveMetastore(queryRunner));

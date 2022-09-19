@@ -34,8 +34,11 @@ namespace facebook::presto::protocol {
 // connectorKey) entries. Each connectorName uses the corresponding connectorKey
 // to determine the protocol structures.
 
-// Register known Hive connectors
+// Register known Hive connectors.
 void registerHiveConnectors();
+
+// Register the Tpch connector.
+void registerTpchConnector();
 
 bool registerConnector(
     const std::string& connectorName,
