@@ -185,6 +185,45 @@ reordering during execution of the AND and OR expressions.
   :width: 600
   :align: center
 
+Flatten concat-like functions
+`````````````````````````````
+
+Functions that behave like associative operators can declare support for
+flattening. In that case, adjacent nodes of the same function are
+consolidated into one.
+
+A good example is concat(varchar,..) Presto function. Evaluating concat(a, b, c,
+d) is more efficient than evaluating concat(a, concat(b, concat(c, d))).
+Concatenating 4 columns at once allows to calculate the total amount of memory
+needed for the final result, allocate it in one chunk, then copy individual
+values to the right offsets. This saves on memory allocations and reduces data
+copy as compared to concatenating two columns at a time.
+
+Concat Presto function declares support for flattening allowing the expression
+compiler to convert concat(a, concat(b, concat(c, d))) expression to
+concat(a, b, c, d).
+
+Other functions that can leverage this optimization include concat(array,..) and
+map_concat(map,..).
+
+A function declaring support for flattening must have a signature with variadic
+arguments of the same type and return type must be the same as input type.
+
+        f(x,..) -> x
+
+Flattening converts sub-expressions like f(x1, f(x2, f(x3, x4))) into
+f(x1, x2, x3, x4).
+
+Flattening happens before constant folding, hence, f(a, f(constant-x, constant-y))
+becomes f(a, constant-x, constant-y), not f(a, constant-z), where
+constant-z = f(constant-x, constant-y).
+
+Flattening also affects common sub-expression detection. Without flattening, in
+an expression like g(f(a, f(b, c)), f(d, f(b, c))), the compiler would
+identify f(b, c) as a common sub-expression. With flattening, the expression
+will be re-writen as g(f(a, b, c), f(d, b, c)) and no common sub-expression
+will be identified.
+
 Expression Metadata
 ```````````````````
 
