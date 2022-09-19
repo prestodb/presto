@@ -2432,6 +2432,75 @@ void to_json(json& j, const HiveSplit& p);
 void from_json(const json& j, HiveSplit& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
+struct TpchPartitioningHandle : public ConnectorPartitioningHandle {
+  String table = {};
+  int64_t totalRows;
+  TpchPartitioningHandle() noexcept;
+};
+void to_json(json& j, const TpchPartitioningHandle& p);
+void from_json(const json& j, TpchPartitioningHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchTransactionHandle : public ConnectorTransactionHandle {
+  String instance = {};
+
+  TpchTransactionHandle() noexcept;
+};
+void to_json(json& j, const TpchTransactionHandle& p);
+void from_json(const json& j, TpchTransactionHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchColumnHandle : public ColumnHandle {
+  String columnName = {};
+  Type   type = {};
+  TpchColumnHandle() noexcept;
+};
+void to_json(json& j, const TpchColumnHandle& p);
+void from_json(const json& j, TpchColumnHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchTableHandle : public ConnectorTableHandle {
+  String tableName = {};
+  double scaleFactor = 0;
+
+  TpchTableHandle() noexcept;
+};
+void to_json(json& j, const TpchTableHandle& p);
+void from_json(const json& j, TpchTableHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchPredicate {
+  List<TupleDomain<std::shared_ptr<ColumnHandle>>> columnDomains;
+
+  TpchPredicate() noexcept;
+};
+void to_json(json& j, const TpchPredicate& p);
+void from_json(const json& j, TpchPredicate& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchTableLayoutHandle : public ConnectorTableLayoutHandle {
+  TpchTableHandle table;
+  TpchPredicate predicate;
+
+  TpchTableLayoutHandle() noexcept;
+};
+void to_json(json& j, const TpchTableLayoutHandle& p);
+void from_json(const json& j, TpchTableLayoutHandle& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+struct TpchSplit : public ConnectorSplit {
+  TpchTableHandle tableHandle = {};
+  int partNumber;
+  int totalParts;
+  List<HostAddress> addresses = {};
+  TpchPredicate predicate;
+
+  TpchSplit() noexcept;
+};
+void to_json(json& j, const TpchSplit& p);
+void from_json(const json& j, TpchSplit& p);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
 struct OutputNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
   List<String> columnNames = {};

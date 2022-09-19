@@ -582,6 +582,11 @@ void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
     return;
   }
 
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchColumnHandle>(p);
+    return;
+  }
+
   throw TypeError(type + " no abstract type ColumnHandle ");
 }
 
@@ -595,6 +600,13 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
 
   if (getConnectorKey(type) == "hive") {
     std::shared_ptr<HiveColumnHandle> k = std::make_shared<HiveColumnHandle>();
+    j.get_to(*k);
+    p = std::static_pointer_cast<ColumnHandle>(k);
+    return;
+  }
+
+  if (getConnectorKey(type) == "tpch") {
+    std::shared_ptr<TpchColumnHandle> k = std::make_shared<TpchColumnHandle>();
     j.get_to(*k);
     p = std::static_pointer_cast<ColumnHandle>(k);
     return;
@@ -2230,7 +2242,10 @@ void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
     j = *std::static_pointer_cast<HivePartitioningHandle>(p);
     return;
   }
-
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchPartitioningHandle>(p);
+    return;
+  }
   throw TypeError(type + " no abstract type ConnectorPartitioningHandle");
 }
 
@@ -2254,7 +2269,12 @@ void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
     p = k;
     return;
   }
-
+  if (getConnectorKey(type) == "tpch") {
+      auto k = std::make_shared<TpchPartitioningHandle>();
+      j.get_to(*k);
+      p = k;
+      return;
+  }
   throw TypeError(type + " no abstract type ConnectorPartitioningHandle");
 }
 } // namespace facebook::presto::protocol
@@ -2280,7 +2300,12 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
   String type;
   try {
-    type = p->getSubclassKey(j);
+    // TPC-H transactionHandle is an array ["tpch","INSTANCE"].
+    if (j.is_array()) {
+      type = j[0];
+    } else {
+      type = p->getSubclassKey(j);
+    }
   } catch (json::parse_error& e) {
     throw ParseError(
         std::string(e.what()) +
@@ -2295,6 +2320,12 @@ void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
   }
   if (getConnectorKey(type) == "hive") {
     auto k = std::make_shared<HiveTransactionHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchTransactionHandle>();
     j.get_to(*k);
     p = k;
     return;
@@ -4629,6 +4660,11 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
     return;
   }
 
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchTableLayoutHandle>(p);
+    return;
+  }
+
   throw TypeError(type + " no abstract type ConnectorTableLayoutHandle");
 }
 
@@ -4649,6 +4685,13 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
     return;
   }
 
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchTableLayoutHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
   throw TypeError(type + " no abstract type ConnectorTableLayoutHandle");
 }
 } // namespace facebook::presto::protocol
@@ -4661,6 +4704,11 @@ void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
 
   if (getConnectorKey(type) == "hive") {
     j = *std::static_pointer_cast<HiveTableHandle>(p);
+    return;
+  }
+
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchTableHandle>(p);
     return;
   }
 
@@ -4678,6 +4726,13 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
 
   if (getConnectorKey(type) == "hive") {
     auto k = std::make_shared<HiveTableHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchTableHandle>();
     j.get_to(*k);
     p = k;
     return;
@@ -4909,7 +4964,10 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
     j = *std::static_pointer_cast<HiveSplit>(p);
     return;
   }
-
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchSplit>(p);
+    return;
+  }
   throw TypeError(type + " no abstract type ConnectorSplit");
 }
 
@@ -4939,7 +4997,12 @@ void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
     p = k;
     return;
   }
-
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchSplit>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
   throw TypeError(type + " no abstract type ConnectorSplit");
 }
 } // namespace facebook::presto::protocol
@@ -11035,6 +11098,175 @@ void from_json(const json& j, HiveSplit& p) {
       "HiveSplit",
       "SplitWeight",
       "splitWeight");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchPartitioningHandle::TpchPartitioningHandle() noexcept {
+  _type = "tpch";
+}
+void to_json(json& j, const TpchPartitioningHandle& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "table",
+      p.table,
+      "TpchPartitioningHandle",
+      "String",
+      "table");
+  to_json_key(
+      j,
+      "totalRows",
+      p.totalRows,
+      "TpchPartitioningHandle",
+      "int64_t",
+      "totalRows");
+}
+void from_json(const json& j, TpchPartitioningHandle& p) {
+  p._type = j["@type"];
+  from_json_key(
+      j,
+      "table",
+      p.table,
+      "TpchPartitioningHandle",
+      "String",
+      "table");
+  from_json_key(
+      j,
+      "totalRows",
+      p.totalRows,
+      "TpchPartitioningHandle",
+      "int64_t",
+      "totalRows");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchTransactionHandle::TpchTransactionHandle() noexcept {
+  _type = "tpch";
+}
+
+void to_json(json& j, const TpchTransactionHandle& p) {
+  j = json::array();
+  j.push_back(p._type);
+  j.push_back(p.instance);
+}
+
+void from_json(const json& j, TpchTransactionHandle& p) {
+  j[0].get_to(p._type);
+  j[1].get_to(p.instance);
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchColumnHandle::TpchColumnHandle() noexcept {
+  _type = "tpch";
+}
+
+void to_json(json& j, const TpchColumnHandle& p) {
+  j = json::object();
+  j["@type"] = "tpch";
+  to_json_key(j, "columnName", p.columnName, "TpchColumnHandle", "string", "columnName");
+  to_json_key(j, "type", p.type, "TpchColumnHandle", "string", "type");
+}
+
+void from_json(const json& j, TpchColumnHandle& p) {
+  p._type = j["@type"];
+  from_json_key(j, "columnName", p.columnName, "TpchColumnHandle", "string", "columnName");
+  from_json_key(j, "type", p.type, "TpchColumnHandle", "string", "type");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchPredicate::TpchPredicate() noexcept {}
+
+void to_json(json& j, const TpchPredicate& p) {
+  j = json::object();
+  to_json_key(j, "columnDomains", p.columnDomains, "TpchPredicate", "List<TupleDomain<std::shared_ptr<ColumnHandle>>>", "columnDomains");
+}
+
+void from_json(const json& j, TpchPredicate& p) {
+  from_json_key(j, "columnDomains", p.columnDomains, "TpchPredicate", "List<TupleDomain<std::shared_ptr<ColumnHandle>>>", "columnDomains");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchTableLayoutHandle::TpchTableLayoutHandle() noexcept {
+  _type = "tpch";
+}
+
+void to_json(json& j, const TpchTableLayoutHandle& p) {
+  j = json::object();
+  j["@type"] = "tpch";
+  to_json_key(j, "table", p.table, "TpchTableLayoutHandle", "TpchTableHandle", "table");
+  to_json_key(j, "predicate", p.predicate, "TpchTableLayoutHandle", "TpchPredicate", "predicate");
+}
+
+void from_json(const json& j, TpchTableLayoutHandle& p) {
+  p._type = j["@type"];
+  from_json_key(j, "table", p.table, "TpchTableLayoutHandle", "TpchTableHandle", "table");
+  from_json_key(j, "predicate", p.predicate, "TpchTableLayoutHandle", "TpchPredicate", "predicate");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchTableHandle::TpchTableHandle() noexcept {
+  _type = "tpch";
+}
+
+void to_json(json& j, const TpchTableHandle& p) {
+  j = json::object();
+  j["@type"] = "tpch";
+  to_json_key(j, "tableName", p.tableName, "TpchTableHandle", "string", "tableName");
+  to_json_key(j, "scaleFactor", p.scaleFactor, "TpchTableHandle", "double", "scaleFactor");
+}
+
+void from_json(const json& j, TpchTableHandle& p) {
+  p._type = j["@type"];
+  from_json_key(j, "tableName", p.tableName, "TpchTableHandle", "string", "tableName");
+  from_json_key(j, "scaleFactor", p.scaleFactor, "TpchTableHandle", "double", "scaleFactor");
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+TpchSplit::TpchSplit() noexcept {
+  _type = "tpch";
+}
+
+void to_json(json& j, const TpchSplit& p) {
+  j = json::object();
+  j["@type"] = "tpch";
+  to_json_key(j, "tableHandle", p.tableHandle, "TpchSplit", "TpchTableHandle", "tableHandle");
+  to_json_key(j, "partNumber", p.partNumber, "TpchSplit", "int", "partNumber");
+  to_json_key(j, "totalParts", p.partNumber, "TpchSplit", "int", "totalParts");
+  to_json_key(
+      j,
+      "addresses",
+      p.addresses,
+      "TpchSplit",
+      "List<HostAddress>",
+      "addresses");
+  to_json_key(
+      j,
+      "predicate",
+      p.predicate,
+      "TpchSplit",
+      "List<std::shared_ptr<ColumnHandle>>",
+      "predicate");
+}
+
+void from_json(const json& j, TpchSplit& p) {
+  p._type = j["@type"];
+  from_json_key(j, "tableHandle", p.tableHandle, "TpchSplit", "TpchTableHandle", "tableHandle");
+  from_json_key(j, "partNumber", p.partNumber, "TpchSplit", "int", "partNumber");
+  from_json_key(j, "totalParts", p.totalParts, "TpchSplit", "int", "totalParts");
+  from_json_key(
+      j,
+      "addresses",
+      p.addresses,
+      "TpchSplit",
+      "List<HostAddress>",
+      "addresses");
+  from_json_key(
+      j,
+      "predicate",
+      p.predicate,
+      "TpchSplit",
+      "TpchPredicate",
+      "predicate");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
