@@ -95,13 +95,16 @@ struct Scope {
   }
 };
 
-const std::string* isAndOrOr(const TypedExprPtr& expr) {
+std::optional<std::string> shouldFlatten(
+    const TypedExprPtr& expr,
+    const std::unordered_set<std::string>& flatteningCandidates) {
   if (auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
-    if (call->name() == kAnd || call->name() == kOr) {
-      return &call->name();
+    if (call->name() == kAnd || call->name() == kOr ||
+        flatteningCandidates.count(call->name())) {
+      return call->name();
     }
   }
-  return nullptr;
+  return std::nullopt;
 }
 
 bool isCall(const TypedExprPtr& expr, const std::string& name) {
@@ -141,6 +144,7 @@ ExprPtr compileExpression(
     Scope* scope,
     const core::QueryConfig& config,
     memory::MemoryPool* pool,
+    const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding);
 
 std::vector<ExprPtr> compileInputs(
@@ -148,25 +152,36 @@ std::vector<ExprPtr> compileInputs(
     Scope* scope,
     const core::QueryConfig& config,
     memory::MemoryPool* pool,
+    const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
   std::vector<ExprPtr> compiledInputs;
-  const std::string* flattenIf = isAndOrOr(expr);
+  auto flattenIf = shouldFlatten(expr, flatteningCandidates);
   for (auto& input : expr->inputs()) {
     if (dynamic_cast<const core::InputTypedExpr*>(input.get())) {
       VELOX_CHECK(
           dynamic_cast<const core::FieldAccessTypedExpr*>(expr.get()),
           "An InputReference can only occur under a FieldReference");
     } else {
-      if (flattenIf) {
+      if (flattenIf.has_value()) {
         std::vector<TypedExprPtr> flat;
-        flattenInput(input, *flattenIf, flat);
+        flattenInput(input, flattenIf.value(), flat);
         for (auto& input : flat) {
           compiledInputs.push_back(compileExpression(
-              input, scope, config, pool, enableConstantFolding));
+              input,
+              scope,
+              config,
+              pool,
+              flatteningCandidates,
+              enableConstantFolding));
         }
       } else {
         compiledInputs.push_back(compileExpression(
-            input, scope, config, pool, enableConstantFolding));
+            input,
+            scope,
+            config,
+            pool,
+            flatteningCandidates,
+            enableConstantFolding));
       }
     }
   }
@@ -276,12 +291,18 @@ std::shared_ptr<Expr> compileLambda(
     Scope* scope,
     const core::QueryConfig& config,
     memory::MemoryPool* pool,
+    const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
   auto signature = lambda->signature();
   auto parameterNames = signature->names();
   Scope lambdaScope(std::move(parameterNames), scope, scope->exprSet);
   auto body = compileExpression(
-      lambda->body(), &lambdaScope, config, pool, enableConstantFolding);
+      lambda->body(),
+      &lambdaScope,
+      config,
+      pool,
+      flatteningCandidates,
+      enableConstantFolding);
 
   // The lambda depends on the captures. For a lambda caller to be
   // able to peel off encodings, the captures too must be peelable.
@@ -370,6 +391,7 @@ ExprPtr compileExpression(
     Scope* scope,
     const core::QueryConfig& config,
     memory::MemoryPool* pool,
+    const std::unordered_set<std::string>& flatteningCandidates,
     bool enableConstantFolding) {
   ExprPtr alreadyCompiled = getAlreadyCompiled(expr.get(), &scope->visited);
   if (alreadyCompiled) {
@@ -384,8 +406,8 @@ ExprPtr compileExpression(
 
   ExprPtr result;
   auto resultType = expr->type();
-  auto compiledInputs =
-      compileInputs(expr, scope, config, pool, enableConstantFolding);
+  auto compiledInputs = compileInputs(
+      expr, scope, config, pool, flatteningCandidates, enableConstantFolding);
   auto inputTypes = getTypes(compiledInputs);
 
   if (dynamic_cast<const core::ConcatTypedExpr*>(expr.get())) {
@@ -469,7 +491,13 @@ ExprPtr compileExpression(
     }
   } else if (
       auto lambda = dynamic_cast<const core::LambdaTypedExpr*>(expr.get())) {
-    result = compileLambda(lambda, scope, config, pool, enableConstantFolding);
+    result = compileLambda(
+        lambda,
+        scope,
+        config,
+        pool,
+        flatteningCandidates,
+        enableConstantFolding);
   } else {
     VELOX_UNSUPPORTED("Unknown typed expression");
   }
@@ -482,6 +510,42 @@ ExprPtr compileExpression(
   return folded;
 }
 
+/// Walk expression tree and collect names of functions used in CallTypedExpr
+/// into provided 'names' set.
+void collectCallNames(
+    const TypedExprPtr& expr,
+    std::unordered_set<std::string>& names) {
+  if (auto call = std::dynamic_pointer_cast<const core::CallTypedExpr>(expr)) {
+    names.insert(call->name());
+  }
+
+  for (const auto& input : expr->inputs()) {
+    collectCallNames(input, names);
+  }
+}
+
+/// Walk expression trees and collection function calls that support flattening.
+std::unordered_set<std::string> collectFlatteningCandidates(
+    const std::vector<TypedExprPtr>& exprs) {
+  std::unordered_set<std::string> names;
+  for (const auto& expr : exprs) {
+    collectCallNames(expr, names);
+  }
+
+  return vectorFunctionFactories().withRLock([&](auto& functionMap) {
+    std::unordered_set<std::string> flatteningCandidates;
+    for (const auto& name : names) {
+      auto it = functionMap.find(name);
+      if (it != functionMap.end()) {
+        const auto& metadata = it->second.metadata;
+        if (metadata.supportsFlattening) {
+          flatteningCandidates.insert(name);
+        }
+      }
+    }
+    return flatteningCandidates;
+  });
+}
 } // namespace
 
 std::vector<std::shared_ptr<Expr>> compileExpressions(
@@ -493,12 +557,17 @@ std::vector<std::shared_ptr<Expr>> compileExpressions(
   std::vector<std::shared_ptr<Expr>> exprs;
   exprs.reserve(sources.size());
 
+  // Precompute a set of function calls that support flattening. This allows to
+  // lock function registry once vs. locking for each function call.
+  auto flatteningCandidates = collectFlatteningCandidates(sources);
+
   for (auto& source : sources) {
     exprs.push_back(compileExpression(
         source,
         &scope,
         execCtx->queryCtx()->config(),
         execCtx->pool(),
+        flatteningCandidates,
         enableConstantFolding));
   }
   return exprs;

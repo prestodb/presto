@@ -818,10 +818,12 @@ TEST_F(ExprTest, csePartialEvaluationWithEncodings) {
 // Checks that vector function registry overwrites if multiple registry
 // attempts are made for the same functions.
 TEST_F(ExprTest, overwriteInRegistry) {
+  exec::VectorFunctionMetadata metadata;
   auto inserted = exec::registerVectorFunction(
       "plus5",
       PlusConstantFunction::signatures(),
       std::make_unique<PlusConstantFunction>(500),
+      metadata,
       true);
   ASSERT_TRUE(inserted);
 
@@ -832,6 +834,7 @@ TEST_F(ExprTest, overwriteInRegistry) {
       "plus5",
       PlusConstantFunction::signatures(),
       std::make_unique<PlusConstantFunction>(5),
+      metadata,
       true);
   ASSERT_TRUE(inserted);
 
@@ -848,10 +851,12 @@ TEST_F(ExprTest, overwriteInRegistry) {
 TEST_F(ExprTest, keepInRegistry) {
   // Adding a new function, overwrite = false;
 
+  exec::VectorFunctionMetadata metadata;
   bool inserted = exec::registerVectorFunction(
       "NonExistingFunction",
       PlusConstantFunction::signatures(),
       std::make_unique<PlusConstantFunction>(500),
+      metadata,
       false);
 
   ASSERT_TRUE(inserted);
@@ -862,6 +867,7 @@ TEST_F(ExprTest, keepInRegistry) {
       "NonExistingFunction",
       PlusConstantFunction::signatures(),
       std::make_unique<PlusConstantFunction>(400),
+      metadata,
       false);
   ASSERT_FALSE(inserted);
   ASSERT_EQ(

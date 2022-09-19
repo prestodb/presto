@@ -94,20 +94,23 @@ bool registerStatefulVectorFunction(
     const std::string& name,
     std::vector<FunctionSignaturePtr> signatures,
     VectorFunctionFactory factory,
+    VectorFunctionMetadata metadata,
     bool overwrite) {
   auto sanitizedName = sanitizeFunctionName(name);
 
   if (overwrite) {
     vectorFunctionFactories().withWLock([&](auto& functionMap) {
       // Insert/overwrite.
-      functionMap[sanitizedName] = {std::move(signatures), std::move(factory)};
+      functionMap[sanitizedName] = {
+          std::move(signatures), std::move(factory), std::move(metadata)};
     });
     return true;
   }
 
   return vectorFunctionFactories().withWLock([&](auto& functionMap) {
     auto [iterator, inserted] = functionMap.insert(
-        {sanitizedName, {std::move(signatures), std::move(factory)}});
+        {sanitizedName,
+         {std::move(signatures), std::move(factory), std::move(metadata)}});
     return inserted;
   });
 }
@@ -117,12 +120,14 @@ bool registerVectorFunction(
     const std::string& name,
     std::vector<FunctionSignaturePtr> signatures,
     std::unique_ptr<VectorFunction> func,
+    VectorFunctionMetadata metadata,
     bool overwrite) {
   std::shared_ptr<VectorFunction> sharedFunc = std::move(func);
   auto factory = [sharedFunc](const auto& /*name*/, const auto& /*vectorArg*/) {
     return sharedFunc;
   };
-  return registerStatefulVectorFunction(name, signatures, factory, overwrite);
+  return registerStatefulVectorFunction(
+      name, signatures, factory, metadata, overwrite);
 }
 
 } // namespace facebook::velox::exec

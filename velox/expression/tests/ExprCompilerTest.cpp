@@ -29,17 +29,23 @@ class ExprCompilerTest : public testing::Test,
   }
 
   core::TypedExprPtr andCall(
-      const core::TypedExprPtr& arg,
-      const core::TypedExprPtr& moreArgs...) {
-    std::vector<core::TypedExprPtr> args{arg, {moreArgs}};
-    return std::make_shared<core::CallTypedExpr>(BOOLEAN(), args, "and");
+      const core::TypedExprPtr& a,
+      const core::TypedExprPtr& b) {
+    return std::make_shared<core::CallTypedExpr>(
+        BOOLEAN(), std::vector<core::TypedExprPtr>{a, b}, "and");
   }
 
   core::TypedExprPtr orCall(
-      const core::TypedExprPtr& arg,
-      const core::TypedExprPtr& moreArgs...) {
-    std::vector<core::TypedExprPtr> args{arg, {moreArgs}};
-    return std::make_shared<core::CallTypedExpr>(BOOLEAN(), args, "or");
+      const core::TypedExprPtr& a,
+      const core::TypedExprPtr& b) {
+    return std::make_shared<core::CallTypedExpr>(
+        BOOLEAN(), std::vector<core::TypedExprPtr>{a, b}, "or");
+  }
+
+  core::TypedExprPtr concatCall(const std::vector<core::TypedExprPtr>& args) {
+    VELOX_CHECK_GE(args.size(), 2);
+    return std::make_shared<core::CallTypedExpr>(
+        args[0]->type(), args, "concat");
   }
 
   core::TypedExprPtr call(
@@ -57,9 +63,13 @@ class ExprCompilerTest : public testing::Test,
     return std::make_shared<core::ConstantTypedExpr>(value);
   }
 
-  std::function<core::FieldAccessTypedExprPtr(const std::string& name)>
-  makeField(const RowTypePtr& rowType) {
-    return [&](const std::string& name) -> core::FieldAccessTypedExprPtr {
+  core::TypedExprPtr varchar(const std::string& value) {
+    return std::make_shared<core::ConstantTypedExpr>(variant(value));
+  }
+
+  std::function<core::TypedExprPtr(const std::string& name)> makeField(
+      const RowTypePtr& rowType) {
+    return [&](const std::string& name) -> core::TypedExprPtr {
       auto type = rowType->findChild(name);
       return std::make_shared<core::FieldAccessTypedExpr>(type, name);
     };
@@ -140,5 +150,34 @@ TEST_F(ExprCompilerTest, orFlattening) {
   expression =
       andCall(field("a"), orCall(field("b"), orCall(field("c"), field("d"))));
   ASSERT_EQ("and(a, or(b, c, d))", compile(expression)->toString());
+}
+
+TEST_F(ExprCompilerTest, concatFlattening) {
+  auto rowType =
+      ROW({"a", "b", "c", "d"}, {VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()});
+
+  auto field = makeField(rowType);
+
+  auto expression = concatCall(
+      {field("a"),
+       concatCall({field("b"), concatCall({field("c"), field("d")})})});
+  ASSERT_EQ("concat(a, b, c, d)", compile(expression)->toString());
+
+  expression = concatCall(
+      {concatCall({field("a"), field("b"), field("c")}),
+       field("a"),
+       concatCall({field("d"), field("d")})});
+  ASSERT_EQ("concat(a, b, c, a, d, d)", compile(expression)->toString());
+
+  expression = concatCall(
+      {field("a"), concatCall({field("b"), field("c")}), field("d")});
+  ASSERT_EQ("concat(a, b, c, d)", compile(expression)->toString());
+
+  // Constant folding happens after flattening.
+  expression = concatCall(
+      {field("a"), concatCall({varchar("---"), varchar("...")}), field("b")});
+  ASSERT_EQ(
+      "concat(a, ---:VARCHAR, ...:VARCHAR, b)",
+      compile(expression)->toString());
 }
 } // namespace facebook::velox::exec::test

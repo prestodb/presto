@@ -198,6 +198,10 @@ class ConcatFunction : public exec::VectorFunction {
                 .variableArity()
                 .build()};
   }
+
+  static exec::VectorFunctionMetadata metadata() {
+    return {true /* supportsFlattening */};
+  }
 };
 
 /**
@@ -491,9 +495,10 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     UpperLowerTemplateFunction<true /*isLower*/>::signatures(),
     std::make_unique<UpperLowerTemplateFunction<true /*isLower*/>>());
 
-VELOX_DECLARE_VECTOR_FUNCTION(
+VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     udf_concat,
     ConcatFunction::signatures(),
+    ConcatFunction::metadata(),
     std::make_unique<ConcatFunction>());
 
 VELOX_DECLARE_VECTOR_FUNCTION(
