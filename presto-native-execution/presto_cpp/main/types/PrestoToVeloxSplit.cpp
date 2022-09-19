@@ -14,6 +14,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include <optional>
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/tpch/TpchConnectorSplit.h"
 #include "velox/exec/Exchange.h"
 
 using namespace facebook::velox;
@@ -71,6 +72,15 @@ velox::exec::Split toVeloxSplit(
     return velox::exec::Split(
         std::make_shared<exec::RemoteConnectorSplit>(
             remoteSplit->location.location),
+        splitGroupId);
+  }
+  if (auto tpchSplit = std::dynamic_pointer_cast<const protocol::TpchSplit>(
+          connectorSplit)) {
+    return velox::exec::Split(
+        std::make_shared<connector::tpch::TpchConnectorSplit>(
+            scheduledSplit.split.connectorId,
+            tpchSplit->totalParts,
+            tpchSplit->partNumber),
         splitGroupId);
   }
   if (std::dynamic_pointer_cast<const protocol::EmptySplit>(connectorSplit)) {

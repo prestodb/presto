@@ -183,6 +183,10 @@ public class HiveExternalWorkerQueryRunner
                                         "cache.enabled=true%n" +
                                         "cache.max-cache-size=32").getBytes());
 
+                        // Add a tpch catalog.
+                        Files.write(catalogDirectoryPath.resolve("tpchstandard.properties"),
+                                format("connector.name=tpch%n").getBytes());
+
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")
                                 .directory(tempDirectoryPath.toFile())
