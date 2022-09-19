@@ -164,9 +164,13 @@ class CastExpr : public SpecialForm {
       const RowType& fromType,
       const RowType& toType);
 
+  /// Apply the cast between decimal vectors.
+  /// @param rows Non-null rows of the input vector.
+  /// @param input The input decimal vector. It is guaranteed to be flat or
+  /// constant.
   VectorPtr applyDecimal(
       const SelectivityVector& rows,
-      DecodedVector& input,
+      const BaseVector& input,
       exec::EvalCtx& context,
       const TypePtr& fromType,
       const TypePtr& toType);

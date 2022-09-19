@@ -103,13 +103,13 @@ std::string makeErrorMessage(
 template <typename TInput, typename TOutput>
 void applyDecimalCastKernel(
     const SelectivityVector& rows,
-    DecodedVector& input,
+    const BaseVector& input,
     exec::EvalCtx& context,
     const TypePtr& fromType,
     const TypePtr& toType,
     VectorPtr castResult,
     const bool nullOnFailure) {
-  auto sourceVector = input.base()->as<SimpleVector<TInput>>();
+  auto sourceVector = input.as<SimpleVector<TInput>>();
   auto castResultRawBuffer =
       castResult->asUnchecked<FlatVector<TOutput>>()->mutableRawValues();
   const auto& fromPrecisionScale = getDecimalPrecisionScale(*fromType);
@@ -486,7 +486,7 @@ VectorPtr CastExpr::applyRow(
 
 VectorPtr CastExpr::applyDecimal(
     const SelectivityVector& rows,
-    DecodedVector& input,
+    const BaseVector& input,
     exec::EvalCtx& context,
     const TypePtr& fromType,
     const TypePtr& toType) {
@@ -667,8 +667,8 @@ void CastExpr::apply(
         break;
       case TypeKind::SHORT_DECIMAL:
       case TypeKind::LONG_DECIMAL:
-        localResult =
-            applyDecimal(*translatedRows, *decoded, context, fromType, toType);
+        localResult = applyDecimal(
+            *translatedRows, *decoded->base(), context, fromType, toType);
         break;
       default: {
         // Handle primitive type conversions.
