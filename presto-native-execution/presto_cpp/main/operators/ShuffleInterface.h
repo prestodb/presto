@@ -1,6 +1,4 @@
 /*
- * Copyright (c) Facebook, Inc. and its affiliates.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -35,6 +33,10 @@ class ShuffleInterface {
   /// Read the next block of data for this partition.
   /// @param success set to false indicate aborted client.
   virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+  /// Return true if all the data is finished writing and is ready to
+  /// to be read while noMoreData signals the shuffle service that there
+  /// is no more data to be writen.
+  virtual bool readyForRead() const = 0;
 };
 
 } // namespace facebook::presto::operators

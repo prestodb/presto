@@ -12,18 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(
-        presto_operators
-        PartitionAndSerialize.cpp
-        ShuffleWrite.cpp
-        UnsafeRowExchangeSource.cpp)
+  presto_operators PartitionAndSerialize.cpp ShuffleWrite.cpp
+                   UnsafeRowExchangeSource.cpp TestingPersistentShuffle.cpp)
 
-target_link_libraries(
-        presto_operators
-        velox_core
-        velox_exec
-        velox_expression
-        velox_hive_partition_function
-        velox_vector)
+target_link_libraries(presto_operators velox_core velox_exec velox_expression
+                      velox_hive_partition_function velox_vector)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
