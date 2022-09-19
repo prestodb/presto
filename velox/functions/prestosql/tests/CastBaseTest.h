@@ -31,20 +31,29 @@ class CastBaseTest : public FunctionBaseTest {
   CastBaseTest() {
     exec::registerVectorFunction(
         "testing_dictionary",
-        ::facebook::velox::test::TestingDictionaryFunction::signatures(),
-        std::make_unique<::facebook::velox::test::TestingDictionaryFunction>());
+        test::TestingDictionaryFunction::signatures(),
+        std::make_unique<test::TestingDictionaryFunction>());
   }
 
+  // Build an ITypedExpr for cast(fromType as toType).
+  core::TypedExprPtr buildCastExpr(
+      const TypePtr& fromType,
+      const TypePtr& toType,
+      bool isTryCast) {
+    core::TypedExprPtr inputField =
+        std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
+    return std::make_shared<const core::CastTypedExpr>(
+        toType, std::vector<core::TypedExprPtr>{inputField}, isTryCast);
+  }
+
+  // Evaluate cast(fromType as toType) and return the result vector.
   template <typename TTo>
   VectorPtr evaluateCast(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
-      bool tryCast = false) {
-    core::TypedExprPtr inputField =
-        std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
-    core::TypedExprPtr castExpr = std::make_shared<const core::CastTypedExpr>(
-        toType, std::vector<core::TypedExprPtr>{inputField}, tryCast);
+      bool isTryCast = false) {
+    auto castExpr = buildCastExpr(fromType, toType, isTryCast);
 
     if constexpr (std::is_same_v<TTo, ComplexType>) {
       return evaluate(castExpr, input);
@@ -53,32 +62,46 @@ class CastBaseTest : public FunctionBaseTest {
     }
   }
 
+  // Evaluate cast(fromType as toType) and verify the result matches the
+  // expected one.
   template <typename TTo>
   void evaluateAndVerify(
       const TypePtr& fromType,
       const TypePtr& toType,
       const RowVectorPtr& input,
       const VectorPtr& expected,
-      bool tryCast = false) {
-    auto result = evaluateCast<TTo>(fromType, toType, input, tryCast);
+      bool isTryCast = false) {
+    auto result = evaluateCast<TTo>(fromType, toType, input, isTryCast);
     assertEqualVectors(expected, result);
   }
 
-  template <typename TTo>
-  void evaluateAndVerifyDictEncoding(
+  // Build an ITypedExpr for cast(testing_dictionary(fromType) as toType).
+  core::TypedExprPtr buildCastExprWithDictionaryInput(
       const TypePtr& fromType,
       const TypePtr& toType,
-      const RowVectorPtr& input,
-      const VectorPtr& expected,
-      bool tryCast = false) {
+      bool isTryCast) {
     core::TypedExprPtr inputField =
         std::make_shared<const core::FieldAccessTypedExpr>(fromType, "c0");
     core::TypedExprPtr callExpr = std::make_shared<const core::CallTypedExpr>(
         fromType,
         std::vector<core::TypedExprPtr>{inputField},
         "testing_dictionary");
-    core::TypedExprPtr castExpr = std::make_shared<const core::CastTypedExpr>(
-        toType, std::vector<core::TypedExprPtr>{callExpr}, tryCast);
+    return std::make_shared<const core::CastTypedExpr>(
+        toType, std::vector<core::TypedExprPtr>{callExpr}, isTryCast);
+  }
+
+  // Evaluate cast(testing_dictionary(fromType) as toType) and verify the result
+  // matches the expected one. Values in expected should correspond to values in
+  // input at the same rows.
+  template <typename TTo>
+  void evaluateAndVerifyDictEncoding(
+      const TypePtr& fromType,
+      const TypePtr& toType,
+      const RowVectorPtr& input,
+      const VectorPtr& expected,
+      bool isTryCast = false) {
+    auto castExpr =
+        buildCastExprWithDictionaryInput(fromType, toType, isTryCast);
 
     VectorPtr result;
     if constexpr (std::is_same_v<TTo, ComplexType>) {
@@ -87,10 +110,25 @@ class CastBaseTest : public FunctionBaseTest {
       result = evaluate<SimpleVector<EvalType<TTo>>>(castExpr, input);
     }
 
-    auto indices =
-        ::facebook::velox::test::makeIndicesInReverse(expected->size(), pool());
-    assertEqualVectors(
-        wrapInDictionary(indices, expected->size(), expected), result);
+    auto indices = test::makeIndicesInReverse(expected->size(), pool());
+    assertEqualVectors(wrapInDictionary(indices, expected), result);
+  }
+
+  // Evaluate try(cast(testing_dictionary(fromType) as toType)) and verify the
+  // result matches the expected one. Values in expected should correspond to
+  // values in input at the same rows.
+  void evaluateAndVerifyCastInTryDictEncoding(
+      const TypePtr& fromType,
+      const TypePtr& toType,
+      const RowVectorPtr& input,
+      const VectorPtr& expected) {
+    auto castExpr = buildCastExprWithDictionaryInput(fromType, toType, false);
+    core::TypedExprPtr tryExpr = std::make_shared<const core::CallTypedExpr>(
+        toType, std::vector<core::TypedExprPtr>{castExpr}, "try");
+
+    auto result = evaluate(tryExpr, input);
+    auto indices = test::makeIndicesInReverse(expected->size(), pool());
+    assertEqualVectors(wrapInDictionary(indices, expected), result);
   }
 
   template <typename TTo>

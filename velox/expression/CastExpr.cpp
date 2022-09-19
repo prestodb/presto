@@ -594,8 +594,8 @@ void CastExpr::apply(
     const SelectivityVector& rows,
     VectorPtr& input,
     exec::EvalCtx& context,
-    const std::shared_ptr<const Type>& fromType,
-    const std::shared_ptr<const Type>& toType,
+    const TypePtr& fromType,
+    const TypePtr& toType,
     VectorPtr& result) {
   LocalDecodedVector decoded(context, *input, rows);
   auto* rawNulls = decoded->nulls();
@@ -617,29 +617,33 @@ void CastExpr::apply(
   if (decoded->isIdentityMapping()) {
     applyPeeled(
         *nonNullRows, *decoded->base(), context, fromType, toType, localResult);
+
   } else {
-    LocalSelectivityVector translatedRows(
-        *context.execCtx(), decoded->base()->size());
-    translatedRows->clearAll();
+    ContextSaver saver;
+    LocalSelectivityVector translatedRowsHolder(*context.execCtx());
 
     if (decoded->isConstantMapping()) {
-      translatedRows->setValid(decoded->index(0), true);
+      auto index = decoded->index(nonNullRows->begin());
+      singleRow(translatedRowsHolder, index);
+      context.saveAndReset(saver, rows);
+      context.setConstantWrap(index);
     } else {
-      nonNullRows->applyToSelected([&](auto row) {
-        translatedRows->setValid(decoded->index(row), true);
-      });
+      translateToInnerRows(*nonNullRows, *decoded, translatedRowsHolder);
+      context.saveAndReset(saver, rows);
+      auto wrapping = decoded->dictionaryWrapping(*input, *nonNullRows);
+      context.setDictionaryWrap(
+          std::move(wrapping.indices), std::move(wrapping.nulls));
     }
-    translatedRows->updateBounds();
 
     applyPeeled(
-        *translatedRows,
+        *translatedRowsHolder,
         *decoded->base(),
         context,
         fromType,
         toType,
         localResult);
 
-    localResult = decoded->wrap(localResult, *input, rows);
+    localResult = context.applyWrapToPeeledResult(toType, localResult, rows);
   }
   context.moveOrCopyResult(localResult, rows, result);
   context.releaseVector(localResult);

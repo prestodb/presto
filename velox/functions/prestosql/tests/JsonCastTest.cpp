@@ -1000,3 +1000,14 @@ TEST_F(JsonCastTest, toInvalid) {
       {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
   testThrow<Json, ComplexType>(JSON(), ARRAY(ROW({DOUBLE()})), {"null"_sv});
 }
+
+TEST_F(JsonCastTest, castInTry) {
+  // Test try(json as array(bigint))) whose input vector is wrapped in
+  // dictionary encoding. The row of "1a" should trigger an error during casting
+  // and the try expression should turn this error into a null at this row.
+  auto input =
+      makeRowVector({makeFlatVector<Json>({"1a"_sv, "2"_sv, "3"_sv}, JSON())});
+  auto expected = makeNullableFlatVector<int64_t>({std::nullopt, 2, 3});
+
+  evaluateAndVerifyCastInTryDictEncoding(JSON(), BIGINT(), input, expected);
+}

@@ -388,6 +388,17 @@ class Expr {
   ExprStats stats_;
 };
 
+/// Translates row number of the outer vector into row number of the inner
+/// vector using DecodedVector.
+SelectivityVector* FOLLY_NONNULL translateToInnerRows(
+    const SelectivityVector& rows,
+    DecodedVector& decoded,
+    LocalSelectivityVector& newRowsHolder);
+
+/// Generate a selectivity vector of a single row.
+SelectivityVector* FOLLY_NONNULL
+singleRow(LocalSelectivityVector& holder, vector_size_t row);
+
 using ExprPtr = std::shared_ptr<Expr>;
 
 // A set of Exprs that get evaluated together. Common subexpressions

@@ -490,8 +490,17 @@ inline void setPeeled(
   peeled[fieldIndex] = leaf;
 }
 
-/// Translates row number of the outer vector into row number of the inner
-/// vector using DecodedVector.
+void setDictionaryWrapping(
+    DecodedVector& decoded,
+    const SelectivityVector& rows,
+    BaseVector& firstWrapper,
+    EvalCtx& context) {
+  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows);
+  context.setDictionaryWrap(
+      std::move(wrapping.indices), std::move(wrapping.nulls));
+}
+} // namespace
+
 SelectivityVector* translateToInnerRows(
     const SelectivityVector& rows,
     DecodedVector& decoded,
@@ -523,17 +532,6 @@ SelectivityVector* singleRow(
   rows->updateBounds();
   return rows;
 }
-
-void setDictionaryWrapping(
-    DecodedVector& decoded,
-    const SelectivityVector& rows,
-    BaseVector& firstWrapper,
-    EvalCtx& context) {
-  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows);
-  context.setDictionaryWrap(
-      std::move(wrapping.indices), std::move(wrapping.nulls));
-}
-} // namespace
 
 Expr::PeelEncodingsResult Expr::peelEncodings(
     EvalCtx& context,
