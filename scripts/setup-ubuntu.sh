@@ -50,7 +50,8 @@ sudo --preserve-env apt install -y \
   liblzo2-dev \
   bison \
   flex \
-  tzdata
+  tzdata \
+  wget
 
 function run_and_time {
   time "$@"
