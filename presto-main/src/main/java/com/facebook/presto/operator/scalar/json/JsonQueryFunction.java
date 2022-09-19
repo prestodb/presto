@@ -15,9 +15,7 @@ package com.facebook.presto.operator.scalar.json;
 
 import com.facebook.presto.annotation.UsedByGeneratedCode;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.function.SqlFunctionProperties;
-import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.json.ir.IrJsonPath;
@@ -32,35 +30,29 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
 import com.facebook.presto.sql.planner.JsonPathEvaluator;
 import com.facebook.presto.sql.tree.JsonQuery;
-import com.facebook.presto.type.Json2016Type;
 import com.facebook.presto.type.JsonPath2016Type;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.JSON_2016;
 import static com.facebook.presto.common.type.StandardTypes.TINYINT;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.common.type.TypeUtils.readNativeValue;
-import static com.facebook.presto.json.JsonEmptySequenceNode.EMPTY_SEQUENCE;
 import static com.facebook.presto.json.JsonInputErrorNode.JSON_ERROR;
 import static com.facebook.presto.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.DEFAULT_NAMESPACE;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
+import static com.facebook.presto.operator.scalar.json.ParameterUtil.getParametersArray;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
-import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.JSON_NO_PARAMETERS_ROW_TYPE;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -168,8 +160,8 @@ public class JsonQueryFunction
         if (inputExpression.equals(JSON_ERROR)) {
             return handleSpecialCase(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
         }
-        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
-        for (Object parameter : parameters.values()) {
+        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
                 return handleSpecialCase(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }
@@ -243,40 +235,5 @@ public class JsonQueryFunction
                 return EMPTY_OBJECT_RESULT;
         }
         throw new IllegalStateException("unexpected behavior");
-    }
-
-    public static Map<String, Object> getParametersMap(Type parametersRowType, Object parametersRow)
-    {
-        if (JSON_NO_PARAMETERS_ROW_TYPE.equals(parametersRowType)) {
-            return ImmutableMap.of();
-        }
-
-        RowType rowType = (RowType) parametersRowType;
-        Block row = (Block) parametersRow;
-        List<Block> parameterBlocks = row.getChildren();
-
-        ImmutableMap.Builder<String, Object> map = ImmutableMap.builder();
-        for (int i = 0; i < rowType.getFields().size(); i++) {
-            RowType.Field field = rowType.getFields().get(i);
-            String name = field.getName().orElseThrow(() -> new IllegalStateException("missing parameter name"));
-            Type type = field.getType();
-            Object value = readNativeValue(type, parameterBlocks.get(i), 0);
-            if (type.equals(Json2016Type.JSON_2016)) {
-                if (value == null) {
-                    map.put(name, EMPTY_SEQUENCE); // null as JSON value shall produce an empty sequence
-                }
-                else {
-                    map.put(name, value);
-                }
-            }
-            else if (value == null) {
-                map.put(name, NullNode.getInstance()); // null as a non-JSON value shall produce a JSON null
-            }
-            else {
-                map.put(name, TypedValue.fromValueAsObject(type, value));
-            }
-        }
-
-        return map.build();
     }
 }

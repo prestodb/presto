@@ -97,11 +97,11 @@ public class TestJsonPath2016TypeSerialization
     public void testNamedVariables()
     {
         // json variable
-        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedJsonVariable("variable_name", Optional.empty())));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedJsonVariable("variable_name", Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedJsonVariable(5, Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedJsonVariable(5, Optional.of(DOUBLE))));
 
         // SQL value variable
-        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedValueVariable("variable_name", Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrNamedValueVariable(5, Optional.of(DOUBLE))));
     }
 
     @Test

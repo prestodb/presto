@@ -189,14 +189,14 @@ public class PathNodes
         return new IrMemberAccessor(base, Optional.of(key), Optional.empty());
     }
 
-    public static IrPathNode jsonVariable(String name)
+    public static IrPathNode jsonVariable(int index)
     {
-        return new IrNamedJsonVariable(name, Optional.empty());
+        return new IrNamedJsonVariable(index, Optional.empty());
     }
 
-    public static IrPathNode variable(String name)
+    public static IrPathNode variable(int index)
     {
-        return new IrNamedValueVariable(name, Optional.empty());
+        return new IrNamedValueVariable(index, Optional.empty());
     }
 
     public static IrPathNode currentItem()

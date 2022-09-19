@@ -35,7 +35,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.StandardTypes.JSON_2016;
@@ -46,7 +45,7 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.json.JsonQueryFunction.getParametersMap;
+import static com.facebook.presto.operator.scalar.json.ParameterUtil.getParametersArray;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.util.Reflection.methodHandle;
@@ -138,8 +137,8 @@ public class JsonExistsFunction
         if (inputExpression.equals(JSON_ERROR)) {
             return handleError(errorBehavior, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
         }
-        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
-        for (Object parameter : parameters.values()) {
+        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
                 return handleError(errorBehavior, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }

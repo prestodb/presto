@@ -20,18 +20,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class IrNamedJsonVariable
         extends IrPathNode
 {
-    private final String name;
+    private final int index;
 
     @JsonCreator
-    public IrNamedJsonVariable(@JsonProperty("name") String name, @JsonProperty("type") Optional<Type> type)
+    public IrNamedJsonVariable(@JsonProperty("index") int index, @JsonProperty("type") Optional<Type> type)
     {
         super(type);
-        this.name = requireNonNull(name, "name is null");
+        checkArgument(index >= 0, "parameter index is negative");
+        this.index = index;
     }
 
     @Override
@@ -41,9 +42,9 @@ public class IrNamedJsonVariable
     }
 
     @JsonProperty
-    public String getName()
+    public int getIndex()
     {
-        return name;
+        return index;
     }
 
     @Override
@@ -56,12 +57,12 @@ public class IrNamedJsonVariable
             return false;
         }
         IrNamedJsonVariable other = (IrNamedJsonVariable) obj;
-        return Objects.equals(this.name, other.name);
+        return this.index == other.index;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name);
+        return Objects.hash(index);
     }
 }

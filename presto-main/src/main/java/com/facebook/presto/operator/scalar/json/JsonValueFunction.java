@@ -43,7 +43,6 @@ import io.airlift.slice.Slice;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.StandardTypes.JSON_2016;
@@ -55,7 +54,7 @@ import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManage
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.USE_BOXED_TYPE;
-import static com.facebook.presto.operator.scalar.json.JsonQueryFunction.getParametersMap;
+import static com.facebook.presto.operator.scalar.json.ParameterUtil.getParametersArray;
 import static com.facebook.presto.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
@@ -248,8 +247,8 @@ public class JsonValueFunction
         if (inputExpression.equals(JSON_ERROR)) {
             return handleSpecialCase(errorBehavior, errorDefault, INPUT_ARGUMENT_ERROR); // ERROR ON ERROR was already handled by the input function
         }
-        Map<String, Object> parameters = getParametersMap(parametersRowType, parametersRow); // TODO refactor
-        for (Object parameter : parameters.values()) {
+        Object[] parameters = getParametersArray(parametersRowType, parametersRow);
+        for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
                 return handleSpecialCase(errorBehavior, errorDefault, PATH_PARAMETER_ERROR); // ERROR ON ERROR was already handled by the input function
             }

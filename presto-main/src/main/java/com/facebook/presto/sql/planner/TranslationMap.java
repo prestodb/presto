@@ -65,6 +65,7 @@ import static com.facebook.presto.sql.tree.JsonQuery.QuotesBehavior.KEEP;
 import static com.facebook.presto.sql.tree.JsonQuery.QuotesBehavior.OMIT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -329,19 +330,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunctionMetadata.getArgumentTypes().get(2).toString(),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(functionAndTypeManager.getBlockEncodingSerde()).toExpression(path, functionAndTypeManager.getType(parseTypeSignature(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
                 Expression result = new FunctionCall(createQualifiedName(resolvedFunctionMetadata.getName()), arguments.build());
 
@@ -372,19 +373,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunctionMetadata.getArgumentTypes().get(2).toString(),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(functionAndTypeManager.getBlockEncodingSerde()).toExpression(path, functionAndTypeManager.getType(parseTypeSignature(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
                         .add(rewritten.getEmptyDefault().orElse(new Cast(new NullLiteral(), resolvedFunctionMetadata.getReturnType().toString())))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())))
@@ -419,19 +420,19 @@ class TranslationMap
 
                 // apply the input functions to the JSON path parameters having FORMAT,
                 // and collect all JSON path parameters in a Row
-                Expression parametersRow = getParametersRow(
+                ParametersRow orderedParameters = getParametersRow(
                         node.getJsonPathInvocation().getPathParameters(),
                         rewritten.getJsonPathInvocation().getPathParameters(),
                         resolvedFunctionMetadata.getArgumentTypes().get(2).toString(),
                         failOnError);
 
-                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node));
+                IrJsonPath path = new JsonPathTranslator(session, functionAndTypeManager).rewriteToIr(analysis.getJsonPathAnalysis(node), orderedParameters.getParametersOrder());
                 Expression pathExpression = new LiteralEncoder(functionAndTypeManager.getBlockEncodingSerde()).toExpression(path, functionAndTypeManager.getType(parseTypeSignature(JsonPath2016Type.NAME)));
 
                 ImmutableList.Builder<Expression> arguments = ImmutableList.<Expression>builder()
                         .add(input)
                         .add(pathExpression)
-                        .add(parametersRow)
+                        .add(orderedParameters.getParametersRow())
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getWrapperBehavior().ordinal())))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getEmptyBehavior().ordinal())))
                         .add(new GenericLiteral("tinyint", String.valueOf(rewritten.getErrorBehavior().ordinal())));
@@ -460,12 +461,14 @@ class TranslationMap
                 return coerceIfNecessary(node, result);
             }
 
-            private Expression getParametersRow(
+            private ParametersRow getParametersRow(
                     List<JsonPathParameter> pathParameters,
                     List<JsonPathParameter> rewrittenPathParameters,
                     String parameterRowType,
                     BooleanLiteral failOnError)
             {
+                Expression parametersRow;
+                List<String> parametersOrder;
                 if (!pathParameters.isEmpty()) {
                     ImmutableList.Builder<Expression> parameters = ImmutableList.builder();
                     for (int i = 0; i < pathParameters.size(); i++) {
@@ -479,10 +482,18 @@ class TranslationMap
                             parameters.add(rewrittenParameter);
                         }
                     }
-                    return new Cast(new Row(parameters.build()), parameterRowType);
+                    parametersRow = new Cast(new Row(parameters.build()), parameterRowType);
+                    parametersOrder = pathParameters.stream()
+                            .map(parameter -> parameter.getName().getCanonicalValue())
+                            .collect(toImmutableList());
+                }
+                else {
+                    checkState(parameterRowType.equals(JSON_NO_PARAMETERS_ROW_TYPE.toString()), "invalid type of parameters row when no parameters are passed");
+                    parametersRow = new Cast(new NullLiteral(), JSON_NO_PARAMETERS_ROW_TYPE.toString());
+                    parametersOrder = ImmutableList.of();
                 }
 
-                return new Cast(new NullLiteral(), JSON_NO_PARAMETERS_ROW_TYPE.toString());
+                return new ParametersRow(parametersRow, parametersOrder);
             }
 
             private Expression coerceIfNecessary(Expression original, Expression rewritten)
@@ -521,5 +532,27 @@ class TranslationMap
                 .tryResolveField(expression)
                 .filter(ResolvedField::isLocal)
                 .map(field -> requireNonNull(plan.getFieldMappings().get(field.getHierarchyFieldIndex())));
+    }
+
+    private static class ParametersRow
+    {
+        private final Expression parametersRow;
+        private final List<String> parametersOrder;
+
+        public ParametersRow(Expression parametersRow, List<String> parametersOrder)
+        {
+            this.parametersRow = requireNonNull(parametersRow, "parametersRow is null");
+            this.parametersOrder = requireNonNull(parametersOrder, "parametersOrder is null");
+        }
+
+        public Expression getParametersRow()
+        {
+            return parametersRow;
+        }
+
+        public List<String> getParametersOrder()
+        {
+            return parametersOrder;
+        }
     }
 }
