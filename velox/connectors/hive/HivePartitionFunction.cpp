@@ -234,12 +234,10 @@ void HivePartitionFunction::partition(
     std::vector<uint32_t>& partitions) {
   const auto numRows = input.size();
 
+  rows_.resize(numRows, true);
   if (numRows > hashes_.size()) {
-    rows_.resize(numRows);
-    rows_.setAll();
     hashes_.resize(numRows);
   }
-
   partitions.resize(numRows);
   for (auto i = 0; i < keyChannels_.size(); ++i) {
     if (keyChannels_[i] != kConstantChannel) {
