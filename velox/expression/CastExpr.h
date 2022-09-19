@@ -109,21 +109,23 @@ class CastExpr : public SpecialForm {
   void applyCastWithTry(
       const SelectivityVector& rows,
       exec::EvalCtx& context,
-      const DecodedVector& input,
+      const BaseVector& input,
       FlatVector<To>* resultFlatVector);
 
   /// @tparam To The target template
   /// @param fromType The source type pointer
+  /// @param toType The target type pointer
   /// @param rows The list of rows
   /// @param context The context
   /// @param input The input vector (of type From)
   /// @param result The output vector (of type To)
   template <TypeKind To>
   void applyCast(
-      const TypeKind fromType,
+      const TypePtr& fromType,
+      const TypePtr& toType,
       const SelectivityVector& rows,
       exec::EvalCtx& context,
-      const DecodedVector& input,
+      const BaseVector& input,
       VectorPtr& result);
 
   /// Apply the cast after generating the input vectors

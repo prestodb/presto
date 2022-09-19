@@ -43,9 +43,11 @@ namespace {
 template <typename To, typename From, bool Truncate>
 void applyCastKernel(
     vector_size_t row,
-    const DecodedVector& input,
+    const BaseVector& input,
     FlatVector<To>* resultFlatVector,
     bool& nullOutput) {
+  auto* flatInput = input.asUnchecked<SimpleVector<From>>();
+
   // Special handling for string target type
   if constexpr (CppToType<To>::typeKind == TypeKind::VARCHAR) {
     if (nullOutput) {
@@ -53,7 +55,7 @@ void applyCastKernel(
     } else {
       auto output =
           util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-              input.valueAt<From>(row), nullOutput);
+              flatInput->valueAt(row), nullOutput);
       // Write the result output to the output vector
       auto writer = exec::StringWriter<>(resultFlatVector, row);
       writer.resize(output.size());
@@ -65,7 +67,7 @@ void applyCastKernel(
   } else {
     auto result =
         util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-            input.valueAt<From>(row), nullOutput);
+            flatInput->valueAt(row), nullOutput);
     if (nullOutput) {
       resultFlatVector->setNull(row, true);
     } else {
@@ -88,14 +90,14 @@ void populateNestedRows(
 }
 
 std::string makeErrorMessage(
-    const DecodedVector& input,
+    const BaseVector& input,
     vector_size_t row,
     const TypePtr& toType) {
   return fmt::format(
       "Failed to cast from {} to {}: {}.",
-      input.base()->type()->toString(),
+      input.type()->toString(),
       toType->toString(),
-      input.base()->toString(input.index(row)));
+      input.toString(row));
 }
 
 template <typename TInput, typename TOutput>
@@ -133,7 +135,7 @@ template <typename To, typename From>
 void CastExpr::applyCastWithTry(
     const SelectivityVector& rows,
     exec::EvalCtx& context,
-    const DecodedVector& input,
+    const BaseVector& input,
     FlatVector<To>* resultFlatVector) {
   const auto& queryConfig = context.execCtx()->queryCtx()->config();
   auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
@@ -241,18 +243,20 @@ void CastExpr::applyCastWithTry(
 
 template <TypeKind Kind>
 void CastExpr::applyCast(
-    const TypeKind fromType,
+    const TypePtr& fromType,
+    const TypePtr& toType,
     const SelectivityVector& rows,
     exec::EvalCtx& context,
-    const DecodedVector& input,
+    const BaseVector& input,
     VectorPtr& result) {
   using To = typename TypeTraits<Kind>::NativeType;
+  context.ensureWritable(rows, toType, result);
   auto* resultFlatVector = result->as<FlatVector<To>>();
 
   // Unwrapping fromType pointer. VERY IMPORTANT: dynamic type pointer and
   // static type templates in each cast must match exactly
   // @TODO Add support for needed complex types in T74045702
-  switch (fromType) {
+  switch (fromType->kind()) {
     case TypeKind::TINYINT: {
       return applyCastWithTry<To, int8_t>(
           rows, context, input, resultFlatVector);
@@ -626,74 +630,65 @@ void CastExpr::apply(
         nullOnFailure_,
         result);
   } else {
-    if (toType->isArray() || toType->isMap() || toType->isRow() ||
-        isDecimalKind(toType->kind())) {
-      LocalSelectivityVector translatedRows(
-          *context.execCtx(), decoded->base()->size());
-      translatedRows->clearAll();
-      nonNullRows->applyToSelected([&](auto row) {
-        translatedRows->setValid(decoded->index(row), true);
-      });
-      translatedRows->updateBounds();
+    LocalSelectivityVector translatedRows(
+        *context.execCtx(), decoded->base()->size());
+    translatedRows->clearAll();
+    nonNullRows->applyToSelected(
+        [&](auto row) { translatedRows->setValid(decoded->index(row), true); });
+    translatedRows->updateBounds();
 
-      VectorPtr localResult;
+    VectorPtr localResult;
 
-      switch (toType->kind()) {
-        // Handle complex type conversions
-        case TypeKind::MAP:
-          localResult = applyMap(
-              *translatedRows,
-              decoded->base()->asUnchecked<MapVector>(),
-              context,
-              fromType->asMap(),
-              toType->asMap());
-          break;
-        case TypeKind::ARRAY:
-          localResult = applyArray(
-              *translatedRows,
-              decoded->base()->asUnchecked<ArrayVector>(),
-              context,
-              fromType->asArray(),
-              toType->asArray());
-          break;
-        case TypeKind::ROW:
-          localResult = applyRow(
-              *translatedRows,
-              decoded->base()->asUnchecked<RowVector>(),
-              context,
-              fromType->asRow(),
-              toType->asRow());
-          break;
-        case TypeKind::SHORT_DECIMAL:
-        case TypeKind::LONG_DECIMAL:
-          localResult = applyDecimal(
-              *translatedRows, *decoded, context, fromType, toType);
-          break;
-        default: {
-          VELOX_UNREACHABLE();
-        }
+    switch (toType->kind()) {
+      // Handle complex type conversions
+      case TypeKind::MAP:
+        localResult = applyMap(
+            *translatedRows,
+            decoded->base()->asUnchecked<MapVector>(),
+            context,
+            fromType->asMap(),
+            toType->asMap());
+        break;
+      case TypeKind::ARRAY:
+        localResult = applyArray(
+            *translatedRows,
+            decoded->base()->asUnchecked<ArrayVector>(),
+            context,
+            fromType->asArray(),
+            toType->asArray());
+        break;
+      case TypeKind::ROW:
+        localResult = applyRow(
+            *translatedRows,
+            decoded->base()->asUnchecked<RowVector>(),
+            context,
+            fromType->asRow(),
+            toType->asRow());
+        break;
+      case TypeKind::SHORT_DECIMAL:
+      case TypeKind::LONG_DECIMAL:
+        localResult =
+            applyDecimal(*translatedRows, *decoded, context, fromType, toType);
+        break;
+      default: {
+        // Handle primitive type conversions.
+        VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+            applyCast,
+            toType->kind(),
+            fromType,
+            toType,
+            *translatedRows,
+            context,
+            *decoded->base(),
+            localResult);
       }
-
-      if (!decoded->isIdentityMapping()) {
-        localResult = decoded->wrap(localResult, *input, rows);
-      }
-
-      context.moveOrCopyResult(localResult, rows, result);
-      context.releaseVector(localResult);
-    } else {
-      // Handling primitive type conversions
-      context.ensureWritable(rows, toType, result);
-      // Unwrapping toType pointer. VERY IMPORTANT: dynamic type pointer and
-      // static type templates in each cast must match exactly
-      VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          applyCast,
-          toType->kind(),
-          fromType->kind(),
-          *nonNullRows,
-          context,
-          *decoded,
-          result);
     }
+
+    if (!decoded->isIdentityMapping()) {
+      localResult = decoded->wrap(localResult, *input, rows);
+    }
+    context.moveOrCopyResult(localResult, rows, result);
+    context.releaseVector(localResult);
   }
 
   // Copy nulls from "input".

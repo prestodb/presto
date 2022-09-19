@@ -185,26 +185,16 @@ class CastExprTest : public functions::test::FunctionBaseTest {
     std::string castFunction = tryCast ? "try_cast" : "cast";
     if (expectFailure) {
       EXPECT_THROW(
-          evaluate<FlatVector<typename CppToType<TTo>::NativeType>>(
-              castFunction + "(c0 as " + typeString + ")", rowVector),
+          evaluate(
+              fmt::format("{}(c0 as {})", castFunction, typeString), rowVector),
           VeloxException);
       return;
     }
     // run try cast and get the result vector
-    auto result = evaluate<FlatVector<typename CppToType<TTo>::NativeType>>(
-        castFunction + "(c0 as " + typeString + ")", rowVector);
-
-    std::string msg;
-    // Compare the values and nulls in the output with expected
-    for (int index = 0; index < input.size(); index++) {
-      if (expectedResult[index].has_value()) {
-        EXPECT_TRUE(
-            compareValues(result->valueAt(index), expectedResult[index], msg))
-            << "values at index " << index << " do not match!" << msg;
-      } else {
-        EXPECT_TRUE(result->isNullAt(index)) << " at index " << index;
-      }
-    }
+    auto result =
+        evaluate(castFunction + "(c0 as " + typeString + ")", rowVector);
+    auto expected = makeNullableFlatVector<TTo>(expectedResult);
+    assertEqualVectors(expected, result);
   }
 };
 
