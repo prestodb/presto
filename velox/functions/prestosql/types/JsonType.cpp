@@ -717,9 +717,10 @@ void JsonCastOperator::castTo(
     exec::EvalCtx& context,
     const SelectivityVector& rows,
     bool /*nullOnFailure*/,
-    BaseVector& result) const {
-  // result is guaranteed to be a flat writable vector.
-  auto* flatResult = result.as<FlatVector<StringView>>();
+    const TypePtr& resultType,
+    VectorPtr& result) const {
+  context.ensureWritable(rows, resultType, result);
+  auto* flatResult = result->as<FlatVector<StringView>>();
 
   // Casting from VARBINARY and OPAQUE are not supported and should have been
   // rejected by isSupportedType() in the caller.
@@ -733,11 +734,13 @@ void JsonCastOperator::castFrom(
     exec::EvalCtx& context,
     const SelectivityVector& rows,
     bool /*nullOnFailure*/,
-    BaseVector& result) const {
+    const TypePtr& resultType,
+    VectorPtr& result) const {
+  context.ensureWritable(rows, resultType, result);
   // Casting to unsupported types should have been rejected by isSupportedType()
   // in the caller.
   VELOX_DYNAMIC_TYPE_DISPATCH(
-      castFromJson, result.typeKind(), input, context, rows, result);
+      castFromJson, result->typeKind(), input, context, rows, *result);
 }
 
 } // namespace facebook::velox

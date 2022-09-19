@@ -536,13 +536,13 @@ void CastExpr::applyPeeled(
         toType,
         "Attempting to cast from {} to itself.",
         fromType->toString());
-    context.ensureWritable(rows, toType, result);
 
     if (castToOperator_) {
-      castToOperator_->castTo(input, context, rows, nullOnFailure_, *result);
+      castToOperator_->castTo(
+          input, context, rows, nullOnFailure_, toType, result);
     } else {
       castFromOperator_->castFrom(
-          input, context, rows, nullOnFailure_, *result);
+          input, context, rows, nullOnFailure_, toType, result);
     }
   } else {
     switch (toType->kind()) {
