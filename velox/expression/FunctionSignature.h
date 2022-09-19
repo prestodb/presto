@@ -28,13 +28,17 @@ inline bool isCommonDecimalName(const std::string& typeName) {
   return (typeName == "DECIMAL");
 }
 
-// A type name (e.g. K or V in map(K, V)) and optionally constraints, e.g.
-// expression over the variable, etc.
+enum class ParameterType : int8_t { kTypeParameter, kIntegerParameter };
+
+/// TypeVariableConstraint holds both, type parameters (e.g. K or V in map(K,
+/// V)), and integer parameters with optional constraints (e.g. "r_precision =
+/// a_precision + b_precision" in decimals).
 class TypeVariableConstraint {
  public:
-  explicit TypeVariableConstraint(std::string name) : name_{std::move(name)} {}
-  TypeVariableConstraint(std::string name, std::string constraint)
-      : name_{std::move(name)}, constraint_{std::move(constraint)} {}
+  explicit TypeVariableConstraint(
+      std::string name,
+      std::optional<std::string> constraint,
+      ParameterType type);
 
   const std::string& name() const {
     return name_;
@@ -44,56 +48,54 @@ class TypeVariableConstraint {
     return constraint_;
   }
 
+  bool isTypeParameter() const {
+    return type_ == ParameterType::kTypeParameter;
+  }
+
+  bool isIntegerParameter() const {
+    return type_ == ParameterType::kIntegerParameter;
+  }
+
   bool operator==(const TypeVariableConstraint& rhs) const {
-    return name_ == rhs.name_;
+    return type_ == rhs.type_ && name_ == rhs.name_ &&
+        constraint_ == rhs.constraint_;
   }
 
  private:
   const std::string name_;
   const std::string constraint_;
+  const ParameterType type_;
 };
 
 // Base type (e.g. map) and optional parameters (e.g. K, V).
+// All parameters must be of the same ParameterType.
 class TypeSignature {
  public:
-  TypeSignature(std::string baseType, std::vector<TypeSignature> parameters)
-      : baseType_{std::move(baseType)}, parameters_{std::move(parameters)} {}
-  TypeSignature(
-      std::string baseType,
-      std::vector<TypeSignature> parameters,
-      std::vector<std::string> variables)
-      : baseType_{std::move(baseType)},
-        parameters_{std::move(parameters)},
-        variables_{std::move(variables)} {}
+  TypeSignature(std::string baseName, std::vector<TypeSignature> parameters)
+      : baseName_{std::move(baseName)}, parameters_{std::move(parameters)} {}
 
-  const std::string& baseType() const {
-    return baseType_;
+  const std::string& baseName() const {
+    return baseName_;
   }
 
   const std::vector<TypeSignature>& parameters() const {
     return parameters_;
   }
 
-  const std::vector<std::string>& variables() const {
-    return variables_;
-  }
-
   std::string toString() const;
 
   bool operator==(const TypeSignature& rhs) const {
-    return baseType_ == rhs.baseType_ && parameters_ == rhs.parameters_;
+    return baseName_ == rhs.baseName_ && parameters_ == rhs.parameters_;
   }
 
  private:
-  const std::string baseType_;
+  const std::string baseName_;
   const std::vector<TypeSignature> parameters_;
-  // Decimals types have variables (precision, scale)
-  const std::vector<std::string> variables_;
 };
 
 class FunctionSignature {
  public:
-  /// @param typeVariableConstants Generic type names used in return type and
+  /// @param typeVariableConstraints Generic type names used in return type and
   /// argument types (and constraints if necessary).
   /// @param returnType Return type. May use generic type names, e.g. array(T).
   /// @param argumentTypes Argument types. May use generic type names, e.g.
@@ -106,24 +108,13 @@ class FunctionSignature {
   /// specified in the last entry of 'argumentTypes'. Variable arity arguments
   /// can appear zero or more times.
   FunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstants,
+      std::vector<TypeVariableConstraint> typeVariableConstraints,
       TypeSignature returnType,
       std::vector<TypeSignature> argumentTypes,
       bool variableArity);
 
-  FunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstants,
-      std::vector<TypeVariableConstraint> variables,
-      TypeSignature returnType,
-      std::vector<TypeSignature> argumentTypes,
-      bool variableArity);
-
-  const std::vector<TypeVariableConstraint>& typeVariableConstants() const {
-    return typeVariableConstants_;
-  }
-
-  const std::vector<TypeVariableConstraint>& variables() const {
-    return variables_;
+  const std::vector<TypeVariableConstraint>& typeVariableConstraints() const {
+    return typeVariableConstraints_;
   }
 
   const TypeSignature& returnType() const {
@@ -141,18 +132,17 @@ class FunctionSignature {
   std::string toString() const;
 
   // This tests syntactic equality not semantic equality
-  // For example, even if only the names of the typeVariableConstants are
+  // For example, even if only the names of the typeVariableConstraints are
   // different the signatures are considered not equal (array(K) != array(V))
   bool operator==(const FunctionSignature& rhs) const {
-    return typeVariableConstants_ == rhs.typeVariableConstants_ &&
+    return typeVariableConstraints_ == rhs.typeVariableConstraints_ &&
         returnType_ == rhs.returnType_ &&
         argumentTypes_ == rhs.argumentTypes_ &&
         variableArity_ == rhs.variableArity_;
   }
 
  private:
-  const std::vector<TypeVariableConstraint> typeVariableConstants_;
-  const std::vector<TypeVariableConstraint> variables_;
+  const std::vector<TypeVariableConstraint> typeVariableConstraints_;
   const TypeSignature returnType_;
   const std::vector<TypeSignature> argumentTypes_;
   const bool variableArity_;
@@ -163,28 +153,13 @@ using FunctionSignaturePtr = std::shared_ptr<FunctionSignature>;
 class AggregateFunctionSignature : public FunctionSignature {
  public:
   AggregateFunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstants,
+      std::vector<TypeVariableConstraint> typeVariableConstraints,
       TypeSignature returnType,
       TypeSignature intermediateType,
       std::vector<TypeSignature> argumentTypes,
       bool variableArity)
       : FunctionSignature(
-            std::move(typeVariableConstants),
-            std::move(returnType),
-            std::move(argumentTypes),
-            variableArity),
-        intermediateType_{std::move(intermediateType)} {}
-
-  AggregateFunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstants,
-      std::vector<TypeVariableConstraint> variables,
-      TypeSignature returnType,
-      TypeSignature intermediateType,
-      std::vector<TypeSignature> argumentTypes,
-      bool variableArity)
-      : FunctionSignature(
-            std::move(typeVariableConstants),
-            std::move(variables),
+            std::move(typeVariableConstraints),
             std::move(returnType),
             std::move(argumentTypes),
             variableArity),
@@ -230,14 +205,16 @@ TypeSignature parseTypeSignature(const std::string& signature);
 class FunctionSignatureBuilder {
  public:
   FunctionSignatureBuilder& typeVariable(std::string name) {
-    typeVariableConstants_.emplace_back(name);
+    typeVariableConstraints_.emplace_back(
+        name, "", ParameterType::kTypeParameter);
     return *this;
   }
 
-  FunctionSignatureBuilder& variableConstraint(
+  FunctionSignatureBuilder& integerVariable(
       std::string name,
-      std::string constraint) {
-    variables_.emplace_back(name, constraint);
+      std::optional<std::string> constraint = std::nullopt) {
+    typeVariableConstraints_.emplace_back(
+        name, constraint, ParameterType::kIntegerParameter);
     return *this;
   }
 
@@ -259,8 +236,7 @@ class FunctionSignatureBuilder {
   FunctionSignaturePtr build();
 
  private:
-  std::vector<TypeVariableConstraint> typeVariableConstants_;
-  std::vector<TypeVariableConstraint> variables_;
+  std::vector<TypeVariableConstraint> typeVariableConstraints_;
   std::optional<TypeSignature> returnType_;
   std::vector<TypeSignature> argumentTypes_;
   bool variableArity_{false};
@@ -280,7 +256,16 @@ class FunctionSignatureBuilder {
 class AggregateFunctionSignatureBuilder {
  public:
   AggregateFunctionSignatureBuilder& typeVariable(std::string name) {
-    typeVariableConstants_.emplace_back(name);
+    typeVariableConstraints_.emplace_back(
+        name, "", ParameterType::kTypeParameter);
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& integerVariable(
+      std::string name,
+      std::optional<std::string> constraint = std::nullopt) {
+    typeVariableConstraints_.emplace_back(
+        name, constraint, ParameterType::kIntegerParameter);
     return *this;
   }
 
@@ -304,21 +289,13 @@ class AggregateFunctionSignatureBuilder {
     return *this;
   }
 
-  AggregateFunctionSignatureBuilder& variableConstraint(
-      std::string name,
-      std::string constraint) {
-    variables_.emplace_back(name, constraint);
-    return *this;
-  }
-
   std::shared_ptr<AggregateFunctionSignature> build();
 
  private:
-  std::vector<TypeVariableConstraint> typeVariableConstants_;
+  std::vector<TypeVariableConstraint> typeVariableConstraints_;
   std::optional<TypeSignature> returnType_;
   std::optional<TypeSignature> intermediateType_;
   std::vector<TypeSignature> argumentTypes_;
-  std::vector<TypeVariableConstraint> variables_;
   bool variableArity_{false};
 };
 
@@ -342,12 +319,9 @@ struct hash<facebook::velox::exec::TypeSignature> {
   using result_type = std::size_t;
 
   result_type operator()(const argument_type& key) const noexcept {
-    size_t val = std::hash<std::string>{}(key.baseType());
+    size_t val = std::hash<std::string>{}(key.baseName());
     for (const auto& parameter : key.parameters()) {
       val = val * 31 + this->operator()(parameter);
-    }
-    for (const auto& variable : key.variables()) {
-      val = val * 31 + std::hash<std::string>{}(variable);
     }
     return val;
   }
@@ -365,12 +339,8 @@ struct hash<facebook::velox::exec::FunctionSignature> {
         std::hash<facebook::velox::exec::TypeSignature>{};
 
     size_t val = 0;
-    for (const auto& constraint : key.typeVariableConstants()) {
+    for (const auto& constraint : key.typeVariableConstraints()) {
       val = val * 31 + typeVariableConstraintHasher(constraint);
-    }
-
-    for (const auto& variable : key.variables()) {
-      val = val * 31 + typeVariableConstraintHasher(variable);
     }
 
     val = val * 31 + typeSignatureHasher(key.returnType());

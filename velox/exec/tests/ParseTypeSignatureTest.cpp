@@ -28,7 +28,7 @@ std::string roundTrip(const std::string& typeSignature) {
 
 void testScalarType(const std::string& typeSignature) {
   auto signature = parseTypeSignature(typeSignature);
-  ASSERT_EQ(signature.baseType(), typeSignature);
+  ASSERT_EQ(signature.baseName(), typeSignature);
   ASSERT_EQ(signature.parameters().size(), 0);
 }
 } // namespace
@@ -45,25 +45,25 @@ TEST(ParseTypeSignatureTest, scalar) {
 
 TEST(ParseTypeSignatureTest, array) {
   auto signature = parseTypeSignature("array(bigint)");
-  ASSERT_EQ(signature.baseType(), "array");
+  ASSERT_EQ(signature.baseName(), "array");
   ASSERT_EQ(signature.parameters().size(), 1);
 
   auto param = signature.parameters()[0];
-  ASSERT_EQ(param.baseType(), "bigint");
+  ASSERT_EQ(param.baseName(), "bigint");
   ASSERT_EQ(param.parameters().size(), 0);
 }
 
 TEST(ParseTypeSignatureTest, map) {
   auto signature = parseTypeSignature("map(bigint, double)");
-  ASSERT_EQ(signature.baseType(), "map");
+  ASSERT_EQ(signature.baseName(), "map");
   ASSERT_EQ(signature.parameters().size(), 2);
 
   auto key = signature.parameters()[0];
-  ASSERT_EQ(key.baseType(), "bigint");
+  ASSERT_EQ(key.baseName(), "bigint");
   ASSERT_EQ(key.parameters().size(), 0);
 
   auto value = signature.parameters()[1];
-  ASSERT_EQ(value.baseType(), "double");
+  ASSERT_EQ(value.baseName(), "double");
   ASSERT_EQ(value.parameters().size(), 0);
 }
 

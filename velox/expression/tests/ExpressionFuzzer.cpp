@@ -232,10 +232,10 @@ struct CallableSignature {
 std::optional<CallableSignature> processSignature(
     const std::string& functionName,
     const exec::FunctionSignature& signature) {
-  // Don't support functions with parametrized signatures or variable number of
+  // Don't support functions with parameterized signatures or variable number of
   // arguments yet.
-  if (!signature.typeVariableConstants().empty() || signature.variableArity() ||
-      !signature.variables().empty()) {
+  if (!signature.typeVariableConstraints().empty() ||
+      signature.variableArity()) {
     LOG(WARNING) << "Skipping unsupported signature: " << functionName
                  << signature.toString();
     return std::nullopt;

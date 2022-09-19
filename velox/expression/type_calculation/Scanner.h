@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "velox/common/base/Exceptions.h"
+
 #include <cmath>
 #include <iostream>
 #include <sstream>
@@ -28,18 +30,22 @@ class Scanner : public yyFlexLexer {
   Scanner(
       std::istream& arg_yyin,
       std::ostream& arg_yyout,
-      std::unordered_map<std::string, int>& values)
+      std::unordered_map<std::string, std::optional<int>>& values)
       : yyFlexLexer(&arg_yyin, &arg_yyout), values_(values){};
   int lex(Parser::semantic_type* yylval);
+
   void setValue(const std::string& varName, int value) {
     values_[varName] = value;
   }
+
   int getValue(const std::string& varName) const {
-    return values_.at(varName);
+    VELOX_CHECK(
+        values_.at(varName).has_value(), "Variable {} is not defined", varName);
+    return values_.at(varName).value();
   }
 
  private:
-  std::unordered_map<std::string, int>& values_;
+  std::unordered_map<std::string, std::optional<int>>& values_;
 };
 
 } // namespace facebook::velox::expression::calculate

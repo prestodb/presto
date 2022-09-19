@@ -30,10 +30,13 @@ class SignatureBinder {
       const exec::FunctionSignature& signature,
       const std::vector<TypePtr>& actualTypes)
       : signature_{signature}, actualTypes_{actualTypes} {
-    for (auto& variable : signature.typeVariableConstants()) {
-      bindings_.insert({variable.name(), nullptr});
-    }
-    for (auto& variable : signature.variables()) {
+    for (auto& variable : signature.typeVariableConstraints()) {
+      // Integer parameters are updated during bind.
+      if (variable.isTypeParameter()) {
+        typeParameters_.insert({variable.name(), nullptr});
+      } else if (variable.isIntegerParameter()) {
+        integerParameters_.insert({variable.name(), {}});
+      }
       if (!variable.constraint().empty()) {
         constraints_.insert({variable.name(), variable.constraint()});
       }
@@ -52,26 +55,37 @@ class SignatureBinder {
 
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypePtr>& bindings) {
-    std::unordered_map<std::string, int> variables;
-    return tryResolveType(typeSignature, bindings, variables);
+      const std::unordered_map<std::string, TypePtr>& typeParameters) {
+    const std::unordered_map<std::string, std::string> constraints;
+    std::unordered_map<std::string, std::optional<int>> integerParameters;
+    return tryResolveType(
+        typeSignature, typeParameters, constraints, integerParameters);
   }
   // Returns concrete return type or null if couldn't fully resolve.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypePtr>& bindings,
-      std::unordered_map<std::string, int>& variables,
-      const std::unordered_map<std::string, std::string>& constraints = {});
+      const std::unordered_map<std::string, TypePtr>& typeParameters,
+      const std::unordered_map<std::string, std::string>& constraints,
+      std::unordered_map<std::string, std::optional<int>>& integerParameters);
 
  private:
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType);
 
+  // If the integer parameter is set, then it must match with value.
+  // Returns false if values do not match or the parameter does not exist.
+  bool checkOrSetIntegerParameter(const std::string& parameterName, int value);
+
+  // Try to bind the integer parameter from the actualType.
+  bool tryBindIntegerParameters(
+      const std::vector<exec::TypeSignature>& parameters,
+      const TypePtr& actualType);
+
   const exec::FunctionSignature& signature_;
   const std::vector<TypePtr>& actualTypes_;
-  std::unordered_map<std::string, TypePtr> bindings_;
-  std::unordered_map<std::string, int> variables_;
+  std::unordered_map<std::string, TypePtr> typeParameters_;
+  std::unordered_map<std::string, std::optional<int>> integerParameters_;
   std::unordered_map<std::string, std::string> constraints_;
 };
 } // namespace facebook::velox::exec

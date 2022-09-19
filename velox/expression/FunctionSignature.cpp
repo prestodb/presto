@@ -40,11 +40,7 @@ void toAppend(
 
 std::string TypeSignature::toString() const {
   std::ostringstream out;
-  out << baseType_;
-  auto typeName = boost::algorithm::to_upper_copy(baseType_);
-  if (isCommonDecimalName(typeName)) {
-    out << "(" << variables_[0] << ", " << variables_[1] << ")";
-  }
+  out << baseName_;
   if (!parameters_.empty()) {
     out << "(" << folly::join(",", parameters_) << ")";
   }
@@ -82,8 +78,7 @@ TypeSignature parseTypeSignature(const std::string& signature) {
     return TypeSignature(signature, {});
   }
 
-  auto baseType = signature.substr(0, parenPos);
-
+  auto baseName = signature.substr(0, parenPos);
   std::vector<TypeSignature> nestedTypes;
 
   auto endParenPos = signature.rfind(')');
@@ -106,23 +101,24 @@ TypeSignature parseTypeSignature(const std::string& signature) {
   boost::algorithm::trim(token);
   nestedTypes.emplace_back(parseTypeSignature(token));
 
-  auto typeName = boost::algorithm::to_upper_copy(baseType);
-  if (isCommonDecimalName(typeName)) {
-    std::vector<std::string> vars(2);
-    vars[0] = nestedTypes[0].baseType();
-    vars[1] = nestedTypes[1].baseType();
-    return TypeSignature(baseType, {}, std::move(vars));
-  }
-  return TypeSignature(baseType, std::move(nestedTypes));
+  return TypeSignature(baseName, std::move(nestedTypes));
 }
 
 namespace {
+/// Returns true only if 'str' contains digits.
+bool isPositiveInteger(const std::string& str) {
+  return !str.empty() &&
+      std::find_if(str.begin(), str.end(), [](unsigned char c) {
+        return !std::isdigit(c);
+      }) == str.end();
+}
+
 void validateBaseTypeAndCollectTypeParams(
     const std::unordered_set<std::string>& typeParams,
     const TypeSignature& arg,
     std::unordered_set<std::string>& collectedTypeVariables) {
-  if (!typeParams.count(arg.baseType())) {
-    auto typeName = boost::algorithm::to_upper_copy(arg.baseType());
+  if (!typeParams.count(arg.baseName())) {
+    auto typeName = boost::algorithm::to_upper_copy(arg.baseName());
 
     if (typeName == "ANY") {
       VELOX_USER_CHECK(
@@ -130,15 +126,8 @@ void validateBaseTypeAndCollectTypeParams(
       return;
     }
 
-    if (isDecimalName(typeName)) {
-      VELOX_USER_FAIL("Use 'DECIMAL' in the signature.");
-    }
-
-    if (isCommonDecimalName(typeName)) {
-      return;
-    }
-
-    if (!typeExists(typeName)) {
+    if (!isPositiveInteger(typeName) && !isCommonDecimalName(typeName) &&
+        !typeExists(typeName)) {
       // Check to ensure base type is supported.
       mapNameToTypeKind(typeName);
     }
@@ -156,17 +145,17 @@ void validateBaseTypeAndCollectTypeParams(
         arg.parameters().empty(),
         "Named type cannot have parameters : {}",
         arg.toString())
-    collectedTypeVariables.insert(arg.baseType());
+    collectedTypeVariables.insert(arg.baseName());
   }
 }
 
 void validate(
-    const std::vector<TypeVariableConstraint>& typeVariableConstants,
+    const std::vector<TypeVariableConstraint>& typeVariableConstraints,
     const TypeSignature& returnType,
     const std::vector<TypeSignature>& argumentTypes) {
   // Validate that the type params are unique.
-  std::unordered_set<std::string> typeNames(typeVariableConstants.size());
-  for (const auto& variable : typeVariableConstants) {
+  std::unordered_set<std::string> typeNames(typeVariableConstraints.size());
+  for (const auto& variable : typeVariableConstraints) {
     VELOX_USER_CHECK(
         typeNames.insert(variable.name()).second,
         "Type parameter declared twice {}",
@@ -192,37 +181,34 @@ void validate(
 
 } // namespace
 
-FunctionSignature::FunctionSignature(
-    std::vector<TypeVariableConstraint> typeVariableConstants,
-    TypeSignature returnType,
-    std::vector<TypeSignature> argumentTypes,
-    bool variableArity)
-    : typeVariableConstants_{std::move(typeVariableConstants)},
-      returnType_{std::move(returnType)},
-      argumentTypes_{std::move(argumentTypes)},
-      variableArity_{variableArity} {
-  validate(typeVariableConstants_, returnType_, argumentTypes_);
+TypeVariableConstraint::TypeVariableConstraint(
+    std::string name,
+    std::optional<std::string> constraint,
+    ParameterType type)
+    : name_{std::move(name)},
+      constraint_(constraint.has_value() ? std::move(constraint.value()) : ""),
+      type_{type} {
+  VELOX_CHECK(
+      isIntegerParameter() || (isTypeParameter() && constraint_.empty()),
+      "Type parameters cannot have constraints");
 }
 
 FunctionSignature::FunctionSignature(
-    std::vector<TypeVariableConstraint> typeVariableConstants,
-    std::vector<TypeVariableConstraint> variables,
+    std::vector<TypeVariableConstraint> typeVariableConstraints,
     TypeSignature returnType,
     std::vector<TypeSignature> argumentTypes,
     bool variableArity)
-    : typeVariableConstants_{std::move(typeVariableConstants)},
-      variables_{std::move(variables)},
+    : typeVariableConstraints_{std::move(typeVariableConstraints)},
       returnType_{std::move(returnType)},
       argumentTypes_{std::move(argumentTypes)},
       variableArity_{variableArity} {
-  validate(typeVariableConstants_, returnType_, argumentTypes_);
+  validate(typeVariableConstraints_, returnType_, argumentTypes_);
 }
 
 FunctionSignaturePtr FunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
   return std::make_shared<FunctionSignature>(
-      std::move(typeVariableConstants_),
-      std::move(variables_),
+      std::move(typeVariableConstraints_),
       returnType_.value(),
       std::move(argumentTypes_),
       variableArity_);
@@ -233,8 +219,7 @@ AggregateFunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
   VELOX_CHECK(intermediateType_.has_value());
   return std::make_shared<AggregateFunctionSignature>(
-      std::move(typeVariableConstants_),
-      std::move(variables_),
+      std::move(typeVariableConstraints_),
       returnType_.value(),
       intermediateType_.value(),
       std::move(argumentTypes_),

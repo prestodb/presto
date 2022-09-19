@@ -22,7 +22,7 @@ namespace facebook::velox::exec {
 
 namespace {
 bool isAny(const TypeSignature& typeSignature) {
-  return typeSignature.baseType() == "any";
+  return typeSignature.baseName() == "any";
 }
 
 /// Returns true only if 'str' contains digits.
@@ -41,50 +41,76 @@ std::string buildCalculation(
 
 TypePtr inferDecimalType(
     const exec::TypeSignature& typeSignature,
-    std::unordered_map<std::string, int>& variables,
-    const std::unordered_map<std::string, std::string>& constraints) {
-  const auto& precisionVar = typeSignature.variables()[0];
-  const auto& scaleVar = typeSignature.variables()[1];
+    const std::unordered_map<std::string, std::string>& constraints,
+    std::unordered_map<std::string, std::optional<int>>& integerParameters) {
+  if (typeSignature.parameters().size() != 2) {
+    // Decimals must have two parameters.
+    return nullptr;
+  }
+  const auto& precisionVar = typeSignature.parameters()[0].baseName();
+  const auto& scaleVar = typeSignature.parameters()[1].baseName();
   int precision = 0;
   int scale = 0;
   // Determine precision.
   if (isPositiveInteger(precisionVar)) {
     // Handle constant.
     precision = atoi(precisionVar.c_str());
-  } else if (variables.find(precisionVar) != variables.end()) {
-    // Check if variable is already computed.
-    precision = variables[precisionVar];
+  } else if (auto it = integerParameters.find(precisionVar);
+             it != integerParameters.end()) {
+    // Check if it is already computed.
+    if (it->second.has_value()) {
+      precision = it->second.value();
+    } else if (auto ct = constraints.find(precisionVar);
+               ct != constraints.end()) {
+      // Check constraints and evaluate.
+      auto precisionCalculation = buildCalculation(precisionVar, ct->second);
+      expression::calculation::evaluate(
+          precisionCalculation, integerParameters);
+      const auto result = integerParameters.at(precisionVar);
+      VELOX_CHECK(
+          result.has_value(), "Variable {} calculation failed.", precisionVar)
+      precision = result.value();
+    } else {
+      // Cannot evaluate further.
+      return nullptr;
+    }
   } else {
-    // Check constraints and evaluate.
-    const auto& precisionConstraint = constraints.find(precisionVar);
-    VELOX_CHECK(
-        precisionConstraint != constraints.end(),
-        "Missing constraint for variable {}",
-        precisionVar);
-    auto precisionCalculation =
-        buildCalculation(precisionVar, precisionConstraint->second);
-    expression::calculation::evaluate(precisionCalculation, variables);
-    precision = variables[precisionVar];
+    return nullptr;
   }
   // Determine scale.
   if (isPositiveInteger(scaleVar)) {
     // Handle constant.
     scale = atoi(scaleVar.c_str());
-  } else if (variables.find(scaleVar) != variables.end()) {
-    // Check if variable is already computed.
-    scale = variables[scaleVar];
+  } else if (auto it = integerParameters.find(scaleVar);
+             it != integerParameters.end()) {
+    // Check if it is already computed.
+    if (it->second.has_value()) {
+      scale = it->second.value();
+    } else if (auto ct = constraints.find(scaleVar); ct != constraints.end()) {
+      // Check constraints and evaluate.
+      auto scaleCalculation = buildCalculation(scaleVar, ct->second);
+      expression::calculation::evaluate(scaleCalculation, integerParameters);
+      const auto result = integerParameters.at(scaleVar);
+      VELOX_CHECK(
+          result.has_value(), "Variable {} calculation failed.", scaleVar)
+      scale = result.value();
+    } else {
+      // Cannot evaluate further.
+      return nullptr;
+    }
   } else {
-    // Check constraints and evaluate.
-    const auto& scaleConstraint = constraints.find(scaleVar);
-    VELOX_CHECK(
-        scaleConstraint != constraints.end(),
-        "Missing constraint for variable {}",
-        scaleVar);
-    auto scaleCalculation = buildCalculation(scaleVar, scaleConstraint->second);
-    expression::calculation::evaluate(scaleCalculation, variables);
-    scale = variables[scaleVar];
+    return nullptr;
   }
   return DECIMAL(precision, scale);
+}
+
+bool isConcreteType(
+    const std::unordered_map<std::string, TypePtr>& typeParameters,
+    const std::unordered_map<std::string, std::optional<int>>&
+        integerParameters,
+    const std::string& name) {
+  return (typeParameters.count(name) == 0) &&
+      (integerParameters.count(name) == 0);
 }
 } // namespace
 
@@ -122,90 +148,113 @@ bool SignatureBinder::tryBind() {
   return true;
 }
 
+bool SignatureBinder::checkOrSetIntegerParameter(
+    const std::string& parameterName,
+    int value) {
+  auto it = integerParameters_.find(parameterName);
+  // Return false if the parameter is not found.
+  if (it == integerParameters_.end()) {
+    return false;
+  }
+  // Return false if the parameter is found with a different value.
+  if (it->second.has_value() && it->second.value() != value) {
+    return false;
+  }
+  it->second = value;
+  return true;
+}
+
+bool SignatureBinder::tryBindIntegerParameters(
+    const std::vector<exec::TypeSignature>& parameters,
+    const TypePtr& actualType) {
+  // Decimal types
+  if (actualType->isShortDecimal() || actualType->isLongDecimal()) {
+    VELOX_CHECK_EQ(parameters.size(), 2);
+    const auto& [precision, scale] = getDecimalPrecisionScale(*actualType);
+    return checkOrSetIntegerParameter(parameters[0].baseName(), precision) &&
+        checkOrSetIntegerParameter(parameters[1].baseName(), scale);
+  }
+  return false;
+}
+
 bool SignatureBinder::tryBind(
     const exec::TypeSignature& typeSignature,
     const TypePtr& actualType) {
   if (isAny(typeSignature)) {
     return true;
   }
-
-  auto it = bindings_.find(typeSignature.baseType());
-  if (it == bindings_.end()) {
-    // concrete type
-    auto typeName = boost::algorithm::to_upper_copy(typeSignature.baseType());
-    if (isDecimalName(typeName)) {
-      VELOX_USER_FAIL("Use 'DECIMAL' in the signature.");
-    }
-    if (isDecimalKind(actualType->kind()) && isCommonDecimalName(typeName)) {
-      const auto& variables = typeSignature.variables();
-      VELOX_CHECK_EQ(variables.size(), 2);
-      const auto& [precision, scale] = getDecimalPrecisionScale(*actualType);
-      variables_.emplace(variables[0], precision);
-      variables_.emplace(variables[1], scale);
-      return true;
-    }
+  const auto baseName = typeSignature.baseName();
+  if (isConcreteType(typeParameters_, integerParameters_, baseName)) {
+    auto typeName = boost::algorithm::to_upper_copy(baseName);
 
     if (typeName != actualType->kindName()) {
-      return false;
+      if (!(isCommonDecimalName(typeName) &&
+            (actualType->isLongDecimal() || actualType->isShortDecimal()))) {
+        return false;
+      }
     }
 
     const auto& params = typeSignature.parameters();
-    if (params.size() != actualType->size()) {
-      return false;
+    // Integer parameters have to be resolved here.
+    // We assume integer parameters start from the first parameter if present.
+    if (params.size() > 0 &&
+        integerParameters_.count(params[0].baseName()) != 0) {
+      return tryBindIntegerParameters(params, actualType);
     }
-
+    // Type Parameters can recurse.
     for (auto i = 0; i < params.size(); i++) {
       if (!tryBind(params[i], actualType->childAt(i))) {
         return false;
       }
     }
-
     return true;
   }
 
-  // generic type
+  // Variables cannot have further parameters.
   VELOX_CHECK_EQ(
       typeSignature.parameters().size(),
       0,
-      "Generic types with parameters are not supported");
-  if (it->second == nullptr) {
-    it->second = actualType;
-    return true;
-  }
+      "Variables with parameters are not supported");
 
-  return it->second->equivalent(*actualType);
+  // Resolve type parameters parameters.
+  if (auto it = typeParameters_.find(baseName); it != typeParameters_.end()) {
+    if (it->second == nullptr) {
+      it->second = actualType;
+      return true;
+    }
+    return it->second->equivalent(*actualType);
+  }
+  return false;
 }
 
 TypePtr SignatureBinder::tryResolveType(
     const exec::TypeSignature& typeSignature) {
-  return tryResolveType(typeSignature, bindings_, variables_, constraints_);
+  return tryResolveType(
+      typeSignature, typeParameters_, constraints_, integerParameters_);
 }
 
 // static
 TypePtr SignatureBinder::tryResolveType(
     const exec::TypeSignature& typeSignature,
-    const std::unordered_map<std::string, TypePtr>& bindings,
-    std::unordered_map<std::string, int>& variables,
-    const std::unordered_map<std::string, std::string>& constraints) {
-  const auto& params = typeSignature.parameters();
-
-  std::vector<TypePtr> children;
-  children.reserve(params.size());
-  for (auto& param : params) {
-    auto type = tryResolveType(param, bindings);
-    if (!type) {
-      return nullptr;
+    const std::unordered_map<std::string, TypePtr>& typeParameters,
+    const std::unordered_map<std::string, std::string>& constraints,
+    std::unordered_map<std::string, std::optional<int>>& integerParameters) {
+  const auto baseName = typeSignature.baseName();
+  if (isConcreteType(typeParameters, integerParameters, baseName)) {
+    auto typeName = boost::algorithm::to_upper_copy(baseName);
+    if (isDecimalName(typeName) || isCommonDecimalName(typeName)) {
+      return inferDecimalType(typeSignature, constraints, integerParameters);
     }
-    children.emplace_back(type);
-  }
-
-  auto it = bindings.find(typeSignature.baseType());
-  if (it == bindings.end()) {
-    // concrete type
-    auto typeName = boost::algorithm::to_upper_copy(typeSignature.baseType());
-
-    if (isCommonDecimalName(typeName)) {
-      return inferDecimalType(typeSignature, variables, constraints);
+    const auto& params = typeSignature.parameters();
+    std::vector<TypePtr> children;
+    children.reserve(params.size());
+    for (auto& param : params) {
+      auto type =
+          tryResolveType(param, typeParameters, constraints, integerParameters);
+      if (!type) {
+        return nullptr;
+      }
+      children.emplace_back(type);
     }
 
     if (auto type = getType(typeName, children)) {
@@ -229,8 +278,9 @@ TypePtr SignatureBinder::tryResolveType(
       return OpaqueType::create<void>();
     }
     return createType(*typeKind, std::move(children));
+  } else if (typeParameters.count(baseName) != 0) {
+    return typeParameters.at(baseName);
   }
-
-  return it->second;
+  return nullptr;
 }
 } // namespace facebook::velox::exec

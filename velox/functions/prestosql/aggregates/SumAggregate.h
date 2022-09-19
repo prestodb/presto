@@ -244,6 +244,8 @@ bool registerSumAggregate(const std::string& name) {
           .argumentType("double")
           .build(),
       exec::AggregateFunctionSignatureBuilder()
+          .integerVariable("a_precision")
+          .integerVariable("a_scale")
           .argumentType("DECIMAL(a_precision, a_scale)")
           .intermediateType("DECIMAL(38, a_scale)")
           .returnType("DECIMAL(38, a_scale)")

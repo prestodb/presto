@@ -22,5 +22,5 @@
 namespace facebook::velox::expression::calculation {
 void evaluate(
     const std::string& calculation,
-    std::unordered_map<std::string, int>& variables);
+    std::unordered_map<std::string, std::optional<int>>& variables);
 }
