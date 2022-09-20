@@ -251,19 +251,7 @@ VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding) {
 
   // 20% chance of adding a constant vector.
   if (!flatEncoding && coinToss(0.2)) {
-    // If adding a constant vector, 50% of chance between:
-    // - generate a regular constant vector (only for primitive types).
-    // - generate a random vector and wrap it using a constant vector.
-    if (type->isPrimitiveType() && coinToss(0.5)) {
-      vector = fuzzConstant(type, vectorSize);
-    } else {
-      // Vector size can't be zero.
-      auto innerVectorSize =
-          folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
-      auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
-      vector = BaseVector::wrapInConstant(
-          vectorSize, constantIndex, fuzz(type, innerVectorSize, flatEncoding));
-    }
+    vector = fuzzConstant(type, vectorSize);
   } else {
     vector = type->isPrimitiveType()
         ? fuzzFlat(type, vectorSize)
@@ -296,10 +284,26 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type) {
 }
 
 VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
-  if (coinToss(opts_.nullRatio)) {
-    return BaseVector::createNullConstant(type, size, pool_);
+  // For constants, there are two possible cases:
+  // - generate a regular constant vector (only for primitive types).
+  // - generate a random vector and wrap it using a constant vector.
+  if (type->isPrimitiveType() && coinToss(0.5)) {
+    // For regular constant vectors, toss a coin to determine its nullability.
+    if (coinToss(opts_.nullRatio)) {
+      return BaseVector::createNullConstant(type, size, pool_);
+    }
+    return BaseVector::createConstant(randVariant(type), size, pool_);
   }
-  return BaseVector::createConstant(randVariant(type), size, pool_);
+
+  // Otherwise, create constant by wrapping around another vector. This will
+  // return a null constant if the element being wrapped is null in the
+  // generated inner vector.
+
+  // Inner vector size can't be zero.
+  auto innerVectorSize = folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
+  auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
+  return BaseVector::wrapInConstant(
+      size, constantIndex, fuzz(type, innerVectorSize, false));
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
