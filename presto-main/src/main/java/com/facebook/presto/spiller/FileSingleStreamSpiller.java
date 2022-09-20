@@ -185,6 +185,7 @@ public class FileSingleStreamSpiller
             InputStream input = closer.register(targetFile.newInputStream());
             Iterator<Page> deserializedPages = PagesSerdeUtil.readPages(serde, new InputStreamSliceInput(input, BUFFER_SIZE));
             Iterator<Page> compactPages = transform(deserializedPages, Page::compact);
+            spillerStats.addToTotalSpilledBytesRead(getSpilledPagesInMemorySize());
             return closeWhenExhausted(compactPages, input);
         }
         catch (IOException e) {
