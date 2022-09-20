@@ -92,4 +92,5 @@ jobs:
           ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
       - name: Run e2e tests
+        rm -rf /tmp/hive_data/tpch/
         run: ./mvnw test ${MAVEN_TEST} -pl 'presto-native-execution' -DPRESTO_SERVER=${GITHUB_WORKSPACE}/presto-native-execution/_build/debug/presto_cpp/main/presto_server -DDATA_DIR=/tmp/ -Duser.timezone=America/Bahia_Banderas
