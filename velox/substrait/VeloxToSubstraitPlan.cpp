@@ -46,20 +46,14 @@ namespace {
 ::substrait::Plan& VeloxToSubstraitPlanConvertor::toSubstrait(
     google::protobuf::Arena& arena,
     const core::PlanNodePtr& plan) {
-  // Assume only accepts a single plan fragment.
-
-  // Construct the function map based on the Velox plan.
-  constructFunctionMap();
-
+  // Construct the extension colllector.
+  extensionCollector_ = std::make_shared<SubstraitExtensionCollector>();
   // Construct the expression converter.
   exprConvertor_ =
-      std::make_shared<VeloxToSubstraitExprConvertor>(functionMap_);
+      std::make_shared<VeloxToSubstraitExprConvertor>(extensionCollector_);
 
-  ::substrait::Plan* substraitPlan =
+  auto substraitPlan =
       google::protobuf::Arena::CreateMessage<::substrait::Plan>(&arena);
-
-  // Add Extension Functions.
-  substraitPlan->MergeFrom(addExtensionFunc(arena));
 
   // Add unknown type in extension.
   auto unknownType = substraitPlan->add_extensions()->mutable_extension_type();
@@ -73,6 +67,10 @@ namespace {
       substraitPlan->add_relations()->mutable_root();
 
   toSubstrait(arena, plan, rootRel->mutable_input());
+
+  // Add extensions for all functions and types seen in the plan.
+  extensionCollector_->addExtensionsToPlan(substraitPlan);
+
   // Set RootRel names.
   for (const auto& name : plan->outputType()->names()) {
     rootRel->add_names(name);
@@ -278,6 +276,9 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
     // Aggregation function name.
     const auto& funName = aggregatesExpr->name();
     // set aggFunction args.
+
+    std::vector<TypePtr> arguments;
+    arguments.reserve(aggregatesExpr->inputs().size());
     for (const auto& expr : aggregatesExpr->inputs()) {
       // If the expr is CallTypedExpr, people need to do project firstly.
       if (auto aggregatesExprInput =
@@ -286,15 +287,15 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
       } else {
         aggFunction->add_arguments()->mutable_value()->MergeFrom(
             exprConvertor_->toSubstraitExpr(arena, expr, inputType));
+
+        arguments.emplace_back(expr->type());
       }
     }
 
-    // Set substrait aggregate Function reference and output type.
-    if (functionMap_.find(funName) != functionMap_.end()) {
-      aggFunction->set_function_reference(functionMap_[funName]);
-    } else {
-      VELOX_NYI("Couldn't find the aggregate function '{}' ", funName);
-    }
+    auto referenceNumber = extensionCollector_->getReferenceNumber(
+        funName, arguments, aggregateNode->step());
+
+    aggFunction->set_function_reference(referenceNumber);
 
     aggFunction->mutable_output_type()->MergeFrom(
         typeConvertor_->toSubstraitType(arena, aggregatesExpr->type()));
@@ -305,93 +306,6 @@ void VeloxToSubstraitPlanConvertor::toSubstrait(
 
   // Direct output.
   aggregateRel->mutable_common()->mutable_direct();
-}
-
-void VeloxToSubstraitPlanConvertor::constructFunctionMap() {
-  // TODO: Fetch all functions from velox's registry.
-
-  functionMap_["plus"] = 0;
-  functionMap_["multiply"] = 1;
-  functionMap_["lt"] = 2;
-  functionMap_["divide"] = 3;
-  functionMap_["count"] = 4;
-  functionMap_["sum"] = 5;
-  functionMap_["mod"] = 6;
-  functionMap_["eq"] = 7;
-  functionMap_["row_constructor"] = 8;
-  functionMap_["avg"] = 9;
-}
-
-::substrait::Plan& VeloxToSubstraitPlanConvertor::addExtensionFunc(
-    google::protobuf::Arena& arena) {
-  // TODO: Fetch all functions from velox's registry and add them into substrait
-  // extensions.
-  // Now we just work around this part and add one function as dummy version to
-  // pass filter and project round-trip test.
-  auto substraitPlan =
-      google::protobuf::Arena::CreateMessage<::substrait::Plan>(&arena);
-
-  auto extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(0);
-  extensionFunction->set_name("add:opt_i32_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(1);
-  extensionFunction->set_name("multiply:opt_i32_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(1);
-  extensionFunction->set_function_anchor(2);
-  extensionFunction->set_name("lt:i32_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(3);
-  extensionFunction->set_name("divide:i32_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(4);
-  extensionFunction->set_name("count:opt_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(5);
-  extensionFunction->set_name("sum:opt_f64");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(6);
-  extensionFunction->set_name("modulus:i32_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(7);
-  extensionFunction->set_name("equal:i64_i64");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(8);
-  extensionFunction->set_name("row_constructor:f64_i32");
-
-  extensionFunction =
-      substraitPlan->add_extensions()->mutable_extension_function();
-  extensionFunction->set_extension_uri_reference(0);
-  extensionFunction->set_function_anchor(9);
-  extensionFunction->set_name("avg:opt_f64");
-  return *substraitPlan;
 }
 
 } // namespace facebook::velox::substrait

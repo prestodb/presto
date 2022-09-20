@@ -36,4 +36,7 @@ class VeloxToSubstraitTypeConvertor {
       const velox::TypePtr& type);
 };
 
+using VeloxToSubstraitTypeConvertorPtr =
+    std::shared_ptr<VeloxToSubstraitTypeConvertor>;
+
 } // namespace facebook::velox::substrait

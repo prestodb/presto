@@ -140,8 +140,14 @@ const ::substrait::Expression& VeloxToSubstraitExprConvertor::toSubstraitExpr(
     ::substrait::Expression_ScalarFunction* scalarExpr =
         substraitExpr->mutable_scalar_function();
 
-    // TODO need to change yaml file to register function, now is dummy.
-    scalarExpr->set_function_reference(functionMap_[functionName]);
+    std::vector<TypePtr> types;
+    types.reserve(callTypeExpr->inputs().size());
+    for (auto& typedExpr : callTypeExpr->inputs()) {
+      types.emplace_back(typedExpr->type());
+    }
+
+    scalarExpr->set_function_reference(
+        extensionCollector_->getReferenceNumber(functionName, types));
 
     for (auto& arg : inputs) {
       scalarExpr->add_arguments()->mutable_value()->MergeFrom(
