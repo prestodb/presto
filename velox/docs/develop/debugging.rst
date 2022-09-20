@@ -7,3 +7,4 @@ Debugging Tools
 
     debugging/print-plan-with-stats
     debugging/print-expr-with-stats
+    debugging/vector-saver

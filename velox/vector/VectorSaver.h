@@ -19,6 +19,9 @@
 
 namespace facebook::velox {
 
+// Serialization format used by the following function is documented at
+// https://facebookincubator.github.io/velox/develop/debugging/vector-saver.html
+
 /// Serializes the type into binary format and writes it to the provided
 /// output stream. Used for testing.
 void saveType(const TypePtr& type, std::ostream& out);
