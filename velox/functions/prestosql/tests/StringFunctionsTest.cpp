@@ -38,7 +38,7 @@ std::string generateRandomString(size_t length) {
 
   std::string randomString;
   for (std::size_t i = 0; i < length; ++i) {
-    randomString += chars[rand() % chars.size()];
+    randomString += chars[folly::Random::rand32() % chars.size()];
   }
   return randomString;
 }
@@ -771,7 +771,8 @@ TEST_F(StringFunctionsTest, concat) {
     // Fill the table
     for (int row = 0; row < rowCount; row++) {
       for (int col = 0; col < argsCount; col++) {
-        inputTable[row][col] = generateRandomString(rand() % maxStringLength);
+        inputTable[row][col] =
+            generateRandomString(folly::Random::rand32() % maxStringLength);
       }
     }
 
@@ -780,13 +781,72 @@ TEST_F(StringFunctionsTest, concat) {
   }
 
   // Test constant input vector with 2 args
-  auto rows = makeRowVector(makeRowType({VARCHAR(), VARCHAR()}), 10);
-  auto c0 = generateRandomString(20);
-  auto c1 = generateRandomString(20);
-  auto result = evaluate<SimpleVector<StringView>>(
-      fmt::format("concat('{}', '{}')", c0, c1), rows);
-  for (int i = 0; i < 10; ++i) {
-    EXPECT_EQ(result->valueAt(i), StringView(c0 + c1));
+  {
+    auto rows = makeRowVector(makeRowType({VARCHAR(), VARCHAR()}), 10);
+    auto c0 = generateRandomString(20);
+    auto c1 = generateRandomString(20);
+    auto result = evaluate<SimpleVector<StringView>>(
+        fmt::format("concat('{}', '{}')", c0, c1), rows);
+    for (int i = 0; i < 10; ++i) {
+      EXPECT_EQ(result->valueAt(i), StringView(c0 + c1));
+    }
+  }
+
+  // Multiple consecutive constant inputs.
+  {
+    std::string value;
+    auto data = makeRowVector({
+        makeFlatVector<StringView>(
+            1'000,
+            [&](auto /* row */) {
+              value = generateRandomString(
+                  folly::Random::rand32() % maxStringLength);
+              return StringView(value);
+            }),
+        makeFlatVector<StringView>(
+            1'000,
+            [&](auto /* row */) {
+              value = generateRandomString(
+                  folly::Random::rand32() % maxStringLength);
+              return StringView(value);
+            }),
+    });
+
+    auto c0 = data->childAt(0)->as<FlatVector<StringView>>()->rawValues();
+    auto c1 = data->childAt(1)->as<FlatVector<StringView>>()->rawValues();
+
+    auto result = evaluate<SimpleVector<StringView>>(
+        "concat(c0, ',', c1, ',', 'foo', ',', 'bar')", data);
+
+    auto expected = makeFlatVector<StringView>(1'000, [&](auto row) {
+      value = c0[row].str() + "," + c1[row].str() + ",foo,bar";
+      return StringView(value);
+    });
+
+    test::assertEqualVectors(expected, result);
+
+    result = evaluate<SimpleVector<StringView>>(
+        "concat('aaa', ',', 'bbb', ',', c0, ',', 'ccc', ',', 'ddd', ',', c1, ',', 'eee', ',', 'fff')",
+        data);
+
+    expected = makeFlatVector<StringView>(1'000, [&](auto row) {
+      value =
+          "aaa,bbb," + c0[row].str() + ",ccc,ddd," + c1[row].str() + ",eee,fff";
+      return StringView(value);
+    });
+    test::assertEqualVectors(expected, result);
+
+    result = evaluate<SimpleVector<StringView>>(
+        "concat(c0, ',', c1, ',', 'A somewhat long string.', ',', 'bar')",
+        data);
+
+    expected = makeFlatVector<StringView>(1'000, [&](auto row) {
+      value =
+          c0[row].str() + "," + c1[row].str() + ",A somewhat long string.,bar";
+      return StringView(value);
+    });
+
+    test::assertEqualVectors(expected, result);
   }
 }
 

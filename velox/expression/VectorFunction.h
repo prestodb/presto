@@ -263,6 +263,13 @@ bool registerStatefulVectorFunction(
         (name), (signatures), (function));                                \
   }
 
+#define VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION_WITH_METADATA(    \
+    tag, signatures, metadata, function)                         \
+  void _VELOX_REGISTER_FUNC_NAME(tag)(const std::string& name) { \
+    facebook::velox::exec::registerStatefulVectorFunction(       \
+        (name), (signatures), (function), (metadata));           \
+  }
+
 // Registers a vectorized UDF associated with a given tag.
 // This should be used in the same namespace the declare macro is used in.
 #define VELOX_REGISTER_VECTOR_FUNCTION(tag, name)                   \

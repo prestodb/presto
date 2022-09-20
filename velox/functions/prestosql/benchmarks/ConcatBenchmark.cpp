@@ -18,6 +18,7 @@
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -43,12 +44,29 @@ class ConcatBenchmark : public functions::test::FunctionBenchmarkBase {
         {fuzzer.fuzzFlat(VARCHAR()), fuzzer.fuzzFlat(VARCHAR())});
   }
 
+  VectorPtr evaluateOnce(
+      const std::string& expression,
+      const RowVectorPtr& data) {
+    auto exprSet = compileExpression(expression, asRowType(data->type()));
+    return evaluate(exprSet, data);
+  }
+
+  void test() {
+    auto data = generateData();
+
+    auto basicResult = evaluateOnce(kBasicExpression, data);
+    auto flattenedResult = evaluateOnce(kFlattenedExpression, data);
+    auto flattenedAndConstantFoldedResult =
+        evaluateOnce(kFlattenedAndConstantFoldedExpression, data);
+
+    test::assertEqualVectors(basicResult, flattenedResult);
+    test::assertEqualVectors(basicResult, flattenedAndConstantFoldedResult);
+  }
+
   size_t runBasic(size_t times) {
     folly::BenchmarkSuspender suspender;
     auto data = generateData();
-    auto exprSet = compileExpression(
-        "concat(c0, concat(', ', concat(c1, concat(',', concat('567', concat(',', concat('129', concat(',', '987654321'))))))))",
-        asRowType(data->type()));
+    auto exprSet = compileExpression(kBasicExpression, asRowType(data->type()));
     suspender.dismiss();
 
     return doRun(exprSet, data, times);
@@ -57,9 +75,8 @@ class ConcatBenchmark : public functions::test::FunctionBenchmarkBase {
   size_t runFlattened(size_t times) {
     folly::BenchmarkSuspender suspender;
     auto data = generateData();
-    auto exprSet = compileExpression(
-        "concat(c0, ', ', c1, ',', '567', ',', '129', ',', '987654321')",
-        asRowType(data->type()));
+    auto exprSet =
+        compileExpression(kFlattenedExpression, asRowType(data->type()));
     suspender.dismiss();
 
     return doRun(exprSet, data, times);
@@ -69,7 +86,7 @@ class ConcatBenchmark : public functions::test::FunctionBenchmarkBase {
     folly::BenchmarkSuspender suspender;
     auto data = generateData();
     auto exprSet = compileExpression(
-        "concat(c0, ', ', c1, ',567,129,987654321')", asRowType(data->type()));
+        kFlattenedAndConstantFoldedExpression, asRowType(data->type()));
     suspender.dismiss();
 
     return doRun(exprSet, data, times);
@@ -83,8 +100,20 @@ class ConcatBenchmark : public functions::test::FunctionBenchmarkBase {
     return cnt;
   }
 
+ private:
+  static const std::string kBasicExpression;
+  static const std::string kFlattenedExpression;
+  static const std::string kFlattenedAndConstantFoldedExpression;
+
   const uint32_t seed_;
 };
+
+const std::string ConcatBenchmark::kBasicExpression =
+    "concat(c0, concat(', ', concat(c1, concat(',', concat('567', concat(',', concat('129', concat(',', '987654321'))))))))";
+const std::string ConcatBenchmark::kFlattenedExpression =
+    "concat(c0, ', ', c1, ',', '567', ',', '129', ',', '987654321')";
+const std::string ConcatBenchmark::kFlattenedAndConstantFoldedExpression =
+    "concat(c0, ', ', c1, ',567,129,987654321')";
 
 const uint32_t seed = folly::Random::rand32();
 
@@ -107,6 +136,10 @@ BENCHMARK_MULTI(flattenAndConstantFold, n) {
 
 int main(int /*argc*/, char** /*argv*/) {
   LOG(ERROR) << "Seed: " << seed;
+  {
+    ConcatBenchmark benchmark(seed);
+    benchmark.test();
+  }
   folly::runBenchmarks();
   return 0;
 }
