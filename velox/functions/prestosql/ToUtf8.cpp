@@ -33,16 +33,17 @@ class ToUtf8Function : public exec::VectorFunction {
     if (arg->isConstantEncoding()) {
       auto value = arg->as<ConstantVector<StringView>>()->valueAt(0);
       localResult = std::make_shared<ConstantVector<StringView>>(
-          context.pool(), rows.size(), false, VARBINARY(), std::move(value));
+          context.pool(), rows.end(), false, VARBINARY(), std::move(value));
     } else {
       auto flatInput = arg->asFlatVector<StringView>();
 
       auto stringBuffers = flatInput->stringBuffers();
+      VELOX_CHECK_LE(rows.end(), flatInput->size());
       localResult = std::make_shared<FlatVector<StringView>>(
           context.pool(),
           VARBINARY(),
           nullptr,
-          rows.size(),
+          rows.end(),
           flatInput->values(),
           std::move(stringBuffers));
     }

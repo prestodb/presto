@@ -1473,6 +1473,19 @@ TEST_F(StringFunctionsTest, toUtf8) {
       "abc",
       evaluateOnce<std::string>(
           "from_hex(to_hex(to_utf8(c0)))", std::optional<std::string>("abc")));
+
+  // This case is a sanity check for the to_utf8 implementation to make sure the
+  // intermediate flat vector created is of the right size. The following
+  // expression reduces the selectivity vector passed to to_utf8('this') to
+  // [0,1,0] (size=3, begin=1, end=2). Then the literal gets evaluated (due to
+  // simplified evaluation the literal is not folded and instead evaluated
+  // during execution) to a vector of size 2 and passed on to to_utf8(). Here,
+  // if the intermediate flat vector is created for a size > 2 then the function
+  // throws.
+  EXPECT_NO_THROW(evaluateSimplified<FlatVector<bool>>(
+      "to_utf8(c0) = to_utf8('this')",
+      makeRowVector({makeNullableFlatVector<StringView>(
+          {std::nullopt, "test"_sv, std::nullopt})})));
 }
 
 namespace {
