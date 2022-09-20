@@ -125,6 +125,16 @@ bool SystemConfig::enableVeloxExprSetLogging() const {
                                : kEnableVeloxExprSetLoggingDefault;
 }
 
+bool SystemConfig::useMmapArena() const {
+  auto opt = optionalProperty<bool>(std::string(kUseMmapArena));
+  return opt.hasValue() ? opt.value() : kUseMmapArenaDefault;
+}
+
+int32_t SystemConfig::mmapArenaCapacityRatio() const {
+  auto opt = optionalProperty<int32_t>(std::string(kMmapArenaCapacityRatio));
+  return opt.hasValue() ? opt.value() : kMmapArenaCapacityRatioDefault;
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
