@@ -585,9 +585,11 @@ public final class ExpressionTreeRewriter<C>
 
             List<Expression> arguments = rewrite(node.getArguments(), context);
 
+            Optional<OrderBy> orderBy = node.getOrderBy().map(x -> rewriteOrderBy(x, context));
+
             if (!sameElements(node.getArguments(), arguments) || !sameElements(rewrittenWindow, node.getWindow())
-                    || !sameElements(filter, node.getFilter())) {
-                return new FunctionCall(node.getName(), rewrittenWindow, filter, node.getOrderBy().map(orderBy -> rewriteOrderBy(orderBy, context)), node.isDistinct(), node.isIgnoreNulls(), arguments);
+                    || !sameElements(filter, node.getFilter()) || !sameElements(orderBy, node.getOrderBy())) {
+                return new FunctionCall(node.getName(), rewrittenWindow, filter, orderBy, node.isDistinct(), node.isIgnoreNulls(), arguments);
             }
             return node;
         }
