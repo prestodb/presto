@@ -25,11 +25,12 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.spi.resourceGroups.SchedulingPolicy.WEIGHTED;
-import static com.google.common.io.Resources.getResource;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -42,7 +43,7 @@ public class TestFileResourceGroupConfigurationManager
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Test
-    public void testInvalid()
+    public void testInvalid() throws IOException
     {
         assertFails("resource_groups_config_bad_root.json", "Duplicated root group: global");
         assertFails("resource_groups_config_bad_sub_group.json", "Duplicated sub group: sub");
@@ -55,7 +56,7 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
-    public void testQueryTypeConfiguration()
+    public void testQueryTypeConfiguration() throws IOException
     {
         FileResourceGroupConfigurationManager manager = parse("resource_groups_config_query_type.json");
         List<ResourceGroupSelector> selectors = manager.getSelectors();
@@ -69,7 +70,7 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector specifies an invalid query type: invalid_query_type")
-    public void testInvalidQueryTypeConfiguration()
+    public void testInvalidQueryTypeConfiguration() throws IOException
     {
         parse("resource_groups_config_bad_query_type.json");
     }
@@ -94,7 +95,7 @@ public class TestFileResourceGroupConfigurationManager
 
     @SuppressWarnings("SimplifiedTestNGAssertion")
     @Test
-    public void testConfiguration()
+    public void testConfiguration() throws IOException
     {
         ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
@@ -125,7 +126,7 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
-    public void testExtractVariableConfiguration()
+    public void testExtractVariableConfiguration() throws IOException
     {
         ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_extract_variable.json");
 
@@ -142,7 +143,7 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test
-    public void testLegacyConfiguration()
+    public void testLegacyConfiguration() throws IOException
     {
         ResourceGroupConfigurationManager<VariableMap> manager = parse("resource_groups_config_legacy.json");
         ResourceGroupId globalId = new ResourceGroupId("global");
@@ -154,19 +155,19 @@ public class TestFileResourceGroupConfigurationManager
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Selector refers to nonexistent group: a.b.c.X")
-    public void testNonExistentGroup()
+    public void testNonExistentGroup() throws IOException
     {
         parse("resource_groups_config_bad_selector.json");
     }
 
-    private static FileResourceGroupConfigurationManager parse(String fileName)
+    private static FileResourceGroupConfigurationManager parse(String fileName) throws IOException
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
-        config.setConfigFile(getResource(fileName).getPath());
+        config.setConfigFile(getResourceFile(fileName).getPath());
         return new FileResourceGroupConfigurationManager((poolId, listener) -> {}, config);
     }
 
-    private static void assertFails(String fileName, String expectedPattern)
+    private static void assertFails(String fileName, String expectedPattern) throws IOException
     {
         assertThatThrownBy(() -> parse(fileName)).hasMessageMatching(expectedPattern);
     }
