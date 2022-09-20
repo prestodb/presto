@@ -1239,6 +1239,18 @@ bool Expr::applyFunctionWithPeeling(
     newRows = translateToInnerRows(applyRows, *decoded, newRowsHolder);
     context.saveAndReset(saver, rows);
     setDictionaryWrapping(*decoded, rows, *firstWrapper, context);
+
+    // 'newRows' comes from the set of row numbers in the base vector. These
+    // numbers may be larger than rows.end(). Hence, we need to resize constant
+    // inputs.
+    if (newRows->end() > rows.end() && numConstant) {
+      for (int i = 0; i < numConstant; ++i) {
+        if (!constantArgs.empty() && constantArgs[i]) {
+          inputValues_[i] =
+              BaseVector::wrapInConstant(newRows->end(), 0, inputValues_[i]);
+        }
+      }
+    }
   }
 
   VectorPtr peeledResult;

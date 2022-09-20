@@ -2443,3 +2443,28 @@ TEST_F(ExprTest, preservePartialResultsWithEncodedInput) {
   auto result = evaluate("if(c0 > 3, 7, c1 + 100)", data);
   assertEqualVectors(makeFlatVector<int64_t>({101, 102, 103, 7, 7, 7}), result);
 }
+
+// Verify code paths in Expr::applyFunctionWithPeeling for the case when one
+// input is a constant of size N, while another input is a dictionary of size N
+// over base vector with size > N. After peeling encodings, first input has size
+// N, while second input has size > N (the size of the base vector). The
+// translated set of rows now contains row numbers > N, hence, constant input
+// needs to be resized, otherwise, accessing rows numbers > N will cause an
+// error.
+TEST_F(ExprTest, a) {
+  auto data = makeRowVector({makeArrayVector<int32_t>({
+      {0, 1, 2, 3, 4, 5, 6, 7},
+      {0, 1, 2, 33, 4, 5, 6, 7, 8},
+  })});
+
+  // element_at(c0, 200) returns a constant null of size 2.
+  // element_at(c0, 4) returns a dictionary vector with base vector of size 17
+  // (the size of the array's elements vector) and indices [0, 8].
+  auto result = evaluate(
+      "array_constructor(element_at(c0, 200), element_at(c0, 4))", data);
+  auto expected = makeNullableArrayVector<int32_t>({
+      {std::nullopt, 3},
+      {std::nullopt, 33},
+  });
+  assertEqualVectors(expected, result);
+}
