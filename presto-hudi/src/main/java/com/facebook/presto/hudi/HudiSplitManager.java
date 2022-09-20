@@ -14,7 +14,6 @@
 
 package com.facebook.presto.hudi;
 
-import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
@@ -72,7 +71,6 @@ import static org.apache.hudi.common.table.view.FileSystemViewManager.createInMe
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
-    private static final Logger log = Logger.get(HudiSplitManager.class);
     private final HdfsEnvironment hdfsEnvironment;
     private final HudiTransactionManager hudiTransactionManager;
     private final HudiPartitionManager hudiPartitionManager;
@@ -181,7 +179,7 @@ public class HudiSplitManager
                 splitWeightProvider.calculateSplitWeight(sizeInBytes)));
     }
 
-    public static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
+    private static HudiPartition getHudiPartition(ExtendedHiveMetastore metastore, MetastoreContext context, HudiTableLayoutHandle tableLayout, String partitionName)
     {
         String databaseName = tableLayout.getTable().getSchemaName();
         String tableName = tableLayout.getTable().getTableName();
