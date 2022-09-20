@@ -6190,4 +6190,11 @@ public abstract class AbstractTestQueries
             assertTrue(totalPrice07WeightedAccuracy <= totalPrices.get((int) (0.71 * totalPrices.size())));
         }
     }
+
+    @Test
+    public void testOrderByCompilation()
+    {
+        String sql = "SELECT orderkey, array_agg(abs(1) ORDER BY orderkey) FROM orders GROUP BY orderkey ORDER BY orderkey";
+        assertQuery(sql, "SELECT orderkey, array_agg(1) FROM orders GROUP BY orderkey ORDER BY orderkey");
+    }
 }
