@@ -97,8 +97,12 @@ class VectorFuzzer {
   VectorPtr fuzz(const TypePtr& type);
 
   // Returns a flat vector or a complex vector with flat children with
-  // randomized data and nulls.
+  // randomized data and nulls. Returns a vector of `opts_.vectorSize` size.
   VectorPtr fuzzFlat(const TypePtr& type);
+
+  // Returns a flat vector or a complex vector with flat children with
+  // randomized data and nulls. Returns a vector of `size` size.
+  VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
 
   // Returns a random constant vector (which could be a null constant).
   VectorPtr fuzzConstant(const TypePtr& type);
@@ -144,8 +148,6 @@ class VectorFuzzer {
  private:
   VectorPtr
   fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding = false);
-
-  VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
 
   VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
 

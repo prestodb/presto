@@ -36,6 +36,123 @@ class VectorFuzzerTest : public testing::Test {
 
 // TODO: add coverage for other VectorFuzzer methods.
 
+TEST_F(VectorFuzzerTest, flatPrimitive) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+  VectorPtr vector;
+
+  std::vector<TypePtr> types = {
+      TINYINT(),
+      BIGINT(),
+      DOUBLE(),
+      BOOLEAN(),
+      VARCHAR(),
+      VARBINARY(),
+      DATE(),
+      TIMESTAMP(),
+      INTERVAL_DAY_TIME(),
+  };
+
+  for (const auto& type : types) {
+    vector = fuzzer.fuzzFlat(type);
+    ASSERT_EQ(VectorEncoding::Simple::FLAT, vector->encoding());
+    ASSERT_TRUE(vector->type()->kindEquals(type));
+    ASSERT_EQ(opts.vectorSize, vector->size());
+    ASSERT_TRUE(vector->mayHaveNulls());
+  }
+}
+
+TEST_F(VectorFuzzerTest, flatComplex) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+
+  // Arrays.
+  auto vector = fuzzer.fuzzFlat(ARRAY(BIGINT()));
+  ASSERT_EQ(VectorEncoding::Simple::ARRAY, vector->encoding());
+  ASSERT_EQ(opts.vectorSize, vector->size());
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  auto elements = vector->as<ArrayVector>()->elements();
+  ASSERT_TRUE(elements->type()->kindEquals(BIGINT()));
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, elements->encoding());
+  ASSERT_EQ(opts.vectorSize * opts.containerLength, elements->size());
+
+  // Maps.
+  vector = fuzzer.fuzzFlat(MAP(BIGINT(), DOUBLE()));
+  ASSERT_EQ(VectorEncoding::Simple::MAP, vector->encoding());
+  ASSERT_EQ(opts.vectorSize, vector->size());
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  auto mapKeys = vector->as<MapVector>()->mapKeys();
+  ASSERT_TRUE(mapKeys->type()->kindEquals(BIGINT()));
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, mapKeys->encoding());
+  ASSERT_EQ(opts.vectorSize * opts.containerLength, mapKeys->size());
+
+  auto mapValues = vector->as<MapVector>()->mapValues();
+  ASSERT_TRUE(mapValues->type()->kindEquals(DOUBLE()));
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, mapValues->encoding());
+  ASSERT_EQ(opts.vectorSize * opts.containerLength, mapValues->size());
+}
+
+TEST_F(VectorFuzzerTest, flatNotNull) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0;
+  VectorFuzzer fuzzer(opts, pool());
+
+  auto vector = fuzzer.fuzzFlat(BIGINT());
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  vector = fuzzer.fuzzFlat(ARRAY(BIGINT()));
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  vector = fuzzer.fuzzFlat(MAP(BIGINT(), INTEGER()));
+  ASSERT_FALSE(vector->mayHaveNulls());
+}
+
+TEST_F(VectorFuzzerTest, dictionary) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  // Generates a flat inner vector without nuls.
+  const size_t innerSize = 100;
+  auto inner = fuzzer.fuzzFlat(REAL(), innerSize);
+
+  opts.nullRatio = 0.5;
+  fuzzer.setOptions(opts);
+
+  // Generate a dictionary with the same size as the inner vector being wrapped.
+  auto vector = fuzzer.fuzzDictionary(inner);
+  ASSERT_EQ(VectorEncoding::Simple::DICTIONARY, vector->encoding());
+  ASSERT_TRUE(vector->mayHaveNulls());
+  ASSERT_TRUE(vector->valueVector()->type()->kindEquals(REAL()));
+  ASSERT_EQ(innerSize, vector->size());
+  ASSERT_EQ(innerSize, vector->valueVector()->size());
+
+  // Generate a dictionary with less elements.
+  vector = fuzzer.fuzzDictionary(inner, 10);
+  ASSERT_EQ(VectorEncoding::Simple::DICTIONARY, vector->encoding());
+  ASSERT_TRUE(vector->mayHaveNulls());
+  ASSERT_TRUE(vector->valueVector()->type()->kindEquals(REAL()));
+  ASSERT_EQ(10, vector->size());
+  ASSERT_EQ(innerSize, vector->valueVector()->size());
+
+  // Generate a dictionary with more elements.
+  vector = fuzzer.fuzzDictionary(inner, 1000);
+  ASSERT_EQ(VectorEncoding::Simple::DICTIONARY, vector->encoding());
+  ASSERT_TRUE(vector->mayHaveNulls());
+  ASSERT_TRUE(vector->valueVector()->type()->kindEquals(REAL()));
+  ASSERT_EQ(1000, vector->size());
+  ASSERT_EQ(innerSize, vector->valueVector()->size());
+
+  // Generate a dictionary without nulls.
+  opts.dictionaryHasNulls = false;
+  fuzzer.setOptions(opts);
+  vector = fuzzer.fuzzDictionary(inner);
+  ASSERT_FALSE(vector->mayHaveNulls());
+}
+
 TEST_F(VectorFuzzerTest, constants) {
   VectorFuzzer::Options opts;
   opts.nullRatio = 0;
