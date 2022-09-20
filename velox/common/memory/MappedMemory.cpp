@@ -47,7 +47,7 @@ void MappedMemory::Allocation::append(uint8_t* address, int32_t numPages) {
 void MappedMemory::Allocation::findRun(
     uint64_t offset,
     int32_t* index,
-    int32_t* offsetInRun) {
+    int32_t* offsetInRun) const {
   uint64_t skipped = 0;
   for (int32_t i = 0; i < runs_.size(); ++i) {
     uint64_t size = runs_[i].numPages() * kPageSize;

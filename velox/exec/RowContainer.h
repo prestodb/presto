@@ -34,12 +34,59 @@ struct RowContainerIterator {
   // normalized key. Set in listRows() on first call.
   int64_t normalizedKeysLeft = 0;
 
+  // Ordinal position of 'currentRow' in RowContainer.
+  int32_t rowNumber{0};
+  char* FOLLY_NULLABLE rowBegin{nullptr};
+  // First byte after the end of the PageRun containing 'currentRow'.
+  char* FOLLY_NULLABLE endOfRun{nullptr};
+
+  // Returns the current row, skipping a possible normalized key below the first
+  // byte of row.
+  inline char* FOLLY_NULLABLE currentRow() const {
+    return (rowBegin && normalizedKeysLeft)
+        ? rowBegin + sizeof(normalized_key_t)
+        : rowBegin;
+  }
+
   void reset() {
     allocationIndex = 0;
     runIndex = 0;
     rowOffset = 0;
     normalizedKeysLeft = 0;
+    rowBegin = nullptr;
+    rowNumber = 0;
+    endOfRun = nullptr;
   }
+};
+
+/// Container with a 8-bit partition number field for each row in a
+/// RowContainer. The partition number bytes correspond 1:1 to rows. Used only
+/// for parallel hash join build.
+class RowPartitions {
+ public:
+  /// Initializes this to hold up to 'numRows'.
+  RowPartitions(int32_t numRows, memory::MappedMemory& mappedMemory);
+
+  /// Appends 'partitions' to the end of 'this'. Throws if adding more than the
+  /// capacity given at construction.
+  void appendPartitions(folly::Range<const uint8_t*> partitions);
+
+  auto& allocation() const {
+    return allocation_;
+  }
+
+  int32_t size() const {
+    return size_;
+  }
+
+ private:
+  const int32_t capacity_;
+
+  // Number of partition numbers added.
+  int32_t size_{0};
+
+  // Partition numbers. 1 byte each.
+  memory::MappedMemory::Allocation allocation_;
 };
 
 // Packed representation of offset, null byte offset and null mask for
@@ -211,10 +258,18 @@ class RowContainer {
     return 1 << (nullOffset & 7);
   }
 
+  // No tsan because probed flags may have been set by a different
+  // thread. There is a barrier but tsan does not know this.
   enum class ProbeType { kAll, kProbed, kNotProbed };
 
   template <ProbeType probeType>
-  int32_t listRows(
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+  __attribute__((__no_sanitize__("thread")))
+#endif
+#endif
+  int32_t
+  listRows(
       RowContainerIterator* FOLLY_NONNULL iter,
       int32_t maxRows,
       uint64_t maxBytes,
@@ -304,12 +359,21 @@ class RowContainer {
     return listRows<ProbeType::kAll>(iter, maxRows, kUnlimited, rows);
   }
 
-  /// Sets 'probed' flag for the specified rows. Used by the right and full join
-  /// to mark build-side rows that matches join condition. 'rows' may contain
-  /// duplicate entries for the cases where single probe row matched multiple
-  /// build rows. In case of the full join, 'rows' may include null entries that
-  /// correspond to probe rows with no match.
-  void setProbedFlag(char* FOLLY_NONNULL* FOLLY_NONNULL rows, int32_t numRows);
+  /// Sets 'probed' flag for the specified rows. Used by the right and
+  /// full join to mark build-side rows that matches join
+  /// condition. 'rows' may contain duplicate entries for the cases
+  /// where single probe row matched multiple build rows. In case of
+  /// the full join, 'rows' may include null entries that correspond
+  /// to probe rows with no match. No tsan because any thread can set
+  /// this without synchronization. There is a barrier between setting
+  /// and reading.
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+  __attribute__((__no_sanitize__("thread")))
+#endif
+#endif
+  void
+  setProbedFlag(char* FOLLY_NONNULL* FOLLY_NONNULL rows, int32_t numRows);
 
   // Returns true if 'row' at 'column' equals the value at 'index' in
   // 'decoded'. 'mayHaveNulls' specifies if nulls need to be checked. This is
@@ -472,6 +536,26 @@ class RowContainer {
   isNullAt(const char* FOLLY_NONNULL row, int32_t nullByte, uint8_t nullMask) {
     return (row[nullByte] & nullMask) != 0;
   }
+
+  /// Retrieves rows from 'iterator' whose partition equals
+  /// 'partition'. Writes up to 'maxRows' pointers to the rows in
+  /// 'result'. Returns the number of rows retrieved, 0 when no more
+  /// rows are found. 'iterator' is expected to be in initial state
+  /// on first call.
+  int32_t listPartitionRows(
+      RowContainerIterator& iterator,
+      uint8_t partition,
+      int32_t maxRows,
+      char* FOLLY_NONNULL* FOLLY_NONNULL result);
+
+  /// Returns a container with a partition number for each row. This
+  /// is created on first use. The caller is responsible for filling
+  /// this.
+  RowPartitions& partitions();
+
+  /// Advances 'iterator' by 'numRows'. The current row after skip is
+  /// in iter.currentRow(). This is null if past end. Public for testing.
+  void skip(RowContainerIterator& iterator, int32_t numRows);
 
  private:
   // Offset of the pointer to the next free row on a free row.
@@ -834,6 +918,9 @@ class RowContainer {
 
   AllocationPool rows_;
   HashStringAllocator stringAllocator_;
+
+  // Partition number for each row. Used only in parallel hash join build.
+  std::unique_ptr<RowPartitions> partitions_;
 
   const RowSerde& serde_;
   // RowContainer requires a valid reference to a vector of aggregates. We use

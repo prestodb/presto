@@ -81,26 +81,27 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     EXPECT_EQ(usage, sum);
   }
 
-  // Stores the input vector in Row Container, extracts it and compares.
-  void roundTrip(const VectorPtr& input) {
+  // Stores the input vector in Row Container, extracts it and compares. Returns
+  // the container.
+  std::unique_ptr<RowContainer> roundTrip(const VectorPtr& input) {
     // Create row container.
     std::vector<TypePtr> types{input->type()};
-    auto data = makeRowContainer(types, std::vector<TypePtr>{});
 
     // Store the vector in the rowContainer.
-    RowContainer rowContainer(types, mappedMemory_);
+    auto rowContainer = std::make_unique<RowContainer>(types, mappedMemory_);
     auto size = input->size();
     SelectivityVector allRows(size);
     std::vector<char*> rows(size);
     DecodedVector decoded(*input, allRows);
     for (size_t row = 0; row < size; ++row) {
-      rows[row] = rowContainer.newRow();
-      rowContainer.store(decoded, row, rows[row], 0);
+      rows[row] = rowContainer->newRow();
+      rowContainer->store(decoded, row, rows[row], 0);
     }
 
-    testExtractColumnForAllRows(rowContainer, rows, 0, input);
+    testExtractColumnForAllRows(*rowContainer, rows, 0, input);
 
-    testExtractColumnForOddRows(rowContainer, rows, 0, input);
+    testExtractColumnForOddRows(*rowContainer, rows, 0, input);
+    return rowContainer;
   }
 
   template <typename T>
@@ -554,4 +555,64 @@ TEST_F(RowContainerTest, compareDouble) {
   // Verify descending order
   testCompareFloats<double>(DOUBLE(), false, true);
   testCompareFloats<double>(DOUBLE(), false, false);
+}
+
+TEST_F(RowContainerTest, partition) {
+  // We assign an arbitrary partition number to each row and iterate
+  // over the rows a partition at a time.
+  constexpr int32_t kNumRows = 100019;
+  constexpr uint8_t kNumPartitions = 16;
+  auto batch = makeDataset(
+      ROW(
+          {{"int_val", INTEGER()},
+           {"long_val", BIGINT()},
+           {"string_val", VARCHAR()}}),
+      kNumRows,
+      [](RowVectorPtr /*rows*/) {});
+
+  auto data = roundTrip(batch);
+  std::vector<char*> rows(kNumRows);
+  RowContainerIterator iter;
+  data->listRows(&iter, kNumRows, RowContainer::kUnlimited, rows.data());
+
+  // Test random skipping of RowContainerIterator.
+  for (auto count = 0; count < 100; ++count) {
+    auto index = (count * 121) % kNumRows;
+    iter.reset();
+    data->skip(iter, index);
+    EXPECT_EQ(iter.currentRow(), rows[index]);
+    if (index + count < kNumRows) {
+      data->skip(iter, count);
+      EXPECT_EQ(iter.currentRow(), rows[index + count]);
+    }
+  }
+
+  auto& partitions = data->partitions();
+  std::vector<uint8_t> rowPartitions(kNumRows);
+  // Assign a partition to each row based on  modulo of first column.
+  std::vector<std::vector<char*>> partitionRows(kNumPartitions);
+  auto column = batch->childAt(0)->as<FlatVector<int32_t>>();
+  for (auto i = 0; i < kNumRows; ++i) {
+    uint8_t partition =
+        static_cast<uint32_t>(column->valueAt(i)) % kNumPartitions;
+    rowPartitions[i] = partition;
+    partitionRows[partition].push_back(rows[i]);
+  }
+  partitions.appendPartitions(
+      folly::Range<const uint8_t*>(rowPartitions.data(), kNumRows));
+  for (auto partition = 0; partition < kNumPartitions; ++partition) {
+    std::vector<char*> result(partitionRows[partition].size() + 10);
+    iter.reset();
+    int32_t numFound = 0;
+    int32_t resultBatch = 1;
+    // Read the rows in multiple batches.
+    while (auto numResults = data->listPartitionRows(
+               iter, partition, resultBatch, result.data() + numFound)) {
+      numFound += numResults;
+      resultBatch += 13;
+    }
+    EXPECT_EQ(numFound, partitionRows[partition].size());
+    result.resize(numFound);
+    EXPECT_EQ(partitionRows[partition], result);
+  }
 }

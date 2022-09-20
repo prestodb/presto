@@ -141,7 +141,8 @@ class BaseHashTable {
       char** rows) = 0;
 
   virtual void prepareJoinTable(
-      std::vector<std::unique_ptr<BaseHashTable>> tables) = 0;
+      std::vector<std::unique_ptr<BaseHashTable>> tables,
+      folly::Executor* FOLLY_NULLABLE executor = nullptr) = 0;
 
   /// Returns the memory footprint in bytes for any data structures
   /// owned by 'this'.
@@ -217,8 +218,19 @@ class BaseHashTable {
     return static_cast<uint8_t>(hash >> 32) | 0x80;
   }
 
-  /// Loads a vector of tags for bulk comparison.
-  static TagVector loadTags(uint8_t* tags, int32_t tagIndex) {
+  /// Loads a vector of tags for bulk comparison. Disables tsan errors
+  /// because with parallel join build different ranges of the table
+  /// are filled by different threads, after which the main thread
+  /// inserts the entries that would have overflowed past the
+  /// inserting thread's range. There is a sync barrier between but
+  /// tsan does not recognize this.
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+  __attribute__((__no_sanitize__("thread")))
+#endif
+#endif
+  static TagVector
+  loadTags(uint8_t* tags, int32_t tagIndex) {
     return TagVector::load_unaligned(tags + tagIndex);
   }
 
@@ -348,7 +360,8 @@ class HashTable : public BaseHashTable {
   // with prepareJoinTable. This then takes ownership of all the data
   // and VectorHashers and decides the hash mode and representation.
   void prepareJoinTable(
-      std::vector<std::unique_ptr<BaseHashTable>> tables) override;
+      std::vector<std::unique_ptr<BaseHashTable>> tables,
+      folly::Executor* FOLLY_NULLABLE executor = nullptr) override;
 
   uint64_t hashTableSizeIncrease(int32_t numNewDistinct) const override {
     if (numDistinct_ + numNewDistinct > rehashSize()) {
@@ -416,17 +429,57 @@ class HashTable : public BaseHashTable {
   insertBatch(char** groups, int32_t numGroups, raw_vector<uint64_t>& hashes);
 
   // Inserts 'numGroups' entries into 'this'. 'groups' point to
-  // contents in a RowContainer owned by 'this'. 'hashes' are te hash
+  // contents in a RowContainer owned by 'this'. 'hashes' are the hash
   // numbers or array indices (if kArray mode) for each
-  // group. Duplicate key rows are chained via their next link.
-  void insertForJoin(char** groups, uint64_t* hashes, int32_t numGroups);
+  // group. Duplicate key rows are chained via their next link. if
+  // parallel build, partitionEnd is the index of the first entry
+  // after the partition being inserted. If a row would be inserted to
+  // the right of the end, it is not inserted but rather added to the
+  // end of 'overflows'.
+  void insertForJoin(
+      char** groups,
+      uint64_t* hashes,
+      int32_t numGroups,
+      int32_t partitionBegin = 0,
+      int32_t partitionEnd = std::numeric_limits<int32_t>::max(),
+      std::vector<char*>* FOLLY_NULLABLE overflows = nullptr);
 
   // Inserts 'numGroups' entries into 'this'. 'groups' point to
-  // contents in a RowContainer owned by 'this'. 'hashes' are te hash
+  // contents in a RowContainer owned by 'this'. 'hashes' are the hash
   // numbers or array indices (if kArray mode) for each
-  // group. 'groups' is expectedd to have no duplicate keys.
-
+  // group. 'groups' is expected to have no duplicate keys.
   void insertForGroupBy(char** groups, uint64_t* hashes, int32_t numGroups);
+
+  // Builds a join table with '1 + otherTables_.size()' independent
+  // threads using 'executor_'. First all RowContainers get partition
+  // numbers assigned to each row. Next, all threads pick all rows
+  // assigned to their thread-specific partition and insert these. If
+  // a row would overflow past the end of its partition it is added to
+  // a set of overflow rows that are sequentially inserted after all
+  // else.
+  void parallelJoinBuild();
+
+  // Inserts the rows in 'partition' from this and 'otherTables' into 'this'.
+  // The rows that would have gone past the end of the partition are returned in
+  // 'overflow'.
+  void buildJoinPartition(uint8_t partition, std::vector<char*>& overflow);
+
+  // Assigns a partition to each row of 'subtable' in RowPartitions of
+  // subtable's RowContainer. If 'hashMode_' is kNormalizedKeys, records the
+  // normalized key of each row below the row in its container.
+  void partitionRows(HashTable<ignoreNullKeys>& subtable);
+
+  // Calculates hashes for 'rows' and returns them in 'hashes'. If
+  // 'initNormalizedKeys' is true, the normalized keys are stored
+  // below each row in the container. If 'initNormalizedKeys' is false
+  // and the table is in normalized keys mode, the keys are retrieved
+  // from the row and the hash is made from this, without recomputing
+  // the normalized key. Returns false if the hash keys are not mappable via the
+  // VectorHashers.
+  bool hashRows(
+      folly::Range<char**> rows,
+      bool initNormalizedKeys,
+      raw_vector<uint64_t>& hashes);
 
   char* insertEntry(HashLookup& lookup, int32_t index, vector_size_t row);
 
@@ -446,9 +499,17 @@ class HashTable : public BaseHashTable {
   // with the same key.
   void pushNext(char* row, char* next);
 
-  // Finishes inserting an entry into a join hash table.
-  void
-  buildFullProbe(ProbeState& state, uint64_t hash, char* row, bool extraCheck);
+  // Finishes inserting an entry into a join hash table. If the insert
+  // would fall outside of 'partitionBegin' ... 'partitionEnd', the
+  // insert is not made but the row is instead added to 'overflow'.
+  void buildFullProbe(
+      ProbeState& state,
+      uint64_t hash,
+      char* row,
+      bool extraCheck,
+      int32_t partitionBegin,
+      int32_t partitionEnd,
+      std::vector<char*>* FOLLY_NULLABLE overflows);
 
   // Updates 'hashers_' to correspond to the keys in the
   // content. Returns true if all hashers offer a mapping to value ids
@@ -468,9 +529,10 @@ class HashTable : public BaseHashTable {
   int8_t sizeBits_;
   bool isJoinBuild_ = false;
 
-  // Set at join build time if the table has duplicates, meaning
-  // that the join can be cardinality increasing.
-  bool hasDuplicates_ = false;
+  // Set at join build time if the table has duplicates, meaning that
+  // the join can be cardinality increasing. Atomic for tsan because
+  // many threads can set this.
+  std::atomic<bool> hasDuplicates_{false};
 
   // Offset of next row link for join build side, 0 if none. Copied
   // from 'rows_'.
@@ -485,6 +547,20 @@ class HashTable : public BaseHashTable {
   // Owns the memory of multiple build side hash join tables that are
   // combined into a single probe hash table.
   std::vector<std::unique_ptr<HashTable<ignoreNullKeys>>> otherTables_;
+
+  // Bounds of independently buildable index ranges in the table. The
+  // range of partition i starts at [i] and ends at [i +1]. Bounds are multiple
+  // of cache line  size.
+  raw_vector<int32_t> buildPartitionBounds_;
+
+  // Executor for parallelizing hash join build. This may be the
+  // executor for Drivers. If this executor is indefinitely taken by
+  // other work, the thread of prepareJoinTables() will sequentially
+  // execute the parallel build steps.
+  folly::Executor* FOLLY_NULLABLE buildExecutor_{nullptr};
+
+  //  Counts parallel build rows. Used for consistency check.
+  std::atomic<int64_t> numParallelBuildRows_{0};
 };
 
 } // namespace facebook::velox::exec

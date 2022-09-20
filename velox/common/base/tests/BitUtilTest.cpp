@@ -687,6 +687,28 @@ TEST_F(BitUtilTest, crc) {
   EXPECT_EQ(boostCrc, follyCrc);
 }
 
+TEST_F(BitUtilTest, pad) {
+  char bytes[100];
+  memset(bytes, 1, sizeof(bytes));
+  bits::padToAlignment(&bytes[11], 30, 7, 16);
+  // We expect a 0 in bytes[11 +7] ... bytes[11 + 15].
+  EXPECT_EQ(1, bytes[11 + 6]);
+  for (auto i = 11 + 7; i < 11 + 16; ++i) {
+    EXPECT_EQ(0, bytes[i]);
+  }
+  EXPECT_EQ(1, bytes[11 + 16]);
+
+  // Test with end of data before next aligned address.
+  memset(bytes, 1, sizeof(bytes));
+  bits::padToAlignment(&bytes[11], 12, 7, 16);
+  // We expect a 0 in bytes[11 +7] ... bytes[11 + 12].
+  EXPECT_EQ(1, bytes[11 + 6]);
+  for (auto i = 11 + 7; i < 11 + 12; ++i) {
+    EXPECT_EQ(0, bytes[i]);
+  }
+  EXPECT_EQ(1, bytes[11 + 13]);
+}
+
 } // namespace bits
 } // namespace velox
 } // namespace facebook

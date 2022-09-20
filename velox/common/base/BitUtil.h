@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #ifdef __BMI2__
 #include <x86intrin.h>
@@ -855,6 +856,24 @@ inline uint32_t rotateLeft(uint32_t a, int shift) {
 #else
   return (a << shift) | (a >> (32 - shift));
 #endif
+}
+
+/// Pads bytes starting at 'pointer + padIndex' up until the next
+/// offset from 'pointer' that is a multiple of 'alignment'. If
+/// 'padIndex' is 5 and alignment is 16, writes 11 zero bytes to
+/// [pointer + 5 ... pointer + 15 inclusive. Does not write past
+/// 'pointer' + 'size' in any case. Used to initialize memory that may
+/// be partly filled for use with valgring/asan.
+inline void padToAlignment(
+    void* pointer,
+    int32_t size,
+    int32_t padIndex,
+    int32_t alignment) {
+  auto roundEnd = std::min<int32_t>(size, bits::roundUp(padIndex, alignment));
+  if (roundEnd > padIndex) {
+    std::memset(
+        reinterpret_cast<char*>(pointer) + padIndex, 0, roundEnd - padIndex);
+  }
 }
 
 } // namespace bits

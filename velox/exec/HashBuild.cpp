@@ -260,7 +260,10 @@ void HashBuild::noMoreInput() {
             operatorCtx_->driverCtx()->splitGroupId, planNodeId())
         ->setAntiJoinHasNullKeys();
   } else {
-    table_->prepareJoinTable(std::move(otherTables));
+    bool hasOthers = !otherTables.empty();
+    table_->prepareJoinTable(
+        std::move(otherTables),
+        hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
 
     addRuntimeStats();
 
