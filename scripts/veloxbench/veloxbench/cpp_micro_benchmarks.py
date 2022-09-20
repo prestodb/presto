@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,14 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+# Set up the CPP microbenchmarks runner class without importing conbench
+# (so users without conbench installed can run this file as a script).
+# The conbench integration is set up in implemented_benchmarks.py
+
 import copy
-import json
 import os
+import pathlib
+import subprocess
 import tempfile
 
-import conbench.runner
 
-from veloxbench import _benchmark
+REPO_ROOT = pathlib.Path(__file__).parent.parent.parent.parent
 
 RUN_OPTIONS = {
     "iterations": {
@@ -42,37 +48,7 @@ COMMON_OPTIONS = {
 }
 
 
-def get_run_command(output_dir, options):
-    # TODO: we'll probably want to unify these runner scripts
-    # Must run `make benchmarks-basic-build` before this
-    # TODO: deal with the paths better (especially to benchmarks/basic)
-    command = [
-        "../../../scripts/benchmark-runner.py",
-        "run",
-        "--path",
-        "../../../_build/release/velox/benchmarks/basic/",
-        "--dump-path",
-        output_dir,
-    ]
-
-    # TODO: extend cpp micro benchmarks to allow for iterations
-    iterations = options.get("iterations", None)
-    if iterations:
-        raise NotImplementedError()
-
-    return command
-
-
-def _parse_benchmark_name(full_name):
-    # TODO: Do we need something more complicated?
-    # https://github.com/ursacomputing/benchmarks/blob/033eee0951adbf41931a2de95caccbac887da6ff/benchmarks/cpp_micro_benchmarks.py#L86-L103
-    if full_name[0] == "%":
-        full_name = full_name[1:]
-    return {"name": full_name}
-
-
-@conbench.runner.register_benchmark
-class RecordCppMicroBenchmarks(_benchmark.Benchmark):
+class LocalCppMicroBenchmarks:
     """Run the Velox C++ micro benchmarks."""
 
     external = True
@@ -84,44 +60,58 @@ class RecordCppMicroBenchmarks(_benchmark.Benchmark):
     iterations = 1
     flags = {"language": "C++"}
 
-    def run(self, **kwargs):
-        with tempfile.TemporaryDirectory() as result_dir:
-            run_command = get_run_command(result_dir, kwargs)
-            self.execute_command(run_command)
-
-            # iterate through files to make the suites
-            with os.scandir(result_dir) as result_files:
-                for result_file in result_files:
-                    suite = result_file.name.replace(".json", "", 1)
-                    with open(result_file.path, "r") as f:
-                        results = json.load(f)
-                    self.conbench.mark_new_batch()
-                    for result in results:
-                        # Folly benchmark exports line separators by mistake as
-                        # an entry in the json file.
-                        if result[1] == "-":
-                            continue
-                        yield self._record_result(suite, result, kwargs)
-
-    def _record_result(self, suite, result, options):
-        info, context = {}, {"benchmark_language": "C++"}
-        # TODO: we should really name these in the json and not rely on position!
-        tags = _parse_benchmark_name(result[1])
-        name = tags.pop("name")
-        tags["suite"] = suite
-        tags["source"] = self.name
-
-        values = self._get_values(result)
-
-        return self.record(
-            values,
-            tags,
-            info,
-            context,
-            options=options,
-            output=result,
-            name=name,
+    def run(self, result_dir, **kwargs):
+        binaries = self._find_binaries(
+            REPO_ROOT.joinpath("_build", "release", "velox", "benchmarks", "basic")
         )
+        result_dir_path = pathlib.Path(result_dir)
+
+        for binary_path in binaries:
+            out_path = result_dir_path / f"{binary_path.name}.json"
+            print(f"Executing and dumping results for '{binary_path}' to '{out_path}':")
+            run_command = [
+                binary_path,
+                "--bm_max_secs",
+                "10",
+                "--bm_max_trials",
+                "1000000",
+                "--bm_json_verbose",
+                out_path,
+            ]
+
+            # TODO: extend cpp micro benchmarks to allow for iterations
+            iterations = kwargs.get("iterations", None)
+            if iterations:
+                raise NotImplementedError()
+
+            try:
+                print(run_command)
+                result = subprocess.run(run_command, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.stderr.decode("utf-8"))
+                raise e
+
+    @staticmethod
+    def _find_binaries(binary_dir: pathlib.Path):
+        # Must run `make benchmarks-basic-build` before this
+        binaries = [
+            path
+            for path in binary_dir.glob("*")
+            if os.access(path, os.X_OK) and path.is_file()
+        ]
+        if not binaries:
+            raise ValueError(f"No binaries found at path {binary_dir.resolve()}")
+
+        print(f"Found {len(binaries)} binaries to execute")
+        return binaries
+
+    @staticmethod
+    def _parse_benchmark_name(full_name):
+        # TODO: Do we need something more complicated?
+        # https://github.com/ursacomputing/benchmarks/blob/033eee0951adbf41931a2de95caccbac887da6ff/benchmarks/cpp_micro_benchmarks.py#L86-L103
+        if full_name[0] == "%":
+            full_name = full_name[1:]
+        return {"name": full_name}
 
     def _get_values(self, result):
         return {
@@ -132,9 +122,15 @@ class RecordCppMicroBenchmarks(_benchmark.Benchmark):
             "time_unit": "ns",
         }
 
-    def _format_unit(self, x):
+    @staticmethod
+    def _format_unit(x):
         if x == "bytes_per_second":
             return "B/s"
         if x == "items_per_second":
             return "i/s"
         return x
+
+
+if __name__ == "__main__":
+    with tempfile.TemporaryDirectory() as result_dir:
+        LocalCppMicroBenchmarks().run(result_dir=result_dir)

@@ -24,15 +24,6 @@ workflows:
       - header-check
       - linux-benchmarks-basic
 
-  # Store benchmarks to conbench on main
-  benchmark-conbench:
-    jobs:
-      - linux-benchmarks-conbench:
-          filters:
-            branches:
-              only:
-                - main
-
   # Daily documentation update
   nightly:
     triggers:
@@ -228,77 +219,8 @@ jobs:
 
   linux-benchmarks-basic:
     executor: build
-    steps:
-      - checkout
-      - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: |
-            git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: "Build Benchmarks - Baseline"
-          command: |
-            git checkout $(git merge-base origin/main HEAD)
-            mkdir -p benchmark-basic-dumps/baseline benchmark-basic-dumps/target
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
-
-            # If benchmark build on main is broken, print a warning message and let the job fail.
-            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 || ( \
-              echo -e "\n\n" \
-                      "=======================================================================\n" \
-                      "Benchmark execution uses the main branch as the baseline,\n" \
-                      "but it looks like builds on main are broken.\n" \
-                      "Please rebase your PR once main is fixed to unblock this job.\n" \
-                      "If this is the PR fixing a broken main, you can ignore this job failure.\n" \
-                      "========================================================================\n"; exit 1)
-            ccache -s
-          no_output_timeout: 1h
-      - run:
-          name: "Run Benchmarks - Baseline"
-          command: |
-            make benchmarks-basic-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-basic-dumps/baseline
-      - run:
-          name: "Build Benchmarks - Target"
-          command: |
-            git checkout -
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
-            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
-            ccache -s
-      - run:
-          name: "Run Benchmarks - Target"
-          command: |
-            make benchmarks-basic-dump NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 BENCHMARKS_DUMP_DIR=benchmark-basic-dumps/target
-      - run:
-          name: "Benchmarks Summary"
-          command: |
-            # We don't want to fail the CI job yet, until we ensure the numbers are stable.
-            scripts/benchmark-runner.py compare \
-                --baseline-dump-path benchmark-basic-dumps/baseline \
-                --target-dump-path benchmark-basic-dumps/target || true
-      - store_artifacts:
-          path: '_build/debug/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
-
-  linux-benchmarks-conbench:
-    executor: build
+    environment:
+      CONBENCH_URL: https://velox-conbench.voltrondata.run/
     steps:
       - checkout
       - run:
@@ -324,11 +246,12 @@ jobs:
             make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
       - run:
-          name: "Install conbench and veloxbench"
+          name: "Install conbench, benchalerts, and veloxbench"
           command: |
             # upgrade python to 3.8 for this job
             yum install -y python38
             pip3.8 install conbench
+            pip3.8 install git+https://github.com/conbench/benchalerts.git@0.1.0
             pip3.8 install scripts/veloxbench
       - run:
           name: "Run Benchmarks"
@@ -338,12 +261,30 @@ jobs:
 
             # setup .conbench file
             touch .conbench
-            echo "url: https://velox-conbench.voltrondata.run/" >> .conbench
+            echo "url: $CONBENCH_URL" >> .conbench
             echo "email: $CONBENCH_EMAIL" >> .conbench
             echo "password: $CONBENCH_PASSWORD" >> .conbench
             echo "host_name: CircleCI-runner" >> .conbench
 
-            conbench cpp-micro --run-name="commit: $(git rev-parse HEAD)" --run-reason="commit"
+            # Figure out the run name and run reason
+            if [[ $CIRCLE_BRANCH == 'main' ]]; then
+              # Currently, the names of runs to be included in Conbench history must
+              # start with 'commit:'
+              # (https://github.com/conbench/conbench/issues/350)
+              # This way we can keep track of performance over time on the main branch
+              # separately from pull request branches and manual runs.
+
+              run_name="commit: $(git rev-parse HEAD)"
+              run_reason='commit'
+            else
+              run_name="pull request $CIRCLE_PR_NUMBER: $(git rev-parse HEAD)"
+              run_reason='pull request'
+            fi
+
+            conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
+      - run:
+          name: "Analyze benchmark regressions and post to Github"
+          command: python3.8 scripts/benchmark-github-status.py --z-score-threshold 50
       - store_artifacts:
           path: '_build/debug/.ninja_log'
       - save_cache:

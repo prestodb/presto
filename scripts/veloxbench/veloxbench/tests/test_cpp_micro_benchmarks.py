@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import cpp_micro_benchmarks
+import pathlib
+import tempfile
+
+from ..cpp_micro_benchmarks import LocalCppMicroBenchmarks
+
+
+REPO_ROOT = pathlib.Path(__file__).parent.parent.parent.parent.parent
+benchmark = LocalCppMicroBenchmarks()
 
 
 def test_parse_benchmark_name_no_params():
-    tags = cpp_micro_benchmarks._parse_benchmark_name("Something")
+    tags = benchmark._parse_benchmark_name("Something")
     assert tags == {"name": "Something"}
 
 
@@ -26,7 +33,6 @@ def test_get_values():
         "normalize",
         20.99487392089844,
     ]
-    benchmark = cpp_micro_benchmarks.RecordCppMicroBenchmarks()
     actual = benchmark._get_values(result)
     assert actual == {
         "data": [20.99487392089844],
@@ -37,22 +43,17 @@ def test_get_values():
 
 
 def test_format_unit():
-    benchmark = cpp_micro_benchmarks.RecordCppMicroBenchmarks()
     assert benchmark._format_unit("bytes_per_second") == "B/s"
     assert benchmark._format_unit("items_per_second") == "i/s"
     assert benchmark._format_unit("foo_per_bar") == "foo_per_bar"
 
 
-def test_get_run_command():
-    options = {
-        "iterations": None,
-    }
-    actual = cpp_micro_benchmarks.get_run_command("out", options)
-    assert actual == [
-        "../../../scripts/benchmark-runner.py",
-        "run",
-        "--path",
-        "../../../_build/release/velox/benchmarks/basic/",
-        "--dump-path",
-        "out",
-    ]
+def test_find_binaries():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        fake_binaries = [pathlib.Path(temp_dir) / name for name in ("blah", "blahblah")]
+
+        for binary in fake_binaries:
+            binary.touch(mode=0o777)
+
+        res = benchmark._find_binaries(pathlib.Path(temp_dir))
+        assert set(res) == set(fake_binaries)

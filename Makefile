@@ -97,16 +97,12 @@ benchmarks-basic-build:
 
 benchmarks-basic-run:
 	$(MAKE) benchmarks-basic-build
-	scripts/benchmark-runner.py run \
-		--path $(BENCHMARKS_BASIC_DIR) ${EXTRA_BENCHMARK_FLAGS}
-
-benchmarks-basic-dump:
-	$(MAKE) benchmarks-basic-run EXTRA_BENCHMARK_FLAGS="--dump-path ${BENCHMARKS_DUMP_DIR}"
+	scripts/veloxbench/veloxbench/cpp_micro_benchmarks.py
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure
 
-# Build with debugging and run expression fuzzer test. Use a fixed seed to 
+# Build with debugging and run expression fuzzer test. Use a fixed seed to
 # ensure the tests are reproducible.
 fuzzertest: debug
 	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
