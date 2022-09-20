@@ -43,6 +43,7 @@ import static com.facebook.presto.common.type.Decimals.isShortDecimal;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.hive.metastore.MetastoreUtil.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CURSOR_ERROR;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -192,7 +193,7 @@ public class HudiPageSource
 
     private static Object deserializePartitionValue(Type type, String valueString, String name, TimeZoneKey timeZoneKey)
     {
-        if (valueString == null) {
+        if (valueString == null || HIVE_DEFAULT_DYNAMIC_PARTITION.equals(valueString)) {
             return null;
         }
 
