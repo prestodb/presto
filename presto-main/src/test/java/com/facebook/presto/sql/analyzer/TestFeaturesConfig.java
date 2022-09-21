@@ -212,7 +212,9 @@ public class TestFeaturesConfig
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setRandomizeOuterJoinNullKeyEnabled(false)
                 .setOptimizeConditionalAggregationEnabled(false)
-                .setRemoveRedundantDistinctAggregationEnabled(true));
+                .setRemoveRedundantDistinctAggregationEnabled(true)
+                .setInPredicatesAsInnerJoinsEnabled(false)
+                .setPushAggregationBelowJoinByteReductionThreshold(1));
     }
 
     @Test
@@ -375,6 +377,8 @@ public class TestFeaturesConfig
                 .put("optimizer.randomize-outer-join-null-key", "true")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
+                .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
+                .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -534,7 +538,9 @@ public class TestFeaturesConfig
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setRandomizeOuterJoinNullKeyEnabled(true)
                 .setOptimizeConditionalAggregationEnabled(true)
-                .setRemoveRedundantDistinctAggregationEnabled(false);
+                .setRemoveRedundantDistinctAggregationEnabled(false)
+                .setInPredicatesAsInnerJoinsEnabled(true)
+                .setPushAggregationBelowJoinByteReductionThreshold(0.9);
         assertFullMapping(properties, expected);
     }
 

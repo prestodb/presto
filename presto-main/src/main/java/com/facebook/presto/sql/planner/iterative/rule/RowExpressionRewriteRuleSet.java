@@ -346,7 +346,8 @@ public class RowExpressionRewriteRuleSet
                     applyNode.getSubquery(),
                     rewrittenAssignments.get(),
                     applyNode.getCorrelation(),
-                    applyNode.getOriginSubqueryError()));
+                    applyNode.getOriginSubqueryError(),
+                    applyNode.getMayParticipateInAntiJoin()));
         }
     }
 
