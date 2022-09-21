@@ -166,6 +166,7 @@ public class LogicalPropertiesImpl
     /**
      * Determines whether one set of expressions (expressions) can be realized/rewritten
      * in terms of the other (targetVariables) using EquivalenceClasses
+     *
      * @param expressions
      * @param targetVariables
      * @return True if all expressions can be realized in terms of targetVariables
@@ -311,6 +312,7 @@ public class LogicalPropertiesImpl
             KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
             resultProperties = new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
         }
+
         // Emit all interesting constraints, including ones that may be projected out
         // Some optimizations (e.g. canBeHomogenized) may utilize these
         return resultProperties;

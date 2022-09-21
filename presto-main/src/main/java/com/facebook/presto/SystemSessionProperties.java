@@ -241,6 +241,8 @@ public final class SystemSessionProperties
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
     public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
     public static final String RANDOMIZE_OUTER_JOIN_NULL_KEY = "randomize_outer_join_null_key";
+    public static final String IN_PREDICATES_AS_INNER_JOINS_ENABLED = "in_predicates_as_inner_joins_enabled";
+    public static final String PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD = "push_aggregation_below_join_byte_reduction_threshold";
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
@@ -1421,6 +1423,15 @@ public final class SystemSessionProperties
                         REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED,
                         "Enable removing distinct aggregation node if input is already distinct",
                         featuresConfig.isRemoveRedundantDistinctAggregationEnabled(),
+                        false),
+                booleanProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED,
+                        "Enable transformation of IN predicates to inner joins",
+                        featuresConfig.isInPredicatesAsInnerJoinsEnabled(),
+                        false),
+                doubleProperty(
+                        PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD,
+                        "Byte reduction ratio threshold at which to disable pushdown of aggregation below inner join",
+                        featuresConfig.getPushAggregationBelowJoinByteReductionThreshold(),
                         false));
     }
 
@@ -2380,5 +2391,15 @@ public final class SystemSessionProperties
     public static boolean isRemoveRedundantDistinctAggregationEnabled(Session session)
     {
         return session.getSystemProperty(REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isInPredicatesAsInnerJoinsEnabled(Session session)
+    {
+        return session.getSystemProperty(IN_PREDICATES_AS_INNER_JOINS_ENABLED, Boolean.class);
+    }
+
+    public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
+    {
+        return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
     }
 }

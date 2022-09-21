@@ -895,7 +895,7 @@ public class PruneUnreferencedOutputs
             PlanNode input = context.rewrite(node.getInput(), inputContext);
             Assignments assignments = subqueryAssignments.build();
             verifySubquerySupported(assignments);
-            return new ApplyNode(node.getSourceLocation(), node.getId(), input, subquery, assignments, newCorrelation, node.getOriginSubqueryError());
+            return new ApplyNode(node.getSourceLocation(), node.getId(), input, subquery, assignments, newCorrelation, node.getOriginSubqueryError(), node.getMayParticipateInAntiJoin());
         }
 
         @Override

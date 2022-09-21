@@ -494,8 +494,13 @@ public class PlanBuilder
 
     public ApplyNode apply(Assignments subqueryAssignments, List<VariableReferenceExpression> correlation, PlanNode input, PlanNode subquery)
     {
+        return apply(subqueryAssignments, correlation, input, subquery, false);
+    }
+
+    public ApplyNode apply(Assignments subqueryAssignments, List<VariableReferenceExpression> correlation, PlanNode input, PlanNode subquery, boolean mayParticipateInAntiJoin)
+    {
         verifySubquerySupported(subqueryAssignments);
-        return new ApplyNode(subquery.getSourceLocation(), idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "");
+        return new ApplyNode(subquery.getSourceLocation(), idAllocator.getNextId(), input, subquery, subqueryAssignments, correlation, "", mayParticipateInAntiJoin);
     }
 
     public AssignUniqueId assignUniqueId(VariableReferenceExpression variable, PlanNode source)
