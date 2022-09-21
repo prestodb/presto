@@ -32,6 +32,17 @@ static int32_t typeKindSize(TypeKind kind) {
 
   return VELOX_DYNAMIC_TYPE_DISPATCH(kindSize, kind);
 }
+
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+__attribute__((__no_sanitize__("thread")))
+#endif
+#endif
+inline void
+setBit(char* bits, uint32_t idx) {
+  auto bitsAs8Bit = reinterpret_cast<uint8_t*>(bits);
+  bitsAs8Bit[idx / 8] |= (1 << (idx % 8));
+}
 } // namespace
 
 RowContainer::RowContainer(
@@ -530,7 +541,7 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
   for (auto i = 0; i < numRows; i++) {
     // Row may be null in case of a FULL join.
     if (rows[i]) {
-      bits::setBit(rows[i], probedFlagOffset_);
+      setBit(rows[i], probedFlagOffset_);
     }
   }
 }

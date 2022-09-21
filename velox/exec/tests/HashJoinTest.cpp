@@ -472,6 +472,37 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithNull) {
   }
 }
 
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithLargeOutput) {
+  const int batchSize = 128;
+  // Build the identical left and right vectors to generate large join outputs.
+  std::vector<RowVectorPtr> leftVectors;
+  for (int i = 0; i < 10; ++i) {
+    leftVectors.push_back(makeRowVector(
+        {"t0", "t1"},
+        {makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+         makeFlatVector<int32_t>(batchSize, [](auto row) { return row; })}));
+  }
+  std::vector<RowVectorPtr> rightVectors;
+  for (int i = 0; i < 10; ++i) {
+    rightVectors.push_back(makeRowVector(
+        {"u0", "u1"},
+        {makeFlatVector<int32_t>(batchSize, [](auto row) { return row; }),
+         makeFlatVector<int32_t>(batchSize, [](auto row) { return row; })}));
+  }
+
+  testJoin(
+      ROW({"t0", "t1"}, {INTEGER(), INTEGER()}),
+      {"t0"},
+      leftVectors,
+      ROW({"u0", "u1"}, {INTEGER(), INTEGER()}),
+      {"u0"},
+      rightVectors,
+      "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t)",
+      "",
+      {"u1"},
+      core::JoinType::kRightSemi);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinTest,
     MultiThreadedHashJoinTest,

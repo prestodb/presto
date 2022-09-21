@@ -505,7 +505,9 @@ RowVectorPtr HashProbe::getOutput() {
     // Right semi join only returns the build side output when the probe side
     // is fully complete. Do not return anything here.
     if (isRightSemiJoin(joinType_)) {
-      input_ = nullptr;
+      if (results_.atEnd()) {
+        input_ = nullptr;
+      }
       return nullptr;
     }
 
