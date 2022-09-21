@@ -171,6 +171,11 @@ class Spiller {
     return state_.spilledPartitions() != 0;
   }
 
+  /// Returns the spilled partition number set.
+  SpillPartitionNumSet spilledPartitionSet() const {
+    return state_.spilledPartitionSet();
+  }
+
   /// Invokes to set a set of 'partitions' as spilling.
   void setPartitionsSpilled(const SpillPartitionNumSet& partitions) {
     for (const auto& partition : partitions) {
@@ -203,11 +208,13 @@ class Spiller {
     return state_.startMerge(partition, spillMergeStreamOverRows(partition));
   }
 
-  // Define the spiller stats.
+  /// Define the spiller stats.
   struct Stats {
-    uint64_t spilledBytes = 0;
-    uint64_t spilledRows = 0;
-    uint32_t spilledPartitions = 0;
+    uint64_t spilledBytes{0};
+    uint64_t spilledRows{0};
+    /// NOTE: when we sum up the stats from a group of spill operators, it is
+    /// the total number of spilled partitions X number of operators.
+    uint32_t spilledPartitions{0};
 
     Stats(
         uint64_t _spilledBytes,
@@ -218,6 +225,13 @@ class Spiller {
           spilledPartitions(_spilledPartitions) {}
 
     Stats() = default;
+
+    Stats& operator+=(const Stats& other) {
+      spilledBytes += other.spilledBytes;
+      spilledRows += other.spilledRows;
+      spilledPartitions += other.spilledPartitions;
+      return *this;
+    }
   };
 
   Stats stats() const {

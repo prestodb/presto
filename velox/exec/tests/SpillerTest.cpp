@@ -169,12 +169,19 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     }
 
     Spiller::SpillRows unspilledPartitionRows = spiller_->finishSpill();
+    SpillPartitionNumSet expectedSpillPartitions;
     if (spillPct == 100) {
       EXPECT_TRUE(unspilledPartitionRows.empty());
       EXPECT_EQ(0, rowContainer_->numRows());
       EXPECT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
+      for (int i = 0; i < numPartitions_; ++i) {
+        expectedSpillPartitions.insert(i);
+      }
+      EXPECT_EQ(
+          expectedSpillPartitions, spiller_->state().spilledPartitionSet());
     } else {
       EXPECT_GE(numPartitions_, spiller_->stats().spilledPartitions);
+      EXPECT_GE(numPartitions_, spiller_->state().spilledPartitionSet().size());
     }
     // Assert we can't call any spill function after the spiller has been
     // finalized.
@@ -975,3 +982,30 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillerTest,
     NoHashJoinNoOrderBy,
     testing::ValuesIn(NoHashJoinNoOrderBy::getTestParams()));
+
+TEST(SpillerTest, stats) {
+  Spiller::Stats sumStats;
+  EXPECT_EQ(0, sumStats.spilledRows);
+  EXPECT_EQ(0, sumStats.spilledBytes);
+  EXPECT_EQ(0, sumStats.spilledPartitions);
+
+  Spiller::Stats stats;
+  stats.spilledRows = 10;
+  stats.spilledBytes = 100;
+  stats.spilledPartitions = 2;
+
+  sumStats += stats;
+  EXPECT_EQ(stats.spilledRows, sumStats.spilledRows);
+  EXPECT_EQ(stats.spilledBytes, sumStats.spilledBytes);
+  EXPECT_EQ(stats.spilledPartitions, sumStats.spilledPartitions);
+
+  sumStats += stats;
+  EXPECT_EQ(2 * stats.spilledRows, sumStats.spilledRows);
+  EXPECT_EQ(2 * stats.spilledBytes, sumStats.spilledBytes);
+  EXPECT_EQ(2 * stats.spilledPartitions, sumStats.spilledPartitions);
+
+  sumStats += stats;
+  EXPECT_EQ(3 * stats.spilledRows, sumStats.spilledRows);
+  EXPECT_EQ(3 * stats.spilledBytes, sumStats.spilledBytes);
+  EXPECT_EQ(3 * stats.spilledPartitions, sumStats.spilledPartitions);
+}
