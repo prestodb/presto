@@ -114,9 +114,35 @@ TEST_F(DecimalArithmeticTest, add) {
            {1, 2, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3)),
        makeNullableShortDecimalFlatVector(
            {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
+
+  // Addition overflow.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 + cast(1.00 as decimal(2,0))",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: 99999999999999999999999999999999999999 + 1");
+
+  // Rescaling LHS overflows.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 + 0.01",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: 99999999999999999999999999999999999999 + 1");
+  // Rescaling RHS overflows.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "0.01 + c0",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: 1 + 99999999999999999999999999999999999999");
 }
 
-TEST_F(DecimalArithmeticTest, decimalSubTest) {
+TEST_F(DecimalArithmeticTest, subtract) {
   auto shortFlatA = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(18, 3));
   // Subtract short and short, returning long.
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
@@ -171,9 +197,34 @@ TEST_F(DecimalArithmeticTest, decimalSubTest) {
            {3, 6, std::nullopt, 6, std::nullopt}, DECIMAL(10, 3)),
        makeNullableShortDecimalFlatVector(
            {1, 2, 5, std::nullopt, std::nullopt}, DECIMAL(10, 3))});
+
+  // Subtraction overflow.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 - cast(1.00 as decimal(2,0))",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: -99999999999999999999999999999999999999 - 1");
+  // Rescaling LHS overflows.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "c0 - 0.01",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: -99999999999999999999999999999999999999 - 1");
+  // Rescaling RHS overflows.
+  VELOX_ASSERT_THROW(
+      testDecimalExpr<TypeKind::LONG_DECIMAL>(
+          {},
+          "0.01 - c0",
+          {makeLongDecimalFlatVector(
+              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0))}),
+      "Decimal overflow: 1 - -99999999999999999999999999999999999999");
 }
 
-TEST_F(DecimalArithmeticTest, decimalMultiplyTest) {
+TEST_F(DecimalArithmeticTest, multiply) {
   auto shortFlat = makeShortDecimalFlatVector({1000, 2000}, DECIMAL(17, 3));
   // Multiply short and short, returning long.
   testDecimalExpr<TypeKind::LONG_DECIMAL>(
@@ -217,18 +268,21 @@ TEST_F(DecimalArithmeticTest, decimalMultiplyTest) {
   VELOX_ASSERT_THROW(
       testDecimalExpr<TypeKind::LONG_DECIMAL>(
           {},
-          "c0 * 10.00",
+          "c0 * cast(10.00 as decimal(2,0))",
           {makeLongDecimalFlatVector(
-              {UnscaledLongDecimal::max().unscaledValue()}, DECIMAL(38, 0))}),
-      "integer overflow: 99999999999999999999999999999999999999 * 1000");
+              {buildInt128(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)},
+              DECIMAL(38, 0))}),
+      "Decimal overflow: 11963051962064242856134263542523101183 * 10");
 
+  // Rescaling the final result overflows.
   VELOX_ASSERT_THROW(
       testDecimalExpr<TypeKind::LONG_DECIMAL>(
           {},
-          "c0 * 10.00",
+          "c0 * cast(1.00 as decimal(2,1))",
           {makeLongDecimalFlatVector(
-              {UnscaledLongDecimal::min().unscaledValue()}, DECIMAL(38, 0))}),
-      "integer overflow: -99999999999999999999999999999999999999 * 1000");
+              {buildInt128(0x08FFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF)},
+              DECIMAL(38, 0))}),
+      "Decimal overflow: 11963051962064242856134263542523101183 * 10");
 }
 
 TEST_F(DecimalArithmeticTest, decimalDivTest) {

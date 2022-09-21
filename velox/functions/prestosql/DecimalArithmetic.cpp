@@ -107,9 +107,20 @@ class Addition {
 #endif
 #endif
   {
-    r.setUnscaledValue(
-        a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale] +
-        b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale]);
+    int128_t aRescaled;
+    int128_t bRescaled;
+    if (__builtin_mul_overflow(
+            a.unscaledValue(),
+            DecimalUtil::kPowersOfTen[aRescale],
+            &aRescaled) ||
+        __builtin_mul_overflow(
+            b.unscaledValue(),
+            DecimalUtil::kPowersOfTen[bRescale],
+            &bRescaled)) {
+      VELOX_ARITHMETIC_ERROR(
+          "Decimal overflow: {} + {}", a.unscaledValue(), b.unscaledValue());
+    }
+    r = checkedPlus<R>(R(aRescaled), R(bRescaled));
   }
 
   inline static uint8_t
@@ -142,9 +153,20 @@ class Subtraction {
 #endif
 #endif
   {
-    r.setUnscaledValue(
-        a.unscaledValue() * DecimalUtil::kPowersOfTen[aRescale] -
-        b.unscaledValue() * DecimalUtil::kPowersOfTen[bRescale]);
+    int128_t aRescaled;
+    int128_t bRescaled;
+    if (__builtin_mul_overflow(
+            a.unscaledValue(),
+            DecimalUtil::kPowersOfTen[aRescale],
+            &aRescaled) ||
+        __builtin_mul_overflow(
+            b.unscaledValue(),
+            DecimalUtil::kPowersOfTen[bRescale],
+            &bRescaled)) {
+      VELOX_ARITHMETIC_ERROR(
+          "Decimal overflow: {} - {}", a.unscaledValue(), b.unscaledValue());
+    }
+    r = checkedMinus<R>(R(aRescaled), R(bRescaled));
   }
 
   inline static uint8_t
@@ -167,9 +189,9 @@ class Multiply {
   template <typename R, typename A, typename B>
   inline static void
   apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t bRescale) {
-    r.setUnscaledValue(checkedMultiply<int128_t>(
-        checkedMultiply<int128_t>(a.unscaledValue(), b.unscaledValue()),
-        DecimalUtil::kPowersOfTen[aRescale + bRescale]));
+    r = checkedMultiply<R>(
+        checkedMultiply<R>(R(a), R(b)),
+        R(DecimalUtil::kPowersOfTen[aRescale + bRescale]));
   }
 
   inline static uint8_t
