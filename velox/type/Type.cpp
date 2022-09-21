@@ -40,6 +40,22 @@ bool isColumnNameRequiringEscaping(const std::string& name) {
 
 namespace facebook::velox {
 
+bool isDecimalName(const std::string& typeName) {
+  auto typeNameUpper = boost::algorithm::to_upper_copy(typeName);
+  return (
+      typeNameUpper == TypeTraits<TypeKind::SHORT_DECIMAL>::name ||
+      typeNameUpper == TypeTraits<TypeKind::LONG_DECIMAL>::name);
+}
+
+bool isDecimalTypeSignature(const std::string& arg) {
+  auto upper = boost::algorithm::to_upper_copy(arg);
+  return (
+      upper.find(TypeTraits<TypeKind::SHORT_DECIMAL>::name) !=
+          std::string::npos ||
+      upper.find(TypeTraits<TypeKind::LONG_DECIMAL>::name) !=
+          std::string::npos);
+}
+
 // Static variable intialization is not thread safe for non
 // constant-initialization, but scoped static initialization is thread safe.
 const std::unordered_map<std::string, TypeKind>& getTypeStringMap() {

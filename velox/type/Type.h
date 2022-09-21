@@ -674,9 +674,9 @@ inline bool isDecimalKind(TypeKind typeKind) {
       typeKind == TypeKind::LONG_DECIMAL);
 }
 
-inline bool isDecimalName(const std::string& typeName) {
-  return (typeName == "SHORT_DECIMAL" || typeName == "LONG_DECIMAL");
-}
+bool isDecimalName(const std::string& typeName);
+
+bool isDecimalTypeSignature(const std::string& arg);
 
 std::pair<int, int> getDecimalPrecisionScale(const Type& type);
 

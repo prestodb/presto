@@ -26,6 +26,9 @@
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
 
+inline constexpr char kPrecisionVariable[] = "a_precision";
+inline constexpr char kScaleVariable[] = "a_scale";
+
 namespace facebook::velox::core {
 
 // Most UDFs are deterministic, hence this default value.
@@ -186,8 +189,14 @@ struct TypeAnalysis {
         CppToType<T>::isPrimitiveType ||
         CppToType<T>::typeKind == TypeKind::OPAQUE);
     results.stats.concreteCount++;
-    results.out << boost::algorithm::to_lower_copy(
-        std::string(CppToType<T>::name));
+    if (isDecimalKind(CppToType<T>::typeKind)) {
+      results.out << boost::algorithm::to_lower_copy(
+                         std::string(CppToType<T>::name))
+                  << "(" << kPrecisionVariable << "," << kScaleVariable << ")";
+    } else {
+      results.out << boost::algorithm::to_lower_copy(
+          std::string(CppToType<T>::name));
+    }
   }
 };
 
@@ -441,8 +450,15 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
 
     builder.returnType(analysis.outputType);
 
+    bool isDecimalArg = false;
     for (const auto& arg : analysis.argsTypes) {
       builder.argumentType(arg);
+      isDecimalArg |= isDecimalTypeSignature(arg);
+    }
+
+    if (isDecimalArg) {
+      builder.integerVariable(kPrecisionVariable);
+      builder.integerVariable(kScaleVariable);
     }
 
     for (const auto& variable : analysis.variables) {
