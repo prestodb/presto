@@ -354,11 +354,17 @@ void FlatVector<T>::ensureWritable(const SelectivityVector& rows) {
       newValues = AlignedBuffer::allocate<T>(newSize, BaseVector::pool_);
     }
 
-    auto rawNewValues = newValues->asMutable<T>();
     SelectivityVector rowsToCopy(BaseVector::length_);
     rowsToCopy.deselect(rows);
-    rowsToCopy.applyToSelected(
-        [&](vector_size_t row) { rawNewValues[row] = rawValues_[row]; });
+
+    if constexpr (std::is_same_v<T, bool>) {
+      auto rawNewValues = newValues->asMutable<uint64_t>();
+      std::memcpy(rawNewValues, rawValues_, values_->size());
+    } else {
+      auto rawNewValues = newValues->asMutable<T>();
+      rowsToCopy.applyToSelected(
+          [&](vector_size_t row) { rawNewValues[row] = rawValues_[row]; });
+    }
 
     // Keep the string buffers even if multiply referenced. These are
     // append-only and are written to in FlatVector::set which calls

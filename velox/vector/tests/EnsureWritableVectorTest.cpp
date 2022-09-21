@@ -816,3 +816,23 @@ TEST_F(EnsureWritableVectorTest, allNullMap) {
     ASSERT_TRUE(resultCopy->isNullAt(i)) << "at " << i;
   }
 }
+
+TEST_F(EnsureWritableVectorTest, booleanFlatVector) {
+  VectorPtr vector =
+      vectorMaker_->flatVector<bool>(100, [](auto /*row*/) { return true; });
+
+  // Make sure vector::values_ buffer is not uniquely referenced so that the
+  // branch in the FlatVector::ensureWritable() that copy old values to new
+  // buffer is executed.
+  auto another = vector->asFlatVector<bool>()->values();
+
+  SelectivityVector rows{200, false};
+  rows.setValidRange(16, 32, true);
+  rows.updateBounds();
+
+  auto vectorPtr = vector.get();
+  ASSERT_NO_THROW(
+      BaseVector::ensureWritable(rows, BOOLEAN(), pool_.get(), vector));
+  ASSERT_EQ(vectorPtr, vector.get());
+  ASSERT_NE(another->as<void>(), vector->valuesAsVoid());
+}
