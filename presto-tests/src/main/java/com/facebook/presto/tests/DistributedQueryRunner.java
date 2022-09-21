@@ -388,7 +388,7 @@ public class DistributedQueryRunner
                 .put("distributed-index-joins-enabled", "true")
                 .put("exchange.checksum-enabled", "true");
         if (coordinator) {
-            propertiesBuilder.put("node-scheduler.include-coordinator", "true");
+            propertiesBuilder.put("node-scheduler.include-coordinator", extraProperties.getOrDefault("node-scheduler.include-coordinator", "true"));
             propertiesBuilder.put("join-distribution-type", "PARTITIONED");
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
@@ -651,7 +651,7 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             server.refreshNodes();
             Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
-            if ((server.isCoordinator() || server.isResourceManager()) && activeNodesWithConnector.size() != servers.size()) {
+            if (((server.isCoordinator() && server.nodeSchedulerIncludeCoordinator()) || server.isResourceManager()) && activeNodesWithConnector.size() != servers.size()) {
                 return false;
             }
         }
