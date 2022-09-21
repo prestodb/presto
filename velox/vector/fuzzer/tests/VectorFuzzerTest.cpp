@@ -29,6 +29,19 @@ class VectorFuzzerTest : public testing::Test {
     return pool_.get();
   }
 
+  // Asserts that all arrays in the input vector have exactly `containerSize`
+  // elements.
+  void assertArrayContainerSize(
+      ArrayVectorPtr vector,
+      size_t vectorSize,
+      size_t containerSize) {
+    ASSERT_EQ(vectorSize, vector->size());
+
+    for (size_t i = 0; i < vector->size(); ++i) {
+      EXPECT_EQ(containerSize, vector->sizeAt(i));
+    }
+  }
+
  private:
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
@@ -197,6 +210,60 @@ TEST_F(VectorFuzzerTest, constantsNull) {
   ASSERT_TRUE(vector->type()->kindEquals(ARRAY(VARCHAR())));
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
   ASSERT_TRUE(vector->mayHaveNulls());
+}
+
+TEST_F(VectorFuzzerTest, array) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  // 1 elements per array.
+  auto vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 100);
+  assertArrayContainerSize(vector, 100, 1);
+
+  // 10 elements per array.
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 10);
+  assertArrayContainerSize(vector, 10, 10);
+
+  // 3 elements per array.
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 33);
+  assertArrayContainerSize(vector, 33, 3);
+
+  // 100 elements per array.
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 1);
+  assertArrayContainerSize(vector, 1, 100);
+
+  // More array rows than elements.
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 1000);
+
+  auto* arrayVector = vector->as<ArrayVector>();
+  ASSERT_EQ(vector->size(), 1000);
+
+  // Check that the first 100 arrays have 1 element, and the remaining have 0.
+  for (size_t i = 0; i < 100; ++i) {
+    EXPECT_EQ(1, arrayVector->sizeAt(i));
+  }
+  for (size_t i = 100; i < 1000; ++i) {
+    EXPECT_EQ(0, arrayVector->sizeAt(i));
+  }
+
+  // Variable number of array elements - just ensure we don't exceed the number
+  // of underlying elements.
+  opts.containerVariableLength = true;
+  fuzzer.setOptions(opts);
+
+  size_t arraySize = 100;
+
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), arraySize);
+  ASSERT_EQ(arraySize, vector->size());
+  ASSERT_GE(
+      100, vector->offsetAt(arraySize - 1) + vector->sizeAt(arraySize - 1));
+
+  arraySize = 33;
+
+  vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), arraySize);
+  ASSERT_EQ(arraySize, vector->size());
+  ASSERT_GE(
+      100, vector->offsetAt(arraySize - 1) + vector->sizeAt(arraySize - 1));
 }
 
 } // namespace

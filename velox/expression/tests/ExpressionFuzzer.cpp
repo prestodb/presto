@@ -532,7 +532,7 @@ class ExpressionFuzzer {
     if (rowVector) {
       LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
       for (const auto& child : rowVector->children()) {
-        LOG(INFO) << "\t" << child->toString();
+        LOG(INFO) << "\t" << child->toString(/*recursive=*/true);
       }
 
       if (VLOG_IS_ON(1)) {

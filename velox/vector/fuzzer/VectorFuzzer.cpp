@@ -410,6 +410,51 @@ VectorPtr VectorFuzzer::fuzzDictionary(
   return BaseVector::wrapInDictionary(nulls, indices, size, vector);
 }
 
+ArrayVectorPtr VectorFuzzer::fuzzArray(
+    const VectorPtr& elementsVector,
+    vector_size_t size) {
+  auto offsets = allocateOffsets(size, pool_);
+  auto rawOffsets = offsets->asMutable<vector_size_t>();
+  auto sizes = allocateSizes(size, pool_);
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+
+  size_t elementsVectorSize = elementsVector->size();
+  size_t containerAvgLength = std::max(elementsVectorSize / size, 1UL);
+  size_t childSize = 0;
+  size_t length = 0;
+
+  for (auto i = 0; i < size; ++i) {
+    rawOffsets[i] = childSize;
+
+    // If variable length, generate a random number between zero and 2 *
+    // containerAvgLength (so that the average of generated containers size is
+    // equal to number of input elements).
+    if (opts_.containerVariableLength) {
+      length = folly::Random::rand32(rng_) % (containerAvgLength * 2);
+    } else {
+      length = containerAvgLength;
+    }
+
+    // If we exhausted the available elements, add empty arrays.
+    if ((childSize + length) > elementsVectorSize) {
+      length = 0;
+    }
+
+    rawSizes[i] = length;
+    childSize += length;
+  }
+
+  auto nulls = opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
+  return std::make_shared<ArrayVector>(
+      pool_,
+      ARRAY(elementsVector->type()),
+      nulls,
+      size,
+      offsets,
+      sizes,
+      elementsVector);
+}
+
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {
   return fuzzRow(rowType, opts_.vectorSize, opts_.containerHasNulls);
 }
