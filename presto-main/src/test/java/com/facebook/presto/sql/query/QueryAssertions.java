@@ -39,7 +39,7 @@ import static org.testng.Assert.fail;
 class QueryAssertions
         implements Closeable
 {
-    private final QueryRunner runner;
+    protected QueryRunner runner;
 
     public QueryAssertions()
     {

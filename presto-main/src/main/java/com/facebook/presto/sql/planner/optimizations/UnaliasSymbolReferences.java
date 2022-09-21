@@ -501,7 +501,7 @@ public class UnaliasSymbolReferences
 
             Assignments assignments = canonicalize(node.getSubqueryAssignments());
             verifySubquerySupported(assignments);
-            return new ApplyNode(node.getSourceLocation(), node.getId(), source, subquery, assignments, canonicalCorrelation, node.getOriginSubqueryError());
+            return new ApplyNode(node.getSourceLocation(), node.getId(), source, subquery, assignments, canonicalCorrelation, node.getOriginSubqueryError(), node.getMayParticipateInAntiJoin());
         }
 
         @Override

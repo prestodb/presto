@@ -122,7 +122,10 @@ import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedLateral
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarAggregationToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedScalarSubquery;
 import com.facebook.presto.sql.planner.iterative.rule.TransformCorrelatedSingleRowSubqueryToProject;
+import com.facebook.presto.sql.planner.iterative.rule.TransformDistinctInnerJoinToLeftEarlyOutJoin;
+import com.facebook.presto.sql.planner.iterative.rule.TransformDistinctInnerJoinToRightEarlyOutJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformExistsApplyToLateralNode;
+import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedLateralToJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
@@ -395,6 +398,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarLateralNodes(),
                                 new TransformUncorrelatedLateralToJoin(),
+                                new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedScalarAggregationToJoin(metadata.getFunctionAndTypeManager()),
                                 new TransformCorrelatedLateralJoinToJoin())),
@@ -598,6 +602,24 @@ public class PlanOptimizers
         // After ReorderJoins, `statsEquivalentPlanNode` will be unassigned to intermediate join nodes.
         // We run it again to mark this for intermediate join nodes.
         builder.add(new StatsRecordingPlanOptimizer(optimizerStats, new HistoricalStatisticsEquivalentPlanMarkingOptimizer(statsCalculator)));
+
+        // Run this set of join transformations after ReorderJoins, but before DetermineJoinDistributionType
+        builder.add(new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                Optional.of(new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()))),
+                ImmutableSet.of(
+                        new TransformDistinctInnerJoinToLeftEarlyOutJoin(),
+                        new TransformDistinctInnerJoinToRightEarlyOutJoin(),
+                        new RemoveRedundantDistinct(),
+                        new RemoveRedundantTopN(),
+                        new RemoveRedundantSort(),
+                        new RemoveRedundantLimit(),
+                        new RemoveRedundantDistinctLimit(),
+                        new RemoveRedundantAggregateDistinct(),
+                        new RemoveRedundantIdentityProjections(),
+                        new PushAggregationThroughOuterJoin(metadata.getFunctionAndTypeManager()))));
 
         builder.add(new IterativeOptimizer(
                 ruleStats,

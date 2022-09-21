@@ -29,6 +29,7 @@ import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import com.facebook.presto.sql.planner.iterative.rule.SimplifyRowExpressions;
+import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TransformUncorrelatedInPredicateSubqueryToSemiJoin;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
@@ -144,7 +145,7 @@ public class OptimizerAssert
                         new RuleStatsRecorder(),
                         queryRunner.getStatsCalculator(),
                         queryRunner.getCostCalculator(),
-                        ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new RemoveRedundantIdentityProjections())),
+                        ImmutableSet.of(new TransformUncorrelatedInPredicateSubqueryToDistinctInnerJoin(), new TransformUncorrelatedInPredicateSubqueryToSemiJoin(), new RemoveRedundantIdentityProjections())),
                 getExpressionTranslator(),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
