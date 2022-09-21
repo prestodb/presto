@@ -107,6 +107,10 @@ class VectorFuzzer {
   // Returns a random constant vector (which could be a null constant).
   VectorPtr fuzzConstant(const TypePtr& type);
 
+  // Returns a random constant vector (which could be a null constant). The
+  // returned vector has `size` set as size.
+  VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
+
   // Wraps `vector` using a randomized indices vector, returning a
   // DictionaryVector which has same number of indices as the underlying
   // `vector` size.
@@ -123,6 +127,15 @@ class VectorFuzzer {
   // `elements` vector and `size`, and either fixed or variable (depending on
   // `opts.containerVariableLength`).
   ArrayVectorPtr fuzzArray(const VectorPtr& elements, vector_size_t size);
+
+  // Uses `keys` and `values` as the internal elements vectors, wrapping them
+  // into a MapVector of `size` rows.
+  //
+  // The number of elements per map row is based on the size of the `keys` and
+  // `values` vectors and `size`, and either fixed or variable (depending on
+  // `opts.containerVariableLength`).
+  MapVectorPtr
+  fuzzMap(const VectorPtr& keys, const VectorPtr& values, vector_size_t size);
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
@@ -157,8 +170,6 @@ class VectorFuzzer {
   VectorPtr
   fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding = false);
 
-  VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
-
   // Returns a complex vector with randomized data and nulls.  The children and
   // all other descendant vectors will randomly use constant, dictionary, or
   // flat encodings if flatEncoding is set to false, otherwise they will all be
@@ -176,6 +187,12 @@ class VectorFuzzer {
 
   // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
+
+  void fuzzOffsetsAndSizes(
+      BufferPtr& offsets,
+      BufferPtr& sizes,
+      size_t elementsSize,
+      size_t size);
 
   VectorFuzzer::Options opts_;
 

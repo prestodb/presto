@@ -410,16 +410,17 @@ VectorPtr VectorFuzzer::fuzzDictionary(
   return BaseVector::wrapInDictionary(nulls, indices, size, vector);
 }
 
-ArrayVectorPtr VectorFuzzer::fuzzArray(
-    const VectorPtr& elementsVector,
-    vector_size_t size) {
-  auto offsets = allocateOffsets(size, pool_);
+void VectorFuzzer::fuzzOffsetsAndSizes(
+    BufferPtr& offsets,
+    BufferPtr& sizes,
+    size_t elementsSize,
+    size_t size) {
+  offsets = allocateOffsets(size, pool_);
+  sizes = allocateSizes(size, pool_);
   auto rawOffsets = offsets->asMutable<vector_size_t>();
-  auto sizes = allocateSizes(size, pool_);
   auto rawSizes = sizes->asMutable<vector_size_t>();
 
-  size_t elementsVectorSize = elementsVector->size();
-  size_t containerAvgLength = std::max(elementsVectorSize / size, 1UL);
+  size_t containerAvgLength = std::max(elementsSize / size, 1UL);
   size_t childSize = 0;
   size_t length = 0;
 
@@ -436,23 +437,45 @@ ArrayVectorPtr VectorFuzzer::fuzzArray(
     }
 
     // If we exhausted the available elements, add empty arrays.
-    if ((childSize + length) > elementsVectorSize) {
+    if ((childSize + length) > elementsSize) {
       length = 0;
     }
-
     rawSizes[i] = length;
     childSize += length;
   }
+}
 
-  auto nulls = opts_.containerHasNulls ? fuzzNulls(size) : nullptr;
+ArrayVectorPtr VectorFuzzer::fuzzArray(
+    const VectorPtr& elements,
+    vector_size_t size) {
+  BufferPtr offsets, sizes;
+  fuzzOffsetsAndSizes(offsets, sizes, elements->size(), size);
   return std::make_shared<ArrayVector>(
       pool_,
-      ARRAY(elementsVector->type()),
-      nulls,
+      ARRAY(elements->type()),
+      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
       size,
       offsets,
       sizes,
-      elementsVector);
+      elements);
+}
+
+MapVectorPtr VectorFuzzer::fuzzMap(
+    const VectorPtr& keys,
+    const VectorPtr& values,
+    vector_size_t size) {
+  size_t elementsSize = std::min(keys->size(), values->size());
+  BufferPtr offsets, sizes;
+  fuzzOffsetsAndSizes(offsets, sizes, elementsSize, size);
+  return std::make_shared<MapVector>(
+      pool_,
+      MAP(keys->type(), values->type()),
+      opts_.containerHasNulls ? fuzzNulls(size) : nullptr,
+      size,
+      offsets,
+      sizes,
+      keys,
+      values);
 }
 
 RowVectorPtr VectorFuzzer::fuzzRow(const RowTypePtr& rowType) {

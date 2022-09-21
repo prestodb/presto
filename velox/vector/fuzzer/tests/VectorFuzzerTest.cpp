@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/memory/Memory.h"
+#include "velox/vector/DictionaryVector.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
@@ -31,14 +32,15 @@ class VectorFuzzerTest : public testing::Test {
 
   // Asserts that all arrays in the input vector have exactly `containerSize`
   // elements.
-  void assertArrayContainerSize(
-      ArrayVectorPtr vector,
+  void assertContainerSize(
+      VectorPtr vector,
       size_t vectorSize,
       size_t containerSize) {
+    auto* arrayMapBase = vector->as<ArrayVectorBase>();
     ASSERT_EQ(vectorSize, vector->size());
 
     for (size_t i = 0; i < vector->size(); ++i) {
-      EXPECT_EQ(containerSize, vector->sizeAt(i));
+      EXPECT_EQ(containerSize, arrayMapBase->sizeAt(i));
     }
   }
 
@@ -218,19 +220,20 @@ TEST_F(VectorFuzzerTest, array) {
 
   // 1 elements per array.
   auto vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 100);
-  assertArrayContainerSize(vector, 100, 1);
+  ASSERT_TRUE(vector->type()->kindEquals(ARRAY(REAL())));
+  assertContainerSize(vector, 100, 1);
 
   // 10 elements per array.
   vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 10);
-  assertArrayContainerSize(vector, 10, 10);
+  assertContainerSize(vector, 10, 10);
 
   // 3 elements per array.
   vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 33);
-  assertArrayContainerSize(vector, 33, 3);
+  assertContainerSize(vector, 33, 3);
 
   // 100 elements per array.
   vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 1);
-  assertArrayContainerSize(vector, 1, 100);
+  assertContainerSize(vector, 1, 100);
 
   // More array rows than elements.
   vector = fuzzer.fuzzArray(fuzzer.fuzzFlat(REAL(), 100), 1000);
@@ -264,6 +267,50 @@ TEST_F(VectorFuzzerTest, array) {
   ASSERT_EQ(arraySize, vector->size());
   ASSERT_GE(
       100, vector->offsetAt(arraySize - 1) + vector->sizeAt(arraySize - 1));
+}
+
+TEST_F(VectorFuzzerTest, map) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  // 1 elements per array.
+  auto vector = fuzzer.fuzzMap(
+      fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(BIGINT(), 100), 100);
+  ASSERT_TRUE(vector->type()->kindEquals(MAP(REAL(), BIGINT())));
+  assertContainerSize(vector, 100, 1);
+
+  // 10 elements per array.
+  vector = fuzzer.fuzzMap(
+      fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(INTEGER(), 100), 10);
+  assertContainerSize(vector, 10, 10);
+}
+
+TEST_F(VectorFuzzerTest, assorted) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  auto vector = fuzzer.fuzzMap(
+      fuzzer.fuzzDictionary(fuzzer.fuzzFlat(INTEGER(), 10), 100),
+      fuzzer.fuzzArray(fuzzer.fuzzConstant(DOUBLE(), 40), 100),
+      10);
+  ASSERT_TRUE(vector->type()->kindEquals(MAP(INTEGER(), ARRAY(DOUBLE()))));
+
+  // Cast map.
+  ASSERT_EQ(VectorEncoding::Simple::MAP, vector->encoding());
+  auto map = vector->as<MapVector>();
+
+  // Cast map key.
+  ASSERT_EQ(VectorEncoding::Simple::DICTIONARY, map->mapKeys()->encoding());
+  auto key =
+      map->mapKeys()
+          ->as<DictionaryVector<TypeTraits<TypeKind::INTEGER>::NativeType>>();
+  ASSERT_EQ(VectorEncoding::Simple::FLAT, key->valueVector()->encoding());
+
+  // Cast map value.
+  ASSERT_EQ(VectorEncoding::Simple::ARRAY, map->mapValues()->encoding());
+  auto value = map->mapValues()->as<ArrayVector>();
+
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, value->elements()->encoding());
 }
 
 } // namespace
