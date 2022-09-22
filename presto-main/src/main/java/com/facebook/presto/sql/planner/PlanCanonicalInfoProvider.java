@@ -13,22 +13,35 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Interface to hash a PlanNode according to PlanCanonicalizationStrategy `strategy`.
+ * Interface to provide canonical info for a PlanNode.
  */
-public interface PlanHasher
+public interface PlanCanonicalInfoProvider
 {
     /**
      * Canonicalize the plan using `CanonicalPlanGenerator` with given strategy, and returns a hash representation
      * of the canonicalized plan.
+     * @param session Session for query being run
      * @param planNode Plan node to hash
      * @param strategy Strategy to canonicalize the plan node
      * @return Hash of the plan node. Returns Optional.empty() if unable to hash.
      */
-    Optional<String> hash(PlanNode planNode, PlanCanonicalizationStrategy strategy);
+    Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy);
+
+    /**
+     * Canonicalize the plan, and return statistics of input tables. Output order is consistent with
+     * plan canonicalization.
+     * @param session Session for query being run
+     * @param planNode Plan node to hash
+     * @return Statistics of leaf input tables to plan node, ordered by a consistent canonicalization strategy.
+     */
+    Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode);
 }

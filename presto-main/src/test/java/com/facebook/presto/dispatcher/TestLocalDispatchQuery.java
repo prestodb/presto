@@ -454,7 +454,7 @@ public class TestLocalDispatchQuery
                 new SessionPropertyManager(),
                 metadata,
                 new QueryMonitorConfig(),
-                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), new HistoryBasedOptimizationConfig()));
+                new HistoryBasedPlanStatisticsManager(new ObjectMapper(), new SessionPropertyManager(), metadata, new HistoryBasedOptimizationConfig()));
     }
 
     private EventListenerManager createEventListenerManager(CountingEventListener countingEventListener)
