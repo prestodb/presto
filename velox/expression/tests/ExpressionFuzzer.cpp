@@ -336,6 +336,9 @@ class ExpressionFuzzer {
         unsupportedFunctionSignatures,
         (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
 
+    // Add additional signatures that are not in function registry.
+    appendConjunctSignatures();
+
     // We sort the available signatures to ensure we can deterministically
     // generate expressions across platforms. We just do this once and the
     // vector is small, so it doesn't need to be very efficient.
@@ -403,6 +406,17 @@ class ExpressionFuzzer {
     for (vector_size_t i = 0; i < rowVector->size(); ++i) {
       LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
     }
+  }
+
+  void appendConjunctSignatures() {
+    CallableSignature conjunctAndSignature;
+    conjunctAndSignature.name = "and";
+    conjunctAndSignature.returnType = BOOLEAN();
+    conjunctAndSignature.args = {BOOLEAN(), BOOLEAN()};
+    signatures_.emplace_back(conjunctAndSignature);
+
+    conjunctAndSignature.name = "or";
+    signatures_.emplace_back(conjunctAndSignature);
   }
 
   RowVectorPtr generateRowVector() {

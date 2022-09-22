@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-#include <folly/String.h>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
-#include <string>
 #include <unordered_set>
-#include <vector>
 
 #include "velox/expression/tests/FuzzerRunner.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
