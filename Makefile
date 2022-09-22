@@ -93,7 +93,7 @@ min_debug:				#: Minimal build with debugging symbols
 	$(MAKE) build BUILD_DIR=debug
 
 benchmarks-basic-build:
-	$(MAKE) release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_MINIMAL=ON -DVELOX_ENABLE_BENCHMARKS_BASIC=ON"
+	$(MAKE) release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_MINIMAL=OFF -DVELOX_ENABLE_BENCHMARKS_BASIC=ON"
 
 benchmarks-basic-run:
 	$(MAKE) benchmarks-basic-build
