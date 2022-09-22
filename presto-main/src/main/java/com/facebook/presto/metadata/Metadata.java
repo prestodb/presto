@@ -78,6 +78,11 @@ public interface Metadata
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName);
 
+    default Optional<TableHandle> getTableHandleOnly(Session session, QualifiedObjectName tableName)
+    {
+        return getTableHandle(session, tableName);
+    }
+
     Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName);
 
     Optional<TableHandle> getTableHandleForStatisticsCollection(Session session, QualifiedObjectName tableName, Map<String, Object> analyzeProperties);

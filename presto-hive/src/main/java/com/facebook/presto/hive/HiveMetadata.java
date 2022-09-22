@@ -514,6 +514,28 @@ public class HiveMetadata
     }
 
     @Override
+    public ConnectorTableHandle getTableHandleOnly(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+        MetastoreContext metastoreContext = getMetastoreContext(session);
+        Optional<Table> table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName());
+        if (!table.isPresent() || MetastoreUtil.isPrestoView(table.get())) {
+            return null;
+        }
+
+        if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
+            // We must not allow system table due to how permissions are checked in SystemTableAwareAccessControl.checkCanSelectFromTable()
+            throw new PrestoException(NOT_SUPPORTED, "Unexpected table present in Hive metastore: " + tableName);
+        }
+
+        if (!isOfflineDataDebugModeEnabled(session)) {
+            verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
+        }
+
+        return new HiveTableHandle(tableName.getSchemaName(), tableName.getTableName());
+    }
+
+    @Override
     public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
         HiveTableHandle handle = getTableHandle(session, tableName);
