@@ -18,6 +18,7 @@
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -205,4 +206,51 @@ TEST_F(OperatorUtilsTest, gatherCopy) {
 
 TEST_F(OperatorUtilsTest, makeOperatorSpillPath) {
   EXPECT_EQ("spill/task_1_100", makeOperatorSpillPath("spill", "task", 1, 100));
+}
+
+TEST_F(OperatorUtilsTest, wrap) {
+  auto rowType = ROW({
+      {"bool_val", BOOLEAN()},
+      {"tiny_val", TINYINT()},
+      {"small_val", SMALLINT()},
+      {"int_val", INTEGER()},
+      {"long_val", BIGINT()},
+      {"ordinal", BIGINT()},
+      {"float_val", REAL()},
+      {"double_val", DOUBLE()},
+      {"string_val", VARCHAR()},
+      {"array_val", ARRAY(VARCHAR())},
+      {"struct_val", ROW({{"s_int", INTEGER()}, {"s_array", ARRAY(REAL())}})},
+      {"map_val",
+       MAP(VARCHAR(),
+           MAP(BIGINT(),
+               ROW({{"s2_int", INTEGER()}, {"s2_string", VARCHAR()}})))},
+  });
+
+  VectorFuzzer fuzzer({}, pool());
+  auto vector = fuzzer.fuzzFlat(rowType);
+  auto rowVector = vector->as<RowVector>();
+
+  for (int32_t iter = 0; iter < 20; ++iter) {
+    folly::Random::DefaultGenerator rng;
+    rng.seed(iter);
+    const int32_t wrapVectorSize =
+        iter == 0 ? 0 : 1 + folly::Random().rand32(2 * rowVector->size(), rng);
+    BufferPtr wrapIndices =
+        makeIndices(wrapVectorSize, [&](vector_size_t /* unused */) {
+          return folly::Random().rand32(rowVector->size(), rng);
+        });
+    auto* rawWrapIndices = wrapIndices->as<vector_size_t>();
+
+    auto wrapVector = wrap(
+        wrapVectorSize, wrapIndices, rowType, rowVector->children(), pool());
+    ASSERT_EQ(wrapVector->size(), wrapVectorSize);
+    for (int32_t i = 0; i < wrapVectorSize; ++i) {
+      wrapVector->equalValueAt(vector.get(), i, rawWrapIndices[i]);
+    }
+
+    wrapVector =
+        wrap(wrapVectorSize, nullptr, rowType, rowVector->children(), pool());
+    ASSERT_EQ(wrapVector->size(), 0);
+  }
 }

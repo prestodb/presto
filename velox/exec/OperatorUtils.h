@@ -36,13 +36,15 @@ struct FilterEvalCtx {
 
   // Make sure selectedBits has enough capacity to hold 'size' bits and return
   // raw pointer to the underlying buffer.
-  uint64_t* getRawSelectedBits(vector_size_t size, memory::MemoryPool* pool);
+  uint64_t* FOLLY_NONNULL getRawSelectedBits(
+      vector_size_t size,
+      memory::MemoryPool* FOLLY_NONNULL pool);
 
   // Make sure selectedIndices buffer has enough capacity to hold 'size'
   // indices and return raw pointer to the underlying buffer.
-  vector_size_t* getRawSelectedIndices(
+  vector_size_t* FOLLY_NONNULL getRawSelectedIndices(
       vector_size_t size,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* FOLLY_NONNULL pool);
 };
 
 // Convert the results of filter evaluation as a vector of booleans into indices
@@ -59,7 +61,7 @@ vector_size_t processFilterResults(
     const VectorPtr& filterResult,
     const SelectivityVector& rows,
     FilterEvalCtx& filterEvalCtx,
-    memory::MemoryPool* pool);
+    memory::MemoryPool* FOLLY_NONNULL pool);
 
 // Wraps the specified vector into a dictionary using the specified mapping.
 // Returns vector as-is if mapping is null. An optional nulls buffer can be
@@ -70,10 +72,21 @@ VectorPtr wrapChild(
     const VectorPtr& child,
     BufferPtr nulls = nullptr);
 
-// Wraps all children of the specified row vector into a dictionary using
-// specified mapping. Returns vector as-is if mapping is null.
+/// Wraps all children of the specified row vector into a dictionary using
+/// specified mapping. Returns vector as-is if mapping is null.
 RowVectorPtr
 wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector);
+
+/// Wraps 'childVectors' into a dictionary with 'rowType' using specified
+/// mapping. Returns an empty vector if mapping is null. This is different than
+/// 'wrap' which takes an input vector. The latter returns the input vector if
+/// mapping is null.
+RowVectorPtr wrap(
+    vector_size_t size,
+    BufferPtr mapping,
+    const RowTypePtr& rowType,
+    const std::vector<VectorPtr>& childVectors,
+    memory::MemoryPool* FOLLY_NONNULL pool);
 
 // Ensures that all LazyVectors reachable from 'input' are loaded for all rows.
 void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx);
@@ -86,7 +99,7 @@ void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx);
 ///
 /// NOTE: all the source row vectors must have the same data type.
 void gatherCopy(
-    RowVector* target,
+    RowVector* FOLLY_NONNULL target,
     vector_size_t targetIndex,
     vector_size_t count,
     const std::vector<const RowVector*>& sources,

@@ -252,18 +252,30 @@ wrap(vector_size_t size, BufferPtr mapping, const RowVectorPtr& vector) {
     return vector;
   }
 
+  return wrap(
+      size,
+      std::move(mapping),
+      asRowType(vector->type()),
+      vector->children(),
+      vector->pool());
+}
+
+RowVectorPtr wrap(
+    vector_size_t size,
+    BufferPtr mapping,
+    const RowTypePtr& rowType,
+    const std::vector<VectorPtr>& childVectors,
+    memory::MemoryPool* pool) {
+  if (mapping == nullptr) {
+    return RowVector::createEmpty(rowType, pool);
+  }
   std::vector<VectorPtr> wrappedChildren;
-  wrappedChildren.reserve(vector->childrenSize());
-  for (auto& child : vector->children()) {
+  wrappedChildren.reserve(childVectors.size());
+  for (auto& child : childVectors) {
     wrappedChildren.emplace_back(wrapChild(size, mapping, child));
   }
-
   return std::make_shared<RowVector>(
-      vector->pool(),
-      vector->type(),
-      BufferPtr(nullptr),
-      size,
-      wrappedChildren);
+      pool, rowType, nullptr, size, wrappedChildren);
 }
 
 void loadColumns(const RowVectorPtr& input, core::ExecCtx& execCtx) {
