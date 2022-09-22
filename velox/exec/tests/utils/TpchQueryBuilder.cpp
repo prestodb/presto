@@ -127,6 +127,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ5Plan();
     case 6:
       return getQ6Plan();
+    case 8:
+      return getQ8Plan();
     case 9:
       return getQ9Plan();
     case 10:
@@ -452,6 +454,185 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
   TpchPlan context;
   context.plan = std::move(plan);
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ8Plan() const {
+  std::vector<std::string> partColumns = {"p_partkey", "p_type"};
+  std::vector<std::string> supplierColumns = {"s_suppkey", "s_nationkey"};
+  std::vector<std::string> lineitemColumns = {
+      "l_suppkey", "l_orderkey", "l_partkey", "l_extendedprice", "l_discount"};
+  std::vector<std::string> ordersColumns = {
+      "o_orderdate", "o_orderkey", "o_custkey"};
+  std::vector<std::string> customerColumns = {"c_nationkey", "c_custkey"};
+  std::vector<std::string> nationColumns = {"n_nationkey", "n_regionkey"};
+  std::vector<std::string> nationColumnsWithName = {
+      "n_name", "n_nationkey", "n_regionkey"};
+  std::vector<std::string> regionColumns = {"r_name", "r_regionkey"};
+
+  auto partSelectedRowType = getRowType(kPart, partColumns);
+  const auto& partFileColumns = getFileColumnNames(kPart);
+  auto supplierSelectedRowType = getRowType(kSupplier, supplierColumns);
+  const auto& supplierFileColumns = getFileColumnNames(kSupplier);
+  const auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  const auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+  const auto nationSelectedRowType = getRowType(kNation, nationColumns);
+  const auto& nationFileColumns = getFileColumnNames(kNation);
+  const auto nationSelectedRowTypeWithName =
+      getRowType(kNation, nationColumnsWithName);
+  const auto& nationFileColumnsWithName = getFileColumnNames(kNation);
+  const auto regionSelectedRowType = getRowType(kRegion, regionColumns);
+  const auto& regionFileColumns = getFileColumnNames(kRegion);
+
+  const auto orderDateFilter = formatDateFilter(
+      "o_orderdate", ordersSelectedRowType, "'1995-01-01'", "'1996-12-31'");
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId partScanNodeId;
+  core::PlanNodeId supplierScanNodeId;
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId ordersScanNodeId;
+  core::PlanNodeId customerScanNodeId;
+  core::PlanNodeId nationScanNodeId;
+  core::PlanNodeId nationScanNodeIdWithName;
+  core::PlanNodeId regionScanNodeId;
+
+  auto nationWithName =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kNation, nationSelectedRowTypeWithName, nationFileColumnsWithName)
+          .capturePlanNodeId(nationScanNodeIdWithName)
+          .planNode();
+
+  auto region = PlanBuilder(planNodeIdGenerator)
+                    .tableScan(
+                        kRegion,
+                        regionSelectedRowType,
+                        regionFileColumns,
+                        {"r_name = 'AMERICA'"})
+                    .capturePlanNodeId(regionScanNodeId)
+                    .planNode();
+
+  auto part = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(
+                      kPart,
+                      partSelectedRowType,
+                      partFileColumns,
+                      {"p_type = 'ECONOMY ANODIZED STEEL'"})
+                  .capturePlanNodeId(partScanNodeId)
+                  .planNode();
+
+  auto nationJoinRegion =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kNation, nationSelectedRowType, nationFileColumns)
+          .capturePlanNodeId(nationScanNodeId)
+          .hashJoin(
+              {"n_regionkey"}, {"r_regionkey"}, region, "", {"n_nationkey"})
+          .planNode();
+
+  auto customerJoinNationJoinRegion =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kCustomer, customerSelectedRowType, customerFileColumns)
+          .capturePlanNodeId(customerScanNodeId)
+          .hashJoin(
+              {"c_nationkey"},
+              {"n_nationkey"},
+              nationJoinRegion,
+              "",
+              {"c_custkey"})
+          .planNode();
+
+  auto ordersJoinCustomerJoinNationJoinRegion =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kOrders,
+              ordersSelectedRowType,
+              ordersFileColumns,
+              {orderDateFilter})
+          .capturePlanNodeId(ordersScanNodeId)
+          .hashJoin(
+              {"o_custkey"},
+              {"c_custkey"},
+              customerJoinNationJoinRegion,
+              "",
+              {"o_orderkey", "o_orderdate"})
+          .planNode();
+
+  auto supplierJoinNation =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kSupplier, supplierSelectedRowType, supplierFileColumns)
+          .capturePlanNodeId(supplierScanNodeId)
+          .hashJoin(
+              {"s_nationkey"},
+              {"n_nationkey"},
+              nationWithName,
+              "",
+              {"s_suppkey", "n_name"})
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kLineitem, lineitemSelectedRowType, lineitemFileColumns)
+          .capturePlanNodeId(lineitemScanNodeId)
+          .hashJoin(
+              {"l_orderkey"},
+              {"o_orderkey"},
+              ordersJoinCustomerJoinNationJoinRegion,
+              "",
+              {"l_partkey",
+               "l_suppkey",
+               "o_orderdate",
+               "l_extendedprice",
+               "l_discount"})
+          .hashJoin(
+              {"l_suppkey"},
+              {"s_suppkey"},
+              supplierJoinNation,
+              "",
+              {"n_name",
+               "o_orderdate",
+               "l_partkey",
+               "l_extendedprice",
+               "l_discount"})
+          .hashJoin(
+              {"l_partkey"},
+              {"p_partkey"},
+              part,
+              "",
+              {"n_name", "o_orderdate", "l_extendedprice", "l_discount"})
+          .project(
+              {"l_extendedprice * (1.0 - l_discount) as volume",
+               "n_name",
+               "o_orderdate"})
+          .project(
+              {"volume",
+               "(CASE WHEN n_name = 'BRAZIL' THEN volume ELSE 0.0 END) as brazil_volume",
+               "year(o_orderdate) AS o_year"})
+          .partialAggregation(
+              {"o_year"},
+              {"sum(brazil_volume) as volume_brazil",
+               "sum(volume) as volume_all"})
+          .localPartition({})
+          .finalAggregation()
+          .orderBy({"o_year"}, false)
+          .project({"o_year", "(volume_brazil / volume_all) as mkt_share"})
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[partScanNodeId] = getTableFilePaths(kPart);
+  context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
+  context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFiles[nationScanNodeId] = getTableFilePaths(kNation);
+  context.dataFiles[nationScanNodeIdWithName] = getTableFilePaths(kNation);
+  context.dataFiles[regionScanNodeId] = getTableFilePaths(kRegion);
   context.dataFileFormat = format_;
   return context;
 }
