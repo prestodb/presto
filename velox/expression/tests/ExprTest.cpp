@@ -2214,6 +2214,7 @@ TEST_F(ExprTest, toSql) {
   testToSql("a > 0 AND b < 100", rowType);
   testToSql("a > 0 AND b / a < 100", rowType);
   testToSql("is_null(a) OR is_null(b)", rowType);
+  testToSql("a > 10 AND (b > 100 OR a < 0) AND b < 3", rowType);
 
   // COALESCE.
   testToSql("coalesce(a::bigint, b, 123)", rowType);
