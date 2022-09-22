@@ -74,7 +74,8 @@ class AsyncDataCacheTest : public testing::Test {
           executor(),
           ssdBytes / 20);
     }
-    memory::MmapAllocatorOptions options = {maxBytes};
+    memory::MmapAllocatorOptions options;
+    options.capacity = maxBytes;
     cache_ = std::make_shared<AsyncDataCache>(
         std::make_shared<memory::MmapAllocator>(options),
         maxBytes,

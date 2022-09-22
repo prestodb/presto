@@ -43,7 +43,8 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
         MemoryUsageConfigBuilder().maxTotalMemory(kMaxMappedMemory).build());
     useMmap_ = GetParam();
     if (useMmap_) {
-      MmapAllocatorOptions options = {kMaxMappedMemory};
+      MmapAllocatorOptions options;
+      options.capacity = kMaxMappedMemory;
       mmapAllocator_ = std::make_shared<MmapAllocator>(options);
       MappedMemory::setDefaultInstance(mmapAllocator_.get());
     } else {

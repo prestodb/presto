@@ -25,12 +25,21 @@ MmapAllocator::MmapAllocator(const MmapAllocatorOptions& options)
     : MappedMemory(),
       numAllocated_(0),
       numMapped_(0),
-
       capacity_(bits::roundUp(
           options.capacity / kPageSize,
-          64 * sizeClassSizes_.back())) {
+          64 * sizeClassSizes_.back())),
+      useMmapArena_(options.useMmapArena) {
   for (int size : sizeClassSizes_) {
     sizeClasses_.push_back(std::make_unique<SizeClass>(capacity_ / size, size));
+  }
+
+  if (useMmapArena_) {
+    auto arenaSizeBytes = bits::roundUp(
+        capacity_ * kPageSize / options.mmapArenaCapacityRatio, kPageSize);
+    managedArenas_ = std::make_unique<ManagedMmapArenas>(
+        arenaSizeBytes < MmapArena::kMinCapacityBytes
+            ? MmapArena::kMinCapacityBytes
+            : arenaSizeBytes);
   }
 }
 
@@ -177,9 +186,14 @@ bool MmapAllocator::allocateContiguousImpl(
   }
   int64_t numLargeCollateralPages = allocation.numPages();
   if (numLargeCollateralPages) {
-    if (munmap(allocation.data(), allocation.size()) < 0) {
-      LOG(ERROR) << "munmap got " << errno << "for " << allocation.data()
-                 << ", " << allocation.size();
+    if (useMmapArena_) {
+      std::lock_guard<std::mutex> l(arenaMutex_);
+      managedArenas_->free(allocation.data(), allocation.size());
+    } else {
+      if (munmap(allocation.data(), allocation.size()) < 0) {
+        LOG(ERROR) << "munmap got " << errno << "for " << allocation.data()
+                   << ", " << allocation.size();
+      }
     }
     allocation.reset(nullptr, nullptr, 0);
   }
@@ -249,13 +263,18 @@ bool MmapAllocator::allocateContiguousImpl(
     injectedFailure_ = Failure::kNone;
     data = nullptr;
   } else {
-    data = mmap(
-        nullptr,
-        numPages * kPageSize,
-        PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS,
-        -1,
-        0);
+    if (useMmapArena_) {
+      std::lock_guard<std::mutex> l(arenaMutex_);
+      data = managedArenas_->allocate(numPages * kPageSize);
+    } else {
+      data = mmap(
+          nullptr,
+          numPages * kPageSize,
+          PROT_READ | PROT_WRITE,
+          MAP_PRIVATE | MAP_ANONYMOUS,
+          -1,
+          0);
+    }
   }
   if (!data) {
     // If the mmap failed, we have unmapped former 'allocation' and
@@ -270,9 +289,14 @@ bool MmapAllocator::allocateContiguousImpl(
 
 void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
   if (allocation.data() && allocation.size()) {
-    if (munmap(allocation.data(), allocation.size()) < 0) {
-      LOG(ERROR) << "munmap returned " << errno << "for " << allocation.data()
-                 << ", " << allocation.size();
+    if (useMmapArena_) {
+      std::lock_guard<std::mutex> l(arenaMutex_);
+      managedArenas_->free(allocation.data(), allocation.size());
+    } else {
+      if (munmap(allocation.data(), allocation.size()) < 0) {
+        LOG(ERROR) << "munmap returned " << errno << "for " << allocation.data()
+                   << ", " << allocation.size();
+      }
     }
     numMapped_ -= allocation.numPages();
     numExternalMapped_ -= allocation.numPages();

@@ -27,7 +27,8 @@ class ByteStreamTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
-    MmapAllocatorOptions options = {kMaxMappedMemory};
+    MmapAllocatorOptions options;
+    options.capacity = kMaxMappedMemory;
     mmapAllocator_ = std::make_shared<MmapAllocator>(options);
     MappedMemory::setDefaultInstance(mmapAllocator_.get());
   }

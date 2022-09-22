@@ -346,14 +346,16 @@ void testMmapMemoryAllocation(
 }
 
 TEST(MemoryPoolTest, SmallMmapMemoryAllocation) {
-  MmapAllocatorOptions options = {8 * GB};
+  MmapAllocatorOptions options;
+  options.capacity = 8 * GB;
   auto mmapAllocator = std::make_unique<memory::MmapAllocator>(options);
   MappedMemory::setDefaultInstance(mmapAllocator.get());
   testMmapMemoryAllocation(mmapAllocator.get(), 6, 100);
 }
 
 TEST(MemoryPoolTest, BigMmapMemoryAllocation) {
-  MmapAllocatorOptions options = {8 * GB};
+  MmapAllocatorOptions options;
+  options.capacity = 8 * GB;
   auto mmapAllocator = std::make_unique<memory::MmapAllocator>(options);
   MappedMemory::setDefaultInstance(mmapAllocator.get());
   testMmapMemoryAllocation(
