@@ -14,6 +14,7 @@
 package com.facebook.presto.cost;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
@@ -29,7 +30,8 @@ import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
-import com.facebook.presto.sql.planner.PlanHasher;
+import com.facebook.presto.sql.planner.CanonicalPlan;
+import com.facebook.presto.sql.planner.PlanNodeCanonicalInfo;
 import com.facebook.presto.sql.planner.planPrinter.PlanNodeStats;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -60,18 +62,15 @@ public class HistoryBasedPlanStatisticsTracker
 
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final SessionPropertyManager sessionPropertyManager;
-    private final PlanHasher planHasher;
     private final HistoryBasedOptimizationConfig config;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             SessionPropertyManager sessionPropertyManager,
-            PlanHasher planHasher,
             HistoryBasedOptimizationConfig config)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        this.planHasher = requireNonNull(planHasher, "planHasher is null");
         this.config = requireNonNull(config, "config is null");
     }
 
@@ -88,7 +87,8 @@ public class HistoryBasedPlanStatisticsTracker
 
     public Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> getQueryStats(QueryInfo queryInfo)
     {
-        if (!trackHistoryBasedPlanStatisticsEnabled(queryInfo.getSession().toSession(sessionPropertyManager))) {
+        Session session = queryInfo.getSession().toSession(sessionPropertyManager);
+        if (!trackHistoryBasedPlanStatisticsEnabled(session)) {
             return ImmutableMap.of();
         }
 
@@ -114,6 +114,11 @@ public class HistoryBasedPlanStatisticsTracker
 
         Map<PlanNodeId, PlanNodeStats> planNodeStatsMap = aggregateStageStats(allStages);
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = new HashMap<>();
+        Map<CanonicalPlan, PlanNodeCanonicalInfo> canonicalInfoMap = new HashMap<>();
+        queryInfo.getPlanCanonicalInfo().forEach(canonicalPlanWithInfo -> {
+            // We can have duplicate stats equivalent plan nodes. It's ok to use any stats in this case
+            canonicalInfoMap.putIfAbsent(canonicalPlanWithInfo.getCanonicalPlan(), canonicalPlanWithInfo.getInfo());
+        });
 
         for (StageInfo stageInfo : allStages) {
             if (!stageInfo.getPlan().isPresent()) {
@@ -130,19 +135,23 @@ public class HistoryBasedPlanStatisticsTracker
                 }
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
                 for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
-                    Optional<String> hash = planHasher.hash(statsEquivalentPlanNode, strategy);
-                    if (hash.isPresent()) {
+                    Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
+                            canonicalInfoMap.get(new CanonicalPlan(statsEquivalentPlanNode, strategy)));
+                    if (planNodeCanonicalInfo.isPresent()) {
+                        String hash = planNodeCanonicalInfo.get().getHash();
+                        List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics();
+
                         double outputPositions = planNodeStats.getPlanNodeOutputPositions();
                         double outputBytes = planNodeStats.getPlanNodeOutputDataSize().toBytes();
                         planStatistics.putIfAbsent(
-                                new PlanNodeWithHash(statsEquivalentPlanNode, hash),
+                                new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)),
                                 new PlanStatisticsWithSourceInfo(
                                         planNode.getId(),
                                         new PlanStatistics(
                                                 Estimate.of(outputPositions),
                                                 Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
                                                 1.0),
-                                        new HistoryBasedSourceInfo(hash, Optional.empty())));
+                                        new HistoryBasedSourceInfo(Optional.of(hash), Optional.of(inputTableStatistics))));
                     }
                 }
             }

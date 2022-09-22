@@ -24,7 +24,7 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestCachingPlanHasher
+public class TestCachingPlanCanonicalInfoProvider
         extends BasePlanTest
 {
     @Test
@@ -34,9 +34,9 @@ public class TestCachingPlanHasher
         String sql = "SELECT COUNT_IF(totalprice > 0) from orders WHERE custkey > 100 GROUP BY orderkey";
         PlanNode plan = plan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, session).getRoot();
         assertTrue(plan.getStatsEquivalentPlanNode().isPresent());
-        PlanHasher planHasher = ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanHasher();
+        CachingPlanCanonicalInfoProvider planCanonicalInfoProvider = (CachingPlanCanonicalInfoProvider) ((HistoryBasedPlanStatisticsCalculator) getQueryRunner().getStatsCalculator()).getPlanCanonicalInfoProvider();
         // We cache hashes for all intermediate plan nodes
-        assertEquals(((CachingPlanHasher) planHasher).getCacheSize(), 12);
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 12);
     }
 
     private Session createSession()

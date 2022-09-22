@@ -13,58 +13,95 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.hash.Hashing.sha256;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
-public class CachingPlanHasher
-        implements PlanHasher
+public class CachingPlanCanonicalInfoProvider
+        implements PlanCanonicalInfoProvider
 {
-    private static final DataSize CACHE_SIZE_BYTES = new DataSize(1, DataSize.Unit.MEGABYTE);
+    private static final DataSize CACHE_SIZE_BYTES = new DataSize(10, DataSize.Unit.MEGABYTE);
 
     // Create a cache, instead of a LoadingCache, because we can load multiple keys at once.
     // For weight, we only consider size of hash, as PlanNodes are already in memory for running queries.
     // We use length of hash + 20 bytes as overhead for storing references, string size and strategy.
-    private final Cache<CacheKey, String> cache = CacheBuilder.newBuilder()
+    private final Cache<CacheKey, PlanNodeCanonicalInfo> cache = CacheBuilder.newBuilder()
             .maximumWeight(CACHE_SIZE_BYTES.toBytes())
-            .weigher((Weigher<CacheKey, String>) (key, hash) -> hash.length() + 20)
+            .weigher((Weigher<CacheKey, PlanNodeCanonicalInfo>) (key, value) -> value.getHash().length() + 20)
             .expireAfterWrite(5, TimeUnit.MINUTES)
             .build();
     private final ObjectMapper objectMapper;
+    private final Metadata metadata;
 
-    public CachingPlanHasher(ObjectMapper objectMapper)
+    public CachingPlanCanonicalInfoProvider(ObjectMapper objectMapper, Metadata metadata)
     {
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
     @Override
-    public Optional<String> hash(PlanNode planNode, PlanCanonicalizationStrategy strategy)
+    public Optional<String> hash(Session session, PlanNode planNode, PlanCanonicalizationStrategy strategy)
+    {
+        CacheKey key = new CacheKey(planNode, strategy);
+        return loadValue(session, key).map(PlanNodeCanonicalInfo::getHash);
+    }
+
+    @Override
+    public Optional<List<PlanStatistics>> getInputTableStatistics(Session session, PlanNode planNode)
+    {
+        CacheKey key = new CacheKey(planNode, CONNECTOR);
+        return loadValue(session, key).map(PlanNodeCanonicalInfo::getInputTableStatistics);
+    }
+
+    private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key)
     {
         // TODO: Use QueryManager to unload keys rather relying on LoadingCache
-        CacheKey key = new CacheKey(planNode, strategy);
-        String result = cache.getIfPresent(key);
+        PlanNodeCanonicalInfo result = cache.getIfPresent(key);
         if (result != null) {
             return Optional.of(result);
         }
-
         CanonicalPlanGenerator.Context context = new CanonicalPlanGenerator.Context();
         key.getNode().accept(new CanonicalPlanGenerator(key.getStrategy(), objectMapper), context);
         context.getCanonicalPlans().forEach((plan, canonicalPlan) -> {
             String hashValue = hashCanonicalPlan(canonicalPlan, objectMapper);
-            cache.put(new CacheKey(plan, strategy), hashValue);
+            // Compute input table statistics for the plan node. This is useful in history based optimizations,
+            // where historical plan statistics are reused if input tables are similar in size across runs.
+            List<PlanStatistics> inputTableStatistics = context.getInputTables().get(plan).stream()
+                    .map(table -> metadata.getTableStatistics(
+                            session,
+                            // Remove table layout, so we don't include filter stats
+                            new TableHandle(
+                                    table.getTable().getConnectorId(),
+                                    table.getTable().getConnectorHandle(),
+                                    table.getTable().getTransaction(),
+                                    Optional.empty()),
+                            ImmutableList.copyOf(table.getAssignments().values()),
+                            new Constraint<>(table.getCurrentConstraint())))
+                    .map(tableStatistics -> new PlanStatistics(tableStatistics.getRowCount(), tableStatistics.getTotalSize(), 1))
+                    .collect(toImmutableList());
+            cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
         });
         return Optional.ofNullable(cache.getIfPresent(key));
     }

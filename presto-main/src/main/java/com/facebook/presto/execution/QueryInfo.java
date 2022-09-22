@@ -25,6 +25,7 @@ import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.security.SelectedRole;
+import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -89,6 +90,8 @@ public class QueryInfo
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions;
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
+    // Using a list rather than map, to avoid implementing map key deserializer
+    private final List<CanonicalPlanWithInfo> planCanonicalInfo;
 
     @JsonCreator
     public QueryInfo(
@@ -126,7 +129,8 @@ public class QueryInfo
             @JsonProperty("runtimeOptimizedStages") Optional<List<StageId>> runtimeOptimizedStages,
             @JsonProperty("addedSessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions,
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
-            @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts)
+            @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
+            List<CanonicalPlanWithInfo> planCanonicalInfo)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -196,6 +200,7 @@ public class QueryInfo
         this.addedSessionFunctions = ImmutableMap.copyOf(addedSessionFunctions);
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
+        this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
     }
 
     @JsonProperty
@@ -422,6 +427,12 @@ public class QueryInfo
     public StatsAndCosts getPlanStatsAndCosts()
     {
         return planStatsAndCosts;
+    }
+
+    // Don't serialize this field because it can be big
+    public List<CanonicalPlanWithInfo> getPlanCanonicalInfo()
+    {
+        return planCanonicalInfo;
     }
 
     @Override
