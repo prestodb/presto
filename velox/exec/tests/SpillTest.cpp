@@ -16,7 +16,7 @@
 #include "velox/exec/Spill.h"
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <array>
+#include <memory>
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -26,6 +26,10 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::filesystems;
 using facebook::velox::exec::test::TempDirectoryPath;
+
+namespace {
+static const int64_t kGB = 1'000'000'000;
+}
 
 class SpillTest : public testing::Test,
                   public facebook::velox::test::VectorTestBase {
@@ -282,18 +286,18 @@ TEST_F(SpillTest, spillState) {
   // triggered by batch write.
 
   // Test with distinct sort keys.
-  spillStateTest(1'000'000'000, 2, 10, 1, {CompareFlags{true, true}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 1, {CompareFlags{true, false}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 1, {CompareFlags{false, true}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 1, {CompareFlags{false, false}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 1, {}, 10);
+  spillStateTest(kGB, 2, 10, 1, {CompareFlags{true, true}}, 10);
+  spillStateTest(kGB, 2, 10, 1, {CompareFlags{true, false}}, 10);
+  spillStateTest(kGB, 2, 10, 1, {CompareFlags{false, true}}, 10);
+  spillStateTest(kGB, 2, 10, 1, {CompareFlags{false, false}}, 10);
+  spillStateTest(kGB, 2, 10, 1, {}, 10);
 
   // Test with duplicate sort keys.
-  spillStateTest(1'000'000'000, 2, 10, 10, {CompareFlags{true, true}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 10, {CompareFlags{true, false}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 10, {CompareFlags{false, true}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 10, {CompareFlags{false, false}}, 10);
-  spillStateTest(1'000'000'000, 2, 10, 10, {}, 10);
+  spillStateTest(kGB, 2, 10, 10, {CompareFlags{true, true}}, 10);
+  spillStateTest(kGB, 2, 10, 10, {CompareFlags{true, false}}, 10);
+  spillStateTest(kGB, 2, 10, 10, {CompareFlags{false, true}}, 10);
+  spillStateTest(kGB, 2, 10, 10, {CompareFlags{false, false}}, 10);
+  spillStateTest(kGB, 2, 10, 10, {}, 10);
 }
 
 TEST_F(SpillTest, spillTimestamp) {
@@ -351,13 +355,9 @@ TEST_F(SpillTest, spillStateWithSmallTargetFileSize) {
 }
 
 TEST_F(SpillTest, spillPartitionId) {
-  SpillPartitionId invalidPartitionId;
-  ASSERT_FALSE(invalidPartitionId.valid());
-
   SpillPartitionId partitionId1_2(1, 2);
-  ASSERT_TRUE(partitionId1_2.valid());
-  ASSERT_EQ(partitionId1_2.partitionBitOffset, 1);
-  ASSERT_EQ(partitionId1_2.partitionNumber, 2);
+  ASSERT_EQ(partitionId1_2.partitionBitOffset(), 1);
+  ASSERT_EQ(partitionId1_2.partitionNumber(), 2);
   ASSERT_EQ(partitionId1_2.toString(), "[1,2]");
 
   SpillPartitionId partitionId1_2_dup(1, 2);
@@ -383,13 +383,13 @@ TEST_F(SpillTest, spillPartitionId) {
     distinctSpillPartitionIds.push_back(spillPartitionIds[0]);
     for (int i = 0; i < numIds - 1; ++i) {
       ASSERT_GE(
-          spillPartitionIds[i].partitionBitOffset,
-          spillPartitionIds[i + 1].partitionBitOffset);
-      if (spillPartitionIds[i].partitionBitOffset ==
-          spillPartitionIds[i + 1].partitionBitOffset) {
+          spillPartitionIds[i].partitionBitOffset(),
+          spillPartitionIds[i + 1].partitionBitOffset());
+      if (spillPartitionIds[i].partitionBitOffset() ==
+          spillPartitionIds[i + 1].partitionBitOffset()) {
         ASSERT_LE(
-            spillPartitionIds[i].partitionNumber,
-            spillPartitionIds[i + 1].partitionNumber);
+            spillPartitionIds[i].partitionNumber(),
+            spillPartitionIds[i + 1].partitionNumber());
       }
       if (distinctSpillPartitionIds.back() != spillPartitionIds[i + 1]) {
         distinctSpillPartitionIds.push_back(spillPartitionIds[i + 1]);
@@ -430,12 +430,14 @@ TEST_F(SpillTest, spillPartitionSet) {
       const auto id = partition->id();
       partitionSet.emplace(id, std::move(partition));
     }
-    SpillPartitionId prevId;
+    std::unique_ptr<SpillPartitionId> prevId;
     for (auto& partitionEntry : partitionSet) {
-      if (prevId.valid()) {
-        ASSERT_LT(prevId, partitionEntry.first);
+      if (prevId != nullptr) {
+        ASSERT_LT(*prevId, partitionEntry.first);
       }
-      prevId = partitionEntry.first;
+      prevId = std::make_unique<SpillPartitionId>(
+          partitionEntry.first.partitionBitOffset(),
+          partitionEntry.first.partitionNumber());
     }
   }
 
@@ -445,16 +447,13 @@ TEST_F(SpillTest, spillPartitionSet) {
   std::vector<std::vector<RowVectorPtr>> batchesByPartition(numPartitions);
   std::vector<std::unique_ptr<SpillPartition>> spillPartitions;
   int numBatchesPerPartition = 0;
-  const int numRowsPerPartition = 100;
+  const int numRowsPerBatch = 100;
   for (int iter = 0; iter < numSpillers; ++iter) {
     folly::Random::DefaultGenerator rng;
     rng.seed(iter);
     int numBatches = 2 * (1 + folly::Random::rand32(rng) % 16);
     setupSpillState(
-        iter % 2 ? 1 : 1'000'000'000,
-        numPartitions,
-        numBatches,
-        numRowsPerPartition);
+        iter % 2 ? 1 : kGB, numPartitions, numBatches, numRowsPerBatch);
     numBatchesPerPartition += numBatches;
     for (int i = 0; i < numPartitions; ++i) {
       const SpillPartitionId id(0, i);
@@ -477,7 +476,7 @@ TEST_F(SpillTest, spillPartitionSet) {
       auto reader = spillPartitions[i]->createReader();
       for (int j = 0; j < numBatchesPerPartition; ++j) {
         ASSERT_TRUE(reader->nextBatch(output));
-        for (int row = 0; row < numRowsPerPartition; ++row) {
+        for (int row = 0; row < numRowsPerBatch; ++row) {
           ASSERT_EQ(
               0,
               output->compare(
@@ -491,5 +490,51 @@ TEST_F(SpillTest, spillPartitionSet) {
       auto reader = spillPartitions[i]->createReader();
       ASSERT_FALSE(reader->nextBatch(output));
     }
+  }
+}
+
+TEST_F(SpillTest, spillPartitionSpilt) {
+  for (int seed = 0; seed < 5; ++seed) {
+    SCOPED_TRACE(fmt::format("seed: {}", seed));
+    int numBatches = 100;
+    std::vector<RowVectorPtr> batches;
+    batches.reserve(numBatches);
+
+    const int numRowsPerBatch = 100;
+    setupSpillState(seed % 2 ? 1 : kGB, 1, numBatches, numRowsPerBatch);
+    const SpillPartitionId id(0, 0);
+
+    auto spillPartition =
+        std::make_unique<SpillPartition>(id, state_->files(0));
+    std::copy(
+        batchesByPartition_[0].begin(),
+        batchesByPartition_[0].end(),
+        std::back_inserter(batches));
+
+    folly::Random::DefaultGenerator rng;
+    rng.seed(seed);
+    const int32_t numSplits =
+        1 + folly::Random::rand32(spillPartition->numFiles() * 2 / 3);
+    auto spillPartitionSplits = spillPartition->split(numSplits);
+    for (const auto& partitionSplit : spillPartitionSplits) {
+      ASSERT_EQ(id, partitionSplit->id());
+    }
+
+    // Read verification.
+    int batchIdx = 0;
+    for (int32_t i = 0; i < numSplits; ++i) {
+      auto reader = spillPartitionSplits[i]->createReader();
+      RowVectorPtr output;
+      while (reader->nextBatch(output)) {
+        for (int row = 0; row < numRowsPerBatch; ++row) {
+          ASSERT_EQ(
+              0,
+              output->compare(
+                  batches[batchIdx].get(), row, row, CompareFlags{}));
+        }
+        ++batchIdx;
+      }
+    }
+    ASSERT_EQ(batchIdx, numBatches);
   }
 }

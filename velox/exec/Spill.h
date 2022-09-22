@@ -429,26 +429,18 @@ class FileSpillBatchStream : public BatchStream {
 /// start bit offset is used to calculate the partition number of spill data. It
 /// is required for the recursive spilling handling as we advance the start bit
 /// offset when we go to the next level of recursive spilling.
-struct SpillPartitionId {
-  SpillPartitionId()
-      : SpillPartitionId(
-            std::numeric_limits<uint8_t>::max(),
-            std::numeric_limits<int32_t>::max()) {}
-
-  SpillPartitionId(uint8_t _partitionBitOffset, int32_t _partitionNumber)
-      : partitionBitOffset(_partitionBitOffset),
-        partitionNumber(_partitionNumber) {}
-
-  uint8_t partitionBitOffset = 0;
-  int32_t partitionNumber = 0;
-
-  bool valid() const {
-    return !(*this == SpillPartitionId());
-  }
+///
+/// NOTE: multiple shards created from the same SpillPartition by split()
+/// will share the same id.
+class SpillPartitionId {
+ public:
+  SpillPartitionId(uint8_t partitionBitOffset, int32_t partitionNumber)
+      : partitionBitOffset_(partitionBitOffset),
+        partitionNumber_(partitionNumber) {}
 
   bool operator==(const SpillPartitionId& other) const {
-    return std::tie(partitionBitOffset, partitionNumber) ==
-        std::tie(other.partitionBitOffset, other.partitionNumber);
+    return std::tie(partitionBitOffset_, partitionNumber_) ==
+        std::tie(other.partitionBitOffset_, other.partitionNumber_);
   }
 
   bool operator!=(const SpillPartitionId& other) const {
@@ -463,10 +455,10 @@ struct SpillPartitionId {
   /// advance the partition start bit when go to the next level of recursive
   /// spilling.
   bool operator<(const SpillPartitionId& other) const {
-    if (partitionBitOffset != other.partitionBitOffset) {
-      return partitionBitOffset > other.partitionBitOffset;
+    if (partitionBitOffset_ != other.partitionBitOffset_) {
+      return partitionBitOffset_ > other.partitionBitOffset_;
     }
-    return partitionNumber < other.partitionNumber;
+    return partitionNumber_ < other.partitionNumber_;
   }
 
   bool operator>(const SpillPartitionId& other) const {
@@ -474,8 +466,20 @@ struct SpillPartitionId {
   }
 
   std::string toString() const {
-    return fmt::format("[{},{}]", partitionBitOffset, partitionNumber);
+    return fmt::format("[{},{}]", partitionBitOffset_, partitionNumber_);
   }
+
+  uint8_t partitionBitOffset() const {
+    return partitionBitOffset_;
+  }
+
+  int32_t partitionNumber() const {
+    return partitionNumber_;
+  }
+
+ private:
+  uint8_t partitionBitOffset_{0};
+  int32_t partitionNumber_{0};
 };
 
 inline std::ostream& operator<<(std::ostream& os, SpillPartitionId id) {
@@ -511,6 +515,12 @@ class SpillPartition {
     return files_.size();
   }
 
+  /// Invoked to split this spill partition into 'numShards' to process in
+  /// parallel.
+  ///
+  /// NOTE: the split spill partition shards will have the same id as this.
+  std::vector<std::unique_ptr<SpillPartition>> split(int numShards);
+
   /// Invoked to create an unordered stream reader from this spill partition.
   /// The created reader will take the ownership of the spill files.
   std::unique_ptr<UnorderedStreamReader<BatchStream>> createReader();
@@ -523,8 +533,8 @@ class SpillPartition {
 using SpillPartitionSet =
     std::map<SpillPartitionId, std::unique_ptr<SpillPartition>>;
 
-// Represents all spilled data of an operator, e.g. order by or group
-// by. This has one SpillFileList per partition of spill data.
+/// Represents all spilled data of an operator, e.g. order by or group
+/// by. This has one SpillFileList per partition of spill data.
 class SpillState {
  public:
   // Constructs a SpillState. 'type' is the content RowType. 'path' is
@@ -647,13 +657,13 @@ class SpillState {
 } // namespace facebook::velox::exec
 
 // Adding the custom hash for SpillPartitionId to std::hash to make it usable
-// with maps and other standard data structures
+// with maps and other standard data structures.
 namespace std {
 template <>
 struct hash<::facebook::velox::exec::SpillPartitionId> {
   size_t operator()(const ::facebook::velox::exec::SpillPartitionId& id) const {
     return facebook::velox::bits::hashMix(
-        id.partitionBitOffset, id.partitionNumber);
+        id.partitionBitOffset(), id.partitionNumber());
   }
 };
 } // namespace std

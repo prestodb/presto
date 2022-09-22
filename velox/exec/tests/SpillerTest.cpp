@@ -625,9 +625,9 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     ASSERT_EQ(spillPartitionSet.size(), spillPartitionNumSet.size());
 
     for (auto& spillPartitionEntry : spillPartitionSet) {
-      const int partition = spillPartitionEntry.first.partitionNumber;
+      const int partition = spillPartitionEntry.first.partitionNumber();
       ASSERT_EQ(
-          hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset);
+          hashBits_.begin(), spillPartitionEntry.first.partitionBitOffset());
       auto reader = spillPartitionEntry.second->createReader();
       if (type_ == Spiller::Type::kHashJoinProbe) {
         // For hash probe type, we append each input vector as one batch in

@@ -254,6 +254,24 @@ std::vector<std::string> SpillState::testingSpilledFilePaths() const {
   return spilledFiles;
 }
 
+std::vector<std::unique_ptr<SpillPartition>> SpillPartition::split(
+    int numShards) {
+  const int32_t numFilesPerShard = bits::roundUp(files_.size(), numShards);
+  std::vector<std::unique_ptr<SpillPartition>> shards(numShards);
+
+  for (int shard = 0, fileIdx = 0; shard < numShards; ++shard) {
+    SpillFiles shardFiles;
+    shardFiles.reserve(numFilesPerShard);
+    while (shardFiles.size() < numFilesPerShard && fileIdx < files_.size()) {
+      shardFiles.push_back(std::move(files_[fileIdx++]));
+    }
+    shards[shard] =
+        std::make_unique<SpillPartition>(id_, std::move(shardFiles));
+  }
+  files_.clear();
+  return shards;
+}
+
 std::unique_ptr<UnorderedStreamReader<BatchStream>>
 SpillPartition::createReader() {
   std::vector<std::unique_ptr<BatchStream>> streams;
@@ -265,5 +283,4 @@ SpillPartition::createReader() {
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
       std::move(streams));
 }
-
 } // namespace facebook::velox::exec
