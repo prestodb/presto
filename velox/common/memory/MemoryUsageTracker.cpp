@@ -33,9 +33,74 @@ std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
   return std::make_shared<SharedMemoryUsageTracker>(parent, type, config);
 }
 
+void MemoryUsageTracker::update(int64_t size, bool /* mock */) {
+  if (size > 0) {
+    int64_t increment = 0;
+    ++usage(numAllocs_, UsageType::kTotalMem);
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      if (usedReservation_ + size > reservation_) {
+        increment = reserveLocked(size);
+      }
+    }
+    checkAndPropagateReservationIncrement(increment, false);
+    usedReservation_.fetch_add(size);
+    return;
+  }
+  // Decreasing usage. See if need to propagate upward.
+  int64_t decrement = 0;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    auto newUsed = usedReservation_ += size;
+    auto newCap = std::max(minReservation_.load(), newUsed);
+    auto newQuantized = quantizedSize(newCap);
+    if (newQuantized != reservation_) {
+      decrement = reservation_ - newQuantized;
+      reservation_ = newQuantized;
+    }
+  }
+  if (decrement) {
+    decrementUsage(type_, decrement);
+  }
+}
+
+void MemoryUsageTracker::reserve(int64_t size) {
+  int64_t increment;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    increment = reserveLocked(size);
+    minReservation_ = reservation_.load();
+  }
+  if (increment) {
+    checkAndPropagateReservationIncrement(increment, true);
+  }
+}
+
+void MemoryUsageTracker::release() {
+  if (!minReservation_) {
+    return;
+  }
+  int64_t freeable;
+  {
+    std::lock_guard<std::mutex> l(mutex_);
+    auto reservationByUsage = quantizedSize(usedReservation_);
+    freeable = reservation_ - reservationByUsage;
+    if (freeable > 0) {
+      reservation_ = reservationByUsage;
+    }
+    minReservation_ = 0;
+  }
+  if (freeable) {
+    decrementUsage(type_, freeable);
+  }
+}
+
 void MemoryUsageTracker::checkAndPropagateReservationIncrement(
     int64_t increment,
     bool updateMinReservation) {
+  if (!increment) {
+    return;
+  }
   std::exception_ptr exception;
   try {
     incrementUsage(type_, increment);
@@ -76,8 +141,6 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
                       .fetch_add(size, std::memory_order_relaxed) +
       size;
 
-  ++usage(numAllocs_, type);
-  ++usage(numAllocs_, UsageType::kTotalMem);
   usage(cumulativeBytes_, type) += size;
 
   // We track the peak usage of total memory independent of user and
@@ -137,6 +200,37 @@ bool MemoryUsageTracker::maybeReserve(int64_t increment) {
     candidate = candidate->parent_.get();
   }
   return false;
+}
+
+void MemoryUsageTracker::maySetMax(UsageType type, int64_t newPeak) {
+  auto& peakUsage = peakUsageInBytes_[static_cast<int>(type)];
+  int64_t oldPeak = peakUsage;
+  while (oldPeak < newPeak &&
+         !peakUsage.compare_exchange_weak(oldPeak, newPeak)) {
+    oldPeak = peakUsage;
+  }
+}
+
+void MemoryUsageTracker::checkNonNegativeSizes(
+    const char* FOLLY_NONNULL message) const {
+  if (user(currentUsageInBytes_) < 0 || system(currentUsageInBytes_) < 0 ||
+      total(currentUsageInBytes_) < 0) {
+    LOG_EVERY_N(ERROR, 100)
+        << "MEMR: Negative usage " << message << user(currentUsageInBytes_)
+        << " " << system(currentUsageInBytes_) << " "
+        << total(currentUsageInBytes_);
+  }
+}
+
+std::string MemoryUsageTracker::toString() const {
+  std::stringstream out;
+  out << "<tracker total " << (getCurrentTotalBytes() >> 20) << " available "
+      << (getAvailableReservation() >> 20);
+  if (maxTotalBytes() != kMaxMemory) {
+    out << "limit " << (maxTotalBytes() >> 20);
+  }
+  out << ">";
+  return out.str();
 }
 
 SimpleMemoryTracker::SimpleMemoryTracker(const MemoryUsageConfig& config)

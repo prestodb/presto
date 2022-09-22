@@ -35,6 +35,19 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
     useMmap_ = GetParam();
+    // For duration of the test, make a local MmapAllocator that will not be
+    // seen by any other test.
+    if (useMmap_) {
+      MmapAllocatorOptions opts{8UL << 30};
+      mmapAllocator_ = std::make_unique<MmapAllocator>(opts);
+      MappedMemory::setDefaultInstance(mmapAllocator_.get());
+    } else {
+      MappedMemory::setDefaultInstance(nullptr);
+    }
+  }
+
+  void TearDown() override {
+    MmapAllocator::setDefaultInstance(nullptr);
   }
 
   std::shared_ptr<IMemoryManager> getMemoryManager(int64_t quota) {
@@ -45,6 +58,7 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
   }
 
   bool useMmap_;
+  std::unique_ptr<MmapAllocator> mmapAllocator_;
 };
 
 TEST(MemoryPoolTest, Ctor) {

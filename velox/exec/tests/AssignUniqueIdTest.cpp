@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
@@ -63,9 +64,11 @@ class AssignUniqueIdTest : public OperatorTestBase {
     // allocation (per thread of execution) for the values buffer of the unique
     // ID vector. Memory should be allocated when producing first batch of
     // output and re-used for subsequent batches.
-    ASSERT_EQ(
-        numThreads, task->pool()->getMemoryUsageTracker()->getNumAllocs());
+    auto stats = toPlanStats(task->taskStats());
+    ASSERT_EQ(numThreads, stats.at(uniqueNodeId_).numMemoryAllocations);
   }
+
+  core::PlanNodeId uniqueNodeId_;
 };
 
 TEST_F(AssignUniqueIdTest, multiBatch) {
@@ -77,7 +80,11 @@ TEST_F(AssignUniqueIdTest, multiBatch) {
     input.push_back(makeRowVector({column}));
   }
 
-  auto plan = PlanBuilder().values(input).assignUniqueId().planNode();
+  auto plan = PlanBuilder()
+                  .values(input)
+                  .assignUniqueId()
+                  .capturePlanNodeId(uniqueNodeId_)
+                  .planNode();
 
   verifyUniqueId(plan, input);
 }
@@ -87,7 +94,11 @@ TEST_F(AssignUniqueIdTest, exceedRequestLimit) {
   auto input = {makeRowVector({makeFlatVector<int32_t>(
       requestLimit + 1, [](auto row) { return row; })})};
 
-  auto plan = PlanBuilder().values(input).assignUniqueId().planNode();
+  auto plan = PlanBuilder()
+                  .values(input)
+                  .assignUniqueId()
+                  .capturePlanNodeId(uniqueNodeId_)
+                  .planNode();
 
   verifyUniqueId(plan, input);
 }
@@ -97,7 +108,11 @@ TEST_F(AssignUniqueIdTest, multiThread) {
     vector_size_t batchSize = 1000;
     auto input = {makeRowVector(
         {makeFlatVector<int32_t>(batchSize, [](auto row) { return row; })})};
-    auto plan = PlanBuilder().values(input, true).assignUniqueId().planNode();
+    auto plan = PlanBuilder()
+                    .values(input, true)
+                    .assignUniqueId()
+                    .capturePlanNodeId(uniqueNodeId_)
+                    .planNode();
 
     verifyUniqueId(plan, input, 8);
   }
@@ -106,7 +121,11 @@ TEST_F(AssignUniqueIdTest, multiThread) {
 TEST_F(AssignUniqueIdTest, maxRowIdLimit) {
   auto input = {makeRowVector({makeFlatVector<int32_t>({1, 2, 3})})};
 
-  auto plan = PlanBuilder().values(input).assignUniqueId().planNode();
+  auto plan = PlanBuilder()
+                  .values(input)
+                  .assignUniqueId()
+                  .capturePlanNodeId(uniqueNodeId_)
+                  .planNode();
   // Increase the counter to kMaxRowId.
   std::dynamic_pointer_cast<const core::AssignUniqueIdNode>(plan)
       ->uniqueIdCounter()
@@ -118,8 +137,11 @@ TEST_F(AssignUniqueIdTest, maxRowIdLimit) {
 TEST_F(AssignUniqueIdTest, taskUniqueIdLimit) {
   auto input = {makeRowVector({makeFlatVector<int32_t>({1, 2, 3})})};
 
-  auto plan =
-      PlanBuilder().values(input).assignUniqueId("unique", 1L << 24).planNode();
+  auto plan = PlanBuilder()
+                  .values(input)
+                  .assignUniqueId("unique", 1L << 24)
+                  .capturePlanNodeId(uniqueNodeId_)
+                  .planNode();
 
   EXPECT_THROW(verifyUniqueId(plan, input), VeloxRuntimeError);
 }

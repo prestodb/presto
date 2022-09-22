@@ -453,6 +453,13 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
         totalLargeAllocateBytes_};
   }
 
+  // clears counters to revert effect of previous tests.
+  static void testingClearAllocateBytesStats() {
+    totalSmallAllocateBytes_ = 0;
+    totalSizeClassAllocateBytes_ = 0;
+    totalLargeAllocateBytes_ = 0;
+  }
+
   virtual Stats stats() const {
     return Stats();
   }

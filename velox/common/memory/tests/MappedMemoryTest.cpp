@@ -38,6 +38,7 @@ static constexpr MachinePageCount kCapacity =
 class MappedMemoryTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
+    MappedMemory::destroyTestOnly();
     auto tracker = MemoryUsageTracker::create(
         MemoryUsageConfigBuilder().maxTotalMemory(kMaxMappedMemory).build());
     useMmap_ = GetParam();
@@ -615,6 +616,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
 
 TEST_P(MappedMemoryTest, allocateBytes) {
   constexpr int32_t kNumAllocs = 50;
+  MappedMemory::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
   std::vector<MachinePageCount> sizes = {
       MappedMemory::kMaxMallocBytes / 2,

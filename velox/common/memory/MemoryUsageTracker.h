@@ -153,33 +153,13 @@ class MemoryUsageTracker
   // up being needed, the unused reservation should be released with
   // release().  If the new reserved amount exceeds the usage limit,
   // an exception will be thrown.
-  void reserve(int64_t size) {
-    int64_t increment;
-    {
-      std::lock_guard<std::mutex> l(mutex_);
-      increment = reserveLocked(size);
-      minReservation_ += increment;
-    }
-    if (increment) {
-      checkAndPropagateReservationIncrement(increment, true);
-    }
-  }
+  void reserve(int64_t size);
 
-  // Release unused reservation. Used reservation will be released as the
-  // allocations are freed.
-  void release() {
-    int64_t remaining;
-    {
-      std::lock_guard<std::mutex> l(mutex_);
-      remaining = reservation_ - usedReservation_;
-      reservation_ = 0;
-      minReservation_ = 0;
-      usedReservation_ = 0;
-    }
-    if (remaining) {
-      decrementUsage(type_, remaining);
-    }
-  }
+  // If a minimum reservation has been set with reserve(), resets the
+  // minimum reservation. If the current usage is below the minimum
+  // reservation, decreases reservation and usage down to the rounded
+  // actual usage.
+  void release();
 
   // Increments outstanding memory by 'size', which is positive for
   // allocation and negative for free. If there is no reservation or
@@ -188,35 +168,7 @@ class MemoryUsageTracker
   // Sometimes the memory pool wants to mock an update for quota
   // accounting purposes and different memory usage trackers can
   // choose to accommodate this differently.
-  virtual void update(int64_t size, bool /* mock */ = false) {
-    if (size > 0) {
-      int64_t increment = 0;
-      {
-        std::lock_guard<std::mutex> l(mutex_);
-        if (usedReservation_ + size > reservation_) {
-          increment = reserveLocked(size);
-        }
-      }
-      checkAndPropagateReservationIncrement(increment, false);
-      usedReservation_.fetch_add(size);
-      return;
-    }
-    // Decreasing usage. See if need to propagate upward.
-    int64_t decrement = 0;
-    {
-      std::lock_guard<std::mutex> l(mutex_);
-      auto newUsed = usedReservation_ += size;
-      auto newCap = std::max(minReservation_.load(), newUsed);
-      auto newQuantized = quantizedSize(newCap);
-      if (newQuantized != reservation_) {
-        decrement = reservation_ - newQuantized;
-        reservation_ = newQuantized;
-      }
-    }
-    if (decrement) {
-      decrementUsage(type_, decrement);
-    }
-  }
+  virtual void update(int64_t size, bool /* mock */ = false);
 
   virtual int64_t getCurrentUserBytes() const {
     return adjustByReservation(user(currentUsageInBytes_));
@@ -298,6 +250,8 @@ class MemoryUsageTracker
   /// unlikely. Otherwise attempts the reservation increment and returns
   /// true if succeeded.
   bool maybeReserve(int64_t increment);
+
+  std::string toString() const;
 
  protected:
   static constexpr int64_t kMB = 1 << 20;
@@ -426,14 +380,7 @@ class MemoryUsageTracker
       UsageType type,
       const MemoryUsageConfig& config);
 
-  void maySetMax(UsageType type, int64_t newPeak) {
-    auto& peakUsage = peakUsageInBytes_[static_cast<int>(type)];
-    int64_t oldPeak = peakUsage;
-    while (oldPeak < newPeak &&
-           !peakUsage.compare_exchange_weak(oldPeak, newPeak)) {
-      oldPeak = peakUsage;
-    }
-  }
+  void maySetMax(UsageType type, int64_t newPeak);
 
   // Increments the reservation of 'type' and checks against
   // limits. Calls 'growCallback_' if this is set and limit
@@ -445,15 +392,7 @@ class MemoryUsageTracker
   //  Decrements usage in 'this' and parents.
   void decrementUsage(UsageType type, int64_t size) noexcept;
 
-  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const {
-    if (user(currentUsageInBytes_) < 0 || system(currentUsageInBytes_) < 0 ||
-        total(currentUsageInBytes_) < 0) {
-      LOG_EVERY_N(ERROR, 100)
-          << "MEMR: Negative usage " << message << user(currentUsageInBytes_)
-          << " " << system(currentUsageInBytes_) << " "
-          << total(currentUsageInBytes_);
-    }
-  }
+  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
 };
 
 // A temporary solution to MemoryUsageTracker accounting leak without properly
