@@ -22,6 +22,8 @@ import com.google.inject.Scopes;
 
 import javax.inject.Singleton;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+
 public class StatsCalculatorModule
         implements Module
 {
@@ -31,6 +33,7 @@ public class StatsCalculatorModule
         binder.bind(ScalarStatsCalculator.class).in(Scopes.SINGLETON);
         binder.bind(StatsNormalizer.class).in(Scopes.SINGLETON);
         binder.bind(FilterStatsCalculator.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(HistoryBasedOptimizationConfig.class);
         binder.bind(HistoryBasedPlanStatisticsManager.class).in(Scopes.SINGLETON);
     }
 

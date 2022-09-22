@@ -27,16 +27,18 @@ public class HistoryBasedPlanStatisticsManager
 {
     private final SessionPropertyManager sessionPropertyManager;
     private final PlanHasher planHasher;
+    private final HistoryBasedOptimizationConfig config;
 
     private HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider = EmptyPlanStatisticsProvider.getInstance();
     private boolean statisticsProviderAdded;
 
     @Inject
-    public HistoryBasedPlanStatisticsManager(ObjectMapper objectMapper, SessionPropertyManager sessionPropertyManager)
+    public HistoryBasedPlanStatisticsManager(ObjectMapper objectMapper, SessionPropertyManager sessionPropertyManager, HistoryBasedOptimizationConfig config)
     {
         requireNonNull(objectMapper, "objectMapper is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.planHasher = new CachingPlanHasher(objectMapper);
+        this.config = requireNonNull(config, "config is null");
     }
 
     public void addHistoryBasedPlanStatisticsProviderFactory(HistoryBasedPlanStatisticsProvider historyBasedPlanStatisticsProvider)
@@ -50,11 +52,11 @@ public class HistoryBasedPlanStatisticsManager
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, planHasher);
+        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, planHasher, config);
     }
 
     public HistoryBasedPlanStatisticsTracker getHistoryBasedPlanStatisticsTracker()
     {
-        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, sessionPropertyManager, planHasher);
+        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, sessionPropertyManager, planHasher, config);
     }
 }
