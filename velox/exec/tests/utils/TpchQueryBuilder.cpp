@@ -127,6 +127,8 @@ TpchPlan TpchQueryBuilder::getQueryPlan(int queryId) const {
       return getQ5Plan();
     case 6:
       return getQ6Plan();
+    case 7:
+      return getQ7Plan();
     case 8:
       return getQ8Plan();
     case 9:
@@ -454,6 +456,143 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
   TpchPlan context;
   context.plan = std::move(plan);
   context.dataFiles[lineitemPlanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFileFormat = format_;
+  return context;
+}
+
+TpchPlan TpchQueryBuilder::getQ7Plan() const {
+  std::vector<std::string> supplierColumns = {"s_nationkey", "s_suppkey"};
+  std::vector<std::string> lineitemColumns = {
+      "l_shipdate", "l_suppkey", "l_discount", "l_extendedprice", "l_orderkey"};
+  std::vector<std::string> ordersColumns = {"o_custkey", "o_orderkey"};
+  std::vector<std::string> customerColumns = {"c_custkey", "c_nationkey"};
+  std::vector<std::string> nationColumns = {"n_nationkey", "n_name"};
+
+  auto supplierSelectedRowType = getRowType(kSupplier, supplierColumns);
+  const auto& supplierFileColumns = getFileColumnNames(kSupplier);
+  auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
+  const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
+  auto ordersSelectedRowType = getRowType(kOrders, ordersColumns);
+  const auto& ordersFileColumns = getFileColumnNames(kOrders);
+  auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
+  const auto& customerFileColumns = getFileColumnNames(kCustomer);
+  auto nationSelectedRowType = getRowType(kNation, nationColumns);
+  const auto& nationFileColumns = getFileColumnNames(kNation);
+
+  const std::string nationFilter = "n_name IN ('FRANCE', 'GERMANY')";
+  auto shipDateFilter = formatDateFilter(
+      "l_shipdate", lineitemSelectedRowType, "'1995-01-01'", "'1996-12-31'");
+
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  core::PlanNodeId supplierScanNodeId;
+  core::PlanNodeId lineitemScanNodeId;
+  core::PlanNodeId ordersScanNodeId;
+  core::PlanNodeId customerScanNodeId;
+  core::PlanNodeId suppNationScanNodeId;
+  core::PlanNodeId custNationScanNodeId;
+
+  auto custNation =
+      PlanBuilder(planNodeIdGenerator, pool_.get())
+          .tableScan(
+              kNation, nationSelectedRowType, nationFileColumns, {nationFilter})
+          .capturePlanNodeId(custNationScanNodeId)
+          .planNode();
+
+  auto customerJoinNation =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kCustomer, customerSelectedRowType, customerFileColumns)
+          .capturePlanNodeId(customerScanNodeId)
+          .hashJoin(
+              {"c_nationkey"},
+              {"n_nationkey"},
+              custNation,
+              "",
+              {"n_name", "c_custkey"})
+          .project({"n_name as cust_nation", "c_custkey"})
+          .planNode();
+
+  auto ordersJoinCustomer =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kOrders, ordersSelectedRowType, ordersFileColumns)
+          .capturePlanNodeId(ordersScanNodeId)
+          .hashJoin(
+              {"o_custkey"},
+              {"c_custkey"},
+              customerJoinNation,
+              "",
+              {"cust_nation", "o_orderkey"})
+          .planNode();
+
+  auto suppNation =
+      PlanBuilder(planNodeIdGenerator, pool_.get())
+          .tableScan(
+              kNation, nationSelectedRowType, nationFileColumns, {nationFilter})
+          .capturePlanNodeId(suppNationScanNodeId)
+          .planNode();
+
+  auto supplierJoinNation =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(kSupplier, supplierSelectedRowType, supplierFileColumns)
+          .capturePlanNodeId(supplierScanNodeId)
+          .hashJoin(
+              {"s_nationkey"},
+              {"n_nationkey"},
+              suppNation,
+              "",
+              {"n_name", "s_suppkey"})
+          .project({"n_name as supp_nation", "s_suppkey"})
+          .planNode();
+
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .tableScan(
+              kLineitem,
+              lineitemSelectedRowType,
+              lineitemFileColumns,
+              {shipDateFilter})
+          .capturePlanNodeId(lineitemScanNodeId)
+          .hashJoin(
+              {"l_suppkey"},
+              {"s_suppkey"},
+              supplierJoinNation,
+              "",
+              {"supp_nation",
+               "l_extendedprice",
+               "l_discount",
+               "l_shipdate",
+               "l_orderkey"})
+          .hashJoin(
+              {"l_orderkey"},
+              {"o_orderkey"},
+              ordersJoinCustomer,
+              "(((cust_nation = 'FRANCE') AND (supp_nation = 'GERMANY')) OR "
+              "((cust_nation = 'GERMANY') AND (supp_nation = 'FRANCE')))",
+              {"supp_nation",
+               "cust_nation",
+               "l_extendedprice",
+               "l_discount",
+               "l_shipdate"})
+          .project(
+              {"cust_nation",
+               "supp_nation",
+               "l_extendedprice * (1.0 - l_discount) as part_revenue",
+               "year(l_shipdate) as l_year"})
+          .partialAggregation(
+              {"supp_nation", "cust_nation", "l_year"},
+              {"sum(part_revenue) as revenue"})
+          .localPartition({})
+          .finalAggregation()
+          .orderBy({"supp_nation", "cust_nation", "l_year"}, false)
+          .planNode();
+
+  TpchPlan context;
+  context.plan = std::move(plan);
+  context.dataFiles[customerScanNodeId] = getTableFilePaths(kCustomer);
+  context.dataFiles[ordersScanNodeId] = getTableFilePaths(kOrders);
+  context.dataFiles[lineitemScanNodeId] = getTableFilePaths(kLineitem);
+  context.dataFiles[supplierScanNodeId] = getTableFilePaths(kSupplier);
+  context.dataFiles[suppNationScanNodeId] = getTableFilePaths(kNation);
+  context.dataFiles[custNationScanNodeId] = getTableFilePaths(kNation);
   context.dataFileFormat = format_;
   return context;
 }
