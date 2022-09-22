@@ -97,6 +97,7 @@ public class HistoricalPlanStatisticsUtil
             boolean rowSimilarity = true;
             boolean outputSizeSimilarity = true;
 
+            // Match to historical stats only when size of input tables are similar to those of historical runs.
             for (int inputTablesIndex = 0; inputTablesIndex < inputTableStatistics.size(); ++inputTablesIndex) {
                 PlanStatistics currentInputStatistics = inputTableStatistics.get(inputTablesIndex);
                 PlanStatistics historicalInputStatistics = lastRunsStatistics.get(lastRunsIndex).getInputTableStatistics().get(inputTablesIndex);

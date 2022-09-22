@@ -16,6 +16,8 @@ package com.facebook.presto.spi.statistics;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
@@ -36,8 +38,9 @@ public class PlanStatistics
         return EMPTY;
     }
 
+    @JsonCreator
     @ThriftConstructor
-    public PlanStatistics(Estimate rowCount, Estimate outputSize, double confidence)
+    public PlanStatistics(@JsonProperty("rowCount") Estimate rowCount, @JsonProperty("outputSize") Estimate outputSize, @JsonProperty("confidence") double confidence)
     {
         this.rowCount = requireNonNull(rowCount, "rowCount is null");
         this.outputSize = requireNonNull(outputSize, "outputSize is null");
@@ -45,18 +48,21 @@ public class PlanStatistics
         this.confidence = confidence;
     }
 
+    @JsonProperty
     @ThriftField(1)
     public Estimate getRowCount()
     {
         return rowCount;
     }
 
+    @JsonProperty
     @ThriftField(2)
     public Estimate getOutputSize()
     {
         return outputSize;
     }
 
+    @JsonProperty
     @ThriftField(3)
     public double getConfidence()
     {

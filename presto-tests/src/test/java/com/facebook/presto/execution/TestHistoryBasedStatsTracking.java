@@ -79,6 +79,21 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
+    public void testStrategyTracking()
+    {
+        // CBO Statistics
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        // HBO Statistics
+        executeAndTrackHistory("SELECT *, 1 FROM nation where substr(name, 1, 1) = 'A'");
+        assertPlan(
+                "SELECT *, 2 FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(2)));
+    }
+
+    @Test
     public void testHistoryBasedStatsCalculator()
     {
         // CBO Statistics
@@ -91,11 +106,6 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
                 anyTree(node(FilterNode.class, any()).withOutputRowCount(2)));
-
-        executeAndTrackHistory("SELECT *, 1 FROM nation where substr(name, 1, 1) = 'A'");
-        assertPlan(
-                "SELECT *, 2 FROM nation where substr(name, 1, 1) = 'A'",
-                anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(2)));
 
         // CBO Statistics
         assertPlan(

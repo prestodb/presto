@@ -16,7 +16,6 @@ package com.facebook.presto.tests.statistics;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
-import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
@@ -54,9 +53,9 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
                 planNodeWithHash -> planNodeWithHash,
                 planNodeWithHash -> {
                     if (planNodeWithHash.getHash().isPresent()) {
-                        return cache.getOrDefault(planNodeWithHash.getHash().get(), new HistoricalPlanStatistics(PlanStatistics.empty()));
+                        return cache.getOrDefault(planNodeWithHash.getHash().get(), HistoricalPlanStatistics.empty());
                     }
-                    return new HistoricalPlanStatistics(PlanStatistics.empty());
+                    return HistoricalPlanStatistics.empty();
                 }));
     }
 
