@@ -50,17 +50,17 @@ this job to install these dependencies.
 ### Linux testing
 
 Linux testing uses a Docker container. The container build depends on the Velox CircleCi container. Check
-f4d/.circleci/config.yml to see that the base container in circleci-container.dockfile is using the latest.
+velox/.circleci/config.yml to see that the base container in circleci-container.dockfile is using the latest.
 The container build uses Docker and should be run on your macos or linux laptop with Docker installed and
 running.
 
 #### Build the base container:
 
-* In an up-to-date clone of f4d (maybe you have one?)
+* In an up-to-date clone of velox (maybe you have one?)
 
 ```
-git clone git@github.com:facebookexternal/f4d.git
-cd f4d
+git clone git@github.com:facebookincubator/velox.git
+cd velox
 make base-container
 ```
 * Wait - This step takes rather a long time.  It is building clang-format v8 to be compatible with fbcode
