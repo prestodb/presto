@@ -1332,6 +1332,17 @@ For both simple and vector functions, their names are case insensitive. Function
 names are converted to lower case automatically when the functions are
 registered and when they are resolved for a given expression.
 
+The following names are reserved for special forms and cannot be used as function
+names:
+
+* and
+* or
+* cast
+* if
+* switch
+* coalesce
+* try
+* row_constructor
 
 Function Resolution order
 -------------------------

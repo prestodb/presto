@@ -121,7 +121,8 @@ processes the expressions and creates trees of exec::Expr class instances.
 ExprSet accepts multiple expressions and identifies common subexpressions across
 all of them so that they can be calculated just once. FilterProject operator
 benefits from this capability as it creates a single ExprSet for all of the
-filter and project expressions.
+filter and project expressions. The compilation steps also flattens adjacent
+AND, OR and concat-line expressions and performs constant folding.
 
 Each node in the expression tree is transformed to a corresponding instance of
 the exec::Expr class.
@@ -131,11 +132,12 @@ core::ITypedExpr node   exec::Expr instance
 ======================  ===================
 FieldAccessTypedExpr    FieldReference
 ConstantTypedExpr       ConstantExpr
-CallTypedExpr           * Expr if function name points to a simple or vector function;
-                        * CastExpr if function name is “cast”;
+CallTypedExpr           * CastExpr if function name is “cast”;
                         * ConjunctExpr if function name is “and” or “or”;
                         * SwitchExpr if function name is “if” or “switch”;
+                        * CoalesceExpr if function name is "coalesce"
                         * TryExpr if function name is “try”;
+                        * Expr if function name is none of the above.
 CastTypedExpr           CastExpr
 LambdaTypedExpr         LambdaExpr
 ======================  ===================
@@ -144,9 +146,12 @@ CallTypedExpr nodes are processed to determine whether function names refer to
 special form expressions or functions (vectorized or simple). The lookup is
 performed in the following order and the search stops on the first match:
 
-* Check if name matches one of special forms
-* Check if name and signature (e.g. input types) matches one of simple functions
-* Check if name matches one of vectorized functions
+* Check if name matches one of special forms.
+* Check if name and signature (i.e. input types) matches one of vectorized functions.
+* Check if name and signature (i.e. input types) matches one of simple functions.
+
+Common SubExpression Detection
+``````````````````````````````
 
 The following diagram shows the expression tree for the **strpos(upper
 (a), 'FOO') > 0 OR strpos(upper(a), 'BAR') > 0** expression. Here, **upper
@@ -154,23 +159,6 @@ The following diagram shows the expression tree for the **strpos(upper
 class which appears twice in the tree.
 
 .. image:: images/cse.png
-  :width: 600
-  :align: center
-
-Constant Folding
-````````````````
-
-Once we have a tree of executable expressions (exec::Expr), ExprSet identifies
-deterministic subexpressions which do not depend on any columns, evaluates
-these and replaces them with a single constant expression. This optimization is
-called constant folding.
-
-For example, in the expression **upper(a) > upper('Foo')** subexpression **upper
-(‘Foo’)** is deterministic and doesn’t depend on any columns. It will be
-evaluated during compilation time and replaced by a single ConstantExpr
-node **FOO**.
-
-.. image:: images/constant-folding.png
   :width: 600
   :align: center
 
@@ -223,6 +211,23 @@ an expression like g(f(a, f(b, c)), f(d, f(b, c))), the compiler would
 identify f(b, c) as a common sub-expression. With flattening, the expression
 will be re-writen as g(f(a, b, c), f(d, b, c)) and no common sub-expression
 will be identified.
+
+Constant Folding
+````````````````
+
+Once we have a tree of executable expressions (exec::Expr), ExprSet identifies
+deterministic subexpressions which do not depend on any columns, evaluates
+these and replaces them with a single constant expression. This optimization is
+called constant folding.
+
+For example, in the expression **upper(a) > upper('Foo')** subexpression **upper
+(‘Foo’)** is deterministic and doesn’t depend on any columns. It will be
+evaluated during compilation time and replaced by a single ConstantExpr
+node **FOO**.
+
+.. image:: images/constant-folding.png
+  :width: 600
+  :align: center
 
 Expression Metadata
 ```````````````````
