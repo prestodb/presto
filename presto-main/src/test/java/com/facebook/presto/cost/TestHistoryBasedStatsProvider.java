@@ -19,6 +19,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
+import com.facebook.presto.spi.statistics.HistoricalPlanStatisticsEntry;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -118,10 +119,12 @@ public class TestHistoryBasedStatsProvider
                         if (PlanNodeWithHash.getPlanNode() instanceof TableScanNode) {
                             TableScanNode node = (TableScanNode) PlanNodeWithHash.getPlanNode();
                             if (node.getTable().toString().contains("orders")) {
-                                return new HistoricalPlanStatistics(new PlanStatistics(Estimate.of(100), Estimate.of(100), 1.0));
+                                return new HistoricalPlanStatistics(ImmutableList.of(new HistoricalPlanStatisticsEntry(
+                                        new PlanStatistics(Estimate.of(100), Estimate.of(1000), 1),
+                                        ImmutableList.of(new PlanStatistics(Estimate.of(15000), Estimate.unknown(), 1)))));
                             }
                         }
-                        return new HistoricalPlanStatistics(PlanStatistics.empty());
+                        return HistoricalPlanStatistics.empty();
                     }));
         }
 

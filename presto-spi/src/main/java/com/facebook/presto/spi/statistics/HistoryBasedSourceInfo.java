@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,16 +25,23 @@ import static java.util.Objects.requireNonNull;
 public class HistoryBasedSourceInfo
         extends SourceInfo
 {
-    private Optional<String> hash;
+    private final Optional<String> hash;
+    private final Optional<List<PlanStatistics>> inputTableStatistics;
 
-    public HistoryBasedSourceInfo(Optional<String> hash)
+    public HistoryBasedSourceInfo(Optional<String> hash, Optional<List<PlanStatistics>> inputTableStatistics)
     {
         this.hash = requireNonNull(hash, "hash is null");
+        this.inputTableStatistics = requireNonNull(inputTableStatistics, "inputTableStatistics is null");
     }
 
     public Optional<String> getHash()
     {
         return hash;
+    }
+
+    public Optional<List<PlanStatistics>> getInputTableStatistics()
+    {
+        return inputTableStatistics;
     }
 
     @Override
@@ -46,12 +54,12 @@ public class HistoryBasedSourceInfo
             return false;
         }
         HistoryBasedSourceInfo that = (HistoryBasedSourceInfo) o;
-        return Objects.equals(hash, that.hash);
+        return Objects.equals(hash, that.hash) && Objects.equals(inputTableStatistics, that.inputTableStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(hash);
+        return Objects.hash(hash, inputTableStatistics);
     }
 }

@@ -26,30 +26,30 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 
 @ThriftStruct
-public class HistoricalPlanStatistics
+public class HistoricalPlanStatisticsEntry
 {
-    private static final HistoricalPlanStatistics EMPTY = new HistoricalPlanStatistics(emptyList());
-
-    // Output plan statistics from previous runs
-    private final List<HistoricalPlanStatisticsEntry> lastRunsStatistics;
+    private final PlanStatistics planStatistics;
+    // Size of input tables when plan statistics was recorded. This list will be sorted by input tables canonical order.
+    private final List<PlanStatistics> inputTableStatistics;
 
     @ThriftConstructor
-    public HistoricalPlanStatistics(List<HistoricalPlanStatisticsEntry> lastRunsStatistics)
+    public HistoricalPlanStatisticsEntry(PlanStatistics planStatistics, List<PlanStatistics> inputTableStatistics)
     {
         // Check for nulls, to make it thrift backwards compatible
-        this.lastRunsStatistics = unmodifiableList(lastRunsStatistics == null ? emptyList() : lastRunsStatistics);
+        this.planStatistics = planStatistics == null ? PlanStatistics.empty() : planStatistics;
+        this.inputTableStatistics = unmodifiableList(inputTableStatistics == null ? emptyList() : inputTableStatistics);
     }
 
     @ThriftField(value = 1, requiredness = OPTIONAL)
-    public List<HistoricalPlanStatisticsEntry> getLastRunsStatistics()
+    public PlanStatistics getPlanStatistics()
     {
-        return lastRunsStatistics;
+        return planStatistics;
     }
 
-    @Override
-    public String toString()
+    @ThriftField(value = 2, requiredness = OPTIONAL)
+    public List<PlanStatistics> getInputTableStatistics()
     {
-        return format("HistoricalPlanStatistics{lastRunsStatistics=%s}", lastRunsStatistics);
+        return inputTableStatistics;
     }
 
     @Override
@@ -61,20 +61,19 @@ public class HistoricalPlanStatistics
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
-        HistoricalPlanStatistics other = (HistoricalPlanStatistics) o;
-
-        return Objects.equals(lastRunsStatistics, other.lastRunsStatistics);
+        HistoricalPlanStatisticsEntry that = (HistoricalPlanStatisticsEntry) o;
+        return Objects.equals(planStatistics, that.planStatistics) && Objects.equals(inputTableStatistics, that.inputTableStatistics);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(lastRunsStatistics);
+        return Objects.hash(planStatistics, inputTableStatistics);
     }
 
-    public static HistoricalPlanStatistics empty()
+    @Override
+    public String toString()
     {
-        return EMPTY;
+        return format("HistoricalPlanStatisticsEntry{planStatistics=%s, inputTableStatistics=%s}", planStatistics, inputTableStatistics);
     }
 }

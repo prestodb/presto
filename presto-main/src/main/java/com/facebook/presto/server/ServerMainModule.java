@@ -45,6 +45,7 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.connector.ConnectorTypeSerdeManager;
 import com.facebook.presto.connector.system.SystemConnectorModule;
 import com.facebook.presto.cost.FilterStatsCalculator;
+import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
@@ -588,6 +589,7 @@ public class ServerMainModule
         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionDeserializer.class);
 
         // history statistics
+        configBinder(binder).bindConfig(HistoryBasedOptimizationConfig.class);
         binder.bind(HistoryBasedPlanStatisticsManager.class).in(Scopes.SINGLETON);
 
         // split manager

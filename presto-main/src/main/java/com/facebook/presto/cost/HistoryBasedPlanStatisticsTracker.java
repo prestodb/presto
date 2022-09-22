@@ -44,9 +44,11 @@ import java.util.function.Supplier;
 
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
+import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanStatistics;
 import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.graph.Traverser.forTree;
 import static java.util.Objects.requireNonNull;
@@ -59,20 +61,23 @@ public class HistoryBasedPlanStatisticsTracker
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private final SessionPropertyManager sessionPropertyManager;
     private final PlanHasher planHasher;
+    private final HistoryBasedOptimizationConfig config;
 
     public HistoryBasedPlanStatisticsTracker(
             Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider,
             SessionPropertyManager sessionPropertyManager,
-            PlanHasher planHasher)
+            PlanHasher planHasher,
+            HistoryBasedOptimizationConfig config)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.planHasher = requireNonNull(planHasher, "planHasher is null");
+        this.config = requireNonNull(config, "config is null");
     }
 
-    public void trackStatistics(QueryExecution queryExecution)
+    public void updateStatistics(QueryExecution queryExecution)
     {
-        queryExecution.addFinalQueryInfoListener(this::trackStatistics);
+        queryExecution.addFinalQueryInfoListener(this::updateStatistics);
     }
 
     @VisibleForTesting
@@ -137,7 +142,7 @@ public class HistoryBasedPlanStatisticsTracker
                                                 Estimate.of(outputPositions),
                                                 Double.isNaN(outputBytes) ? Estimate.unknown() : Estimate.of(outputBytes),
                                                 1.0),
-                                        new HistoryBasedSourceInfo(hash)));
+                                        new HistoryBasedSourceInfo(hash, Optional.empty())));
                     }
                 }
             }
@@ -145,16 +150,31 @@ public class HistoryBasedPlanStatisticsTracker
         return ImmutableMap.copyOf(planStatistics);
     }
 
-    private void trackStatistics(QueryInfo queryInfo)
+    private void updateStatistics(QueryInfo queryInfo)
     {
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
-        Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatistics = planStatistics.entrySet().stream()
-                        .filter(entry -> entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo)
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> new HistoricalPlanStatistics(entry.getValue().getPlanStatistics())));
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =
+                historyBasedPlanStatisticsProvider.get().getStats(planStatistics.keySet().stream().collect(toImmutableList()));
+        Map<PlanNodeWithHash, HistoricalPlanStatistics> newPlanStatistics = planStatistics.entrySet().stream()
+                .filter(entry -> entry.getKey().getHash().isPresent() &&
+                        entry.getValue().getSourceInfo() instanceof HistoryBasedSourceInfo &&
+                        ((HistoryBasedSourceInfo) entry.getValue().getSourceInfo()).getInputTableStatistics().isPresent())
+                .collect(toImmutableMap(
+                        Map.Entry::getKey,
+                        entry -> {
+                            HistoricalPlanStatistics historicalPlanStatistics = Optional.ofNullable(historicalPlanStatisticsMap.get(entry.getKey()))
+                                    .orElseGet(HistoricalPlanStatistics::empty);
+                            HistoryBasedSourceInfo historyBasedSourceInfo = (HistoryBasedSourceInfo) entry.getValue().getSourceInfo();
+                            return updatePlanStatistics(
+                                    historicalPlanStatistics,
+                                    historyBasedSourceInfo.getInputTableStatistics().get(),
+                                    entry.getValue().getPlanStatistics(),
+                                    config);
+                        }));
 
-        if (historicalPlanStatistics.isEmpty()) {
+        if (newPlanStatistics.isEmpty()) {
             return;
         }
-        historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(historicalPlanStatistics));
+        historyBasedPlanStatisticsProvider.get().putStats(ImmutableMap.copyOf(newPlanStatistics));
     }
 }
