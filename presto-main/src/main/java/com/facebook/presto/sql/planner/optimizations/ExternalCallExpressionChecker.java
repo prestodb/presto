@@ -39,7 +39,7 @@ public class ExternalCallExpressionChecker
     public Boolean visitCall(CallExpression call, Void context)
     {
         FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
-        if (functionMetadata.getImplementationType().isExternal()) {
+        if (functionMetadata.getImplementationType().isExternalExecution()) {
             return true;
         }
         return call.getArguments().stream().anyMatch(argument -> argument.accept(this, null));

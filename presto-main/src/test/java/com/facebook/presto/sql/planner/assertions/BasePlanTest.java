@@ -21,6 +21,7 @@ import com.facebook.presto.common.block.TestingBlockJsonSerde;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.WarningCollector;
@@ -47,6 +48,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -76,6 +78,7 @@ public class BasePlanTest
 
     public BasePlanTest(Map<String, String> sessionProperties)
     {
+        System.out.println("Sourav BasePlanTest");
         this.queryRunnerSupplier = () -> createQueryRunner(sessionProperties);
         this.objectMapper = createObjectMapper();
     }
@@ -105,6 +108,7 @@ public class BasePlanTest
 
     private static LocalQueryRunner createQueryRunner(Map<String, String> sessionProperties)
     {
+        System.out.println("SOurav creating the queryRunner");
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("tiny")
@@ -112,8 +116,11 @@ public class BasePlanTest
 
         sessionProperties.entrySet().forEach(entry -> sessionBuilder.setSystemProperty(entry.getKey(), entry.getValue()));
 
+        System.out.println("Sourav just before calling localQueryRunner ctor");
         LocalQueryRunner queryRunner = new LocalQueryRunner(sessionBuilder.build(), new FeaturesConfig(), new NodeSpillConfig(), false, false, createObjectMapper());
+        System.out.println("Sourav just before after localQueryRunner ctor");
 
+        //queryRunner.loadFunctionNamespaceManager();
         queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
@@ -124,6 +131,7 @@ public class BasePlanTest
     public final void initPlanTest()
             throws Exception
     {
+        System.out.println("Sourav Inside initPlanTest");
         queryRunner = queryRunnerSupplier.get();
     }
 
@@ -146,6 +154,17 @@ public class BasePlanTest
 
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
+        assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
+    }
+
+    protected void assertPlanWithFunctionNameSpaceManagerEnabled(String sql, PlanMatchPattern pattern)
+    {
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        Map<String, String> config = new HashMap<>();
+        config.put("path-to-function-definition", "/Users/souravpal/Work/Presto/presto/presto-function-namespace-managers/src/test/resources/functionDefinition.json");
+        config.put("supported-function-languages", "CPP");
+        config.put("function-implementation-type", "CPP");
+        queryRunner.loadFunctionNamespaceManager("filejson", "testunit", config);
         assertPlan(sql, LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED, pattern);
     }
 

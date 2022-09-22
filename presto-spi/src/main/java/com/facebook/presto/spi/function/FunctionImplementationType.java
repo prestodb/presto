@@ -15,20 +15,28 @@ package com.facebook.presto.spi.function;
 
 public enum FunctionImplementationType
 {
-    JAVA(false),
-    SQL(false),
-    THRIFT(true),
-    GRPC(true);
+    JAVA(false, false),
+    SQL(false, false),
+    THRIFT(true, true),
+    GRPC(true, true),
+    CPP(false, true);
 
-    private final boolean external;
+    private final boolean externalExecution;
+    private final boolean inlinedAtCoordingator;
 
-    FunctionImplementationType(boolean external)
+    FunctionImplementationType(boolean externalExecution, boolean inlinedAtCoordingator)
     {
-        this.external = external;
+        this.externalExecution = externalExecution;
+        this.inlinedAtCoordingator = inlinedAtCoordingator;
     }
 
-    public boolean isExternal()
+    public boolean isExternalExecution()
     {
-        return external;
+        return externalExecution;
+    }
+
+    public boolean cannotBeInlinedAtCoordingator()
+    {
+        return inlinedAtCoordingator;
     }
 }

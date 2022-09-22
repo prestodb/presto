@@ -342,6 +342,7 @@ public class LocalQueryRunner
 
     private LocalQueryRunner(Session defaultSession, FeaturesConfig featuresConfig, NodeSpillConfig nodeSpillConfig, boolean withInitialTransaction, boolean alwaysRevokeMemory, int nodeCountForStats, ObjectMapper objectMapper)
     {
+        System.out.println("SOurav Inside LocalQueryRunner ctor ");
         requireNonNull(defaultSession, "defaultSession is null");
         checkArgument(!defaultSession.getTransactionId().isPresent() || !withInitialTransaction, "Already in transaction");
 
@@ -460,6 +461,7 @@ public class LocalQueryRunner
                 new TransactionsSystemTable(metadata.getFunctionAndTypeManager(), transactionManager)),
                 ImmutableSet.of());
 
+        System.out.println("Sourav creating the plugin manager");
         this.pluginManager = new PluginManager(
                 nodeInfo,
                 new PluginManagerConfig(),
@@ -670,6 +672,7 @@ public class LocalQueryRunner
     @Override
     public void installPlugin(Plugin plugin)
     {
+        System.out.println("Sourav installing plugin");
         pluginManager.installPlugin(plugin);
     }
 
@@ -682,6 +685,7 @@ public class LocalQueryRunner
     @Override
     public void loadFunctionNamespaceManager(String functionNamespaceManagerName, String catalogName, Map<String, String> properties)
     {
+        System.out.println("functionNamespaceManagerName ->" + functionNamespaceManagerName);
         metadata.getFunctionAndTypeManager().loadFunctionNamespaceManager(functionNamespaceManagerName, catalogName, properties);
     }
 

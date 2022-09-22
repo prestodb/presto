@@ -261,6 +261,7 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
 
     protected void checkFunctionLanguageSupported(SqlInvokedFunction function)
     {
+        System.out.println("SOURAV ->" + function.getRoutineCharacteristics().getLanguage());
         if (!sqlFunctionExecutors.getSupportedLanguages().contains(function.getRoutineCharacteristics().getLanguage())) {
             throw new PrestoException(GENERIC_USER_ERROR, format("Catalog %s does not support functions implemented in language %s", catalogName, function.getRoutineCharacteristics().getLanguage()));
         }
@@ -301,6 +302,8 @@ public abstract class AbstractSqlInvokedFunctionNamespaceManager
             case JAVA:
                 throw new IllegalStateException(
                         format("SqlInvokedFunction %s has BUILTIN implementation type but %s cannot manage BUILTIN functions", function.getSignature().getName(), this.getClass()));
+            case CPP:
+                throw new IllegalStateException(format("Presto does not store NON_JVM custom function body."));
             default:
                 throw new IllegalStateException(format("Unknown function implementation type: %s", implementationType));
         }

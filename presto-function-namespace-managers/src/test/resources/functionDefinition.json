@@ -1,0 +1,81 @@
+{
+"UDFSignatureMap": {
+"add_ARRAY_element_wise":[
+         {
+            "docString":"function to add two string vectors element-wise",
+            "outputTypes":[
+                  "ARRAY<ARRAY<BOOLEAN>>"
+            ],
+            "paramTypes":[
+                 "ARRAY<ARRAY<BOOLEAN>>",
+                 "ARRAY<ARRAY<BOOLEAN>>"
+            ]
+         },
+         {
+            "docString":"function to add two float vectors element-wise",
+            "outputTypes":[
+                 "ARRAY<ARRAY<BIGINT>>"
+            ],
+            "paramTypes":[
+                "ARRAY<ARRAY<BIGINT>>",
+                 "ARRAY<ARRAY<BIGINT>>"
+            ]
+         },
+         {
+            "docString":"function to add two int64_t vectors element-wise",
+            "outputTypes":[
+                 "ARRAY<DOUBLE>"
+            ],
+            "paramTypes":[
+                 "ARRAY<DOUBLE>",
+                 "ARRAY<DOUBLE>"
+            ]
+         }
+      ],
+ "ads_product_types_transform":[
+         {
+            "docString":"gff ads product types transform",
+            "outputTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>"
+            ],
+            "paramTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>",
+                 "ARRAY<varchar>"
+            ]
+         },
+         {
+            "docString":"gff ads product types transform",
+            "outputTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>"
+            ],
+            "paramTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>",
+                 "ARRAY<ARRAY<BOOLEAN>>",
+                 "ARRAY<varchar>"
+            ]
+         }
+      ],
+  "square": [
+    {
+      "docString":"square an integer",
+      "outputTypes":[
+        "int"
+      ],
+      "paramTypes":[
+        "int"
+      ]
+    },
+    {
+      "docString":"square a double",
+      "outputTypes":[
+        "double"
+      ],
+      "paramTypes":[
+        "double"
+      ]
+    }
+  ]
+ }
+}
+
+

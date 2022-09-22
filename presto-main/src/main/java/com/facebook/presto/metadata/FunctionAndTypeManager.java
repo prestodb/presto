@@ -68,14 +68,9 @@ import org.weakref.jmx.Nested;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
+import javax.sound.midi.SysexMessage;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -175,6 +170,11 @@ public class FunctionAndTypeManager
         transactionManager.registerFunctionNamespaceManager(catalogName, functionNamespaceManager);
         if (functionNamespaceManagers.putIfAbsent(catalogName, functionNamespaceManager) != null) {
             throw new IllegalArgumentException(format("Function namespace manager is already registered for catalog [%s]", catalogName));
+        }
+        System.out.println("SOURAV loading---> catalog==> " + catalogName + " functionNAmeSpacemanager--->" + functionNamespaceManager.toString());
+        Iterator<SqlInvokedFunction> itr = (Iterator<SqlInvokedFunction>) (functionNamespaceManager.listFunctions(Optional.empty(), Optional.empty())).iterator();
+        while(itr.hasNext()){
+            System.out.println("Function Name->" + itr.next().getSignature().getName().toString());
         }
     }
 
@@ -350,6 +350,7 @@ public class FunctionAndTypeManager
             QualifiedObjectName functionName,
             List<TypeSignatureProvider> parameterTypes)
     {
+        System.out.println("SOurav inside resolveFunction -> getCatalogSchemaName "+ functionName.getCatalogName());
         if (functionName.getCatalogSchemaName().equals(DEFAULT_NAMESPACE)) {
             if (sessionFunctions.isPresent()) {
                 Collection<SqlFunction> candidates = SessionFunctionUtils.getFunctions(sessionFunctions.get(), functionName);
@@ -364,6 +365,7 @@ public class FunctionAndTypeManager
             }
         }
 
+        System.out.println("Sourav going to resolveFunctionInternal");
         return resolveFunctionInternal(transactionId, functionName, parameterTypes);
     }
 
@@ -566,18 +568,23 @@ public class FunctionAndTypeManager
     {
         FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName()).orElse(null);
         if (functionNamespaceManager == null) {
+
+            System.out.println("SOURAV functionNamespaceManager returned null functionName" + functionName.toString());
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
         }
 
+        System.out.println("In resolveFunctionInternal Sourav --> functionNamespaceManager --> " + functionNamespaceManager.toString());
         Optional<FunctionNamespaceTransactionHandle> transactionHandle = transactionId
                 .map(id -> transactionManager.getFunctionNamespaceTransaction(id, functionName.getCatalogName()));
 
         if (functionNamespaceManager.canResolveFunction()) {
+            System.out.println("Sourav canResolveFunction returned true");
             return functionNamespaceManager.resolveFunction(transactionHandle, functionName, parameterTypes.stream().map(TypeSignatureProvider::getTypeSignature).collect(toImmutableList()));
         }
 
         Collection<? extends SqlFunction> candidates = functionNamespaceManager.getFunctions(transactionHandle, functionName);
 
+        System.out.println("Sourav Get match");
         Optional<Signature> match = functionSignatureMatcher.match(candidates, parameterTypes, true);
         if (match.isPresent()) {
             return functionNamespaceManager.getFunctionHandle(transactionHandle, match.get());
@@ -621,6 +628,7 @@ public class FunctionAndTypeManager
 
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
+        System.out.println("SOURAV catalogName ->" + functionNamespace.getCatalogName());
         return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
     }
 
