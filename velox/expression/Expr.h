@@ -26,6 +26,11 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/vector/SimpleVector.h"
 
+/// GFlag used to enable saving input vector to a file in case of an error
+/// during expression evaluation. The value specifies a path to a directory
+/// where the vectors will be saved. That directory must exist and be writable.
+DECLARE_string(velox_save_input_on_expression_failure_path);
+
 namespace facebook::velox::exec {
 
 class ExprSet;
@@ -77,7 +82,15 @@ class Expr {
 
   virtual ~Expr() = default;
 
-  void eval(const SelectivityVector& rows, EvalCtx& context, VectorPtr& result);
+  /// Evaluates the expression for the specified 'rows'.
+  ///
+  /// @param topLevel Boolean indicating whether this is a top-level expression
+  /// or one of the sub-expressions. Used to setup exception context.
+  void eval(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result,
+      bool topLevel = false);
 
   /// Evaluates the expression using fast path that assumes all inputs and
   /// intermediate results are flat or constant and have no nulls.
@@ -87,10 +100,14 @@ class Expr {
   /// types. It may also be expensive to apply to large batches. Hence, this
   /// path is enabled only for batch sizes less than 1'000 and expressions where
   /// all input and intermediate types are primitive and not strings.
+  ///
+  /// @param topLevel Boolean indicating whether this is a top-level expression
+  /// or one of the sub-expressions. Used to setup exception context.
   void evalFlatNoNulls(
       const SelectivityVector& rows,
       EvalCtx& context,
-      VectorPtr& result);
+      VectorPtr& result,
+      bool topLevel = false);
 
   // Simplified path for expression evaluation (flattens all vectors).
   void evalSimplified(

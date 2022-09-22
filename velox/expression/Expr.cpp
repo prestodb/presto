@@ -16,6 +16,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <fstream>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/SuccinctPrinter.h"
@@ -27,6 +28,7 @@
 #include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/vector/SelectivityVector.h"
+#include "velox/vector/VectorSaver.h"
 
 DEFINE_bool(
     force_eval_simplified,
@@ -311,12 +313,99 @@ void Expr::evalSimplifiedImpl(
   releaseInputValues(context);
 }
 
+namespace {
+
+/// Data needed to generate exception context for the top-level expression.
+struct ExprExceptionContext {
+  /// The expression.
+  Expr* expr;
+
+  /// The input vector, i.e. EvalCtx::row(). In some cases, input columns are
+  /// re-used for results. Hence, 'vector' may no longer contain input data at
+  /// the time of exception.
+  const RowVector* vector;
+
+  /// Path of the file storing the serialized 'vector'. Used to avoid
+  /// serializing vector repeatedly in cases when multiple rows generate
+  /// exceptions. This happens when exceptions are suppressed by TRY/AND/OR.
+  std::string serializedVectorPath{""};
+};
+
+/// Generates a file path in specified directory. Returns std::nullopt on
+/// failure.
+std::optional<std::string> generateFilePath(const char* basePath) {
+  auto path = fmt::format("{}/velox_vector_XXXXXX", basePath);
+  auto fd = mkstemp(path.data());
+  if (fd == -1) {
+    return std::nullopt;
+  }
+  return path;
+}
+
+/// Used to generate context for an error occurred while evaluating
+/// top-level expression or top-level context for an error occurred while
+/// evaluating top-level expression. If
+/// FLAGS_velox_save_input_on_expression_failure_path
+//  is not empty, saves the input vector to a file in that directory. Returns
+//  the output of Expr::toString() for the top-level
+/// expression along with the path of the file storing the input vector.
+///
+/// This function may be called multiple times if exceptions are suppressed by
+/// TRY/AND/OR. The input vector will be saved only on first call and the
+/// file path will be saved in ExprExceptionContext::serializedVectorPath and
+/// used in subsequent calls. If an error occurs while saving the input vector,
+/// the error message is saved in ExprExceptionContext::serializedVectorPath and
+/// save operation is not attempted again on subsequent calls.
+std::string onTopLevelException(void* arg) {
+  auto* context = static_cast<ExprExceptionContext*>(arg);
+
+  const auto& basePath = FLAGS_velox_save_input_on_expression_failure_path;
+  if (basePath.empty()) {
+    return context->expr->toString();
+  }
+
+  // Save input vector to a file.
+  if (context->serializedVectorPath.empty()) {
+    auto filePath = generateFilePath(basePath.c_str());
+    if (!filePath.has_value()) {
+      context->serializedVectorPath =
+          "Failed to create file for saving input vector.";
+    } else {
+      try {
+        std::ofstream outputFile(filePath.value(), std::ofstream::binary);
+        saveVector(*context->vector, outputFile);
+        outputFile.close();
+        context->serializedVectorPath = filePath.value();
+      } catch (...) {
+        context->serializedVectorPath =
+            fmt::format("Failed to save input vector to {}.", filePath.value());
+      }
+    }
+  }
+
+  return fmt::format(
+      "{}. Input: {}.",
+      context->expr->toString(),
+      context->serializedVectorPath);
+}
+
+/// Used to generate context for an error occurred while evaluating
+/// sub-expression. Returns the output of Expr::toString() for the
+/// sub-expression.
+std::string onException(void* arg) {
+  return static_cast<Expr*>(arg)->toString();
+}
+} // namespace
+
 void Expr::evalFlatNoNulls(
     const SelectivityVector& rows,
     EvalCtx& context,
-    VectorPtr& result) {
+    VectorPtr& result,
+    bool topLevel) {
+  ExprExceptionContext exprExceptionContext{this, context.row()};
   ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+      {topLevel ? onTopLevelException : onException,
+       topLevel ? (void*)&exprExceptionContext : this});
 
   if (isSpecialForm()) {
     evalSpecialForm(rows, context, result);
@@ -350,17 +439,20 @@ void Expr::evalFlatNoNulls(
 void Expr::eval(
     const SelectivityVector& rows,
     EvalCtx& context,
-    VectorPtr& result) {
+    VectorPtr& result,
+    bool topLevel) {
   if (supportsFlatNoNullsFastPath_ && context.throwOnError() &&
       context.inputFlatNoNulls() && rows.countSelected() < 1'000) {
-    evalFlatNoNulls(rows, context, result);
+    evalFlatNoNulls(rows, context, result, topLevel);
     return;
   }
 
   // Make sure to include current expression in the error message in case of an
   // exception.
+  ExprExceptionContext exprExceptionContext{this, context.row()};
   ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+      {topLevel ? onTopLevelException : onException,
+       topLevel ? (void*)&exprExceptionContext : this});
 
   if (!rows.hasSelections()) {
     // empty input, return an empty vector of the right type
@@ -1439,7 +1531,7 @@ void ExprSet::eval(
   }
 
   for (int32_t i = begin; i < end; ++i) {
-    exprs_[i]->eval(rows, context, result[i]);
+    exprs_[i]->eval(rows, context, result[i], true /*topLevel*/);
   }
 }
 

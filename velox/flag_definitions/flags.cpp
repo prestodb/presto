@@ -76,3 +76,11 @@ DEFINE_int32(
 DEFINE_bool(avx2, true, "Enables use of AVX2 when available");
 
 DEFINE_bool(bmi2, true, "Enables use of BMI2 when available");
+
+// Used in exec/Expr.cpp
+
+DEFINE_string(
+    velox_save_input_on_expression_failure_path,
+    "",
+    "Enable saving input vector on expression evaluation failure. "
+    "Specifies the directory to use for storing the vectors.");

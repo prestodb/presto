@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
+#include <fstream>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/ConjunctExpr.h"
 #include "velox/expression/ConstantExpr.h"
 #include "velox/functions/Udf.h"
@@ -26,6 +28,7 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::velox;
@@ -34,6 +37,8 @@ using namespace facebook::velox::test;
 class ExprTest : public testing::Test, public VectorTestBase {
  protected:
   void SetUp() override {
+    FLAGS_velox_save_input_on_expression_failure_path = tempDirectory_->path;
+
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
   }
@@ -135,6 +140,34 @@ class ExprTest : public testing::Test, public VectorTestBase {
         }));
   }
 
+  /// Remove ". Input: .*" from the 'context'.
+  std::string trimInputPath(const std::string& context) {
+    auto pos = context.find(". Input: ");
+    if (pos == std::string::npos) {
+      return context;
+    }
+
+    return context.substr(0, pos);
+  }
+
+  /// Extract input path from 'context': "<expression>. Input: <input path>."
+  std::string extractInputPath(const std::string& context) {
+    auto startPos = context.find(". Input: ");
+    VELOX_CHECK(startPos != std::string::npos);
+    startPos += strlen(". Input: ");
+    auto endPos = context.find(".", startPos);
+    VELOX_CHECK(endPos != std::string::npos);
+    return context.substr(startPos, endPos - startPos);
+  }
+
+  VectorPtr restoreVector(const std::string& path) {
+    std::ifstream inputFile(path, std::ifstream::binary);
+    VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", path);
+    auto copy = facebook::velox::restoreVector(inputFile, pool());
+    inputFile.close();
+    return copy;
+  }
+
   void assertError(
       const std::string& expression,
       const VectorPtr& input,
@@ -145,8 +178,8 @@ class ExprTest : public testing::Test, public VectorTestBase {
       evaluate(expression, makeRowVector({input}));
       ASSERT_TRUE(false) << "Expected an error";
     } catch (VeloxException& e) {
-      ASSERT_EQ(context, e.context());
-      ASSERT_EQ(topLevelContext, e.topLevelContext());
+      ASSERT_EQ(context, trimInputPath(e.context()));
+      ASSERT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
       ASSERT_EQ(message, e.message());
     }
   }
@@ -155,6 +188,8 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
   parse::ParseOptions options_;
+  std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_{
+      exec::test::TempDirectoryPath::create()};
 };
 
 TEST_F(ExprTest, moreEncodings) {
@@ -2026,7 +2061,11 @@ TEST_F(ExprTest, exceptionContext) {
     ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT)", e.context());
     ASSERT_EQ(
         "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
-        e.topLevelContext());
+        trimInputPath(e.topLevelContext()));
+
+    auto inputPath = extractInputPath(e.topLevelContext());
+    auto copy = restoreVector(inputPath);
+    assertEqualVectors(data, copy);
   }
 
   try {
@@ -2036,7 +2075,11 @@ TEST_F(ExprTest, exceptionContext) {
     ASSERT_EQ("mod(cast((c1) as BIGINT), 0:BIGINT)", e.context());
     ASSERT_EQ(
         "plus(cast((c0) as BIGINT), mod(cast((c1) as BIGINT), 0:BIGINT))",
-        e.topLevelContext());
+        trimInputPath(e.topLevelContext()));
+
+    auto inputPath = extractInputPath(e.topLevelContext());
+    auto copy = restoreVector(inputPath);
+    assertEqualVectors(data, copy);
   }
 }
 
