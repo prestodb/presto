@@ -219,6 +219,9 @@ class Expr {
   /// their inputs recursively.
   virtual std::string toString(bool recursive = true) const;
 
+  /// Return the expression as SQL string.
+  virtual std::string toSql() const;
+
   const ExprStats& stats() const {
     return stats_;
   }
@@ -330,6 +333,8 @@ class Expr {
 
  protected:
   void appendInputs(std::stringstream& stream) const;
+
+  void appendInputsSql(std::stringstream& stream) const;
 
   /// Release 'inputValues_' back to vector pool in 'evalCtx' so they can be
   /// reused.

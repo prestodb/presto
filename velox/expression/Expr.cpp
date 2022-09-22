@@ -1420,6 +1420,13 @@ std::string Expr::toString(bool recursive) const {
   return name_;
 }
 
+std::string Expr::toSql() const {
+  std::stringstream out;
+  out << "\"" << name_ << "\"";
+  appendInputsSql(out);
+  return out.str();
+}
+
 void Expr::appendInputs(std::stringstream& stream) const {
   if (!inputs_.empty()) {
     stream << "(";
@@ -1428,6 +1435,19 @@ void Expr::appendInputs(std::stringstream& stream) const {
         stream << ", ";
       }
       stream << inputs_[i]->toString();
+    }
+    stream << ")";
+  }
+}
+
+void Expr::appendInputsSql(std::stringstream& stream) const {
+  if (!inputs_.empty()) {
+    stream << "(";
+    for (auto i = 0; i < inputs_.size(); ++i) {
+      if (i > 0) {
+        stream << ", ";
+      }
+      stream << inputs_[i]->toSql();
     }
     stream << ")";
   }

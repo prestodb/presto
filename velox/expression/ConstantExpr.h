@@ -61,6 +61,8 @@ class ConstantExpr : public SpecialForm {
 
   std::string toString(bool recursive = true) const override;
 
+  std::string toSql() const override;
+
  private:
   const variant value_;
   bool needToSetIsAscii_;

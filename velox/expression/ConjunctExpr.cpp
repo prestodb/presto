@@ -276,4 +276,13 @@ void ConjunctExpr::updateResult(
     }
   }
 }
+
+std::string ConjunctExpr::toSql() const {
+  std::stringstream out;
+  out << inputs_[0]->toSql();
+  for (auto i = 1; i < inputs_.size(); ++i) {
+    out << " " << name_ << " " << inputs_[i]->toSql();
+  }
+  return out.str();
+}
 } // namespace facebook::velox::exec

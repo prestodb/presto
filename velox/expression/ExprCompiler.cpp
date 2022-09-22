@@ -211,7 +211,7 @@ ExprPtr getRowConstructorExpr(
       type,
       std::move(compiledChildren),
       rowConstructorVectorFunction,
-      "row",
+      "row_constructor",
       trackCpuUsage);
 }
 

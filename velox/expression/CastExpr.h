@@ -102,6 +102,8 @@ class CastExpr : public SpecialForm {
 
   std::string toString(bool recursive = true) const override;
 
+  std::string toSql() const override;
+
  private:
   /// @tparam To The cast target type
   /// @tparam From The expression type

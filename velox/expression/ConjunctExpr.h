@@ -56,6 +56,8 @@ class ConjunctExpr : public SpecialForm {
     return selectivity_[inputOrder_[index]];
   }
 
+  std::string toSql() const override;
+
  private:
   void maybeReorderInputs();
   void updateResult(

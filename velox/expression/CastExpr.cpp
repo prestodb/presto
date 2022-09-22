@@ -685,4 +685,11 @@ std::string CastExpr::toString(bool recursive) const {
   return out.str();
 }
 
+std::string CastExpr::toSql() const {
+  std::stringstream out;
+  out << "cast(";
+  appendInputsSql(out);
+  out << " as " << type_->toString() << ")";
+  return out.str();
+}
 } // namespace facebook::velox::exec
