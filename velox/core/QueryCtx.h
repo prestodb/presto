@@ -53,7 +53,8 @@ class QueryCtx : public Context {
       memory::MappedMemory* FOLLY_NONNULL mappedMemory =
           memory::MappedMemory::getInstance(),
       std::unique_ptr<memory::MemoryPool> pool = nullptr,
-      std::shared_ptr<folly::Executor> spillExecutor = nullptr)
+      std::shared_ptr<folly::Executor> spillExecutor = nullptr,
+      const std::string& queryId = "")
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
@@ -63,7 +64,7 @@ class QueryCtx : public Context {
         spillExecutor_(std::move(spillExecutor)) {
     setConfigOverrides(config);
     if (!pool_) {
-      initPool();
+      initPool(queryId);
     }
   }
 
@@ -78,7 +79,8 @@ class QueryCtx : public Context {
           connectorConfigs = {},
       memory::MappedMemory* FOLLY_NONNULL mappedMemory =
           memory::MappedMemory::getInstance(),
-      std::unique_ptr<memory::MemoryPool> pool = nullptr)
+      std::unique_ptr<memory::MemoryPool> pool = nullptr,
+      const std::string& queryId = "")
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
@@ -87,8 +89,12 @@ class QueryCtx : public Context {
         config_{this} {
     setConfigOverrides(config);
     if (!pool_) {
-      initPool();
+      initPool(queryId);
     }
+  }
+
+  static std::string generatePoolName(const std::string& queryId) {
+    return fmt::format("query.{}", queryId.c_str());
   }
 
   memory::MemoryPool* FOLLY_NONNULL pool() const {
@@ -140,16 +146,13 @@ class QueryCtx : public Context {
     return kEmptyConfig.get();
   }
 
-  void initPool() {
+  void initPool(const std::string& queryId) {
     pool_ = memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
-        kQueryRootMemoryPool);
+        QueryCtx::generatePoolName(queryId));
     static const auto kUnlimited = std::numeric_limits<int64_t>::max();
     pool_->setMemoryUsageTracker(
         memory::MemoryUsageTracker::create(kUnlimited, kUnlimited, kUnlimited));
   }
-
-  static constexpr const char* FOLLY_NONNULL kQueryRootMemoryPool =
-      "query_root";
 
   std::unique_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* FOLLY_NONNULL mappedMemory_;

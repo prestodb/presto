@@ -164,7 +164,9 @@ struct OperatorStats {
 
 class OperatorCtx {
  public:
-  explicit OperatorCtx(DriverCtx* driverCtx);
+  explicit OperatorCtx(
+      DriverCtx* driverCtx,
+      const std::string& operatorType = "");
 
   const std::shared_ptr<Task>& task() const {
     return driverCtx_->task;

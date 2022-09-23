@@ -260,13 +260,14 @@ class Task : public std::enable_shared_from_this<Task> {
   /// library components (Driver, Operator, etc.) and should not be called by
   /// the library users.
 
-  memory::MemoryPool* FOLLY_NONNULL addDriverPool();
+  memory::MemoryPool* FOLLY_NONNULL addDriverPool(int pipelineId, int driverId);
 
   /// Creates new instance of MemoryPool, stores it in the task to ensure
   /// lifetime and returns a raw pointer. Not thread safe, e.g. must be called
   /// from the Operator's constructor.
-  memory::MemoryPool* FOLLY_NONNULL
-  addOperatorPool(memory::MemoryPool* FOLLY_NONNULL driverPool);
+  memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
+      memory::MemoryPool* FOLLY_NONNULL driverPool,
+      const std::string& operatorType = "");
 
   /// Creates new instance of MappedMemory, stores it in the task to ensure
   /// lifetime and returns a raw pointer. Not thread safe, e.g. must be called

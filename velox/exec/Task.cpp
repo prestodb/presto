@@ -141,7 +141,8 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
-      pool_(queryCtx_->pool()->addScopedChild("task_root")),
+      pool_(queryCtx_->pool()->addScopedChild(
+          fmt::format("task.{}", taskId_.c_str()))),
       splitPlanNodeIds_(collectSplitPlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
@@ -168,8 +169,10 @@ Task::~Task() {
   }
 }
 
-velox::memory::MemoryPool* FOLLY_NONNULL Task::addDriverPool() {
-  childPools_.push_back(pool_->addScopedChild("driver_root"));
+velox::memory::MemoryPool* FOLLY_NONNULL
+Task::addDriverPool(int pipelineId, int driverId) {
+  childPools_.push_back(pool_->addScopedChild(
+      fmt::format("pipe.{}.driver.{}", pipelineId, driverId)));
   auto* driverPool = childPools_.back().get();
   auto parentTracker = pool_->getMemoryUsageTracker();
   if (parentTracker) {
@@ -179,9 +182,11 @@ velox::memory::MemoryPool* FOLLY_NONNULL Task::addDriverPool() {
   return driverPool;
 }
 
-velox::memory::MemoryPool* FOLLY_NONNULL
-Task::addOperatorPool(velox::memory::MemoryPool* FOLLY_NONNULL driverPool) {
-  childPools_.push_back(driverPool->addScopedChild("operator_ctx"));
+velox::memory::MemoryPool* FOLLY_NONNULL Task::addOperatorPool(
+    velox::memory::MemoryPool* FOLLY_NONNULL driverPool,
+    const std::string& operatorType) {
+  childPools_.push_back(
+      driverPool->addScopedChild(fmt::format("op.{}", operatorType)));
   return childPools_.back().get();
 }
 
