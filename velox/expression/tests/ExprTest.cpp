@@ -2668,7 +2668,7 @@ TEST_F(ExprTest, preservePartialResultsWithEncodedInput) {
 // translated set of rows now contains row numbers > N, hence, constant input
 // needs to be resized, otherwise, accessing rows numbers > N will cause an
 // error.
-TEST_F(ExprTest, a) {
+TEST_F(ExprTest, peelIntermediateResults) {
   auto data = makeRowVector({makeArrayVector<int32_t>({
       {0, 1, 2, 3, 4, 5, 6, 7},
       {0, 1, 2, 33, 4, 5, 6, 7, 8},
@@ -2682,6 +2682,16 @@ TEST_F(ExprTest, a) {
   auto expected = makeNullableArrayVector<int32_t>({
       {std::nullopt, 3},
       {std::nullopt, 33},
+  });
+  assertEqualVectors(expected, result);
+
+  // Change the order of arguments.
+  result = evaluate(
+      "array_constructor(element_at(c0, 4), element_at(c0, 200))", data);
+
+  expected = makeNullableArrayVector<int32_t>({
+      {3, std::nullopt},
+      {33, std::nullopt},
   });
   assertEqualVectors(expected, result);
 }

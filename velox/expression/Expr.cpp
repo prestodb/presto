@@ -1368,7 +1368,7 @@ bool Expr::applyFunctionWithPeeling(
     // numbers may be larger than rows.end(). Hence, we need to resize constant
     // inputs.
     if (newRows->end() > rows.end() && numConstant) {
-      for (int i = 0; i < numConstant; ++i) {
+      for (int i = 0; i < constantArgs.size(); ++i) {
         if (!constantArgs.empty() && constantArgs[i]) {
           inputValues_[i] =
               BaseVector::wrapInConstant(newRows->end(), 0, inputValues_[i]);
