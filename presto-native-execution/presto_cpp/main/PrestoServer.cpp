@@ -333,7 +333,8 @@ void PrestoServer::initializeAsyncCache() {
   }
   auto memoryBytes = memoryGb << 30;
 
-  memory::MmapAllocatorOptions options = {memoryBytes};
+  memory::MmapAllocatorOptions options;
+  options.capacity = memoryBytes;
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
   mappedMemory_ = std::make_shared<cache::AsyncDataCache>(
       allocator, memoryBytes, std::move(ssd));
