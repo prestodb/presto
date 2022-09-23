@@ -100,11 +100,10 @@ VectorPtr setVectorFromVariants(
 } // namespace
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::AggregateRel& aggRel,
-    memory::MemoryPool* pool) {
+    const ::substrait::AggregateRel& aggRel) {
   core::PlanNodePtr childNode;
   if (aggRel.has_input()) {
-    childNode = toVeloxPlan(aggRel.input(), pool);
+    childNode = toVeloxPlan(aggRel.input());
   } else {
     VELOX_FAIL("Child Rel is expected in AggregateRel.");
   }
@@ -185,11 +184,10 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::ProjectRel& projectRel,
-    memory::MemoryPool* pool) {
+    const ::substrait::ProjectRel& projectRel) {
   core::PlanNodePtr childNode;
   if (projectRel.has_input()) {
-    childNode = toVeloxPlan(projectRel.input(), pool);
+    childNode = toVeloxPlan(projectRel.input());
   } else {
     VELOX_FAIL("Child Rel is expected in ProjectRel.");
   }
@@ -218,11 +216,10 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::FilterRel& filterRel,
-    memory::MemoryPool* pool) {
+    const ::substrait::FilterRel& filterRel) {
   core::PlanNodePtr childNode;
   if (filterRel.has_input()) {
-    childNode = toVeloxPlan(filterRel.input(), pool);
+    childNode = toVeloxPlan(filterRel.input());
   } else {
     VELOX_FAIL("Child Rel is expected in FilterRel.");
   }
@@ -238,7 +235,6 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ReadRel& readRel,
-    memory::MemoryPool* pool,
     std::shared_ptr<SplitInfo>& splitInfo) {
   // Get output names and types.
   std::vector<std::string> colNameList;
@@ -323,7 +319,7 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   auto outputType = ROW(std::move(outNames), std::move(veloxTypeList));
 
   if (readRel.has_virtual_table()) {
-    return toVeloxPlan(readRel, pool, outputType);
+    return toVeloxPlan(readRel, outputType);
 
   } else {
     auto tableScanNode = std::make_shared<core::TableScanNode>(
@@ -334,7 +330,6 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
     const ::substrait::ReadRel& readRel,
-    memory::MemoryPool* pool,
     const RowTypePtr& type) {
   ::substrait::ReadRel_VirtualTable readVirtualTable = readRel.virtual_table();
   int64_t numVectors = readVirtualTable.values_size();
@@ -383,32 +378,31 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
         }
       }
       children.emplace_back(
-          setVectorFromVariants(outputChildType, batchChild, pool));
+          setVectorFromVariants(outputChildType, batchChild, pool_));
     }
 
     vectors.emplace_back(
-        std::make_shared<RowVector>(pool, type, nullptr, batchSize, children));
+        std::make_shared<RowVector>(pool_, type, nullptr, batchSize, children));
   }
 
   return std::make_shared<core::ValuesNode>(nextPlanNodeId(), vectors);
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::Rel& rel,
-    memory::MemoryPool* pool) {
+    const ::substrait::Rel& rel) {
   if (rel.has_aggregate()) {
-    return toVeloxPlan(rel.aggregate(), pool);
+    return toVeloxPlan(rel.aggregate());
   }
   if (rel.has_project()) {
-    return toVeloxPlan(rel.project(), pool);
+    return toVeloxPlan(rel.project());
   }
   if (rel.has_filter()) {
-    return toVeloxPlan(rel.filter(), pool);
+    return toVeloxPlan(rel.filter());
   }
   if (rel.has_read()) {
     auto splitInfo = std::make_shared<SplitInfo>();
 
-    auto planNode = toVeloxPlan(rel.read(), pool, splitInfo);
+    auto planNode = toVeloxPlan(rel.read(), splitInfo);
     splitInfoMap_[planNode->id()] = splitInfo;
     return planNode;
   }
@@ -416,20 +410,18 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::RelRoot& root,
-    memory::MemoryPool* pool) {
+    const ::substrait::RelRoot& root) {
   // TODO: Use the names as the output names for the whole computing.
   const auto& names = root.names();
   if (root.has_input()) {
     const auto& rel = root.input();
-    return toVeloxPlan(rel, pool);
+    return toVeloxPlan(rel);
   }
   VELOX_FAIL("Input is expected in RelRoot.");
 }
 
 core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
-    const ::substrait::Plan& substraitPlan,
-    memory::MemoryPool* pool) {
+    const ::substrait::Plan& substraitPlan) {
   VELOX_CHECK(
       checkTypeExtension(substraitPlan),
       "The type extension only have unknown type.")
@@ -437,16 +429,17 @@ core::PlanNodePtr SubstraitVeloxPlanConverter::toVeloxPlan(
   constructFunctionMap(substraitPlan);
 
   // Construct the expression converter.
-  exprConverter_ = std::make_shared<SubstraitVeloxExprConverter>(functionMap_);
+  exprConverter_ =
+      std::make_shared<SubstraitVeloxExprConverter>(pool_, functionMap_);
 
   // In fact, only one RelRoot or Rel is expected here.
   VELOX_CHECK_EQ(substraitPlan.relations_size(), 1);
   const auto& rel = substraitPlan.relations(0);
   if (rel.has_root()) {
-    return toVeloxPlan(rel.root(), pool);
+    return toVeloxPlan(rel.root());
   }
   if (rel.has_rel()) {
-    return toVeloxPlan(rel.rel(), pool);
+    return toVeloxPlan(rel.rel());
   }
 
   VELOX_FAIL("RelRoot or Rel is expected in Plan.");

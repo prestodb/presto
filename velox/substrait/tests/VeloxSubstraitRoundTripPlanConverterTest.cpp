@@ -64,17 +64,17 @@ class VeloxSubstraitRoundTripPlanConverterTest : public OperatorTestBase {
     auto substraitPlan = veloxConvertor_->toSubstrait(arena, plan);
 
     // Convert Substrait Plan to the same Velox Plan.
-    auto samePlan =
-        substraitConverter_->toVeloxPlan(substraitPlan, pool_.get());
+    auto samePlan = substraitConverter_->toVeloxPlan(substraitPlan);
 
     // Assert velox again.
     assertQuery(samePlan, duckDbSql);
   }
-
+  std::unique_ptr<memory::ScopedMemoryPool> pool_{
+      memory::getDefaultScopedMemoryPool()};
   std::shared_ptr<VeloxToSubstraitPlanConvertor> veloxConvertor_ =
       std::make_shared<VeloxToSubstraitPlanConvertor>();
   std::shared_ptr<SubstraitVeloxPlanConverter> substraitConverter_ =
-      std::make_shared<SubstraitVeloxPlanConverter>();
+      std::make_shared<SubstraitVeloxPlanConverter>(pool_.get());
 };
 
 TEST_F(VeloxSubstraitRoundTripPlanConverterTest, project) {

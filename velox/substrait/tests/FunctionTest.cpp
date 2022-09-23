@@ -39,7 +39,7 @@ class FunctionTest : public ::testing::Test {
       std::make_shared<vestrait::SubstraitParser>();
 
   std::shared_ptr<vestrait::SubstraitVeloxPlanConverter> planConverter_ =
-      std::make_shared<vestrait::SubstraitVeloxPlanConverter>();
+      std::make_shared<vestrait::SubstraitVeloxPlanConverter>(pool_.get());
 };
 
 TEST_F(FunctionTest, makeNames) {
