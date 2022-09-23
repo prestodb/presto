@@ -110,28 +110,15 @@ public class PinotPageSourceProvider
                     pinotSplit,
                     handles);
             case BROKER:
-                switch (pinotSplit.getBrokerPinotQuery().get().getFormat()) {
-                    case SQL:
-                        return new PinotBrokerPageSourceSql(
-                            pinotConfig,
-                            session,
-                            pinotSplit.getBrokerPinotQuery().get(),
-                            handles,
-                            pinotSplit.getExpectedColumnHandles(),
-                            clusterInfoFetcher,
-                            objectMapper,
-                            brokerAuthenticationProvider);
-                    case PQL:
-                        return new PinotBrokerPageSourcePql(
-                            pinotConfig,
-                            session,
-                            pinotSplit.getBrokerPinotQuery().get(),
-                            handles,
-                            pinotSplit.getExpectedColumnHandles(),
-                            clusterInfoFetcher,
-                            objectMapper,
-                            brokerAuthenticationProvider);
-                }
+                return new PinotBrokerPageSource(
+                    pinotConfig,
+                    session,
+                    pinotSplit.getBrokerPinotQuery().get(),
+                    handles,
+                    pinotSplit.getExpectedColumnHandles(),
+                    clusterInfoFetcher,
+                    objectMapper,
+                    brokerAuthenticationProvider);
             default:
                 throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
         }

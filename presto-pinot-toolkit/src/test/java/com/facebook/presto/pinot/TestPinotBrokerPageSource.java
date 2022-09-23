@@ -37,7 +37,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static org.testng.Assert.assertEquals;
 
-public class TestPinotBrokerPageSourceSql
+public class TestPinotBrokerPageSource
         extends TestPinotQueryBase
 {
     private static PinotTableHandle pinotTable = new PinotTableHandle("connId", "schema", "tbl");
@@ -164,13 +164,11 @@ public class TestPinotBrokerPageSourceSql
         PinotQueryGenerator.GeneratedPinotQuery generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
                 "SELECT * FROM myTable",
-                PinotQueryGenerator.PinotQueryFormat.SQL,
                 ImmutableList.of(),
-                0,
                 false,
                 false);
 
-        PinotBrokerPageSourceSql pageSource = new PinotBrokerPageSourceSql(
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
                 pinotConfig,
                 new TestingConnectorSession(ImmutableList.of(
                         booleanProperty(
@@ -189,9 +187,7 @@ public class TestPinotBrokerPageSourceSql
         generatedPinotQuery = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
                 "SELECT * FROM myTable WHERE jsonStr = '\"{\"abc\" : \"def\"}\"'",
-                PinotQueryGenerator.PinotQueryFormat.SQL,
                 ImmutableList.of(),
-                0,
                 false,
                 false);
         assertEquals(pageSource.getRequestPayload(generatedPinotQuery), "{\"sql\":\"SELECT * FROM myTable WHERE jsonStr = '\\\"{\\\"abc\\\" : \\\"def\\\"}\\\"'\"}");
@@ -210,12 +206,10 @@ public class TestPinotBrokerPageSourceSql
         PinotQueryGenerator.GeneratedPinotQuery generatedSql = new PinotQueryGenerator.GeneratedPinotQuery(
                 pinotTable.getTableName(),
                 sql,
-                PinotQueryGenerator.PinotQueryFormat.SQL,
                 expectedColumnIndices,
-                0,
                 false,
                 false);
-        PinotBrokerPageSourceSql pageSource = new PinotBrokerPageSourceSql(
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(
                 pinotConfig,
                 new TestingConnectorSession(ImmutableList.of()),
                 generatedSql,
@@ -224,7 +218,7 @@ public class TestPinotBrokerPageSourceSql
                 new MockPinotClusterInfoFetcher(pinotConfig),
                 objectMapper,
                 PinotBrokerAuthenticationProvider.create(PinotEmptyAuthenticationProvider.instance()));
-        PinotBrokerPageSourceBase.BlockAndTypeBuilder blockAndTypeBuilder = pageSource.buildBlockAndTypeBuilder(actualHandles, generatedSql);
+        PinotBrokerPageSource.BlockAndTypeBuilder blockAndTypeBuilder = pageSource.buildBlockAndTypeBuilder(actualHandles, generatedSql);
         List<BlockBuilder> columnBlockBuilders = blockAndTypeBuilder.getColumnBlockBuilders();
         List<Type> columnTypes = blockAndTypeBuilder.getColumnTypes();
 

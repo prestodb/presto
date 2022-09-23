@@ -39,7 +39,6 @@ public class PinotSessionProperties
     public static final String RETRY_COUNT = "retry_count";
     public static final String MARK_DATA_FETCH_EXCEPTIONS_AS_RETRIABLE = "mark_data_fetch_exceptions_as_retriable";
     public static final String USE_DATE_TRUNC = "use_date_trunc";
-    public static final String USE_PINOT_SQL_FOR_BROKER_QUERIES = "use_pinot_sql_for_broker_queries";
     public static final String NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = "non_aggregate_limit_for_broker_queries";
     public static final String PUSHDOWN_TOPN_BROKER_QUERIES = "pushdown_topn_broker_queries";
     public static final String PUSHDOWN_PROJECT_EXPRESSIONS = "pushdown_project_expressions";
@@ -99,11 +98,6 @@ public class PinotSessionProperties
     public static boolean isUseDateTruncation(ConnectorSession session)
     {
         return session.getProperty(USE_DATE_TRUNC, Boolean.class);
-    }
-
-    public static boolean isUsePinotSqlForBrokerQueries(ConnectorSession session)
-    {
-        return session.getProperty(USE_PINOT_SQL_FOR_BROKER_QUERIES, Boolean.class);
     }
 
     public static int getNonAggregateLimitForBrokerQueries(ConnectorSession session)
@@ -234,11 +228,6 @@ public class PinotSessionProperties
                         USE_DATE_TRUNC,
                         "Use the new UDF dateTrunc in pinot that is more presto compatible",
                         pinotConfig.isUseDateTrunc(),
-                        false),
-                booleanProperty(
-                        USE_PINOT_SQL_FOR_BROKER_QUERIES,
-                        "Use Pinot SQL syntax and endpoint for broker query",
-                        pinotConfig.isUsePinotSqlForBrokerQueries(),
                         false),
                 booleanProperty(
                         PUSHDOWN_TOPN_BROKER_QUERIES,

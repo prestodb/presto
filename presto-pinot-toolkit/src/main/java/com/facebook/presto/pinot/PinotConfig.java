@@ -95,8 +95,6 @@ public class PinotConfig
     // Retry on data fetch exceptions, e.g. timeout from the server side.
     private boolean markDataFetchExceptionsAsRetriable = true;
 
-    // Requires Pinot version >= 0.4.0.
-    private boolean usePinotSqlForBrokerQueries = true;
     // Requires Pinot version >= 0.6.0.
     private boolean useStreamingForSegmentQueries = true;
     private int streamingServerGrpcMaxInboundMessageBytes = DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
@@ -508,18 +506,6 @@ public class PinotConfig
     public PinotConfig setMarkDataFetchExceptionsAsRetriable(boolean markDataFetchExceptionsAsRetriable)
     {
         this.markDataFetchExceptionsAsRetriable = markDataFetchExceptionsAsRetriable;
-        return this;
-    }
-
-    public boolean isUsePinotSqlForBrokerQueries()
-    {
-        return usePinotSqlForBrokerQueries;
-    }
-
-    @Config("pinot.use-pinot-sql-for-broker-queries")
-    public PinotConfig setUsePinotSqlForBrokerQueries(boolean usePinotSqlForBrokerQueries)
-    {
-        this.usePinotSqlForBrokerQueries = usePinotSqlForBrokerQueries;
         return this;
     }
 
