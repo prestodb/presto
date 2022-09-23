@@ -295,6 +295,8 @@ void Window::callApplyForPartitionRows(
   auto bufferSize = numRows * sizeof(vector_size_t);
   peerStartBuffer_->setSize(bufferSize);
   peerEndBuffer_->setSize(bufferSize);
+  auto rawPeerStarts = peerStartBuffer_->asMutable<vector_size_t>();
+  auto rawPeerEnds = peerEndBuffer_->asMutable<vector_size_t>();
 
   std::vector<vector_size_t*> rawFrameStartBuffers;
   std::vector<vector_size_t*> rawFrameEndBuffers;
@@ -311,7 +313,39 @@ void Window::callApplyForPartitionRows(
     rawFrameEndBuffers.push_back(rawFrameEndBuffer);
   }
 
-  // TODO : Calculate values for peer and frame buffers.
+  auto peerCompare = [&](const char* lhs, const char* rhs) -> bool {
+    return compareRowsWithKeys(lhs, rhs, sortKeyInfo_);
+  };
+  auto firstPartitionRow = partitionStartRows_[currentPartition_];
+  auto lastPartitionRow = partitionStartRows_[currentPartition_ + 1] - 1;
+  for (auto i = startRow, j = 0; i < endRow; i++, j++) {
+    // When traversing input partition rows, the peers are the rows
+    // with the same values for the ORDER BY clause. These rows
+    // are equal in some ways and affect the results of ranking functions.
+    // This logic exploits the fact that all rows between the peerStartRow_
+    // and peerEndRow_ have the same values for peerStartRow_ and peerEndRow_.
+    // So we can compute them just once and reuse across the rows in that peer
+    // interval. Note: peerStartRow_ and peerEndRow_ can be maintained across
+    // getOutput calls.
+
+    // Compute peerStart and peerEnd rows for the first row of the partition or
+    // when past the previous peerGroup.
+    if (i == firstPartitionRow || i >= peerEndRow_) {
+      peerStartRow_ = i;
+      peerEndRow_ = i;
+      while (peerEndRow_ <= lastPartitionRow) {
+        if (peerCompare(sortedRows_[peerStartRow_], sortedRows_[peerEndRow_])) {
+          break;
+        }
+        peerEndRow_++;
+      }
+    }
+
+    rawPeerStarts[j] = peerStartRow_;
+    rawPeerEnds[j] = peerEndRow_ - 1;
+
+    // TODO: Calculate frame buffer values.
+  }
   // Invoke the apply method for the WindowFunctions.
   for (auto w = 0; w < numFuncs; w++) {
     windowFunctions_[w]->apply(

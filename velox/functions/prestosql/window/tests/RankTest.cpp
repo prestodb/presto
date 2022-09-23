@@ -21,34 +21,34 @@ namespace facebook::velox::window::test {
 
 namespace {
 
-class RowNumberTest : public WindowTestBase {};
+class RankTest : public WindowTestBase {};
 
-TEST_F(RowNumberTest, basic) {
-  vector_size_t size = 100;
+TEST_F(RankTest, basic) {
+  vector_size_t size = 1000;
 
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(
-          size, [](auto row) -> int32_t { return row % 5; }),
+          size, [](auto row) -> int32_t { return row % 10; }),
       makeFlatVector<int32_t>(
           size, [](auto row) -> int32_t { return row % 7; }),
   });
 
-  testTwoColumnInput({vectors}, "row_number");
+  testTwoColumnInput({vectors}, "rank");
 }
 
-TEST_F(RowNumberTest, singlePartition) {
+TEST_F(RankTest, singlePartition) {
   // Test all input rows in a single partition.
   vector_size_t size = 1'000;
 
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
   });
 
-  testTwoColumnInput({vectors}, "row_number");
+  testTwoColumnInput({vectors}, "rank");
 }
 
-TEST_F(RowNumberTest, randomInput) {
+TEST_F(RankTest, randomInput) {
   auto vectors = makeVectors(
       ROW({"c0", "c1", "c2", "c3"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
@@ -61,11 +61,18 @@ TEST_F(RowNumberTest, randomInput) {
       "partition by c1 order by c0, c2, c3",
       "partition by c0 order by c1 desc, c2, c3",
       "partition by c1 order by c0 desc, c2, c3",
+      "partition by c0 order by c1",
+      "partition by c0 order by c2",
+      "partition by c0 order by c3",
+      "partition by c1 order by c0 desc",
+      "partition by c0, c1 order by c2, c3",
+      "partition by c0, c1 order by c2",
+      "partition by c0, c1 order by c2 desc",
       "order by c0, c1, c2, c3",
       "partition by c0, c1, c2, c3",
   };
 
-  testWindowFunction(vectors, "row_number", overClauses);
+  testWindowFunction(vectors, "rank", overClauses);
 }
 
 }; // namespace

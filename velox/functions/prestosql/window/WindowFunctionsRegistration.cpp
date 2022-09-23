@@ -18,9 +18,11 @@
 namespace facebook::velox::window {
 
 extern void registerRowNumber(const std::string& name);
+extern void registerRank(const std::string& name);
 
 void registerWindowFunctions() {
   window::registerRowNumber("row_number");
+  window::registerRank("rank");
 }
 
 } // namespace facebook::velox::window

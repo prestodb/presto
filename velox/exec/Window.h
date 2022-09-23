@@ -204,6 +204,16 @@ class Window : public Operator {
   // output across multiple getOutput() calls so this needs to
   // be tracked in the operator.
   vector_size_t currentPartition_;
+
+  // When traversing input partition rows, the peers are the rows
+  // with the same values for the ORDER BY clause. These rows
+  // are equal in some ways and affect the results of ranking functions.
+  // Since all rows between the peerStartRow_ and peerEndRow_ have the same
+  // values for peerStartRow_ and peerEndRow_, we needn't compute
+  // them for each row independently. Since these rows might
+  // cross getOutput boundaries they are saved in the operator.
+  vector_size_t peerStartRow_ = 0;
+  vector_size_t peerEndRow_ = 0;
 };
 
 } // namespace facebook::velox::exec
