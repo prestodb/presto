@@ -56,7 +56,7 @@ Table fromTableName(std::string_view tableName);
 /// defined in the spec available at:
 ///
 ///  https://www.tpc.org/tpch/
-size_t getRowCount(Table table, size_t scaleFactor);
+size_t getRowCount(Table table, double scaleFactor);
 
 /// Returns the schema (RowType) for a particular TPC-H table.
 RowTypePtr getTableSchema(Table table);
@@ -82,7 +82,7 @@ TypePtr resolveTpchColumn(Table table, const std::string& columnName);
 RowVectorPtr genTpchOrders(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -121,7 +121,7 @@ RowVectorPtr genTpchOrders(
 RowVectorPtr genTpchLineItem(
     size_t maxOrdersRows = 10000,
     size_t ordersOffset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -142,7 +142,7 @@ RowVectorPtr genTpchLineItem(
 RowVectorPtr genTpchPart(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -161,7 +161,7 @@ RowVectorPtr genTpchPart(
 RowVectorPtr genTpchSupplier(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -178,7 +178,7 @@ RowVectorPtr genTpchSupplier(
 RowVectorPtr genTpchPartSupp(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -198,7 +198,7 @@ RowVectorPtr genTpchPartSupp(
 RowVectorPtr genTpchCustomer(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -214,7 +214,7 @@ RowVectorPtr genTpchCustomer(
 RowVectorPtr genTpchNation(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 
@@ -229,7 +229,7 @@ RowVectorPtr genTpchNation(
 RowVectorPtr genTpchRegion(
     size_t maxRows = 10000,
     size_t offset = 0,
-    size_t scaleFactor = 1,
+    double scaleFactor = 1,
     memory::MemoryPool* pool =
         &velox::memory::getProcessDefaultMemoryManager().getRoot());
 

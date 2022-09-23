@@ -29,8 +29,9 @@ namespace {
 // the number of lineitems in an order is chosen at random with an average of
 // four. This function contains the row count for all authorized scale factors
 // (as described by the TPC-H spec), and approximates the remaining.
-constexpr size_t getLineItemRowCount(size_t scaleFactor) {
-  switch (scaleFactor) {
+constexpr size_t getLineItemRowCount(double scaleFactor) {
+  auto longScaleFactor = static_cast<long>(scaleFactor);
+  switch (longScaleFactor) {
     case 1:
       return 6'001'215;
     case 10:
@@ -125,7 +126,8 @@ Table fromTableName(std::string_view tableName) {
       fmt::format("Invalid TPC-H table name: '{}'", tableName));
 }
 
-size_t getRowCount(Table table, size_t scaleFactor) {
+size_t getRowCount(Table table, double scaleFactor) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   switch (table) {
     case Table::TBL_PART:
       return 200'000 * scaleFactor;
@@ -352,8 +354,9 @@ TypePtr resolveTpchColumn(Table table, const std::string& columnName) {
 RowVectorPtr genTpchOrders(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto ordersRowType = getTableSchema(Table::TBL_ORDERS);
   size_t vectorSize = getVectorSize(
@@ -397,8 +400,9 @@ RowVectorPtr genTpchOrders(
 RowVectorPtr genTpchLineItem(
     size_t maxOrderRows,
     size_t ordersOffset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // We control the buffer size based on the orders table, then allocate the
   // underlying buffer using the worst case (orderVectorSize * 7).
   size_t orderVectorSize = getVectorSize(
@@ -490,8 +494,9 @@ RowVectorPtr genTpchLineItem(
 RowVectorPtr genTpchPart(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto partRowType = getTableSchema(Table::TBL_PART);
   size_t vectorSize =
@@ -534,8 +539,9 @@ RowVectorPtr genTpchPart(
 RowVectorPtr genTpchSupplier(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto supplierRowType = getTableSchema(Table::TBL_SUPPLIER);
   size_t vectorSize = getVectorSize(
@@ -578,8 +584,9 @@ RowVectorPtr genTpchSupplier(
 RowVectorPtr genTpchPartSupp(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto partSuppRowType = getTableSchema(Table::TBL_PARTSUPP);
   size_t vectorSize = getVectorSize(
@@ -638,8 +645,9 @@ RowVectorPtr genTpchPartSupp(
 RowVectorPtr genTpchCustomer(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto customerRowType = getTableSchema(Table::TBL_CUSTOMER);
   size_t vectorSize = getVectorSize(
@@ -685,8 +693,9 @@ RowVectorPtr genTpchCustomer(
 RowVectorPtr genTpchNation(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto nationRowType = getTableSchema(Table::TBL_NATION);
   size_t vectorSize = getVectorSize(
@@ -719,8 +728,9 @@ RowVectorPtr genTpchNation(
 RowVectorPtr genTpchRegion(
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto regionRowType = getTableSchema(Table::TBL_REGION);
   size_t vectorSize = getVectorSize(

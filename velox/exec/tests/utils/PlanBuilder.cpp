@@ -138,7 +138,7 @@ PlanBuilder& PlanBuilder::tableScan(
 PlanBuilder& PlanBuilder::tableScan(
     tpch::Table table,
     std::vector<std::string>&& columnNames,
-    size_t scaleFactor) {
+    double scaleFactor) {
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
       assignmentsMap;
   std::vector<TypePtr> outputTypes;

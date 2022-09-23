@@ -28,7 +28,7 @@ namespace facebook::velox::tpch {
 /// synthetically generated data, backed by DBGEN.
 class DBGenIterator {
  public:
-  explicit DBGenIterator(size_t scaleFactor);
+  explicit DBGenIterator(double scaleFactor);
 
   // Before generating records using the gen*() functions below, call the
   // appropriate init*() function to correctly initialize the seed given the

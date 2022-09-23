@@ -171,7 +171,7 @@ class PlanBuilder {
   PlanBuilder& tableScan(
       tpch::Table table,
       std::vector<std::string>&& columnNames,
-      size_t scaleFactor = 1);
+      double scaleFactor = 1);
 
   /// Add a ValuesNode using specified data.
   ///

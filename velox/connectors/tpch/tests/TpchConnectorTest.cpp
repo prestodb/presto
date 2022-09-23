@@ -17,6 +17,7 @@
 #include "velox/connectors/tpch/TpchConnector.h"
 #include <folly/init/Init.h>
 #include "gtest/gtest.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -61,7 +62,7 @@ class TpchConnectorTest : public exec::test::OperatorTestBase {
         .copyResults(pool());
   }
 
-  void runScaleFactorTest(size_t scaleFactor);
+  void runScaleFactorTest(double scaleFactor);
 };
 
 // Simple scan of first 5 rows of "nation".
@@ -147,7 +148,7 @@ TEST_F(TpchConnectorTest, singleColumnWithAlias) {
   EXPECT_EQ(1, output->childrenSize());
 }
 
-void TpchConnectorTest::runScaleFactorTest(size_t scaleFactor) {
+void TpchConnectorTest::runScaleFactorTest(double scaleFactor) {
   auto plan = PlanBuilder()
                   .tableScan(
                       ROW({}, {}),
@@ -158,8 +159,7 @@ void TpchConnectorTest::runScaleFactorTest(size_t scaleFactor) {
                   .planNode();
 
   auto output = getResults(plan, {makeTpchSplit()});
-  int64_t expectedRows =
-      tpch::getRowCount(tpch::Table::TBL_SUPPLIER, scaleFactor);
+  int64_t expectedRows = tpch::getRowCount(Table::TBL_SUPPLIER, scaleFactor);
   auto expected = makeRowVector(
       {makeFlatVector<int64_t>(std::vector<int64_t>{expectedRows})});
   test::assertEqualVectors(expected, output);
@@ -167,9 +167,28 @@ void TpchConnectorTest::runScaleFactorTest(size_t scaleFactor) {
 
 // Aggregation over a larger table.
 TEST_F(TpchConnectorTest, simpleAggregation) {
-  runScaleFactorTest(1);
-  runScaleFactorTest(5);
-  runScaleFactorTest(13);
+  VELOX_ASSERT_THROW(
+      runScaleFactorTest(-1), "Tpch scale factor must be non-negative");
+  runScaleFactorTest(0.01);
+  runScaleFactorTest(1.0);
+  runScaleFactorTest(5.0);
+  runScaleFactorTest(13.0);
+}
+
+TEST_F(TpchConnectorTest, lineitemTinyRowCount) {
+  // Lineitem row count depends on the orders.
+  // Verify against Java tiny result.
+  auto plan = PlanBuilder()
+                  .tableScan(
+                      ROW({}, {}),
+                      std::make_shared<TpchTableHandle>(
+                          kTpchConnectorId, Table::TBL_LINEITEM, 0.01),
+                      {})
+                  .singleAggregation({}, {"count(1)"})
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+  EXPECT_EQ(60'175, output->childAt(0)->asFlatVector<int64_t>()->valueAt(0));
 }
 
 TEST_F(TpchConnectorTest, unknownColumn) {
@@ -220,7 +239,7 @@ TEST_F(TpchConnectorTest, join) {
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .tableScan(
-              tpch::Table::TBL_NATION, {"n_regionkey"}, 1 /*scaleFactor*/)
+              tpch::Table::TBL_NATION, {"n_regionkey"}, 1.0 /*scaleFactor*/)
           .capturePlanNodeId(nationScanId)
           .hashJoin(
               {"n_regionkey"},
@@ -229,7 +248,7 @@ TEST_F(TpchConnectorTest, join) {
                   .tableScan(
                       tpch::Table::TBL_REGION,
                       {"r_regionkey", "r_name"},
-                      1 /*scaleFactor*/)
+                      1.0 /*scaleFactor*/)
                   .capturePlanNodeId(regionScanId)
                   .planNode(),
               "", // extra filter

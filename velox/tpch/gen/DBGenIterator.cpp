@@ -48,10 +48,14 @@ static folly::Singleton<DBGenBackend> DBGenBackendSingleton;
 
 } // namespace
 
-DBGenIterator::DBGenIterator(size_t scaleFactor) {
+DBGenIterator::DBGenIterator(double scaleFactor) {
   auto dbgenBackend = DBGenBackendSingleton.try_get();
   VELOX_CHECK_NOT_NULL(dbgenBackend, "Unable to initialize dbgen's dbgunk.");
-  dbgenCtx_.scale_factor = scaleFactor;
+  if (scaleFactor < MIN_SCALE && scaleFactor > 0) {
+    dbgenCtx_.scale_factor = 1;
+  } else {
+    dbgenCtx_.scale_factor = static_cast<long>(scaleFactor);
+  }
 }
 
 void DBGenIterator::initNation(size_t offset) {

@@ -27,7 +27,7 @@ RowVectorPtr getTpchData(
     Table table,
     size_t maxRows,
     size_t offset,
-    size_t scaleFactor,
+    double scaleFactor,
     memory::MemoryPool* pool) {
   switch (table) {
     case Table::TBL_PART:
