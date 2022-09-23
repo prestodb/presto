@@ -95,12 +95,15 @@ import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.common.type.TypeUtils.isEnumType;
@@ -120,6 +123,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 class RelationPlanner
@@ -641,34 +645,85 @@ class RelationPlanner
 
         ImmutableMap.Builder<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = ImmutableMap.builder();
         UnmodifiableIterator<VariableReferenceExpression> unnestedVariablesIterator = unnestedVariables.iterator();
+        // To deal with duplicate expressions in unnest
+        Set<VariableReferenceExpression> usedInputVariables = new HashSet<>();
+        ImmutableMap.Builder<VariableReferenceExpression, VariableReferenceExpression> unnestOutputMappingBuilder = ImmutableMap.builder();
         for (Expression expression : node.getExpressions()) {
             Type type = analysis.getType(expression);
             VariableReferenceExpression inputVariable = new VariableReferenceExpression(getSourceLocation(expression), translations.get(expression).getName(), type);
+            boolean isDuplicate = usedInputVariables.contains(inputVariable);
+            usedInputVariables.add(inputVariable);
+            ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
             if (type instanceof ArrayType) {
                 Type elementType = ((ArrayType) type).getElementType();
                 if (!SystemSessionProperties.isLegacyUnnest(session) && elementType instanceof RowType) {
-                    ImmutableList.Builder<VariableReferenceExpression> unnestVariableBuilder = ImmutableList.builder();
                     for (int i = 0; i < ((RowType) elementType).getFields().size(); i++) {
                         unnestVariableBuilder.add(unnestedVariablesIterator.next());
                     }
-                    unnestVariables.put(inputVariable, unnestVariableBuilder.build());
                 }
                 else {
-                    unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next()));
+                    unnestVariableBuilder.add(unnestedVariablesIterator.next());
                 }
             }
             else if (type instanceof MapType) {
-                unnestVariables.put(inputVariable, ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
+                unnestVariableBuilder.addAll(ImmutableList.of(unnestedVariablesIterator.next(), unnestedVariablesIterator.next()));
             }
             else {
                 throw new IllegalArgumentException("Unsupported type for UNNEST: " + type);
+            }
+            // Skip adding to output of unnest node if it's a duplicate, it will be output from a projection node added on top of unnest node.
+            if (isDuplicate) {
+                unnestOutputMappingBuilder.putAll(buildOutputMapping(unnestVariables.build().get(inputVariable), unnestVariableBuilder.build()));
+            }
+            else {
+                unnestVariables.put(inputVariable, unnestVariableBuilder.build());
             }
         }
         Optional<VariableReferenceExpression> ordinalityVariable = node.isWithOrdinality() ? Optional.of(unnestedVariablesIterator.next()) : Optional.empty();
         checkState(!unnestedVariablesIterator.hasNext(), "Not all output variables were matched with input variables");
 
         UnnestNode unnestNode = new UnnestNode(getSourceLocation(node), idAllocator.getNextId(), projectNode, leftPlan.getFieldMappings(), unnestVariables.build(), ordinalityVariable);
+        // If there are duplicate items, we need to add a projection node to project the output of skipped duplicates
+        ImmutableMap<VariableReferenceExpression, VariableReferenceExpression> unnestOutputMapping = unnestOutputMappingBuilder.build();
+        if (!unnestOutputMapping.isEmpty()) {
+            ProjectNode dedupProjectionNode = projectUnnestWithDuplicates(unnestedVariables, unnestOutputMapping, unnestNode);
+            return new RelationPlan(dedupProjectionNode, analysis.getScope(joinNode), dedupProjectionNode.getOutputVariables());
+        }
         return new RelationPlan(unnestNode, analysis.getScope(joinNode), unnestNode.getOutputVariables());
+    }
+
+    private Map<VariableReferenceExpression, VariableReferenceExpression> buildOutputMapping(
+            List<VariableReferenceExpression> input,
+            List<VariableReferenceExpression> output)
+    {
+        checkState(output.size() == input.size());
+        IntStream.range(0, output.size()).boxed().forEach(index -> checkState(output.get(index).getType().equals(input.get(index).getType())));
+        return IntStream.range(0, output.size()).boxed().collect(toImmutableMap(index -> output.get(index), index -> input.get(index)));
+    }
+
+    private ProjectNode projectUnnestWithDuplicates(
+            List<VariableReferenceExpression> completeUnnestedOutput,
+            Map<VariableReferenceExpression, VariableReferenceExpression> duplicateUnnestOutputMapping,
+            UnnestNode unnestNode)
+    {
+        Assignments.Builder projections = Assignments.builder();
+        // The projection output needs to respect the order of unnest output
+        // first add replicated variables
+        projections.putAll(unnestNode.getReplicateVariables().stream().collect(toImmutableMap(Function.identity(), v -> castToRowExpression(createSymbolReference(v)))));
+        // then add unnested variables
+        for (VariableReferenceExpression unnestedVariable : completeUnnestedOutput) {
+            if (duplicateUnnestOutputMapping.containsKey(unnestedVariable)) {
+                projections.put(unnestedVariable, castToRowExpression(createSymbolReference(duplicateUnnestOutputMapping.get(unnestedVariable))));
+            }
+            else {
+                projections.put(unnestedVariable, castToRowExpression(createSymbolReference(unnestedVariable)));
+            }
+        }
+        // Finally add ordinalityVariable
+        if (unnestNode.getOrdinalityVariable().isPresent()) {
+            projections.put(unnestNode.getOrdinalityVariable().get(), castToRowExpression(createSymbolReference(unnestNode.getOrdinalityVariable().get())));
+        }
+        return new ProjectNode(idAllocator.getNextId(), unnestNode, projections.build());
     }
 
     @Override
