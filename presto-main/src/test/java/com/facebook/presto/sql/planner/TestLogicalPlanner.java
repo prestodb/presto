@@ -1681,4 +1681,10 @@ public class TestLogicalPlanner
                                 ImmutableMap.of("out", expression("json.f3.square(orderkey)")),
                                 tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
     }
+
+    @Test
+    public void testDuplicateUnnestItem()
+    {
+        assertPlanSucceeded("SELECT * from (select * FROM (values 1) as t(k)) CROSS JOIN unnest(array[2, 3], ARRAY[2, 3]) AS r(r1, r2)", this.getQueryRunner().getDefaultSession());
+    }
 }
