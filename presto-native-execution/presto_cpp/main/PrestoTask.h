@@ -18,6 +18,10 @@
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/exec/Task.h"
 
+namespace facebook::velox {
+struct RuntimeMetric;
+}
+
 namespace facebook::presto {
 
 template <typename T>
@@ -114,5 +118,9 @@ struct PrestoTask {
 
 using TaskMap =
     std::unordered_map<protocol::TaskId, std::shared_ptr<PrestoTask>>;
+
+protocol::RuntimeMetric toRuntimeMetric(
+    const std::string& name,
+    const facebook::velox::RuntimeMetric& metric);
 
 } // namespace facebook::presto
