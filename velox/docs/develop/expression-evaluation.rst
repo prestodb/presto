@@ -394,6 +394,7 @@ Evaluation of IF, SWITCH
 ````````````````````````
 
 SWITCH expression evaluation goes through the following steps:
+
 * Evaluate the first condition on all rows.
 * Evaluate the first “then” clause on a subset of rows where the first condition is true and produce a partially populated result vector.
 * Evaluate the second condition on rows where the first condition is not true.
