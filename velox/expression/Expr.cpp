@@ -329,12 +329,18 @@ struct ExprExceptionContext {
   /// serializing vector repeatedly in cases when multiple rows generate
   /// exceptions. This happens when exceptions are suppressed by TRY/AND/OR.
   std::string serializedVectorPath{""};
+
+  /// Path of the file storing the expression SQL. Used to avoid writing SQL
+  /// repeatedly in cases when multiple rows generate exceptions.
+  std::string sqlPath{""};
 };
 
 /// Generates a file path in specified directory. Returns std::nullopt on
 /// failure.
-std::optional<std::string> generateFilePath(const char* basePath) {
-  auto path = fmt::format("{}/velox_vector_XXXXXX", basePath);
+std::optional<std::string> generateFilePath(
+    const char* basePath,
+    const char* prefix) {
+  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
   auto fd = mkstemp(path.data());
   if (fd == -1) {
     return std::nullopt;
@@ -342,13 +348,50 @@ std::optional<std::string> generateFilePath(const char* basePath) {
   return path;
 }
 
+std::string storeVector(const char* basePath, const BaseVector& vector) {
+  auto filePath = generateFilePath(basePath, "vector");
+  if (!filePath.has_value()) {
+    return "Failed to create file for saving input vector.";
+  }
+
+  try {
+    std::ofstream outputFile(filePath.value(), std::ofstream::binary);
+    saveVector(vector, outputFile);
+    outputFile.close();
+    return filePath.value();
+  } catch (...) {
+    return fmt::format("Failed to save input vector to {}.", filePath.value());
+  }
+}
+
+std::string storeSql(const char* basePath, const Expr& expr) {
+  auto filePath = generateFilePath(basePath, "sql");
+  if (!filePath.has_value()) {
+    return "Failed to create file for saving expression SQL.";
+  }
+
+  try {
+    auto sql = expr.toSql();
+    std::ofstream outputFile(filePath.value(), std::ofstream::binary);
+    outputFile.write(sql.data(), sql.size());
+    outputFile.close();
+    return filePath.value();
+  } catch (...) {
+    return fmt::format(
+        "Failed to save expression SQL to {}.", filePath.value());
+  }
+}
+
 /// Used to generate context for an error occurred while evaluating
 /// top-level expression or top-level context for an error occurred while
 /// evaluating top-level expression. If
 /// FLAGS_velox_save_input_on_expression_failure_path
-//  is not empty, saves the input vector to a file in that directory. Returns
-//  the output of Expr::toString() for the top-level
-/// expression along with the path of the file storing the input vector.
+/// is not empty, saves the input vector and expression SQL to files in
+/// that directory.
+///
+/// Returns the output of Expr::toString() for the top-level
+/// expression along with the paths of the files storing the input vector and
+/// expression SQL.
 ///
 /// This function may be called multiple times if exceptions are suppressed by
 /// TRY/AND/OR. The input vector will be saved only on first call and the
@@ -366,27 +409,16 @@ std::string onTopLevelException(void* arg) {
 
   // Save input vector to a file.
   if (context->serializedVectorPath.empty()) {
-    auto filePath = generateFilePath(basePath.c_str());
-    if (!filePath.has_value()) {
-      context->serializedVectorPath =
-          "Failed to create file for saving input vector.";
-    } else {
-      try {
-        std::ofstream outputFile(filePath.value(), std::ofstream::binary);
-        saveVector(*context->vector, outputFile);
-        outputFile.close();
-        context->serializedVectorPath = filePath.value();
-      } catch (...) {
-        context->serializedVectorPath =
-            fmt::format("Failed to save input vector to {}.", filePath.value());
-      }
-    }
+    context->serializedVectorPath =
+        storeVector(basePath.c_str(), *context->vector);
+    context->sqlPath = storeSql(basePath.c_str(), *context->expr);
   }
 
   return fmt::format(
-      "{}. Input: {}.",
+      "{}. Input data: {}. SQL expression: {}.",
       context->expr->toString(),
-      context->serializedVectorPath);
+      context->serializedVectorPath,
+      context->sqlPath);
 }
 
 /// Used to generate context for an error occurred while evaluating

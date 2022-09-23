@@ -145,9 +145,9 @@ class ExprTest : public testing::Test, public VectorTestBase {
         }));
   }
 
-  /// Remove ". Input: .*" from the 'context'.
+  /// Remove ". Input data: .*" from the 'context'.
   std::string trimInputPath(const std::string& context) {
-    auto pos = context.find(". Input: ");
+    auto pos = context.find(". Input data: ");
     if (pos == std::string::npos) {
       return context;
     }
@@ -155,11 +155,12 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return context.substr(0, pos);
   }
 
-  /// Extract input path from 'context': "<expression>. Input: <input path>."
+  /// Extract input path from the 'context':
+  ///     "<expression>. Input data: <input path>."
   std::string extractInputPath(const std::string& context) {
-    auto startPos = context.find(". Input: ");
+    auto startPos = context.find(". Input data: ");
     VELOX_CHECK(startPos != std::string::npos);
-    startPos += strlen(". Input: ");
+    startPos += strlen(". Input data: ");
     auto endPos = context.find(".", startPos);
     VELOX_CHECK(endPos != std::string::npos);
     return context.substr(startPos, endPos - startPos);
@@ -171,6 +172,38 @@ class ExprTest : public testing::Test, public VectorTestBase {
     auto copy = facebook::velox::restoreVector(inputFile, pool());
     inputFile.close();
     return copy;
+  }
+
+  std::string extractSqlPath(const std::string& context) {
+    auto startPos = context.find(". SQL expression: ");
+    VELOX_CHECK(startPos != std::string::npos);
+    startPos += strlen(". SQL expression: ");
+    auto endPos = context.find(".", startPos);
+    VELOX_CHECK(endPos != std::string::npos);
+    return context.substr(startPos, endPos - startPos);
+  }
+
+  std::string readSqlFromFile(const std::string& path) {
+    std::ifstream inputFile(path, std::ifstream::binary);
+
+    // Find out file size.
+    auto begin = inputFile.tellg();
+    inputFile.seekg(0, std::ios::end);
+    auto end = inputFile.tellg();
+
+    auto fileSize = end - begin;
+    if (fileSize == 0) {
+      return "";
+    }
+
+    // Read the file.
+    std::string sql;
+    sql.resize(fileSize);
+
+    inputFile.seekg(begin);
+    inputFile.read(sql.data(), fileSize);
+    inputFile.close();
+    return sql;
   }
 
   void assertError(
@@ -2080,6 +2113,10 @@ TEST_F(ExprTest, exceptionContext) {
     auto inputPath = extractInputPath(e.topLevelContext());
     auto copy = restoreVector(inputPath);
     assertEqualVectors(data, copy);
+
+    auto sqlPath = extractSqlPath(e.topLevelContext());
+    auto sql = readSqlFromFile(sqlPath);
+    ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
   }
 
   try {
@@ -2094,6 +2131,10 @@ TEST_F(ExprTest, exceptionContext) {
     auto inputPath = extractInputPath(e.topLevelContext());
     auto copy = restoreVector(inputPath);
     assertEqualVectors(data, copy);
+
+    auto sqlPath = extractSqlPath(e.topLevelContext());
+    auto sql = readSqlFromFile(sqlPath);
+    ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
   }
 }
 
