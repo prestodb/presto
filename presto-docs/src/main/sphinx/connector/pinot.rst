@@ -68,7 +68,6 @@ Property Name                                               Description
 ``pinot.infer-date-type-in-schema``                         Infer Pinot DAYS epoch column to Presto DATE type, default is true.
 ``pinot.infer-timestamp-type-in-schema``                    Infer Pinot SECONDS epoch column to Presto TIMESTAMP type, default is true.
 ``pinot.mark-data-fetch-exceptions-as-retriable``           Retry Pinot request when failure, default is true.
-``pinot.use-pinot-sql-for-broker-queries``                  Use Pinot SQL syntax, otherwise PQL syntax, default is true.
 ``pinot.pushdown-topn-broker-queries``                      Allow pushing down query pattern to broker: aggregation + groupBy + orderBy, default is false.
 ``pinot.use-streaming-for-segment-queries``                 Use gRPC endpoint for pinot server queries, default is false.
 ``pinot.streaming-server-grpc-max-inbound-message-bytes``   Max inbound message bytes when init gRPC client, default is 128MB.
@@ -114,7 +113,6 @@ Property Name                                             Description
 ``pinot.mark_data_fetch_exceptions_as_retriable``         Retry Pinot query on data fetch exceptions.
 ``pinot.retry_count``                                     Retry count for retriable pinot data fetch calls.
 ``pinot.use_date_trunc``                                  Use the new UDF dateTrunc in pinot that is more presto compatible.
-``pinot.use_pinot_sql_for_broker_queries``                Use Pinot SQL syntax and endpoint for broker query.
 ``pinot.non_aggregate_limit_for_broker_queries``          Max limit for non aggregate queries to the pinot broker.
 ``pinot.pushdown_topn_broker_queries``                    Push down order by to pinot broker for top queries.
 ``pinot.num_segments_per_split``                          Number of segments of the same host per split.

@@ -51,7 +51,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_SQL_GENERATED;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -182,7 +182,7 @@ public class PinotSegmentPageSource
 
     protected Page fillNextPage()
     {
-        // This is the list of handles we came up with when generating the PQL
+        // This is the list of handles we came up with when generating the SQL
         // This could be a superset/permutation of the handles being requested in this scan
         List<PinotColumnHandle> expectedColumnHandles = split.getExpectedColumnHandles();
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
@@ -194,16 +194,16 @@ public class PinotSegmentPageSource
             // Write a block for each column in the original order.
             PinotColumnHandle handle = columnHandles.get(columnHandleIndex);
 
-            // map the handle needed by the scan to its index corresponding to the generated PQL
+            // map the handle needed by the scan to its index corresponding to the generated SQL
             // All handles requested by the scan should be a subset of the expected handles
-            // ie., the expected column handles (corresponding to the generated PQL) can contain
+            // ie., the expected column handles (corresponding to the generated SQL) can contain
             // extra columns that we drop.
             int indexReturnedByPinot = expectedColumnHandles.indexOf(handle);
             if (indexReturnedByPinot < 0) {
                 throw new PinotException(
-                        PINOT_INVALID_PQL_GENERATED,
+                        PINOT_INVALID_SQL_GENERATED,
                         split.getSegmentPinotQuery(),
-                        String.format("Expected column handle %s to be present in the handles %s corresponding to the segment PQL", handle, expectedColumnHandles));
+                        String.format("Expected column handle %s to be present in the handles %s corresponding to the segment Pinot SQL", handle, expectedColumnHandles));
             }
             writeBlock(blockBuilder, columnType, indexReturnedByPinot);
         }
@@ -243,12 +243,12 @@ public class PinotSegmentPageSource
 
     private Map<ServerInstance, DataTable> queryPinot(ConnectorSession session, PinotSplit split)
     {
-        String pql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the pql"));
-        String host = split.getSegmentHost().orElseThrow(() -> new PinotException(PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
+        String sql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the sql"));
+        String host = split.getSegmentHost().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
         try {
             return ImmutableMap.copyOf(
                     pinotQueryClient.queryPinotServerForDataTable(
-                            pql,
+                            sql,
                             host,
                             split.getSegments(),
                             PinotSessionProperties.getConnectionTimeout(session).toMillis(),
@@ -256,7 +256,7 @@ public class PinotSegmentPageSource
                             PinotSessionProperties.getPinotRetryCount(session)));
         }
         catch (PinotScatterGatherQueryClient.PinotException pe) {
-            throw new PinotException(PINOT_ERROR_CODE_MAP.getOrDefault(pe.getErrorCode(), PINOT_UNCLASSIFIED_ERROR), Optional.of(pql), String.format("Error when hitting host %s", host), pe);
+            throw new PinotException(PINOT_ERROR_CODE_MAP.getOrDefault(pe.getErrorCode(), PINOT_UNCLASSIFIED_ERROR), Optional.of(sql), String.format("Error when hitting host %s", host), pe);
         }
     }
 

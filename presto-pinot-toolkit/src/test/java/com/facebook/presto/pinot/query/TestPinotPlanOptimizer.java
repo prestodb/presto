@@ -56,6 +56,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -75,12 +76,7 @@ public class TestPinotPlanOptimizer
 
     public SessionHolder getDefaultSessionHolder()
     {
-        return new SessionHolder(false, useSqlSyntax());
-    }
-
-    public boolean useSqlSyntax()
-    {
-        return false;
+        return new SessionHolder(false);
     }
 
     protected void assertPlanMatch(PlanNode actual, PlanMatchPattern expected, TypeProvider typeProvider)
@@ -101,14 +97,12 @@ public class TestPinotPlanOptimizer
         private final Optional<String> pinotQueryRegex;
         private final Optional<Boolean> scanParallelismExpected;
         private final String[] columns;
-        private final boolean useSqlSyntax;
 
         static PlanMatchPattern match(
                 String connectorName,
                 String tableName,
                 Optional<String> pinotQueryRegex,
                 Optional<Boolean> scanParallelismExpected,
-                boolean useSqlSyntax,
                 String... columnNames)
         {
             return node(TableScanNode.class)
@@ -117,7 +111,6 @@ public class TestPinotPlanOptimizer
                             tableName,
                             pinotQueryRegex,
                             scanParallelismExpected,
-                            useSqlSyntax,
                             columnNames));
         }
 
@@ -125,15 +118,13 @@ public class TestPinotPlanOptimizer
                 PinotTableHandle tableHandle,
                 Optional<String> pinotQueryRegex,
                 Optional<Boolean> scanParallelismExpected,
-                List<VariableReferenceExpression> variables,
-                boolean useSqlSyntax)
+                List<VariableReferenceExpression> variables)
         {
             return match(
                     tableHandle.getConnectorId(),
                     tableHandle.getTableName(),
                     pinotQueryRegex,
                     scanParallelismExpected,
-                    useSqlSyntax,
                     variables.stream().map(VariableReferenceExpression::getName).toArray(String[]::new));
         }
 
@@ -142,7 +133,6 @@ public class TestPinotPlanOptimizer
                 String tableName,
                 Optional<String> pinotQueryRegex,
                 Optional<Boolean> scanParallelismExpected,
-                boolean useSqlSyntax,
                 String... columns)
         {
             this.connectorId = connectorId;
@@ -150,7 +140,6 @@ public class TestPinotPlanOptimizer
             this.scanParallelismExpected = scanParallelismExpected;
             this.columns = columns;
             this.tableName = tableName;
-            this.useSqlSyntax = useSqlSyntax;
         }
 
         @Override
@@ -159,13 +148,13 @@ public class TestPinotPlanOptimizer
             return node instanceof TableScanNode;
         }
 
-        private static boolean checkPinotQueryMatches(Optional<String> regex, Optional<String> pql)
+        private static boolean checkPinotQueryMatches(Optional<String> regex, Optional<String> sql)
         {
-            if (!pql.isPresent() && !regex.isPresent()) {
+            if (!sql.isPresent() && !regex.isPresent()) {
                 return true;
             }
-            if (pql.isPresent() && regex.isPresent()) {
-                String toMatch = pql.get();
+            if (sql.isPresent() && regex.isPresent()) {
+                String toMatch = sql.get();
                 Pattern compiled = Pattern.compile(regex.get(), Pattern.CASE_INSENSITIVE);
                 return compiled.matcher(toMatch).matches();
             }
@@ -214,7 +203,7 @@ public class TestPinotPlanOptimizer
         PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
         PlanNode originalPlan = limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, regionId, city, fare, secondsSinceEpoch));
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -225,7 +214,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScanNode, getRowExpression("lower(substr(city, 0, 3)) = 'del' AND fare > 100", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        PlanMatchPattern tableScanMatcher = PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid__TABLE_NAME_SUFFIX_TEMPLATE__ WHERE \\(\"fare\" > 100\\).*"), Optional.of(true), filter.getOutputVariables(), useSqlSyntax());
+        PlanMatchPattern tableScanMatcher = PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid__TABLE_NAME_SUFFIX_TEMPLATE__ WHERE \\(\"fare\" > 100\\).*"), Optional.of(true), filter.getOutputVariables());
         assertPlanMatch(optimized, PlanMatchPattern.limit(50L, PlanMatchPattern.filter("lower(substr(city, 0, 3)) = 'del'", tableScanMatcher)), typeProvider);
     }
 
@@ -236,7 +225,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, daysSinceEpoch), getRowExpression("dayssinceepoch < DATE '2014-01-31'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"daysSinceEpoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"daysSinceEpoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -246,7 +235,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, daysSinceEpoch), getRowExpression("cast(dayssinceepoch as timestamp) < TIMESTAMP '2014-01-31 00:00:00 UTC'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"daysSinceEpoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"daysSinceEpoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -256,7 +245,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, millisSinceEpoch), getRowExpression("millissinceepoch < TIMESTAMP '2014-01-31 00:00:00 UTC'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -266,7 +255,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, millisSinceEpoch), getRowExpression("cast(millissinceepoch as date) < DATE '2014-01-31'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -276,7 +265,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, daysSinceEpoch), getRowExpression("dayssinceepoch <  TIMESTAMP '2014-01-31 00:00:00 UTC'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"dayssinceepoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"daysSinceEpoch\" FROM hybrid WHERE \\(\"dayssinceepoch\" < 16101\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -286,7 +275,7 @@ public class TestPinotPlanOptimizer
         FilterNode filter = filter(planBuilder, tableScan(planBuilder, pinotTable, regionId, city, fare, millisSinceEpoch), getRowExpression("millissinceepoch <  DATE '2014-01-31'", defaultSessionHolder));
         PlanNode originalPlan = limit(planBuilder, 50L, filter);
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
-        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimized, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"millisSinceEpoch\" FROM hybrid WHERE \\(\"millisSinceEpoch\" < 1391126400000\\) LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -300,7 +289,7 @@ public class TestPinotPlanOptimizer
 
         PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
 
-        PlanMatchPattern tableScanMatcher = PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables(), useSqlSyntax());
+        PlanMatchPattern tableScanMatcher = PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"regionId\", \"city\", \"fare\", \"secondsSinceEpoch\" FROM hybrid LIMIT 50"), Optional.of(false), originalPlan.getOutputVariables());
         assertPlanMatch(optimized, aggregation(aggregationsSecond, tableScanMatcher), typeProvider);
     }
 
@@ -340,8 +329,7 @@ public class TestPinotPlanOptimizer
                         pinotTable,
                         Optional.of(String.format("SELECT %s\\(\"regionId\"\\) FROM hybrid", distinctCountFunctionName)),
                         Optional.of(false),
-                        leftAggregation.getOutputVariables(),
-                        useSqlSyntax()),
+                        leftAggregation.getOutputVariables()),
                 typeProvider);
 
         Map<VariableReferenceExpression, PinotColumnHandle> rightColumnHandleMap = ImmutableMap.of(new VariableReferenceExpression(Optional.empty(), "regionid_33", regionId.getDataType()), regionId);
@@ -356,8 +344,7 @@ public class TestPinotPlanOptimizer
                         pinotTable,
                         Optional.of(String.format("SELECT %s\\(\"regionId\"\\) FROM hybrid", distinctCountFunctionName)),
                         Optional.of(false),
-                        rightAggregation.getOutputVariables(),
-                        useSqlSyntax()),
+                        rightAggregation.getOutputVariables()),
                 typeProvider);
     }
 
@@ -374,12 +361,11 @@ public class TestPinotPlanOptimizer
                         pinotTable,
                         Optional.of("SELECT DISTINCTCOUNTHLL\\(\"regionId\"\\) FROM hybrid"),
                         Optional.of(false),
-                        leftAggregation.getOutputVariables(),
-                        useSqlSyntax()),
+                        leftAggregation.getOutputVariables()),
                 typeProvider);
 
         PlanNode optimizedPlan = getOptimizedPlan(planBuilder, limit(planBuilder, 50L, tableScan(planBuilder, pinotTable, distinctCountDim)));
-        assertPlanMatch(optimizedPlan, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"distinctCountDim\" FROM hybrid LIMIT 50"), Optional.of(false), optimizedPlan.getOutputVariables(), useSqlSyntax()), typeProvider);
+        assertPlanMatch(optimizedPlan, PinotTableScanMatcher.match(pinotTable, Optional.of("SELECT \"distinctCountDim\" FROM hybrid LIMIT 50"), Optional.of(false), optimizedPlan.getOutputVariables()), typeProvider);
     }
 
     @Test
@@ -410,9 +396,46 @@ public class TestPinotPlanOptimizer
                             pinotTable,
                             Optional.of("SELECT DISTINCTCOUNT\\(\"regionId\"\\) FROM hybrid"),
                             Optional.of(false),
-                            source.getOutputVariables(),
-                            useSqlSyntax()),
+                            source.getOutputVariables()),
                     typeProvider);
         }
+    }
+
+    @Test
+    public void testDistinctLimitPushdown()
+    {
+        PlanBuilder planBuilder = createPlanBuilder(defaultSessionHolder);
+        PlanNode originalPlan = distinctLimit(
+                planBuilder,
+                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "regionid", BIGINT)),
+                50L,
+                tableScan(planBuilder, pinotTable, regionId));
+        PlanNode optimized = getOptimizedPlan(planBuilder, originalPlan);
+        assertPlanMatch(
+                optimized,
+                PinotTableScanMatcher.match(
+                        pinotTable,
+                        Optional.of("SELECT \"regionId\" FROM hybrid GROUP BY \"regionId\" LIMIT 50"),
+                        Optional.of(false),
+                        originalPlan.getOutputVariables()),
+                typeProvider);
+
+        planBuilder = createPlanBuilder(defaultSessionHolder);
+        originalPlan = distinctLimit(
+            planBuilder,
+            ImmutableList.of(
+                new VariableReferenceExpression(Optional.empty(), "regionid", BIGINT),
+                new VariableReferenceExpression(Optional.empty(), "city", VARCHAR)),
+            50L,
+            tableScan(planBuilder, pinotTable, regionId, city));
+        optimized = getOptimizedPlan(planBuilder, originalPlan);
+        assertPlanMatch(
+                optimized,
+                PinotTableScanMatcher.match(
+                        pinotTable,
+                        Optional.of("SELECT \"regionId\", \"city\" FROM hybrid GROUP BY \"regionId\", \"city\" LIMIT 50"),
+                        Optional.of(false),
+                        originalPlan.getOutputVariables()),
+                typeProvider);
     }
 }

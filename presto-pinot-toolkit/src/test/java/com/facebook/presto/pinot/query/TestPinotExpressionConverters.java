@@ -31,19 +31,9 @@ public class TestPinotExpressionConverters
     private final Function<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInputFunction = testInput::get;
 
     @Test
-    public void testProjectExpressionConverterPql()
+    public void testProjectExpressionConverter()
     {
-        testProjectExpressionConverter(new SessionHolder(false, false));
-    }
-
-    @Test
-    public void testProjectExpressionConverterSql()
-    {
-        testProjectExpressionConverter(new SessionHolder(false, true));
-    }
-
-    public void testProjectExpressionConverter(SessionHolder sessionHolder)
-    {
+        SessionHolder sessionHolder = new SessionHolder(false);
         testProject("secondssinceepoch", "\"secondsSinceEpoch\"", sessionHolder);
         testProject("secondssinceepoch > 1559978258", "(\"secondsSinceEpoch\" > 1559978258)", sessionHolder);
         testProject("secondssinceepoch != 0", "(\"secondsSinceEpoch\" <> 0)", sessionHolder);
@@ -95,39 +85,18 @@ public class TestPinotExpressionConverters
     }
 
     @Test
-    public void testAdhocPql()
-    {
-        testAdhoc(new SessionHolder(false, false));
-    }
-
-    @Test
-    public void testAdhocSql()
-    {
-        testAdhoc(new SessionHolder(false, true));
-    }
-
-    public void testAdhoc(SessionHolder sessionHolder)
+    public void testAdhoc()
     {
         testAggregationProject(
                 "secondssinceepoch + 1559978258.674",
                 "ADD(\"secondsSinceEpoch\", 1559978258.674)",
-                sessionHolder);
+                new SessionHolder(false));
     }
 
     @Test
-    public void testDateTruncationConversionPql()
+    public void testDateTruncationConversion()
     {
-        testDateTruncationConversion(new SessionHolder(true, false));
-    }
-
-    @Test
-    public void testDateTruncationConversionSql()
-    {
-        testDateTruncationConversion(new SessionHolder(true, true));
-    }
-
-    public void testDateTruncationConversion(SessionHolder sessionHolder)
-    {
+        SessionHolder sessionHolder = new SessionHolder(true);
         testAggregationProject(
                 "date_trunc('hour', from_unixtime(secondssinceepoch + 2))",
                 "dateTrunc(ADD(\"secondsSinceEpoch\", 2),seconds, UTC, hour)",
@@ -140,19 +109,9 @@ public class TestPinotExpressionConverters
     }
 
     @Test
-    public void testFilterExpressionConverterPql()
+    public void testFilterExpressionConverter()
     {
-        testFilterExpressionConverter(new SessionHolder(false, false));
-    }
-
-    @Test
-    public void testFilterExpressionConverterSql()
-    {
-        testFilterExpressionConverter(new SessionHolder(false, true));
-    }
-
-    public void testFilterExpressionConverter(SessionHolder sessionHolder)
-    {
+        SessionHolder sessionHolder = new SessionHolder(false);
         // Simple comparisons
         testFilter("regionid = 20", "(\"regionId\" = 20)", sessionHolder);
         testFilter("regionid >= 20", "(\"regionId\" >= 20)", sessionHolder);
