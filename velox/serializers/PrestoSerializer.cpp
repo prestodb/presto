@@ -26,9 +26,10 @@
 
 namespace facebook::velox::serializer::presto {
 namespace {
-int8_t kCompressedBitMask = 1;
-int8_t kEncryptedBitMask = 2;
-int8_t kCheckSumBitMask = 4;
+constexpr int8_t kCompressedBitMask = 1;
+constexpr int8_t kEncryptedBitMask = 2;
+constexpr int8_t kCheckSumBitMask = 4;
+constexpr folly::StringPiece kRLE{"RLE"};
 
 int64_t computeChecksum(
     PrestoOutputStreamListener* listener,
@@ -449,6 +450,20 @@ void readColumns(
     std::vector<VectorPtr>* result,
     bool useLosslessTimestamp);
 
+void readConstantVector(
+    ByteStream* source,
+    const TypePtr& type,
+    velox::memory::MemoryPool* pool,
+    VectorPtr* result,
+    bool useLosslessTimestamp) {
+  auto size = source->read<int32_t>();
+  std::vector<TypePtr> childTypes = {type};
+  std::vector<VectorPtr> children(1);
+  readColumns(source, pool, childTypes, &children, useLosslessTimestamp);
+  VELOX_CHECK_EQ(1, children[0]->size());
+  *result = BaseVector::wrapInConstant(size, 0, children[0]);
+}
+
 void readArrayVector(
     ByteStream* source,
     std::shared_ptr<const Type> type,
@@ -690,9 +705,8 @@ std::string readLengthPrefixedString(ByteStream* source) {
   return value;
 }
 
-void readAndCheckType(ByteStream* source, TypePtr type) {
+void checkTypeEncoding(std::string encoding, TypePtr type) {
   auto kindEncoding = typeToEncodingName(type);
-  std::string encoding = readLengthPrefixedString(source);
   VELOX_CHECK(
       encoding == kindEncoding,
       "Encoding to Type mismatch {} expected {} got {}",
@@ -736,14 +750,20 @@ void readColumns(
           {TypeKind::UNKNOWN, &read<UnknownValue>}};
 
   for (int32_t i = 0; i < types.size(); ++i) {
-    auto it = readers.find(types[i]->kind());
-    VELOX_CHECK(
-        it != readers.end(),
-        "Column reader for type {} is missing",
-        types[i]->kindName());
+    auto encoding = readLengthPrefixedString(source);
+    if (encoding == kRLE) {
+      readConstantVector(
+          source, types[i], pool, &(*result)[i], useLosslessTimestamp);
+    } else {
+      checkTypeEncoding(encoding, types[i]);
+      auto it = readers.find(types[i]->kind());
+      VELOX_CHECK(
+          it != readers.end(),
+          "Column reader for type {} is missing",
+          types[i]->kindName());
 
-    readAndCheckType(source, types[i]);
-    it->second(source, types[i], pool, &(*result)[i], useLosslessTimestamp);
+      it->second(source, types[i], pool, &(*result)[i], useLosslessTimestamp);
+    }
   }
 }
 
@@ -1629,8 +1649,24 @@ class PrestoVectorSerializer : public VectorSerializer {
     }
   }
 
-  // Writes the contents to 'stream' in wire format
   void flush(OutputStream* out) override {
+    flushInternal(numRows_, false /*rle*/, out);
+  }
+
+  void flushRle(const RowVectorPtr& vector, OutputStream* out) {
+    VELOX_CHECK_EQ(0, numRows_);
+    for (auto& child : vector->children()) {
+      VELOX_CHECK(child->isConstantEncoding());
+    }
+
+    std::vector<IndexRange> ranges{{0, 1}};
+    append(vector, folly::Range(ranges.data(), ranges.size()));
+
+    flushInternal(vector->size(), true /*rle*/, out);
+  }
+
+  // Writes the contents to 'stream' in wire format
+  void flushInternal(int32_t numRows, bool rle, OutputStream* out) {
     auto listener = dynamic_cast<PrestoOutputStreamListener*>(out->listener());
     // Reset CRC computation
     if (listener) {
@@ -1649,7 +1685,7 @@ class PrestoVectorSerializer : public VectorSerializer {
       listener->pause();
     }
 
-    writeInt32(out, numRows_);
+    writeInt32(out, numRows);
     out->write(&codec, 1);
 
     // Make space for uncompressedSizeInBytes & sizeInBytes
@@ -1662,6 +1698,15 @@ class PrestoVectorSerializer : public VectorSerializer {
       listener->resume();
     }
     writeInt32(out, streams_.size());
+
+    if (rle) {
+      // Write RLE encoding marker.
+      writeInt32(out, kRLE.size());
+      out->write(kRLE.data(), kRLE.size());
+      // Write number of RLE values.
+      writeInt32(out, numRows);
+    }
+
     for (auto& stream : streams_) {
       stream->flush(out);
     }
@@ -1676,7 +1721,7 @@ class PrestoVectorSerializer : public VectorSerializer {
     int32_t uncompressedSize = size - kHeaderSize;
     int64_t crc = 0;
     if (listener) {
-      crc = computeChecksum(listener, codec, numRows_, uncompressedSize);
+      crc = computeChecksum(listener, codec, numRows, uncompressedSize);
     }
 
     out->seekp(offset + kSizeInBytesOffset);
@@ -1712,6 +1757,17 @@ std::unique_ptr<VectorSerializer> PrestoVectorSerde::createSerializer(
       : false;
   return std::make_unique<PrestoVectorSerializer>(
       type, numRows, streamArena, useLosslessTimestamp);
+}
+
+void PrestoVectorSerde::serializeConstants(
+    const RowVectorPtr& vector,
+    StreamArena* streamArena,
+    const Options* options,
+    OutputStream* out) {
+  auto serializer = createSerializer(
+      asRowType(vector->type()), vector->size(), streamArena, options);
+
+  static_cast<PrestoVectorSerializer*>(serializer.get())->flushRle(vector, out);
 }
 
 void PrestoVectorSerde::deserialize(

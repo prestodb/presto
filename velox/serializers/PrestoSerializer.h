@@ -42,6 +42,13 @@ class PrestoVectorSerde : public VectorSerde {
       StreamArena* streamArena,
       const Options* options) override;
 
+  /// Serializes a RowVector with a constant children.
+  void serializeConstants(
+      const RowVectorPtr& vector,
+      StreamArena* streamArena,
+      const Options* options,
+      OutputStream* out);
+
   void deserialize(
       ByteStream* source,
       velox::memory::MemoryPool* pool,

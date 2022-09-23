@@ -47,7 +47,7 @@ class PrestoSerializerTest : public ::testing::Test {
   }
 
   void serialize(
-      RowVectorPtr rowVector,
+      const RowVectorPtr& rowVector,
       std::ostream* output,
       const VectorSerde::Options* serdeOptions) {
     auto numRows = rowVector->size();
@@ -62,7 +62,7 @@ class PrestoSerializerTest : public ::testing::Test {
 
     auto arena =
         std::make_unique<StreamArena>(memory::MappedMemory::getInstance());
-    auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
+    auto rowType = asRowType(rowVector->type());
     auto serializer =
         serde_->createSerializer(rowType, numRows, arena.get(), serdeOptions);
 
@@ -70,6 +70,17 @@ class PrestoSerializerTest : public ::testing::Test {
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(output, &listener);
     serializer->flush(&out);
+  }
+
+  void serializeRle(
+      const RowVectorPtr& rowVector,
+      std::ostream* output,
+      const VectorSerde::Options* serdeOptions) {
+    facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
+    OStreamOutputStream out(output, &listener);
+    auto arena =
+        std::make_unique<StreamArena>(memory::MappedMemory::getInstance());
+    serde_->serializeConstants(rowVector, arena.get(), serdeOptions, &out);
   }
 
   std::unique_ptr<ByteStream> toByteStream(const std::string& input) {
@@ -112,13 +123,24 @@ class PrestoSerializerTest : public ::testing::Test {
     std::ostringstream out;
     serialize(rowVector, &out, serdeOptions);
 
-    auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
+    auto rowType = asRowType(rowVector->type());
     auto deserialized = deserialize(rowType, out.str(), serdeOptions);
     assertEqualVectors(deserialized, rowVector);
   }
 
+  void testRleRoundTrip(const VectorPtr& constantVector) {
+    auto rowVector = vectorMaker_->rowVector({constantVector});
+    std::ostringstream out;
+    serializeRle(rowVector, &out, nullptr);
+
+    auto rowType = asRowType(rowVector->type());
+    auto deserialized = deserialize(rowType, out.str(), nullptr);
+
+    assertEqualVectors(rowVector, deserialized);
+  }
+
   std::unique_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<VectorSerde> serde_;
+  std::unique_ptr<serializer::presto::PrestoVectorSerde> serde_;
   std::unique_ptr<test::VectorMaker> vectorMaker_;
 };
 
@@ -160,7 +182,7 @@ TEST_F(PrestoSerializerTest, emptyPage) {
   std::ostringstream out;
   serialize(rowVector, &out, nullptr);
 
-  auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
+  auto rowType = asRowType(rowVector->type());
   auto deserialized = deserialize(rowType, out.str(), nullptr);
   assertEqualVectors(deserialized, rowVector);
 }
@@ -250,7 +272,7 @@ TEST_F(PrestoSerializerTest, multiPage) {
 
   auto bytes = out.str();
 
-  auto rowType = std::dynamic_pointer_cast<const RowType>(a->type());
+  auto rowType = asRowType(a->type());
   auto byteStream = toByteStream(bytes);
 
   RowVectorPtr deserialized;
@@ -295,8 +317,7 @@ TEST_F(PrestoSerializerTest, timestampWithNanosecondPrecision) {
       vectorMaker_->rowVector({timestampMillis});
   std::ostringstream out;
   serialize(inputRowVector, &out, {});
-  auto rowType =
-      std::dynamic_pointer_cast<const RowType>(inputRowVector->type());
+  auto rowType = asRowType(inputRowVector->type());
   auto deserialized = deserialize(rowType, out.str(), {});
   assertEqualVectors(deserialized, expectedOutputWithLostPrecision);
 }
@@ -318,4 +339,32 @@ TEST_F(PrestoSerializerTest, unscaledLongDecimal) {
     vector->setNull(i, true);
   }
   testRoundTrip(vector);
+}
+
+TEST_F(PrestoSerializerTest, rle) {
+  // Test RLE vectors with non-null value.
+  testRleRoundTrip(BaseVector::createConstant(true, 12, pool_.get()));
+  testRleRoundTrip(BaseVector::createConstant(779, 12, pool_.get()));
+  testRleRoundTrip(BaseVector::createConstant(1.23, 12, pool_.get()));
+  testRleRoundTrip(
+      BaseVector::createConstant("Hello, world!", 12, pool_.get()));
+  testRleRoundTrip(BaseVector::wrapInConstant(
+      12, 0, vectorMaker_->arrayVector<int64_t>({{1, 2, 3}})));
+  testRleRoundTrip(BaseVector::wrapInConstant(
+      12,
+      0,
+      vectorMaker_->mapVector(
+          {0},
+          vectorMaker_->flatVector<int32_t>({1}),
+          vectorMaker_->flatVector<int64_t>({7}))));
+
+  // Test RLE vector with null value.
+  testRleRoundTrip(BaseVector::createNullConstant(BOOLEAN(), 17, pool_.get()));
+  testRleRoundTrip(BaseVector::createNullConstant(BIGINT(), 17, pool_.get()));
+  testRleRoundTrip(BaseVector::createNullConstant(REAL(), 17, pool_.get()));
+  testRleRoundTrip(BaseVector::createNullConstant(VARCHAR(), 17, pool_.get()));
+  testRleRoundTrip(
+      BaseVector::createNullConstant(ARRAY(INTEGER()), 17, pool_.get()));
+  testRleRoundTrip(BaseVector::createNullConstant(
+      MAP(VARCHAR(), INTEGER()), 17, pool_.get()));
 }
