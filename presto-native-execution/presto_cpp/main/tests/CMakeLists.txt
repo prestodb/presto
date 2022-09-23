@@ -12,7 +12,7 @@
 add_executable(
   presto_server_test
   PrestoExchangeSourceTest.cpp TaskManagerTest.cpp HttpServerWrapper.cpp
-  PrestoTaskIdTest.cpp AnnouncerTest.cpp QueryContextCacheTest.cpp)
+  PrestoTaskTest.cpp AnnouncerTest.cpp QueryContextCacheTest.cpp)
 
 add_test(presto_server_test presto_server_test)
 
