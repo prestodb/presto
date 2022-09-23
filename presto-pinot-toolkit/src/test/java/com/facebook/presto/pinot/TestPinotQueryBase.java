@@ -145,9 +145,9 @@ public class TestPinotQueryBase
             session = TestingSession.testSessionBuilder(new SessionPropertyManager(new SystemSessionProperties().getSessionProperties())).build();
         }
 
-        public SessionHolder(boolean useDateTrunc, boolean useSqlSyntax)
+        public SessionHolder(boolean useDateTrunc)
         {
-            this(new PinotConfig().setUseDateTrunc(useDateTrunc).setUsePinotSqlForBrokerQueries(useSqlSyntax));
+            this(new PinotConfig().setUseDateTrunc(useDateTrunc));
         }
 
         public ConnectorSession getConnectorSession()

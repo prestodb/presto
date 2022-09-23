@@ -265,7 +265,7 @@ public class TestPinotSegmentPageSource
         }
 
         @Override
-        public Map<ServerInstance, DataTable> queryPinotServerForDataTable(String pql, String serverHost, List<String> segments, long connectionTimeoutInMillis, boolean ignoreEmptyResponses, int pinotRetryCount)
+        public Map<ServerInstance, DataTable> queryPinotServerForDataTable(String sql, String serverHost, List<String> segments, long connectionTimeoutInMillis, boolean ignoreEmptyResponses, int pinotRetryCount)
         {
             ImmutableMap.Builder<ServerInstance, DataTable> response = ImmutableMap.builder();
             for (int i = 0; i < dataTables.size(); ++i) {

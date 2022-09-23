@@ -40,18 +40,21 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.pinot.spi.utils.BytesUtils;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
@@ -68,7 +71,7 @@ import static java.lang.Boolean.parseBoolean;
 import static java.lang.Long.parseLong;
 import static java.util.Objects.requireNonNull;
 
-public abstract class PinotBrokerPageSourceBase
+public class PinotBrokerPageSource
         implements ConnectorPageSource
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -77,6 +80,11 @@ public abstract class PinotBrokerPageSourceBase
             VarcharType.class,
             JsonType.class,
             VarbinaryType.class);
+    private static final String REQUEST_PAYLOAD_KEY = "sql";
+    private static final String QUERY_URL_TEMPLATE = "%s://%s/query/sql";
+
+    private final PinotQueryGenerator.GeneratedPinotQuery brokerSql;
+    private final List<PinotColumnHandle> expectedHandles;
 
     protected final PinotConfig pinotConfig;
     protected final List<PinotColumnHandle> columnHandles;
@@ -89,10 +97,12 @@ public abstract class PinotBrokerPageSourceBase
     protected long readTimeNanos;
     protected long completedBytes;
 
-    public PinotBrokerPageSourceBase(
+    public PinotBrokerPageSource(
             PinotConfig pinotConfig,
             ConnectorSession session,
+            PinotQueryGenerator.GeneratedPinotQuery brokerSql,
             List<PinotColumnHandle> columnHandles,
+            List<PinotColumnHandle> expectedHandles,
             PinotClusterInfoFetcher clusterInfoFetcher,
             ObjectMapper objectMapper,
             PinotBrokerAuthenticationProvider brokerAuthenticationProvider)
@@ -103,6 +113,8 @@ public abstract class PinotBrokerPageSourceBase
         this.session = requireNonNull(session, "session is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
+        this.expectedHandles = requireNonNull(expectedHandles, "expected handles is null");
+        this.brokerSql = requireNonNull(brokerSql, "broker is null");
     }
 
     protected void setValue(Type type, BlockBuilder blockBuilder, JsonNode value)
@@ -225,9 +237,9 @@ public abstract class PinotBrokerPageSourceBase
 
         long start = System.nanoTime();
         try {
-            BlockAndTypeBuilder blockAndTypeBuilder = buildBlockAndTypeBuilder(columnHandles, getBrokerQuery());
+            BlockAndTypeBuilder blockAndTypeBuilder = buildBlockAndTypeBuilder(columnHandles, brokerSql);
             int counter = issueQueryAndPopulate(
-                    getBrokerQuery(),
+                    brokerSql,
                     Collections.unmodifiableList(blockAndTypeBuilder.getColumnBlockBuilders()),
                     Collections.unmodifiableList(blockAndTypeBuilder.getColumnTypes()));
 
@@ -244,9 +256,6 @@ public abstract class PinotBrokerPageSourceBase
             readTimeNanos += System.nanoTime() - start;
         }
     }
-
-    // Generated Pinot Query with different syntax, e.g. PQL vs SQL.
-    protected abstract PinotQueryGenerator.GeneratedPinotQuery getBrokerQuery();
 
     protected void setRows(String query, List<BlockBuilder> blockBuilders, List<Type> types, JsonNode rows)
     {
@@ -336,16 +345,16 @@ public abstract class PinotBrokerPageSourceBase
             }
             Request.Builder builder = Request.Builder
                     .preparePost()
-                    .setUri(URI.create(String.format(getQueryUrlTemplate(), queryHost)));
+                    .setUri(URI.create(String.format(QUERY_URL_TEMPLATE, pinotConfig.isUseSecureConnection() ? "https" : "http", queryHost)));
             brokerAuthenticationProvider.getAuthenticationToken(session).ifPresent(token -> builder.setHeader(AUTHORIZATION, token));
             String body = clusterInfoFetcher.doHttpActionWithHeaders(builder, Optional.of(getRequestPayload(pinotQuery)), rpcService);
             return populateFromQueryResults(pinotQuery, blockBuilders, types, body);
         });
     }
 
-    String getRequestPayload(PinotQueryGenerator.GeneratedPinotQuery pinotQuery)
+    public static String getRequestPayload(PinotQueryGenerator.GeneratedPinotQuery pinotQuery)
     {
-        ImmutableMap<String, String> pinotRequest = ImmutableMap.of(getRequestPayloadKey(), pinotQuery.getQuery());
+        ImmutableMap<String, String> pinotRequest = ImmutableMap.of(REQUEST_PAYLOAD_KEY, pinotQuery.getQuery());
         try {
             return OBJECT_MAPPER.writeValueAsString(pinotRequest);
         }
@@ -358,34 +367,108 @@ public abstract class PinotBrokerPageSourceBase
         }
     }
 
-    // Get the broker query endpoint url template.
-    abstract String getQueryUrlTemplate();
-
-    // Get the broker request payload key.
-    abstract String getRequestPayloadKey();
-
     // Set Pinot Response from query response json string.
-    abstract int populateFromQueryResults(PinotQueryGenerator.GeneratedPinotQuery pinotQuery, List<BlockBuilder> blockBuilders, List<Type> types, String responseJsonString);
+    @VisibleForTesting
+    public int populateFromQueryResults(
+            PinotQueryGenerator.GeneratedPinotQuery pinotQuery,
+            List<BlockBuilder> blockBuilders,
+            List<Type> types,
+            String responseJsonString)
+    {
+        String sql = pinotQuery.getQuery();
+        JsonNode jsonBody;
+        try {
+            jsonBody = objectMapper.readTree(responseJsonString);
+        }
+        catch (IOException e) {
+            throw new PinotException(PINOT_UNEXPECTED_RESPONSE, Optional.of(sql), "Couldn't parse response", e);
+        }
+        handleCommonResponse(sql, jsonBody);
+        JsonNode resultTable = jsonBody.get("resultTable");
+        if (resultTable != null) {
+            JsonNode dataSchema = resultTable.get("dataSchema");
+            if (dataSchema == null) {
+                throw new PinotException(
+                    PINOT_UNEXPECTED_RESPONSE,
+                    Optional.of(sql),
+                    String.format("Expected data schema in the response"));
+            }
+            JsonNode columnDataTypes = dataSchema.get("columnDataTypes");
+            JsonNode columnNames = dataSchema.get("columnNames");
+
+            if (columnDataTypes == null
+                    || !columnDataTypes.isArray()
+                    || columnDataTypes.size() < blockBuilders.size()) {
+                throw new PinotException(
+                    PINOT_UNEXPECTED_RESPONSE,
+                    Optional.of(sql),
+                    String.format("ColumnDataTypes and results expected for %s, expected %d columnDataTypes but got %d", sql, blockBuilders.size(), columnDataTypes == null ? 0 : columnDataTypes.size()));
+            }
+            if (columnNames == null
+                    || !columnNames.isArray()
+                    || columnNames.size() < blockBuilders.size()) {
+                throw new PinotException(
+                    PINOT_UNEXPECTED_RESPONSE,
+                    Optional.of(sql),
+                    String.format("ColumnNames and results expected for %s, expected %d columnNames but got %d", sql, blockBuilders.size(), columnNames == null ? 0 : columnNames.size()));
+            }
+
+            JsonNode rows = resultTable.get("rows");
+            setRows(sql, blockBuilders, types, rows);
+            return rows.size();
+        }
+        return 0;
+    }
 
     // Build BlockAndTypeBuilder from different query syntax.
-    // E.g. PQL needs to handle the case that groupBy fields are always show up in front of selection list.
-    abstract BlockAndTypeBuilder buildBlockAndTypeBuilder(List<PinotColumnHandle> columnHandles, PinotQueryGenerator.GeneratedPinotQuery brokerPinotQuery);
+    // E.g. SQL needs to handle the case that groupBy fields are always show up in front of selection list.
+    @VisibleForTesting
+    public BlockAndTypeBuilder buildBlockAndTypeBuilder(List<PinotColumnHandle> columnHandles,
+            PinotQueryGenerator.GeneratedPinotQuery brokerSql)
+    {
+        // When we created the SQL, we came up with some column handles
+        // however other optimizers post-pushdown can come in and prune/re-order the required column handles
+        // so we need to map from the column handles the SQL corresponds to, to the actual column handles
+        // needed in the scan.
+
+        List<Type> expectedTypes = columnHandles.stream()
+                .map(PinotColumnHandle::getDataType)
+                .collect(Collectors.toList());
+        PageBuilder pageBuilder = new PageBuilder(expectedTypes);
+
+        // The expectedColumnHandles are the handles corresponding to the generated SQL
+        // However, the engine could end up requesting only a permutation/subset of those handles
+        // during the actual scan
+
+        // Map the handles from planning time to the handles asked in the scan
+        // so that we know which columns to discard.
+        int[] handleMapping = new int[expectedHandles.size()];
+        for (int i = 0; i < handleMapping.length; ++i) {
+            handleMapping[i] = columnHandles.indexOf(expectedHandles.get(i));
+        }
+
+        ArrayList<BlockBuilder> columnBlockBuilders = new ArrayList<>();
+        ArrayList<Type> columnTypes = new ArrayList<>();
+
+        for (int expectedColumnIndex : brokerSql.getExpectedColumnIndices()) {
+            // columnIndex is the index of this column in the current scan
+            // It is obtained from the mapping and can be -ve, which means that the
+            // expectedColumnIndex'th column returned by Pinot can be discarded.
+            int columnIndex = -1;
+            if (expectedColumnIndex >= 0) {
+                columnIndex = handleMapping[expectedColumnIndex];
+            }
+            columnBlockBuilders.add(columnIndex >= 0 ? pageBuilder.getBlockBuilder(columnIndex) : null);
+            columnTypes.add(columnIndex >= 0 ? expectedTypes.get(columnIndex) : null);
+        }
+        return new BlockAndTypeBuilder(pageBuilder, columnBlockBuilders, columnTypes);
+    }
 
     public static class BlockAndTypeBuilder
     {
         private final PageBuilder pageBuilder;
         private final List<BlockBuilder> columnBlockBuilders;
         private final List<Type> columnTypes;
-
-        public BlockAndTypeBuilder(List<Type> columnTypes)
-        {
-            this.columnTypes = columnTypes;
-            this.pageBuilder = new PageBuilder(columnTypes);
-            this.columnBlockBuilders = new ArrayList<>();
-            for (int columnIndex = 0; columnIndex < columnTypes.size(); columnIndex++) {
-                this.columnBlockBuilders.add(this.pageBuilder.getBlockBuilder(columnIndex));
-            }
-        }
 
         public BlockAndTypeBuilder(PageBuilder pageBuilder, List<BlockBuilder> columnBlockBuilders, List<Type> columnTypes)
         {
