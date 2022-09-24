@@ -129,7 +129,7 @@ public class TopNRowNumberOperator
 
     private final int[] outputChannels;
 
-    private final GroupedTopNBuilder groupedTopNBuilder;
+    private final InMemoryGroupedTopNBuilder inMemoryGroupedTopNBuilder;
 
     private boolean finishing;
     private Work<?> unfinishedWork;
@@ -165,7 +165,7 @@ public class TopNRowNumberOperator
 
         List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
 
-        this.groupedTopNBuilder = new GroupedTopNBuilder(
+        this.inMemoryGroupedTopNBuilder = new InMemoryGroupedTopNBuilder(
                 operatorContext,
                 ImmutableList.copyOf(sourceTypes),
                 partitionTypes,
@@ -213,7 +213,7 @@ public class TopNRowNumberOperator
         checkState(unfinishedWork == null, "Cannot add input with the operator when unfinished work is not empty");
         checkState(outputIterator == null, "Cannot add input with the operator when flushing");
         requireNonNull(page, "page is null");
-        unfinishedWork = groupedTopNBuilder.processPage(page);
+        unfinishedWork = inMemoryGroupedTopNBuilder.processPage(page);
         if (unfinishedWork.process()) {
             unfinishedWork = null;
         }
@@ -236,7 +236,7 @@ public class TopNRowNumberOperator
 
         if (outputIterator == null) {
             // start flushing
-            outputIterator = groupedTopNBuilder.buildResult();
+            outputIterator = inMemoryGroupedTopNBuilder.buildResult();
         }
 
         Page output = null;
@@ -249,7 +249,7 @@ public class TopNRowNumberOperator
     @VisibleForTesting
     public int getCapacity()
     {
-        GroupByHash groupByHash = groupedTopNBuilder.getGroupByHash();
+        GroupByHash groupByHash = inMemoryGroupedTopNBuilder.getGroupByHash();
         checkState(groupByHash != null);
         return groupByHash.getCapacity();
     }
@@ -257,7 +257,7 @@ public class TopNRowNumberOperator
     private boolean updateMemoryReservation()
     {
         // TODO: may need to use trySetMemoryReservation with a compaction to free memory (but that may cause GC pressure)
-        localUserMemoryContext.setBytes(groupedTopNBuilder.getEstimatedSizeInBytes());
+        localUserMemoryContext.setBytes(inMemoryGroupedTopNBuilder.getEstimatedSizeInBytes());
         return operatorContext.isWaitingForMemory().isDone();
     }
 

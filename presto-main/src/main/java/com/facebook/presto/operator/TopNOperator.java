@@ -92,7 +92,7 @@ public class TopNOperator
     private final OperatorContext operatorContext;
     private final LocalMemoryContext localUserMemoryContext;
 
-    private GroupedTopNBuilder topNBuilder;
+    private InMemoryGroupedTopNBuilder topNBuilder;
     private boolean finishing;
 
     private Iterator<Page> outputIterator;
@@ -112,7 +112,7 @@ public class TopNOperator
             outputIterator = emptyIterator();
         }
         else {
-            topNBuilder = new GroupedTopNBuilder(
+            topNBuilder = new InMemoryGroupedTopNBuilder(
                     operatorContext,
                     types,
                     emptyList(),
