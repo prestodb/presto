@@ -14,3 +14,7 @@ add_library(presto_adapters FileSystems.cpp)
 if(PRESTO_ENABLE_S3)
   target_link_libraries(presto_adapters velox_s3fs)
 endif()
+
+if(PRESTO_ENABLE_HDFS)
+  target_link_libraries(presto_adapters velox_hdfs)
+endif()
