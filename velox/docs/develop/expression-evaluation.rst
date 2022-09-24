@@ -360,6 +360,50 @@ depth-first order. For each node a sequence of operations is performed.
 #. **Expr::evalAll** - The expression can be either a special form or a function call. If it is a special form, evaluate the expression by invoking Expr::evalSpecialForm(). If it is a function call, recursively evaluate all input expressions by calling Expr::eval() on the child nodes and produce input vectors. If the function has default null behavior, identify all rows where input vectors are null and remove these from the set of rows for evaluation. If the function is deterministic and input vectors are not flat, try to peel off encodings. If peeling is successful, replace input vectors with corresponding inner vectors, update the set of rows for evaluation to corresponding rows in the inner vectors and store the peeled off wrappings for later use. Evaluate the function by calling VectorFunction::apply(). Adjust the results by wrapping them using peeled encodings and by setting nulls on rows which were removed due to null inputs. NOTE: The handling of nulls and peeling of encodings in this step may seem to be duplicating the similar steps from Expr::evalEncodings and Expr::evalWithNulls. The difference is that Expr::evalEncodings and Expr::evalWithNulls are working with the input data provided for the whole expression tree while this step is working with the input vectors that were calculated by evaluating input expressions.
 #. **Finalize** - Set nulls for rows that were removed from evaluation due to null inputs. If any encoding was peeled off, use it to wrap the result. If the expression is a shared subexpression and there is a partial result from prior evaluation, incorporate it into the final result, then save the result for future use.
 
+Flat No-Nulls Fast Path
+```````````````````````
+
+When evaluating simple expressions on short vectors (< 1000 rows), the overhead
+of handling nulls and encodings is visible. To optimize these use cases,
+expression evaluation takes flat-no-nulls fast path
+(Expr::evalFlatNoNulls). This path applies automatically when inputs are flat
+vectors or constants with no nulls and all sub-expressions are guaranteed to
+produce flat-or-constant-no-nulls results given flat-or-constant-no-nulls
+inputs.
+
+An example of a workload that benefits from this optimization is basic arithmetic
+over non-null floats found in many machine learning pre-processing workloads.
+
+All simple functions are guaranteed to return flat-or-constant-no-nulls result
+for flat-or-constant-no-nulls inputs.
+
+Vector functions that have this property must indicate so by overriding
+supportsFlatNoNullsFastPath method.
+
+.. code-block:: c++
+
+  /// Returns true if (1) supports evaluation on all constant inputs of size >
+  /// 1; (2) returns flat or constant result when inputs are all flat, all
+  /// constant or a mix of flat and constant; (3) guarantees that if all inputs
+  /// are not null, the result is also not null.
+  virtual bool supportsFlatNoNullsFastPath() const {
+    return false;
+  }
+
+Special forms support flat-no-nulls fast path in some cases, but not all.
+
+* AND / OR support flat-no-nulls fast path if all sub-expressions support
+  flat-no-nulls fast path.
+* IF and SWITCH support flat-no-nulls fast path if else clause if specified and
+  all sub-expressions support flat-no-nulls fast path.
+* COALESCE supports flat-no-nulls fast path if all sub-expressions support
+  flat-no-nulls fast path.
+* CAST doesn't support flat-no-nulls fast path.
+* TRY doesnt't support flat-no-nulls fast path.
+
+It is possible for some sub-expressions to take the fast path while others
+go through the regular path.
+
 Error Handling in AND, OR, TRY
 ``````````````````````````````
 
