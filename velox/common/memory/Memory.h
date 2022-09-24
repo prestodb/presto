@@ -739,6 +739,7 @@ template <typename Allocator, uint16_t ALIGNMENT>
 void MemoryPoolImpl<Allocator, ALIGNMENT>::setMemoryUsageTracker(
     const std::shared_ptr<MemoryUsageTracker>& tracker) {
   memoryUsageTracker_ = tracker;
+  memoryUsageTracker_->update(getCurrentBytes());
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>

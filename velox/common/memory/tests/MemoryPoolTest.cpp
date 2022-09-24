@@ -696,6 +696,44 @@ TEST(MemoryPoolTest, scopedChildUsageTest) {
   }
 }
 
+TEST(MemoryPoolTest, setMemoryUsageTrackerTest) {
+  MemoryManager<MemoryAllocator> manager{};
+  auto& root = manager.getRoot();
+  const int64_t kChunkSize{32L * MB};
+  {
+    auto& pool = root.addChild("empty_pool");
+    auto tracker = SimpleMemoryTracker::create();
+    pool.setMemoryUsageTracker(tracker);
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    void* chunk = pool.allocate(kChunkSize);
+    ASSERT_EQ(kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(kChunkSize, tracker->getCurrentUserBytes());
+    chunk = pool.reallocate(chunk, kChunkSize, 2 * kChunkSize);
+    ASSERT_EQ(2 * kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(2 * kChunkSize, tracker->getCurrentUserBytes());
+    pool.free(chunk, 2 * kChunkSize);
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+  }
+  {
+    auto& pool = root.addChild("nonempty_pool");
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    auto tracker = SimpleMemoryTracker::create();
+    void* chunk = pool.allocate(kChunkSize);
+    ASSERT_EQ(kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    pool.setMemoryUsageTracker(tracker);
+    EXPECT_EQ(kChunkSize, tracker->getCurrentUserBytes());
+    chunk = pool.reallocate(chunk, kChunkSize, 2 * kChunkSize);
+    ASSERT_EQ(2 * kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(2 * kChunkSize, tracker->getCurrentUserBytes());
+    pool.free(chunk, 2 * kChunkSize);
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+  }
+}
+
 TEST(MemoryPoolTest, mockUpdatesTest) {
   MemoryManager<MemoryAllocator> manager{};
   auto& root = manager.getRoot();
