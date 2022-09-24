@@ -44,7 +44,7 @@ int64_t sumOpSpillBytes(
   int64_t sum = 0;
   const auto& taskStats = taskInfo.stats;
   for (const auto& pipelineStats : taskStats.pipelines) {
-    for (const auto opStats : pipelineStats.operatorSummaries) {
+    for (const auto& opStats : pipelineStats.operatorSummaries) {
       if (opStats.operatorType != opType) {
         continue;
       }
