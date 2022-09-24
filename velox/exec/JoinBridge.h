@@ -23,14 +23,19 @@ class JoinBridge {
  public:
   virtual ~JoinBridge() = default;
 
-  // Sets this to a cancelled state and unblocks any waiting activity. This may
-  // happen asynchronously before or after the result has been set.
+  /// Invoked by the associated task after the driver creations to start this
+  /// join bridge before starting task execution.
+  virtual void start();
+
+  /// Sets this to a cancelled state and unblocks any waiting activity. This may
+  /// happen asynchronously before or after the result has been set.
   void cancel();
 
  protected:
   static void notify(std::vector<ContinuePromise> promises);
 
   std::mutex mutex_;
+  bool started_{false};
   std::vector<ContinuePromise> promises_;
   bool cancelled_{false};
 };

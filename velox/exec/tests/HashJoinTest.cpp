@@ -310,10 +310,6 @@ class MultiThreadedHashJoinTest
       public testing::WithParamInterface<TestParam> {
  public:
   MultiThreadedHashJoinTest() : HashJoinTest(GetParam()) {}
-
-  static std::vector<TestParam> getTestParams() {
-    return std::vector<TestParam>({TestParam{1}, TestParam{4}});
-  }
 };
 
 TEST_P(MultiThreadedHashJoinTest, bigintArray) {
@@ -506,7 +502,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithLargeOutput) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinTest,
     MultiThreadedHashJoinTest,
-    testing::ValuesIn(MultiThreadedHashJoinTest::getTestParams()));
+    testing::ValuesIn({TestParam{1}, TestParam{4}}));
 
 // TODO: try to parallelize the following test cases if possible.
 

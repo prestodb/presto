@@ -279,22 +279,11 @@ class SpillOperatorGroupTest : public testing::Test {
   std::vector<std::unique_ptr<MockOperator>> spillOps_;
 };
 
-struct TestParam {
-  int32_t numOperators;
-};
-
 class MultiSpillOperatorGroupTest
     : public SpillOperatorGroupTest,
-      public testing::WithParamInterface<TestParam> {
+      public testing::WithParamInterface<int32_t> {
  public:
-  MultiSpillOperatorGroupTest()
-      : SpillOperatorGroupTest(GetParam().numOperators) {}
-
-  static std::vector<TestParam> getTestParams() {
-    return std::vector<TestParam>({TestParam{1}, TestParam{4}, TestParam{32}});
-    // return std::vector<TestParam>({TestParam{1}, TestParam{4},
-    // TestParam{32}});
-  }
+  MultiSpillOperatorGroupTest() : SpillOperatorGroupTest(GetParam()) {}
 };
 
 TEST_P(MultiSpillOperatorGroupTest, spillRun) {
@@ -456,4 +445,4 @@ TEST_P(MultiSpillOperatorGroupTest, multiThreading) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SpillOperatorGroupTest,
     MultiSpillOperatorGroupTest,
-    testing::ValuesIn(MultiSpillOperatorGroupTest::getTestParams()));
+    testing::ValuesIn({1, 4, 32}));

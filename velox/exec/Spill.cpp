@@ -283,4 +283,14 @@ SpillPartition::createReader() {
   return std::make_unique<UnorderedStreamReader<BatchStream>>(
       std::move(streams));
 }
+
+SpillPartitionIdSet toSpillPartitionIdSet(
+    const SpillPartitionSet& partitionSet) {
+  SpillPartitionIdSet partitionIdSet;
+  partitionIdSet.reserve(partitionSet.size());
+  for (auto& partitionEntry : partitionSet) {
+    partitionIdSet.insert(partitionEntry.first);
+  }
+  return partitionIdSet;
+}
 } // namespace facebook::velox::exec

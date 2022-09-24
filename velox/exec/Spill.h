@@ -654,6 +654,10 @@ class SpillState {
   std::vector<std::unique_ptr<SpillFileList>> files_;
 };
 
+/// Generate partition id set from given spill partition set.
+SpillPartitionIdSet toSpillPartitionIdSet(
+    const SpillPartitionSet& partitionSet);
+
 } // namespace facebook::velox::exec
 
 // Adding the custom hash for SpillPartitionId to std::hash to make it usable

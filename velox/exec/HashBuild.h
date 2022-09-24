@@ -15,39 +15,14 @@
  */
 #pragma once
 
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/HashTable.h"
-#include "velox/exec/JoinBridge.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/Spill.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
-
-// Hands over a hash table from a multi-threaded build pipeline to a
-// multi-threaded probe pipeline. This is owned by shared_ptr by all the build
-// and probe Operator instances concerned. Corresponds to the Presto concept of
-// the same name.
-class HashJoinBridge : public JoinBridge {
- public:
-  void setHashTable(std::unique_ptr<BaseHashTable> table);
-
-  void setAntiJoinHasNullKeys();
-
-  // Represents the result of a HashBuild operator: a hash table. In case of an
-  // anti join, a build side entry with a null in a join key makes the join
-  // return nothing. In this case, HashBuild operator finishes early without
-  // processing all the input and without finishing building the hash table.
-  struct HashBuildResult {
-    std::shared_ptr<BaseHashTable> table;
-    bool antiJoinHasNullKeys;
-  };
-
-  std::optional<HashBuildResult> tableOrFuture(ContinueFuture* future);
-
- private:
-  std::shared_ptr<BaseHashTable> table_;
-  bool antiJoinHasNullKeys_{false};
-};
 
 // Builds a hash table for use in HashProbe. This is the final
 // Operator in a build side Driver. The build side pipeline has
@@ -62,7 +37,7 @@ class HashBuild final : public Operator {
  public:
   HashBuild(
       int32_t operatorId,
-      DriverCtx* driverCtx,
+      DriverCtx* FOLLY_NONNULL driverCtx,
       std::shared_ptr<const core::HashJoinNode> joinNode);
 
   void addInput(RowVectorPtr input) override;
@@ -77,7 +52,7 @@ class HashBuild final : public Operator {
 
   void noMoreInput() override;
 
-  BlockingReason isBlocked(ContinueFuture* future) override;
+  BlockingReason isBlocked(ContinueFuture* FOLLY_NONNULL future) override;
 
   bool isFinished() override;
 
@@ -93,8 +68,10 @@ class HashBuild final : public Operator {
 
   const core::JoinType joinType_;
 
+  const std::shared_ptr<HashJoinBridge> joinBridge_;
+
   // Holds the areas in RowContainer of 'table_'
-  memory::MappedMemory* const mappedMemory_; // Not owned.
+  memory::MappedMemory* FOLLY_NONNULL const mappedMemory_; // Not owned.
 
   // The row type used for hash table build and disk spilling.
   RowTypePtr tableType_;

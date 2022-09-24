@@ -23,6 +23,11 @@ void JoinBridge::notify(std::vector<ContinuePromise> promises) {
   }
 }
 
+void JoinBridge::start() {
+  std::lock_guard<std::mutex> l(mutex_);
+  started_ = true;
+}
+
 void JoinBridge::cancel() {
   std::vector<ContinuePromise> promises;
   {

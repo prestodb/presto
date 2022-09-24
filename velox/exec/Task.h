@@ -382,6 +382,10 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
+  std::shared_ptr<HashJoinBridge> getHashJoinBridgeLocked(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
   // Returns a CrossJoinBridge for 'planNodeId'.
   std::shared_ptr<CrossJoinBridge> getCrossJoinBridge(
       uint32_t splitGroupId,
@@ -486,6 +490,11 @@ class Task : public std::enable_shared_from_this<Task> {
 
   template <class TBridgeType>
   std::shared_ptr<TBridgeType> getJoinBridgeInternal(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
+  template <class TBridgeType>
+  std::shared_ptr<TBridgeType> getJoinBridgeInternalLocked(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

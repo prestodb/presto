@@ -747,7 +747,6 @@ class AsyncDataCache : public memory::MappedMemory {
   // for memory arbitration to work.
   bool makeSpace(
       memory::MachinePageCount numPages,
-
       std::function<bool()> allocate);
 
   std::shared_ptr<memory::MappedMemory> mappedMemory_;

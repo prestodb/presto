@@ -20,55 +20,20 @@
 
 namespace facebook::velox::exec {
 
-void HashJoinBridge::setHashTable(std::unique_ptr<BaseHashTable> table) {
-  VELOX_CHECK(table, "setHashTable called with null table");
-
-  std::vector<ContinuePromise> promises;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(!table_, "setHashTable may be called only once");
-    // Ownership becomes shared.
-    table_.reset(table.release());
-    promises = std::move(promises_);
-  }
-  notify(std::move(promises));
-}
-
-void HashJoinBridge::setAntiJoinHasNullKeys() {
-  std::vector<ContinuePromise> promises;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    VELOX_CHECK(
-        !table_,
-        "Only one of setAntiJoinHasNullKeys or setHashTable may be called");
-
-    antiJoinHasNullKeys_ = true;
-    promises = std::move(promises_);
-  }
-  notify(std::move(promises));
-}
-
-std::optional<HashJoinBridge::HashBuildResult> HashJoinBridge::tableOrFuture(
-    ContinueFuture* future) {
-  std::lock_guard<std::mutex> l(mutex_);
-  VELOX_CHECK(
-      !cancelled_, "Getting hash table after the build side is aborted");
-  if (table_ || antiJoinHasNullKeys_) {
-    return HashBuildResult{table_, antiJoinHasNullKeys_};
-  }
-  promises_.emplace_back("HashJoinBridge::tableOrFuture");
-  *future = promises_.back().getSemiFuture();
-  return std::nullopt;
-}
-
 HashBuild::HashBuild(
     int32_t operatorId,
     DriverCtx* driverCtx,
     std::shared_ptr<const core::HashJoinNode> joinNode)
     : Operator(driverCtx, nullptr, operatorId, joinNode->id(), "HashBuild"),
       joinNode_(std::move(joinNode)),
-      joinType_{joinNode_->joinType()},
+      joinType_(joinNode_->joinType()),
+      joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
+          operatorCtx_->driverCtx()->splitGroupId,
+          planNodeId())),
       mappedMemory_(operatorCtx_->mappedMemory()) {
+  VELOX_CHECK_NOT_NULL(joinBridge_);
+  joinBridge_->addBuilder();
+
   auto outputType = joinNode_->sources()[1]->outputType();
 
   auto numKeys = joinNode_->rightKeys().size();
@@ -255,10 +220,7 @@ void HashBuild::noMoreInput() {
   }
 
   if (antiJoinHasNullKeys_) {
-    operatorCtx_->task()
-        ->getHashJoinBridge(
-            operatorCtx_->driverCtx()->splitGroupId, planNodeId())
-        ->setAntiJoinHasNullKeys();
+    joinBridge_->setAntiJoinHasNullKeys();
   } else {
     bool hasOthers = !otherTables.empty();
     table_->prepareJoinTable(
@@ -266,11 +228,7 @@ void HashBuild::noMoreInput() {
         hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
 
     addRuntimeStats();
-
-    operatorCtx_->task()
-        ->getHashJoinBridge(
-            operatorCtx_->driverCtx()->splitGroupId, planNodeId())
-        ->setHashTable(std::move(table_));
+    joinBridge_->setHashTable(std::move(table_), {});
   }
 }
 

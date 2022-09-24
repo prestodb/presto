@@ -545,6 +545,11 @@ void Task::createDriversLocked(
       driverIndex += factory->numDrivers;
     }
   }
+
+  // Start all the join bridges before we start driver execution.
+  for (auto& bridgeEntry : splitGroupState.bridges) {
+    bridgeEntry.second->start();
+  }
 }
 
 // static
@@ -664,9 +669,8 @@ bool Task::addSplitWithSequence(
     isTaskRunning = isRunningLocked();
     if (isTaskRunning) {
       // The same split can be added again in some systems. The systems that
-      // want
-      // 'one split processed once only' would use this method and duplicate
-      // splits would be ignored.
+      // want 'one split processed once only' would use this method and
+      // duplicate splits would be ignored.
       auto& splitsState = splitsStates_[planNodeId];
       if (sequenceId > splitsState.maxSequenceId) {
         promise = addSplitLocked(splitsState, std::move(split));
@@ -1143,6 +1147,12 @@ std::shared_ptr<HashJoinBridge> Task::getHashJoinBridge(
   return getJoinBridgeInternal<HashJoinBridge>(splitGroupId, planNodeId);
 }
 
+std::shared_ptr<HashJoinBridge> Task::getHashJoinBridgeLocked(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  return getJoinBridgeInternalLocked<HashJoinBridge>(splitGroupId, planNodeId);
+}
+
 std::shared_ptr<CrossJoinBridge> Task::getCrossJoinBridge(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
@@ -1154,6 +1164,13 @@ std::shared_ptr<TBridgeType> Task::getJoinBridgeInternal(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
   std::lock_guard<std::mutex> l(mutex_);
+  return getJoinBridgeInternalLocked<TBridgeType>(splitGroupId, planNodeId);
+}
+
+template <class TBridgeType>
+std::shared_ptr<TBridgeType> Task::getJoinBridgeInternalLocked(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
   const auto& splitGroupState = splitGroupStates_[splitGroupId];
 
   auto it = splitGroupState.bridges.find(planNodeId);
