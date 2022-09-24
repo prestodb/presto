@@ -92,7 +92,11 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
   auto pool = memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
       "query_root");
   pool->setMemoryUsageTracker(velox::memory::MemoryUsageTracker::create(
-      maxUserMemoryPerNode, maxSystemMemoryPerNode, maxTotalMemoryPerNode));
+      velox::memory::MemoryUsageConfigBuilder()
+          .maxUserMemory(maxUserMemoryPerNode)
+          .maxSystemMemory(maxSystemMemoryPerNode)
+          .maxTotalMemory(maxTotalMemoryPerNode)
+          .build()));
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
       executor(),
