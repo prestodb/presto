@@ -16,6 +16,7 @@
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/http/HttpClient.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/exec/Exchange.h"
 
 namespace facebook::presto {
@@ -24,21 +25,21 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue);
+      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      velox::memory::MemoryPool* pool);
 
   bool shouldRequestLocked() override;
 
   static std::unique_ptr<ExchangeSource> createExchangeSource(
       const std::string& url,
       int destination,
-      std::shared_ptr<velox::exec::ExchangeQueue> queue);
+      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      velox::memory::MemoryPool* pool);
+
+  void close() override;
 
  private:
   void request() override;
-
-  void close() override {
-    closed_.store(true);
-  }
 
   void doRequest();
 
@@ -59,5 +60,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   std::unique_ptr<http::HttpClient> httpClient_;
   int failedAttempts_;
   std::atomic_bool closed_{false};
+  // A boolean indicating whether abortResults() call was issued and was
+  // successfully processed by the remote server.
+  std::atomic_bool abortResultsSucceeded_{false};
 };
 } // namespace facebook::presto

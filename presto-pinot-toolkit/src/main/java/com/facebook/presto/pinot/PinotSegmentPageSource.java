@@ -17,6 +17,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -30,7 +31,9 @@ import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient.ErrorCode;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.ByteArray;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -43,6 +46,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.JsonType.JSON;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -297,6 +301,9 @@ public class PinotSegmentPageSource
         else if (javaType.equals(double.class)) {
             writeDoubleBlock(blockBuilder, columnType, columnIndex);
         }
+        else if (pinotColumnType == DataSchema.ColumnDataType.BIG_DECIMAL) {
+            writeBigDecimalBlock(blockBuilder, columnType, columnIndex);
+        }
         else if (javaType.equals(Slice.class)) {
             writeSliceBlock(blockBuilder, columnType, columnIndex);
         }
@@ -428,6 +435,15 @@ public class PinotSegmentPageSource
         }
     }
 
+    private void writeBigDecimalBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
+    {
+        for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
+            Slice slice = Decimals.encodeScaledValue(getBigDecimal(i, columnIndex));
+            columnType.writeSlice(blockBuilder, slice, 0, slice.length());
+            completedBytes += slice.length();
+        }
+    }
+
     private void writeSliceBlock(BlockBuilder blockBuilder, Type columnType, int columnIndex)
     {
         for (int i = 0; i < currentDataTable.getDataTable().getNumberOfRows(); i++) {
@@ -470,10 +486,15 @@ public class PinotSegmentPageSource
         }
     }
 
+    private BigDecimal getBigDecimal(int rowIndex, int columnIndex)
+    {
+        return currentDataTable.getDataTable().getBigDecimal(rowIndex, columnIndex);
+    }
+
     private Slice getSlice(int rowIndex, int columnIndex)
     {
         checkColumnType(columnIndex, new Type[] {
-                VARCHAR, JSON
+                VARCHAR, JSON, VARBINARY
         });
         DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         switch (columnType) {
@@ -499,6 +520,9 @@ public class PinotSegmentPageSource
                     return Slices.EMPTY_SLICE;
                 }
                 return Slices.utf8Slice(field);
+            case BYTES:
+                ByteArray byteArray = currentDataTable.getDataTable().getBytes(rowIndex, columnIndex);
+                return Slices.wrappedBuffer(byteArray.getBytes());
         }
         return Slices.EMPTY_SLICE;
     }
@@ -538,7 +562,8 @@ public class PinotSegmentPageSource
                 matches = true;
             }
         }
-        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex, expectedTypes, actual);
+        checkArgument(matches, "Expected column %s to be type %s but is %s", columnIndex,
+                Arrays.toString(expectedTypes), actual);
     }
 
     protected static Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)

@@ -208,5 +208,9 @@
             <directory>${project.build.directory}/dependency/presto-hudi-${project.version}</directory>
             <outputDirectory>plugin/hudi</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-clickhouse-${project.version}</directory>
+            <outputDirectory>plugin/clickhouse</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>

@@ -33,6 +33,7 @@ import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.SphericalGeoFunctions.toSphericalGeography;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -193,12 +194,12 @@ public class TestSphericalGeoFunctions
         //A Polygon with a large hole
         assertArea("POLYGON((90 0, 0 0, 0 90, 90 0), (89 1, 1 1, 1 89, 89 1))", 348.04E10);
 
-        Path geometryPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-states.tsv").getPath());
+        Path geometryPath = Paths.get(getResourceFile("us-states.tsv").getAbsolutePath());
         Map<String, String> stateGeometries = Files.lines(geometryPath)
                 .map(line -> line.split("\t"))
                 .collect(Collectors.toMap(parts -> parts[0], parts -> parts[1]));
 
-        Path areaPath = Paths.get(TestSphericalGeoFunctions.class.getClassLoader().getResource("us-state-areas.tsv").getPath());
+        Path areaPath = Paths.get(getResourceFile("us-state-areas.tsv").getAbsolutePath());
         Map<String, Double> stateAreas = Files.lines(areaPath)
                 .map(line -> line.split("\t"))
                 .filter(parts -> parts.length >= 2)

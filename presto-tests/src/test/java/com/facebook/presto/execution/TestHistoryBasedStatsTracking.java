@@ -14,12 +14,21 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
+import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.FilterNode;
+import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
+import com.facebook.presto.sql.planner.assertions.MatchResult;
+import com.facebook.presto.sql.planner.assertions.Matcher;
+import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
@@ -27,6 +36,7 @@ import com.facebook.presto.tests.statistics.InMemoryHistoryBasedPlanStatisticsPr
 import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PLAN_STATISTICS;
@@ -35,6 +45,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.Double.isNaN;
 
 @Test(singleThreaded = true)
 public class TestHistoryBasedStatsTracking
@@ -57,6 +68,14 @@ public class TestHistoryBasedStatsTracking
             }
         });
         return queryRunner;
+    }
+
+    @BeforeMethod(alwaysRun = true)
+    public void setUp()
+    {
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).invalidateCache();
+        getHistoryProvider().clearCache();
     }
 
     @Test
@@ -121,14 +140,74 @@ public class TestHistoryBasedStatsTracking
                 anyTree(node(ProjectNode.class, node(FilterNode.class, anyTree(anyTree(any()), anyTree(any())))).withOutputRowCount(4)));
     }
 
+    @Test
+    public void testJoin()
+    {
+        assertPlan(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
+                anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
+        assertPlan(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(Double.NaN)));
+
+        executeAndTrackHistory("SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'");
+        assertPlan(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
+                anyTree(node(JoinNode.class, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(2204)), anyTree(any()))));
+        assertPlan(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
+                anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915)));
+    }
+
+    @Test
+    public void testLimit()
+    {
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+
+        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A' LIMIT 1");
+        // Don't track stats of filter node when limit is not present
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A' LIMIT 1",
+                anyTree(node(FilterNode.class, any()).with(validOutputRowCountMatcher())));
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A' LIMIT 1",
+                anyTree(node(LimitNode.class, anyTree(any())).withOutputRowCount(1)));
+    }
+
     private void executeAndTrackHistory(String sql)
+    {
+        getQueryRunner().execute(sql);
+        getHistoryProvider().waitProcessQueryEvents();
+    }
+
+    private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         SqlQueryManager sqlQueryManager = (SqlQueryManager) queryRunner.getCoordinator().getQueryManager();
-        InMemoryHistoryBasedPlanStatisticsProvider provider = (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
+        return (InMemoryHistoryBasedPlanStatisticsProvider) sqlQueryManager.getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();
+    }
 
-        queryRunner.execute(sql);
-        provider.waitProcessQueryEvents();
+    private static Matcher validOutputRowCountMatcher()
+    {
+        return new Matcher()
+        {
+            @Override
+            public boolean shapeMatches(PlanNode node)
+            {
+                return true;
+            }
+
+            @Override
+            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            {
+                return new MatchResult(!isNaN(stats.getStats(node).getOutputRowCount()));
+            }
+        };
     }
 
     private static Session createSession()

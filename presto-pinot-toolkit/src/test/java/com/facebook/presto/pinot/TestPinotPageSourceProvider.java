@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
+import org.apache.pinot.common.config.GrpcConfig;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.pinot.PinotConfig.DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
@@ -30,7 +30,7 @@ public class TestPinotPageSourceProvider
     public void testExtractTlsPropertyDefault()
     {
         PinotConfig config = new PinotConfig();
-        GrpcQueryClient.Config extracted = PinotPageSourceProvider.extractGrpcQueryClientConfig(config);
+        GrpcConfig extracted = PinotPageSourceProvider.extractGrpcQueryClientConfig(config);
         assertEquals(extracted.getMaxInboundMessageSizeBytes(), DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES);
         assertTrue(extracted.isUsePlainText());
         assertNotNull(extracted.getTlsConfig());
@@ -52,7 +52,7 @@ public class TestPinotPageSourceProvider
                 .setGrpcTlsKeyStoreType("jks-keystore")
                 .setUseSecureConnection(true);
 
-        GrpcQueryClient.Config extracted = PinotPageSourceProvider.extractGrpcQueryClientConfig(config);
+        GrpcConfig extracted = PinotPageSourceProvider.extractGrpcQueryClientConfig(config);
         assertEquals(extracted.getMaxInboundMessageSizeBytes(), DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES);
         assertFalse(extracted.isUsePlainText());
         assertNotNull(extracted.getTlsConfig());

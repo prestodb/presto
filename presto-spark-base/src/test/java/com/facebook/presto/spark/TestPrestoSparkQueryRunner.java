@@ -31,16 +31,21 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.PARTIAL_MERGE_PUSHDOWN_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
+import static com.facebook.presto.SystemSessionProperties.VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.spark.PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_PRESTO_SESSION_PROPERTIES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.OUT_OF_MEMORY_RETRY_SPARK_CONFIGS;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_BROADCAST_JOIN_MAX_MEMORY_OVERRIDE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_BROADCAST_JOIN_ENABLED;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
@@ -804,7 +809,7 @@ public class TestPrestoSparkQueryRunner
         assertThat(sampledRows).isLessThan(totalRows);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testTimeouts()
     {
         // Expected run time for this query is ~30s
@@ -928,6 +933,64 @@ public class TestPrestoSparkQueryRunner
                 session,
                 "select * from lineitem l join orders o on l.orderkey = o.orderkey",
                 "Query exceeded per-node broadcast memory limit of 2MB \\[Broadcast size: 2.*MB\\]");
+    }
+
+    @Test
+    public void testRetryWithHigherHashPartitionCount()
+    {
+        String query = "with l as (" +
+                "select * from lineitem UNION ALL select * from lineitem UNION ALL select * from lineitem" +
+                "), " +
+                "o as (" +
+                "select * from orders UNION ALL select * from orders UNION ALL select * from orders" +
+                ") " +
+                "select * from l right outer join o on l.orderkey = o.orderkey";
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "6.5MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "false")
+                .build();
+        assertQueryFails(session,
+                query,
+                "Query exceeded per-node total memory limit of .*Top Consumers: \\{HashBuilderOperator.*");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "6.5MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "true")
+                .setSystemProperty(SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY, "1.0")
+                .build();
+        assertQueryFails(session,
+                query,
+                "Query exceeded per-node total memory limit of .*Top Consumers: \\{HashBuilderOperator.*");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "6.5MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "true")
+                .build();
+        assertQuerySucceeds(session, query);
+
+        session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "partitioned")
+                .setSystemProperty(HASH_PARTITION_COUNT, "1")
+                .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "6.5MB")
+                .setSystemProperty(QUERY_MAX_MEMORY, "100MB")
+                .setSystemProperty(VERBOSE_EXCEEDED_MEMORY_LIMIT_ERRORS_ENABLED, "true")
+                .setSystemProperty(SPARK_RETRY_ON_OUT_OF_MEMORY_HIGHER_PARTITION_COUNT_ENABLED, "true")
+                .setSystemProperty(SPARK_HASH_PARTITION_COUNT_SCALING_FACTOR_ON_OUT_OF_MEMORY, "2.0")
+                .build();
+        assertQuerySucceeds(session, query);
     }
 
     @Test

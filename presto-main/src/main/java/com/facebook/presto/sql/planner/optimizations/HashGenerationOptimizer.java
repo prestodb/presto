@@ -787,7 +787,7 @@ public class HashGenerationOptimizer
                 }
             }
 
-            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.getNode(), assignments.build(), LOCAL);
+            ProjectNode projectNode = new ProjectNode(planWithProperties.node.getSourceLocation(), idAllocator.getNextId(), planWithProperties.node.getStatsEquivalentPlanNode(), planWithProperties.getNode(), assignments.build(), LOCAL);
             return new PlanWithProperties(projectNode, outputHashVariables);
         }
 

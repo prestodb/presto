@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.277-SNAPSHOT</version>
+    <version>0.278-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
@@ -67,10 +67,10 @@
         <dep.alluxio.version>2.8.1</dep.alluxio.version>
         <dep.slf4j.version>1.7.32</dep.slf4j.version>
         <dep.kafka.version>2.3.1</dep.kafka.version>
-        <dep.pinot.version>0.10.0</dep.pinot.version>
+        <dep.pinot.version>0.11.0</dep.pinot.version>
         <dep.druid.version>0.19.0</dep.druid.version>
         <dep.jaxb.version>2.3.1</dep.jaxb.version>
-        <dep.hudi.version>0.11.0</dep.hudi.version>
+        <dep.hudi.version>0.12.0</dep.hudi.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.12</dep.docker-java.version>
         <dep.jayway.version>2.6.0</dep.jayway.version>
@@ -1982,13 +1982,13 @@
             <dependency>
                 <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
-                <version>1.18.0</version>
+                <version>1.19.0</version>
             </dependency>
 
             <dependency>
                 <groupId>org.locationtech.jts.io</groupId>
                 <artifactId>jts-io-common</artifactId>
-                <version>1.18.0</version>
+                <version>1.19.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>junit</groupId>
@@ -2052,12 +2052,6 @@
             </dependency>
 
             <dependency>
-                <groupId>io.delta</groupId>
-                <artifactId>delta-standalone_2.12</artifactId>
-                <version>0.3.0</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-delta</artifactId>
                 <version>${project.version}</version>
@@ -2066,7 +2060,7 @@
             <dependency>
                 <groupId>com.facebook.presto.ranger</groupId>
                 <artifactId>ranger-apache</artifactId>
-                <version>2.1.0-2</version>
+                <version>2.1.0-3</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->

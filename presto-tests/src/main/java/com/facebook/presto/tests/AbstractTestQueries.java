@@ -57,6 +57,7 @@ import static com.facebook.presto.SystemSessionProperties.KEY_BASED_SAMPLING_PER
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_CASE_EXPRESSION_PREDICATE;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
+import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -1303,6 +1304,54 @@ public abstract class AbstractTestQueries
 
         assertQuery("SELECT grouping(a) FROM (VALUES ('h', 'j', 11), ('k', 'l', 7)) AS t (a, b, c) GROUP BY GROUPING SETS (a,c), c*2",
                 "VALUES (0), (1), (0), (1)");
+    }
+
+    @Test
+    public void testGroupingSets()
+    {
+        Session sessionWithPushRemoteExchangeThroughGroupIdEnabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "true")
+                .build();
+        Session sessionWithPushRemoteExchangeThroughGroupIdDisabled = Session.builder(getSession())
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "false")
+                .build();
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdEnabled);
+        testGroupingSets(sessionWithPushRemoteExchangeThroughGroupIdDisabled);
+    }
+
+    private void testGroupingSets(Session session)
+    {
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                "VALUES (200872441, 'O', '5-LOW'), " +
+                        "        (199678223, 'O', '3-MEDIUM'), " +
+                        "        (206109275, 'F', '1-URGENT'), " +
+                        "        (210258874, 'O', '2-HIGH'), " +
+                        "        (13665497, 'P', '3-MEDIUM'), " +
+                        "        (12650639, 'P', '2-HIGH'), " +
+                        "        (1028376331, 'O', NULL), " +
+                        "        (205922827, 'F', '4-NOT SPECIFIED'), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (208560811, 'O', '4-NOT SPECIFIED'), " +
+                        "        (210211977, 'F', '5-LOW'), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (202158746, 'F', '3-MEDIUM'), " +
+                        "        (209005981, 'O', '1-URGENT'), " +
+                        "        (211278198, 'F', '2-HIGH'), " +
+                        "        (12098256, 'P', '5-LOW'), " +
+                        "        (11233550, 'P', '1-URGENT'), " +
+                        "        (13691534, 'P', '4-NOT SPECIFIED') ");
+
+        assertQuery(session,
+                "SELECT cast(sum(totalprice) as bigint), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                "VALUES (1028376331, 'O', NULL), " +
+                        "        (1035681023, 'F', NULL), " +
+                        "        (63339475, 'P', NULL), " +
+                        "        (423182675, NULL, '5-LOW'), " +
+                        "        (434187712, NULL, '2-HIGH'), " +
+                        "        (426348806, NULL, '1-URGENT'), " +
+                        "        (428175171, NULL, '4-NOT SPECIFIED'), " +
+                        "        (415502467, NULL, '3-MEDIUM')");
     }
 
     @Test
@@ -6054,5 +6103,98 @@ public abstract class AbstractTestQueries
         assertTrue(plan.contains("expr := (orderkey) + (BIGINT'1') (1:88)"));
         assertTrue(plan.contains("m := max (1:34)"));
         assertTrue(plan.contains("max := max(expr) RANGE UNBOUNDED_PRECEDING CURRENT_ROW (1:34)"));
+    }
+
+    @Test
+    public void testCSECompilation()
+    {
+        String sql = "SELECT " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v1, " +
+                "FILTER( MAP_VALUES(map1), x -> x >= ELEMENT_AT( MAP(ARRAY['low','medium','high'], ARRAY[40000,40000,40000]), COALESCE( ELEMENT_AT( other_map, name ), 'low' ) ) ) AS v2 " +
+                "FROM (select MAP(ARRAY['low'], ARRAY[100000]) map1, '' name) CROSS JOIN ( SELECT MAP() AS other_map ) risk_map";
+        assertQuery(sql, "VALUES (100000, 100000)");
+    }
+
+    @Test
+    public void testApproxPercentileMerged()
+    {
+        MaterializedResult raw = computeActual("SELECT orderstatus, orderkey, totalprice FROM orders");
+
+        Multimap<String, Long> orderKeyByStatus = ArrayListMultimap.create();
+        Multimap<String, Double> totalPriceByStatus = ArrayListMultimap.create();
+        for (MaterializedRow row : raw.getMaterializedRows()) {
+            orderKeyByStatus.put((String) row.getField(0), ((Number) row.getField(1)).longValue());
+            totalPriceByStatus.put((String) row.getField(0), (Double) row.getField(2));
+        }
+
+        MaterializedResult actual = computeActual("" +
+                "SELECT orderstatus, " +
+                "   approx_percentile(orderkey, 0.5), " +
+                "   approx_percentile(orderkey, 0.8)," +
+                "   approx_percentile(totalprice, 0.1), " +
+                "   approx_percentile(totalprice, 0.4)," +
+                "   approx_percentile(totalprice, 0.3, 0.001), " +
+                "   approx_percentile(totalprice, 0.6, 0.001)," +
+                "   approx_percentile(totalprice, 2, 0.5)," +
+                "   approx_percentile(totalprice, 2, 0.8)," +
+                "   approx_percentile(totalprice, 2, 0.4, 0.001)," +
+                "   approx_percentile(totalprice, 2, 0.7, 0.001)\n" +
+                "FROM orders\n" +
+                "GROUP BY orderstatus");
+
+        for (MaterializedRow row : actual.getMaterializedRows()) {
+            String status = (String) row.getField(0);
+            Long orderKey05 = ((Number) row.getField(1)).longValue();
+            Long orderKey08 = ((Number) row.getField(2)).longValue();
+            Double totalPrice01 = (Double) row.getField(3);
+            Double totalPrice04 = (Double) row.getField(4);
+            Double totalPrice03Accuracy = (Double) row.getField(5);
+            Double totalPrice06Accuracy = (Double) row.getField(6);
+            Double totalPrice05Weighted = (Double) row.getField(7);
+            Double totalPrice08Weighted = (Double) row.getField(8);
+            Double totalPrice04WeightedAccuracy = (Double) row.getField(9);
+            Double totalPrice07WeightedAccuracy = (Double) row.getField(10);
+
+            List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
+            List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
+
+            // verify real rank of returned value is within 1% of requested rank
+            assertTrue(orderKey05 >= orderKeys.get((int) (0.49 * orderKeys.size())));
+            assertTrue(orderKey05 <= orderKeys.get((int) (0.51 * orderKeys.size())));
+
+            assertTrue(orderKey08 >= orderKeys.get((int) (0.79 * orderKeys.size())));
+            assertTrue(orderKey08 <= orderKeys.get((int) (0.81 * orderKeys.size())));
+
+            assertTrue(totalPrice01 >= totalPrices.get((int) (0.09 * totalPrices.size())));
+            assertTrue(totalPrice01 <= totalPrices.get((int) (0.11 * totalPrices.size())));
+
+            assertTrue(totalPrice04 >= totalPrices.get((int) (0.39 * totalPrices.size())));
+            assertTrue(totalPrice04 <= totalPrices.get((int) (0.41 * totalPrices.size())));
+
+            assertTrue(totalPrice03Accuracy >= totalPrices.get((int) (0.29 * totalPrices.size())));
+            assertTrue(totalPrice03Accuracy <= totalPrices.get((int) (0.31 * totalPrices.size())));
+
+            assertTrue(totalPrice06Accuracy >= totalPrices.get((int) (0.59 * totalPrices.size())));
+            assertTrue(totalPrice06Accuracy <= totalPrices.get((int) (0.61 * totalPrices.size())));
+
+            assertTrue(totalPrice05Weighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
+            assertTrue(totalPrice05Weighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+
+            assertTrue(totalPrice08Weighted >= totalPrices.get((int) (0.79 * totalPrices.size())));
+            assertTrue(totalPrice08Weighted <= totalPrices.get((int) (0.81 * totalPrices.size())));
+
+            assertTrue(totalPrice04WeightedAccuracy >= totalPrices.get((int) (0.39 * totalPrices.size())));
+            assertTrue(totalPrice04WeightedAccuracy <= totalPrices.get((int) (0.41 * totalPrices.size())));
+
+            assertTrue(totalPrice07WeightedAccuracy >= totalPrices.get((int) (0.69 * totalPrices.size())));
+            assertTrue(totalPrice07WeightedAccuracy <= totalPrices.get((int) (0.71 * totalPrices.size())));
+        }
+    }
+
+    @Test
+    public void testOrderByCompilation()
+    {
+        String sql = "SELECT orderkey, array_agg(abs(1) ORDER BY orderkey) FROM orders GROUP BY orderkey ORDER BY orderkey";
+        assertQuery(sql, "SELECT orderkey, array_agg(1) FROM orders GROUP BY orderkey ORDER BY orderkey");
     }
 }

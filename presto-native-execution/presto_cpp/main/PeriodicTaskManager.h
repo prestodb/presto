@@ -14,6 +14,7 @@
 #pragma once
 
 #include <folly/experimental/FunctionScheduler.h>
+#include "velox/common/memory/Memory.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
@@ -55,6 +56,8 @@ class PeriodicTaskManager {
   folly::CPUThreadPoolExecutor* driverCPUExecutor_;
   folly::IOThreadPoolExecutor* httpExecutor_;
   TaskManager* taskManager_;
+  velox::memory::MemoryManager<velox::memory::MmapMemoryAllocator>&
+      memoryManager_;
 };
 
 } // namespace facebook::presto

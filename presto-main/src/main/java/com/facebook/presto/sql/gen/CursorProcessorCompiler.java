@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.bytecode.Access.PRIVATE;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -101,6 +102,7 @@ public class CursorProcessorCompiler
                 .add(filter)
                 .build();
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
                 classDefinition,
@@ -110,7 +112,8 @@ public class CursorProcessorCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                lambdaCounter);
 
         if (isOptimizeCommonSubExpressions) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(rowExpressions);
@@ -125,7 +128,8 @@ public class CursorProcessorCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        ImmutableMap.of());
+                        ImmutableMap.of(),
+                        lambdaCounter);
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
 
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()

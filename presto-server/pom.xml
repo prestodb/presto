@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.277-SNAPSHOT</version>
+        <version>0.278-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-server</artifactId>
@@ -359,6 +359,14 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-hudi</artifactId>
+            <version>${project.version}</version>
+            <type>zip</type>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-clickhouse</artifactId>
             <version>${project.version}</version>
             <type>zip</type>
             <scope>provided</scope>

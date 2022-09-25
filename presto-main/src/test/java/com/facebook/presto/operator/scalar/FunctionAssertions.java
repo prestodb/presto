@@ -126,9 +126,9 @@ import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZ
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -323,8 +323,8 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection)
     {
         try {
-            evaluateInvalid(projection);
-            fail("Expected to fail");
+            Object value = evaluateInvalid(projection);
+            fail(format("Expected to throw but got %s", value));
         }
         catch (RuntimeException e) {
             // Expected
@@ -334,8 +334,8 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection, StandardErrorCode errorCode, String messagePattern)
     {
         try {
-            evaluateInvalid(projection);
-            fail("Expected to throw a PrestoException with message matching " + messagePattern);
+            Object value = evaluateInvalid(projection);
+            fail("Expected to throw a PrestoException with message matching " + messagePattern + " but got " + value);
         }
         catch (PrestoException e) {
             try {
@@ -357,8 +357,8 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode)
     {
         try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
+            Object value = evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception but got %s", expectedErrorCode, value));
         }
         catch (SemanticException e) {
             try {
@@ -374,8 +374,8 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection, SemanticErrorCode expectedErrorCode, String message)
     {
         try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode));
+            Object value = evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception but got %s", expectedErrorCode, value));
         }
         catch (SemanticException e) {
             try {
@@ -392,8 +392,8 @@ public final class FunctionAssertions
     public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
         try {
-            evaluateInvalid(projection);
-            fail(format("Expected to throw %s exception", expectedErrorCode.toErrorCode()));
+            Object value = evaluateInvalid(projection);
+            fail(format("Expected to throw %s exception but got %s", expectedErrorCode, value));
         }
         catch (PrestoException e) {
             try {
@@ -416,8 +416,8 @@ public final class FunctionAssertions
     public void assertNumericOverflow(String projection, String message)
     {
         try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message);
+            Object value = evaluateInvalid(projection);
+            fail("Expected to throw an NUMERIC_VALUE_OUT_OF_RANGE exception with message " + message + " but got " + value);
         }
         catch (PrestoException e) {
             try {
@@ -434,8 +434,8 @@ public final class FunctionAssertions
     public void assertInvalidCast(String projection)
     {
         try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+            Object value = evaluateInvalid(projection);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception but got " + value);
         }
         catch (PrestoException e) {
             try {
@@ -451,8 +451,8 @@ public final class FunctionAssertions
     public void assertInvalidCast(String projection, String message)
     {
         try {
-            evaluateInvalid(projection);
-            fail("Expected to throw an INVALID_CAST_ARGUMENT exception");
+            Object value = evaluateInvalid(projection);
+            fail("Expected to throw an INVALID_CAST_ARGUMENT exception, but got " + value);
         }
         catch (PrestoException e) {
             try {
@@ -466,10 +466,9 @@ public final class FunctionAssertions
         }
     }
 
-    private void evaluateInvalid(String projection)
+    private Object evaluateInvalid(String projection)
     {
-        // type isn't necessary as the function is not valid
-        selectSingleValue(projection, UNKNOWN, compiler);
+        return selectSingleValue(projection, GEOMETRY, compiler);
     }
 
     public void assertCachedInstanceHasBoundedRetainedSize(String projection)

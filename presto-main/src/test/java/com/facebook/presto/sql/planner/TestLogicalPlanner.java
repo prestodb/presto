@@ -57,11 +57,15 @@ import static com.facebook.presto.SystemSessionProperties.EXPLOIT_CONSTRAINTS;
 import static com.facebook.presto.SystemSessionProperties.FORCE_SINGLE_NODE_OUTPUT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static com.facebook.presto.SystemSessionProperties.LEAF_NODE_LIMIT_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MAX_LEAF_NODES_IN_PLAN;
 import static com.facebook.presto.SystemSessionProperties.OFFSET_CLAUSE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EMPTY_SOURCES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_NULLS_IN_JOINS;
+import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
+import static com.facebook.presto.SystemSessionProperties.getMaxLeafNodesInPlan;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.common.predicate.Domain.singleValue;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -85,6 +89,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchan
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.groupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.limit;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.markDistinct;
@@ -172,6 +177,71 @@ public class TestLogicalPlanner
                                                         ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
                                                         PARTIAL,
                                                         anyTree(tableScan("orders", ImmutableMap.of("totalprice", "totalprice")))))))));
+    }
+
+    @Test
+    public void testGroupingSet()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // Disable push RemoteExchange through GroupId.
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "false")
+                .build();
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))), PARTIAL,
+                                                        anyTree(
+                                                                groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))));
+    }
+
+    @Test
+    public void testGroupingSetWithPushRemoteExchange()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                // Enable push RemoteExchange through GroupId.
+                .setSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, "true")
+                .build();
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderstatus, orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        aggregation(
+                                                ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))),
+                                                PARTIAL,
+                                                anyTree(
+                                                        groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderstatus", "orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                anyTree(
+                                                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                                                anyTree(
+                                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))))));
+
+        // Verify RemoteExchange is not pushed through GroupId if grouping sets have no common grouping column.
+        assertDistributedPlan(
+                "SELECT sum(totalprice), orderstatus, orderpriority FROM orders GROUP BY GROUPING SETS ((orderstatus), (orderpriority))",
+                session,
+                anyTree(
+                        aggregation(
+                                ImmutableMap.of("final_sum", functionCall("sum", ImmutableList.of("partial_sum"))),
+                                FINAL,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE_STREAMING, REPARTITION,
+                                                aggregation(
+                                                        ImmutableMap.of("partial_sum", functionCall("sum", ImmutableList.of("totalprice"))), PARTIAL,
+                                                        anyTree(
+                                                                groupingSet(ImmutableList.of(ImmutableList.of("orderstatus"), ImmutableList.of("orderpriority")), ImmutableMap.of("totalprice", "totalprice"), "groupid",
+                                                                        tableScan("orders", ImmutableMap.of("totalprice", "totalprice", "orderstatus", "orderstatus", "orderpriority", "orderpriority"))))))))));
     }
 
     @Test
@@ -1533,5 +1603,62 @@ public class TestLogicalPlanner
                         node(DistinctLimitNode.class,
                                 anyTree(
                                         tableScan("orders")))));
+    }
+
+    @Test
+    public void testLeafNodeInPlanExceedException()
+    {
+        Session enableLeafNodeInPlanExceedException = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.toString(10))
+                .setSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.toString(true))
+                .build();
+
+        String expectedMessageRegExp = format("Number of leaf nodes in logical plan exceeds threshold %s set in max_leaf_nodes_in_plan",
+                getMaxLeafNodesInPlan(enableLeafNodeInPlanExceedException));
+
+        String joinQuery = "WITH t1 AS " +
+                "(" +
+                "    SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name) " +
+                "), " +
+                "t2 AS ( " +
+                "    SELECT A.id, B.name FROM t1 A Join t1 B On A.id = B.id " +
+                "), " +
+                "t3 AS ( " +
+                "    SELECT A.id, B.name FROM t2 A Join t2 B On A.id = B.id " +
+                "), " +
+                "t4 AS ( " +
+                "    SELECT A.id, B.name FROM t3 A Join t3 B On A.id = B.id " +
+                "), " +
+                "t5 AS ( " +
+                "    SELECT A.id, B.name FROM t4 A Join t4 B On A.id = B.id " +
+                ") " +
+                "SELECT * FROM t5";
+
+        assertPlanFailedWithException(joinQuery, enableLeafNodeInPlanExceedException, expectedMessageRegExp);
+
+        enableLeafNodeInPlanExceedException = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.toString(100))
+                .setSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.toString(true))
+                .build();
+
+        String joinQuery2 = "WITH t1 AS " +
+                "(" +
+                "    SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c') ) AS t (id, name) " +
+                "), " +
+                "t2 AS ( " +
+                "    SELECT A.id, B.name FROM t1 A Join t1 B On A.id = B.id " +
+                "), " +
+                "t3 AS ( " +
+                "    SELECT A.id, B.name FROM t2 A Join t2 B On A.id = B.id " +
+                "), " +
+                "t4 AS ( " +
+                "    SELECT A.id, B.name FROM t3 A Join t3 B On A.id = B.id " +
+                "), " +
+                "t5 AS ( " +
+                "    SELECT A.id, B.name FROM t4 A Join t4 B On A.id = B.id " +
+                ") " +
+                "SELECT * FROM t5";
+
+        assertPlanSucceeded(joinQuery2, enableLeafNodeInPlanExceedException);
     }
 }

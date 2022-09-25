@@ -22,6 +22,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
 import static com.facebook.presto.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -55,7 +56,13 @@ public class GroupIdMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         GroupIdNode groupIdNode = (GroupIdNode) node;
-        List<List<VariableReferenceExpression>> actualGroups = groupIdNode.getGroupingSets();
+        Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns = groupIdNode.getGroupingColumns();
+        List<List<VariableReferenceExpression>> actualGroups = groupIdNode.getGroupingSets()
+                .stream()
+                .map(group -> group.stream()
+                        .map(column -> groupingColumns.get(column))
+                        .collect(Collectors.toList()))
+                .collect(Collectors.toList());
         List<VariableReferenceExpression> actualAggregationArguments = groupIdNode.getAggregationArguments();
 
         if (actualGroups.size() != groups.size()) {

@@ -25,7 +25,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
+import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 
@@ -38,8 +38,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
-import static org.apache.pinot.common.utils.grpc.GrpcQueryClient.Config.CONFIG_USE_PLAIN_TEXT;
+import static org.apache.pinot.common.config.GrpcConfig.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
+import static org.apache.pinot.common.config.GrpcConfig.CONFIG_USE_PLAIN_TEXT;
 
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
@@ -138,7 +138,7 @@ public class PinotPageSourceProvider
     }
 
     @VisibleForTesting
-    static GrpcQueryClient.Config extractGrpcQueryClientConfig(PinotConfig config)
+    static GrpcConfig extractGrpcQueryClientConfig(PinotConfig config)
     {
         Map<String, Object> target = new HashMap<>();
         target.put(CONFIG_USE_PLAIN_TEXT, !config.isUseSecureConnection());
@@ -151,7 +151,7 @@ public class PinotPageSourceProvider
             setOrRemoveProperty(target, "tls.truststore.password", config.getGrpcTlsTrustStorePassword());
             setOrRemoveProperty(target, "tls.truststore.type", config.getGrpcTlsTrustStoreType());
         }
-        return new GrpcQueryClient.Config(target);
+        return new GrpcConfig(target);
     }
     // The method is created because Pinot Config does not like null as value, if value is null, we should
     // remove the key instead.

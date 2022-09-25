@@ -16,8 +16,12 @@ package com.facebook.presto.delta;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PrestoTableType;
+import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
@@ -29,12 +33,16 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 
 import javax.inject.Inject;
 
@@ -48,7 +56,15 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaExpressionUtils.splitPredicate;
+import static com.facebook.presto.delta.DeltaTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static com.facebook.presto.delta.DeltaTableProperties.getTableStorageFormat;
+import static com.facebook.presto.delta.DeltaTableProperties.isExternalTable;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
+import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
+import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
+import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.security.PrincipalType.USER;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.US;
@@ -94,6 +110,73 @@ public class DeltaMetadata
         schemas.addAll(metastore.getAllDatabases(metastoreContext(session)));
         schemas.add(PATH_SCHEMA.toLowerCase(US));
         return schemas;
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        PrestoTableType tableType = isExternalTable(tableMetadata.getProperties()) ? EXTERNAL_TABLE : MANAGED_TABLE;
+        Table table = prepareTable(session, tableMetadata, tableType);
+        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+
+        metastore.createTable(
+                metastoreContext(session),
+                table,
+                principalPrivileges);
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        DeltaTableHandle handle = (DeltaTableHandle) tableHandle;
+        MetastoreContext metastoreContext = metastoreContext(session);
+
+        Optional<Table> target = metastore.getTable(metastoreContext, handle.getDeltaTable().getSchemaName(), handle.getDeltaTable().getTableName());
+        if (!target.isPresent()) {
+            throw new TableNotFoundException(handle.toSchemaTableName());
+        }
+
+        metastore.dropTable(
+                metastoreContext,
+                handle.getDeltaTable().getSchemaName(),
+                handle.getDeltaTable().getTableName(),
+                false);
+    }
+
+    private static PrincipalPrivileges buildInitialPrivilegeSet(String tableOwner)
+    {
+        PrestoPrincipal owner = new PrestoPrincipal(USER, tableOwner);
+        return new PrincipalPrivileges(
+                ImmutableMultimap.<String, HivePrivilegeInfo>builder()
+                        .put(tableOwner, new HivePrivilegeInfo(HivePrivilegeInfo.HivePrivilege.SELECT, true, owner, owner))
+                        .build(),
+                ImmutableMultimap.of());
+    }
+
+    private Table prepareTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, PrestoTableType tableType)
+    {
+        String schemaName = tableMetadata.getTable().getSchemaName();
+        String tableName = tableMetadata.getTable().getTableName();
+
+        if (!tableType.equals(EXTERNAL_TABLE)) {
+            throw new PrestoException(NOT_SUPPORTED, "Cannot create managed Delta table");
+        }
+
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(schemaName)
+                .setTableName(tableName)
+                .setOwner(session.getUser())
+                .setTableType(tableType);
+
+        Map<String, Object> tableProperties = tableMetadata.getProperties();
+
+        HiveStorageFormat hiveStorageFormat = getTableStorageFormat(tableMetadata.getProperties());
+        String tableLocation = tableProperties.get(EXTERNAL_LOCATION_PROPERTY).toString();
+
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(hiveStorageFormat))
+                .setLocation(tableLocation);
+        return tableBuilder.build();
     }
 
     @Override

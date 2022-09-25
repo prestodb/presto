@@ -695,39 +695,6 @@ void setCellFromVariant(
       setCellFromVariantByKind, data->typeKind(), data, row, value);
 }
 
-void setCellFromConstantVector(
-    const RowVectorPtr& data,
-    vector_size_t row,
-    vector_size_t column,
-    VectorPtr valueVector) {
-  auto columnVector = data->childAt(column);
-  if (valueVector->isNullAt(0)) {
-    // This is a constant vector and will have only one element.
-    columnVector->setNull(row, true);
-    return;
-  }
-  switch (valueVector->typeKind()) {
-    case TypeKind::SHORT_DECIMAL: {
-      auto flatVector =
-          columnVector->as<FlatVector<velox::UnscaledShortDecimal>>();
-      flatVector->set(
-          row,
-          valueVector->as<ConstantVector<velox::UnscaledShortDecimal>>()
-              ->valueAt(0));
-    } break;
-    case TypeKind::LONG_DECIMAL: {
-      auto flatVector =
-          columnVector->as<FlatVector<velox::UnscaledLongDecimal>>();
-      flatVector->set(
-          row,
-          valueVector->as<ConstantVector<velox::UnscaledLongDecimal>>()
-              ->valueAt(0));
-    } break;
-    default:
-      VELOX_UNSUPPORTED();
-  }
-}
-
 velox::core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
   switch (sortOrder) {
     case protocol::SortOrder::ASC_NULLS_FIRST:
@@ -1080,7 +1047,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       joinType = JoinType::kLeftSemi;
     } else if (auto notCall = isNot(node->predicate)) {
       if (equal(notCall->arguments[0], semiJoin->semiJoinOutput)) {
-        joinType = JoinType::kAnti;
+        joinType = JoinType::kNullAwareAnti;
       }
     }
 
@@ -1288,8 +1255,8 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         if (!constantExpr->hasValueVector()) {
           setCellFromVariant(rowVector, row, column, constantExpr->value());
         } else {
-          setCellFromConstantVector(
-              rowVector, row, column, constantExpr->valueVector());
+          auto columnVector = rowVector->childAt(column);
+          columnVector->copy(constantExpr->valueVector().get(), row, 0, 1);
         }
       } else {
         VELOX_FAIL("Expected constant expression");

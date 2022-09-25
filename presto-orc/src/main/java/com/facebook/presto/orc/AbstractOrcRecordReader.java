@@ -779,6 +779,11 @@ abstract class AbstractOrcRecordReader<T extends StreamReader>
         }
     }
 
+    protected OrcDataSourceId getOrcDataSourceId()
+    {
+        return orcDataSource.getId();
+    }
+
     private static class StripeInfo
     {
         private final StripeInformation stripe;

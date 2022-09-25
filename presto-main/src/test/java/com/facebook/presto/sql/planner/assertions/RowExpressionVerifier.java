@@ -26,6 +26,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
+import com.facebook.presto.sql.tree.ArrayConstructor;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
@@ -113,6 +114,23 @@ final class RowExpressionVerifier
     protected Boolean visitNode(Node node, RowExpression context)
     {
         throw new IllegalStateException(format("Node %s is not supported", node));
+    }
+
+    @Override
+    protected Boolean visitArrayConstructor(ArrayConstructor node, RowExpression context)
+    {
+        if (context instanceof CallExpression) {
+            if (!((CallExpression) context).getDisplayName().equals("array_constructor")) {
+                return false;
+            }
+            for (int i = 0; i < node.getValues().size(); ++i) {
+                if (!process(node.getValues().get(i), ((CallExpression) context).getArguments().get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.PlanStatistics;
+import com.google.common.annotations.VisibleForTesting;
 
 import java.util.List;
 import java.util.Map;
@@ -78,5 +79,11 @@ public class InMemoryHistoryBasedPlanStatisticsProvider
         catch (InterruptedException e) {
             throw new AssertionError("Query events could not be processed in time");
         }
+    }
+
+    @VisibleForTesting
+    public void clearCache()
+    {
+        cache.clear();
     }
 }

@@ -196,6 +196,7 @@ import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -473,6 +474,7 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkService.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkBroadcastTableCacheManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, PrestoSparkServiceWaitTimeMetrics.class);
+        newOptionalBinder(binder, ErrorClassifier.class);
 
         // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);

@@ -330,6 +330,9 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.peakTotalMemoryReservation = protocol::DataSize(
           op.memoryStats.peakTotalMemoryReservation, protocol::DataUnit::BYTE);
 
+      opOut.spilledDataSize =
+          protocol::DataSize(op.spilledBytes, protocol::DataUnit::BYTE);
+
       for (const auto& stat : op.runtimeStats) {
         auto statName =
             fmt::format("{}.{}.{}", op.operatorType, op.planNodeId, stat.first);

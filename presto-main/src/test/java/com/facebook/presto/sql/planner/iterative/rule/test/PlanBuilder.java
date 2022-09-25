@@ -95,6 +95,7 @@ import com.google.common.collect.ListMultimap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -255,6 +256,7 @@ public class PlanBuilder
                 new OrderingScheme(orderBy.stream().map(variable -> new Ordering(variable, SortOrder.ASC_NULLS_FIRST)).collect(toImmutableList())),
                 false);
     }
+
     public OffsetNode offset(long rowCount, PlanNode source)
     {
         return new OffsetNode(source.getSourceLocation(), idAllocator.getNextId(), source, rowCount);
@@ -346,7 +348,10 @@ public class PlanBuilder
     {
         private final TypeProvider types;
         private PlanNode source;
-        private Map<VariableReferenceExpression, Aggregation> assignments = new HashMap<>();
+        // Preserve order when creating assignments, so it's consistent when printed/iterated. Some
+        // optimizations create variable names by iterating over it, and this will make plan more consistent
+        // in future runs.
+        private Map<VariableReferenceExpression, Aggregation> assignments = new LinkedHashMap<>();
         private AggregationNode.GroupingSetDescriptor groupingSets;
         private List<VariableReferenceExpression> preGroupedVariables = new ArrayList<>();
         private Step step = Step.SINGLE;
@@ -956,9 +961,35 @@ public class PlanBuilder
         return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql));
     }
 
+    public static Expression expression(String sql, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        ParsingOptions.Builder builder = ParsingOptions.builder();
+        builder.setDecimalLiteralTreatment(decimalLiteralTreatment);
+        return ExpressionUtils.rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(sql, builder.build()));
+    }
+
     public RowExpression rowExpression(String sql)
     {
         Expression expression = expression(sql);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
+                session,
+                metadata,
+                new SqlParser(),
+                getTypes(),
+                expression,
+                ImmutableMap.of(),
+                WarningCollector.NOOP);
+        return SqlToRowExpressionTranslator.translate(
+                expression,
+                expressionTypes,
+                ImmutableMap.of(),
+                metadata.getFunctionAndTypeManager(),
+                session);
+    }
+
+    public RowExpression rowExpression(String sql, ParsingOptions.DecimalLiteralTreatment decimalLiteralTreatment)
+    {
+        Expression expression = expression(sql, decimalLiteralTreatment);
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
                 session,
                 metadata,

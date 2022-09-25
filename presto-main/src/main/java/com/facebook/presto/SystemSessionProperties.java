@@ -34,6 +34,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialAggregationStrateg
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartitioningPrecisionStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.SingleStreamSpillerChoice;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
@@ -232,6 +233,10 @@ public final class SystemSessionProperties
     public static final String SEGMENTED_AGGREGATION_ENABLED = "segmented_aggregation_enabled";
     public static final String USE_HISTORY_BASED_PLAN_STATISTICS = "use_history_based_plan_statistics";
     public static final String TRACK_HISTORY_BASED_PLAN_STATISTICS = "track_history_based_plan_statistics";
+    public static final String MAX_LEAF_NODES_IN_PLAN = "max_leaf_nodes_in_plan";
+    public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
+    public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
+    public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -255,7 +260,8 @@ public final class SystemSessionProperties
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig());
+                new TracingConfig(),
+                new CompilerConfig());
     }
 
     @Inject
@@ -268,7 +274,8 @@ public final class SystemSessionProperties
             WarningCollectorConfig warningCollectorConfig,
             NodeSchedulerConfig nodeSchedulerConfig,
             NodeSpillConfig nodeSpillConfig,
-            TracingConfig tracingConfig)
+            TracingConfig tracingConfig,
+            CompilerConfig compilerConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -1319,6 +1326,30 @@ public final class SystemSessionProperties
                         TRACK_HISTORY_BASED_PLAN_STATISTICS,
                         "Track history based plan statistics service in query optimizer",
                         featuresConfig.isTrackHistoryBasedPlanStatistics(),
+                        false),
+                new PropertyMetadata<>(
+                        MAX_LEAF_NODES_IN_PLAN,
+                        "Maximum number of leaf nodes in the logical plan of SQL statement",
+                        INTEGER,
+                        Integer.class,
+                        compilerConfig.getLeafNodeLimit(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_LEAF_NODES_IN_PLAN, 0, false),
+                        object -> object),
+                booleanProperty(
+                        LEAF_NODE_LIMIT_ENABLED,
+                        "Throw exception if the number of leaf nodes in logical plan exceeds threshold set in max_leaf_nodes_in_plan",
+                        compilerConfig.getLeafNodeLimitEnabled(),
+                        false),
+                booleanProperty(
+                        PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID,
+                        "Enable optimization rule to push remote exchange through GroupId",
+                        featuresConfig.isPushRemoteExchangeThroughGroupId(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD,
+                        "Combine individual approx_percentile calls on individual field to evaluation on an array",
+                        featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
                         false));
     }
 
@@ -2165,6 +2196,16 @@ public final class SystemSessionProperties
         return session.getSystemProperty(VERBOSE_RUNTIME_STATS_ENABLED, Boolean.class);
     }
 
+    public static boolean isLeafNodeLimitEnabled(Session session)
+    {
+        return session.getSystemProperty(LEAF_NODE_LIMIT_ENABLED, Boolean.class);
+    }
+
+    public static int getMaxLeafNodesInPlan(Session session)
+    {
+        return session.getSystemProperty(MAX_LEAF_NODES_IN_PLAN, Integer.class);
+    }
+
     public static boolean isStreamingForPartialAggregationEnabled(Session session)
     {
         return session.getSystemProperty(STREAMING_FOR_PARTIAL_AGGREGATION_ENABLED, Boolean.class);
@@ -2178,6 +2219,11 @@ public final class SystemSessionProperties
     public static boolean isSegmentedAggregationEnabled(Session session)
     {
         return session.getSystemProperty(SEGMENTED_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isCombineApproxPercentileEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD, Boolean.class);
     }
 
     public static AggregationIfToFilterRewriteStrategy getAggregationIfToFilterRewriteStrategy(Session session)
@@ -2223,5 +2269,10 @@ public final class SystemSessionProperties
     public static boolean trackHistoryBasedPlanStatisticsEnabled(Session session)
     {
         return session.getSystemProperty(TRACK_HISTORY_BASED_PLAN_STATISTICS, Boolean.class);
+    }
+
+    public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
+    {
+        return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
     }
 }

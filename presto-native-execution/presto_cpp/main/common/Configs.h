@@ -83,6 +83,7 @@ class SystemConfig : public ConfigBase {
       "task.concurrent-lifespans-per-task"};
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
+  static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -122,6 +123,8 @@ class SystemConfig : public ConfigBase {
   int32_t httpExecThreads() const;
 
   int32_t numIoThreads() const;
+
+  int32_t numSpillThreads() const;
 
   int32_t shutdownOnsetSec() const;
 

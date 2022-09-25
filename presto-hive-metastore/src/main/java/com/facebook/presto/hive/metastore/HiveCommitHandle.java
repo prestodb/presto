@@ -18,33 +18,51 @@ import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class HiveCommitHandle
         implements ConnectorCommitHandle
 {
-    public static final HiveCommitHandle EMPTY_HIVE_COMMIT_HANDLE = new HiveCommitHandle(ImmutableMap.of());
+    public static final HiveCommitHandle EMPTY_HIVE_COMMIT_HANDLE = new HiveCommitHandle(ImmutableMap.of(), ImmutableMap.of());
 
-    private final Map<SchemaTableName, List<DateTime>> lastDataCommitTimes;
+    // This field records the last data commit times for partitions as data input.
+    private final Map<SchemaTableName, List<Long>> lastDataCommitTimesForRead;
+    // This field records the last data commit times for created or altered partitions/table.
+    private final Map<SchemaTableName, List<Long>> lastDataCommitTimesForWrite;
 
-    public HiveCommitHandle(Map<SchemaTableName, List<DateTime>> lastDataCommitTimes)
+    public HiveCommitHandle(
+            Map<SchemaTableName, List<Long>> lastDataCommitTimesForRead,
+            Map<SchemaTableName, List<Long>> lastDataCommitTimesForWrite)
     {
-        this.lastDataCommitTimes = requireNonNull(lastDataCommitTimes, "lastDataCommitTimes is null");
+        this.lastDataCommitTimesForRead = requireNonNull(lastDataCommitTimesForRead, "lastDataCommitTimesForRead is null");
+        this.lastDataCommitTimesForWrite = requireNonNull(lastDataCommitTimesForWrite, "lastDataCommitTimesForWrite is null");
     }
 
     @Override
-    public String getSerializedCommitOutput(SchemaTableName table)
+    public String getSerializedCommitOutputForRead(SchemaTableName table)
     {
-        List<Long> commitTimes = lastDataCommitTimes.getOrDefault(table, ImmutableList.of()).stream()
-                .map(commitTime -> TimeUnit.MILLISECONDS.toSeconds(commitTime.getMillis()))
-                .collect(toImmutableList());
+        return serializeCommitOutput(lastDataCommitTimesForRead, table);
+    }
+
+    @Override
+    public String getSerializedCommitOutputForWrite(SchemaTableName table)
+    {
+        return serializeCommitOutput(lastDataCommitTimesForWrite, table);
+    }
+
+    static String serializeCommitOutput(Map<SchemaTableName, List<Long>> lastDataCommitTimes, SchemaTableName table)
+    {
+        List<Long> commitTimes = lastDataCommitTimes.getOrDefault(table, ImmutableList.of());
         return Joiner.on(",").join(commitTimes);
+    }
+
+    @Override
+    public boolean hasCommitOutput(SchemaTableName table)
+    {
+        return lastDataCommitTimesForRead.containsKey(table) || lastDataCommitTimesForWrite.containsKey(table);
     }
 }

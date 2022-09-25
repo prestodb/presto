@@ -26,17 +26,21 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.grpc.Utils;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
+import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -104,6 +108,8 @@ public class TestPinotSegmentPageSource
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.TIMESTAMP, true);
             case JSON:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.JSON, true);
+            case BIG_DECIMAL:
+                return new DimensionFieldSpec(columnName, FieldSpec.DataType.BIG_DECIMAL, true, BigDecimal.ZERO);
             case BOOLEAN_ARRAY:
                 return new DimensionFieldSpec(columnName, FieldSpec.DataType.BOOLEAN, false);
             case INT_ARRAY:
@@ -135,13 +141,13 @@ public class TestPinotSegmentPageSource
             }
             DataSchema.ColumnDataType[] columnDataTypes = ALL_TYPES_ARRAY;
             DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
-            DataTableBuilder dataTableBuilder = new DataTableBuilder(dataSchema);
+            DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
             for (int rowId = 0; rowId < NUM_ROWS; rowId++) {
                 dataTableBuilder.startRow();
                 for (int colId = 0; colId < numColumns; colId++) {
                     switch (columnDataTypes[colId]) {
                         case BOOLEAN:
-                            dataTableBuilder.setColumn(colId, RANDOM.nextBoolean());
+                            dataTableBuilder.setColumn(colId, String.valueOf(RANDOM.nextBoolean()));
                             break;
                         case INT:
                             dataTableBuilder.setColumn(colId, RANDOM.nextInt());
@@ -216,6 +222,18 @@ public class TestPinotSegmentPageSource
                             dataTableBuilder.setColumn(colId,
                                     "{ " + generateRandomStringWithLength(RANDOM.nextInt(5)) + " : "
                                         + generateRandomStringWithLength(RANDOM.nextInt(10)) + " }");
+                            break;
+                        case BYTES:
+                            try {
+                                dataTableBuilder.setColumn(colId,
+                                        Hex.decodeHex("0DE0B6B3A7640000".toCharArray())); // Hex of BigDecimal.ONE
+                            }
+                            catch (DecoderException e) {
+                                throw new RuntimeException(e);
+                            }
+                            break;
+                        case BIG_DECIMAL:
+                            dataTableBuilder.setColumn(colId, BigDecimal.ONE);
                             break;
                         default:
                             throw new RuntimeException("Unsupported type - " + columnDataTypes[colId]);
@@ -349,7 +367,7 @@ public class TestPinotSegmentPageSource
         DataSchema dataSchema = new DataSchema(columnNames, columnDataTypes);
         String[] stringArray = {"stringVal1", "stringVal2"};
         int[] intArray = {10, 34, 67};
-        DataTableBuilder dataTableBuilder = new DataTableBuilder(dataSchema);
+        DataTableBuilder dataTableBuilder = new DataTableBuilderV4(dataSchema);
         dataTableBuilder.startRow();
         dataTableBuilder.setColumn(0, intArray);
         dataTableBuilder.setColumn(1, stringArray);

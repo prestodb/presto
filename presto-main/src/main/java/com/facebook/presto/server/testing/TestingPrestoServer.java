@@ -135,7 +135,7 @@ public class TestingPrestoServer
         implements Closeable
 {
     private final Injector injector;
-    private final Path baseDataDir;
+    private final Path dataDirectory;
     private final boolean preserveData;
     private final LifeCycleManager lifeCycleManager;
     private final PluginManager pluginManager;
@@ -168,6 +168,7 @@ public class TestingPrestoServer
     private final boolean resourceManager;
     private final boolean catalogServer;
     private final boolean coordinator;
+    private final boolean nodeSchedulerIncludeCoordinator;
     private final ServerInfoResource serverInfoResource;
     private final ResourceManagerClusterStateProvider clusterStateProvider;
 
@@ -229,7 +230,7 @@ public class TestingPrestoServer
             URI discoveryUri,
             SqlParserOptions parserOptions,
             List<Module> additionalModules,
-            Optional<Path> baseDataDir)
+            Optional<Path> dataDirectory)
             throws Exception
     {
         this(
@@ -243,7 +244,7 @@ public class TestingPrestoServer
                 discoveryUri,
                 parserOptions,
                 additionalModules,
-                baseDataDir);
+                dataDirectory);
     }
 
     public TestingPrestoServer(
@@ -257,17 +258,18 @@ public class TestingPrestoServer
             URI discoveryUri,
             SqlParserOptions parserOptions,
             List<Module> additionalModules,
-            Optional<Path> baseDataDir)
+            Optional<Path> dataDirectory)
             throws Exception
     {
         this.resourceManager = resourceManager;
         this.catalogServer = catalogServer;
         this.coordinator = coordinator;
 
-        this.baseDataDir = baseDataDir.orElseGet(TestingPrestoServer::tempDirectory);
-        this.preserveData = baseDataDir.isPresent();
+        this.dataDirectory = dataDirectory.orElseGet(TestingPrestoServer::tempDirectory);
+        this.preserveData = dataDirectory.isPresent();
 
         properties = new HashMap<>(properties);
+        this.nodeSchedulerIncludeCoordinator = (properties.getOrDefault("node-scheduler.include-coordinator", "true")).equals("true");
         String coordinatorPort = properties.remove("http-server.http.port");
         if (coordinatorPort == null) {
             coordinatorPort = "0";
@@ -465,8 +467,8 @@ public class TestingPrestoServer
             throw new RuntimeException(e);
         }
         finally {
-            if (isDirectory(baseDataDir) && !preserveData) {
-                deleteRecursively(baseDataDir, ALLOW_INSECURE);
+            if (isDirectory(dataDirectory) && !preserveData) {
+                deleteRecursively(dataDirectory, ALLOW_INSECURE);
             }
         }
     }
@@ -508,13 +510,16 @@ public class TestingPrestoServer
     public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
         ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
+        if (coordinator && !nodeSchedulerIncludeCoordinator) {
+            return connectorId;
+        }
         updateConnectorIdAnnouncement(announcer, connectorId, nodeManager);
         return connectorId;
     }
 
-    public Path getBaseDataDir()
+    public Path getDataDirectory()
     {
-        return baseDataDir;
+        return dataDirectory;
     }
 
     public URI getBaseUrl()
@@ -645,6 +650,11 @@ public class TestingPrestoServer
     public boolean isCoordinator()
     {
         return coordinator;
+    }
+
+    public boolean nodeSchedulerIncludeCoordinator()
+    {
+        return nodeSchedulerIncludeCoordinator;
     }
 
     public boolean isResourceManager()

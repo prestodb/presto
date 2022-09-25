@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.277-SNAPSHOT</version>
+        <version>0.278-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-pinot</artifactId>
@@ -38,6 +38,11 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
@@ -96,7 +101,106 @@
         <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java</artifactId>
+            <version>3.19.2</version>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- for testing -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>presto-main</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>presto-main</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.basepom.maven</groupId>
+                    <artifactId>duplicate-finder-maven-plugin</artifactId>
+                    <configuration>
+                        <ignoredDependencies>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-transport</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-buffer</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-transport-classes-epoll</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-transport-classes-kqueue</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-transport-native-unix-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-resolver</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>io.netty</groupId>
+                                <artifactId>netty-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>helix-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>helix-core</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>metadata-store-directory-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>metrics-common</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.helix</groupId>
+                                <artifactId>zookeeper-api</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.apache.logging.log4j</groupId>
+                                <artifactId>log4j-slf4j-impl</artifactId>
+                            </dependency>
+                            <dependency>
+                                <groupId>org.slf4j</groupId>
+                                <artifactId>slf4j-jdk14</artifactId>
+                            </dependency>
+                        </ignoredDependencies>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

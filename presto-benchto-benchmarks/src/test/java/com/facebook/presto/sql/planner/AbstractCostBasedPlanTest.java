@@ -238,7 +238,7 @@ public abstract class AbstractCostBasedPlanTest
         private void output(int indent, String message, Object... args)
         {
             String formattedMessage = format(message, args);
-            result.append(format("%s%s\n", Strings.repeat("    ", indent), formattedMessage));
+            result.append(format("%s%s%n", Strings.repeat("    ", indent), formattedMessage));
         }
     }
 }

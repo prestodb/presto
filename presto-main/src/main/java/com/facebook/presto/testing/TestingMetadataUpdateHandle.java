@@ -28,7 +28,7 @@ public class TestingMetadataUpdateHandle
 
     @ThriftConstructor
     @JsonCreator
-    public TestingMetadataUpdateHandle(int value)
+    public TestingMetadataUpdateHandle(@JsonProperty("value") int value)
     {
         this.value = value;
     }

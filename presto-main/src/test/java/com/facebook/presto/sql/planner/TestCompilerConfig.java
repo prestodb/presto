@@ -28,7 +28,9 @@ public class TestCompilerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CompilerConfig.class)
-                .setExpressionCacheSize(10_000));
+                .setExpressionCacheSize(10_000)
+                .setLeafNodeLimitEnabled(false)
+                .setLeafNodeLimit(10_000));
     }
 
     @Test
@@ -36,10 +38,14 @@ public class TestCompilerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("compiler.expression-cache-size", "52")
+                .put("planner.max-leaf-nodes-in-plan", "100")
+                .put("planner.leaf-node-limit-enabled", "true")
                 .build();
 
         CompilerConfig expected = new CompilerConfig()
-                .setExpressionCacheSize(52);
+                .setExpressionCacheSize(52)
+                .setLeafNodeLimit(100)
+                .setLeafNodeLimitEnabled(true);
 
         assertFullMapping(properties, expected);
     }

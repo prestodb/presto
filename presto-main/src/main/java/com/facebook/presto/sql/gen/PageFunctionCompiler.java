@@ -72,11 +72,14 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
@@ -200,13 +203,17 @@ public class PageFunctionCompiler
         if (isOptimizeCommonSubExpression) {
             ImmutableList.Builder<Supplier<PageProjectionWithOutputs>> pageProjections = ImmutableList.builder();
             ImmutableMap.Builder<RowExpression, Integer> expressionsWithPositionBuilder = ImmutableMap.builder();
+            Set<RowExpression> expressionCandidates = new HashSet<>();
             for (int i = 0; i < projections.size(); i++) {
                 RowExpression projection = projections.get(i);
-                if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression) {
+                // Duplicate expressions are not expected here in general due to duplicate assignments pruning in query optimization, hence we skip CSE for them to allow for a
+                // simpler implementation (and duplicate projections in expressionsWithPositionBuilder will throw exception when calling expressionsWithPositionBuilder.build())
+                if (projection instanceof ConstantExpression || projection instanceof InputReferenceExpression || expressionCandidates.contains(projection)) {
                     pageProjections.add(toPageProjectionWithOutputs(compileProjection(sqlFunctionProperties, sessionFunctions, projection, classNameSuffix), new int[] {i}));
                 }
                 else {
                     expressionsWithPositionBuilder.put(projection, i);
+                    expressionCandidates.add(projection);
                 }
             }
             Map<RowExpression, Integer> expressionsWithPosition = expressionsWithPositionBuilder.build();
@@ -377,6 +384,8 @@ public class PageFunctionCompiler
         MethodDefinition method = classDefinition.declareMethod(a(PUBLIC), "getResult", type(Object.class), ImmutableList.of());
         method.getBody().append(method.getThis().getField(resultField)).ret(Object.class);
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
+
         Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = generateMethodsForLambda(classDefinition,
                 callSiteBinder,
                 cachedInstanceBinder,
@@ -384,7 +393,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                "");
+                "",
+                lambdaCounter);
 
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
@@ -397,7 +407,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                compiledLambdaMap);
+                compiledLambdaMap,
+                lambdaCounter);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(projections);
@@ -411,7 +422,8 @@ public class PageFunctionCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        compiledLambdaMap);
+                        compiledLambdaMap,
+                        lambdaCounter);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
@@ -716,6 +728,7 @@ public class PageFunctionCompiler
 
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
+        AtomicInteger lambdaCounter = new AtomicInteger(0);
         // cse
         Map<VariableReferenceExpression, CommonSubExpressionFields> cseFields = ImmutableMap.of();
         RowExpressionCompiler compiler = new RowExpressionCompiler(
@@ -726,7 +739,8 @@ public class PageFunctionCompiler
                 metadata,
                 sqlFunctionProperties,
                 sessionFunctions,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                lambdaCounter);
 
         if (isOptimizeCommonSubExpression) {
             Map<Integer, Map<RowExpression, VariableReferenceExpression>> commonSubExpressionsByLevel = collectCSEByLevel(filter);
@@ -740,7 +754,8 @@ public class PageFunctionCompiler
                         metadata,
                         sqlFunctionProperties,
                         sessionFunctions,
-                        ImmutableMap.of());
+                        ImmutableMap.of(),
+                        lambdaCounter);
 
                 generateCommonSubExpressionMethods(classDefinition, compiler, commonSubExpressionsByLevel, cseFields);
                 Map<RowExpression, VariableReferenceExpression> commonSubExpressions = commonSubExpressionsByLevel.values().stream()
@@ -923,6 +938,7 @@ public class PageFunctionCompiler
                     callSiteBinder);
             this.variableMap = ImmutableMap.copyOf(variableMap);
         }
+
         @Override
         public BytecodeNode visitCall(CallExpression call, Scope context)
         {

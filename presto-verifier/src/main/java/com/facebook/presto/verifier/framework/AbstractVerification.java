@@ -481,7 +481,7 @@ public abstract class AbstractVerification<B extends QueryBundle, R extends Matc
             QueryState controlState,
             QueryState testState)
     {
-        StringBuilder message = new StringBuilder(format("Test state %s, Control state %s.\n\n", testState, controlState));
+        StringBuilder message = new StringBuilder(format("Test state %s, Control state %s.%n%n", testState, controlState));
         if (throwable.isPresent()) {
             if (throwable.get() instanceof PrestoQueryException) {
                 PrestoQueryException exception = (PrestoQueryException) throwable.get();

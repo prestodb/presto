@@ -24,6 +24,7 @@ import com.facebook.presto.client.StatementStats;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.DDLDefinitionTask;
 import com.facebook.presto.execution.DataDefinitionTask;
@@ -250,6 +251,7 @@ public class PrestoSparkQueryExecutionFactory
     private final NodeMemoryConfig nodeMemoryConfig;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
+    private final Optional<ErrorClassifier> errorClassifier;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -281,7 +283,8 @@ public class PrestoSparkQueryExecutionFactory
             PrestoSparkConfig prestoSparkConfig,
             NodeMemoryConfig nodeMemoryConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
-            Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks)
+            Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
+            Optional<ErrorClassifier> errorClassifier)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -312,6 +315,7 @@ public class PrestoSparkQueryExecutionFactory
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
+        this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
     }
 
     @Override
@@ -497,7 +501,8 @@ public class PrestoSparkQueryExecutionFactory
                         queryDataOutputLocation,
                         tempStorage,
                         nodeMemoryConfig,
-                        waitTimeMetrics);
+                        waitTimeMetrics,
+                        errorClassifier);
             }
         }
         catch (Throwable executionFailure) {
@@ -742,7 +747,8 @@ public class PrestoSparkQueryExecutionFactory
                 Optional.empty(),
                 Optional.empty(),
                 ImmutableMap.of(),
-                ImmutableSet.of());
+                ImmutableSet.of(),
+                StatsAndCosts.empty());
     }
 
     private static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
@@ -910,6 +916,7 @@ public class PrestoSparkQueryExecutionFactory
         private final TempStorage tempStorage;
         private final NodeMemoryConfig nodeMemoryConfig;
         private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
+        private final Optional<ErrorClassifier> errorClassifier;
 
         private PrestoSparkQueryExecution(
                 JavaSparkContext sparkContext,
@@ -941,7 +948,8 @@ public class PrestoSparkQueryExecutionFactory
                 Optional<String> queryDataOutputLocation,
                 TempStorage tempStorage,
                 NodeMemoryConfig nodeMemoryConfig,
-                Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
+                Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
+                Optional<ErrorClassifier> errorClassifier)
         {
             this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
             this.session = requireNonNull(session, "session is null");
@@ -974,6 +982,7 @@ public class PrestoSparkQueryExecutionFactory
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
             this.waitTimeMetrics = requireNonNull(waitTimeMetrics, "waitTimeMetrics is null");
+            this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
         }
 
         @Override
@@ -1014,6 +1023,9 @@ public class PrestoSparkQueryExecutionFactory
                         else if (sparkException.getMessage().contains("Executor heartbeat timed out") ||
                                 sparkException.getMessage().contains("Unable to talk to the executor")) {
                             wrappedPrestoException = new PrestoException(SPARK_EXECUTOR_LOST, executionException);
+                        }
+                        else if (errorClassifier.isPresent()) {
+                            wrappedPrestoException = errorClassifier.get().classify(executionException);
                         }
                         else {
                             wrappedPrestoException = new PrestoException(GENERIC_SPARK_ERROR, executionException);

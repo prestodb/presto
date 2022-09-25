@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.pinot.auth.PinotBrokerAuthenticationProvider;
 import com.facebook.presto.pinot.query.PinotQueryGenerator;
@@ -43,6 +44,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.pinot.spi.utils.BytesUtils;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -70,6 +72,11 @@ public abstract class PinotBrokerPageSourceBase
         implements ConnectorPageSource
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final List<Class> SUPPORTED_PRESTO_COLUMN_TYPE_CLASSES = ImmutableList.of(
+            FixedWidthType.class,
+            VarcharType.class,
+            JsonType.class,
+            VarbinaryType.class);
 
     protected final PinotConfig pinotConfig;
     protected final List<PinotColumnHandle> columnHandles;
@@ -131,7 +138,7 @@ public abstract class PinotBrokerPageSourceBase
             blockBuilder.appendNull();
             return;
         }
-        if (!(type instanceof FixedWidthType) && !(type instanceof VarcharType) && !(type instanceof JsonType)) {
+        if (!isTypeSupportInPinot(type)) {
             throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");
         }
         if (type instanceof FixedWidthType) {
@@ -164,11 +171,25 @@ public abstract class PinotBrokerPageSourceBase
                 throw new PinotException(PINOT_UNSUPPORTED_COLUMN_TYPE, Optional.empty(), "type '" + type + "' not supported");
             }
         }
+        else if (type instanceof VarbinaryType) {
+            // Pinot broker convert bytes to hex string, so we need to decode the hex string back to bytes.
+            type.writeSlice(blockBuilder, Slices.wrappedBuffer(BytesUtils.toBytes(value)));
+        }
         else {
             Slice slice = Slices.utf8Slice(value);
             blockBuilder.writeBytes(slice, 0, slice.length()).closeEntry();
             completedBytes += slice.length();
         }
+    }
+
+    private boolean isTypeSupportInPinot(Type type)
+    {
+        for (Class clazz : SUPPORTED_PRESTO_COLUMN_TYPE_CLASSES) {
+            if (clazz.isInstance(type)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

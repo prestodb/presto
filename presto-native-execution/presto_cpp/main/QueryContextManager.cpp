@@ -13,6 +13,8 @@
  */
 
 #include "presto_cpp/main/QueryContextManager.h"
+#include <folly/executors/IOThreadPoolExecutor.h>
+#include "presto_cpp/main/common/Configs.h"
 
 using namespace facebook::velox;
 
@@ -27,8 +29,19 @@ DEFINE_int32(
 namespace facebook::presto {
 namespace {
 static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
-  static std::shared_ptr<folly::CPUThreadPoolExecutor> executor =
+  static auto executor =
       std::make_shared<folly::CPUThreadPoolExecutor>(FLAGS_num_query_threads);
+  return executor;
+}
+
+std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
+  const int32_t numSpillThreads = SystemConfig::instance()->numSpillThreads();
+  if (numSpillThreads <= 0) {
+    return nullptr;
+  }
+  static auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
+      numSpillThreads,
+      std::make_shared<folly::NamedThreadFactory>("SpillerExec"));
   return executor;
 }
 } // namespace
@@ -86,7 +99,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       config,
       connectorConfigs,
       memory::MappedMemory::getInstance(),
-      std::move(pool));
+      std::move(pool),
+      spillExecutor());
 
   return lockedCache->insert(queryId, queryCtx);
 }

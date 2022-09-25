@@ -53,6 +53,7 @@ import org.testng.annotations.Test;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -267,7 +268,7 @@ public class TestPrestoS3FileSystem
     }
 
     @SuppressWarnings("ResultOfMethodCallIgnored")
-    @Test(expectedExceptions = IOException.class, expectedExceptionsMessageRegExp = ".*Failing getObject call with " + HTTP_NOT_FOUND + ".*")
+    @Test(expectedExceptions = FileNotFoundException.class, expectedExceptionsMessageRegExp = "File does not exist: s3n://test-bucket/test")
     public void testReadNotFound()
             throws Exception
     {
@@ -503,6 +504,27 @@ public class TestPrestoS3FileSystem
             assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
             assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
             assertEquals(config.getUserAgentPrefix(), "");
+        }
+    }
+
+    @Test
+    public void testGetScheme()
+            throws Exception
+    {
+        Configuration config = new Configuration();
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3a://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3a");
+        }
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3");
+        }
+
+        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            fs.initialize(new URI("s3n://test-bucket/table"), config);
+            assertEquals(fs.getScheme(), "s3n");
         }
     }
 

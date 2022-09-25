@@ -71,4 +71,23 @@ constexpr folly::StringPiece kCounterAllocatedMemoryBytes{
 // PartitionedOutputBufferManager
 constexpr folly::StringPiece kCounterTotalPartitionedOutputBuffer{
     "presto_cpp.num_partitioned_output_buffer"};
+
+// Number of bytes currently allocated from MappedMemory directly from raw
+// allocateBytes() interface, and internally allocated by malloc. Only small
+// chunks of memory are delegated to malloc
+constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSmall{
+    "presto_cpp.mapped_memory_raw_alloc_bytes_small"};
+// Number of bytes currently allocated from MappedMemory directly from raw
+// allocateBytes() interface, and internally allocated using SizeClass that are
+// managed by MappedMemory. Only chunks of memory that are large enough to be
+// efficiently fitted in the smallest SizeClass and not too large that even
+// largest SizeClass cannot accommodate, are counted towards this counter.
+constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesSizeClass{
+    "presto_cpp.mapped_memory_raw_alloc_bytes_size_class"};
+// Number of bytes currently allocated from MappedMemory directly from raw
+// allocateBytes() interface, and internally allocated using SizeClass that are
+// managed by MappedMemory. Only chunks of memory that are too large that even
+// largest SizeClass cannot accommodate, are counted towards this counter.
+constexpr folly::StringPiece kCounterMappedMemoryRawAllocBytesLarge{
+    "presto_cpp.mapped_memory_raw_alloc_bytes_large"};
 } // namespace facebook::presto

@@ -208,9 +208,14 @@ public class EquivalenceClassProperty
         //pick new head and merge other class into head class
         RowExpression newHead = pickNewHead(head1, head2);
         if (newHead == head1) {
+            //merge other eq class into head class
+            head1Class.addAll(head2Class);
+            head1Class.add(head2);
             combineClasses(head1, head1Class, head2, head2Class);
         }
         else {
+            head2Class.addAll(head1Class);
+            head2Class.add(head1);
             combineClasses(head2, head2Class, head1, head1Class);
         }
     }
@@ -227,9 +232,6 @@ public class EquivalenceClassProperty
     //combine an equivalence class with head class
     private void combineClasses(RowExpression head, List<RowExpression> headClass, RowExpression headOfOtherEqClass, List<RowExpression> otherEqClass)
     {
-        //merge other eq class into head class
-        headClass.addAll(otherEqClass);
-        headClass.add(headOfOtherEqClass);
         //update the head of the other class members
         equivalenceClassHeads.put(headOfOtherEqClass, head);
         for (RowExpression expression : otherEqClass) {
@@ -292,8 +294,8 @@ public class EquivalenceClassProperty
     public String toString()
     {
         return toStringHelper(this)
-                .add("EquivalenceClassHeads", String.join(",", equivalenceClassHeads.entrySet().stream().map(e -> e.getKey().toString() + ":" + e.getValue().toString()).collect(toImmutableList())))
-                .add("EquivalenceClasses", String.join(",", equivalenceClasses.entrySet().stream().map(e -> e.getKey().toString() + ":" + e.getValue().toString()).collect(toImmutableList())))
+                .add("EquivalenceClassHeads", String.join(",", equivalenceClassHeads.entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(toImmutableList())))
+                .add("EquivalenceClasses", String.join(",", equivalenceClasses.entrySet().stream().map(e -> e.getKey() + ":" + e.getValue()).collect(toImmutableList())))
                 .toString();
     }
 }

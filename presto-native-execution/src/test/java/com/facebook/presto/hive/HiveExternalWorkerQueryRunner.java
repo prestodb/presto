@@ -39,29 +39,32 @@ public class HiveExternalWorkerQueryRunner
             throws Exception
     {
         String prestoServerPath = System.getenv("PRESTO_SERVER");
-        String baseDataDir = System.getenv("DATA_DIR");
+        String dataDirectory = System.getenv("DATA_DIR");
         String workerCount = System.getenv("WORKER_COUNT");
         int cacheMaxSize = 4096; // 4GB size cache
 
+        checkArgument(prestoServerPath != null, "Native worker binary path is missing. Add PRESTO_SERVER environment variable.");
+        checkArgument(dataDirectory != null, "Data directory path is missing.. Add DATA_DIR environment variable.");
+
         return createQueryRunner(
                 Optional.ofNullable(prestoServerPath),
-                Optional.ofNullable(baseDataDir).map(Paths::get),
+                Optional.ofNullable(dataDirectory).map(Paths::get),
                 Optional.ofNullable(workerCount).map(Integer::parseInt),
                 cacheMaxSize);
     }
 
     public static QueryRunner createQueryRunner(
             Optional<String> prestoServerPath,
-            Optional<Path> baseDataDir,
+            Optional<Path> dataDirectory,
             Optional<Integer> workerCount,
             int cacheMaxSize)
             throws Exception
     {
         if (prestoServerPath.isPresent()) {
-            checkArgument(baseDataDir.isPresent(), "Path to data files must be specified when testing external workers");
+            checkArgument(dataDirectory.isPresent(), "Path to data files must be specified when testing external workers");
         }
 
-        QueryRunner defaultQueryRunner = createJavaQueryRunner(baseDataDir);
+        QueryRunner defaultQueryRunner = createJavaQueryRunner(dataDirectory);
 
         if (!prestoServerPath.isPresent()) {
             return defaultQueryRunner;
@@ -69,10 +72,10 @@ public class HiveExternalWorkerQueryRunner
 
         defaultQueryRunner.close();
 
-        return createNativeQueryRunner(baseDataDir.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true);
+        return createNativeQueryRunner(dataDirectory.get().toString(), prestoServerPath.get(), workerCount, cacheMaxSize, true);
     }
 
-    public static QueryRunner createJavaQueryRunner(Optional<Path> baseDataDir)
+    public static QueryRunner createJavaQueryRunner(Optional<Path> dataDirectory)
             throws Exception
     {
         DistributedQueryRunner queryRunner =
@@ -87,7 +90,7 @@ public class HiveExternalWorkerQueryRunner
                         ImmutableMap.of(
                                 "hive.storage-format", "DWRF",
                                 "hive.pushdown-filter-enabled", "true"),
-                        baseDataDir);
+                        dataDirectory);
 
         // DWRF doesn't support date type. Convert date columns to varchar for lineitem and orders.
         createLineitem(queryRunner);
@@ -109,7 +112,12 @@ public class HiveExternalWorkerQueryRunner
         return queryRunner;
     }
 
-    public static QueryRunner createNativeQueryRunner(String baseDataDir, String prestoServerPath, Optional<Integer> workerCount, int cacheMaxSize, boolean useThrift)
+    public static QueryRunner createNativeQueryRunner(
+            String dataDirectory,
+            String prestoServerPath,
+            Optional<Integer> workerCount,
+            int cacheMaxSize,
+            boolean useThrift)
             throws Exception
     {
         // Make query runner with external workers for tests
@@ -136,7 +144,7 @@ public class HiveExternalWorkerQueryRunner
                         "hive.storage-format", "DWRF",
                         "hive.pushdown-filter-enabled", "true"),
                 workerCount,
-                Optional.of(Paths.get(baseDataDir)),
+                Optional.of(Paths.get(dataDirectory)),
                 Optional.of((workerIndex, discoveryUri) -> {
                     try {
                         Path tempDirectoryPath = Files.createTempDirectory(HiveExternalWorkerQueryRunner.class.getSimpleName());
@@ -146,29 +154,34 @@ public class HiveExternalWorkerQueryRunner
 
                         // Write config files
                         Files.write(tempDirectoryPath.resolve("config.properties"),
-                                format("discovery.uri=%s\n" +
-                                        "presto.version=testversion\n" +
-                                        "http_exec_threads=8\n" +
-                                        "system-memory-gb=4\n" +
+                                format("discovery.uri=%s%n" +
+                                        "presto.version=testversion%n" +
+                                        "http_exec_threads=8%n" +
+                                        "system-memory-gb=4%n" +
                                         "http-server.http.port=%d", discoveryUri, port).getBytes());
                         Files.write(tempDirectoryPath.resolve("node.properties"),
-                                format("node.id=%s\n" +
-                                        "node.ip=127.0.0.1\n" +
-                                        "node.environment=testing\n" +
+                                format("node.id=%s%n" +
+                                        "node.ip=127.0.0.1%n" +
+                                        "node.environment=testing%n" +
                                         "node.location=test-location", UUID.randomUUID()).getBytes());
 
                         Path catalogDirectoryPath = tempDirectoryPath.resolve("catalog");
                         Files.createDirectory(catalogDirectoryPath);
                         if (cacheMaxSize > 0) {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
-                                    format("connector.name=hive\n" +
-                                            "cache.enabled=true\n" +
-                                            "cache.max-cache-size=%s", cacheMaxSize).getBytes());
+                                    format("connector.name=hive%n" +
+                                           "cache.enabled=true%n" +
+                                           "cache.max-cache-size=%s", cacheMaxSize).getBytes());
                         }
                         else {
                             Files.write(catalogDirectoryPath.resolve("hive.properties"),
                                     format("connector.name=hive").getBytes());
                         }
+                        // Add a hive catalog with caching always enabled.
+                        Files.write(catalogDirectoryPath.resolve("hivecached.properties"),
+                                format("connector.name=hive%n" +
+                                        "cache.enabled=true%n" +
+                                        "cache.max-cache-size=32").getBytes());
 
                         // Disable stack trace capturing as some queries (using TRY) generate a lot of exceptions.
                         return new ProcessBuilder(prestoServerPath, "--logtostderr=1", "--v=1")

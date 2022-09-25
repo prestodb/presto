@@ -39,6 +39,7 @@ import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.planner.CompilerConfig;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
@@ -99,7 +100,8 @@ public class TestAdaptivePhasedExecutionPolicy
                 new WarningCollectorConfig(),
                 new NodeSchedulerConfig(),
                 new NodeSpillConfig(),
-                new TracingConfig()))).build();
+                new TracingConfig(),
+                new CompilerConfig()))).build();
 
         AdaptivePhasedExecutionPolicy policy = new AdaptivePhasedExecutionPolicy();
         Collection<StageExecutionAndScheduler> schedulers = getStageExecutionAndSchedulers(4);

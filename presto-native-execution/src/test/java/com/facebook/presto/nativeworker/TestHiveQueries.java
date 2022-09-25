@@ -15,7 +15,10 @@ package com.facebook.presto.nativeworker;
 
 import com.facebook.presto.Session;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -27,6 +30,30 @@ abstract class TestHiveQueries
     protected TestHiveQueries(boolean useThrift)
     {
         super(useThrift);
+    }
+
+    @Test
+    public void testCatalogWithCacheEnabled()
+    {
+        Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
+                .put("hive.storage-format", "DWRF")
+                .put("hive.pushdown-filter-enabled", "true")
+                .build();
+
+        getQueryRunner().createCatalog("hivecached", "hive", hiveProperties);
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalog("hivecached")
+                .setCatalogSessionProperty("hivecached", "collect_column_statistics_on_write", "false")
+                .build();
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
+            assertQuery("SELECT * FROM tmp");
+        }
+        finally {
+            dropTable("tmp");
+        }
     }
 
     @Test
@@ -279,6 +306,11 @@ abstract class TestHiveQueries
         assertQuery("SELECT array[NULL, NULL, NULL, NULL]");
 
         assertQuery("SELECT array[1, 2, 3], array[0.1, NULL, 0.23, 0.00004], array['x', 'y', 'zetta']");
+
+        assertQuery("SELECT * FROM (VALUES (array[1, 23, 456])) as t(a)");
+        assertQuery("SELECT * FROM (VALUES (array[1, NULL, 23, 456])) as t(a)");
+
+        assertQuery("SELECT * FROM (VALUES (map(array[1, 2, 3], array[10, 20, 30]))) as t(a)");
 
         assertQuery("SELECT BIGINT '12345', INTEGER '1234', SMALLINT '123', TINYINT '12', TRUE, FALSE, DOUBLE '1.234', REAL '1.23', 'ABC', 'Somewhat longish string', NULL, array[1, 2, 3]");
     }

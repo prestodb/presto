@@ -14,6 +14,7 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.operator.BlockedReason;
@@ -142,7 +143,8 @@ public class TestBasicQueryInfo
                         Optional.empty(),
                         Optional.empty(),
                         ImmutableMap.of(),
-                        ImmutableSet.of()));
+                        ImmutableSet.of(),
+                        StatsAndCosts.empty()));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);

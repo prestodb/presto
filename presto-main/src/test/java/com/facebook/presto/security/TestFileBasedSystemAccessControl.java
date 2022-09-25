@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,6 +41,7 @@ import static com.facebook.presto.spi.security.Privilege.SELECT;
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.facebook.presto.util.ResourceFileUtils.getResourceFile;
 import static com.google.common.io.Files.copy;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -66,9 +68,8 @@ public class TestFileBasedSystemAccessControl
     private static final QualifiedObjectName aliceView = new QualifiedObjectName("alice-catalog", "schema", "view");
     private static final CatalogSchemaName aliceSchema = new CatalogSchemaName("alice-catalog", "schema");
     private static final AccessControlContext context = new AccessControlContext(new QueryId("query_id"), Optional.empty(), Optional.empty());
-
     @Test
-    public void testCanSetUserOperations()
+    public void testCanSetUserOperations() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_principal.json");
@@ -112,7 +113,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testCatalogOperations()
+    public void testCatalogOperations() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
@@ -130,7 +131,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testCatalogOperationsReadOnly()
+    public void testCatalogOperationsReadOnly() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
@@ -148,7 +149,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testSchemaOperations()
+    public void testSchemaOperations() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
@@ -170,7 +171,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testSchemaRulesForCheckCanCreateSchema()
+    public void testSchemaRulesForCheckCanCreateSchema() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
@@ -210,7 +211,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testSchemaRulesForCheckCanDropSchema()
+    public void testSchemaRulesForCheckCanDropSchema() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
@@ -250,7 +251,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testSchemaRulesForCheckCanRenameSchema()
+    public void testSchemaRulesForCheckCanRenameSchema() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "file-based-system-access-schema.json");
@@ -289,7 +290,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testSchemaOperationsReadOnly()
+    public void testSchemaOperationsReadOnly() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
@@ -321,7 +322,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testTableOperations()
+    public void testTableOperations() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
@@ -347,7 +348,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testTableOperationsReadOnly()
+    public void testTableOperationsReadOnly() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
@@ -395,7 +396,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testViewOperations()
+    public void testViewOperations() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog.json");
@@ -423,7 +424,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testViewOperationsReadOnly()
+    public void testViewOperationsReadOnly() throws IOException
     {
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "catalog_read_only.json");
@@ -471,7 +472,7 @@ public class TestFileBasedSystemAccessControl
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
         File configFile = newTemporaryFile();
         configFile.deleteOnExit();
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        copy(getResourceFile("catalog.json"), configFile);
 
         accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of(
                 SECURITY_CONFIG_FILE, configFile.getAbsolutePath(),
@@ -484,7 +485,7 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateView(transactionId, alice, context, aliceView);
                 });
 
-        copy(new File(getResourcePath("security-config-file-with-unknown-rules.json")), configFile);
+        copy(getResourceFile("security-config-file-with-unknown-rules.json"), configFile);
         sleep(2);
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager)
@@ -501,7 +502,7 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageStartingWith("Invalid JSON file");
 
-        copy(new File(getResourcePath("catalog.json")), configFile);
+        copy(getResourceFile("catalog.json"), configFile);
         sleep(2);
 
         transaction(transactionManager, accessControlManager)
@@ -522,29 +523,24 @@ public class TestFileBasedSystemAccessControl
         assertThrows(IllegalArgumentException.class, () -> newAccessControlManager(createTestTransactionManager(), "catalog_invalid_allow_value.json"));
     }
 
-    private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName)
+    private AccessControlManager newAccessControlManager(TransactionManager transactionManager, String resourceName) throws IOException
     {
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
 
-        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourcePath(resourceName)));
+        accessControlManager.setSystemAccessControl(FileBasedSystemAccessControl.NAME, ImmutableMap.of("security.config-file", getResourceFile(resourceName).getAbsolutePath()));
 
         return accessControlManager;
     }
-
-    private String getResourcePath(String resourceName)
-    {
-        return this.getClass().getClassLoader().getResource(resourceName).getPath();
-    }
-
     @Test
-    public void parseUnknownRules()
+    public void parseUnknownRules() throws IOException
     {
-        assertThatThrownBy(() -> parse("src/test/resources/security-config-file-with-unknown-rules.json"))
+        assertThatThrownBy(() -> parse("security-config-file-with-unknown-rules.json"))
                 .hasMessageContaining("Invalid JSON");
     }
 
     private SystemAccessControl parse(String path)
+            throws IOException
     {
-        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, path));
+        return new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, getResourceFile(path).getPath()));
     }
 }

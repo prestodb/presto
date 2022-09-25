@@ -125,6 +125,7 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.getHeapDumpFileDirectory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxRevocableMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
 import static com.facebook.presto.SystemSessionProperties.isHeapDumpOnExceededMemoryLimitEnabled;
 import static com.facebook.presto.SystemSessionProperties.isSpillEnabled;
@@ -143,6 +144,7 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCom
 import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingIterator;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
+import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -183,7 +185,6 @@ public class PrestoSparkTaskExecutorFactory
     private final Set<PrestoSparkAuthenticatorProvider> authenticatorProviders;
 
     private final NodeMemoryConfig nodeMemoryConfig;
-    private final DataSize maxRevocableMemory;
     private final DataSize maxQuerySpillPerNode;
     private final DataSize sinkMaxBufferSize;
 
@@ -242,7 +243,6 @@ public class PrestoSparkTaskExecutorFactory
                 splitMonitor,
                 authenticatorProviders,
                 nodeMemoryConfig,
-                requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getMaxRevocableMemoryPerNode(),
                 requireNonNull(nodeSpillConfig, "nodeSpillConfig is null").getQueryMaxSpillPerNode(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").getSinkMaxBufferSize(),
                 requireNonNull(taskManagerConfig, "taskManagerConfig is null").isPerOperatorCpuTimerEnabled(),
@@ -272,7 +272,6 @@ public class PrestoSparkTaskExecutorFactory
             SplitMonitor splitMonitor,
             Set<PrestoSparkAuthenticatorProvider> authenticatorProviders,
             NodeMemoryConfig nodeMemoryConfig,
-            DataSize maxRevocableMemory,
             DataSize maxQuerySpillPerNode,
             DataSize sinkMaxBufferSize,
             boolean perOperatorCpuTimerEnabled,
@@ -301,7 +300,6 @@ public class PrestoSparkTaskExecutorFactory
         this.authenticatorProviders = ImmutableSet.copyOf(requireNonNull(authenticatorProviders, "authenticatorProviders is null"));
         // Ordering is needed to make sure serialized plans are consistent for the same map
         this.nodeMemoryConfig = requireNonNull(nodeMemoryConfig, "nodeMemoryConfig is null");
-        this.maxRevocableMemory = requireNonNull(maxRevocableMemory, "maxRevocableMemory is null");
         this.maxQuerySpillPerNode = requireNonNull(maxQuerySpillPerNode, "maxQuerySpillPerNode is null");
         this.sinkMaxBufferSize = requireNonNull(sinkMaxBufferSize, "sinkMaxBufferSize is null");
         this.perOperatorCpuTimerEnabled = perOperatorCpuTimerEnabled;
@@ -387,6 +385,7 @@ public class PrestoSparkTaskExecutorFactory
 
         DataSize maxUserMemory = getQueryMaxMemoryPerNode(session);
         DataSize maxTotalMemory = getQueryMaxTotalMemoryPerNode(session);
+        DataSize maxRevocableMemory = getQueryMaxRevocableMemoryPerNode(session);
         DataSize maxBroadcastMemory = getSparkBroadcastJoinMaxMemoryOverride(session);
         if (maxBroadcastMemory == null) {
             maxBroadcastMemory = new DataSize(min(nodeMemoryConfig.getMaxQueryBroadcastMemory().toBytes(), getQueryMaxBroadcastMemory(session).toBytes()), BYTE);
@@ -480,7 +479,8 @@ public class PrestoSparkTaskExecutorFactory
                                             succinctBytes(pool.getQueryMemoryReservation(queryId)),
                                             succinctBytes(pool.getQueryRevocableMemoryReservation(queryId))),
                             isHeapDumpOnExceededMemoryLimitEnabled(session),
-                            Optional.ofNullable(heapDumpFilePath));
+                            Optional.ofNullable(heapDumpFilePath),
+                            UNKNOWN);
                 }
             });
         }

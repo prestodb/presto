@@ -13,7 +13,7 @@
 #
 FROM prestocpp/velox-avx-circleci:mikesh-20220717
 
-COPY setup-circleci.sh /
+COPY setup-centos.sh /
 COPY setup-helper-functions.sh /
-RUN chmod +x ./setup-circleci.sh
-RUN mkdir build && ( cd build && ../setup-circleci.sh ) && rm -rf build
+RUN chmod +x ./setup-centos.sh
+RUN mkdir build && ( cd build && ../setup-centos.sh ) && rm -rf build

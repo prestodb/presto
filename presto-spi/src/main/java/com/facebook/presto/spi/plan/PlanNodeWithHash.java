@@ -51,13 +51,15 @@ public class PlanNodeWithHash
             return false;
         }
         PlanNodeWithHash that = (PlanNodeWithHash) o;
-        return Objects.equals(planNode, that.planNode) && Objects.equals(hash, that.hash);
+        // We compare object equality for Plan nodes. It is necessary because plan nodes can be expensive to compare,
+        // and its also sufficient because we only hash stats equivalent plan nodes, which don't change while planning.
+        return planNode == that.planNode && Objects.equals(hash, that.hash);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(planNode, hash);
+        return Objects.hash(System.identityHashCode(planNode), hash);
     }
 
     @Override

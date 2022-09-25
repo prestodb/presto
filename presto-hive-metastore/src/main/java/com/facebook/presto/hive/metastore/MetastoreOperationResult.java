@@ -14,7 +14,6 @@
 package com.facebook.presto.hive.metastore;
 
 import com.google.common.collect.ImmutableList;
-import org.joda.time.DateTime;
 
 import java.util.List;
 
@@ -24,19 +23,19 @@ public class MetastoreOperationResult
 {
     public static final MetastoreOperationResult EMPTY_RESULT = new MetastoreOperationResult();
 
-    private final List<DateTime> lastDataCommitTimes;
+    private final List<Long> lastDataCommitTimes;
 
     public MetastoreOperationResult()
     {
         this(ImmutableList.of());
     }
 
-    public MetastoreOperationResult(List<DateTime> lastDataCommitTimes)
+    public MetastoreOperationResult(List<Long> lastDataCommitTimes)
     {
         this.lastDataCommitTimes = requireNonNull(lastDataCommitTimes, "lastDataCommitTimes is null");
     }
 
-    public List<DateTime> getLastDataCommitTimes()
+    public List<Long> getLastDataCommitTimes()
     {
         return lastDataCommitTimes;
     }

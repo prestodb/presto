@@ -114,24 +114,15 @@ PrestoServer::PrestoServer(const std::string& configDirectoryPath)
 PrestoServer::~PrestoServer() {}
 
 void PrestoServer::run() {
-  registerPrestoCppCounters();
-  velox::filesystems::registerLocalFileSystem();
-  registerOptionalHiveStorageAdapters();
-  protocol::registerHiveConnectors();
-
   auto systemConfig = SystemConfig::instance();
-
-  auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
-      systemConfig->numIoThreads(),
-      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
-  folly::setUnsafeMutableGlobalIOExecutor(executor);
-
   auto nodeConfig = NodeConfig::instance();
-  int servicePort;
-  int httpExecThreads;
+  int servicePort{0};
+  int httpExecThreads{0};
   try {
-    systemConfig->initialize(configDirectoryPath_ + "/config.properties");
-    nodeConfig->initialize(configDirectoryPath_ + "/node.properties");
+    systemConfig->initialize(
+        fmt::format("{}/config.properties", configDirectoryPath_));
+    nodeConfig->initialize(
+        fmt::format("{}/node.properties", configDirectoryPath_));
     servicePort = systemConfig->httpServerHttpPort();
     nodeVersion_ = systemConfig->prestoVersion();
     httpExecThreads = systemConfig->httpExecThreads();
@@ -148,6 +139,17 @@ void PrestoServer::run() {
     // Avoid logging again.
     exit(EXIT_FAILURE);
   }
+
+  registerPrestoCppCounters();
+  velox::filesystems::registerLocalFileSystem();
+  registerOptionalHiveStorageAdapters();
+  protocol::registerHiveConnectors();
+
+  auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
+      systemConfig->numIoThreads(),
+      std::make_shared<folly::NamedThreadFactory>("PrestoWorkerNetwork"));
+  folly::setUnsafeMutableGlobalIOExecutor(executor);
+
   initializeAsyncCache();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
@@ -331,7 +333,8 @@ void PrestoServer::initializeAsyncCache() {
   }
   auto memoryBytes = memoryGb << 30;
 
-  memory::MmapAllocatorOptions options = {memoryBytes};
+  memory::MmapAllocatorOptions options;
+  options.capacity = memoryBytes;
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
   mappedMemory_ = std::make_shared<cache::AsyncDataCache>(
       allocator, memoryBytes, std::move(ssd));
@@ -452,7 +455,7 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
   LOG(INFO) << "STARTUP: Using AsyncDataCache";
   return facebook::velox::connector::getConnectorFactory(connectorName)
       ->newConnector(
-          connectorName, std::move(properties), connectorIoExecutor_.get());
+          catalogName, std::move(properties), connectorIoExecutor_.get());
 }
 
 void PrestoServer::populateMemAndCPUInfo() {

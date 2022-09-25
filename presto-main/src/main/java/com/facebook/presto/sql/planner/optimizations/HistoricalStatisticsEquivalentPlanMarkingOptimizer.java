@@ -14,13 +14,18 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
+import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.trackHistoryBasedPlanStatisticsEnabled;
@@ -30,7 +35,12 @@ import static java.util.Objects.requireNonNull;
 public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         implements PlanOptimizer
 {
-    public HistoricalStatisticsEquivalentPlanMarkingOptimizer() {}
+    private final StatsCalculator statsCalculator;
+
+    public HistoricalStatisticsEquivalentPlanMarkingOptimizer(StatsCalculator statsCalculator)
+    {
+        this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
+    }
 
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, PlanVariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
@@ -46,19 +56,60 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         }
 
         // Assign 'statsEquivalentPlanNode' to plan nodes
-        plan = SimplePlanRewriter.rewriteWith(new Rewriter(), plan);
+        plan = SimplePlanRewriter.rewriteWith(new Rewriter(idAllocator), plan, new Context());
 
-        // TODO: Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
+        // Fetch and cache history based statistics of all plan nodes, so no serial network calls happen later.
+        statsCalculator.registerPlan(plan, session);
         return plan;
     }
 
     private static class Rewriter
-            extends SimplePlanRewriter<Void>
+            extends SimplePlanRewriter<Context>
     {
-        @Override
-        public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
+        private final PlanNodeIdAllocator idAllocator;
+
+        public Rewriter(PlanNodeIdAllocator idAllocator)
         {
-            return context.defaultRewrite(node.assignStatsEquivalentPlanNode(Optional.of(node)), context.get());
+            this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        }
+
+        @Override
+        public PlanNode visitPlan(PlanNode node, RewriteContext<Context> context)
+        {
+            if (!node.getStatsEquivalentPlanNode().isPresent()) {
+                PlanNode nodeWithLimit = node;
+                // A LIMIT node can affect statistics of several children nodes, so let's put the limit node in the stats equivalent plan node.
+                // For example:
+                // `SELECT * FROM nation where <filter> LIMIT 5`
+                // Filter node here will NOT have the same statistics as `SELECT * FROM nation where <filter>`, because
+                // LIMIT node will stop the operator once it gets 5 rows. Hence, we cannot reuse these stats for other queries.
+                // However, we can still use it if the whole query with same limit appears again. Hence, we include the limit node in the
+                // stats equivalent form of filter node, so its stats are only used in queries where there is a limit node above it.
+                if (!context.get().getLimits().isEmpty()) {
+                    nodeWithLimit = new StatsEquivalentPlanNodeWithLimit(idAllocator.getNextId(), node, context.get().getLimits().peekFirst());
+                }
+                node = node.assignStatsEquivalentPlanNode(Optional.of(nodeWithLimit));
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitLimit(LimitNode node, RewriteContext<Context> context)
+        {
+            context.get().getLimits().addLast(node);
+            PlanNode result = visitPlan(node, context);
+            context.get().getLimits().pop();
+            return result;
+        }
+    }
+
+    private static class Context
+    {
+        private final Deque<LimitNode> limits = new ArrayDeque<>();
+
+        public Deque<LimitNode> getLimits()
+        {
+            return limits;
         }
     }
 }
