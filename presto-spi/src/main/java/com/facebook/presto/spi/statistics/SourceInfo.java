@@ -19,4 +19,5 @@ package com.facebook.presto.spi.statistics;
  */
 public abstract class SourceInfo
 {
+    public abstract boolean isConfident();
 }

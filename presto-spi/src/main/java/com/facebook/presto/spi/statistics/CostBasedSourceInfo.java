@@ -19,7 +19,12 @@ package com.facebook.presto.spi.statistics;
 public class CostBasedSourceInfo
         extends SourceInfo
 {
-    public CostBasedSourceInfo() {}
+    private boolean confident;
+
+    public CostBasedSourceInfo(boolean confident)
+    {
+        this.confident = confident;
+    }
 
     @Override
     public int hashCode()
@@ -37,5 +42,11 @@ public class CostBasedSourceInfo
     public String toString()
     {
         return "CostBasedSourceInfo{}";
+    }
+
+    @Override
+    public boolean isConfident()
+    {
+        return confident;
     }
 }

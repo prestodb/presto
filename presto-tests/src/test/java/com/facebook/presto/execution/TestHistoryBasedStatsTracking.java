@@ -90,7 +90,7 @@ public class TestHistoryBasedStatsTracking
         executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A'");
         assertPlan(
                 "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
-                anyTree(node(FilterNode.class, any()).withOutputRowCount(2)));
+                anyTree(node(FilterNode.class, any()).withOutputRowCount(2).withOutputSize(199)));
 
         // CBO Statistics
         assertPlan(
@@ -104,11 +104,11 @@ public class TestHistoryBasedStatsTracking
         executeAndTrackHistory("SELECT max(nationkey) FROM nation where name < 'D' group by regionkey");
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(5)));
+                anyTree(node(ProjectNode.class, node(FilterNode.class, any())).withOutputRowCount(5).withOutputSize(90)));
 
         assertPlan(
                 "SELECT max(nationkey) FROM nation where name < 'D' group by regionkey",
-                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3)));
+                anyTree(node(AggregationNode.class, node(ExchangeNode.class, anyTree(any()))).withOutputRowCount(3).withOutputSize(54)));
     }
 
     @Test
@@ -152,6 +152,10 @@ public class TestHistoryBasedStatsTracking
         assertPlan(
                 "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
                 anyTree(node(JoinNode.class, anyTree(anyTree(any()), anyTree(any())), anyTree(any())).withOutputRowCount(1915)));
+        // Check that output size doesn't include hash variables
+        assertPlan(
+                "SELECT N.name, O.totalprice, C.name FROM orders O, customer C, nation N WHERE N.nationkey = C.nationkey and C.custkey = O.custkey and year(O.orderdate) = 1995 AND substr(N.name, 1, 1) >= 'C'",
+                anyTree(anyTree(anyTree(any()), anyTree(any())), anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(22).withOutputSize(661 - 22 * 8))));
     }
 
     @Test

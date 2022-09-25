@@ -91,7 +91,7 @@ public class DetermineJoinDistributionType
 
         PlanNode buildSide = joinNode.getRight();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
-        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputVariables());
+        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide);
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
             || (isSizeBasedJoinDistributionTypeEnabled(context.getSession())
                 && getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes());
@@ -183,7 +183,7 @@ public class DetermineJoinDistributionType
                 .findAll();
 
         return sourceNodes.stream()
-                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode.getOutputVariables()))
+                .mapToDouble(sourceNode -> statsProvider.getStats(sourceNode).getOutputSizeInBytes(sourceNode))
                 .sum();
     }
 
@@ -210,8 +210,7 @@ public class DetermineJoinDistributionType
                 return Stream.of(planNode);
             })
             .mapToDouble(resolvedNode -> {
-                double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(
-                        resolvedNode.getOutputVariables());
+                double outputSizeInBytes = statsProvider.getStats(resolvedNode).getOutputSizeInBytes(resolvedNode);
                 if (!isNaN(outputSizeInBytes)) {
                     return outputSizeInBytes;
                 }

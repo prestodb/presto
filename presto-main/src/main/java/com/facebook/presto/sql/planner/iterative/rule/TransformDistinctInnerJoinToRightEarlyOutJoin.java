@@ -175,8 +175,8 @@ public class TransformDistinctInnerJoinToRightEarlyOutJoin
         PlanNodeStatsEstimate joinStats = stats.getStats(joinNode);
         PlanNodeStatsEstimate leftStats = stats.getStats(joinNode.getLeft());
 
-        double inputBytes = leftStats.getOutputSizeInBytes(joinNode.getLeft().getOutputVariables());
-        double outputBytes = joinStats.getOutputSizeInBytes(joinNode.getOutputVariables());
+        double inputBytes = leftStats.getOutputSizeInBytes(joinNode.getLeft());
+        double outputBytes = joinStats.getOutputSizeInBytes(joinNode);
         return outputBytes <= inputBytes * getPushAggregationBelowJoinByteReductionThreshold(context.getSession());
     }
 }
