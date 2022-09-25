@@ -14,28 +14,25 @@
 package com.facebook.presto.orc.metadata;
 
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
-import com.google.common.collect.ImmutableList;
 import org.openjdk.jol.info.ClassLayout;
 
-import java.util.List;
-
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class RowGroupIndex
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupIndex.class).instanceSize();
-    private static final int INTEGER_INSTANCE_SIZE = ClassLayout.parseClass(Integer.class).instanceSize();
 
-    private final List<Integer> positions;
+    private final int[] positions;
     private final ColumnStatistics statistics;
 
-    public RowGroupIndex(List<Integer> positions, ColumnStatistics statistics)
+    public RowGroupIndex(int[] positions, ColumnStatistics statistics)
     {
-        this.positions = ImmutableList.copyOf(requireNonNull(positions, "positions is null"));
+        this.positions = requireNonNull(positions, "positions is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
 
-    public List<Integer> getPositions()
+    public int[] getPositions()
     {
         return positions;
     }
@@ -47,6 +44,6 @@ public class RowGroupIndex
 
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE + positions.size() * INTEGER_INSTANCE_SIZE + statistics.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + sizeOf(positions) + statistics.getRetainedSizeInBytes();
     }
 }
