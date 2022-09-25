@@ -690,6 +690,12 @@ public final class PlanMatchPattern
         return this;
     }
 
+    public PlanMatchPattern withOutputSize(double expectedOutputSize)
+    {
+        matchers.add(new StatsOutputSizeMatcher(expectedOutputSize));
+        return this;
+    }
+
     public static RvalueMatcher columnReference(String tableName, String columnName)
     {
         return new ColumnReference(tableName, columnName);
