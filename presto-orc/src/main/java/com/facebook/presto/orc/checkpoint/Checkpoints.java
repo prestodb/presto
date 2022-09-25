@@ -21,12 +21,11 @@ import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
 import com.facebook.presto.orc.metadata.RowGroupIndex;
 import com.facebook.presto.orc.metadata.Stream;
 import com.facebook.presto.orc.metadata.Stream.StreamKind;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,7 +46,6 @@ import static com.facebook.presto.orc.metadata.Stream.StreamKind.PRESENT;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.ROW_GROUP_DICTIONARY_LENGTH;
 import static com.facebook.presto.orc.metadata.Stream.StreamKind.SECONDARY;
-import static com.google.common.base.Predicates.equalTo;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -83,13 +81,13 @@ public final class Checkpoints
             }
 
             int sequence = entry.getKey().getSequence();
-            List<Integer> positionsList = entry.getValue().get(rowGroupId).getPositions();
+            int[] positions = entry.getValue().get(rowGroupId).getPositions();
 
             ColumnEncodingKind columnEncoding = columnEncodings.get(column).getColumnEncoding(sequence).getColumnEncodingKind();
             OrcTypeKind columnType = columnTypes.get(column).getOrcTypeKind();
             Set<StreamKind> availableStreams = streamKinds.get(new ColumnAndSequence(column, sequence));
 
-            ColumnPositionsList columnPositionsList = new ColumnPositionsList(column, sequence, columnType, positionsList);
+            ColumnPositionsList columnPositionsList = new ColumnPositionsList(column, sequence, columnType, positions);
             switch (columnType) {
                 case BOOLEAN:
                     checkpoints.putAll(getBooleanColumnCheckpoints(column, sequence, compressed, availableStreams, columnPositionsList));
@@ -137,11 +135,11 @@ public final class Checkpoints
             // it will write checkpoints for all streams, but in other cases it will write only the streams that exist.
             // We detect this case by checking that all offsets in the initial position list are zero, and if so, we
             // clear the extra offsets
-            if (columnPositionsList.hasNextPosition() && !Iterables.all(positionsList, equalTo(0))) {
+            if (columnPositionsList.hasNextPosition() && !Arrays.stream(positions).allMatch(num -> num == 0)) {
                 throw new InvalidCheckpointException(format("Column %s, of type %s, contains %s offset positions, but only %s positions were consumed",
                         column,
                         columnType,
-                        positionsList.size(),
+                        positions.length,
                         columnPositionsList.getIndex()));
             }
         }
@@ -481,15 +479,15 @@ public final class Checkpoints
         private final int column;
         private final int sequence;
         private final OrcTypeKind columnType;
-        private final List<Integer> positionsList;
+        private final int[] positions;
         private int index;
 
-        private ColumnPositionsList(int column, int sequence, OrcTypeKind columnType, List<Integer> positionsList)
+        private ColumnPositionsList(int column, int sequence, OrcTypeKind columnType, int[] positions)
         {
             this.column = column;
             this.sequence = sequence;
             this.columnType = requireNonNull(columnType, "columnType is null");
-            this.positionsList = ImmutableList.copyOf(requireNonNull(positionsList, "positionsList is null"));
+            this.positions = requireNonNull(positions, "positions is null");
         }
 
         public int getIndex()
@@ -499,7 +497,7 @@ public final class Checkpoints
 
         public boolean hasNextPosition()
         {
-            return index < positionsList.size();
+            return index < positions.length;
         }
 
         public int nextPosition()
@@ -511,7 +509,7 @@ public final class Checkpoints
                         columnType);
             }
 
-            return positionsList.get(index++);
+            return positions[index++];
         }
     }
 
