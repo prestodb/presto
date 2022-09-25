@@ -17,10 +17,14 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.array.ObjectBigArray;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.spi.function.aggregation.GroupByIdBlock;
+import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.ListenableFuture;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -31,9 +35,12 @@ import org.openjdk.jol.info.ClassLayout;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.PrimitiveIterator;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -55,7 +62,7 @@ public class GroupedTopNBuilder
     private final int topN;
     private final boolean produceRowNumber;
     private final GroupByHash groupByHash;
-
+    private final OperatorContext operatorContext;
     // a map of heaps, each of which records the top N rows
     private final ObjectBigArray<RowHeap> groupedRows = new ObjectBigArray<>();
     // a list of input pages, each of which has information of which row in which heap references which position
@@ -69,19 +76,55 @@ public class GroupedTopNBuilder
     // keeps track sizes of input pages and heaps
     private long memorySizeInBytes;
     private int currentPageCount;
+    private LocalMemoryContext localUserMemoryContext;
 
     public GroupedTopNBuilder(
+            OperatorContext operatorContext,
             List<Type> sourceTypes,
+            List<Type> partitionTypes,
+            List<Integer> partitionChannels,
+            Optional<Integer> hashChannel,
+            int expectedPositions,
+            boolean isDictionaryAggregationEnabled,
+            JoinCompiler joinCompiler,
+            PageWithPositionComparator comparator,
+            int topN,
+            boolean produceRowNumber)
+    {
+        this(
+                operatorContext,
+                sourceTypes,
+                partitionTypes,
+                partitionChannels,
+                hashChannel,
+                expectedPositions,
+                isDictionaryAggregationEnabled,
+                joinCompiler,
+                comparator,
+                topN,
+                produceRowNumber,
+                UpdateMemory.NOOP);
+    }
+
+    public GroupedTopNBuilder(
+            OperatorContext operatorContext,
+            List<Type> sourceTypes,
+            List<Type> partitionTypes,
+            List<Integer> partitionChannels,
+            Optional<Integer> hashChannel,
+            int expectedPositions,
+            boolean isDictionaryAggregationEnabled,
+            JoinCompiler joinCompiler,
             PageWithPositionComparator comparator,
             int topN,
             boolean produceRowNumber,
-            GroupByHash groupByHash)
+            UpdateMemory updateMemory)
     {
+        this.operatorContext = operatorContext;
         this.sourceTypes = requireNonNull(sourceTypes, "sourceTypes is null").toArray(new Type[0]);
         checkArgument(topN > 0, "topN must be > 0");
         this.topN = topN;
         this.produceRowNumber = produceRowNumber;
-        this.groupByHash = requireNonNull(groupByHash, "groupByHash is not null");
 
         this.pageWithPositionComparator = requireNonNull(comparator, "comparator is null");
         // Note: this is comparator intentionally swaps left and right arguments form a "reverse order" comparator
@@ -91,6 +134,21 @@ public class GroupedTopNBuilder
                 pageReferences.get(right.getPageId()).getPage(),
                 right.getPosition());
         this.emptyPageReferenceSlots = new IntFIFOQueue();
+
+        if (!partitionChannels.isEmpty()) {
+            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
+            this.groupByHash = createGroupByHash(
+                    partitionTypes,
+                    Ints.toArray(partitionChannels),
+                    hashChannel,
+                    expectedPositions,
+                    isDictionaryAggregationEnabled,
+                    joinCompiler,
+                    updateMemory);
+        }
+        else {
+            this.groupByHash = new NoChannelGroupByHash();
+        }
     }
 
     public Work<?> processPage(Page page)
@@ -105,7 +163,22 @@ public class GroupedTopNBuilder
 
     public Iterator<Page> buildResult()
     {
-        return new ResultIterator();
+        return new ResultIterator(IntStream.range(0, groupByHash.getGroupCount()).iterator());
+    }
+
+    public ListenableFuture<?> startMemoryRevoke()
+    {
+        throw new UnsupportedOperationException("InMemoryGroupedTopNBuilder does not support startMemoryRevoke");
+    }
+
+    public void finishMemoryRevoke()
+    {
+        throw new UnsupportedOperationException("InMemoryGroupedTopNBuilder does not support finishMemoryRevoke");
+    }
+
+    private void updateMemory(long memorySize)
+    {
+        localUserMemoryContext.setBytes(memorySize);
     }
 
     public long getEstimatedSizeInBytes()
@@ -205,7 +278,6 @@ public class GroupedTopNBuilder
             verify(pagesToCompact.add(newPageId));
         }
 
-        // compact pages
         IntIterator iterator = pagesToCompact.iterator();
         while (iterator.hasNext()) {
             int pageId = iterator.nextInt();
@@ -398,10 +470,8 @@ public class GroupedTopNBuilder
         private static final int UNUSED_CAPACITY_DISPOSAL_THRESHOLD = 4096;
 
         private final PageBuilder pageBuilder;
-        // we may have 0 groups if there is no input page processed
-        private final int groupCount = groupByHash.getGroupCount();
+        private final PrimitiveIterator.OfInt groupIds;
 
-        private int currentGroupNumber;
         private long currentGroupSizeInBytes;
 
         // the row number of the current position in the group
@@ -411,7 +481,7 @@ public class GroupedTopNBuilder
 
         private ObjectBigArray<Row> currentRows;
 
-        ResultIterator()
+        ResultIterator(PrimitiveIterator.OfInt groupIds)
         {
             if (produceRowNumber) {
                 pageBuilder = new PageBuilder(new ImmutableList.Builder<Type>().add(sourceTypes).add(BIGINT).build());
@@ -421,6 +491,7 @@ public class GroupedTopNBuilder
             }
             // Populate the first group
             currentRows = new ObjectBigArray<>();
+            this.groupIds = groupIds;
             nextGroupedRows();
         }
 
@@ -471,11 +542,11 @@ public class GroupedTopNBuilder
 
         private void nextGroupedRows()
         {
-            if (currentGroupNumber < groupCount) {
-                RowHeap rows = groupedRows.getAndSet(currentGroupNumber, null);
-                verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row");
+            if (this.groupIds.hasNext()) {
+                int n = this.groupIds.nextInt();
+                RowHeap rows = groupedRows.getAndSet(n, null);
+                verify(rows != null && !rows.isEmpty(), "impossible to have inserted a group without a witness row. rows=%s for %s", rows, this);
                 currentGroupSizeInBytes = rows.getEstimatedSizeInBytes();
-                currentGroupNumber++;
                 currentGroupSize = rows.size();
 
                 // sort output rows in a big array in case there are too many rows
@@ -494,5 +565,15 @@ public class GroupedTopNBuilder
                 currentGroupSize = 0;
             }
         }
+    }
+
+    public long getGroupIdsSortingSize()
+    {
+        return (long) groupByHash.getGroupCount() * Integer.BYTES;
+    }
+
+    public GroupByHash getGroupByHash()
+    {
+        return groupByHash;
     }
 }

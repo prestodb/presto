@@ -29,7 +29,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
-import static com.facebook.presto.operator.GroupByHash.createGroupByHash;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -130,7 +129,6 @@ public class TopNRowNumberOperator
 
     private final int[] outputChannels;
 
-    private final GroupByHash groupByHash;
     private final GroupedTopNBuilder groupedTopNBuilder;
 
     private boolean finishing;
@@ -165,28 +163,21 @@ public class TopNRowNumberOperator
 
         checkArgument(maxRowCountPerPartition > 0, "maxRowCountPerPartition must be > 0");
 
-        if (!partitionChannels.isEmpty()) {
-            checkArgument(expectedPositions > 0, "expectedPositions must be > 0");
-            groupByHash = createGroupByHash(
-                    partitionTypes,
-                    Ints.toArray(partitionChannels),
-                    hashChannel,
-                    expectedPositions,
-                    isDictionaryAggregationEnabled(operatorContext.getSession()),
-                    joinCompiler,
-                    this::updateMemoryReservation);
-        }
-        else {
-            groupByHash = new NoChannelGroupByHash();
-        }
-
         List<Type> types = toTypes(sourceTypes, outputChannels, generateRowNumber);
+
         this.groupedTopNBuilder = new GroupedTopNBuilder(
+                operatorContext,
                 ImmutableList.copyOf(sourceTypes),
+                partitionTypes,
+                partitionChannels,
+                hashChannel,
+                expectedPositions,
+                isDictionaryAggregationEnabled(operatorContext.getSession()),
+                joinCompiler,
                 new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                 maxRowCountPerPartition,
                 generateRowNumber,
-                groupByHash);
+                this::updateMemoryReservation);
     }
 
     @Override
@@ -226,7 +217,6 @@ public class TopNRowNumberOperator
         if (unfinishedWork.process()) {
             unfinishedWork = null;
         }
-        updateMemoryReservation();
     }
 
     @Override
@@ -234,7 +224,6 @@ public class TopNRowNumberOperator
     {
         if (unfinishedWork != null) {
             boolean finished = unfinishedWork.process();
-            updateMemoryReservation();
             if (!finished) {
                 return null;
             }
@@ -254,13 +243,13 @@ public class TopNRowNumberOperator
         if (outputIterator.hasNext()) {
             output = outputIterator.next().extractChannels(outputChannels);
         }
-        updateMemoryReservation();
         return output;
     }
 
     @VisibleForTesting
     public int getCapacity()
     {
+        GroupByHash groupByHash = groupedTopNBuilder.getGroupByHash();
         checkState(groupByHash != null);
         return groupByHash.getCapacity();
     }

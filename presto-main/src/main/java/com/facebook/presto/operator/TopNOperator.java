@@ -27,6 +27,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyIterator;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -106,18 +107,23 @@ public class TopNOperator
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
         checkArgument(n >= 0, "n must be positive");
-
         if (n == 0) {
             finishing = true;
             outputIterator = emptyIterator();
         }
         else {
             topNBuilder = new GroupedTopNBuilder(
+                    operatorContext,
                     types,
+                    emptyList(),
+                    emptyList(),
+                    null,
+                    0,
+                    false,
+                    null,
                     new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
                     n,
-                    false,
-                    new NoChannelGroupByHash());
+                    false);
         }
     }
 
@@ -152,7 +158,6 @@ public class TopNOperator
         boolean done = topNBuilder.processPage(requireNonNull(page, "page is null")).process();
         // there is no grouping so work will always be done
         verify(done);
-        updateMemoryReservation();
     }
 
     @Override
@@ -174,13 +179,7 @@ public class TopNOperator
         else {
             outputIterator = emptyIterator();
         }
-        updateMemoryReservation();
         return output;
-    }
-
-    private void updateMemoryReservation()
-    {
-        localUserMemoryContext.setBytes(topNBuilder.getEstimatedSizeInBytes());
     }
 
     private boolean noMoreOutput()
