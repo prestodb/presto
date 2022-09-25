@@ -20,7 +20,9 @@ import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.stream.PresentOutputStream;
 import com.facebook.presto.orc.stream.ValueOutputStream;
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -51,13 +53,13 @@ public class ColumnWriterUtils
                 .map(ValueOutputStream::getCheckpoints)
                 .collect(Collectors.toList());
 
+        List<Integer> positions = new ArrayList<>();
         for (int i = 0; i < rowGroupColumnStatistics.size(); i++) {
             int groupId = i;
             Optional<StreamCheckpoint> prependCheckpoint = prependCheckpoints.map(checkpoints -> checkpoints.get(groupId));
             Optional<StreamCheckpoint> presentCheckpoint = presentCheckpoints.map(checkpoints -> checkpoints.get(groupId));
 
             // prepend and present checkpoints always come first
-            ImmutableList.Builder<Integer> positions = ImmutableList.builder();
             prependCheckpoint.ifPresent(checkpoint -> positions.addAll(checkpoint.toPositionList(compressed)));
             presentCheckpoint.ifPresent(checkpoint -> positions.addAll(checkpoint.toPositionList(compressed)));
 
@@ -68,7 +70,8 @@ public class ColumnWriterUtils
             }
 
             ColumnStatistics columnStatistics = rowGroupColumnStatistics.get(groupId);
-            rowGroupIndexes.add(new RowGroupIndex(positions.build(), columnStatistics));
+            rowGroupIndexes.add(new RowGroupIndex(Ints.toArray(positions), columnStatistics));
+            positions.clear();
         }
 
         return rowGroupIndexes.build();

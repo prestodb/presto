@@ -378,12 +378,11 @@ public class OrcMetadataWriter
 
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
-        return OrcProto.RowIndexEntry.newBuilder()
-                .addAllPositions(rowGroupIndex.getPositions().stream()
-                        .map(Integer::longValue)
-                        .collect(toList()))
-                .setStatistics(toColumnStatistics(rowGroupIndex.getColumnStatistics()))
-                .build();
+        OrcProto.RowIndexEntry.Builder builder = OrcProto.RowIndexEntry.newBuilder();
+        for (int position : rowGroupIndex.getPositions()) {
+            builder.addPositions(position);
+        }
+        return builder.setStatistics(toColumnStatistics(rowGroupIndex.getColumnStatistics())).build();
     }
 
     private static OrcProto.CompressionKind toCompression(CompressionKind compressionKind)

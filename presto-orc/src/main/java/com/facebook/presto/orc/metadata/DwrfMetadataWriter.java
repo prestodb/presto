@@ -421,12 +421,11 @@ public class DwrfMetadataWriter
 
     private static RowIndexEntry toRowGroupIndex(RowGroupIndex rowGroupIndex)
     {
-        return RowIndexEntry.newBuilder()
-                .addAllPositions(rowGroupIndex.getPositions().stream()
-                        .map(Integer::longValue)
-                        .collect(toImmutableList()))
-                .setStatistics(toColumnStatistics(rowGroupIndex.getColumnStatistics()))
-                .build();
+        RowIndexEntry.Builder builder = RowIndexEntry.newBuilder();
+        for (int position : rowGroupIndex.getPositions()) {
+            builder.addPositions(position);
+        }
+        return builder.setStatistics(toColumnStatistics(rowGroupIndex.getColumnStatistics())).build();
     }
 
     private static DwrfProto.CompressionKind toCompression(CompressionKind compressionKind)
