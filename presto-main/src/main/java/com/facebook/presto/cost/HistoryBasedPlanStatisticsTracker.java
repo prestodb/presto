@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.common.type.FixedWidthType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
@@ -133,6 +134,9 @@ public class HistoryBasedPlanStatisticsTracker
                 if (planNodeStats == null) {
                     continue;
                 }
+                double outputPositions = planNodeStats.getPlanNodeOutputPositions();
+                double outputBytes = adjustedOutputBytes(planNode, planNodeStats);
+
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
                 for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
                     Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
@@ -140,9 +144,6 @@ public class HistoryBasedPlanStatisticsTracker
                     if (planNodeCanonicalInfo.isPresent()) {
                         String hash = planNodeCanonicalInfo.get().getHash();
                         List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics();
-
-                        double outputPositions = planNodeStats.getPlanNodeOutputPositions();
-                        double outputBytes = planNodeStats.getPlanNodeOutputDataSize().toBytes();
                         planStatistics.putIfAbsent(
                                 new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)),
                                 new PlanStatisticsWithSourceInfo(
@@ -157,6 +158,27 @@ public class HistoryBasedPlanStatisticsTracker
             }
         }
         return ImmutableMap.copyOf(planStatistics);
+    }
+
+    // After we assign stats equivalent plan node, additional variables may be introduced by optimizer, for example
+    // hash variables in HashGenerationOptimizer. We should discount these variables from output sizes to make
+    // stats more accurate, and similar to stats from Cost Based Optimizer. Here, we approximate this by only adjusting for types
+    // with fixed width, for others we will let the sizes be so, and assume the size differences are small when using variable
+    // sized types.
+    private double adjustedOutputBytes(PlanNode planNode, PlanNodeStats planNodeStats)
+    {
+        double outputPositions = planNodeStats.getPlanNodeOutputPositions();
+        double outputBytes = planNodeStats.getPlanNodeOutputDataSize().toBytes();
+        outputBytes -= planNode.getOutputVariables().stream()
+                .mapToDouble(variable -> variable.getType() instanceof FixedWidthType ? outputPositions * ((FixedWidthType) variable.getType()).getFixedSize() : 0)
+                .sum();
+        outputBytes += planNode.getStatsEquivalentPlanNode().get().getOutputVariables().stream()
+                .mapToDouble(variable -> variable.getType() instanceof FixedWidthType ? outputPositions * ((FixedWidthType) variable.getType()).getFixedSize() : 0)
+                .sum();
+        if (outputBytes < 0 || (outputPositions > 0 && outputBytes < 1)) {
+            outputBytes = Double.NaN;
+        }
+        return outputBytes;
     }
 
     private void updateStatistics(QueryInfo queryInfo)

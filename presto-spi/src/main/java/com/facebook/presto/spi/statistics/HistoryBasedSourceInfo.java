@@ -62,4 +62,10 @@ public class HistoryBasedSourceInfo
     {
         return Objects.hash(hash, inputTableStatistics);
     }
+
+    @Override
+    public boolean isConfident()
+    {
+        return true;
+    }
 }

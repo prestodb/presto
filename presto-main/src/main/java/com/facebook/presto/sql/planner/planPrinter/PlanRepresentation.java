@@ -66,6 +66,11 @@ class PlanRepresentation
         return Optional.ofNullable(nodeInfo.get(id));
     }
 
+    public PlanNode getPlanNodeRoot()
+    {
+        return root;
+    }
+
     public void addNode(NodeRepresentation node)
     {
         nodeInfo.put(node.getId(), node);
