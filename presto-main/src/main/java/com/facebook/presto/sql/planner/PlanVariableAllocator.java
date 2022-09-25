@@ -46,6 +46,8 @@ import static java.util.Objects.requireNonNull;
 public class PlanVariableAllocator
         implements VariableAllocator
 {
+    public static final String HASH_VARIABLE_PREFIX = "$hashvalue";
+
     private static final Pattern DISALLOWED_CHAR_PATTERN = Pattern.compile("[^a-zA-Z0-9_\\-$]+");
 
     private final Map<String, Type> variables;
@@ -80,7 +82,7 @@ public class PlanVariableAllocator
 
     public VariableReferenceExpression newHashVariable()
     {
-        return newVariable("$hashValue", BigintType.BIGINT);
+        return newVariable(HASH_VARIABLE_PREFIX, BigintType.BIGINT);
     }
 
     @Override

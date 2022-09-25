@@ -136,7 +136,7 @@ public class DetermineSemiJoinDistributionType
 
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
-        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputVariables());
+        double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide);
         return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
             || (isSizeBasedJoinDistributionTypeEnabled(context.getSession())
                 && getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes());

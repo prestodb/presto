@@ -295,8 +295,8 @@ public class PushPartialAggregationThroughExchange
         StatsProvider stats = context.getStatsProvider();
         PlanNodeStatsEstimate exchangeStats = stats.getStats(exchangeNode);
         PlanNodeStatsEstimate aggregationStats = stats.getStats(aggregationNode);
-        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode.getOutputVariables());
-        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode.getOutputVariables());
+        double inputBytes = exchangeStats.getOutputSizeInBytes(exchangeNode);
+        double outputBytes = aggregationStats.getOutputSizeInBytes(aggregationNode);
         double byteReductionThreshold = getPartialAggregationByteReductionThreshold(context.getSession());
 
         return exchangeStats.isConfident() && outputBytes > inputBytes * byteReductionThreshold;

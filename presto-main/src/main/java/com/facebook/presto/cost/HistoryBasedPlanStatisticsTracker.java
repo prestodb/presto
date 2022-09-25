@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.common.resourceGroups.QueryType;
+import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.StageInfo;
@@ -49,6 +50,7 @@ import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.histo
 import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
 import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.updatePlanStatistics;
+import static com.facebook.presto.sql.planner.PlanVariableAllocator.HASH_VARIABLE_PREFIX;
 import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarizer.aggregateStageStats;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -133,6 +135,16 @@ public class HistoryBasedPlanStatisticsTracker
                 if (planNodeStats == null) {
                     continue;
                 }
+                double outputPositions = planNodeStats.getPlanNodeOutputPositions();
+                double outputBytes = planNodeStats.getPlanNodeOutputDataSize().toBytes();
+                // HashGenerationOptimizer is only inserted at end, but earlier parts of optimizer use these stats,
+                // and are not aware of these variables. So we remove them from stats calculation.
+                outputBytes -= planNode.getOutputVariables().stream()
+                        .mapToDouble(variable -> variable.getName().startsWith(HASH_VARIABLE_PREFIX) && variable.getType() instanceof BigintType ? outputPositions * BigintType.BIGINT.getFixedSize() : 0)
+                        .sum();
+                if (outputBytes < 0 || (outputPositions > 0 && outputBytes < 1)) {
+                    outputBytes = Double.NaN;
+                }
                 PlanNode statsEquivalentPlanNode = planNode.getStatsEquivalentPlanNode().get();
                 for (PlanCanonicalizationStrategy strategy : historyBasedPlanCanonicalizationStrategyList()) {
                     Optional<PlanNodeCanonicalInfo> planNodeCanonicalInfo = Optional.ofNullable(
@@ -140,9 +152,6 @@ public class HistoryBasedPlanStatisticsTracker
                     if (planNodeCanonicalInfo.isPresent()) {
                         String hash = planNodeCanonicalInfo.get().getHash();
                         List<PlanStatistics> inputTableStatistics = planNodeCanonicalInfo.get().getInputTableStatistics();
-
-                        double outputPositions = planNodeStats.getPlanNodeOutputPositions();
-                        double outputBytes = planNodeStats.getPlanNodeOutputDataSize().toBytes();
                         planStatistics.putIfAbsent(
                                 new PlanNodeWithHash(statsEquivalentPlanNode, Optional.of(hash)),
                                 new PlanStatisticsWithSourceInfo(

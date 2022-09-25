@@ -652,7 +652,7 @@ public final class GraphvizPrinter
             output.append("Estimates: ");
             output.append(format("{rows: %s (%s), cpu: %s, memory: %s, network: %s}",
                     formatAsLong(stats.getOutputRowCount()),
-                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node.getOutputVariables())),
+                    formatEstimateAsDataSize(stats.getOutputSizeInBytes(node)),
                     formatDouble(cost.getCpuCost()),
                     formatDouble(cost.getMaxMemory()),
                     formatDouble(cost.getNetworkCost())));

@@ -112,7 +112,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
-            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source.getOutputVariables());
+            double inputSizeInBytes = getStats(source).getOutputSizeInBytes(source);
 
             LocalCostEstimate remoteRepartitionCost = calculateRemoteRepartitionCost(inputSizeInBytes);
             LocalCostEstimate localRepartitionCost = calculateLocalRepartitionCost(inputSizeInBytes);
@@ -161,7 +161,7 @@ public class CostCalculatorWithEstimatedExchanges
             // that is not always true
             // but this estimate is better that returning UNKNOWN, as it sets
             // cumulative cost to unknown
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node);
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
 
@@ -169,7 +169,7 @@ public class CostCalculatorWithEstimatedExchanges
         public LocalCostEstimate visitIntersect(IntersectNode node, Void context)
         {
             // Similar to Union
-            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node.getOutputVariables());
+            double inputSizeInBytes = getStats(node).getOutputSizeInBytes(node);
             return calculateRemoteGatherCost(inputSizeInBytes);
         }
 
@@ -228,8 +228,8 @@ public class CostCalculatorWithEstimatedExchanges
             boolean replicated,
             int estimatedSourceDistributedTaskCount)
     {
-        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe.getOutputVariables());
-        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build.getOutputVariables());
+        double probeSizeInBytes = stats.getStats(probe).getOutputSizeInBytes(probe);
+        double buildSizeInBytes = stats.getStats(build).getOutputSizeInBytes(build);
         if (replicated) {
             // assuming the probe side of a replicated join is always source distributed
             LocalCostEstimate replicateCost = calculateRemoteReplicateCost(buildSizeInBytes, estimatedSourceDistributedTaskCount);
@@ -257,8 +257,8 @@ public class CostCalculatorWithEstimatedExchanges
         PlanNodeStatsEstimate probeStats = stats.getStats(probe);
         PlanNodeStatsEstimate buildStats = stats.getStats(build);
 
-        double buildSideSize = buildStats.getOutputSizeInBytes(build.getOutputVariables());
-        double probeSideSize = probeStats.getOutputSizeInBytes(probe.getOutputVariables());
+        double buildSideSize = buildStats.getOutputSizeInBytes(build);
+        double probeSideSize = probeStats.getOutputSizeInBytes(probe);
 
         double cpuCost = probeSideSize + buildSideSize * buildSizeMultiplier;
 
