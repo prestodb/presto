@@ -15,6 +15,7 @@ package com.facebook.presto.spi.resourceGroups;
 
 import com.facebook.presto.spi.session.ResourceEstimates;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
 
@@ -27,6 +28,7 @@ public final class SelectionCriteria
     private final String user;
     private final Optional<String> source;
     private final Set<String> clientTags;
+    private final Optional<LocalDateTime> querySessionStartTime;
     private final ResourceEstimates resourceEstimates;
     private final Optional<String> queryType;
 
@@ -35,6 +37,7 @@ public final class SelectionCriteria
             String user,
             Optional<String> source,
             Set<String> clientTags,
+            Optional<LocalDateTime> querySessionStartTime,
             ResourceEstimates resourceEstimates,
             Optional<String> queryType)
     {
@@ -42,6 +45,7 @@ public final class SelectionCriteria
         this.user = requireNonNull(user, "user is null");
         this.source = requireNonNull(source, "source is null");
         this.clientTags = unmodifiableSet(requireNonNull(clientTags, "tags is null"));
+        this.querySessionStartTime = requireNonNull(querySessionStartTime, "querySessionStartTime is null");
         this.resourceEstimates = requireNonNull(resourceEstimates, "resourceEstimates is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
@@ -64,6 +68,11 @@ public final class SelectionCriteria
     public Set<String> getTags()
     {
         return clientTags;
+    }
+
+    public Optional<LocalDateTime> getQuerySessionStartTime()
+    {
+        return querySessionStartTime;
     }
 
     public ResourceEstimates getResourceEstimates()

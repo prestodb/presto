@@ -30,6 +30,7 @@ public class SelectorSpec
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
+    private final Optional<SelectorTimeOfDay> timeOfDay;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final ResourceGroupIdTemplate group;
 
@@ -39,6 +40,7 @@ public class SelectorSpec
             @JsonProperty("source") Optional<Pattern> sourceRegex,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
+            @JsonProperty("timeOfDay") Optional<SelectorTimeOfDay> timeOfDay,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
@@ -46,6 +48,7 @@ public class SelectorSpec
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
+        this.timeOfDay = requireNonNull(timeOfDay, "timeOfDay is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.group = requireNonNull(group, "group is null");
     }
@@ -68,6 +71,11 @@ public class SelectorSpec
     public Optional<List<String>> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<SelectorTimeOfDay> getTimeOfDay()
+    {
+        return timeOfDay;
     }
 
     public Optional<SelectorResourceEstimate> getResourceEstimate()
@@ -96,7 +104,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags)) &&
                 queryType.equals(that.queryType) &&
-                clientTags.equals(that.clientTags);
+                clientTags.equals(that.clientTags) &&
+                timeOfDay.equals(that.timeOfDay);
     }
 
     @Override
@@ -109,7 +118,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
                 queryType,
-                clientTags);
+                clientTags,
+                timeOfDay);
     }
 
     @Override
@@ -123,6 +133,7 @@ public class SelectorSpec
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
                 .add("queryType", queryType)
                 .add("clientTags", clientTags)
+                .add("timeOfDay", timeOfDay)
                 .toString();
     }
 }
