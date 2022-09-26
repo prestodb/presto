@@ -44,7 +44,6 @@ class TryExpr : public SpecialForm {
     return inputs_[0]->propagatesNulls();
   }
 
- private:
   void nullOutErrors(
       const SelectivityVector& rows,
       EvalCtx& context,
