@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +46,7 @@ public class StaticSelector
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
+    private final Optional<SelectorSchedule> schedule;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<String> queryType;
     private final ResourceGroupIdTemplate group;
@@ -53,6 +56,7 @@ public class StaticSelector
             Optional<Pattern> userRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
+            Optional<SelectorSchedule> schedule,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
             ResourceGroupIdTemplate group)
@@ -61,6 +65,7 @@ public class StaticSelector
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
+        this.schedule = requireNonNull(schedule, "schedule is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
@@ -108,6 +113,23 @@ public class StaticSelector
         if (queryType.isPresent()) {
             String contextQueryType = criteria.getQueryType().orElse("");
             if (!queryType.get().equalsIgnoreCase(contextQueryType)) {
+                return Optional.empty();
+            }
+        }
+
+        if (schedule.isPresent()) {
+            if (!criteria.getQuerySessionStartTime().isPresent()) {
+                return Optional.empty();
+            }
+
+            SelectorSchedule scheduleValue = schedule.get();
+            Instant sessionInstantAtSelectorTimeZone = criteria.getQuerySessionStartTime().get()
+                    .withZoneSameInstant(scheduleValue.getTimeZoneId())
+                    .toInstant();
+
+            Date sessionStartTime = Date.from(sessionInstantAtSelectorTimeZone);
+
+            if (!scheduleValue.getExpression().isSatisfiedBy(sessionStartTime)) {
                 return Optional.empty();
             }
         }

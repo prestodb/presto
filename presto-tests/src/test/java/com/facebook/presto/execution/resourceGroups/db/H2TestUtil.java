@@ -198,14 +198,14 @@ class H2TestUtil
         dao.insertResourceGroup(7, "explain", "1MB", 0, 1, 1, null, null, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertResourceGroup(8, "test", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dao.insertResourceGroup(9, "test-${USER}", "1MB", 3, 3, 3, null, null, null, null, null, null, null, null, 8L, TEST_ENVIRONMENT);
-        dao.insertSelector(2, 10_000, "user.*", "test", null, null, null);
-        dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null, null);
-        dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null, null);
-        dao.insertSelector(4, 10, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null);
-        dao.insertSelector(2, 1, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), null);
-        dao.insertSelector(6, 6, ".*", ".*", null, null, null);
-        dao.insertSelector(7, 100_000, null, null, EXPLAIN.name(), null, null);
-        dao.insertSelector(9, 10_000, "user.*", "abc", null, null, null);
+        dao.insertSelector(2, 10_000, "user.*", "test", null, null, null, null);
+        dao.insertSelector(4, 1_000, "user.*", "(?i).*adhoc.*", null, null, null, null);
+        dao.insertSelector(5, 100, "user.*", "(?i).*dashboard.*", null, null, null, null);
+        dao.insertSelector(4, 10, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1", "tag2")), null, null);
+        dao.insertSelector(2, 1, "user.*", null, null, CLIENT_TAGS_CODEC.toJson(ImmutableList.of("tag1")), null, null);
+        dao.insertSelector(6, 6, ".*", ".*", null, null, null, null);
+        dao.insertSelector(7, 100_000, null, null, EXPLAIN.name(), null, null, null);
+        dao.insertSelector(9, 10_000, "user.*", "abc", null, null, null, null);
 
         int expectedSelectors = 7;
         if (environment.equals(TEST_ENVIRONMENT_2)) {

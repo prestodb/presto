@@ -37,6 +37,7 @@ public class SelectorRecord
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
+    private final Optional<String> schedule;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
 
     public SelectorRecord(
@@ -46,6 +47,7 @@ public class SelectorRecord
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
+            Optional<String> schedule,
             Optional<SelectorResourceEstimate> selectorResourceEstimate)
     {
         this.resourceGroupId = resourceGroupId;
@@ -54,6 +56,7 @@ public class SelectorRecord
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null").map(ImmutableList::copyOf);
+        this.schedule = requireNonNull(schedule, "schedule is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
     }
 
@@ -87,6 +90,11 @@ public class SelectorRecord
         return clientTags;
     }
 
+    public Optional<String> getSchedule()
+    {
+        return schedule;
+    }
+
     public Optional<SelectorResourceEstimate> getSelectorResourceEstimate()
     {
         return selectorResourceEstimate;
@@ -109,6 +117,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
+                    Optional.ofNullable(resultSet.getString("schedule")),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));
         }
     }

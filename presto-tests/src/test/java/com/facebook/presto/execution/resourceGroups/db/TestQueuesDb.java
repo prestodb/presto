@@ -208,7 +208,7 @@ public class TestQueuesDb
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         assertEquals(dispatchManager.getQueryInfo(queryId).getErrorCode(), QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null, null);
+        dao.insertSelector(4, 100_000, "user.*", "(?i).*reject.*", null, null, null, null);
         reloadingConfigurationManager.load();
         assertEquals(getSelectors(queryRunner).size(), selectorCount + 1);
         // Verify the query can be submitted
@@ -250,7 +250,7 @@ public class TestQueuesDb
         dao.insertResourceGroup(10, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
-        dao.insertSelector(10, 200, "user.*", "(?i).*dashboard.*", null, null, null);
+        dao.insertSelector(10, 200, "user.*", "(?i).*dashboard.*", null, null, null, null);
 
         // reload the configuration
         reloadingConfigurationManager.load();
@@ -346,7 +346,7 @@ public class TestQueuesDb
         ReloadingResourceGroupConfigurationManager reloadingConfigurationManager = (ReloadingResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();
         // Add a selector for a non leaf group
-        dao.insertSelector(3, 100, "user.*", "(?i).*non-leaf.*", null, null, null);
+        dao.insertSelector(3, 100, "user.*", "(?i).*non-leaf.*", null, null, null, null);
         reloadingConfigurationManager.load();
         while (getSelectors(queryRunner).size() != originalSize + 1) {
             MILLISECONDS.sleep(500);

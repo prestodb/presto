@@ -30,6 +30,7 @@ public class SelectorSpec
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
+    private final Optional<SelectorSchedule> schedule;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final ResourceGroupIdTemplate group;
 
@@ -39,6 +40,7 @@ public class SelectorSpec
             @JsonProperty("source") Optional<Pattern> sourceRegex,
             @JsonProperty("queryType") Optional<String> queryType,
             @JsonProperty("clientTags") Optional<List<String>> clientTags,
+            @JsonProperty("schedule") Optional<String> schedule,
             @JsonProperty("selectorResourceEstimate") Optional<SelectorResourceEstimate> selectorResourceEstimate,
             @JsonProperty("group") ResourceGroupIdTemplate group)
     {
@@ -48,6 +50,9 @@ public class SelectorSpec
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.group = requireNonNull(group, "group is null");
+
+        requireNonNull(schedule, "schedule is null");
+        this.schedule = schedule.map(s -> new SelectorSchedule(s));
     }
 
     public Optional<Pattern> getUserRegex()
@@ -68,6 +73,11 @@ public class SelectorSpec
     public Optional<List<String>> getClientTags()
     {
         return clientTags;
+    }
+
+    public Optional<SelectorSchedule> getSchedule()
+    {
+        return schedule;
     }
 
     public Optional<SelectorResourceEstimate> getResourceEstimate()
@@ -96,7 +106,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern).equals(that.sourceRegex.map(Pattern::pattern))) &&
                 sourceRegex.map(Pattern::flags).equals(that.sourceRegex.map(Pattern::flags)) &&
                 queryType.equals(that.queryType) &&
-                clientTags.equals(that.clientTags);
+                clientTags.equals(that.clientTags) &&
+                schedule.equals(that.schedule);
     }
 
     @Override
@@ -109,7 +120,8 @@ public class SelectorSpec
                 sourceRegex.map(Pattern::pattern),
                 sourceRegex.map(Pattern::flags),
                 queryType,
-                clientTags);
+                clientTags,
+                schedule);
     }
 
     @Override
@@ -123,6 +135,7 @@ public class SelectorSpec
                 .add("sourceFlags", sourceRegex.map(Pattern::flags))
                 .add("queryType", queryType)
                 .add("clientTags", clientTags)
+                .add("schedule", schedule)
                 .toString();
     }
 }

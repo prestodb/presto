@@ -89,8 +89,8 @@ public interface H2ResourceGroupsDao
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, priority, user_regex, source_regex, query_type, client_tags, selector_resource_estimate)\n" +
-            "VALUES (:resource_group_id, :priority, :user_regex, :source_regex, :query_type, :client_tags, :selector_resource_estimate)")
+            "(resource_group_id, priority, user_regex, source_regex, query_type, client_tags, schedule, selector_resource_estimate)\n" +
+            "VALUES (:resource_group_id, :priority, :user_regex, :source_regex, :query_type, :client_tags, :schedule, :selector_resource_estimate)")
     void insertSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("priority") long priority,
@@ -98,6 +98,7 @@ public interface H2ResourceGroupsDao
             @Bind("source_regex") String sourceRegex,
             @Bind("query_type") String queryType,
             @Bind("client_tags") String clientTags,
+            @Bind("schedule") String schedule,
             @Bind("selector_resource_estimate") String selectorResourceEstimate);
 
     @SqlUpdate("UPDATE selectors SET\n" +
