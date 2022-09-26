@@ -16,10 +16,7 @@ package com.facebook.presto.pinot;
 
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 
@@ -29,15 +26,6 @@ public class TestPinotSessionProperties
     public void testInvalidNumSegmentSplits()
     {
         new PinotConfig().setNumSegmentsPerSplit(-3);
-    }
-
-    @Test
-    public void testConnectionTimeoutParsedProperly()
-    {
-        PinotConfig pinotConfig = new PinotConfig().setConnectionTimeout(new Duration(15, TimeUnit.SECONDS));
-        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
-        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
-        assertEquals(PinotSessionProperties.getConnectionTimeout(session), new Duration(0.25, TimeUnit.MINUTES));
     }
 
     @Test

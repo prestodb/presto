@@ -104,10 +104,7 @@ public class TestPinotQueryBase
 
     protected static final Metadata metadata = MetadataManager.createTestMetadataManager();
 
-    protected final PinotConfig pinotConfig = new PinotConfig()
-            .setMinConnectionsPerServer(1)
-            .setMaxConnectionsPerServer(2)
-            .setThreadPoolSize(2);
+    protected final PinotConfig pinotConfig = new PinotConfig();
 
     protected static final Map<VariableReferenceExpression, PinotQueryGeneratorContext.Selection> testInput =
             ImmutableMap.<VariableReferenceExpression, PinotQueryGeneratorContext.Selection>builder()

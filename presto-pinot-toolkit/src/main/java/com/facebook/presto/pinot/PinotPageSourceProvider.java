@@ -26,7 +26,6 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.pinot.common.config.GrpcConfig;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
 import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 
 import javax.inject.Inject;
@@ -46,7 +45,6 @@ public class PinotPageSourceProvider
 {
     private final String connectorId;
     private final PinotConfig pinotConfig;
-    private final PinotScatterGatherQueryClient pinotQueryClient;
     private final PinotStreamingQueryClient pinotStreamingQueryClient;
     private final PinotClusterInfoFetcher clusterInfoFetcher;
     private final ObjectMapper objectMapper;
@@ -62,12 +60,6 @@ public class PinotPageSourceProvider
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotQueryClient = new PinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                pinotConfig.getIdleTimeout().toMillis(),
-                pinotConfig.getThreadPoolSize(),
-                pinotConfig.getMinConnectionsPerServer(),
-                pinotConfig.getMaxBacklogPerServer(),
-                pinotConfig.getMaxConnectionsPerServer()));
         this.pinotStreamingQueryClient = new PinotStreamingQueryClient(extractGrpcQueryClientConfig(pinotConfig));
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
@@ -95,18 +87,10 @@ public class PinotPageSourceProvider
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
-                if (pinotConfig.isUseStreamingForSegmentQueries() && pinotSplit.getGrpcPort().orElse(-1) > 0) {
-                    return new PinotSegmentStreamingPageSource(
-                        session,
-                        pinotConfig,
-                        pinotStreamingQueryClient,
-                        pinotSplit,
-                        handles);
-                }
                 return new PinotSegmentPageSource(
                     session,
                     pinotConfig,
-                    pinotQueryClient,
+                    pinotStreamingQueryClient,
                     pinotSplit,
                     handles);
             case BROKER:
