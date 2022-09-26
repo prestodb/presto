@@ -100,7 +100,7 @@ Operator::Operator(
         [&](memory::MemoryUsageTracker& tracker) {
           VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
           std::stringstream out;
-          out << "Failed Operator: " << stats_.operatorType << "_#"
+          out << "\nFailed Operator: " << stats_.operatorType << "."
               << stats_.operatorId << ": "
               << succinctBytes(tracker.getCurrentTotalBytes());
           return out.str();

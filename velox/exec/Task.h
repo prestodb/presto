@@ -597,14 +597,32 @@ class Task : public std::enable_shared_from_this<Task> {
   int getOutputPipelineId() const;
 
   /// Callback function added to the MemoryUsageTracker to return a descriptive
-  /// message to be added to the error when a MEM_CAP_EXCEEDED error is
-  /// encountered.
+  /// message about query memory usage to be added to the error when a
+  /// MEM_CAP_EXCEEDED error is encountered.
   /// Example Error Message generated:
-  /// Exceeded memory cap of 12.00MB when requesting 1.00MB. Task total: 8.00MB
-  /// Peak: 12.00MB. Top 3 Operators (by aggregate usage across all drivers):
-  /// Aggregation_#1_x6: 168.00KB Peak: 1.00MB, TableScan_#0_x6: 51.46KB
-  /// Peak: 1.00MB, CallbackSink_#2_x6: 0B Peak: 0B. Failed Operator:
-  /// Aggregation_#1: 0B
+  /// Query 20220923_033248_00003_xney3 failed:
+  ///   Exceeded memory cap of 7.00GB when requesting 4.00MB.
+  /// query.20220923_033248_00003_xney3: total: 7.00GB
+  ///     task.20220923_033248_00003_xney3.1.0.25: : 5.88GB in 30 drivers,
+  ///       min 2.00MB, max 400.00MB
+  ///         pipe.0: : 5.74GB in 60 operators, min 0B, max 393.81MB
+  ///             op.PartitionedOutput: : 0B in 15 instances, min 0B, max 0B
+  ///             op.FilterProject: : 0B in 15 instances, min 0B, max 0B
+  ///             op.Aggregation: : 5GB in 15 instances, min 384MB, max 393MB
+  ///             op.LocalExchange: : 0B in 15 instances, min 0B, max 0B
+  ///         pipe.1: : 32.75MB in 30 operators, min 4.00KB, max 14.65MB
+  ///             op.LocalPartition: : 508KB in 15 instances, min 4KB, max 63KB
+  ///             op.Exchange: : 32.25MB in 15 instances, min 107KB, max 14MB
+  ///     task.20220923_033248_00003_xney3.2.0.19: : 1.12GB in 15 drivers,
+  ///       min 61.00MB, max 91.00MB
+  ///         pipe.0: : 1.03GB in 75 operators, min 149.00KB, max 39.38MB
+  ///             op.PartitionedOutput: : 446.71MB in 15 instances,
+  ///               min 12.02MB, max 39.38MB
+  ///             op.PartialAggregation: : 300.03MB in 15 instances,
+  ///               min 1.48MB, max 25.59MB
+  ///             op.FilterProject: : 32MB in 30 instances, min 149KB, max 2MB
+  ///             op.TableScan: : 278MB in 15 instances, min 9.05MB, max 27MB.
+  /// Failed Operator: PartialAggregation.3: 11.98MB
   std::string getErrorMsgOnMemCapExceeded(memory::MemoryUsageTracker& tracker);
 
   // RAII helper class to satisfy 'stateChangePromises_' and notify listeners

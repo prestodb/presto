@@ -16,6 +16,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <string>
 
 #include "velox/codegen/Codegen.h"
 #include "velox/common/base/SuccinctPrinter.h"
@@ -1761,86 +1762,139 @@ void Task::TaskCompletionNotifier::notify() {
   }
 }
 
-std::string Task::getErrorMsgOnMemCapExceeded(
-    memory::MemoryUsageTracker& tracker) {
+namespace {
+// Describes memory usage stats of a Memory Pool (optionally aggregated).
+struct MemoryUsage {
+  int64_t totalBytes{0};
+  int64_t minBytes{std::numeric_limits<int64_t>::max()};
+  int64_t maxBytes{0};
+  size_t numEntries{0};
+
+  void update(int64_t bytes) {
+    maxBytes = std::max(maxBytes, bytes);
+    minBytes = std::min(minBytes, bytes);
+    totalBytes += bytes;
+    ++numEntries;
+  }
+
+  void toString(std::stringstream& out, const char* entriesName = "entries")
+      const {
+    out << succinctBytes(totalBytes) << " in " << numEntries << " "
+        << entriesName << ", min " << succinctBytes(minBytes) << ", max "
+        << succinctBytes(maxBytes);
+  }
+};
+
+// Aggregated memory usage stats of a single Task Pipeline Memory Pool.
+struct PipelineMemoryUsage {
+  MemoryUsage total;
+  std::unordered_map<std::string, MemoryUsage> operators;
+};
+
+// Aggregated memory usage stats of a single Task Pipeline Memory Pool.
+struct TaskMemoryUsage {
+  std::string taskId;
+  MemoryUsage total;
+  std::vector<PipelineMemoryUsage> pipelines;
+
+  void toString(std::stringstream& out) const {
+    // Using 4 spaces for indent in the output.
+    out << "\n    ";
+    out << taskId;
+    out << ": ";
+    total.toString(out, "drivers");
+    for (auto i = 0; i < pipelines.size(); ++i) {
+      const auto& pipelineMemoryUsage = pipelines[i];
+      out << "\n        pipe.";
+      out << folly::to<std::string>(i);
+      out << ": ";
+      pipelineMemoryUsage.total.toString(out, "operators");
+      for (const auto& it : pipelineMemoryUsage.operators) {
+        const MemoryUsage& operatorMemoryUsage = it.second;
+        out << "\n            ";
+        out << it.first;
+        out << ": ";
+        operatorMemoryUsage.toString(out, "instances");
+      }
+    }
+  }
+};
+} // namespace
+
+static void collectOperatorMemoryUsage(
+    PipelineMemoryUsage& pipelineMemoryUsage,
+    memory::MemoryPool* operatorPool) {
+  const auto numBytes =
+      operatorPool->getMemoryUsageTracker()->getCurrentTotalBytes();
+  pipelineMemoryUsage.total.update(numBytes);
+  auto& operatorMemoryUsage =
+      pipelineMemoryUsage.operators[operatorPool->getName()];
+  operatorMemoryUsage.update(numBytes);
+}
+
+static void collectDriverMemoryUsage(
+    TaskMemoryUsage& taskMemoryUsage,
+    memory::MemoryPool* driverPool) {
+  // Update task's stats from each driver.
+  taskMemoryUsage.total.update(
+      driverPool->getMemoryUsageTracker()->getCurrentTotalBytes());
+
+  // Figure out the pipeline and ensure we have stats struct allocated for it.
+  const auto& poolName = driverPool->getName();
+  // In case of troubles figuring out pipeline id, dump all into the pipeline 0.
+  size_t pipelineId{0};
+  const auto firstDot = poolName.find('.');
+  if (firstDot != std::string::npos) {
+    const auto secondDot = poolName.find('.', firstDot + 1);
+    if (secondDot != std::string::npos) {
+      pipelineId = folly::tryTo<size_t>(
+                       poolName.substr(firstDot + 1, secondDot - firstDot - 1))
+                       .value_or(0);
+    }
+  }
+  taskMemoryUsage.pipelines.resize(pipelineId + 1);
+  auto& pipelineMemoryUsage = taskMemoryUsage.pipelines[pipelineId];
+
+  // Run through the operator pools and update operator stats for the
+  // pipeline.
+  driverPool->visitChildren(
+      [&pipelineMemoryUsage](memory::MemoryPool* operPool) {
+        collectOperatorMemoryUsage(pipelineMemoryUsage, operPool);
+      });
+}
+
+static void collectTaskMemoryUsage(
+    TaskMemoryUsage& taskMemoryUsage,
+    memory::MemoryPool* taskPool) {
+  taskMemoryUsage.taskId = taskPool->getName();
+  taskPool->visitChildren([&taskMemoryUsage](memory::MemoryPool* driverPool) {
+    collectDriverMemoryUsage(taskMemoryUsage, driverPool);
+  });
+}
+
+static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
+  std::vector<TaskMemoryUsage> taskMemoryUsages;
+  taskMemoryUsages.reserve(queryPool->getChildCount());
+  queryPool->visitChildren([&taskMemoryUsages](memory::MemoryPool* taskPool) {
+    taskMemoryUsages.emplace_back(TaskMemoryUsage{});
+    collectTaskMemoryUsage(taskMemoryUsages.back(), taskPool);
+  });
+
   std::stringstream out;
-  out << "Task total: " << succinctBytes(tracker.getCurrentTotalBytes())
-      << " Peak: " << succinctBytes(tracker.getPeakTotalBytes()) << ".";
-  // Aggregate relevant metrics for each operator across all drivers.
-  struct MemoryUsageStats {
-    int operatorId{0};
-    std::string operatorType;
-    int64_t cumulativeTotalBytes{0};
-    int64_t peakTotalBytes{0};
-    int numInstances{0};
-
-    MemoryUsageStats() = default;
-    explicit MemoryUsageStats(Operator* op) {
-      operatorId = op->stats().operatorId;
-      operatorType = op->stats().operatorType;
-    }
-
-    void add(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
-      this->cumulativeTotalBytes += tracker->getCurrentTotalBytes();
-      this->peakTotalBytes =
-          std::max(this->peakTotalBytes, tracker->getPeakTotalBytes());
-      this->numInstances++;
-    }
-  };
-  std::unordered_map<int32_t, MemoryUsageStats> operatorStats;
-  {
-    std::lock_guard<std::mutex> l(mutex_);
-    for (auto& driver : drivers_) {
-      if (!driver) {
-        continue;
-      }
-      auto operators = driver->operators();
-      for (auto op : operators) {
-        auto it = operatorStats.find(op->stats().operatorId);
-        if (it == operatorStats.end()) {
-          it = operatorStats
-                   .insert({op->stats().operatorId, MemoryUsageStats(op)})
-                   .first;
-        }
-        it->second.add(op->pool()->getMemoryUsageTracker());
-      }
-    }
-  }
-  std::vector<MemoryUsageStats> operatorStatsArray;
-  operatorStatsArray.reserve(operatorStats.size());
-  for (auto& [operatorId, stats] : operatorStats) {
-    operatorStatsArray.push_back(std::move(stats));
-  }
-  static auto compareByCumulativeTotalBytes =
-      [](const MemoryUsageStats& left, const MemoryUsageStats& right) {
-        return left.cumulativeTotalBytes > right.cumulativeTotalBytes;
-      };
-  // Get the top 3.
-  if (operatorStatsArray.size() > 3) {
-    std::nth_element(
-        operatorStatsArray.begin(),
-        operatorStatsArray.begin() + 2,
-        operatorStatsArray.end(),
-        compareByCumulativeTotalBytes);
-    operatorStatsArray.resize(3);
-  }
-  std::sort(
-      operatorStatsArray.begin(),
-      operatorStatsArray.end(),
-      compareByCumulativeTotalBytes);
-  out << " Top " << operatorStatsArray.size()
-      << " Operators (by aggregate usage across all drivers): ";
-  int remainingStatsToAdd = operatorStatsArray.size();
-  for (auto& stats : operatorStatsArray) {
-    out << stats.operatorType << "_#" << stats.operatorId << "_x"
-        << stats.numInstances << ": "
-        << succinctBytes(stats.cumulativeTotalBytes)
-        << " Peak: " << succinctBytes(stats.peakTotalBytes);
-    remainingStatsToAdd--;
-    if (remainingStatsToAdd > 0) {
-      out << ", ";
-    }
+  out << "\n";
+  out << queryPool->getName();
+  out << ": total: ";
+  out << succinctBytes(
+      queryPool->getMemoryUsageTracker()->getCurrentTotalBytes());
+  for (const auto& taskMemoryUsage : taskMemoryUsages) {
+    taskMemoryUsage.toString(out);
   }
   return out.str();
 }
+
+std::string Task::getErrorMsgOnMemCapExceeded(
+    memory::MemoryUsageTracker& /*tracker*/) {
+  return getQueryMemoryUsageString(queryCtx()->pool());
+}
+
 } // namespace facebook::velox::exec

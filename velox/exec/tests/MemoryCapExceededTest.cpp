@@ -32,15 +32,19 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   vector_size_t size = 1'024;
   // This limit ensures that only the Aggregation Operator fails.
   constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
-  // Regex is used to offset the fact that operators with the same usage (in
-  // this case the ones with zero usage) are not deterministically sorted and
-  // the last one that makes its way to the top 3 can change between runs.
-  std::string expectedErrorMsgRegex =
-      "Exceeded memory cap of 5.00MB when requesting 2.00MB. Task total: "
-      "5.00MB Peak: 5.00MB. Top 3 Operators \\(by aggregate usage across "
-      "all drivers\\): Aggregation_#2_x1: 1.77MB Peak: 4.00MB, "
-      "FilterProject_#1_x1: 12.00KB Peak: 1.00MB, .+_x1: 0B Peak: "
-      "0B. Failed Operator: Aggregation_#2: 1.77MB";
+  // We look for these lines separately, since their order can change (not sure
+  // why).
+  std::array<std::string, 8> expectedTexts = {
+      "Exceeded memory cap of 5.00MB when requesting 2.00MB.",
+      "query.: total: 5.00MB",
+      "pipe.0: 1.78MB in 5 operators, min 0B, max 1.77MB",
+      "op.OrderBy: 0B in 1 instances, min 0B, max 0B",
+      "op.CallbackSink: 0B in 1 instances, min 0B, max 0B",
+      "op.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
+      "op.Values: 0B in 1 instances, min 0B, max 0B",
+      "Failed Operator: Aggregation.2: 1.77MB",
+  };
+
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
     data.push_back(makeRowVector({
@@ -70,7 +74,11 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
     FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
   } catch (const VeloxException& e) {
     auto errorMessage = e.message();
-    ASSERT_THAT(errorMessage, ::testing::MatchesRegex(expectedErrorMsgRegex));
+    for (const auto& expectedText : expectedTexts) {
+      ASSERT_TRUE(errorMessage.find(expectedText) != std::string::npos)
+          << "Expected error message to contain '" << expectedText
+          << "', but received '" << errorMessage << "'.";
+    }
   }
 }
 
@@ -107,7 +115,7 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
   params.planNode = plan;
   params.queryCtx = queryCtx;
   params.maxDrivers = 10;
-  VELOX_ASSERT_THROW(readCursor(params, [](Task*) {}), "x10");
+  VELOX_ASSERT_THROW(readCursor(params, [](Task*) {}), "10 drivers");
 }
 
 } // namespace
