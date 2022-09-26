@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,7 +50,8 @@ public class NativeEngineNode
     @Override
     public List<PlanNode> getSources()
     {
-        return subPlan.getSources();
+        //return subPlan.getSources();
+        return Collections.emptyList();
     }
 
     @Override

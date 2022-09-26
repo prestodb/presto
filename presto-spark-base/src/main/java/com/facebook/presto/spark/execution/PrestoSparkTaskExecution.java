@@ -123,6 +123,13 @@ public class PrestoSparkTaskExecution
         ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle = ImmutableMap.builder();
         ImmutableList.Builder<DriverSplitRunnerFactory> driverRunnerFactoriesWithTaskLifeCycle = ImmutableList.builder();
         for (DriverFactory driverFactory : localExecutionPlan.getDriverFactories()) {
+//            if (!addDriverSplitRunner(driverRunnerFactoriesWithSplitLifeCycle, tableScanSources, driverFactory)) {
+//                checkArgument(
+//                        driverFactory.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION,
+//                        "unexpected pipeline execution strategy: %s",
+//                        driverFactory.getPipelineExecutionStrategy());
+//                driverRunnerFactoriesWithTaskLifeCycle.add(new DriverSplitRunnerFactory(driverFactory, false));
+//            }
             Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
             if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
                 driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
@@ -146,6 +153,29 @@ public class PrestoSparkTaskExecution
         requireNonNull(memoryUpdateExecutor, "memoryUpdateExecutor is null");
         memoryUpdateExecutor.schedule(taskContext::updatePeakMemory, 1, SECONDS);
     }
+
+//    private boolean addDriverSplitRunner(ImmutableMap.Builder<PlanNodeId, DriverSplitRunnerFactory> driverRunnerFactoriesWithSplitLifeCycle, Set<PlanNodeId> tableScanSources, DriverFactory driverFactory)
+//    {
+//        for (OperatorFactory operatorFactory : driverFactory.getOperatorFactories()) {
+//            if (operatorFactory instanceof NativeEngineOperator.NativeEngineOperatorFactory) {
+//                PlanNode root = ((NativeEngineOperator.NativeEngineOperatorFactory) operatorFactory).getPlanFragment().getRoot();
+//                List<PlanNodeId> schedulingOrder = scheduleOrder(root);
+//                checkArgument(schedulingOrder.size() <= 1, "The driver can only have at most one tableScan as source");
+//                if (schedulingOrder.size() == 1 && tableScanSources.contains(schedulingOrder.get(0))) {
+//                    driverRunnerFactoriesWithSplitLifeCycle.put(schedulingOrder.get(0), new DriverSplitRunnerFactory(driverFactory, true, root.getId()));
+//                    return true;
+//                }
+//            }
+//        }
+//
+//        Optional<PlanNodeId> sourceId = driverFactory.getSourceId();
+//        if (sourceId.isPresent() && tableScanSources.contains(sourceId.get())) {
+//            driverRunnerFactoriesWithSplitLifeCycle.put(sourceId.get(), new DriverSplitRunnerFactory(driverFactory, true));
+//            return true;
+//        }
+//
+//        return false;
+//    }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
     private static TaskHandle createTaskHandle(
@@ -328,10 +358,20 @@ public class PrestoSparkTaskExecution
         private final AtomicBoolean noMoreDriverRunner = new AtomicBoolean();
         private final AtomicBoolean closed = new AtomicBoolean();
 
+        private final Optional<PlanNodeId> nativeEngineOperatorId;
+
         private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned)
         {
             this.driverFactory = requireNonNull(driverFactory, "driverFactory is null");
             this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            this.nativeEngineOperatorId = Optional.empty();
+        }
+
+        private DriverSplitRunnerFactory(DriverFactory driverFactory, boolean partitioned, PlanNodeId nativeEngineOperatorId)
+        {
+            this.driverFactory = requireNonNull(driverFactory, "driverFactory is null");
+            this.pipelineContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned);
+            this.nativeEngineOperatorId = Optional.of(nativeEngineOperatorId);
         }
 
         public DriverSplitRunner createDriverRunner(@Nullable ScheduledSplit partitionedSplit)

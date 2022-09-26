@@ -35,6 +35,7 @@ import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.split.NativeEngineSplitWrapper;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.spark.protocol.PrestoTaskSubmit;
 import com.facebook.spark.protocol.TaskResult;
@@ -731,10 +732,10 @@ public class NativeEngineOperator
             return Optional::empty;
         }
 
-        List<TableScanNode> dataSources = findTableScanNodes(planFragment.getRoot());
-        checkState(dataSources.size() == 1, "NativeEngine operator can only take one datasource (e.g TableScanOperator) operator");
-        PlanNodeId planNodeId = dataSources.get(0).getId();
-        this.taskSource = new TaskSource(planNodeId, ImmutableSet.of(new ScheduledSplit(0, planNodeId, split)), true);
+        checkState(split.getConnectorSplit() instanceof NativeEngineSplitWrapper, "NativeEngine can only consume the split in NativeEngineSplitWrapper type");
+        NativeEngineSplitWrapper nativeEngineSplit = (NativeEngineSplitWrapper) split.getConnectorSplit();
+        PlanNodeId planNodeId = nativeEngineSplit.getSourceNodeId();
+        this.taskSource = new TaskSource(planNodeId, ImmutableSet.of(new ScheduledSplit(0, planNodeId, new Split(split.getConnectorId(), split.getTransactionHandle(), nativeEngineSplit, split.getLifespan(), split.getSplitContext()))), true);
 
         Object splitInfo = split.getInfo();
         Map<String, String> infoMap = split.getInfoMap();
@@ -826,6 +827,11 @@ public class NativeEngineOperator
         public void noMoreOperators()
         {
             closed = true;
+        }
+
+        public PlanFragment getPlanFragment()
+        {
+            return planFragment;
         }
     }
 }

@@ -284,6 +284,10 @@ public class PrestoSparkQueryRunner
         pluginManager.installPlugin(new TpchPlugin());
         connectorManager.createConnection("tpch", "tpch", ImmutableMap.of());
 
+        // Install NativeEngine connector
+//        connectorManager.addConnectorFactory(new PrestoSparkNativeEngineSplitWrapperConnectorFactory());
+//        connectorManager.createConnection("nativeEngine", "nativeEngineConnector", ImmutableMap.of());
+
         // Install Hive Plugin
         File baseDir;
         try {

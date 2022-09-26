@@ -141,6 +141,7 @@ import com.facebook.presto.spiller.SpillerStats;
 import com.facebook.presto.spiller.StandaloneSpillerFactory;
 import com.facebook.presto.spiller.TempStorageSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.TempStorageStandaloneSpillerFactory;
+import com.facebook.presto.split.NativeEngineSplitWrapper;
 import com.facebook.presto.split.PageSinkManager;
 import com.facebook.presto.split.PageSinkProvider;
 import com.facebook.presto.split.PageSourceManager;
@@ -263,6 +264,7 @@ public class PrestoSparkModule
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         jsonCodecBinder(binder).bindJsonCodec(TableWriteInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(TaskUpdateRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(NativeEngineSplitWrapper.class);
 
         // smile codecs
         smileCodecBinder(binder).bindSmileCodec(TaskSource.class);
@@ -282,6 +284,7 @@ public class PrestoSparkModule
         binder.bind(IndexManager.class).in(Scopes.SINGLETON);
 
         // handle resolver
+        // jsonBinder(binder).addModuleBinding().to(NativeEngineSplitWrapperJacksonModule.class);
         binder.install(new HandleJsonModule());
 
         // plugin manager

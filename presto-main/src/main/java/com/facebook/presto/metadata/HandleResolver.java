@@ -29,6 +29,7 @@ import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
 import com.facebook.presto.split.EmptySplitHandleResolver;
+import com.facebook.presto.split.NativeEngineSplitWrapperResolver;
 
 import javax.inject.Inject;
 
@@ -57,6 +58,7 @@ public class HandleResolver
         handleResolvers.put("$system", new MaterializedHandleResolver(new SystemHandleResolver()));
         handleResolvers.put("$info_schema", new MaterializedHandleResolver(new InformationSchemaHandleResolver()));
         handleResolvers.put("$empty", new MaterializedHandleResolver(new EmptySplitHandleResolver()));
+        handleResolvers.put("$native_engine", new MaterializedHandleResolver(new NativeEngineSplitWrapperResolver()));
 
         functionHandleResolvers.put("$static", new MaterializedFunctionHandleResolver(new BuiltInFunctionNamespaceHandleResolver()));
         functionHandleResolvers.put("$session", new MaterializedFunctionHandleResolver(new SessionFunctionHandleResolver()));

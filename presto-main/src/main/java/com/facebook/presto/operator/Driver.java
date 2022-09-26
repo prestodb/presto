@@ -274,6 +274,7 @@ public class Driver
             }
 
             Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+            // Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplitWithPlanNodeId(newSplit.getPlanNodeId(), split);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
         }
 

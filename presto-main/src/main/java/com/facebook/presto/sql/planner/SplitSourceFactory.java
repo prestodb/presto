@@ -411,7 +411,7 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitNativeEngine(NativeEngineNode node, Context context)
         {
-            return processSources(node.getSources(), context);
+            return processSources(ImmutableList.of(node.getSubPlan()), context);
         }
 
         @Override

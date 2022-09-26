@@ -539,6 +539,7 @@ public class PlanFragmenter
         public PlanNode visitNativeEngine(NativeEngineNode nativeEngineNode, RewriteContext<FragmentProperties> context)
         {
             // return nativeEngineNode.getSubPlan().accept(this, context);
+            context.get().setSingleNodeDistribution();
             return context.defaultRewrite(nativeEngineNode, context.get());
         }
 

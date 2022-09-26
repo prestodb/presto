@@ -18,6 +18,7 @@ import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.split.NativeEngineSplitWrapper;
 import com.facebook.presto.split.SplitSource;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.HashMultimap;
@@ -34,6 +35,7 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxSplit
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMinSparkInputPartitionCountForAutoTune;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkInitialPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSplitAssignmentBatchSize;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.isNativeEngineExecutionEnabled;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isSparkPartitionCountAutoTuneEnabled;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -56,8 +58,10 @@ public class PrestoSparkSourceDistributionSplitAssigner
     private final PriorityQueue<Partition> queue = new PriorityQueue<>();
     private int sequenceId;
     private int partitionCount;
+    private final boolean nativeEngineEnabled;
+    private final Optional<PlanNodeId> nativeEngineNodeId;
 
-    public static PrestoSparkSourceDistributionSplitAssigner create(Session session, PlanNodeId tableScanNodeId, SplitSource splitSource)
+    public static PrestoSparkSourceDistributionSplitAssigner create(Session session, PlanNodeId tableScanNodeId, SplitSource splitSource, Optional<PlanNodeId> nativeEngineNodeId)
     {
         return new PrestoSparkSourceDistributionSplitAssigner(
                 tableScanNodeId,
@@ -67,7 +71,9 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 getSparkInitialPartitionCount(session),
                 isSparkPartitionCountAutoTuneEnabled(session),
                 getMinSparkInputPartitionCountForAutoTune(session),
-                getMaxSparkInputPartitionCountForAutoTune(session));
+                getMaxSparkInputPartitionCountForAutoTune(session),
+                isNativeEngineExecutionEnabled(session),
+                nativeEngineNodeId);
     }
 
     public PrestoSparkSourceDistributionSplitAssigner(
@@ -79,6 +85,30 @@ public class PrestoSparkSourceDistributionSplitAssigner
             boolean partitionCountAutoTuneEnabled,
             int minSparkInputPartitionCountForAutoTune,
             int maxSparkInputPartitionCountForAutoTune)
+    {
+        this(tableScanNodeId,
+                splitSource,
+                maxBatchSize,
+                maxSplitsSizePerPartitionInBytes,
+                initialPartitionCount,
+                partitionCountAutoTuneEnabled,
+                minSparkInputPartitionCountForAutoTune,
+                maxSparkInputPartitionCountForAutoTune,
+                false,
+                Optional.empty());
+    }
+
+    public PrestoSparkSourceDistributionSplitAssigner(
+            PlanNodeId tableScanNodeId,
+            SplitSource splitSource,
+            int maxBatchSize,
+            long maxSplitsSizePerPartitionInBytes,
+            int initialPartitionCount,
+            boolean partitionCountAutoTuneEnabled,
+            int minSparkInputPartitionCountForAutoTune,
+            int maxSparkInputPartitionCountForAutoTune,
+            boolean nativeEngineEnabled,
+            Optional<PlanNodeId> nativeEngineNodeId)
     {
         this.tableScanNodeId = requireNonNull(tableScanNodeId, "tableScanNodeId is null");
         this.splitSource = requireNonNull(splitSource, "splitSource is null");
@@ -97,6 +127,9 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 "Min partition count for auto tune (%s) should be a positive integer and not larger than max partition count (%s)",
                 minSparkInputPartitionCountForAutoTune,
                 maxSparkInputPartitionCountForAutoTune);
+        this.nativeEngineEnabled = nativeEngineEnabled;
+        checkArgument(nativeEngineEnabled == nativeEngineNodeId.isPresent(), "Can't find the native engine node when native engine execution is enabled");
+        this.nativeEngineNodeId = nativeEngineNodeId;
     }
 
     @Override
@@ -113,8 +146,10 @@ public class PrestoSparkSourceDistributionSplitAssigner
                 break;
             }
             SplitSource.SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), min(remaining, 1000)));
+            PlanNodeId sourceNodeId = nativeEngineEnabled && nativeEngineNodeId.isPresent() ? nativeEngineNodeId.get() : tableScanNodeId;
             for (Split split : splitBatch.getSplits()) {
-                scheduledSplits.add(new ScheduledSplit(sequenceId++, tableScanNodeId, split));
+                scheduledSplits.add(new ScheduledSplit(sequenceId++, sourceNodeId, split));
+                // scheduledSplits.add(new ScheduledSplit(sequenceId++, sourceNodeId, createNativeEngineSplitWrapper(split)));
             }
             if (splitBatch.isLastBatch() || splitSource.isFinished()) {
                 break;
@@ -122,6 +157,20 @@ public class PrestoSparkSourceDistributionSplitAssigner
         }
 
         return Optional.of(assignSplitsToTasks(scheduledSplits));
+    }
+
+    private Split createNativeEngineSplitWrapper(Split split)
+    {
+        if (nativeEngineEnabled) {
+            return new Split(split.getConnectorId(),
+                    split.getTransactionHandle(),
+                    new NativeEngineSplitWrapper(tableScanNodeId, split.getConnectorSplit()),
+                    split.getLifespan(),
+                    split.getSplitContext());
+        }
+        else {
+            return split;
+        }
     }
 
     private SetMultimap<Integer, ScheduledSplit> assignSplitsToTasks(List<ScheduledSplit> splits)
