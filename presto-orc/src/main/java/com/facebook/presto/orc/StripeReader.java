@@ -677,17 +677,24 @@ public class StripeReader
     public static class StripeStreamId
     {
         private final StripeId stripeId;
-        private final StreamId streamId;
+        // StripeStreamId is used as a cache key. Multiple StripeStreamId share the StripeId,
+        // but they have unique streamId. Storing a reference to the StreamId double the
+        // number of objects. On some installations, StreamId accounts to 8% of the objects
+        // and all of that is from the Cache keys. Storing them in place though is hacky,
+        // removes the 8% of the objects for faster GC and object overhead.
+        // This is analogous to using primitive integer, instead of boxed Object Integer.
+        // There are multiple StreamId for same StripeId, so expanding StripeId is unnecessary.
+        private final int column;
+        private final int sequence;
+        private final StreamKind streamKind;
 
         public StripeStreamId(StripeId stripeId, StreamId streamId)
         {
             this.stripeId = requireNonNull(stripeId, "stripeId is null");
-            this.streamId = requireNonNull(streamId, "streamId is null");
-        }
-
-        public StreamId getStreamId()
-        {
-            return streamId;
+            requireNonNull(streamId, "streamId is null");
+            this.column = streamId.getColumn();
+            this.sequence = streamId.getSequence();
+            this.streamKind = streamId.getStreamKind();
         }
 
         @Override
@@ -699,15 +706,15 @@ public class StripeReader
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            StripeStreamId that = (StripeStreamId) o;
-            return Objects.equals(stripeId, that.stripeId) &&
-                    Objects.equals(streamId, that.streamId);
+            StripeStreamId other = (StripeStreamId) o;
+            return Objects.equals(stripeId, other.stripeId) &&
+                    column == other.column && sequence == other.sequence && streamKind == other.streamKind;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(stripeId, streamId);
+            return Objects.hash(stripeId, column, sequence, streamKind);
         }
 
         @Override
@@ -715,7 +722,9 @@ public class StripeReader
         {
             return toStringHelper(this)
                     .add("stripeId", stripeId)
-                    .add("streamId", streamId)
+                    .add("column", column)
+                    .add("sequence", sequence)
+                    .add("streamKind", streamKind)
                     .toString();
         }
     }
