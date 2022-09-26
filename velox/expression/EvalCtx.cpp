@@ -117,15 +117,11 @@ void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
   }
 }
 
-void EvalCtx::addError(
-    vector_size_t index,
-    const std::exception_ptr& exceptionPtr,
-    ErrorVectorPtr& errorsPtr) const {
-  auto errors = errorsPtr.get();
-  auto oldSize = errors ? errors->size() : 0;
-  if (!errors) {
-    auto size = index + 1;
-    errorsPtr = std::make_shared<ErrorVector>(
+void EvalCtx::ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size)
+    const {
+  auto oldSize = vector ? vector->size() : 0;
+  if (!vector) {
+    vector = std::make_shared<ErrorVector>(
         pool(),
         AlignedBuffer::allocate<bool>(size, pool(), true) /*nulls*/,
         size /*length*/,
@@ -137,17 +133,23 @@ void EvalCtx::addError(
         size /*nullCount*/,
         false /*isSorted*/,
         size /*representedBytes*/);
-    errors = errorsPtr.get();
-  } else if (errors->size() <= index) {
-    errors->resize(index + 1);
+  } else if (vector->size() < size) {
+    vector->resize(size, false);
   }
   // Set all new positions to null, including the one to be set.
-  for (int32_t i = oldSize; i <= index; ++i) {
-    errors->setNull(i, true);
+  for (auto i = oldSize; i < size; ++i) {
+    vector->setNull(i, true);
   }
-  if (errors->isNullAt(index)) {
-    errors->setNull(index, false);
-    errors->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
+}
+
+void EvalCtx::addError(
+    vector_size_t index,
+    const std::exception_ptr& exceptionPtr,
+    ErrorVectorPtr& errorsPtr) const {
+  ensureErrorsVectorSize(errorsPtr, index + 1);
+  if (errorsPtr->isNullAt(index)) {
+    errorsPtr->setNull(index, false);
+    errorsPtr->set(index, std::make_shared<std::exception_ptr>(exceptionPtr));
   }
 }
 

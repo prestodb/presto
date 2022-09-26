@@ -235,6 +235,10 @@ class EvalCtx {
         rows, type, execCtx_->pool(), result, &execCtx_->vectorPool());
   }
 
+  /// Make sure the vector is addressable up to index `size`-1. Initialize all
+  /// new elements to null.
+  void ensureErrorsVectorSize(ErrorVectorPtr& vector, vector_size_t size) const;
+
  private:
   core::ExecCtx* const FOLLY_NONNULL execCtx_;
   ExprSet* FOLLY_NULLABLE const exprSet_;

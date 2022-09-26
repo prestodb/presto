@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <exception>
 #include "gtest/gtest.h"
 
 #include "velox/expression/EvalCtx.h"
@@ -78,7 +79,7 @@ TEST_F(EvalCtxTest, vectorPool) {
   ASSERT_EQ(anotherVector.get(), vectorPtr);
 }
 
-TEST_F(EvalCtxTest, VectorRecycler) {
+TEST_F(EvalCtxTest, vectorRecycler) {
   EvalCtx context(&execCtx_);
   VectorPtr vector;
   BaseVector* vectorPtr;
@@ -99,4 +100,22 @@ TEST_F(EvalCtxTest, VectorRecycler) {
   { VectorRecycler vectorRecycler(vector, context.vectorPool()); }
   vector = context.getVector(BIGINT(), 1'00);
   ASSERT_NE(vector.get(), newVector.get());
+}
+
+TEST_F(EvalCtxTest, ensureErrorsVectorSize) {
+  EvalCtx context(&execCtx_);
+  context.ensureErrorsVectorSize(*context.errorsPtr(), 10);
+  ASSERT_GE(context.errors()->size(), 10);
+  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 10);
+
+  std::exception exception;
+  *context.mutableThrowOnError() = false;
+  context.setError(0, std::make_exception_ptr(exception));
+
+  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 10), 9);
+
+  context.ensureErrorsVectorSize(*context.errorsPtr(), 20);
+
+  ASSERT_GE(context.errors()->size(), 20);
+  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 20), 19);
 }
