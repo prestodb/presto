@@ -42,6 +42,7 @@ if(VELOX_ENABLE_ARROW)
       -DARROW_RUNTIME_SIMD_LEVEL=NONE
       -DARROW_WITH_UTF8PROC=OFF
       -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}/install
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       -DARROW_BUILD_STATIC=ON
       -DThrift_SOURCE=${THRIFT_SOURCE})
   set(ARROW_LIBDIR ${ARROW_PREFIX}/install/${CMAKE_INSTALL_LIBDIR})
@@ -49,7 +50,12 @@ if(VELOX_ENABLE_ARROW)
   add_library(thrift STATIC IMPORTED GLOBAL)
   if(NOT Thrift_FOUND)
     set(THRIFT_ROOT ${ARROW_PREFIX}/src/arrow_ep-build/thrift_ep-install)
-    set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+      set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthriftd.a)
+    else()
+      set(THRIFT_LIB ${THRIFT_ROOT}/lib/libthrift.a)
+    endif()
+
     file(MAKE_DIRECTORY ${THRIFT_ROOT}/include)
     set(THRIFT_INCLUDE_DIR ${THRIFT_ROOT}/include)
   endif()
