@@ -213,7 +213,7 @@ public class TestPinotQueryGenerator
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, columnHandleMap));
         PlanNode markDistinct = buildPlan(planBuilder -> markDistinct(planBuilder, variable("regionid$distinct_62"), ImmutableList.of(variable("regionid")), justScan));
         PlanNode aggregate = buildPlan(planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(markDistinct).addAggregation(planBuilder.variable("count(regionid_33)"), getRowExpression("count(regionid_33)", defaultSessionHolder), Optional.empty(), Optional.empty(), false, Optional.of(variable("regionid$distinct_62"))).globalGrouping()));
-        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), "SELECT DISTINCTCOUNT(\"regionId\") FROM realtimeOnly");
+        testPinotQuery(new PinotConfig(), planBuilder -> planBuilder.limit(10, aggregate), "SELECT DISTINCTCOUNT(\"regionId\") FROM realtimeOnly");
     }
 
     @Test
@@ -239,7 +239,7 @@ public class TestPinotQueryGenerator
         else {
             expectedPinotQuery = "SELECT count(*), DISTINCTCOUNT(\"regionId\") FROM realtimeOnly";
         }
-        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), planBuilder -> planBuilder.limit(10, aggregate), expectedPinotQuery);
+        testPinotQuery(new PinotConfig(), planBuilder -> planBuilder.limit(10, aggregate), expectedPinotQuery);
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestPinotQueryGenerator
         else {
             expectedPinotQuery = String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" LIMIT 10000", getExpectedAggOutput("count(*), DISTINCTCOUNT(\"regionId\")", "\"city\""));
         }
-        testPinotQuery(new PinotConfig().setAllowMultipleAggregations(true), aggregate, expectedPinotQuery);
+        testPinotQuery(new PinotConfig(), aggregate, expectedPinotQuery);
     }
 
     @Test
@@ -367,15 +367,10 @@ public class TestPinotQueryGenerator
     @Test
     public void testMultipleAggregatesWhenAllowed()
     {
-        helperTestMultipleAggregatesWithGroupBy(new PinotConfig().setAllowMultipleAggregations(true));
-    }
-
-    protected void helperTestMultipleAggregatesWithGroupBy(PinotConfig givenPinotConfig)
-    {
         Map<String, String> outputVariables = ImmutableMap.of("agg", "count(*)", "min", "min(\"fare\")");
         PlanNode justScan = buildPlan(planBuilder -> tableScan(planBuilder, pinotTable, regionId, secondsSinceEpoch, city, fare));
         testPinotQuery(
-                givenPinotConfig,
+                new PinotConfig(),
                 planBuilder -> planBuilder.aggregation(aggBuilder -> aggBuilder.source(justScan).singleGroupingSet(variable("city")).addAggregation(planBuilder.variable("agg"), getRowExpression("count(*)", defaultSessionHolder)).addAggregation(planBuilder.variable("min"), getRowExpression("min(fare)", defaultSessionHolder))),
                 String.format("SELECT %s FROM realtimeOnly GROUP BY \"city\" LIMIT 10000", getExpectedAggOutput("__expressions__", "\"city\"")),
                 defaultSessionHolder,

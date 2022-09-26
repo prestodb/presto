@@ -40,10 +40,6 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class PinotConfig
 {
     public static final int DEFAULT_LIMIT_LARGE_FOR_SEGMENT = Integer.MAX_VALUE;
-    public static final int DEFAULT_MAX_BACKLOG_PER_SERVER = 30;
-    public static final int DEFAULT_MAX_CONNECTIONS_PER_SERVER = 30;
-    public static final int DEFAULT_MIN_CONNECTIONS_PER_SERVER = 10;
-    public static final int DEFAULT_THREAD_POOL_SIZE = 30;
     public static final int DEFAULT_NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES = 25_000;
     public static final int DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES = (int) new DataSize(128, MEGABYTE).toBytes();
 
@@ -54,14 +50,12 @@ public class PinotConfig
 
     public static final String DEFAULT_GRPC_TLS_STORE_TYPE = "PKCS12";
 
-    private static final Duration DEFAULT_IDLE_TIMEOUT = new Duration(5, TimeUnit.MINUTES);
     private static final Duration DEFAULT_CONNECTION_TIMEOUT = new Duration(1, TimeUnit.MINUTES);
     private static final int DEFAULT_ESTIMATED_SIZE_IN_BYTES_FOR_NON_NUMERIC_COLUMN = 20;
 
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
     private static final MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(":");
 
-    private int maxConnectionsPerServer = DEFAULT_MAX_CONNECTIONS_PER_SERVER;
     private String controllerRestService;
     private String serviceHeaderParam = "RPC-Service";
     private String callerHeaderValue = "presto";
@@ -73,17 +67,12 @@ public class PinotConfig
     private int limitLargeForSegment = DEFAULT_LIMIT_LARGE_FOR_SEGMENT;
     private int topNLarge = DEFAULT_TOPN_LARGE;
 
-    private Duration idleTimeout = DEFAULT_IDLE_TIMEOUT;
     private Duration connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
 
-    private int threadPoolSize = DEFAULT_THREAD_POOL_SIZE;
-    private int minConnectionsPerServer = DEFAULT_MIN_CONNECTIONS_PER_SERVER;
-    private int maxBacklogPerServer = DEFAULT_MAX_BACKLOG_PER_SERVER;
     private int estimatedSizeInBytesForNonNumericColumn = DEFAULT_ESTIMATED_SIZE_IN_BYTES_FOR_NON_NUMERIC_COLUMN;
     private Map<String, String> extraHttpHeaders = ImmutableMap.of();
     private Duration metadataCacheExpiry = new Duration(2, TimeUnit.MINUTES);
 
-    private boolean allowMultipleAggregations = true;
     private boolean forbidBrokerQueries;
     private boolean forbidSegmentQueries;
     private boolean attemptBrokerQueries;
@@ -96,7 +85,6 @@ public class PinotConfig
     private boolean markDataFetchExceptionsAsRetriable = true;
 
     // Requires Pinot version >= 0.6.0.
-    private boolean useStreamingForSegmentQueries = true;
     private int streamingServerGrpcMaxInboundMessageBytes = DEFAULT_STREAMING_SERVER_GRPC_MAX_INBOUND_MESSAGE_BYTES;
 
     private int numSegmentsPerSplit = 1;
@@ -179,19 +167,6 @@ public class PinotConfig
     }
 
     @NotNull
-    public boolean isAllowMultipleAggregations()
-    {
-        return allowMultipleAggregations;
-    }
-
-    @Config("pinot.allow-multiple-aggregations")
-    public PinotConfig setAllowMultipleAggregations(boolean allowMultipleAggregations)
-    {
-        this.allowMultipleAggregations = allowMultipleAggregations;
-        return this;
-    }
-
-    @NotNull
     public int getLimitLargeForSegment()
     {
         return limitLargeForSegment;
@@ -214,86 +189,6 @@ public class PinotConfig
     public PinotConfig setTopNLarge(int topNLarge)
     {
         this.topNLarge = topNLarge;
-        return this;
-    }
-
-    @NotNull
-    public int getThreadPoolSize()
-    {
-        return threadPoolSize;
-    }
-
-    @Config("pinot.thread-pool-size")
-    public PinotConfig setThreadPoolSize(int threadPoolSize)
-    {
-        this.threadPoolSize = threadPoolSize;
-        return this;
-    }
-
-    @NotNull
-    public int getMinConnectionsPerServer()
-    {
-        return minConnectionsPerServer;
-    }
-
-    @Config("pinot.min-connections-per-server")
-    public PinotConfig setMinConnectionsPerServer(int minConnectionsPerServer)
-    {
-        this.minConnectionsPerServer = minConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxConnectionsPerServer()
-    {
-        return maxConnectionsPerServer;
-    }
-
-    @Config("pinot.max-connections-per-server")
-    public PinotConfig setMaxConnectionsPerServer(int maxConnectionsPerServer)
-    {
-        this.maxConnectionsPerServer = maxConnectionsPerServer;
-        return this;
-    }
-
-    @NotNull
-    public int getMaxBacklogPerServer()
-    {
-        return maxBacklogPerServer;
-    }
-
-    @Config("pinot.max-backlog-per-server")
-    public PinotConfig setMaxBacklogPerServer(int maxBacklogPerServer)
-    {
-        this.maxBacklogPerServer = maxBacklogPerServer;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getIdleTimeout()
-    {
-        return idleTimeout;
-    }
-
-    @Config("pinot.idle-timeout")
-    public PinotConfig setIdleTimeout(Duration idleTimeout)
-    {
-        this.idleTimeout = idleTimeout;
-        return this;
-    }
-
-    @MinDuration("15s")
-    @NotNull
-    public Duration getConnectionTimeout()
-    {
-        return connectionTimeout;
-    }
-
-    @Config("pinot.connection-timeout")
-    public PinotConfig setConnectionTimeout(Duration connectionTimeout)
-    {
-        this.connectionTimeout = connectionTimeout;
         return this;
     }
 
@@ -437,18 +332,6 @@ public class PinotConfig
         return this;
     }
 
-    public boolean isIgnoreEmptyResponses()
-    {
-        return ignoreEmptyResponses;
-    }
-
-    @Config("pinot.ignore-empty-responses")
-    public PinotConfig setIgnoreEmptyResponses(boolean ignoreEmptyResponses)
-    {
-        this.ignoreEmptyResponses = ignoreEmptyResponses;
-        return this;
-    }
-
     public int getFetchRetryCount()
     {
         return fetchRetryCount;
@@ -532,18 +415,6 @@ public class PinotConfig
     public PinotConfig setPushdownProjectExpressions(boolean pushdownProjectExpressions)
     {
         this.pushdownProjectExpressions = pushdownProjectExpressions;
-        return this;
-    }
-
-    public boolean isUseStreamingForSegmentQueries()
-    {
-        return useStreamingForSegmentQueries;
-    }
-
-    @Config("pinot.use-streaming-for-segment-queries")
-    public PinotConfig setUseStreamingForSegmentQueries(boolean useStreamingForSegmentQueries)
-    {
-        this.useStreamingForSegmentQueries = useStreamingForSegmentQueries;
         return this;
     }
 

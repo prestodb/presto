@@ -19,29 +19,31 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient.ErrorCode;
-import org.apache.pinot.core.transport.ServerInstance;
+import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
+import org.apache.pinot.core.common.datatable.DataTableFactory;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.utils.ByteArray;
+import org.apache.pinot.spi.utils.CommonConstants;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -50,9 +52,9 @@ import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_DATA_FETCH_EXCEPTION;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_EXCEPTION;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_SEGMENT_QUERY_GENERATED;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_INVALID_SQL_GENERATED;
-import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNCLASSIFIED_ERROR;
+import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNEXPECTED_RESPONSE;
 import static com.facebook.presto.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -65,41 +67,36 @@ import static java.util.Objects.requireNonNull;
 public class PinotSegmentPageSource
         implements ConnectorPageSource
 {
-    private static final Map<ErrorCode, PinotErrorCode> PINOT_ERROR_CODE_MAP = ImmutableMap.of(
-            ErrorCode.PINOT_UNCLASSIFIED_ERROR, PINOT_UNCLASSIFIED_ERROR,
-            ErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE, PINOT_INSUFFICIENT_SERVER_RESPONSE);
-
     protected final List<PinotColumnHandle> columnHandles;
     protected final List<Type> columnTypes;
     protected final PinotConfig pinotConfig;
     protected final PinotSplit split;
-    private final PinotScatterGatherQueryClient pinotQueryClient;
     protected final ConnectorSession session;
+    private final PinotStreamingQueryClient pinotStreamingQueryClient;
+    private Iterator<Server.ServerResponse> serverResponseIterator;
+    private long completedPositions;
 
-    // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
-    private final LinkedList<PinotDataTableWithSize> dataTableList = new LinkedList<>();
     protected long completedBytes;
     protected long readTimeNanos;
     protected long estimatedMemoryUsageInBytes;
     protected PinotDataTableWithSize currentDataTable;
     protected boolean closed;
-    private boolean isPinotDataFetched;
 
     public PinotSegmentPageSource(
             ConnectorSession session,
             PinotConfig pinotConfig,
-            PinotScatterGatherQueryClient pinotQueryClient,
+            PinotStreamingQueryClient pinotStreamingQueryClient,
             PinotSplit split,
             List<PinotColumnHandle> columnHandles)
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.split = requireNonNull(split, "split is null");
-        this.pinotQueryClient = pinotQueryClient;
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.session = requireNonNull(session, "session is null");
         this.columnTypes = columnHandles.stream()
                 .map(PinotSegmentPageSource::getTypeForBlock)
                 .collect(Collectors.toList());
+        this.pinotStreamingQueryClient = requireNonNull(pinotStreamingQueryClient, "pinotStreamingQueryClient is null");
     }
 
     public static void checkExceptions(DataTable dataTable, PinotSplit split, boolean markDataFetchExceptionsAsRetriable)
@@ -146,41 +143,15 @@ public class PinotSegmentPageSource
     }
 
     /**
-     * @return true if is closed or all Pinot data have been processed.
+     * @return true if is closed.
      */
     @Override
     public boolean isFinished()
     {
-        return closed || (isPinotDataFetched && dataTableList.isEmpty());
+        return closed;
     }
 
-    /**
-     * @return constructed page for pinot data.
-     */
-    @Override
-    public Page getNextPage()
-    {
-        if (isFinished()) {
-            close();
-            return null;
-        }
-        if (!isPinotDataFetched) {
-            fetchPinotData();
-        }
-        // To reduce memory usage, remove dataTable from dataTableList once it's processed.
-        if (currentDataTable != null) {
-            estimatedMemoryUsageInBytes -= currentDataTable.getEstimatedSizeInBytes();
-        }
-        if (dataTableList.isEmpty()) {
-            close();
-            return null;
-        }
-        currentDataTable = dataTableList.pop();
-
-        return fillNextPage();
-    }
-
-    protected Page fillNextPage()
+    private Page fillNextPage()
     {
         // This is the list of handles we came up with when generating the SQL
         // This could be a superset/permutation of the handles being requested in this scan
@@ -212,52 +183,102 @@ public class PinotSegmentPageSource
     }
 
     /**
-     * Fetch data from Pinot for the current split and store the data returned from each Pinot server.
+     * @return constructed page for pinot data.
      */
-    private void fetchPinotData()
+    @Override
+    public Page getNextPage()
     {
-        long startTimeNanos = System.nanoTime();
-        try {
-            Map<ServerInstance, DataTable> dataTableMap = queryPinot(session, split);
-            dataTableMap.values().stream()
-                    // ignore empty tables and tables with 0 rows
-                    .filter(table -> table != null && table.getNumberOfRows() > 0)
-                    .forEach(dataTable ->
-                    {
-                        checkExceptions(dataTable, split, PinotSessionProperties.isMarkDataFetchExceptionsAsRetriable(session));
-                        // Store each dataTable which will later be constructed into Pages.
-                        // Also update estimatedMemoryUsage, mostly represented by the size of all dataTables, using numberOfRows and fieldTypes combined as an estimate
-                        int estimatedTableSizeInBytes = IntStream.rangeClosed(0, dataTable.getDataSchema().size() - 1)
-                                .map(i -> getEstimatedColumnSizeInBytes(dataTable.getDataSchema().getColumnDataType(i)) * dataTable.getNumberOfRows())
-                                .reduce(0, Integer::sum);
-                        dataTableList.add(new PinotDataTableWithSize(dataTable, estimatedTableSizeInBytes));
-                        estimatedMemoryUsageInBytes += estimatedTableSizeInBytes;
-                    });
+        if (closed) {
+            return null;
+        }
 
-            isPinotDataFetched = true;
+        if (serverResponseIterator == null) {
+            serverResponseIterator = queryPinot(split);
+        }
+        ByteBuffer byteBuffer = null;
+        try {
+            // Pinot gRPC server response iterator returns:
+            //   - n data blocks based on inbound message size;
+            //   - 1 metadata of the query results.
+            // So we need to check ResponseType of each ServerResponse.
+            if (serverResponseIterator.hasNext()) {
+                long startTimeNanos = System.nanoTime();
+                Server.ServerResponse serverResponse = serverResponseIterator.next();
+                readTimeNanos += System.nanoTime() - startTimeNanos;
+                final String responseType = serverResponse.getMetadataOrThrow("responseType");
+                switch (responseType) {
+                    case CommonConstants.Query.Response.ResponseType.DATA:
+                        estimatedMemoryUsageInBytes = serverResponse.getSerializedSize();
+                        // Store each dataTable which will later be constructed into Pages.
+                        try {
+                            byteBuffer = serverResponse.getPayload().asReadOnlyByteBuffer();
+                            DataTable dataTable = DataTableFactory.getDataTable(byteBuffer);
+                            checkExceptions(dataTable, split, PinotSessionProperties.isMarkDataFetchExceptionsAsRetriable(session));
+                            currentDataTable = new PinotSegmentPageSource.PinotDataTableWithSize(dataTable, serverResponse.getSerializedSize());
+                        }
+                        catch (IOException e) {
+                            throw new PinotException(
+                                PINOT_DATA_FETCH_EXCEPTION,
+                                split.getSegmentPinotQuery(),
+                                String.format("Encountered Pinot exceptions when fetching data table from Split: < %s >", split),
+                                e);
+                        }
+                        break;
+                    case CommonConstants.Query.Response.ResponseType.METADATA:
+                        // The last part of the response is Metadata
+                        currentDataTable = null;
+                        serverResponseIterator = null;
+                        close();
+                        return null;
+                    default:
+                        throw new PinotException(
+                            PINOT_UNEXPECTED_RESPONSE,
+                            split.getSegmentPinotQuery(),
+                            String.format("Encountered Pinot exceptions, unknown response type - %s", responseType));
+                }
+            }
+            Page page = fillNextPage();
+            completedPositions += currentDataTable.getDataTable().getNumberOfRows();
+            return page;
         }
         finally {
-            readTimeNanos += System.nanoTime() - startTimeNanos;
+            if (byteBuffer != null) {
+                byteBuffer.clear();
+            }
         }
     }
 
-    private Map<ServerInstance, DataTable> queryPinot(ConnectorSession session, PinotSplit split)
+    private Iterator<Server.ServerResponse> queryPinot(PinotSplit split)
     {
-        String sql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the sql"));
-        String host = split.getSegmentHost().orElseThrow(() -> new PinotException(PINOT_INVALID_SQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
-        try {
-            return ImmutableMap.copyOf(
-                    pinotQueryClient.queryPinotServerForDataTable(
-                            sql,
-                            host,
-                            split.getSegments(),
-                            PinotSessionProperties.getConnectionTimeout(session).toMillis(),
-                            PinotSessionProperties.isIgnoreEmptyResponses(session),
-                            PinotSessionProperties.getPinotRetryCount(session)));
+        String sql = split.getSegmentPinotQuery().orElseThrow(() -> new PinotException(PINOT_INVALID_SEGMENT_QUERY_GENERATED, Optional.empty(), "Expected the segment split to contain the pinot query"));
+        String grpcHost = split.getGrpcHost().orElseThrow(() -> new PinotException(PINOT_INVALID_SEGMENT_QUERY_GENERATED, Optional.empty(), "Expected the segment split to contain the grpc host"));
+        int grpcPort = split.getGrpcPort().orElseThrow(() -> new PinotException(PINOT_INVALID_SEGMENT_QUERY_GENERATED, Optional.empty(), "Expected the segment split to contain the grpc port"));
+        if (grpcPort <= 0) {
+            throw new PinotException(
+                PINOT_INVALID_SEGMENT_QUERY_GENERATED,
+                Optional.empty(),
+                "Expected the grpc port > 0 always");
         }
-        catch (PinotScatterGatherQueryClient.PinotException pe) {
-            throw new PinotException(PINOT_ERROR_CODE_MAP.getOrDefault(pe.getErrorCode(), PINOT_UNCLASSIFIED_ERROR), Optional.of(sql), String.format("Error when hitting host %s", host), pe);
+        PinotProxyGrpcRequestBuilder grpcRequestBuilder = new PinotProxyGrpcRequestBuilder()
+                .setSegments(split.getSegments())
+                .setEnableStreaming(true)
+                .setBrokerId("presto-coordinator-grpc")
+                .addExtraMetadata(pinotConfig.getExtraGrpcMetadata())
+                .setSql(sql);
+        if (pinotConfig.isUseProxy()) {
+            grpcRequestBuilder.setHostName(grpcHost).setPort(grpcPort);
+            return pinotStreamingQueryClient.submit(
+                pinotConfig.getGrpcHost(),
+                pinotConfig.getGrpcPort(),
+                grpcRequestBuilder);
         }
+        return pinotStreamingQueryClient.submit(grpcHost, grpcPort, grpcRequestBuilder);
+    }
+
+    @Override
+    public long getCompletedPositions()
+    {
+        return completedPositions;
     }
 
     @Override
@@ -572,12 +593,6 @@ public class PinotSegmentPageSource
             return BIGINT;
         }
         return pinotColumnHandle.getDataType();
-    }
-
-    @Override
-    public long getCompletedPositions()
-    {
-        return 0;
     }
 
     protected static class PinotDataTableWithSize

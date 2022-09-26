@@ -20,6 +20,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VariableWidthType;
+import com.facebook.presto.pinot.query.PinotProxyGrpcRequestBuilder;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.assertions.Assert;
@@ -28,27 +29,31 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
+import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataTable;
-import org.apache.pinot.connector.presto.PinotScatterGatherQueryClient;
+import org.apache.pinot.common.utils.grpc.GrpcRequestBuilder;
+import org.apache.pinot.connector.presto.grpc.PinotStreamingQueryClient;
 import org.apache.pinot.connector.presto.grpc.Utils;
 import org.apache.pinot.core.common.datatable.DataTableBuilder;
 import org.apache.pinot.core.common.datatable.DataTableBuilderV4;
-import org.apache.pinot.core.transport.ServerInstance;
 import org.apache.pinot.spi.data.DimensionFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
+import org.apache.pinot.spi.utils.CommonConstants;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.pinot.MockPinotClusterInfoFetcher.DEFAULT_GRPC_PORT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -59,7 +64,6 @@ public class TestPinotSegmentPageSource
 {
     private static final Random RANDOM = new Random(1234);
     protected static final int NUM_ROWS = 100;
-    private PinotScatterGatherQueryClient mockPinotQueryClient;
 
     private static final Set<DataSchema.ColumnDataType> UNSUPPORTED_TYPES = ImmutableSet.of(
             DataSchema.ColumnDataType.OBJECT, DataSchema.ColumnDataType.BYTES);
@@ -249,49 +253,14 @@ public class TestPinotSegmentPageSource
         }
     }
 
-    private static final class MockPinotScatterGatherQueryClient
-            extends PinotScatterGatherQueryClient
-    {
-        private ImmutableList<DataTable> dataTables;
-
-        MockPinotScatterGatherQueryClient(Config pinotConfig)
-        {
-            super(pinotConfig);
-        }
-
-        public void setDataTables(List<DataTable> dataTables)
-        {
-            this.dataTables = ImmutableList.copyOf(dataTables);
-        }
-
-        @Override
-        public Map<ServerInstance, DataTable> queryPinotServerForDataTable(String sql, String serverHost, List<String> segments, long connectionTimeoutInMillis, boolean ignoreEmptyResponses, int pinotRetryCount)
-        {
-            ImmutableMap.Builder<ServerInstance, DataTable> response = ImmutableMap.builder();
-            for (int i = 0; i < dataTables.size(); ++i) {
-                response.put(new ServerInstance(Utils.toInstanceConfig(String.format("Server_localhost_%d", i + 9000))), dataTables.get(i));
-            }
-            return response.build();
-        }
-    }
-
-    PinotSegmentPageSource getPinotSegmentPageSource(
+    private PinotSegmentPageSource getPinotSegmentPageSource(
             ConnectorSession session,
             List<DataTable> dataTables,
             PinotSplit mockPinotSplit,
-            List<PinotColumnHandle> pinotColumnHandles)
+            List<PinotColumnHandle> handlesSurviving)
     {
-        if (mockPinotQueryClient == null) {
-            mockPinotQueryClient = new MockPinotScatterGatherQueryClient(new PinotScatterGatherQueryClient.Config(
-                    pinotConfig.getIdleTimeout().toMillis(),
-                    pinotConfig.getThreadPoolSize(),
-                    pinotConfig.getMinConnectionsPerServer(),
-                    pinotConfig.getMaxBacklogPerServer(),
-                    pinotConfig.getMaxConnectionsPerServer()));
-        }
-        ((MockPinotScatterGatherQueryClient) mockPinotQueryClient).setDataTables(dataTables);
-        PinotSegmentPageSource pinotSegmentPageSource = new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, pinotColumnHandles);
-        return pinotSegmentPageSource;
+        TestingPinotStreamingQueryClient mockPinotQueryClient = new TestingPinotStreamingQueryClient(new GrpcConfig(pinotConfig.getStreamingServerGrpcMaxInboundMessageBytes(), true), dataTables);
+        return new PinotSegmentPageSource(session, pinotConfig, mockPinotQueryClient, mockPinotSplit, handlesSurviving);
     }
 
     @Test
@@ -331,7 +300,7 @@ public class TestPinotSegmentPageSource
 
     Optional<Integer> getGrpcPort()
     {
-        return Optional.empty();
+        return Optional.of(DEFAULT_GRPC_PORT);
     }
 
     @Test
@@ -400,6 +369,119 @@ public class TestPinotSegmentPageSource
                 Assert.assertTrue("stringVal1".equals(new String(variableWidthBlock.getSlice(0, 0, variableWidthBlock.getSliceLength(0)).getBytes())), "Array element not matching");
                 Assert.assertTrue("stringVal2".equals(new String(variableWidthBlock.getSlice(1, 0, variableWidthBlock.getSliceLength(1)).getBytes())), "Array element not matching");
             }
+        }
+    }
+
+    @Test
+    public void testPinotProxyGrpcRequest()
+    {
+        Server.ServerRequest grpcRequest = new PinotProxyGrpcRequestBuilder()
+                .setHostName("localhost")
+                .setPort(8124)
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 9);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_HOST"), "localhost");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("FORWARD_PORT"), "8124");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+
+        grpcRequest = new PinotProxyGrpcRequestBuilder()
+            .setSegments(ImmutableList.of("segment1"))
+            .setEnableStreaming(true)
+            .setRequestId(121)
+            .setBrokerId("presto-coordinator-grpc")
+            .addExtraMetadata(ImmutableMap.of("k1", "v1", "k2", "v2"))
+            .setSql("SELECT * FROM myTable")
+            .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 7);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k1"), "v1");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow("k2"), "v2");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+    }
+
+    @Test
+    public void testPinotGrpcRequest()
+    {
+        final Server.ServerRequest grpcRequest = new GrpcRequestBuilder()
+                .setSegments(ImmutableList.of("segment1"))
+                .setEnableStreaming(true)
+                .setRequestId(121)
+                .setBrokerId("presto-coordinator-grpc")
+                .setSql("SELECT * FROM myTable")
+                .build();
+        Assert.assertEquals(grpcRequest.getSql(), "SELECT * FROM myTable");
+        Assert.assertEquals(grpcRequest.getSegmentsCount(), 1);
+        Assert.assertEquals(grpcRequest.getSegments(0), "segment1");
+        Assert.assertEquals(grpcRequest.getMetadataCount(), 5);
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.REQUEST_ID), "121");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.BROKER_ID), "presto-coordinator-grpc");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_TRACE), "false");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.ENABLE_STREAMING), "true");
+        Assert.assertEquals(grpcRequest.getMetadataOrThrow(CommonConstants.Query.Request.MetadataKeys.PAYLOAD_TYPE), "sql");
+    }
+
+    private static final class TestingPinotStreamingQueryClient
+            extends PinotStreamingQueryClient
+    {
+        private final ImmutableList<DataTable> dataTables;
+
+        TestingPinotStreamingQueryClient(GrpcConfig pinotConfig, List<DataTable> dataTables)
+        {
+            super(pinotConfig);
+            this.dataTables = ImmutableList.copyOf(dataTables);
+        }
+
+        @Override
+        public Iterator<Server.ServerResponse> submit(String host, int port, GrpcRequestBuilder requestBuilder)
+        {
+            return new Iterator<Server.ServerResponse>()
+            {
+                int index;
+
+                @Override
+                public boolean hasNext()
+                {
+                    return index <= dataTables.size();
+                }
+
+                @Override
+                public Server.ServerResponse next()
+                {
+                    if (index < dataTables.size()) {
+                        final DataTable dataTable = dataTables.get(index++);
+                        try {
+                            return Server.ServerResponse.newBuilder().setPayload(Utils.toByteString(dataTable.toBytes())).putMetadata("responseType", "data").build();
+                        }
+                        catch (IOException e) {
+                            throw new RuntimeException();
+                        }
+                    }
+                    else {
+                        return Server.ServerResponse.newBuilder().putMetadata("responseType", "metadata").build();
+                    }
+                }
+            };
         }
     }
 }
