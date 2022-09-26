@@ -43,14 +43,8 @@ Property Name                                               Description
 ``pinot.controller-urls``                                   Pinot controller urls.
 ``pinot.controller-rest-service``                           Alternative rest endpoint for Pinot controller requests.
 ``pinot.rest-proxy-url``                                    Pinot rest proxy url.
-``pinot.allow-multiple-aggregations``                       Push down a Pinot query with multiple aggregation functions, default is true.
 ``pinot.limit-large-for-segment``                           Cap the number of rows returned when pushing down non-aggregation segment query, default is 2147483647.
 ``pinot.topn-large``                                        Cap the TOP/LIMIT value when pushing down broker query, default is 10000.
-``pinot.thread-pool-size``                                  Parameter to init Pinot server query client, default is 30.
-``pinot.min-connections-per-server``                        Parameter to init Pinot server query client, default is 10.
-``pinot.max-connections-per-server``                        Parameter to init Pinot server query client, default is 30.
-``pinot.max-backlog-per-server``                            Parameter to init Pinot server query client, default is 30.
-``pinot.idle-timeout``                                      Parameter to init Pinot server query client, default is 5 minutes.
 ``pinot.connection-timeout``                                Connection Timeout to talk to Pinot servers, default is 1 minute.
 ``pinot.metadata-expiry``                                   Pinot metadata cache expiration time, default is 2 minutes.
 ``pinot.estimated-size-in-bytes-for-non-numeric-column``    Estimated byte size for non-numeric column, default is 20.
@@ -69,7 +63,6 @@ Property Name                                               Description
 ``pinot.infer-timestamp-type-in-schema``                    Infer Pinot SECONDS epoch column to Presto TIMESTAMP type, default is true.
 ``pinot.mark-data-fetch-exceptions-as-retriable``           Retry Pinot request when failure, default is true.
 ``pinot.pushdown-topn-broker-queries``                      Allow pushing down query pattern to broker: aggregation + groupBy + orderBy, default is false.
-``pinot.use-streaming-for-segment-queries``                 Use gRPC endpoint for pinot server queries, default is false.
 ``pinot.streaming-server-grpc-max-inbound-message-bytes``   Max inbound message bytes when init gRPC client, default is 128MB.
 ``pinot.proxy-enabled``                                     Pinot Cluster is behind a proxy, default is false.
 ``pinot.grpc-host``                                         Pinot gRPC host.
@@ -108,8 +101,6 @@ Property Name                                             Description
 ========================================================  ==================================================================
 ``pinot.forbid_broker_queries``                           Forbid queries to the broker.
 ``pinot.forbid_segment_queries``                          Forbid segment queries.
-``pinot.ignore_empty_responses``                          Ignore empty or missing pinot server responses.
-``pinot.connection_timeout``                              Connection Timeout to talk to Pinot servers.
 ``pinot.mark_data_fetch_exceptions_as_retriable``         Retry Pinot query on data fetch exceptions.
 ``pinot.retry_count``                                     Retry count for retriable pinot data fetch calls.
 ``pinot.use_date_trunc``                                  Use the new UDF dateTrunc in pinot that is more presto compatible.
