@@ -22,15 +22,16 @@ import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.SERIALIZED_PAGE_CHECKSUM_ERROR;
@@ -38,16 +39,29 @@ import static com.facebook.presto.spi.page.PagesSerdeUtil.isChecksumValid;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class HttpNativeExecutionTaskResultFetcher {
-    private static final Duration FETCH_INTERVAL = new Duration(
-            200,
-            TimeUnit.MILLISECONDS);
+/**
+ * This class helps to fetch results for a native task through HTTP communications with a Presto worker. The object of this class will give back a CompletableFuture to the caller
+ * upon start(). This future will be completed when retrievals of results by the fetcher is completed. Results are retrieved and stored in an internal buffer, which is supposed to
+ * be polled by the caller. Note that the completion of the future does not mean all results have been consumed by the caller. The caller is responsible for making sure all results
+ * be consumed after future completion.
+ * There is a capacity cap (MAX_BUFFER_SIZE) for internal buffer managed by HttpNativeExecutionTaskResultFetcher. The fetcher will stop fetching results when buffer limit is hit
+ * and resume fetching after some of the buffer has been consumed and buffer size comes down below the limit.
+ * <p>
+ * The fetcher specifically serves to fetch table write commit metadata results from Presto worker so currently no shuffle result fetching is supported.
+ */
+public class HttpNativeExecutionTaskResultFetcher
+{
+    private static final Duration FETCH_INTERVAL = new Duration(200, TimeUnit.MILLISECONDS);
+    private static final Duration POLL_TIMEOUT = new Duration(100, TimeUnit.MILLISECONDS);
+    private static final DataSize MAX_BUFFER_SIZE = new DataSize(128, DataSize.Unit.MEGABYTE);
 
     private final ScheduledExecutorService scheduler;
     private final PrestoSparkHttpWorkerClient workerClient;
     // Timeout for each fetching request
     private final Duration requestTimeout;
     private final TaskId taskId;
+    private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
+    private final AtomicLong bufferMemoryBytes;
 
     private ScheduledFuture<?> schedulerFuture;
     private boolean started;
@@ -56,97 +70,134 @@ public class HttpNativeExecutionTaskResultFetcher {
      * The instance of this class helps to fetch results from remote Presto
      * worker. When start() is called, the fetcher polls the remote result
      * endpoint in a fixed interval until all results fetched or exceptions
-     * occur. A CompletableFuture is returned for optional async handling.
-     * Exceptions will be wrapped inside of the CompletableFuture in case any
-     * occur.
+     * occur. A CompletableFuture is returned for result retrieving completion
+     * signalling. Callers are responsible to call pollPage() constantly to get
+     * retrieved pages. Exceptions will be wrapped inside of the
+     * CompletableFuture in case any occur.
      */
     public HttpNativeExecutionTaskResultFetcher(
             ScheduledExecutorService scheduler,
             PrestoSparkHttpWorkerClient workerClient,
             TaskId taskId,
-            Duration requestTimeout) {
+            Duration requestTimeout)
+    {
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.requestTimeout = requireNonNull(requestTimeout, "requestTimeout is null");
+        this.bufferMemoryBytes = new AtomicLong();
     }
 
-    public CompletableFuture<List<SerializedPage>> start() {
+    public CompletableFuture<Void> start()
+    {
         if (started) {
             throw new PrestoException(
                     GENERIC_INTERNAL_ERROR,
                     "trying to start an already started TaskResultFetcher for '" + taskId + "'");
         }
-        CompletableFuture<List<SerializedPage>> future = new CompletableFuture<>();
+        CompletableFuture<Void> future = new CompletableFuture<>();
         schedulerFuture = scheduler.scheduleAtFixedRate(
                 new HttpNativeExecutionTaskResultFetcherRunner(
                         workerClient,
                         taskId,
                         future,
-                        requestTimeout),
+                        pageBuffer,
+                        requestTimeout,
+                        bufferMemoryBytes),
                 0,
                 (long) FETCH_INTERVAL.getValue(),
                 FETCH_INTERVAL.getUnit());
         started = true;
         return future.handle(
-                (List<SerializedPage> pages, Throwable throwable) -> {
+                (Void result, Throwable throwable) ->
+                {
                     schedulerFuture.cancel(false);
                     if (throwable != null) {
                         throw new CompletionException(throwable.getCause());
                     }
-                    return pages;
+                    return result;
                 });
     }
 
+    /**
+     * Blocking call to poll from result buffer. Blocks until content becomes
+     * available in the buffer, or until timeout is hit.
+     *
+     * @return the first SerializedPage result buffer contains.
+     */
+    public SerializedPage pollPage()
+            throws InterruptedException
+    {
+        SerializedPage page = pageBuffer.poll((long) POLL_TIMEOUT.getValue(), POLL_TIMEOUT.getUnit());
+        if (page != null) {
+            bufferMemoryBytes.addAndGet(-page.getSizeInBytes());
+        }
+        return page;
+    }
+
     private static class HttpNativeExecutionTaskResultFetcherRunner
-            implements Runnable {
-        private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32,
-                DataSize.Unit.MEGABYTE);
+            implements Runnable
+    {
+        private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
         private static final int MAX_HTTP_TIMEOUT_RETRIES = 3;
 
         private final Duration requestTimeout;
         private final TaskId taskId;
         private final PrestoSparkHttpWorkerClient client;
+        private final LinkedBlockingDeque<SerializedPage> pageBuffer;
+        private final AtomicLong bufferMemoryBytes;
+        private final CompletableFuture<Void> future;
 
         private int timeoutRetries;
         private long token;
-        private CompletableFuture<List<SerializedPage>> future;
-        private List<SerializedPage> serializedPages;
 
         public HttpNativeExecutionTaskResultFetcherRunner(
-                PrestoSparkHttpWorkerClient client, TaskId taskId,
-                CompletableFuture<List<SerializedPage>> future,
-                Duration requestTimeout) {
+                PrestoSparkHttpWorkerClient client,
+                TaskId taskId,
+                CompletableFuture<Void> future,
+                LinkedBlockingDeque<SerializedPage> pageBuffer,
+                Duration requestTimeout,
+                AtomicLong bufferMemoryBytes)
+        {
             this.timeoutRetries = 0;
             this.token = 0;
             this.taskId = requireNonNull(taskId, "taskId is null");
             this.client = requireNonNull(client, "client is null");
             this.future = requireNonNull(future, "future is null");
-            this.serializedPages = new ArrayList<>();
-            this.requestTimeout = requireNonNull(requestTimeout,
+            this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
+            this.requestTimeout = requireNonNull(
+                    requestTimeout,
                     "requestTimeout is null");
+            this.bufferMemoryBytes = requireNonNull(
+                    bufferMemoryBytes,
+                    "bufferMemoryBytes is null");
         }
 
         @Override
-        public void run() {
+        public void run()
+        {
             try {
+                if (bufferMemoryBytes.longValue() >= MAX_BUFFER_SIZE.toBytes()) {
+                    return;
+                }
                 PageBufferClient.PagesResponse pagesResponse = client.getResults(
                         token,
                         MAX_RESPONSE_SIZE)
-                        .get((long) requestTimeout.getValue(),
-                                requestTimeout.getUnit());
+                        .get((long) requestTimeout.getValue(), requestTimeout.getUnit());
 
                 List<SerializedPage> pages = pagesResponse.getPages();
+                long bytes = 0;
                 for (SerializedPage page : pages) {
                     if (!isChecksumValid(page)) {
                         throw new PrestoException(
                                 SERIALIZED_PAGE_CHECKSUM_ERROR,
                                 format("Received corrupted serialized page from host %s",
-                                        HostAddress.fromUri(
-                                                client.getLocation())));
+                                        HostAddress.fromUri(client.getLocation())));
                     }
+                    bytes += page.getSizeInBytes();
                 }
-                serializedPages.addAll(pages);
+                pageBuffer.addAll(pages);
+                bufferMemoryBytes.addAndGet(bytes);
                 long nextToken = pagesResponse.getNextToken();
                 if (pages.size() > 0) {
                     client.acknowledgeResultsAsync(nextToken);
@@ -154,18 +205,21 @@ public class HttpNativeExecutionTaskResultFetcher {
                 this.token = nextToken;
                 if (pagesResponse.isClientComplete()) {
                     client.abortResults();
-                    future.complete(serializedPages);
+                    future.complete(null);
                 }
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 if (!future.isDone()) {
                     // This should never happen, but as a sanity check we set exception to future.
                     client.abortResults();
                     future.completeExceptionally(e);
                 }
-            } catch (ExecutionException | PrestoException e) {
+            }
+            catch (ExecutionException | PrestoException e) {
                 client.abortResults();
                 future.completeExceptionally(e);
-            } catch (TimeoutException e) {
+            }
+            catch (TimeoutException e) {
                 if (++timeoutRetries >= MAX_HTTP_TIMEOUT_RETRIES) {
                     client.abortResults();
                     future.completeExceptionally(e);
