@@ -184,7 +184,7 @@ TEST(JsonExtractorTest, generalJsonTest) {
   EXPECT_TRUE(res.has_value());
   EXPECT_EQ(expectedJson, folly::parseJson(res.value()));
 
-  expected = "{\"key\":5,\"value\":10}";
+  expected = "[{\"key\":5,\"value\":10}]";
   expectedJson = folly::parseJson(expected);
   res = json_format(jsonExtract(json2, "$[*][2]"s));
   EXPECT_TRUE(res.has_value());
@@ -256,6 +256,27 @@ TEST(JsonExtractorTest, objectJsonValueTest) {
   EXPECT_JSON_VALUE_EQ("{\"a\": 0, \"fuu\": 1}"s, "$.fuu"s, "1"s);
   // Check skipping complex structures
   EXPECT_JSON_VALUE_EQ("{\"a\": [1, 2, 3], \"fuu\": 1}"s, "$.fuu"s, "1"s);
+}
+
+TEST(JsonExtractorTest, wildcardSelect) {
+  std::string json =
+      R"([{"c1":"v1","c2":"v2","c3":"v3","c4":[{"k41":"v41"},{"k42":"v42"},{"k41":"v43"}]}])";
+
+  auto res = json_format(jsonExtract(json, "$[*].c3"s));
+  EXPECT_TRUE(res.has_value());
+  EXPECT_EQ(R"(["v3"])", res.value());
+
+  res = json_format(jsonExtract(json, "$[*].c4"s));
+  EXPECT_TRUE(res.has_value());
+  EXPECT_EQ(R"([[{"k41":"v41"},{"k42":"v42"},{"k41":"v43"}]])", res.value());
+
+  res = json_format(jsonExtract(json, "$[*].c4[0]"s));
+  EXPECT_TRUE(res.has_value());
+  EXPECT_EQ(R"([{"k41":"v41"}])", res.value());
+
+  res = json_format(jsonExtract(json, "$[*].c4[*].k41"s));
+  EXPECT_TRUE(res.has_value());
+  EXPECT_EQ(R"(["v41","v43"])", res.value());
 }
 
 TEST(JsonExtractorTest, fullScalarTest) {
