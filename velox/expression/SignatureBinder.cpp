@@ -140,12 +140,17 @@ bool SignatureBinder::tryBind() {
     }
   }
 
+  bool allBound = true;
   for (auto i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
-    if (!tryBind(formalArgs[i], actualTypes_[i])) {
-      return false;
+    if (actualTypes_[i]) {
+      if (!tryBind(formalArgs[i], actualTypes_[i])) {
+        allBound = false;
+      }
+    } else {
+      allBound = false;
     }
   }
-  return true;
+  return allBound;
 }
 
 bool SignatureBinder::checkOrSetIntegerParameter(

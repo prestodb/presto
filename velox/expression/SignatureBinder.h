@@ -24,6 +24,10 @@ namespace facebook::velox::exec {
 /// types. E.g. given function signature array(T) -> T and input type
 /// array(bigint), resolves T to bigint. If type resolution is successful,
 /// calculates the actual return type, e.g. bigint in the previous example.
+///
+/// Supports function signatures with lambdas via partial resolution. The
+/// constructor allows some types in 'actualTypes' to be null (the one
+/// corresponding to lambda inputs).
 class SignatureBinder {
  public:
   SignatureBinder(

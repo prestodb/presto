@@ -457,3 +457,35 @@ TEST(SignatureBinderTest, tryResolveTypeNullOutput) {
   assertNullResult("map(int, T)");
   assertNullResult("row(int, T)");
 }
+
+TEST(SignatureBinderTest, lambda) {
+  auto signature = exec::FunctionSignatureBuilder()
+                       .typeVariable("T")
+                       .typeVariable("S")
+                       .typeVariable("R")
+                       .returnType("R")
+                       .argumentType("array(T)")
+                       .argumentType("S")
+                       .argumentType("function(S,T,S)")
+                       .argumentType("function(S,R)")
+                       .build();
+
+  std::vector<TypePtr> inputTypes{ARRAY(BIGINT()), DOUBLE(), nullptr, nullptr};
+  exec::SignatureBinder binder(*signature, inputTypes);
+  ASSERT_FALSE(binder.tryBind());
+
+  // Resolve inputs for function(S,T,S). We resolve first 2 arguments, since
+  // last argument is the return type that requires the signature of the lambda
+  // itself for resolution.
+  {
+    auto lambdaType = signature->argumentTypes()[2];
+    ASSERT_EQ(binder.tryResolveType(lambdaType.parameters()[0]), DOUBLE());
+    ASSERT_EQ(binder.tryResolveType(lambdaType.parameters()[1]), BIGINT());
+  }
+
+  // Resolve inputs for function(S,R).
+  {
+    auto lambdaType = signature->argumentTypes()[3];
+    ASSERT_EQ(binder.tryResolveType(lambdaType.parameters()[0]), DOUBLE());
+  }
+}
