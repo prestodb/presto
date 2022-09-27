@@ -455,4 +455,61 @@ class CastExpr : public IExpr, public std::enable_shared_from_this<CastExpr> {
   VELOX_DEFINE_CLASS_NAME(CastExpr)
 };
 
+/// Represents lambda expression as a list of inputs and the body expression.
+/// For example, the expression
+///     (k, v) -> k + v
+/// is represented using [k, v] as inputNames and k + v as body.
+class LambdaExpr : public IExpr,
+                   public std::enable_shared_from_this<LambdaExpr> {
+ public:
+  LambdaExpr(
+      std::vector<std::string> inputNames,
+      std::shared_ptr<const IExpr> body)
+      : inputNames_{std::move(inputNames)}, body_{{std::move(body)}} {
+    VELOX_CHECK(!inputNames_.empty());
+  }
+
+  const std::vector<std::string>& inputNames() const {
+    return inputNames_;
+  }
+
+  const std::shared_ptr<const IExpr>& body() const {
+    return body_[0];
+  }
+
+  std::string toString() const override {
+    std::ostringstream out;
+    if (inputNames_.size() > 1) {
+      out << "(";
+      for (auto i = 0; i < inputNames_.size(); ++i) {
+        if (i > 0) {
+          out << ", ";
+        }
+        out << inputNames_[i];
+      }
+      out << ")";
+    } else {
+      out << inputNames_[0];
+    }
+    out << " -> " << body_[0]->toString();
+    return out.str();
+  }
+
+  const std::vector<std::shared_ptr<const IExpr>>& getInputs() const override {
+    return body_;
+  }
+
+  std::shared_ptr<const IExpr> withInputs(
+      std::vector<std::shared_ptr<const IExpr>> /* unused */) const override {
+    VELOX_NYI();
+  }
+
+  folly::dynamic serialize() const override {
+    VELOX_NYI();
+  }
+
+ private:
+  std::vector<std::string> inputNames_;
+  std::vector<std::shared_ptr<const IExpr>> body_;
+};
 } // namespace facebook::velox::core

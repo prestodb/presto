@@ -471,3 +471,35 @@ TEST(DuckParserTest, parseDecimalConstant) {
     FAIL() << expr->toString() << " is not a constant";
   }
 }
+
+TEST(DuckParserTest, lambda) {
+  // There is a bug in DuckDB in parsing lambda expressions that use
+  // comparisons. This doesn't work: filter(a, x -> x = 10). This does:
+  // filter(a, x -> (x = 10))
+  EXPECT_EQ(
+      "filter(\"a\",x -> eq(\"x\",10))",
+      parseExpr("filter(a, x -> (x = 10))")->toString());
+
+  EXPECT_EQ(
+      "filter(\"a\",x -> plus(\"x\",1))",
+      parseExpr("filter(a, x -> x + 1)")->toString());
+
+  EXPECT_EQ(
+      "transform_keys(\"m\",(k, v) -> plus(\"k\",1))",
+      parseExpr("transform_keys(m, (k, v) -> k + 1)")->toString());
+
+  // With capture.
+  EXPECT_EQ(
+      "filter(\"a\",x -> eq(\"x\",\"b\"))",
+      parseExpr("filter(a, x -> (x = b))")->toString());
+
+  EXPECT_EQ(
+      "transform_keys(\"m\",(k, v) -> plus(\"k\",multiply(\"v\",\"b\")))",
+      parseExpr("transform_keys(m, (k, v) -> k + v * b)")->toString());
+
+  // Conditional lambdas.
+  EXPECT_EQ(
+      "filter(\"a\",if(gt(\"b\",0),x -> eq(\"x\",10),x -> eq(\"x\",20)))",
+      parseExpr("filter(a, if (b > 0, x -> (x = 10), x -> (x = 20)))")
+          ->toString());
+}

@@ -410,6 +410,36 @@ std::shared_ptr<const core::IExpr> parseCastExpr(
       targetType, params[0], nullOnFailure, getAlias(expr));
 }
 
+std::shared_ptr<const core::IExpr> parseLambdaExpr(
+    ParsedExpression& expr,
+    const ParseOptions& options) {
+  const auto& lambdaExpr = dynamic_cast<::duckdb::LambdaExpression&>(expr);
+  auto capture = parseExpr(*lambdaExpr.lhs, options);
+  auto body = parseExpr(*lambdaExpr.rhs, options);
+
+  // capture is either a core::FieldAccessExpr or a 'row' core::CallExpr with 2
+  // or more core::FieldAccessExpr inputs.
+
+  std::vector<std::string> names;
+  if (auto fieldExpr =
+          std::dynamic_pointer_cast<const core::FieldAccessExpr>(capture)) {
+    names.push_back(fieldExpr->getFieldName());
+  } else if (
+      auto callExpr =
+          std::dynamic_pointer_cast<const core::CallExpr>(capture)) {
+    VELOX_CHECK_EQ("row", callExpr->getFunctionName());
+    for (auto& input : callExpr->getInputs()) {
+      auto fieldExpr =
+          std::dynamic_pointer_cast<const core::FieldAccessExpr>(input);
+      VELOX_CHECK_NOT_NULL(fieldExpr);
+      names.push_back(fieldExpr->getFieldName());
+    }
+  }
+
+  return std::make_shared<const core::LambdaExpr>(
+      std::move(names), std::move(body));
+}
+
 std::shared_ptr<const core::IExpr> parseExpr(
     ParsedExpression& expr,
     const ParseOptions& options) {
@@ -440,6 +470,9 @@ std::shared_ptr<const core::IExpr> parseExpr(
 
     case ExpressionClass::CAST:
       return parseCastExpr(expr, options);
+
+    case ExpressionClass::LAMBDA:
+      return parseLambdaExpr(expr, options);
 
     default:
       throw std::invalid_argument(
