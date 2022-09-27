@@ -61,9 +61,9 @@ TEST_F(ArrayFilterTest, filter) {
   auto rowType = ROW({"long_val", "array_val"}, {BIGINT(), ARRAY(BIGINT())});
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
-  registerLambda("lambda1", ROW({"x"}, {BIGINT()}), rowType, "x > long_val");
+
   auto result =
-      evaluate<BaseVector>("filter(array_val, function('lambda1'))", data);
+      evaluate<BaseVector>("filter(array_val, x -> (x > long_val))", data);
   auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
   checkArrayFilter<SimpleVector<int64_t>>(
       data->childAt(1).get(),
@@ -81,10 +81,9 @@ TEST_F(ArrayFilterTest, empty) {
   auto rowType = ROW({"long_val", "array_val"}, {BIGINT(), ARRAY(BIGINT())});
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
-  registerLambda("eq_1111", ROW({"x"}, {BIGINT()}), rowType, "x = 1111");
 
   auto result =
-      evaluate<ArrayVector>("filter(array_val, function('eq_1111'))", data);
+      evaluate<ArrayVector>("filter(array_val, x -> (x = 1111))", data);
 
   EXPECT_EQ(result->size(), data->size());
   auto inputArray = data->childAt(1);
@@ -99,8 +98,6 @@ TEST_F(ArrayFilterTest, empty) {
 
 TEST_F(ArrayFilterTest, dictionaryWithUniqueValues) {
   auto rowType = ROW({"long_val", "array_val"}, {BIGINT(), ARRAY(BIGINT())});
-  registerLambda("lambda1", ROW({"x"}, {BIGINT()}), rowType, "x > long_val");
-  registerLambda("lambda2", ROW({"x"}, {BIGINT()}), rowType, "x > 0");
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
 
@@ -108,8 +105,7 @@ TEST_F(ArrayFilterTest, dictionaryWithUniqueValues) {
   BufferPtr indices = makeIndicesInReverse(data->size());
   data->childAt(1) = wrapInDictionary(indices, data->size(), data->childAt(1));
   auto result = evaluate<BaseVector>(
-      "filter(filter(array_val, function('lambda2')), function('lambda1'))",
-      data);
+      "filter(filter(array_val, x -> (x > 0)), x -> (x > long_val))", data);
   auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
   checkArrayFilter<SimpleVector<int64_t>>(
       data->childAt(1).get(),
@@ -126,8 +122,7 @@ TEST_F(ArrayFilterTest, dictionaryWithUniqueValues) {
   // Wrap both inputs in the same dictionary.
   data->childAt(0) = wrapInDictionary(indices, data->size(), data->childAt(0));
   result = evaluate<BaseVector>(
-      "filter(filter(array_val, function('lambda2')), function('lambda1'))",
-      data);
+      "filter(filter(array_val, x -> (x > 0)), x -> (x > long_val))", data);
   cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
   checkArrayFilter<SimpleVector<int64_t>>(
       data->childAt(1).get(),
@@ -146,12 +141,10 @@ TEST_F(ArrayFilterTest, conditional) {
   auto rowType = ROW({"long_val", "array_val"}, {BIGINT(), ARRAY(BIGINT())});
   auto data = std::static_pointer_cast<RowVector>(
       BatchMaker::createBatch(rowType, 1'000, *execCtx_.pool()));
-  registerLambda("gtCutoff", ROW({"x"}, {BIGINT()}), rowType, "x > long_val");
-  registerLambda("ltCutoff", ROW({"x"}, {BIGINT()}), rowType, "x < long_val");
 
   auto result = evaluate<BaseVector>(
       "filter(array_val, "
-      "  if (long_val < 0, function('ltCutoff'), function('gtCutoff')))",
+      "  if (long_val < 0, x -> (x < long_val), x -> (x > long_val)))",
       data);
 
   auto* cutoff = data->childAt(0)->as<SimpleVector<int64_t>>();
@@ -173,8 +166,8 @@ TEST_F(ArrayFilterTest, conditional) {
 
   result = evaluate<BaseVector>(
       "if (long_val < 0,"
-      "  filter(array_val, function('ltCutoff')), "
-      "  filter(array_val, function('gtCutoff')))",
+      "  filter(array_val, x -> (x < long_val)), "
+      "  filter(array_val, x -> (x > long_val)))",
       data);
 
   checkArrayFilter<SimpleVector<int64_t>>(
@@ -208,14 +201,14 @@ TEST_F(ArrayFilterTest, dictionaryWithDuplicates) {
   auto input = makeRowVector({capture, array});
 
   auto signature = ROW({"x"}, {baseArray->elements()->type()});
-  registerLambda("filter", signature, input->type(), "(x + c0) % 7 < 3");
 
-  auto result = evaluate<BaseVector>("filter(c1, function('filter'))", input);
+  auto result =
+      evaluate<BaseVector>("filter(c1, x -> ((x + c0) % 7 < 3))", input);
 
   auto flatArray = flatten(array);
   input = makeRowVector({capture, flatArray});
   auto expectedResult =
-      evaluate<BaseVector>("filter(c1, function('filter'))", input);
+      evaluate<BaseVector>("filter(c1, x -> ((x + c0) % 7 < 3))", input);
 
   assertEqualVectors(expectedResult, result);
 }

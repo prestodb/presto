@@ -22,13 +22,10 @@ class TransformTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(TransformTest, basic) {
   vector_size_t size = 1'000;
-  auto inputArray =
-      makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11));
-  auto input = makeRowVector({inputArray});
-  registerLambda("plus5", rowType("x", BIGINT()), input->type(), "x + 5");
+  auto input = makeRowVector(
+      {makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11))});
 
-  auto result =
-      evaluate<ArrayVector>("transform(c0, function('plus5'))", input);
+  auto result = evaluate<ArrayVector>("transform(c0, x -> x + 5)", input);
 
   auto expectedResult = makeArrayVector<int64_t>(
       size,
@@ -40,14 +37,10 @@ TEST_F(TransformTest, basic) {
 
 TEST_F(TransformTest, differentResultType) {
   vector_size_t size = 1'000;
-  auto inputArray =
-      makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11));
-  auto input = makeRowVector({inputArray});
-  registerLambda(
-      "is_even", rowType("x", BIGINT()), input->type(), "x % 2 == 0");
+  auto input = makeRowVector(
+      {makeArrayVector<int64_t>(size, modN(5), modN(7), nullEvery(11))});
 
-  auto result =
-      evaluate<ArrayVector>("transform(c0, function('is_even'))", input);
+  auto result = evaluate<ArrayVector>("transform(c0, x -> (x % 2 = 0))", input);
 
   auto expectedResult = makeArrayVector<bool>(
       size,
@@ -68,12 +61,9 @@ TEST_F(TransformTest, conditional) {
   auto condition =
       makeFlatVector<bool>(size, [](auto row) { return row % 3 == 1; });
   auto input = makeRowVector({condition, inputArray});
-  auto signature = rowType("x", BIGINT());
-  registerLambda("plus5", signature, input->type(), "x + 5");
-  registerLambda("minus3", signature, input->type(), "x - 3");
 
   auto result = evaluate<ArrayVector>(
-      "transform(c1, if (c0, function('plus5'), function('minus3')))", input);
+      "transform(c1, if (c0, x -> x + 5, x -> x - 3))", input);
 
   // make 2 expected vectors: one for rows where condition is true and another
   // for rows where condition is false
@@ -106,9 +96,7 @@ TEST_F(TransformTest, dictionaryWithUniqueValues) {
       {makeFlatVector<int16_t>(size, [](auto /* row */) { return 5; }),
        wrapInDictionary(indices, size, inputArray)});
 
-  registerLambda("plus5", rowType("x", INTEGER()), input->type(), "x + c0");
-
-  auto result = evaluate<BaseVector>("transform(c1, function('plus5'))", input);
+  auto result = evaluate<BaseVector>("transform(c1, x -> x + c0)", input);
 
   auto expectedResult = wrapInDictionary(
       indices,
@@ -125,8 +113,7 @@ TEST_F(TransformTest, dictionaryWithDuplicates) {
   auto baseArray =
       makeArrayVector<int32_t>(size / 2, modN(5), modN(7), nullEvery(11));
 
-  BufferPtr indices =
-      AlignedBuffer::allocate<vector_size_t>(size, execCtx_.pool());
+  BufferPtr indices = allocateIndices(size, execCtx_.pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
   for (auto i = 0; i < size; ++i) {
     rawIndices[i] = i / 2;
@@ -139,14 +126,12 @@ TEST_F(TransformTest, dictionaryWithDuplicates) {
 
   auto input = makeRowVector({capture, array});
 
-  registerLambda("x+c0", rowType("x", INTEGER()), input->type(), "x + c0");
-
-  auto result = evaluate<BaseVector>("transform(c1, function('x+c0'))", input);
+  auto result = evaluate<BaseVector>("transform(c1, x -> x + c0)", input);
 
   auto flatArray = flatten(array);
   input = makeRowVector({capture, flatArray});
   auto expectedResult =
-      evaluate<BaseVector>("transform(c1, function('x+c0'))", input);
+      evaluate<BaseVector>("transform(c1, x -> x + c0)", input);
 
   assertEqualVectors(expectedResult, result);
 }

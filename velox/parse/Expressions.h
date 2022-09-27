@@ -28,6 +28,7 @@
 namespace facebook::velox::core {
 
 class CallExpr;
+class LambdaExpr;
 
 class Expressions {
  public:
@@ -51,36 +52,25 @@ class Expressions {
     return resolverHook_;
   }
 
-  // Infers types for a single argument lambda. 'rowType' gives the
-  // names and types of columns available for capture. The lambda can
-  // be referenced with function(name) in a different expression.
-  static void registerLambda(
-      const std::string& name,
-      const std::shared_ptr<const RowType>& signature,
-      TypePtr rowType,
-      std::shared_ptr<const core::IExpr> body,
-      memory::MemoryPool* pool) {
-    auto types = rowType->as<TypeKind::ROW>().children();
-    types.insert(
-        types.end(),
-        signature->children().begin(),
-        signature->children().end());
-    auto names = rowType->as<TypeKind::ROW>().names();
-    names.insert(
-        names.end(), signature->names().begin(), signature->names().end());
-    auto lambdaRowType = ROW(std::move(names), std::move(types));
-    auto typedBody = inferTypes(body, lambdaRowType, pool);
-    lambdaRegistry()[name] =
-        std::make_shared<LambdaTypedExpr>(signature, typedBody);
-  }
-
  private:
-  static std::shared_ptr<const LambdaTypedExpr> lookupLambdaExpr(
-      std::shared_ptr<const IExpr> expr);
+  static TypedExprPtr inferTypes(
+      const std::shared_ptr<const IExpr>& expr,
+      const TypePtr& input,
+      const std::vector<TypePtr>& lambdaInputTypes,
+      memory::MemoryPool* pool);
+
+  static TypedExprPtr resolveLambdaExpr(
+      const std::shared_ptr<const core::LambdaExpr>& lambdaExpr,
+      const TypePtr& inputRow,
+      const std::vector<TypePtr>& lambdaInputTypes,
+      memory::MemoryPool* pool);
+
+  static TypedExprPtr tryResolveCallWithLambdas(
+      const std::shared_ptr<const CallExpr>& expr,
+      const TypePtr& input,
+      memory::MemoryPool* pool);
+
   static TypeResolverHook resolverHook_;
-  static std::
-      unordered_map<std::string, std::shared_ptr<core::LambdaTypedExpr>>&
-      lambdaRegistry();
 };
 
 class InputExpr : public core::IExpr {

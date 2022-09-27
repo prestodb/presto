@@ -28,15 +28,9 @@ TEST_F(ReduceTest, basic) {
       [](auto row, auto index) { return row + index; },
       nullEvery(11));
   auto input = makeRowVector({inputArray});
-  registerLambda(
-      "sum_input",
-      rowType("s", BIGINT(), "x", BIGINT()),
-      input->type(),
-      "s + x");
-  registerLambda("sum_output", rowType("s", BIGINT()), input->type(), "s * 3");
 
   auto result = evaluate<SimpleVector<int64_t>>(
-      "reduce(c0, 10, function('sum_input'), function('sum_output'))", input);
+      "reduce(c0, 10, (s, x) -> s + x, s -> s * 3)", input);
 
   auto expectedResult = makeFlatVector<int64_t>(
       size,
@@ -62,15 +56,10 @@ TEST_F(ReduceTest, differentResultType) {
       [](auto row, auto index) { return row + index; },
       nullEvery(11));
   auto input = makeRowVector({inputArray});
-  registerLambda(
-      "input",
-      rowType("s", DOUBLE(), "x", BIGINT()),
-      input->type(),
-      "s + cast(x as double) * 0.1");
-  registerLambda("output", rowType("s", DOUBLE()), input->type(), "s < 101.0");
 
   auto result = evaluate<SimpleVector<bool>>(
-      "reduce(c0, 100.0, function('input'), function('output'))", input);
+      "reduce(c0, 100.0, (s, x) -> s + cast(x as double) * 0.1, s -> (s < 101.0))",
+      input);
 
   auto expectedResult = makeFlatVector<bool>(
       size,
@@ -100,14 +89,8 @@ TEST_F(ReduceTest, conditional) {
       makeFlatVector<bool>(size, [](auto row) { return row % 3 == 1; });
   auto input = makeRowVector({condition, inputArray});
 
-  auto signature = rowType("s", BIGINT(), "x", BIGINT());
-  registerLambda("sum_input", signature, input->type(), "s + x");
-  registerLambda("sum_sq_input", signature, input->type(), "s + x * x");
-
-  registerLambda("sum_output", rowType("s", BIGINT()), input->type(), "s");
-
   auto result = evaluate<SimpleVector<int64_t>>(
-      "reduce(c1, 0, if (c0, function('sum_input'), function('sum_sq_input')), function('sum_output'))",
+      "reduce(c1, 0, if (c0, (s, x) -> s + x, (s, x) -> s + x * x), s -> s)",
       input);
 
   auto expectedResult = makeFlatVector<int64_t>(
@@ -136,20 +119,10 @@ TEST_F(ReduceTest, finalSelection) {
       makeFlatVector<int64_t>(
           size, [](auto row) { return row; }, nullEvery(11)),
   });
-  registerLambda(
-      "sum_input",
-      rowType("s", BIGINT(), "x", BIGINT()),
-      input->type(),
-      "s + x");
-  registerLambda(
-      "row_output",
-      rowType("s", BIGINT()),
-      input->type(),
-      "row_constructor(s)");
 
   auto result = evaluate<RowVector>(
       "if (c1 < 100, row_constructor(c1), "
-      "reduce(c0, 10, function('sum_input'), function('row_output')))",
+      "reduce(c0, 10, (s, x) -> s + x, s -> row_constructor(s)))",
       input);
 
   auto expectedResult = makeRowVector({makeFlatVector<int64_t>(
@@ -175,15 +148,7 @@ TEST_F(ReduceTest, elementIndicesOverwrite) {
       makeFlatVector<int64_t>({3, 4}),
   });
 
-  registerLambda(
-      "input",
-      rowType("s", BIGINT(), "x", BIGINT()),
-      ROW({ARRAY(BIGINT())}),
-      "s + x");
-  registerLambda("output", rowType("s", BIGINT()), ROW({ARRAY(BIGINT())}), "s");
-
-  auto result = evaluate(
-      "reduce(array[c0, c1], 100, function('input'), function('output'))",
-      data);
+  auto result =
+      evaluate("reduce(array[c0, c1], 100, (s, x) -> s + x, s -> s)", data);
   assertEqualVectors(makeFlatVector<int64_t>({104, 106}), result);
 }

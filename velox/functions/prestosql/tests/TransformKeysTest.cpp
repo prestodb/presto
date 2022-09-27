@@ -31,14 +31,9 @@ TEST_F(TransformKeysTest, basic) {
           [](auto row) { return row % 11; },
           nullEvery(13)),
   });
-  registerLambda(
-      "plus5",
-      rowType("x", BIGINT(), "unused", INTEGER()),
-      input->type(),
-      "x + 5");
 
   auto result =
-      evaluate<MapVector>("transform_keys(c0, function('plus5'))", input);
+      evaluate<MapVector>("transform_keys(c0, (k, v) -> k + 5)", input);
 
   auto expectedResult = makeMapVector<int64_t, int32_t>(
       size,
@@ -48,14 +43,7 @@ TEST_F(TransformKeysTest, basic) {
       nullEvery(13));
   assertEqualVectors(expectedResult, result);
 
-  registerLambda(
-      "key+value",
-      rowType("k", BIGINT(), "v", INTEGER()),
-      input->type(),
-      "k + v");
-
-  result =
-      evaluate<MapVector>("transform_keys(c0, function('key+value'))", input);
+  result = evaluate<MapVector>("transform_keys(c0, (k, v) -> k + v)", input);
 
   expectedResult = makeMapVector<int64_t, int32_t>(
       size,
@@ -76,15 +64,9 @@ TEST_F(TransformKeysTest, duplicateKeys) {
           [](auto row) { return row % 11; },
           nullEvery(13)),
   });
-  registerLambda(
-      "10_plus_mod2",
-      rowType("x", BIGINT(), "unused", INTEGER()),
-      input->type(),
-      "10 + x % 2");
 
   VELOX_ASSERT_THROW(
-      evaluate<MapVector>(
-          "transform_keys(c0, function('10_plus_mod2'))", input),
+      evaluate<MapVector>("transform_keys(c0, (k, v) -> 10 + k % 2)", input),
       "Duplicate map keys (11) are not allowed");
 }
 
@@ -98,14 +80,9 @@ TEST_F(TransformKeysTest, differentResultType) {
           [](auto row) { return row % 11; },
           nullEvery(13)),
   });
-  registerLambda(
-      "oneTenth",
-      rowType("x", BIGINT(), "unused", INTEGER()),
-      input->type(),
-      "x::double * 0.1");
 
-  auto result =
-      evaluate<MapVector>("transform_keys(c0, function('oneTenth'))", input);
+  auto result = evaluate<MapVector>(
+      "transform_keys(c0, (k, v) -> k::double * 0.1)", input);
 
   auto expectedResult = makeMapVector<double, int32_t>(
       size,
@@ -131,13 +108,9 @@ TEST_F(TransformKeysTest, conditional) {
   auto condition =
       makeFlatVector<bool>(size, [](auto row) { return row % 3 == 1; });
   auto input = makeRowVector({condition, inputMap});
-  auto signature = rowType("x", BIGINT(), "unused", INTEGER());
-  registerLambda("plus5", signature, input->type(), "x + 5");
-  registerLambda("minus3", signature, input->type(), "x - 3");
 
   auto result = evaluate<MapVector>(
-      "transform_keys(c1, if (c0, function('plus5'), function('minus3')))",
-      input);
+      "transform_keys(c1, if (c0, (k, v) -> k + 5, (k, v) -> k - 3))", input);
 
   // Make 2 expected vectors: one for rows where condition is true and another
   // for rows where condition is false.
@@ -184,14 +157,8 @@ TEST_F(TransformKeysTest, dictionaryWithUniqueValues) {
                [](auto row) { return row % 11; },
                nullEvery(13)))});
 
-  registerLambda(
-      "plus5",
-      rowType("x", BIGINT(), "unused", INTEGER()),
-      input->type(),
-      "x + c0");
-
   auto result =
-      evaluate<BaseVector>("transform_keys(c1, function('plus5'))", input);
+      evaluate<BaseVector>("transform_keys(c1, (k, v) -> k + c0)", input);
 
   auto expectedResult = wrapInDictionary(
       indices,
@@ -225,17 +192,11 @@ TEST_F(TransformKeysTest, dictionaryWithDuplicates) {
 
   auto input = makeRowVector({capture, inputMap});
 
-  registerLambda(
-      "x+c0",
-      rowType("x", BIGINT(), "unused", INTEGER()),
-      input->type(),
-      "x + c0");
-
   auto result =
-      evaluate<BaseVector>("transform_keys(c1, function('x+c0'))", input);
+      evaluate<BaseVector>("transform_keys(c1, (k, v) -> k + c0)", input);
 
   auto expectedResult = evaluate<BaseVector>(
-      "transform_keys(c1, function('x+c0'))",
+      "transform_keys(c1, (k, v) -> k + c0)",
       makeRowVector({capture, flatten(inputMap)}));
 
   assertEqualVectors(expectedResult, result);

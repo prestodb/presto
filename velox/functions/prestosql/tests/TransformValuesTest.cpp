@@ -30,14 +30,9 @@ TEST_F(TransformValuesTest, basic) {
           [](auto row) { return row % 11; },
           nullEvery(13)),
   });
-  registerLambda(
-      "plus5",
-      rowType("unused_k", INTEGER(), "v", BIGINT()),
-      input->type(),
-      "v + 5");
 
   auto result =
-      evaluate<MapVector>("transform_values(c0, function('plus5'))", input);
+      evaluate<MapVector>("transform_values(c0, (k, v) -> v + 5)", input);
 
   auto expectedResult = makeMapVector<int32_t, int64_t>(
       size,
@@ -47,14 +42,7 @@ TEST_F(TransformValuesTest, basic) {
       nullEvery(13));
   assertEqualVectors(expectedResult, result);
 
-  registerLambda(
-      "key+value",
-      rowType("k", INTEGER(), "v", BIGINT()),
-      input->type(),
-      "k + v");
-
-  result =
-      evaluate<MapVector>("transform_values(c0, function('key+value'))", input);
+  result = evaluate<MapVector>("transform_values(c0, (k, v) -> k + v)", input);
 
   expectedResult = makeMapVector<int32_t, int64_t>(
       size,
@@ -75,14 +63,9 @@ TEST_F(TransformValuesTest, differentResultType) {
           [](auto row) { return row % 11; },
           nullEvery(13)),
   });
-  registerLambda(
-      "gt3",
-      rowType("unused_k", INTEGER(), "v", BIGINT()),
-      input->type(),
-      "v > 3");
 
   auto result =
-      evaluate<MapVector>("transform_values(c0, function('gt3'))", input);
+      evaluate<MapVector>("transform_values(c0, (k, v) -> (v > 3))", input);
 
   auto expectedResult = makeMapVector<int32_t, bool>(
       size,
@@ -108,13 +91,9 @@ TEST_F(TransformValuesTest, conditional) {
   auto condition =
       makeFlatVector<bool>(size, [](auto row) { return row % 3 == 1; });
   auto input = makeRowVector({condition, inputMap});
-  auto signature = rowType("unused_k", INTEGER(), "v", BIGINT());
-  registerLambda("plus5", signature, input->type(), "v + 5");
-  registerLambda("minus3", signature, input->type(), "v - 3");
 
   auto result = evaluate<MapVector>(
-      "transform_values(c1, if (c0, function('plus5'), function('minus3')))",
-      input);
+      "transform_values(c1, if (c0, (k, v) -> v + 5, (k, v) -> v - 3))", input);
 
   // Make 2 expected vectors: one for rows where condition is true and another
   // for rows where condition is false.
@@ -161,14 +140,8 @@ TEST_F(TransformValuesTest, dictionaryWithUniqueValues) {
                [](auto row) { return row % 11; },
                nullEvery(13)))});
 
-  registerLambda(
-      "plus5",
-      rowType("unused_k", INTEGER(), "v", BIGINT()),
-      input->type(),
-      "v + c0");
-
   auto result =
-      evaluate<BaseVector>("transform_values(c1, function('plus5'))", input);
+      evaluate<BaseVector>("transform_values(c1, (k, v) -> v + c0)", input);
 
   auto expectedResult = wrapInDictionary(
       indices,
@@ -202,17 +175,11 @@ TEST_F(TransformValuesTest, dictionaryWithDuplicates) {
 
   auto input = makeRowVector({capture, inputMap});
 
-  registerLambda(
-      "v+c0",
-      rowType("unused_k", INTEGER(), "v", BIGINT()),
-      input->type(),
-      "v + c0");
-
   auto result =
-      evaluate<BaseVector>("transform_values(c1, function('v+c0'))", input);
+      evaluate<BaseVector>("transform_values(c1, (k, v) -> v + c0)", input);
 
   auto expectedResult = evaluate<BaseVector>(
-      "transform_values(c1, function('v+c0'))",
+      "transform_values(c1, (k, v) -> v + c0)",
       makeRowVector({capture, flatten(inputMap)}));
 
   assertEqualVectors(expectedResult, result);
