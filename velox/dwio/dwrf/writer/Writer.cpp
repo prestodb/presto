@@ -205,6 +205,12 @@ void Writer::write(const VectorPtr& slice) {
                                       1.0 * context.rawDataSizePerBatch /
                                       slice->retainedSize() * slice->size()))
                                 : folly::to<size_t>(slice->size()));
+  LOG(INFO) << fmt::format(
+      "Micro batch size {} rows. Slice memory estimate {} bytes. "
+      "Batching threshold {} bytes.",
+      lengthIncrement,
+      slice->retainedSize(),
+      context.rawDataSizePerBatch);
   while (offset < slice->size()) {
     size_t length = lengthIncrement;
     if (context.isIndexEnabled) {
