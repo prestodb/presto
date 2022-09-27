@@ -34,9 +34,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -66,9 +66,7 @@ public class TestPrestoSparkHttpWorkerClient
             .host("localhost")
             .port(8080)
             .build();
-    private static final Duration NO_DURATION = new Duration(
-            0,
-            TimeUnit.MILLISECONDS);
+    private static final Duration NO_DURATION = new Duration(0, TimeUnit.MILLISECONDS);
 
     @Test
     public void testResultGet()
@@ -79,10 +77,7 @@ public class TestPrestoSparkHttpWorkerClient
                 0,
                 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(NO_DURATION),
-                taskId,
-                uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
         ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(
                 0,
                 new DataSize(32, DataSize.Unit.MEGABYTE));
@@ -103,10 +98,7 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(NO_DURATION),
-                taskId,
-                uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
         workerClient.acknowledgeResultsAsync(1);
     }
 
@@ -115,10 +107,7 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(NO_DURATION),
-                taskId,
-                uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
         ListenableFuture<?> future = workerClient.abortResults();
         try {
             future.get();
@@ -134,26 +123,26 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(NO_DURATION),
-                taskId,
-                uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
                 taskId,
                 new Duration(30, TimeUnit.SECONDS));
-        CompletableFuture<List<SerializedPage>> future = taskResultFetcher.start();
+        CompletableFuture<Void> future = taskResultFetcher.start();
         try {
-            List<SerializedPage> pages = future.get();
+            future.get();
+            List<SerializedPage> pages = new ArrayList<>();
+            SerializedPage page = taskResultFetcher.pollPage();
+            while (page != null) {
+                pages.add(page);
+                page = taskResultFetcher.pollPage();
+            }
+
             assertEquals(1, pages.size());
             assertEquals(0, pages.get(0).getSizeInBytes());
         }
-        catch (InterruptedException e) {
-            e.printStackTrace();
-            fail();
-        }
-        catch (ExecutionException e) {
+        catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             fail();
         }
@@ -166,7 +155,7 @@ public class TestPrestoSparkHttpWorkerClient
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
         PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
-                new MockHttpClient(new Duration(500, TimeUnit.MILLISECONDS)),
+                new TestingHttpClient(new Duration(500, TimeUnit.MILLISECONDS)),
                 taskId,
                 uri);
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
@@ -174,11 +163,11 @@ public class TestPrestoSparkHttpWorkerClient
                 workerClient,
                 taskId,
                 new Duration(200, TimeUnit.MILLISECONDS));
-        CompletableFuture<List<SerializedPage>> future = taskResultFetcher.start();
-        assertThrows(ExecutionException.class, () -> future.get());
+        CompletableFuture<Void> future = taskResultFetcher.start();
+        assertThrows(ExecutionException.class, future::get);
     }
 
-    public static class MockHttpResponseFuture<T>
+    private static class TestingHttpResponseFuture<T>
             extends CompletableFuture<T>
             implements HttpClient.HttpResponseFuture<T>
     {
@@ -190,25 +179,24 @@ public class TestPrestoSparkHttpWorkerClient
 
         @Override
         public void addListener(Runnable listener, Executor executor)
-        {}
+        {
+        }
     }
 
-    public static class MockHttpClient
+    private static class TestingHttpClient
             implements com.facebook.airlift.http.client.HttpClient
     {
         private final Duration mockDelay;
         private final ScheduledExecutorService executor;
 
-        public MockHttpClient(Duration mockDelay)
+        public TestingHttpClient(Duration mockDelay)
         {
             this.mockDelay = mockDelay;
             this.executor = newScheduledThreadPool(1);
         }
 
         @Override
-        public <T, E extends Exception> T execute(Request request,
-                ResponseHandler<T, E> responseHandler)
-                throws E
+        public <T, E extends Exception> T execute(Request request, ResponseHandler<T, E> responseHandler) throws E
         {
             try {
                 return executeAsync(request, responseHandler).get();
@@ -220,12 +208,12 @@ public class TestPrestoSparkHttpWorkerClient
         }
 
         @Override
-        public <T, E extends Exception> HttpResponseFuture<T> executeAsync(
-                Request request, ResponseHandler<T, E> responseHandler)
+        public <T, E extends Exception> HttpResponseFuture<T> executeAsync(Request request, ResponseHandler<T, E> responseHandler)
         {
-            MockHttpResponseFuture<T> future = new MockHttpResponseFuture<T>();
+            TestingHttpResponseFuture<T> future = new TestingHttpResponseFuture<T>();
             executor.schedule(
-                    () -> {
+                    () ->
+                    {
                         URI uri = request.getUri();
                         String method = request.getMethod();
                         ListMultimap<String, String> headers = request.getHeaders();
@@ -236,9 +224,7 @@ public class TestPrestoSparkHttpWorkerClient
                                 // GET /v1/task/{taskId}/results/{bufferId}/{token}/acknowledge
                                 if (path.contains("acknowledge")) {
                                     try {
-                                        future.complete(responseHandler.handle(
-                                                request,
-                                                MockResponse.createDummyResultResponse()));
+                                        future.complete(responseHandler.handle(request, TestingResponse.createDummyResultResponse()));
                                     }
                                     catch (Exception e) {
                                         e.printStackTrace();
@@ -250,7 +236,7 @@ public class TestPrestoSparkHttpWorkerClient
                                     try {
                                         future.complete(responseHandler.handle(
                                                 request,
-                                                MockResponse.createResultResponse(
+                                                TestingResponse.createResultResponse(
                                                         HttpStatus.OK,
                                                         taskId,
                                                         0,
@@ -267,16 +253,14 @@ public class TestPrestoSparkHttpWorkerClient
                         else if (method.equalsIgnoreCase("DELETE")) {
                             // DELETE /v1/task/{taskId}
                             try {
-                                future.complete(responseHandler.handle(request,
-                                        MockResponse.createDummyResultResponse()));
+                                future.complete(responseHandler.handle(request, TestingResponse.createDummyResultResponse()));
                             }
                             catch (Exception e) {
                                 e.printStackTrace();
                                 future.completeExceptionally(e);
                             }
                         }
-                        future.completeExceptionally(
-                                new Exception("Unknown path " + path));
+                        future.completeExceptionally(new Exception("Unknown path " + path));
                     },
                     (long) mockDelay.getValue(),
                     mockDelay.getUnit());
@@ -296,7 +280,9 @@ public class TestPrestoSparkHttpWorkerClient
         }
 
         @Override
-        public void close() {}
+        public void close()
+        {
+        }
 
         @Override
         public boolean isClosed()
@@ -306,32 +292,33 @@ public class TestPrestoSparkHttpWorkerClient
 
         private String getTaskId(URI uri)
         {
-            String fromTaskId = uri.getPath().substring(
-                    TASK_ROOT_PATH.length() + 1);
-            int endPos = fromTaskId.indexOf("/");
-            if (endPos < 0) {
+            String fromTaskId = uri.getPath().substring(TASK_ROOT_PATH.length() + 1);
+            int endPosition = fromTaskId.indexOf("/");
+            if (endPosition < 0) {
                 return fromTaskId;
             }
-            return fromTaskId.substring(0, endPos);
+            return fromTaskId.substring(0, endPosition);
         }
     }
 
-    public static class MockResponse
+    public static class TestingResponse
             implements Response
     {
         private final int statusCode;
         private final String statusMessage;
-        private ListMultimap<HeaderName, String> headers;
+        private final ListMultimap<HeaderName, String> headers;
         private InputStream inputStream;
 
-        private MockResponse()
+        private TestingResponse()
         {
             this.statusCode = HttpStatus.OK.code();
             this.statusMessage = HttpStatus.OK.toString();
             this.headers = ArrayListMultimap.create();
         }
 
-        private MockResponse(int statusCode, String statusMessage,
+        private TestingResponse(
+                int statusCode,
+                String statusMessage,
                 ListMultimap<HeaderName, String> headers,
                 InputStream inputStream)
         {
@@ -343,7 +330,7 @@ public class TestPrestoSparkHttpWorkerClient
 
         public static Response createDummyResultResponse()
         {
-            return new MockResponse();
+            return new TestingResponse();
         }
 
         public static Response createResultResponse(
@@ -362,16 +349,12 @@ public class TestPrestoSparkHttpWorkerClient
                     0);
             PagesSerdeUtil.writeSerializedPage(slicedOutput, serializedPage);
             ListMultimap<HeaderName, String> headers = ArrayListMultimap.create();
-            headers.put(HeaderName.of(PRESTO_PAGE_TOKEN),
-                    String.valueOf(token));
-            headers.put(HeaderName.of(PRESTO_PAGE_NEXT_TOKEN),
-                    String.valueOf(nextToken));
-            headers.put(HeaderName.of(PRESTO_BUFFER_COMPLETE),
-                    String.valueOf(bufferComplete));
+            headers.put(HeaderName.of(PRESTO_PAGE_TOKEN), String.valueOf(token));
+            headers.put(HeaderName.of(PRESTO_PAGE_NEXT_TOKEN), String.valueOf(nextToken));
+            headers.put(HeaderName.of(PRESTO_BUFFER_COMPLETE), String.valueOf(bufferComplete));
             headers.put(HeaderName.of(PRESTO_TASK_INSTANCE_ID), taskId);
-            headers.put(HeaderName.of(CONTENT_TYPE),
-                    PRESTO_PAGES_TYPE.toString());
-            return new MockResponse(
+            headers.put(HeaderName.of(CONTENT_TYPE), PRESTO_PAGES_TYPE.toString());
+            return new TestingResponse(
                     httpStatus.code(),
                     httpStatus.toString(),
                     headers,
@@ -404,7 +387,6 @@ public class TestPrestoSparkHttpWorkerClient
 
         @Override
         public InputStream getInputStream()
-                throws IOException
         {
             return inputStream;
         }
