@@ -12,7 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.iceberg.version>0.14.0</dep.iceberg.version>
+        <dep.iceberg.version>0.14.1</dep.iceberg.version>
         <dep.nessie.version>0.43.0</dep.nessie.version>
     </properties>
 
