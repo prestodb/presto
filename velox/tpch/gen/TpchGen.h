@@ -73,7 +73,7 @@ TypePtr resolveTpchColumn(Table table, const std::string& columnName);
 ///  o_custkey: BIGINT
 ///  o_orderstatus: VARCHAR
 ///  o_totalprice: DOUBLE
-///  o_orderdate: VARCHAR
+///  o_orderdate: DATE
 ///  o_orderpriority: VARCHAR
 ///  o_clerk: VARCHAR
 ///  o_shippriority: INTEGER
@@ -111,9 +111,9 @@ RowVectorPtr genTpchOrders(
 ///  l_tax: DOUBLE
 ///  l_returnflag: VARCHAR
 ///  l_linestatus: VARCHAR
-///  l_shipdate: VARCHAR
-///  l_commitdate: VARCHAR
-///  l_receiptdate: VARCHAR
+///  l_shipdate: DATE
+///  l_commitdate: DATE
+///  l_receiptdate: DATE
 ///  l_shipinstruct: VARCHAR
 ///  l_shipmode: VARCHAR
 ///  l_comment: VARCHAR

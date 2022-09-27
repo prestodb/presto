@@ -51,6 +51,7 @@ static folly::Singleton<DBGenBackend> DBGenBackendSingleton;
 DBGenIterator::DBGenIterator(double scaleFactor) {
   auto dbgenBackend = DBGenBackendSingleton.try_get();
   VELOX_CHECK_NOT_NULL(dbgenBackend, "Unable to initialize dbgen's dbgunk.");
+  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   if (scaleFactor < MIN_SCALE && scaleFactor > 0) {
     dbgenCtx_.scale_factor = 1;
   } else {

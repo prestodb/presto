@@ -185,16 +185,16 @@ TEST(TpchGenTestOrders, batches) {
 
   auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
   auto orderTotalPrice = rowVector1->childAt(3)->asFlatVector<double>();
-  auto orderDate = rowVector1->childAt(4)->asFlatVector<StringView>();
+  auto orderDate = rowVector1->childAt(4)->asFlatVector<Date>();
 
   EXPECT_EQ(1, orderKey->valueAt(0));
   EXPECT_EQ(173665.47, orderTotalPrice->valueAt(0));
-  EXPECT_EQ("1996-01-02"_sv, orderDate->valueAt(0));
+  EXPECT_EQ("1996-01-02", orderDate->valueAt(0).toString());
   LOG(INFO) << rowVector1->toString(0);
 
   EXPECT_EQ(40'000, orderKey->valueAt(9999));
   EXPECT_EQ(87784.83, orderTotalPrice->valueAt(9999));
-  EXPECT_EQ("1995-01-30"_sv, orderDate->valueAt(9999));
+  EXPECT_EQ("1995-01-30", orderDate->valueAt(9999).toString());
   LOG(INFO) << rowVector1->toString(9999);
 
   // Get second batch.
@@ -205,16 +205,16 @@ TEST(TpchGenTestOrders, batches) {
 
   orderKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
   orderTotalPrice = rowVector2->childAt(3)->asFlatVector<double>();
-  orderDate = rowVector2->childAt(4)->asFlatVector<StringView>();
+  orderDate = rowVector2->childAt(4)->asFlatVector<Date>();
 
   EXPECT_EQ(40001, orderKey->valueAt(0));
   EXPECT_EQ(100589.02, orderTotalPrice->valueAt(0));
-  EXPECT_EQ("1995-02-25"_sv, orderDate->valueAt(0));
+  EXPECT_EQ("1995-02-25", orderDate->valueAt(0).toString());
   LOG(INFO) << rowVector2->toString(0);
 
   EXPECT_EQ(80000, orderKey->valueAt(9999));
   EXPECT_EQ(142775.84, orderTotalPrice->valueAt(9999));
-  EXPECT_EQ("1995-12-15"_sv, orderDate->valueAt(9999));
+  EXPECT_EQ("1995-12-15", orderDate->valueAt(9999).toString());
   LOG(INFO) << rowVector2->toString(9999);
 }
 
@@ -286,15 +286,15 @@ TEST(TpchGenTestLineItem, batches) {
   EXPECT_LE(rowVector1->size(), ordersMaxSize * 7);
 
   auto orderKey = rowVector1->childAt(0)->asFlatVector<int64_t>();
-  auto shipDate = rowVector1->childAt(10)->asFlatVector<StringView>();
+  auto shipDate = rowVector1->childAt(10)->asFlatVector<Date>();
 
   EXPECT_EQ(1, orderKey->valueAt(0));
-  EXPECT_EQ("1996-03-13"_sv, shipDate->valueAt(0));
+  EXPECT_EQ("1996-03-13", shipDate->valueAt(0).toString());
   LOG(INFO) << rowVector1->toString(0);
 
   vector_size_t lastRow = rowVector1->size() - 1;
   EXPECT_EQ(388, orderKey->valueAt(lastRow));
-  EXPECT_EQ("1992-12-24"_sv, shipDate->valueAt(lastRow));
+  EXPECT_EQ("1992-12-24", shipDate->valueAt(lastRow).toString());
   LOG(INFO) << rowVector1->toString(lastRow);
 
   // Get next batch.
@@ -305,15 +305,15 @@ TEST(TpchGenTestLineItem, batches) {
   EXPECT_LE(rowVector2->size(), ordersMaxSize * 7);
 
   orderKey = rowVector2->childAt(0)->asFlatVector<int64_t>();
-  shipDate = rowVector2->childAt(10)->asFlatVector<StringView>();
+  shipDate = rowVector2->childAt(10)->asFlatVector<Date>();
 
   EXPECT_EQ(389, orderKey->valueAt(0));
-  EXPECT_EQ("1994-04-13"_sv, shipDate->valueAt(0));
+  EXPECT_EQ("1994-04-13", shipDate->valueAt(0).toString());
   LOG(INFO) << rowVector2->toString(0);
 
   lastRow = rowVector2->size() - 1;
   EXPECT_EQ(800, orderKey->valueAt(lastRow));
-  EXPECT_EQ("1998-07-23"_sv, shipDate->valueAt(lastRow));
+  EXPECT_EQ("1998-07-23", shipDate->valueAt(lastRow).toString());
   LOG(INFO) << rowVector2->toString(lastRow);
 }
 

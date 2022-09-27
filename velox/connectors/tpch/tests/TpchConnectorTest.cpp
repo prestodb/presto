@@ -270,6 +270,20 @@ TEST_F(TpchConnectorTest, join) {
   test::assertEqualVectors(expected, output);
 }
 
+TEST_F(TpchConnectorTest, orderDateCount) {
+  auto plan = PlanBuilder()
+                  .tableScan(Table::TBL_ORDERS, {"o_orderdate"}, 0.01)
+                  .filter("o_orderdate = '1992-01-01'::DATE")
+                  .limit(0, 10, false)
+                  .planNode();
+
+  auto output = getResults(plan, {makeTpchSplit()});
+  auto orderDate = output->childAt(0)->asFlatVector<Date>();
+  EXPECT_EQ("1992-01-01", orderDate->valueAt(0).toString());
+  // Match with count obtained from Java.
+  EXPECT_EQ(9, orderDate->size());
+}
+
 } // namespace
 
 int main(int argc, char** argv) {

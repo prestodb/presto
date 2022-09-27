@@ -82,6 +82,12 @@ double decimalToDouble(int64_t value) {
   return (double)value * 0.01;
 }
 
+Date toDate(std::string_view stringDate) {
+  Date date;
+  parseTo(stringDate, date);
+  return date;
+}
+
 } // namespace
 
 std::string_view toTableName(Table table) {
@@ -263,7 +269,7 @@ RowTypePtr getTableSchema(Table table) {
               BIGINT(),
               VARCHAR(),
               DOUBLE(),
-              VARCHAR(),
+              DATE(),
               VARCHAR(),
               VARCHAR(),
               INTEGER(),
@@ -303,9 +309,9 @@ RowTypePtr getTableSchema(Table table) {
               DOUBLE(),
               VARCHAR(),
               VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
-              VARCHAR(),
+              DATE(),
+              DATE(),
+              DATE(),
               VARCHAR(),
               VARCHAR(),
               VARCHAR(),
@@ -356,7 +362,6 @@ RowVectorPtr genTpchOrders(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto ordersRowType = getTableSchema(Table::TBL_ORDERS);
   size_t vectorSize = getVectorSize(
@@ -367,7 +372,7 @@ RowVectorPtr genTpchOrders(
   auto custKeyVector = children[1]->asFlatVector<int64_t>();
   auto orderStatusVector = children[2]->asFlatVector<StringView>();
   auto totalPriceVector = children[3]->asFlatVector<double>();
-  auto orderDateVector = children[4]->asFlatVector<StringView>();
+  auto orderDateVector = children[4]->asFlatVector<Date>();
   auto orderPriorityVector = children[5]->asFlatVector<StringView>();
   auto clerkVector = children[6]->asFlatVector<StringView>();
   auto shipPriorityVector = children[7]->asFlatVector<int32_t>();
@@ -386,7 +391,7 @@ RowVectorPtr genTpchOrders(
     custKeyVector->set(i, order.custkey);
     orderStatusVector->set(i, StringView(&order.orderstatus, 1));
     totalPriceVector->set(i, decimalToDouble(order.totalprice));
-    orderDateVector->set(i, StringView(order.odate, strlen(order.odate)));
+    orderDateVector->set(i, toDate(order.odate));
     orderPriorityVector->set(
         i, StringView(order.opriority, strlen(order.opriority)));
     clerkVector->set(i, StringView(order.clerk, strlen(order.clerk)));
@@ -402,7 +407,6 @@ RowVectorPtr genTpchLineItem(
     size_t ordersOffset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // We control the buffer size based on the orders table, then allocate the
   // underlying buffer using the worst case (orderVectorSize * 7).
   size_t orderVectorSize = getVectorSize(
@@ -425,9 +429,9 @@ RowVectorPtr genTpchLineItem(
 
   auto returnFlagVector = children[8]->asFlatVector<StringView>();
   auto lineStatusVector = children[9]->asFlatVector<StringView>();
-  auto shipDateVector = children[10]->asFlatVector<StringView>();
-  auto commitDateVector = children[11]->asFlatVector<StringView>();
-  auto receiptDateVector = children[12]->asFlatVector<StringView>();
+  auto shipDateVector = children[10]->asFlatVector<Date>();
+  auto commitDateVector = children[11]->asFlatVector<Date>();
+  auto receiptDateVector = children[12]->asFlatVector<Date>();
   auto shipInstructVector = children[13]->asFlatVector<StringView>();
   auto shipModeVector = children[14]->asFlatVector<StringView>();
   auto commentVector = children[15]->asFlatVector<StringView>();
@@ -461,12 +465,9 @@ RowVectorPtr genTpchLineItem(
       returnFlagVector->set(lineItemCount + l, StringView(line.rflag, 1));
       lineStatusVector->set(lineItemCount + l, StringView(line.lstatus, 1));
 
-      shipDateVector->set(
-          lineItemCount + l, StringView(line.sdate, strlen(line.sdate)));
-      commitDateVector->set(
-          lineItemCount + l, StringView(line.cdate, strlen(line.cdate)));
-      receiptDateVector->set(
-          lineItemCount + l, StringView(line.rdate, strlen(line.rdate)));
+      shipDateVector->set(lineItemCount + l, toDate(line.sdate));
+      commitDateVector->set(lineItemCount + l, toDate(line.cdate));
+      receiptDateVector->set(lineItemCount + l, toDate(line.rdate));
 
       shipInstructVector->set(
           lineItemCount + l,
@@ -496,7 +497,6 @@ RowVectorPtr genTpchPart(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto partRowType = getTableSchema(Table::TBL_PART);
   size_t vectorSize =
@@ -541,7 +541,6 @@ RowVectorPtr genTpchSupplier(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto supplierRowType = getTableSchema(Table::TBL_SUPPLIER);
   size_t vectorSize = getVectorSize(
@@ -586,7 +585,6 @@ RowVectorPtr genTpchPartSupp(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto partSuppRowType = getTableSchema(Table::TBL_PARTSUPP);
   size_t vectorSize = getVectorSize(
@@ -647,7 +645,6 @@ RowVectorPtr genTpchCustomer(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto customerRowType = getTableSchema(Table::TBL_CUSTOMER);
   size_t vectorSize = getVectorSize(
@@ -695,7 +692,6 @@ RowVectorPtr genTpchNation(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto nationRowType = getTableSchema(Table::TBL_NATION);
   size_t vectorSize = getVectorSize(
@@ -730,7 +726,6 @@ RowVectorPtr genTpchRegion(
     size_t offset,
     double scaleFactor,
     memory::MemoryPool* pool) {
-  VELOX_CHECK_GE(scaleFactor, 0, "Tpch scale factor must be non-negative");
   // Create schema and allocate vectors.
   auto regionRowType = getTableSchema(Table::TBL_REGION);
   size_t vectorSize = getVectorSize(
