@@ -38,25 +38,34 @@ import static com.facebook.airlift.http.client.StatusResponseHandler.createStatu
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * An abstraction of HTTP client that communicates with the locally running Presto worker process. It exposes worker endpoints to simple method calls.
+ */
 @ThreadSafe
 public class PrestoSparkHttpWorkerClient
-        implements RpcShuffleClient {
+        implements RpcShuffleClient
+{
     private static final Logger log = Logger.get(PrestoSparkHttpWorkerClient.class);
 
     private final HttpClient httpClient;
     private final URI location;
     private final TaskId taskId;
 
-    public PrestoSparkHttpWorkerClient(HttpClient httpClient, TaskId taskId, URI location) {
+    public PrestoSparkHttpWorkerClient(HttpClient httpClient, TaskId taskId, URI location)
+    {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
     }
 
+    /**
+     * Get results from a native engine task that ends with none shuffle operator. It always fetches from a single buffer.
+     */
     @Override
     public ListenableFuture<PageBufferClient.PagesResponse> getResults(
             long token,
-            DataSize maxResponseSize) {
+            DataSize maxResponseSize)
+    {
         URI uri = uriBuilderFrom(location)
                 .appendPath(taskId.toString())
                 .appendPath("/results/0")
@@ -71,7 +80,8 @@ public class PrestoSparkHttpWorkerClient
     }
 
     @Override
-    public void acknowledgeResultsAsync(long nextToken) {
+    public void acknowledgeResultsAsync(long nextToken)
+    {
         URI uri = uriBuilderFrom(location)
                 .appendPath(taskId.toString())
                 .appendPath("/results/0")
@@ -80,22 +90,21 @@ public class PrestoSparkHttpWorkerClient
                 .build();
         httpClient.executeAsync(
                 prepareGet().setUri(uri).build(),
-                new ResponseHandler<Void, RuntimeException>() {
+                new ResponseHandler<Void, RuntimeException>()
+                {
                     @Override
                     public Void handleException(Request request,
-                                                Exception exception) {
-                        log.debug(exception, "Acknowledge request failed: %s",
-                                uri);
+                                                Exception exception)
+                    {
+                        log.debug(exception, "Acknowledge request failed: %s", uri);
                         return null;
                     }
 
                     @Override
-                    public Void handle(Request request, Response response) {
-                        if (familyForStatusCode(
-                                response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
-                            log.debug(
-                                    "Unexpected acknowledge response code: %s",
-                                    response.getStatusCode());
+                    public Void handle(Request request, Response response)
+                    {
+                        if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+                            log.debug("Unexpected acknowledge response code: %s", response.getStatusCode());
                         }
                         return null;
                     }
@@ -103,7 +112,8 @@ public class PrestoSparkHttpWorkerClient
     }
 
     @Override
-    public ListenableFuture<?> abortResults() {
+    public ListenableFuture<?> abortResults()
+    {
         URI uri = uriBuilderFrom(location)
                 .appendPath(taskId.toString())
                 .build();
@@ -113,11 +123,13 @@ public class PrestoSparkHttpWorkerClient
     }
 
     @Override
-    public Throwable rewriteException(Throwable throwable) {
+    public Throwable rewriteException(Throwable throwable)
+    {
         return null;
     }
 
-    public URI getLocation() {
+    public URI getLocation()
+    {
         return location;
     }
 }
