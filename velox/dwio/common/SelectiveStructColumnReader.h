@@ -29,7 +29,8 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
       velox::common::ScanSpec& scanSpec)
       : SelectiveColumnReader(dataType, params, scanSpec, dataType->type),
         requestedType_(requestedType),
-        debugString_(getExceptionContext().message()) {}
+        debugString_(
+            getExceptionContext().message(VeloxException::Type::kSystem)) {}
 
   void resetFilterCaches() override {
     for (auto& child : children_) {

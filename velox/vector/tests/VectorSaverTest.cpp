@@ -480,7 +480,8 @@ std::optional<std::string> generateFilePath(const char* basePath) {
 TEST_F(VectorSaverTest, exceptionContext) {
   auto tempDirectory = exec::test::TempDirectoryPath::create();
 
-  auto messageFunction = [](auto* arg) -> std::string {
+  auto messageFunction = [](VeloxException::Type /*exceptionType*/,
+                            auto* arg) -> std::string {
     auto* info = static_cast<VectorSaverInfo*>(arg);
     auto filePath = generateFilePath(info->path);
     if (!filePath.has_value()) {

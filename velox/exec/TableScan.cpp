@@ -101,7 +101,7 @@ RowVectorPtr TableScan::getOutput() {
 
     const auto ioTimeStartMicros = getCurrentTimeMicro();
     ExceptionContextSetter exceptionContext(
-        {[](auto* debugString) {
+        {[](VeloxException::Type /*exceptionType*/, auto* debugString) {
            return *static_cast<std::string*>(debugString);
          },
          &debugString_});

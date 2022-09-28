@@ -80,7 +80,16 @@ DEFINE_bool(bmi2, true, "Enables use of BMI2 when available");
 // Used in exec/Expr.cpp
 
 DEFINE_string(
-    velox_save_input_on_expression_failure_path,
+    velox_save_input_on_expression_any_failure_path,
     "",
-    "Enable saving input vector on expression evaluation failure. "
-    "Specifies the directory to use for storing the vectors.");
+    "Enable saving input vector and expression SQL on any failure during "
+    "expression evaluation. Specifies the directory to use for storing the "
+    "vectors and expression SQL strings.");
+
+DEFINE_string(
+    velox_save_input_on_expression_system_failure_path,
+    "",
+    "Enable saving input vector and expression SQL on system failure during "
+    "expression evaluation. Specifies the directory to use for storing the "
+    "vectors and expression SQL strings. This flag is ignored if "
+    "velox_save_input_on_expression_any_failure_path is set.");

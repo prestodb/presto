@@ -37,8 +37,6 @@ using namespace facebook::velox::test;
 class ExprTest : public testing::Test, public VectorTestBase {
  protected:
   void SetUp() override {
-    FLAGS_velox_save_input_on_expression_failure_path = tempDirectory_->path;
-
     functions::prestosql::registerAllScalarFunctions();
     parse::registerTypeResolver();
   }
@@ -183,6 +181,16 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return context.substr(startPos, endPos - startPos);
   }
 
+  void verifyDataAndSqlPaths(const VeloxException& e, const VectorPtr& data) {
+    auto inputPath = extractInputPath(e.topLevelContext());
+    auto copy = restoreVector(inputPath);
+    assertEqualVectors(data, copy);
+
+    auto sqlPath = extractSqlPath(e.topLevelContext());
+    auto sql = readSqlFromFile(sqlPath);
+    ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
+  }
+
   std::string readSqlFromFile(const std::string& path) {
     std::ifstream inputFile(path, std::ifstream::binary);
 
@@ -235,8 +243,6 @@ class ExprTest : public testing::Test, public VectorTestBase {
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
   parse::ParseOptions options_;
-  std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_{
-      exec::test::TempDirectoryPath::create()};
 };
 
 TEST_F(ExprTest, moreEncodings) {
@@ -2095,11 +2101,105 @@ TEST_F(ExprTest, peeledConstant) {
   }
 }
 
+namespace {
+template <typename T>
+struct AlwaysThrowsFunction {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+    VELOX_FAIL();
+  }
+};
+} // namespace
+
 TEST_F(ExprTest, exceptionContext) {
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3}),
       makeFlatVector<int32_t>({1, 2, 3}),
   });
+
+  registerFunction<AlwaysThrowsFunction, int32_t, int32_t>({"always_throws"});
+
+  // Disable saving vector and expression SQL on error.
+  FLAGS_velox_save_input_on_expression_any_failure_path = "";
+  FLAGS_velox_save_input_on_expression_system_failure_path = "";
+
+  try {
+    evaluate("always_throws(c0) + c1", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("always_throws(c0)", e.context());
+    ASSERT_EQ("plus(always_throws(c0), c1)", e.topLevelContext());
+  }
+
+  try {
+    evaluate("c0 + (c0 + c1) % 0", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
+        e.topLevelContext());
+  }
+
+  try {
+    evaluate("c0 + (c1 % 0)", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((c1) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((c1) as BIGINT), 0:BIGINT))",
+        e.topLevelContext());
+  }
+
+  // Enable saving vector and expression SQL for system errors only.
+  auto tempDirectory = exec::test::TempDirectoryPath::create();
+  FLAGS_velox_save_input_on_expression_system_failure_path =
+      tempDirectory->path;
+
+  try {
+    evaluate("always_throws(c0) + c1", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("always_throws(c0)", e.context());
+    ASSERT_EQ(
+        "plus(always_throws(c0), c1)", trimInputPath(e.topLevelContext()));
+    verifyDataAndSqlPaths(e, data);
+  }
+
+  try {
+    evaluate("c0 + (c0 + c1) % 0", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
+        e.topLevelContext())
+        << e.errorSource();
+  }
+
+  try {
+    evaluate("c0 + (c0 + c1) % 0", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT)", e.context());
+    ASSERT_EQ(
+        "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
+        e.topLevelContext());
+  }
+
+  // Enable saving vector and expression SQL for all errors.
+  FLAGS_velox_save_input_on_expression_any_failure_path = tempDirectory->path;
+  FLAGS_velox_save_input_on_expression_system_failure_path = "";
+
+  try {
+    evaluate("always_throws(c0) + c1", data);
+    FAIL() << "Expected an exception";
+  } catch (const VeloxException& e) {
+    ASSERT_EQ("always_throws(c0)", e.context());
+    ASSERT_EQ(
+        "plus(always_throws(c0), c1)", trimInputPath(e.topLevelContext()));
+    verifyDataAndSqlPaths(e, data);
+  }
 
   try {
     evaluate("c0 + (c0 + c1) % 0", data);
@@ -2109,14 +2209,7 @@ TEST_F(ExprTest, exceptionContext) {
     ASSERT_EQ(
         "plus(cast((c0) as BIGINT), mod(cast((plus(c0, c1)) as BIGINT), 0:BIGINT))",
         trimInputPath(e.topLevelContext()));
-
-    auto inputPath = extractInputPath(e.topLevelContext());
-    auto copy = restoreVector(inputPath);
-    assertEqualVectors(data, copy);
-
-    auto sqlPath = extractSqlPath(e.topLevelContext());
-    auto sql = readSqlFromFile(sqlPath);
-    ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
+    verifyDataAndSqlPaths(e, data);
   }
 
   try {
@@ -2127,14 +2220,7 @@ TEST_F(ExprTest, exceptionContext) {
     ASSERT_EQ(
         "plus(cast((c0) as BIGINT), mod(cast((c1) as BIGINT), 0:BIGINT))",
         trimInputPath(e.topLevelContext()));
-
-    auto inputPath = extractInputPath(e.topLevelContext());
-    auto copy = restoreVector(inputPath);
-    assertEqualVectors(data, copy);
-
-    auto sqlPath = extractSqlPath(e.topLevelContext());
-    auto sql = readSqlFromFile(sqlPath);
-    ASSERT_NO_THROW(compileExpression(sql, asRowType(data->type())));
+    verifyDataAndSqlPaths(e, data);
   }
 }
 
@@ -2356,16 +2442,6 @@ TEST_F(ExprTest, specialFormPropagateNulls) {
       [](vector_size_t row) { return row == 4; });
   assertEqualVectors(expectedResult, evalResult);
 }
-
-namespace {
-template <typename T>
-struct AlwaysThrowsFunction {
-  template <typename TResult, typename TInput>
-  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
-    VELOX_CHECK(false);
-  }
-};
-} // namespace
 
 TEST_F(ExprTest, tryWithConstantFailure) {
   // This test verifies the behavior of constant peeling on a function wrapped

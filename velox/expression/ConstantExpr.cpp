@@ -51,7 +51,10 @@ void ConstantExpr::evalSpecialFormSimplified(
     EvalCtx& context,
     VectorPtr& result) {
   ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+      {[](VeloxException::Type /*exceptionType*/, auto* expr) {
+         return static_cast<Expr*>(expr)->toString();
+       },
+       this});
 
   // Simplified path should never ask us to write to a vector that was already
   // pre-allocated.

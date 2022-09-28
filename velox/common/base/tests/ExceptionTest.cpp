@@ -20,6 +20,8 @@
 
 #include "velox/common/base/Exceptions.h"
 
+using namespace facebook::velox;
+
 struct Counter {
   mutable int counter = 0;
 };
@@ -62,12 +64,11 @@ void verifyException(
 void verifyVeloxException(
     std::function<void()> f,
     const std::string& messagePrefix) {
-  verifyException<::facebook::velox::VeloxException>(
-      f, [&messagePrefix](const auto& e) {
-        EXPECT_TRUE(folly::StringPiece{e.what()}.startsWith(messagePrefix))
-            << "\nException message prefix mismatch.\n\nExpected prefix: "
-            << messagePrefix << "\n\nActual message: " << e.what();
-      });
+  verifyException<VeloxException>(f, [&messagePrefix](const auto& e) {
+    EXPECT_TRUE(folly::StringPiece{e.what()}.startsWith(messagePrefix))
+        << "\nException message prefix mismatch.\n\nExpected prefix: "
+        << messagePrefix << "\n\nActual message: " << e.what();
+  });
 }
 
 void testExceptionTraceCollectionControl(bool userException, bool enabled) {
@@ -84,35 +85,33 @@ void testExceptionTraceCollectionControl(bool userException, bool enabled) {
   }
   try {
     if (userException) {
-      throw ::facebook::velox::VeloxUserError(
+      throw VeloxUserError(
           "file_name",
           1,
           "function_name()",
           "operator()",
           "test message",
           "",
-          ::facebook::velox::error_code::kArithmeticError,
+          error_code::kArithmeticError,
           false);
     } else {
-      throw ::facebook::velox::VeloxRuntimeError(
+      throw VeloxRuntimeError(
           "file_name",
           1,
           "function_name()",
           "operator()",
           "test message",
           "",
-          ::facebook::velox::error_code::kArithmeticError,
+          error_code::kArithmeticError,
           false);
     }
-  } catch (::facebook::velox::VeloxException& e) {
+  } catch (VeloxException& e) {
     SCOPED_TRACE(fmt::format(
         "enabled: {}, user flag: {}, sys flag: {}",
         enabled,
         FLAGS_velox_exception_user_stacktrace_enabled,
         FLAGS_velox_exception_system_stacktrace_enabled));
-    ASSERT_EQ(
-        userException,
-        e.exceptionType() == ::facebook::velox::VeloxException::Type::kUser);
+    ASSERT_EQ(userException, e.exceptionType() == VeloxException::Type::kUser);
     ASSERT_EQ(enabled, e.stackTrace() != nullptr);
   }
 }
@@ -150,27 +149,27 @@ void testExceptionTraceCollectionRateControl(
   for (int iter = 0; iter < 3; ++iter) {
     try {
       if (userException) {
-        throw ::facebook::velox::VeloxUserError(
+        throw VeloxUserError(
             "file_name",
             1,
             "function_name()",
             "operator()",
             "test message",
             "",
-            ::facebook::velox::error_code::kArithmeticError,
+            error_code::kArithmeticError,
             false);
       } else {
-        throw ::facebook::velox::VeloxRuntimeError(
+        throw VeloxRuntimeError(
             "file_name",
             1,
             "function_name()",
             "operator()",
             "test message",
             "",
-            ::facebook::velox::error_code::kArithmeticError,
+            error_code::kArithmeticError,
             false);
       }
-    } catch (::facebook::velox::VeloxException& e) {
+    } catch (VeloxException& e) {
       SCOPED_TRACE(fmt::format(
           "userException: {}, hasRateLimit: {}, user limit: {}ms, sys limit: {}ms",
           userException,
@@ -178,8 +177,7 @@ void testExceptionTraceCollectionRateControl(
           FLAGS_velox_exception_user_stacktrace_rate_limit_ms,
           FLAGS_velox_exception_system_stacktrace_rate_limit_ms));
       ASSERT_EQ(
-          userException,
-          e.exceptionType() == ::facebook::velox::VeloxException::Type::kUser);
+          userException, e.exceptionType() == VeloxException::Type::kUser);
       ASSERT_EQ(!hasRateLimit || ((iter % 2) == 0), e.stackTrace() != nullptr);
       // NOTE: with rate limit control, we want to verify if we can collect
       // stack trace after waiting for a while.
@@ -201,22 +199,16 @@ TEST(ExceptionTest, lazyStreamEvaluation) {
   VELOX_CHECK(true, "{}", c);
   EXPECT_EQ(0, c.counter);
 
-  EXPECT_THROW(
-      ([&]() { VELOX_CHECK(false, "{}", c); })(),
-      ::facebook::velox::VeloxRuntimeError);
+  EXPECT_THROW(([&]() { VELOX_CHECK(false, "{}", c); })(), VeloxRuntimeError);
   EXPECT_EQ(1, c.counter);
 
   VELOX_CHECK(true, "{}", c);
   EXPECT_EQ(1, c.counter);
 
-  EXPECT_THROW(
-      ([&]() { VELOX_USER_CHECK(false, "{}", c); })(),
-      ::facebook::velox::VeloxUserError);
+  EXPECT_THROW(([&]() { VELOX_USER_CHECK(false, "{}", c); })(), VeloxUserError);
   EXPECT_EQ(2, c.counter);
 
-  EXPECT_THROW(
-      ([&]() { VELOX_CHECK(false, "{}", c); })(),
-      ::facebook::velox::VeloxRuntimeError);
+  EXPECT_THROW(([&]() { VELOX_CHECK(false, "{}", c); })(), VeloxRuntimeError);
   EXPECT_EQ(3, c.counter);
 
   // Simple types.
@@ -226,13 +218,9 @@ TEST(ExceptionTest, lazyStreamEvaluation) {
   VELOX_CHECK(true, "{}", ++i);
   EXPECT_EQ(0, i);
 
-  EXPECT_THROW(
-      ([&]() { VELOX_CHECK(false, "{}", i++); })(),
-      ::facebook::velox::VeloxRuntimeError);
+  EXPECT_THROW(([&]() { VELOX_CHECK(false, "{}", i++); })(), VeloxRuntimeError);
   EXPECT_EQ(1, i);
-  EXPECT_THROW(
-      ([&]() { VELOX_CHECK(false, "{}", ++i); })(),
-      ::facebook::velox::VeloxRuntimeError);
+  EXPECT_THROW(([&]() { VELOX_CHECK(false, "{}", ++i); })(), VeloxRuntimeError);
   EXPECT_EQ(2, i);
 }
 
@@ -580,10 +568,18 @@ TEST(ExceptionTest, context) {
     int* callCount;
   };
 
-  auto messageFunction = [](void* untypedArg) {
+  auto messageFunction = [](facebook::velox::VeloxException::Type exceptionType,
+                            void* untypedArg) {
     auto arg = static_cast<MessageFunctionArg*>(untypedArg);
     ++(*arg->callCount);
-    return arg->message;
+    switch (exceptionType) {
+      case facebook::velox::VeloxException::Type::kUser:
+        return fmt::format("User error: {}", arg->message);
+      case facebook::velox::VeloxException::Type::kSystem:
+        return fmt::format("System error: {}", arg->message);
+      default:
+        return fmt::format("Unexpected error type: {}", arg->message);
+    }
   };
 
   {
@@ -611,12 +607,27 @@ TEST(ExceptionTest, context) {
         "\nReason: (1 vs. 3)"
         "\nRetriable: False"
         "\nExpression: 1 == 3"
-        "\nContext: Inner-level troubleshooting aid."
-        "\nTop-Level Context: Top-level troubleshooting aid."
+        "\nContext: System error: Inner-level troubleshooting aid."
+        "\nTop-Level Context: System error: Top-level troubleshooting aid."
         "\nFunction: operator()"
         "\nFile: ");
 
     EXPECT_EQ(2, callCount);
+
+    verifyVeloxException(
+        [&]() { VELOX_USER_CHECK_EQ(1, 3); },
+        "Exception: VeloxUserError"
+        "\nError Source: USER"
+        "\nError Code: INVALID_ARGUMENT"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: User error: Inner-level troubleshooting aid."
+        "\nTop-Level Context: User error: Top-level troubleshooting aid."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(4, callCount);
   }
 
   // Different context.
@@ -637,12 +648,27 @@ TEST(ExceptionTest, context) {
         "\nReason: (1 vs. 3)"
         "\nRetriable: False"
         "\nExpression: 1 == 3"
-        "\nContext: Debugging info."
+        "\nContext: System error: Debugging info."
         "\nTop-Level Context: Same as context."
         "\nFunction: operator()"
         "\nFile: ");
 
     EXPECT_EQ(1, callCount);
+
+    verifyVeloxException(
+        [&]() { VELOX_USER_CHECK_EQ(1, 3); },
+        "Exception: VeloxUserError"
+        "\nError Source: USER"
+        "\nError Code: INVALID_ARGUMENT"
+        "\nReason: (1 vs. 3)"
+        "\nRetriable: False"
+        "\nExpression: 1 == 3"
+        "\nContext: User error: Debugging info."
+        "\nTop-Level Context: Same as context."
+        "\nFunction: operator()"
+        "\nFile: ");
+
+    EXPECT_EQ(2, callCount);
   }
 
   callCount = 0;
@@ -662,7 +688,9 @@ TEST(ExceptionTest, context) {
   EXPECT_EQ(0, callCount);
 
   // With message function throwing an exception.
-  auto throwingMessageFunction = [](void* untypedArg) -> std::string {
+  auto throwingMessageFunction =
+      [](facebook::velox::VeloxException::Type /*exceptionType*/,
+         void* untypedArg) -> std::string {
     auto arg = static_cast<MessageFunctionArg*>(untypedArg);
     ++(*arg->callCount);
     VELOX_FAIL("Test failure.");

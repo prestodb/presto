@@ -30,13 +30,14 @@ ExceptionContext& getExceptionContext() {
 // context. If the top-level context message is not empty and is the same as the
 // current one, returns a string indicating they are the same.
 std::string getTopLevelExceptionContextString(
+    VeloxException::Type exceptionType,
     const std::string& currentMessage) {
   auto* context = &getExceptionContext();
   if (context->parent && context->parent->parent) {
     while (context->parent && context->parent->parent) {
       context = context->parent;
     }
-    auto topLevelMessage = context->message();
+    auto topLevelMessage = context->message(exceptionType);
     if (!topLevelMessage.empty() && topLevelMessage == currentMessage) {
       return "Same as context.";
     } else {
@@ -71,9 +72,9 @@ VeloxException::VeloxException(
         state.message = message;
         state.errorSource = errorSource;
         state.errorCode = errorCode;
-        state.context = getExceptionContext().message();
+        state.context = getExceptionContext().message(exceptionType);
         state.topLevelContext =
-            getTopLevelExceptionContextString(state.context);
+            getTopLevelExceptionContextString(exceptionType, state.context);
         state.isRetriable = isRetriable;
       })) {}
 

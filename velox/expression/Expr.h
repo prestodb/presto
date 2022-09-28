@@ -26,10 +26,18 @@
 #include "velox/expression/EvalCtx.h"
 #include "velox/vector/SimpleVector.h"
 
-/// GFlag used to enable saving input vector to a file in case of an error
-/// during expression evaluation. The value specifies a path to a directory
-/// where the vectors will be saved. That directory must exist and be writable.
-DECLARE_string(velox_save_input_on_expression_failure_path);
+/// GFlag used to enable saving input vector and expression SQL on disk in case
+/// of any (user or system) error during expression evaluation. The value
+/// specifies a path to a directory where the vectors will be saved. That
+/// directory must exist and be writable.
+DECLARE_string(velox_save_input_on_expression_any_failure_path);
+
+/// GFlag used to enable saving input vector and expression SQL on disk in case
+/// of a system error during expression evaluation. The value specifies a path
+/// to a directory where the vectors will be saved. That directory must exist
+/// and be writable. This flag is ignored if
+/// velox_save_input_on_expression_any_failure_path flag is set.
+DECLARE_string(velox_save_input_on_expression_system_failure_path);
 
 namespace facebook::velox::exec {
 

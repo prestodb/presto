@@ -399,19 +399,22 @@ std::string storeSql(const char* basePath, const Expr& expr) {
 /// used in subsequent calls. If an error occurs while saving the input vector,
 /// the error message is saved in ExprExceptionContext::serializedVectorPath and
 /// save operation is not attempted again on subsequent calls.
-std::string onTopLevelException(void* arg) {
+std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
   auto* context = static_cast<ExprExceptionContext*>(arg);
 
-  const auto& basePath = FLAGS_velox_save_input_on_expression_failure_path;
-  if (basePath.empty()) {
+  const char* basePath =
+      FLAGS_velox_save_input_on_expression_any_failure_path.c_str();
+  if (strlen(basePath) == 0 && exceptionType == VeloxException::Type::kSystem) {
+    basePath = FLAGS_velox_save_input_on_expression_system_failure_path.c_str();
+  }
+  if (strlen(basePath) == 0) {
     return context->expr->toString();
   }
 
   // Save input vector to a file.
   if (context->serializedVectorPath.empty()) {
-    context->serializedVectorPath =
-        storeVector(basePath.c_str(), *context->vector);
-    context->sqlPath = storeSql(basePath.c_str(), *context->expr);
+    context->serializedVectorPath = storeVector(basePath, *context->vector);
+    context->sqlPath = storeSql(basePath, *context->expr);
   }
 
   return fmt::format(
@@ -424,7 +427,7 @@ std::string onTopLevelException(void* arg) {
 /// Used to generate context for an error occurred while evaluating
 /// sub-expression. Returns the output of Expr::toString() for the
 /// sub-expression.
-std::string onException(void* arg) {
+std::string onException(VeloxException::Type /*exceptionType*/, void* arg) {
   return static_cast<Expr*>(arg)->toString();
 }
 } // namespace

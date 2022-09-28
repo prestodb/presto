@@ -94,7 +94,10 @@ void FieldReference::evalSpecialFormSimplified(
     EvalCtx& context,
     VectorPtr& result) {
   ExceptionContextSetter exceptionContext(
-      {[](auto* expr) { return static_cast<Expr*>(expr)->toString(); }, this});
+      {[](VeloxException::Type /*exceptionType*/, auto* expr) {
+         return static_cast<Expr*>(expr)->toString();
+       },
+       this});
 
   auto row = context.row();
   result = row->childAt(index(context));
