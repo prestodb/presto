@@ -732,6 +732,31 @@ TEST(MemoryPoolTest, setMemoryUsageTrackerTest) {
     ASSERT_EQ(0, pool.getCurrentBytes());
     EXPECT_EQ(0, tracker->getCurrentUserBytes());
   }
+  {
+    auto& pool = root.addChild("switcheroo_pool");
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    auto tracker = SimpleMemoryTracker::create();
+    void* chunk = pool.allocate(kChunkSize);
+    ASSERT_EQ(kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    pool.setMemoryUsageTracker(tracker);
+    EXPECT_EQ(kChunkSize, tracker->getCurrentUserBytes());
+    pool.setMemoryUsageTracker(tracker);
+    EXPECT_EQ(kChunkSize, tracker->getCurrentUserBytes());
+    auto newTracker = SimpleMemoryTracker::create();
+    pool.setMemoryUsageTracker(newTracker);
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    EXPECT_EQ(kChunkSize, newTracker->getCurrentUserBytes());
+
+    chunk = pool.reallocate(chunk, kChunkSize, 2 * kChunkSize);
+    ASSERT_EQ(2 * kChunkSize, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    EXPECT_EQ(2 * kChunkSize, newTracker->getCurrentUserBytes());
+    pool.free(chunk, 2 * kChunkSize);
+    ASSERT_EQ(0, pool.getCurrentBytes());
+    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    EXPECT_EQ(0, newTracker->getCurrentUserBytes());
+  }
 }
 
 TEST(MemoryPoolTest, mockUpdatesTest) {

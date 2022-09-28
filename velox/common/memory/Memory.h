@@ -738,8 +738,12 @@ int64_t MemoryPoolImpl<Allocator, ALIGNMENT>::getMaxBytes() const {
 template <typename Allocator, uint16_t ALIGNMENT>
 void MemoryPoolImpl<Allocator, ALIGNMENT>::setMemoryUsageTracker(
     const std::shared_ptr<MemoryUsageTracker>& tracker) {
+  const auto currentBytes = getCurrentBytes();
+  if (memoryUsageTracker_) {
+    memoryUsageTracker_->update(-currentBytes);
+  }
   memoryUsageTracker_ = tracker;
-  memoryUsageTracker_->update(getCurrentBytes());
+  memoryUsageTracker_->update(currentBytes);
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
