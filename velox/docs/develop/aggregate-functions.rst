@@ -580,3 +580,18 @@ To confirm that aggregate function works end to end as part of query, update tes
 .. code-block:: java
 
     assertQuery("SELECT orderkey, array_agg(linenumber) FROM lineitem GROUP BY 1");
+
+Overwrite Intermediate Type in Presto
+-------------------------------------
+
+Sometimes we need to change the intermediate type of aggregation function in
+Presto, due to the differences in implementation or in the type information
+worker node receives.  This is done in Presto class
+``com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager``.  When
+``FeaturesConfig.isUseAlternativeFunctionSignatures()`` is enabled, we can
+register a different set of function signatures used specifically by Velox.  An
+example of how to create such alternative function signatures from scratch can
+be found in
+``com.facebook.presto.operator.aggregation.AlternativeApproxPercentile``.  An
+example pull request can be found at
+https://github.com/prestodb/presto/pull/18386.

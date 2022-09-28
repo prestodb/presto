@@ -140,6 +140,29 @@ struct KllSketch {
   /// Get frequencies of items being tracked.  The result is sorted by item.
   std::vector<std::pair<T, uint64_t>> getFrequencies() const;
 
+  struct View {
+    uint32_t k;
+    size_t n;
+    T minValue;
+    T maxValue;
+    folly::Range<const T*> items;
+    folly::Range<const uint32_t*> levels;
+
+    uint8_t numLevels() const {
+      return levels.size() - 1;
+    }
+
+    uint32_t safeLevelSize(uint8_t level) const {
+      return level < numLevels() ? levels[level + 1] - levels[level] : 0;
+    }
+
+    void deserialize(const char* FOLLY_NONNULL);
+  };
+
+  void mergeViews(const folly::Range<const View*>& views);
+
+  View toView() const;
+
  private:
   KllSketch(const Allocator&, uint32_t seed);
   void doInsert(T);
@@ -160,29 +183,8 @@ struct KllSketch {
     return level < numLevels() ? levels_[level + 1] - levels_[level] : 0;
   }
 
-  struct View {
-    uint32_t k;
-    size_t n;
-    T minValue;
-    T maxValue;
-    folly::Range<const T*> items;
-    folly::Range<const uint32_t*> levels;
-
-    uint8_t numLevels() const {
-      return levels.size() - 1;
-    }
-
-    uint32_t safeLevelSize(uint8_t level) const {
-      return level < numLevels() ? levels[level + 1] - levels[level] : 0;
-    }
-
-    void deserialize(const char* FOLLY_NONNULL);
-  };
-
-  View toView() const;
   static KllSketch<T, Allocator, Compare>
   fromView(const View&, const Allocator&, uint32_t seed);
-  void mergeViews(const folly::Range<const View*>& views);
 
   using AllocU32 = typename std::allocator_traits<
       Allocator>::template rebind_alloc<uint32_t>;

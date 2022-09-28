@@ -125,7 +125,7 @@ void AggregationTestBase::testAggregations(
         assertResults) {
   {
     SCOPED_TRACE("Run partial + final");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
     builder.partialAggregation(groupingKeys, aggregates).finalAggregation();
     if (!postAggregationProjections.empty()) {
@@ -138,7 +138,7 @@ void AggregationTestBase::testAggregations(
 
   {
     SCOPED_TRACE("Run single");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
     builder.singleAggregation(groupingKeys, aggregates);
     if (!postAggregationProjections.empty()) {
@@ -151,7 +151,7 @@ void AggregationTestBase::testAggregations(
 
   if (!groupingKeys.empty() && allowInputShuffle_) {
     SCOPED_TRACE("Run partial + final with spilling");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
 
     // Spilling needs at least 2 batches of input. Use round-robin
@@ -187,7 +187,7 @@ void AggregationTestBase::testAggregations(
 
   {
     SCOPED_TRACE("Run partial + intermediate + final");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
 
     builder.partialAggregation(groupingKeys, aggregates)
@@ -204,7 +204,7 @@ void AggregationTestBase::testAggregations(
 
   if (!groupingKeys.empty()) {
     SCOPED_TRACE("Run partial + local exchange + final");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
 
     builder.partialAggregation(groupingKeys, aggregates)
@@ -222,7 +222,7 @@ void AggregationTestBase::testAggregations(
   {
     SCOPED_TRACE(
         "Run partial + local exchange + intermediate + local exchange + final");
-    PlanBuilder builder;
+    PlanBuilder builder(pool());
     makeSource(builder);
 
     builder.partialAggregation(groupingKeys, aggregates);

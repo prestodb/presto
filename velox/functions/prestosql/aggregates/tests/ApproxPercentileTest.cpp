@@ -58,9 +58,9 @@ class ApproxPercentileTest : public AggregationTestBase {
   void SetUp() override {
     AggregationTestBase::SetUp();
     random::setSeed(0);
+    allowInputShuffle();
   }
 
-  // TODO: Use `testAggregations` once issue #2430 is fixed.
   template <typename T>
   void testGlobalAgg(
       const VectorPtr& values,
@@ -73,39 +73,20 @@ class ApproxPercentileTest : public AggregationTestBase {
         weights != nullptr,
         percentile,
         accuracy));
-    auto call = functionCall(false, weights.get(), percentile, accuracy, -1);
     auto rows =
         weights ? makeRowVector({values, weights}) : makeRowVector({values});
-    auto op =
-        PlanBuilder().values({rows}).singleAggregation({}, {call}).planNode();
-    {
-      SCOPED_TRACE("single_agg=false");
-      assertQuery(op, fmt::format("SELECT {}", expectedResult));
-    }
-    op = PlanBuilder()
-             .values({rows})
-             .partialAggregation({}, {call})
-             .finalAggregation()
-             .planNode();
-    {
-      SCOPED_TRACE("single_agg=true");
-      assertQuery(op, fmt::format("SELECT {}", expectedResult));
-    }
-    call = functionCall(false, weights.get(), percentile, accuracy, 3);
-    op = PlanBuilder(pool())
-             .values({rows})
-             .partialAggregation({}, {call})
-             .finalAggregation()
-             .planNode();
-    {
-      SCOPED_TRACE("Percentile array");
-      auto expected = makeRowVector(
-          {makeArrayVector<T>({std::vector<T>(3, expectedResult)})});
-      assertQuery(op, expected);
-    }
+    testAggregations(
+        {rows},
+        {},
+        {functionCall(false, weights.get(), percentile, accuracy, -1)},
+        fmt::format("SELECT {}", expectedResult));
+    testAggregations(
+        {rows},
+        {},
+        {functionCall(false, weights.get(), percentile, accuracy, 3)},
+        fmt::format("SELECT ARRAY[{0},{0},{0}]", expectedResult));
   }
 
-  // TODO: Use `testAggregations` once issue #2430 is fixed.
   void testGroupByAgg(
       const VectorPtr& keys,
       const VectorPtr& values,
@@ -113,26 +94,13 @@ class ApproxPercentileTest : public AggregationTestBase {
       double percentile,
       double accuracy,
       const RowVectorPtr& expectedResult) {
-    auto call = functionCall(true, weights.get(), percentile, accuracy, -1);
     auto rows = weights ? makeRowVector({keys, values, weights})
                         : makeRowVector({keys, values});
-    auto op = PlanBuilder()
-                  .values({rows})
-                  .singleAggregation({"c0"}, {call})
-                  .planNode();
-    assertQuery(op, expectedResult);
-    op = PlanBuilder()
-             .values({rows})
-             .partialAggregation({"c0"}, {call})
-             .finalAggregation()
-             .planNode();
-    assertQuery(op, expectedResult);
-    call = functionCall(true, weights.get(), percentile, accuracy, 3);
-    op = PlanBuilder(pool())
-             .values({rows})
-             .partialAggregation({"c0"}, {call})
-             .finalAggregation()
-             .planNode();
+    testAggregations(
+        {rows},
+        {"c0"},
+        {functionCall(true, weights.get(), percentile, accuracy, -1)},
+        {expectedResult});
     {
       SCOPED_TRACE("Percentile array");
       auto resultValues = expectedResult->childAt(1);
@@ -159,7 +127,11 @@ class ApproxPercentileTest : public AggregationTestBase {
                offsets,
                sizes,
                elements)});
-      assertQuery(op, expected);
+      testAggregations(
+          {rows},
+          {"c0"},
+          {functionCall(true, weights.get(), percentile, accuracy, 3)},
+          {expected});
     }
   }
 };
