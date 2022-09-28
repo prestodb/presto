@@ -914,6 +914,61 @@ TEST_F(JsonCastTest, toMap) {
   testCast<ComplexType>(JSON(), MAP(VARCHAR(), BIGINT()), data, expected);
 }
 
+TEST_F(JsonCastTest, toRow) {
+  // Test casting to ROW from JSON arrays.
+  auto array = makeNullableFlatVector<Json>(
+      {R"([123,"abc",true])"_sv,
+       R"([123,null,false])"_sv,
+       R"([123,null,null])"_sv,
+       R"([null,null,null])"_sv},
+      JSON());
+  auto child1 = makeNullableFlatVector<int64_t>({123, 123, 123, std::nullopt});
+  auto child2 = makeNullableFlatVector<StringView>(
+      {"abc"_sv, std::nullopt, std::nullopt, std::nullopt});
+  auto child3 =
+      makeNullableFlatVector<bool>({true, false, std::nullopt, std::nullopt});
+
+  testCast<ComplexType>(
+      JSON(),
+      ROW({BIGINT(), VARCHAR(), BOOLEAN()}),
+      array,
+      makeRowVector({child1, child2, child3}));
+
+  // Test casting to ROW from JSON objects.
+  auto map = makeNullableFlatVector<Json>(
+      {R"({"k1":123,"k2":"abc","k3":true})"_sv,
+       R"({"k2":"abc","k3":true,"k1":123})"_sv,
+       R"({"k1":123,"k3":true,"k1":456})"_sv,
+       R"({"k4":123,"k5":"abc","k3":false})"_sv,
+       R"({"k1":null,"k3":false})"_sv,
+       R"({"k1":null,"k3":null,"k2":null})"_sv},
+      JSON());
+  auto child4 = makeNullableFlatVector<int64_t>(
+      {123, 123, 456, std::nullopt, std::nullopt, std::nullopt});
+  auto child5 = makeNullableFlatVector<StringView>(
+      {"abc"_sv,
+       "abc"_sv,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt,
+       std::nullopt});
+  auto child6 = makeNullableFlatVector<bool>(
+      {true, true, true, false, false, std::nullopt});
+
+  testCast<ComplexType>(
+      JSON(),
+      ROW({"k1", "k2", "k3"}, {BIGINT(), VARCHAR(), BOOLEAN()}),
+      map,
+      makeRowVector({child4, child5, child6}));
+
+  // Test casting to ROW from JSON null.
+  auto null = makeNullableFlatVector<Json>({"null"_sv});
+  auto nullExpected = makeRowVector(ROW({BIGINT(), DOUBLE()}), 1);
+  nullExpected->setNull(0, true);
+
+  testCast<ComplexType>(JSON(), ROW({BIGINT(), DOUBLE()}), null, nullExpected);
+}
+
 TEST_F(JsonCastTest, toNested) {
   auto array = makeNullableFlatVector<Json>(
       {R"([[1,2],[3]])"_sv, R"([[null,null,4]])"_sv, "[[]]"_sv, "[]"_sv},
@@ -993,12 +1048,23 @@ TEST_F(JsonCastTest, toInvalid) {
       MAP(VARCHAR(), DOUBLE()),
       {R"({"red":1.1,"blue":2.2})"_sv, R"({null:3.3,"yellow":4.4})"_sv});
 
-  // Casting to ROW type is not supported yet.
+  // Casting JSON arrays to ROW type with different number of fields or
+  // unmatched field order is not allowed.
   testThrow<Json, ComplexType>(
       JSON(),
-      ROW({VARCHAR(), DOUBLE()}),
+      ROW({VARCHAR(), DOUBLE(), BIGINT()}),
       {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
-  testThrow<Json, ComplexType>(JSON(), ARRAY(ROW({DOUBLE()})), {"null"_sv});
+  testThrow<Json, ComplexType>(
+      JSON(), ROW({VARCHAR()}), {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
+  testThrow<Json, ComplexType>(
+      JSON(),
+      ROW({DOUBLE(), VARCHAR()}),
+      {R"(["red",1.1])"_sv, R"(["blue",2.2])"_sv});
+
+  // Casting to ROW type from JSON text other than arrays or objects are not
+  // supported.
+  testThrow<Json, ComplexType>(
+      JSON(), ROW({BIGINT()}), {R"(123)"_sv, R"(456)"_sv});
 }
 
 TEST_F(JsonCastTest, castInTry) {
