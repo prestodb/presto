@@ -25,11 +25,7 @@
 #include "folly/Range.h"
 #include "velox/dwio/type/TypeParser.h"
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace type {
-namespace fbhive {
+namespace facebook::velox::dwio::type::fbhive {
 
 // TODO : Find out what to do with these types
 // NUMERIC, INTERVAL, VARCHAR, VOID
@@ -54,7 +50,11 @@ enum class TokenType {
   Number = 17,
   Identifier = 18,
   EndOfStream = 19,
-  MaxTokenType = 19
+  ShortDecimal = 20,
+  LongDecimal = 21,
+  LeftRoundBracket = 22,
+  RightRoundBracket = 23,
+  MaxTokenType = 23
 };
 
 struct TokenMetadata {
@@ -152,8 +152,4 @@ class HiveTypeParser : public type::TypeParser {
   folly::StringPiece remaining_;
 };
 
-} // namespace fbhive
-} // namespace type
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::type::fbhive

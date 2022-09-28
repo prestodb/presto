@@ -26,11 +26,17 @@
 using facebook::velox::Type;
 using facebook::velox::TypeKind;
 
-namespace facebook {
-namespace velox {
-namespace dwio {
-namespace type {
-namespace fbhive {
+namespace {
+/// Returns true only if 'str' contains digits.
+bool isPositiveInteger(const std::string& str) {
+  return !str.empty() &&
+      std::find_if(str.begin(), str.end(), [](unsigned char c) {
+        return !std::isdigit(c);
+      }) == str.end();
+}
+} // namespace
+
+namespace facebook::velox::dwio::type::fbhive {
 
 HiveTypeParser::HiveTypeParser() {
   metadata_.resize(static_cast<size_t>(TokenType::MaxTokenType) + 1);
@@ -41,6 +47,9 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::Long, TypeKind::BIGINT>("bigint");
   setupMetadata<TokenType::Float, TypeKind::REAL>({"float", "real"});
   setupMetadata<TokenType::Double, TypeKind::DOUBLE>("double");
+  setupMetadata<TokenType::ShortDecimal, TypeKind::SHORT_DECIMAL>(
+      "short_decimal");
+  setupMetadata<TokenType::LongDecimal, TypeKind::LONG_DECIMAL>("long_decimal");
   setupMetadata<TokenType::String, TypeKind::VARCHAR>({"string", "varchar"});
   setupMetadata<TokenType::Binary, TypeKind::VARBINARY>(
       {"binary", "varbinary"});
@@ -52,6 +61,8 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::EndSubType, TypeKind::INVALID>(">");
   setupMetadata<TokenType::Colon, TypeKind::INVALID>(":");
   setupMetadata<TokenType::Comma, TypeKind::INVALID>(",");
+  setupMetadata<TokenType::LeftRoundBracket, TypeKind::INVALID>("(");
+  setupMetadata<TokenType::RightRoundBracket, TypeKind::INVALID>(")");
   setupMetadata<TokenType::Number, TypeKind::INVALID>();
   setupMetadata<TokenType::Identifier, TypeKind::INVALID>();
   setupMetadata<TokenType::EndOfStream, TypeKind::INVALID>();
@@ -60,17 +71,31 @@ HiveTypeParser::HiveTypeParser() {
 std::shared_ptr<const Type> HiveTypeParser::parse(const std::string& ser) {
   remaining_ = folly::StringPiece(ser);
   Result result = parseType();
-  if (remaining_.size() != 0 && (TokenType::EndOfStream != lookAhead())) {
-    throw std::invalid_argument("Input remaining after type parsing");
-  }
+  VELOX_CHECK(
+      !(remaining_.size() != 0 && (TokenType::EndOfStream != lookAhead())),
+      "Input remaining after type parsing");
   return result.type;
 }
 
 Result HiveTypeParser::parseType() {
   Token nt = nextToken();
-  if (nt.isEOS()) {
-    throw std::invalid_argument("Unexpected end of stream parsing type!!!");
-  } else if (nt.isValidType() && nt.isPrimitiveType()) {
+  VELOX_CHECK(!nt.isEOS(), "Unexpected end of stream parsing type!!!");
+  if (nt.isValidType() && nt.isPrimitiveType()) {
+    if (isDecimalKind(nt.typeKind())) {
+      eatToken(TokenType::LeftRoundBracket);
+      Token precision = nextToken();
+      VELOX_CHECK(
+          isPositiveInteger(precision.value.toString()),
+          "Decimal precision must be a positive integer");
+      eatToken(TokenType::Comma);
+      Token scale = nextToken();
+      VELOX_CHECK(
+          isPositiveInteger(scale.value.toString()),
+          "Decimal scale must be a positive integer");
+      eatToken(TokenType::RightRoundBracket);
+      return Result{DECIMAL(
+          std::atoi(precision.value.data()), std::atoi(scale.value.data()))};
+    }
     auto scalarType = createScalarType(nt.typeKind());
     DWIO_ENSURE_NOT_NULL(
         scalarType, "Returned a null scalar type for ", nt.typeKind());
@@ -82,24 +107,23 @@ Result HiveTypeParser::parseType() {
         return Result{velox::ROW(
             std::move(resultList.names), std::move(resultList.typelist))};
       case velox::TypeKind::MAP: {
-        if (resultList.typelist.size() != 2) {
-          throw std::invalid_argument{"wrong param count for map type def"};
-        }
+        VELOX_CHECK(
+            resultList.typelist.size() == 2,
+            "wrong param count for map type def");
         return Result{
             velox::MAP(resultList.typelist.at(0), resultList.typelist.at(1))};
       }
       case velox::TypeKind::ARRAY: {
-        if (resultList.typelist.size() != 1) {
-          throw std::invalid_argument{"wrong param count for array type def"};
-        }
+        VELOX_CHECK(
+            resultList.typelist.size() == 1,
+            "wrong param count for array type def");
         return Result{velox::ARRAY(resultList.typelist.at(0))};
       }
       default:
-        throw std::invalid_argument{
-            "unsupported kind: " + std::to_string((int)nt.typeKind())};
+        VELOX_FAIL("unsupported kind: " + std::to_string((int)nt.typeKind()));
     }
   } else {
-    throw std::invalid_argument(fmt::format(
+    VELOX_FAIL(fmt::format(
         "Unexpected token {} at {}", nt.value, remaining_.toString()));
   }
 }
@@ -140,7 +164,7 @@ Token HiveTypeParser::eatToken(TokenType tokenType, bool ignorePredefined) {
     return token;
   }
 
-  throw std::invalid_argument("Unexpected token " + token.remaining.toString());
+  VELOX_FAIL("Unexpected token " + token.remaining.toString());
 }
 
 Token HiveTypeParser::nextToken(bool ignorePredefined) {
@@ -183,7 +207,7 @@ TokenAndRemaining HiveTypeParser::nextToken(
     return makeExtendedToken(getMetadata(TokenType::Identifier), sp, len);
   }
 
-  throw std::invalid_argument("Bad Token at " + sp.toString());
+  VELOX_FAIL("Bad Token at " + sp.toString());
 }
 
 TokenType Token::tokenType() const {
@@ -229,8 +253,4 @@ TokenMetadata* HiveTypeParser::getMetadata(TokenType type) const {
   return value.get();
 }
 
-} // namespace fbhive
-} // namespace type
-} // namespace dwio
-} // namespace velox
-} // namespace facebook
+} // namespace facebook::velox::dwio::type::fbhive

@@ -40,17 +40,6 @@ TEST(ProtoUtilsTests, AllTypes) {
   }
 }
 
-TEST(ProtoUtilsTests, UnionDeprecation) {
-  std::vector<std::string> types{
-      "struct<a:uniontype<int,string>>",
-      "struct<a:map<int,array<struct<a:map<string,int>,b:array<int>,c:uniontype<int,float>>>>>"};
-
-  for (auto& type : types) {
-    HiveTypeParser parser;
-    EXPECT_THROW(parser.parse(type), std::invalid_argument);
-  }
-}
-
 TEST(ProtoUtilsTests, Projection) {
   HiveTypeParser parser;
   auto schema = parser.parse(

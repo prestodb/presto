@@ -12,4 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_subdirectory(fbhive)
+add_library(velox_dwio_type_fbhive HiveTypeParser.cpp HiveTypeSerializer.cpp)
+
+target_link_libraries(velox_dwio_type_fbhive velox_dwio_common)
+
+if(${VELOX_BUILD_TESTING})
+  add_subdirectory(tests)
+endif()
