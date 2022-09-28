@@ -57,6 +57,11 @@ class SubstraitVeloxExprConverter {
       const ::substrait::Expression& substraitExpr,
       const RowTypePtr& inputType);
 
+  /// Convert Substrait IfThen into Velox Expression.
+  std::shared_ptr<const core::ITypedExpr> toVeloxExpr(
+      const ::substrait::Expression::IfThen& substraitIfThen,
+      const RowTypePtr& inputType);
+
  private:
   /// Memory pool.
   memory::MemoryPool* pool_;
