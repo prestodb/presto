@@ -191,16 +191,9 @@ class LocalPartition : public Operator {
   }
 
  private:
-  BlockingReason
-  enqueue(int32_t partition, RowVectorPtr data, ContinueFuture* future);
-
   const std::vector<std::shared_ptr<LocalExchangeQueue>> queues_;
   const size_t numPartitions_;
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
-  /// Mapping of sources' output columns to our output columns.
-  /// One for all sources.
-  /// Empty if column order in the output is exactly the same as in input.
-  std::vector<column_index_t> sourceOutputChannels_;
 
   uint32_t numBlockedPartitions_{0};
   std::vector<BlockingReason> blockingReasons_;

@@ -279,158 +279,6 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
   verifyExchangeSourceOperatorStats(task, 2100);
 }
 
-TEST_F(LocalPartitionTest, outputLayoutGather) {
-  std::vector<RowVectorPtr> vectors = {
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return row; }),
-          makeFlatVector<int32_t>(100, [](auto row) { return row / 2; }),
-      }),
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return 53 + row; }),
-          makeFlatVector<int32_t>(100, [](auto row) { return 53 + row / 2; }),
-      }),
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return -71 + row; }),
-          makeFlatVector<int32_t>(100, [](auto row) { return -71 + row / 2; }),
-      }),
-  };
-
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-  auto valuesNode = [&](int index) {
-    return PlanBuilder(planNodeIdGenerator).values({vectors[index]}).planNode();
-  };
-
-  auto op = PlanBuilder(planNodeIdGenerator)
-                .localPartition(
-                    {},
-                    {
-                        valuesNode(0),
-                        valuesNode(1),
-                        valuesNode(2),
-                    },
-                    // Change column order: (c0, c1) -> (c1, c0).
-                    {"c1", "c0"})
-                .singleAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
-                .planNode();
-
-  auto task = assertQuery(op, "SELECT 300, -71, 102");
-  verifyExchangeSourceOperatorStats(task, 300);
-
-  planNodeIdGenerator->reset();
-  op = PlanBuilder(planNodeIdGenerator)
-           .localPartition(
-               {},
-               {
-                   valuesNode(0),
-                   valuesNode(1),
-                   valuesNode(2),
-               },
-               // Drop column: (c0, c1) -> (c1).
-               {"c1"})
-           .singleAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
-           .planNode();
-
-  task = assertQuery(op, "SELECT 300, -71, 102");
-  verifyExchangeSourceOperatorStats(task, 300);
-
-  planNodeIdGenerator->reset();
-  op = PlanBuilder(planNodeIdGenerator)
-           .localPartition(
-               {},
-               {
-                   valuesNode(0),
-                   valuesNode(1),
-                   valuesNode(2),
-               },
-               // Drop all columns.
-               {})
-           .singleAggregation({}, {"count(1)"})
-           .planNode();
-
-  task = assertQuery(op, "SELECT 300");
-  verifyExchangeSourceOperatorStats(task, 300);
-}
-
-TEST_F(LocalPartitionTest, outputLayoutPartition) {
-  std::vector<RowVectorPtr> vectors = {
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return row; }),
-          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
-      }),
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return 53 + row; }),
-          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
-      }),
-      makeRowVector({
-          makeFlatVector<int32_t>(100, [](auto row) { return -71 + row; }),
-          makeFlatVector<int32_t>(100, [](auto /*row*/) { return 123; }),
-      }),
-  };
-
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-
-  auto valuesNode = [&](int index) {
-    return PlanBuilder(planNodeIdGenerator).values({vectors[index]}).planNode();
-  };
-
-  auto plan = PlanBuilder(planNodeIdGenerator)
-                  .localPartition(
-                      {"c0"},
-                      {
-                          valuesNode(0),
-                          valuesNode(1),
-                          valuesNode(2),
-                      },
-                      // Change column order: (c0, c1) -> (c1, c0).
-                      {"c1", "c0"})
-                  .partialAggregation({}, {"count(1)", "min(c0)", "max(c1)"})
-                  .planNode();
-
-  auto task = AssertQueryBuilder(plan, duckDbQueryRunner_)
-                  .maxDrivers(2)
-                  .assertResults("VALUES (146, -71, 123), (154, -70, 123)");
-
-  verifyExchangeSourceOperatorStats(task, 300);
-
-  planNodeIdGenerator->reset();
-  plan = PlanBuilder(planNodeIdGenerator)
-             .localPartition(
-                 {"c0"},
-                 {
-                     valuesNode(0),
-                     valuesNode(1),
-                     valuesNode(2),
-                 },
-                 // Drop column: (c0, c1) -> (c1).
-                 {"c1"})
-             .partialAggregation({}, {"count(1)", "min(c1)", "max(c1)"})
-             .planNode();
-
-  task = AssertQueryBuilder(plan, duckDbQueryRunner_)
-             .maxDrivers(2)
-             .assertResults("VALUES (146, 123, 123), (154, 123, 123)");
-  verifyExchangeSourceOperatorStats(task, 300);
-
-  planNodeIdGenerator->reset();
-  plan = PlanBuilder(planNodeIdGenerator)
-             .localPartition(
-                 {"c0"},
-                 {
-                     valuesNode(0),
-                     valuesNode(1),
-                     valuesNode(2),
-                 },
-                 // Drop all columns.
-                 {})
-             .partialAggregation({}, {"count(1)"})
-             .planNode();
-
-  task = AssertQueryBuilder(plan, duckDbQueryRunner_)
-             .maxDrivers(2)
-             .assertResults("VALUES (146), (154)");
-  verifyExchangeSourceOperatorStats(task, 300);
-}
-
 TEST_F(LocalPartitionTest, multipleExchanges) {
   std::vector<RowVectorPtr> vectors = {
       makeRowVector({
@@ -616,43 +464,48 @@ TEST_F(LocalPartitionTest, unionAll) {
        makeFlatVector<StringView>({"z", "w"})});
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-  // For the partition node, use the 1st source's names to define the output
-  // layout and rename the output columns to be different from the sources'.
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .localPartition(
-              {},
-              {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
-               PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
-              {"d0 AS c0", "d1 AS c1"})
-          .planNode();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartition(
+                      {},
+                      {PlanBuilder(planNodeIdGenerator)
+                           .values({data1})
+                           .project({"d0 as c0", "d1 as c1"})
+                           .planNode(),
+                       PlanBuilder(planNodeIdGenerator)
+                           .values({data2})
+                           .project({"e0 as c0", "e1 as c1"})
+                           .planNode()})
+                  .planNode();
 
   assertQuery(
       plan,
-      "WITH T1 AS (VALUES (10, 'x'), (11, 'y')), "
-      "T2 AS (VALUES (20, 'z'), (21, 'w')) "
-      "SELECT * FROM T1 UNION ALL SELECT * FROM T2; ");
+      "WITH t1 AS (VALUES (10, 'x'), (11, 'y')), "
+      "t2 AS (VALUES (20, 'z'), (21, 'w')) "
+      "SELECT * FROM t1 UNION ALL SELECT * FROM t2");
 }
 
-// Test that LocalExchange returns the data with the proper output type.
 TEST_F(LocalPartitionTest, unionAllLocalExchange) {
   auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
   auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
 
   auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .localPartitionRoundRobin(
-              {PlanBuilder(planNodeIdGenerator).values({data1}).planNode(),
-               PlanBuilder(planNodeIdGenerator).values({data2}).planNode()},
-              {"d0 AS g0"})
-          .project({"length(g0)"})
-          .planNode();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .localPartitionRoundRobin(
+                      {PlanBuilder(planNodeIdGenerator)
+                           .values({data1})
+                           .project({"d0 as c0"})
+                           .planNode(),
+                       PlanBuilder(planNodeIdGenerator)
+                           .values({data2})
+                           .project({"e0 as c0"})
+                           .planNode()})
+                  .project({"length(c0)"})
+                  .planNode();
 
   assertQuery(
       plan,
-      "SELECT length(c0) from ("
-      "SELECT * from (VALUES ('x')) as T1 (c0) UNION ALL "
-      "SELECT * from (VALUES ('y')) as T2 (c0)"
-      ");");
+      "SELECT length(c0) FROM ("
+      "   SELECT * FROM (VALUES ('x')) as t1(c0) UNION ALL "
+      "   SELECT * FROM (VALUES ('y')) as t2(c0)"
+      ")");
 }

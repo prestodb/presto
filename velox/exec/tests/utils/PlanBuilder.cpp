@@ -759,57 +759,10 @@ RowTypePtr rename(
   return ROW(std::move(names), std::move(types));
 }
 
-struct LocalPartitionTypes {
-  RowTypePtr inputTypeFromSource;
-  RowTypePtr outputType;
-};
-
-LocalPartitionTypes genLocalPartitionTypes(
-    const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout,
-    const parse::ParseOptions& options) {
-  LocalPartitionTypes ret;
-  auto inputType = sources[0]->outputType();
-
-  // We support "col AS alias" syntax, so separate input column names from their
-  // aliases (output names).
-  std::vector<std::string> outputNames;
-  std::vector<std::string> outputAliases;
-  for (const auto& output : outputLayout) {
-    auto untypedExpr = parse::parseExpr(output, options);
-    auto fieldExpr =
-        dynamic_cast<const core::FieldAccessExpr*>(untypedExpr.get());
-    VELOX_CHECK_NOT_NULL(
-        fieldExpr,
-        "Entries in outputLayout of localPartition() must be fields");
-    outputNames.push_back(fieldExpr->getFieldName());
-    outputAliases.push_back(
-        (fieldExpr->alias().has_value()) ? fieldExpr->alias().value()
-                                         : fieldExpr->getFieldName());
-  }
-
-  // Build the type we expect as input from the source(s). The layout can
-  // actually differ from the source's output layout, but the names should
-  // match.
-  ret.inputTypeFromSource =
-      outputNames.empty() ? inputType : extract(inputType, outputNames);
-
-  // If specified, rename the output columns.
-  ret.outputType = outputAliases.empty()
-      ? ret.inputTypeFromSource
-      : rename(ret.inputTypeFromSource, outputAliases);
-
-  return ret;
-}
-
 core::PlanNodePtr createLocalPartitionNode(
     const core::PlanNodeId& planNodeId,
     const std::vector<std::string>& keys,
-    const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout,
-    const parse::ParseOptions& options) {
-  auto types = genLocalPartitionTypes(sources, outputLayout, options);
-
+    const std::vector<core::PlanNodePtr>& sources) {
   auto partitionFunctionFactory =
       createPartitionFunctionFactory(sources[0]->outputType(), keys);
   return std::make_shared<core::LocalPartitionNode>(
@@ -817,9 +770,7 @@ core::PlanNodePtr createLocalPartitionNode(
       keys.empty() ? core::LocalPartitionNode::Type::kGather
                    : core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
-      types.outputType,
-      sources,
-      types.inputTypeFromSource);
+      sources);
 }
 } // namespace
 
@@ -864,30 +815,21 @@ PlanBuilder& PlanBuilder::partitionedOutputBroadcast(
 
 PlanBuilder& PlanBuilder::localPartition(
     const std::vector<std::string>& keys,
-    const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<core::PlanNodePtr>& sources) {
   VELOX_CHECK_NULL(planNode_, "localPartition() must be the first call");
-  planNode_ = createLocalPartitionNode(
-      nextPlanNodeId(), keys, sources, outputLayout, options_);
+  planNode_ = createLocalPartitionNode(nextPlanNodeId(), keys, sources);
   return *this;
 }
 
-PlanBuilder& PlanBuilder::localPartition(
-    const std::vector<std::string>& keys,
-    const std::vector<std::string>& outputLayout) {
-  planNode_ = createLocalPartitionNode(
-      nextPlanNodeId(), keys, {planNode_}, outputLayout, options_);
+PlanBuilder& PlanBuilder::localPartition(const std::vector<std::string>& keys) {
+  planNode_ = createLocalPartitionNode(nextPlanNodeId(), keys, {planNode_});
   return *this;
 }
 
 namespace {
 core::PlanNodePtr createLocalPartitionRoundRobinNode(
     const core::PlanNodeId& planNodeId,
-    const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout,
-    const parse::ParseOptions& options) {
-  auto types = genLocalPartitionTypes(sources, outputLayout, options);
-
+    const std::vector<core::PlanNodePtr>& sources) {
   auto partitionFunctionFactory = [](auto numPartitions) {
     return std::make_unique<velox::exec::RoundRobinPartitionFunction>(
         numPartitions);
@@ -897,26 +839,20 @@ core::PlanNodePtr createLocalPartitionRoundRobinNode(
       planNodeId,
       core::LocalPartitionNode::Type::kRepartition,
       partitionFunctionFactory,
-      types.outputType,
-      sources,
-      types.inputTypeFromSource);
+      sources);
 }
 } // namespace
 
 PlanBuilder& PlanBuilder::localPartitionRoundRobin(
-    const std::vector<core::PlanNodePtr>& sources,
-    const std::vector<std::string>& outputLayout) {
+    const std::vector<core::PlanNodePtr>& sources) {
   VELOX_CHECK_NULL(
       planNode_, "localPartitionRoundRobin() must be the first call");
-  planNode_ = createLocalPartitionRoundRobinNode(
-      nextPlanNodeId(), sources, outputLayout, options_);
+  planNode_ = createLocalPartitionRoundRobinNode(nextPlanNodeId(), sources);
   return *this;
 }
 
-PlanBuilder& PlanBuilder::localPartitionRoundRobin(
-    const std::vector<std::string>& outputLayout) {
-  planNode_ = createLocalPartitionRoundRobinNode(
-      nextPlanNodeId(), {planNode_}, outputLayout, options_);
+PlanBuilder& PlanBuilder::localPartitionRoundRobin() {
+  planNode_ = createLocalPartitionRoundRobinNode(nextPlanNodeId(), {planNode_});
   return *this;
 }
 
