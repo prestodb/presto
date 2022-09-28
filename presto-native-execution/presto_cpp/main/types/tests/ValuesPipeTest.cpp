@@ -110,8 +110,9 @@ TEST_F(TestValues, valuesPlan) {
 
   ASSERT_EQ(values->name(), "Filter");
   ASSERT_EQ(values->sources()[0]->name(), "LocalPartition");
-  ASSERT_EQ(values->sources()[0]->sources()[0]->name(), "Values");
+  ASSERT_EQ(values->sources()[0]->sources()[0]->name(), "Project");
+  ASSERT_EQ(values->sources()[0]->sources()[0]->sources()[0]->name(), "Values");
 
   ASSERT_EQ(values->id(), "4");
-  ASSERT_EQ(values->sources()[0]->sources()[0]->id(), "0");
+  ASSERT_EQ(values->sources()[0]->sources()[0]->sources()[0]->id(), "0");
 }

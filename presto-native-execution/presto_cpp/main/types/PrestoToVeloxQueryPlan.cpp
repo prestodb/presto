@@ -887,23 +887,37 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
   const auto type = toLocalExchangeType(node->type);
 
   const auto outputType = toRowType(node->partitioningScheme.outputLayout);
-  // Input layout from source, describing how data should be fed to our node.
-  // For all sources the layout should be the same, so we store only one (we
-  // use the 1st source for that).
-  // This layout and the output layout for the 1st source would be used to
-  // created the column mapping in the operator.
-  RowTypePtr inputTypeFromSource = toRowType(node->inputs[0]);
+
+  // Different source nodes may have different output layouts.
+  // Add ProjectNode on top of each source node to re-arrange the output columns
+  // to match the output layout of the LocalExchangeNode.
+  for (auto i = 0; i < sourceNodes.size(); ++i) {
+    auto names = outputType->names();
+    std::vector<std::shared_ptr<const ITypedExpr>> projections;
+    projections.reserve(outputType->size());
+
+    auto desiredSourceOutput = toRowType(node->inputs[i]);
+
+    for (auto j = 0; j < outputType->size(); j++) {
+      projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
+          outputType->childAt(j), desiredSourceOutput->nameOf(j)));
+    }
+
+    sourceNodes[i] = std::make_shared<velox::core::ProjectNode>(
+        fmt::format("{}.{}", node->id, i),
+        std::move(names),
+        std::move(projections),
+        sourceNodes[i]);
+  }
 
   if (isHashPartition(node)) {
     auto partitionKeys = toFieldExprs(
         node->partitioningScheme.partitioning.arguments, exprConverter_);
-
-    auto inputType = sourceNodes[0]->outputType();
-    auto keyChannels = toChannels(inputType, partitionKeys);
-    auto partitionFunctionFactory = [inputType,
+    auto keyChannels = toChannels(outputType, partitionKeys);
+    auto partitionFunctionFactory = [outputType,
                                      keyChannels](auto numPartitions) {
       return std::make_unique<velox::exec::HashPartitionFunction>(
-          numPartitions, inputType, keyChannels);
+          numPartitions, outputType, keyChannels);
     };
 
     return std::make_shared<velox::core::LocalPartitionNode>(
@@ -912,7 +926,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         partitionFunctionFactory,
         outputType,
         std::move(sourceNodes),
-        std::move(inputTypeFromSource));
+        outputType); // TODO Remove this parameter once Velox is updated.
   }
 
   if (isRoundRobinPartition(node)) {
@@ -927,7 +941,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         partitionFunctionFactory,
         outputType,
         std::move(sourceNodes),
-        std::move(inputTypeFromSource));
+        outputType); // TODO Remove this parameter once Velox is updated.
   }
 
   if (type == velox::core::LocalPartitionNode::Type::kGather) {
@@ -935,7 +949,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
         node->id,
         outputType,
         std::move(sourceNodes),
-        std::move(inputTypeFromSource));
+        outputType); // TODO Remove this parameter once Velox is updated.
   }
 
   VELOX_UNSUPPORTED(
