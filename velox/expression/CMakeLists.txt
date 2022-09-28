@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_expression_functions FunctionRegistry.h FunctionSignature.cpp
-                                       SignatureBinder.cpp)
+add_library(
+  velox_expression_functions FunctionSignature.cpp SignatureBinder.cpp
+                             ReverseSignatureBinder.cpp)
 
 target_link_libraries(velox_expression_functions velox_common_base
                       velox_type_calculation)

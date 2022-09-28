@@ -24,6 +24,7 @@ add_executable(
   ConstantFlatVectorReaderTest.cpp
   MapWriterTest.cpp
   ArrayWriterTest.cpp
+  ReverseSignatureBinderTest.cpp
   RowWriterTest.cpp
   EvalSimplifiedTest.cpp
   SignatureBinderTest.cpp
