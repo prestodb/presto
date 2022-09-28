@@ -434,6 +434,10 @@ std::shared_ptr<const core::IExpr> parseLambdaExpr(
       VELOX_CHECK_NOT_NULL(fieldExpr);
       names.push_back(fieldExpr->getFieldName());
     }
+  } else {
+    VELOX_FAIL(
+        "Unexpected left-hand-side expression for the lambda expression: {}",
+        capture->toString())
   }
 
   return std::make_shared<const core::LambdaExpr>(
