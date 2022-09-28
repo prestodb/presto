@@ -237,6 +237,7 @@ public final class SystemSessionProperties
     public static final String LEAF_NODE_LIMIT_ENABLED = "leaf_node_limit_enabled";
     public static final String PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID = "push_remote_exchange_through_group_id";
     public static final String OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD = "optimize_multiple_approx_percentile_on_same_field";
+    public static final String TABLE_WRITE_ORDERING = "table_write_ordering";
 
     //TODO: Prestissimo related session properties that are temporarily put here. They will be relocated in the future
     public static final String PRESTISSIMO_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1350,6 +1351,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD,
                         "Combine individual approx_percentile calls on individual field to evaluation on an array",
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
+                        false),
+                booleanProperty(
+                        TABLE_WRITE_ORDERING,
+                        "Maintain the ordering when writing to a table",
+                        featuresConfig.isTableWriteOrdering(),
                         false));
     }
 

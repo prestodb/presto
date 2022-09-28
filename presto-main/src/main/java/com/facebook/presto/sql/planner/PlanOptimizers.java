@@ -150,6 +150,7 @@ import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer
 import com.facebook.presto.sql.planner.optimizations.TransformQuantifiedComparisonApplyToLateralJoin;
 import com.facebook.presto.sql.planner.optimizations.UnaliasSymbolReferences;
 import com.facebook.presto.sql.planner.optimizations.WindowFilterPushDown;
+import com.facebook.presto.sql.planner.optimizations.WriteOrderingOptimizer;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -669,6 +670,8 @@ public class PlanOptimizers
                         statsCalculator,
                         costCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections(), new PruneRedundantProjectionAssignments())));
+
+        builder.add(new WriteOrderingOptimizer());
 
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
