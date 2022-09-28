@@ -246,6 +246,8 @@ public final class SystemSessionProperties
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
+    public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
+    public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1350,6 +1352,16 @@ public final class SystemSessionProperties
                         OPTIMIZE_MULTIPLE_APPROX_PERCENTILE_ON_SAME_FIELD,
                         "Combine individual approx_percentile calls on individual field to evaluation on an array",
                         featuresConfig.isOptimizeMultipleApproxPercentileOnSameFieldEnabled(),
+                        false),
+                booleanProperty(
+                        NATIVE_EXECUTION_ENABLED,
+                        "Enable execution on native engine",
+                        featuresConfig.isNativeExecutionEnabled(),
+                        false),
+                stringProperty(
+                        NATIVE_EXECUTION_EXECUTABLE_PATH,
+                        "The native engine executable file path for native engine execution",
+                        featuresConfig.getNativeExecutionExecutablePath(),
                         false));
     }
 
@@ -2274,5 +2286,15 @@ public final class SystemSessionProperties
     public static boolean shouldPushRemoteExchangeThroughGroupId(Session session)
     {
         return session.getSystemProperty(PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID, Boolean.class);
+    }
+
+    public static boolean isNativeExecutionEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static String getNativeExecutionExecutablePath(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
     }
 }

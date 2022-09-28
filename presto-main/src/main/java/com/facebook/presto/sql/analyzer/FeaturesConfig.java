@@ -234,6 +234,8 @@ public class FeaturesConfig
 
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
+    private boolean nativeExecutionEnabled;
+    private String nativeExecutionExecutablePath = "./presto_server";
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2189,5 +2191,31 @@ public class FeaturesConfig
     {
         this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
         return this;
+    }
+
+    @Config("native-execution-enabled")
+    @ConfigDescription("Enable execution on native engine")
+    public FeaturesConfig setNativeExecutionEnabled(boolean nativeExecutionEnabled)
+    {
+        this.nativeExecutionEnabled = nativeExecutionEnabled;
+        return this;
+    }
+
+    public boolean isNativeExecutionEnabled()
+    {
+        return this.nativeExecutionEnabled;
+    }
+
+    @Config("native-execution-executable-path")
+    @ConfigDescription("Native execution executable file path")
+    public FeaturesConfig setNativeExecutionExecutablePath(String nativeExecutionExecutablePath)
+    {
+        this.nativeExecutionExecutablePath = nativeExecutionExecutablePath;
+        return this;
+    }
+
+    public String getNativeExecutionExecutablePath()
+    {
+        return this.nativeExecutionExecutablePath;
     }
 }
