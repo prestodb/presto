@@ -95,7 +95,7 @@ TEST_F(PlanConverterTest, offsetLimit) {
   auto node = plan;
   while (node) {
     node = node->sources()[0];
-    if (auto limit = std::dynamic_pointer_cast<const LimitNode>(node)) {
+    if (auto limit = std::dynamic_pointer_cast<const core::LimitNode>(node)) {
       ASSERT_EQ(7, limit->offset());
       ASSERT_EQ(5, limit->count());
       foundLimit = true;
