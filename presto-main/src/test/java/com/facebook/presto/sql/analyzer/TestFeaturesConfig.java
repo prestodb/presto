@@ -204,7 +204,9 @@ public class TestFeaturesConfig
                 .setQueryAnalyzerTimeout(new Duration(3, MINUTES))
                 .setQuickDistinctLimitEnabled(false)
                 .setPushRemoteExchangeThroughGroupId(false)
-                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true));
+                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
+                .setNativeExecutionEnabled(false)
+                .setNativeExecutionExecutablePath("./presto_server"));
     }
 
     @Test
@@ -360,6 +362,8 @@ public class TestFeaturesConfig
                 .put("optimizer.quick-distinct-limit-enabled", "true")
                 .put("optimizer.push-remote-exchange-through-group-id", "true")
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
+                .put("native-execution-enabled", "true")
+                .put("native-execution-executable-path", "/bin/echo")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -512,7 +516,9 @@ public class TestFeaturesConfig
                 .setQueryAnalyzerTimeout(new Duration(10, SECONDS))
                 .setQuickDistinctLimitEnabled(true)
                 .setPushRemoteExchangeThroughGroupId(true)
-                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false);
+                .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
+                .setNativeExecutionEnabled(true)
+                .setNativeExecutionExecutablePath("/bin/echo");
         assertFullMapping(properties, expected);
     }
 
