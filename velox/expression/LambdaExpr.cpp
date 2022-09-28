@@ -102,6 +102,21 @@ std::string LambdaExpr::toString(bool recursive) const {
   return fmt::format("({}) -> {}", inputs, body_->toString());
 }
 
+std::string LambdaExpr::toSql() const {
+  std::ostringstream out;
+  out << "(";
+  // Inputs.
+  for (auto i = 0; i < signature_->size(); ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << signature_->nameOf(i);
+  }
+  out << ") -> " << body_->toSql();
+
+  return out.str();
+}
+
 void LambdaExpr::evalSpecialForm(
     const SelectivityVector& rows,
     EvalCtx& context,

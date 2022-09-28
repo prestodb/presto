@@ -2235,7 +2235,13 @@ TEST_F(ExprTest, constantToSql) {
 }
 
 TEST_F(ExprTest, toSql) {
-  auto rowType = ROW({"a", "b", "c.d"}, {INTEGER(), BIGINT(), VARCHAR()});
+  auto rowType =
+      ROW({"a", "b", "c.d", "e", "f"},
+          {INTEGER(),
+           BIGINT(),
+           VARCHAR(),
+           ARRAY(BIGINT()),
+           MAP(VARCHAR(), DOUBLE())});
 
   // CAST.
   testToSql("a + 3", rowType);
@@ -2274,6 +2280,12 @@ TEST_F(ExprTest, toSql) {
       "element_at(map(array[1, 2, 3], array['a', 'b', 'c']), a)", rowType);
   testToSql("row_constructor(a, b, 'test')", rowType);
   testToSql("row_constructor(true, 1.5, 'abc', array[1, 2, 3])", rowType);
+
+  // Lambda functions.
+  testToSql("filter(e, x -> (x > 10))", rowType);
+  testToSql("transform(e, x -> x + b)", rowType);
+  testToSql("map_filter(f, (k, v) -> (v > 10::double))", rowType);
+  testToSql("reduce(e, b, (s, x) -> s + x, s -> s * 10)", rowType);
 }
 
 namespace {
@@ -2420,6 +2432,7 @@ TEST_F(ExprTest, conjunctExceptionContext) {
 TEST_F(ExprTest, lambdaExceptionContext) {
   auto array = makeArrayVector<int64_t>(
       10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });
+
   assertError(
       "filter(c0, x -> (x / 0 > 1))",
       array,
@@ -2450,11 +2463,11 @@ TEST_F(ExprTest, invalidInputs) {
 TEST_F(ExprTest, lambdaWithRowField) {
   auto array = makeArrayVector<int64_t>(
       10, [](auto /*row*/) { return 5; }, [](auto row) { return row * 3; });
-  auto row = vectorMaker_.rowVector(
+  auto row = makeRowVector(
       {"val"},
       {makeFlatVector<int64_t>(10, [](vector_size_t row) { return row; })});
 
-  auto rowVector = vectorMaker_.rowVector({"c0", "c1"}, {row, array});
+  auto rowVector = makeRowVector({"c0", "c1"}, {row, array});
 
   // We use strpos and c1 to ensure that the constant is peeled before calling
   // always_throws, not before the try.

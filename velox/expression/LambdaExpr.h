@@ -43,6 +43,8 @@ class LambdaExpr : public SpecialForm {
 
   std::string toString(bool recursive = true) const override;
 
+  std::string toSql() const override;
+
   bool propagatesNulls() const override {
     // A null capture does not result in a null function.
     return false;
