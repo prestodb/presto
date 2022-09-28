@@ -153,6 +153,57 @@ TEST_F(ComparisonsTest, eqDecimal) {
       " SHORT_DECIMAL(10,4))");
 }
 
+TEST_F(ComparisonsTest, gtLtDecimal) {
+  auto runAndCompare = [&](std::string expr,
+                           std::vector<VectorPtr>& inputs,
+                           VectorPtr expectedResult) {
+    auto actual = evaluate<SimpleVector<bool>>(expr, makeRowVector(inputs));
+    test::assertEqualVectors(actual, expectedResult);
+  };
+
+  // Short Decimals test.
+  std::vector<VectorPtr> shortDecimalInputs = {
+      makeNullableShortDecimalFlatVector(
+          {1, std::nullopt, 3, -3, std::nullopt, 4}, DECIMAL(10, 5)),
+      makeNullableShortDecimalFlatVector(
+          {0, 2, 3, -5, std::nullopt, 5}, DECIMAL(10, 5))};
+  auto expectedGtLt = makeNullableFlatVector<bool>(
+      {true, std::nullopt, false, true, std::nullopt, false});
+  auto expectedGteLte = makeNullableFlatVector<bool>(
+      {true, std::nullopt, true, true, std::nullopt, false});
+
+  runAndCompare("c0 > c1", shortDecimalInputs, expectedGtLt);
+  runAndCompare("c1 < c0", shortDecimalInputs, expectedGtLt);
+  // Gte/Lte
+  runAndCompare("c0 >= c1", shortDecimalInputs, expectedGteLte);
+  runAndCompare("c1 <= c0", shortDecimalInputs, expectedGteLte);
+
+  // Long Decimals test.
+  std::vector<VectorPtr> longDecimalsInputs = {
+      makeNullableLongDecimalFlatVector(
+          {UnscaledLongDecimal::max().unscaledValue(),
+           std::nullopt,
+           3,
+           UnscaledLongDecimal::min().unscaledValue() + 1,
+           std::nullopt,
+           4},
+          DECIMAL(38, 5)),
+      makeNullableLongDecimalFlatVector(
+          {UnscaledLongDecimal::max().unscaledValue() - 1,
+           2,
+           3,
+           UnscaledLongDecimal::min().unscaledValue(),
+           std::nullopt,
+           5},
+          DECIMAL(38, 5))};
+  runAndCompare("c0 > c1", longDecimalsInputs, expectedGtLt);
+  runAndCompare("c1 < c0", longDecimalsInputs, expectedGtLt);
+
+  // Gte/Lte
+  runAndCompare("c0 >= c1", longDecimalsInputs, expectedGteLte);
+  runAndCompare("c1 <= c0", longDecimalsInputs, expectedGteLte);
+};
+
 TEST_F(ComparisonsTest, eqArray) {
   auto test =
       [&](const std::optional<std::vector<std::optional<int64_t>>>& array1,
