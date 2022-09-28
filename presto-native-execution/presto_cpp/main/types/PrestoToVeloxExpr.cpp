@@ -17,7 +17,6 @@
 #include "presto_cpp/main/types/ParseTypeSignature.h"
 #include "presto_cpp/presto_protocol/Base64Util.h"
 #include "velox/common/base/Exceptions.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/ConstantVector.h"
 #include "velox/vector/FlatVector.h"
@@ -149,9 +148,9 @@ velox::variant VeloxExprConverter::getConstantValue(
   }
 }
 
-std::vector<std::shared_ptr<const ITypedExpr>> VeloxExprConverter::toVeloxExpr(
+std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
     std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const {
-  std::vector<std::shared_ptr<const ITypedExpr>> reply;
+  std::vector<TypedExprPtr> reply;
   reply.reserve(pexpr.size());
   for (auto arg : pexpr) {
     reply.emplace_back(toVeloxExpr(arg));
@@ -166,10 +165,10 @@ namespace {
 /// Removed cast to Re2JRegExp type. Velox doesn't have such type and uses
 /// different mechanism (stateful vector functions) to avoid re-compiling
 /// regular expressions needlessly.
-std::optional<std::shared_ptr<const ITypedExpr>> tryConvertCast(
+std::optional<TypedExprPtr> tryConvertCast(
     const protocol::Signature& signature,
     const std::string& returnType,
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args) {
+    const std::vector<TypedExprPtr>& args) {
   static const char* kCast = "presto.default.$operator$cast";
   static const char* kTryCast = "presto.default.try_cast";
 
@@ -196,10 +195,10 @@ std::optional<std::shared_ptr<const ITypedExpr>> tryConvertCast(
   return std::make_shared<CastTypedExpr>(type, args, nullOnFailure);
 }
 
-std::optional<std::shared_ptr<const ITypedExpr>> tryConvertTry(
+std::optional<TypedExprPtr> tryConvertTry(
     const protocol::Signature& signature,
     const std::string& returnType,
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args) {
+    const std::vector<TypedExprPtr>& args) {
   static const char* kTry = "presto.default.$internal$try";
 
   if (signature.kind != protocol::FunctionKind::SCALAR) {
@@ -217,14 +216,14 @@ std::optional<std::shared_ptr<const ITypedExpr>> tryConvertTry(
   VELOX_CHECK_EQ(lambda->signature()->size(), 0);
 
   auto type = parseTypeSignature(returnType);
-  std::vector<std::shared_ptr<const ITypedExpr>> newArgs = {lambda->body()};
+  std::vector<TypedExprPtr> newArgs = {lambda->body()};
   return std::make_shared<CallTypedExpr>(type, newArgs, "try");
 }
 
-std::optional<std::shared_ptr<const ITypedExpr>> tryConvertLiteralArray(
+std::optional<TypedExprPtr> tryConvertLiteralArray(
     const protocol::Signature& signature,
     const std::string& returnType,
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args,
+    const std::vector<TypedExprPtr>& args,
     velox::memory::MemoryPool* pool) {
   static const char* kLiteralArray = "presto.default.$literal$array";
   static const char* kFromBase64 = "from_base64";
@@ -266,8 +265,7 @@ std::optional<std::shared_ptr<const ITypedExpr>> tryConvertLiteralArray(
 }
 } // namespace
 
-std::optional<std::shared_ptr<const ITypedExpr>>
-VeloxExprConverter::tryConvertDate(
+std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
     const protocol::CallExpression& pexpr) const {
   static const char* kDate = "presto.default.date";
 
@@ -279,7 +277,7 @@ VeloxExprConverter::tryConvertDate(
   }
 
   VELOX_CHECK_EQ(pexpr.arguments.size(), 1);
-  std::vector<std::shared_ptr<const ITypedExpr>> args;
+  std::vector<TypedExprPtr> args;
   // The argument to date function should be an expression that evaluates to
   // a VARCHAR or TIMESTAMP (with an optional timezone) type.
   args.emplace_back(toVeloxExpr(pexpr.arguments[0]));
@@ -288,8 +286,7 @@ VeloxExprConverter::tryConvertDate(
   return std::make_shared<CastTypedExpr>(returnType, args, false);
 }
 
-std::optional<std::shared_ptr<const ITypedExpr>>
-VeloxExprConverter::tryConvertLike(
+std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
     const protocol::CallExpression& pexpr) const {
   static const char* kLike = "presto.default.like";
   static const char* kLikePatternType = "presto.default.like_pattern";
@@ -305,7 +302,7 @@ VeloxExprConverter::tryConvertLike(
 
   VELOX_CHECK_EQ(pexpr.arguments.size(), 2);
 
-  std::vector<std::shared_ptr<const ITypedExpr>> args;
+  std::vector<TypedExprPtr> args;
   // The first argument to like is an expression that should evaluate to a
   // varchar type.
   args.emplace_back(toVeloxExpr(pexpr.arguments[0]));
@@ -340,7 +337,7 @@ VeloxExprConverter::tryConvertLike(
       returnType, args, getFunctionName(signature));
 }
 
-std::shared_ptr<const ITypedExpr> VeloxExprConverter::toVeloxExpr(
+TypedExprPtr VeloxExprConverter::toVeloxExpr(
     const protocol::CallExpression& pexpr) const {
   auto handle = pexpr.functionHandle;
   VELOX_CHECK_EQ(
@@ -419,7 +416,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
 }
 
 namespace {
-bool isTrueConstant(const std::shared_ptr<const ITypedExpr>& expression) {
+bool isTrueConstant(const TypedExprPtr& expression) {
   if (auto constExpression =
           std::dynamic_pointer_cast<const ConstantTypedExpr>(expression)) {
     return constExpression->type()->kind() == TypeKind::BOOLEAN &&
@@ -429,27 +426,27 @@ bool isTrueConstant(const std::shared_ptr<const ITypedExpr>& expression) {
 }
 
 std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
-    const std::shared_ptr<const ITypedExpr>& a,
-    const std::shared_ptr<const ITypedExpr>& b) {
-  std::vector<std::shared_ptr<const ITypedExpr>> inputs{a, b};
+    const TypedExprPtr& a,
+    const TypedExprPtr& b) {
+  std::vector<TypedExprPtr> inputs{a, b};
   return std::make_shared<CallTypedExpr>(
       velox::BOOLEAN(), std::move(inputs), "eq");
 }
 
 std::shared_ptr<const CastTypedExpr> makeCastExpr(
-    const std::shared_ptr<const ITypedExpr>& expr,
+    const TypedExprPtr& expr,
     const velox::TypePtr& type) {
-  std::vector<std::shared_ptr<const ITypedExpr>> inputs{expr};
+  std::vector<TypedExprPtr> inputs{expr};
   return std::make_shared<CastTypedExpr>(type, std::move(inputs), false);
 }
 
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
     const velox::TypePtr& returnType,
-    std::vector<std::shared_ptr<const ITypedExpr>> args) {
+    std::vector<TypedExprPtr> args) {
   auto valueExpr = args.front();
   args.erase(args.begin());
 
-  std::vector<std::shared_ptr<const ITypedExpr>> inputs;
+  std::vector<TypedExprPtr> inputs;
   inputs.reserve((args.size() - 1) * 2);
 
   const bool valueIsTrue = isTrueConstant(valueExpr);
@@ -480,8 +477,7 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
       returnType, std::move(inputs), "switch");
 }
 
-std::shared_ptr<const ITypedExpr> convertBindExpr(
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args) {
+TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
   VELOX_CHECK_GE(
       args.size(), 2, "BIND expression must have at least two arguments");
 
@@ -520,8 +516,8 @@ std::shared_ptr<const ITypedExpr> convertBindExpr(
 
 template <TypeKind KIND>
 velox::ArrayVectorPtr toArrayVector(
-    std::vector<std::shared_ptr<const ITypedExpr>>::const_iterator begin,
-    std::vector<std::shared_ptr<const ITypedExpr>>::const_iterator end,
+    std::vector<TypedExprPtr>::const_iterator begin,
+    std::vector<TypedExprPtr>::const_iterator end,
     velox::memory::MemoryPool* pool) {
   using T = typename velox::TypeTraits<KIND>::NativeType;
 
@@ -563,8 +559,8 @@ velox::ArrayVectorPtr toArrayVector(
       elements);
 }
 
-std::shared_ptr<const ITypedExpr> convertInExpr(
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args,
+TypedExprPtr convertInExpr(
+    const std::vector<TypedExprPtr>& args,
     velox::memory::MemoryPool* pool) {
   auto numArgs = args.size();
   VELOX_USER_CHECK_GE(numArgs, 2);
@@ -579,14 +575,14 @@ std::shared_ptr<const ITypedExpr> convertInExpr(
       std::make_shared<velox::ConstantVector<velox::ComplexType>>(
           pool, 1, 0, arrayVector);
 
-  std::vector<std::shared_ptr<const ITypedExpr>> newArgs = {
+  std::vector<TypedExprPtr> newArgs = {
       args[0], std::make_shared<const ConstantTypedExpr>(constantVector)};
   return std::make_shared<CallTypedExpr>(velox::BOOLEAN(), newArgs, "in");
 }
 
-std::shared_ptr<const ITypedExpr> convertDereferenceExpr(
+TypedExprPtr convertDereferenceExpr(
     const velox::TypePtr& returnType,
-    const std::vector<std::shared_ptr<const ITypedExpr>>& args) {
+    const std::vector<TypedExprPtr>& args) {
   VELOX_USER_CHECK_EQ(args.size(), 2);
 
   const auto& input = args[0];
@@ -610,10 +606,9 @@ std::shared_ptr<const ITypedExpr> convertDereferenceExpr(
 }
 } // namespace
 
-std::shared_ptr<const ITypedExpr> VeloxExprConverter::toVeloxExpr(
+TypedExprPtr VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::SpecialFormExpression> pexpr) const {
-  std::vector<std::shared_ptr<const ITypedExpr>> args =
-      toVeloxExpr(pexpr->arguments);
+  auto args = toVeloxExpr(pexpr->arguments);
 
   if (pexpr->form == protocol::Form::BIND) {
     return convertBindExpr(args);
@@ -668,7 +663,7 @@ std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
       parseTypeSignature(pexpr.type), pexpr.name);
 }
 
-std::shared_ptr<const ITypedExpr> VeloxExprConverter::toVeloxExpr(
+TypedExprPtr VeloxExprConverter::toVeloxExpr(
     std::shared_ptr<protocol::RowExpression> pexpr) const {
   if (auto call = std::dynamic_pointer_cast<protocol::CallExpression>(pexpr)) {
     return toVeloxExpr(*call);

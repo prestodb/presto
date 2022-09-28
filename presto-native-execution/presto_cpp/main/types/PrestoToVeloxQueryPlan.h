@@ -40,13 +40,13 @@ class VeloxQueryPlanConverter {
       const protocol::TaskId& taskId);
 
   // visible for testing
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::PlanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
  private:
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::ExchangeNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
@@ -56,12 +56,12 @@ class VeloxQueryPlanConverter {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::FilterNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::OutputNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
@@ -91,17 +91,17 @@ class VeloxQueryPlanConverter {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::DistinctLimitNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::JoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::MergeJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
@@ -141,7 +141,7 @@ class VeloxQueryPlanConverter {
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::vector<std::shared_ptr<const FieldAccessTypedExpr>> toVeloxExprs(
+  std::vector<velox::core::FieldAccessTypedExprPtr> toVeloxExprs(
       const std::vector<protocol::VariableReferenceExpression>& variables);
 
   std::shared_ptr<const velox::core::ProjectNode> tryConvertOffsetLimit(
