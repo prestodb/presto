@@ -230,6 +230,16 @@ class RowContainer {
     return numRows_;
   }
 
+  /// Copies the values at 'col' into 'result' (starting at 'resultOffset')
+  /// for the 'numRows' rows pointed to by 'rows'. If a 'row' is null, sets
+  /// corresponding row in 'result' to null.
+  static void extractColumn(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      int32_t numRows,
+      RowColumn col,
+      vector_size_t resultOffset,
+      VectorPtr& result);
+
   // Copies the values at 'col' into 'result' for the
   // 'numRows' rows pointed to by 'rows'. If an entry in 'rows' is null, sets
   // corresponding row in 'result' to null.
@@ -237,7 +247,21 @@ class RowContainer {
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
       RowColumn col,
-      VectorPtr result);
+      VectorPtr& result) {
+    extractColumn(rows, numRows, col, 0, result);
+  }
+
+  /// Copies the values from the array pointed to by 'rows' at 'col' into
+  /// 'result' (starting at 'resultOffset') for the rows at positions in
+  /// the 'rowNumbers' array. If a 'row' is null, sets
+  /// corresponding row in 'result' to null. The positions in 'rowNumbers'
+  /// array can repeat and also appear out of order.
+  static void extractColumn(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
+      RowColumn col,
+      vector_size_t resultOffset,
+      VectorPtr& result);
 
   // Copies the values at 'columnIndex' into 'result' for the
   // 'numRows' rows pointed to by 'rows'. If an entry in 'rows' is null, sets
@@ -246,8 +270,34 @@ class RowContainer {
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
       int32_t columnIndex,
-      VectorPtr result) {
+      VectorPtr& result) {
     extractColumn(rows, numRows, columnAt(columnIndex), result);
+  }
+
+  /// Copies the values at 'columnIndex' into 'result' (starting at
+  /// 'resultOffset') for the 'numRows' rows pointed to by 'rows'. If an
+  /// entry in 'rows' is null, sets corresponding row in 'result' to null.
+  void extractColumn(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      int32_t numRows,
+      int32_t columnIndex,
+      int32_t resultOffset,
+      VectorPtr& result) {
+    extractColumn(rows, numRows, columnAt(columnIndex), resultOffset, result);
+  }
+
+  /// Copies the values at 'columnIndex' at positions in the 'rowNumbers' array
+  /// for the rows pointed to by 'rows'. The values are copied into the 'result'
+  /// vector at the offset pointed by 'resultOffset'. If an entry in 'rows'
+  /// is null, sets corresponding row in 'result' to null.
+  void extractColumn(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
+      int32_t columnIndex,
+      const vector_size_t resultOffset,
+      VectorPtr& result) {
+    extractColumn(
+        rows, rowNumbers, columnAt(columnIndex), resultOffset, result);
   }
 
   static inline int32_t nullByte(int32_t nullOffset) {
@@ -574,12 +624,35 @@ class RowContainer {
   template <TypeKind Kind>
   static void extractColumnTyped(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       RowColumn column,
-      VectorPtr result) {
+      int32_t resultOffset,
+      VectorPtr& result) {
+    if (rowNumbers.size() > 0) {
+      extractColumnTypedInternal<true, Kind>(
+          rows, rowNumbers, rowNumbers.size(), column, resultOffset, result);
+    } else {
+      extractColumnTypedInternal<false, Kind>(
+          rows, rowNumbers, numRows, column, resultOffset, result);
+    }
+  }
+
+  template <bool useRowNumbers, TypeKind Kind>
+  static void extractColumnTypedInternal(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
+      int32_t numRows,
+      RowColumn column,
+      int32_t resultOffset,
+      VectorPtr& result) {
+    // Resize the result vector before all copies.
+    result->resize(numRows + resultOffset);
+
     if (Kind == TypeKind::ROW || Kind == TypeKind::ARRAY ||
         Kind == TypeKind::MAP) {
-      extractComplexType(rows, numRows, column, result);
+      extractComplexType<useRowNumbers>(
+          rows, rowNumbers, numRows, column, resultOffset, result);
       return;
     }
     using T = typename KindToFlatVector<Kind>::HashRowType;
@@ -587,10 +660,18 @@ class RowContainer {
     auto nullMask = column.nullMask();
     auto offset = column.offset();
     if (!nullMask) {
-      extractValuesNoNulls<T>(rows, numRows, offset, flatResult);
+      extractValuesNoNulls<useRowNumbers, T>(
+          rows, rowNumbers, numRows, offset, resultOffset, flatResult);
     } else {
-      extractValuesWithNulls<T>(
-          rows, numRows, offset, column.nullByte(), nullMask, flatResult);
+      extractValuesWithNulls<useRowNumbers, T>(
+          rows,
+          rowNumbers,
+          numRows,
+          offset,
+          column.nullByte(),
+          nullMask,
+          resultOffset,
+          flatResult);
     }
   }
 
@@ -640,45 +721,73 @@ class RowContainer {
     }
   }
 
-  template <typename T>
+  template <bool useRowNumbers, typename T>
   static void extractValuesWithNulls(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       int32_t offset,
       int32_t nullByte,
       uint8_t nullMask,
+      int32_t resultOffset,
       FlatVector<T>* FOLLY_NONNULL result) {
-    result->resize(numRows);
-    BufferPtr nullBuffer = result->mutableNulls(numRows);
+    auto maxRows = numRows + resultOffset;
+    VELOX_DCHECK_LE(maxRows, result->size());
+
+    BufferPtr nullBuffer = result->mutableNulls(maxRows);
     auto nulls = nullBuffer->asMutable<uint64_t>();
-    BufferPtr valuesBuffer = result->mutableValues(numRows);
+    BufferPtr valuesBuffer = result->mutableValues(maxRows);
     auto values = valuesBuffer->asMutableRange<T>();
     for (int32_t i = 0; i < numRows; ++i) {
-      if (rows[i] == nullptr) {
-        bits::setNull(nulls, i, true);
+      const char* row;
+      if constexpr (useRowNumbers) {
+        row = rows[rowNumbers[i]];
       } else {
-        bits::setNull(nulls, i, isNullAt(rows[i], nullByte, nullMask));
-        values[i] = valueAt<T>(rows[i], offset);
+        row = rows[i];
+      }
+      auto resultIndex = resultOffset + i;
+      if (row == nullptr || isNullAt(row, nullByte, nullMask)) {
+        bits::setNull(nulls, resultIndex, true);
+      } else {
+        bits::setNull(nulls, resultIndex, false);
+        if constexpr (std::is_same_v<T, StringView>) {
+          extractString(valueAt<StringView>(row, offset), result, resultIndex);
+        } else {
+          values[resultIndex] = valueAt<T>(row, offset);
+        }
       }
     }
   }
 
-  template <typename T>
+  template <bool useRowNumbers, typename T>
   static void extractValuesNoNulls(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       int32_t offset,
+      int32_t resultOffset,
       FlatVector<T>* FOLLY_NONNULL result) {
-    result->resize(numRows);
-    BufferPtr valuesBuffer = result->mutableValues(numRows);
+    auto maxRows = numRows + resultOffset;
+    VELOX_DCHECK_LE(maxRows, result->size());
+    BufferPtr valuesBuffer = result->mutableValues(maxRows);
     auto values = valuesBuffer->asMutableRange<T>();
     for (int32_t i = 0; i < numRows; ++i) {
-      if (rows[i] == nullptr) {
-        result->setNull(i, true);
+      const char* row;
+      if constexpr (useRowNumbers) {
+        row = rows[rowNumbers[i]];
       } else {
-        result->setNull(i, false);
-        // Here a StringView will reference the hash table, not copy.
-        values[i] = valueAt<T>(rows[i], offset);
+        row = rows[i];
+      }
+      auto resultIndex = resultOffset + i;
+      if (row == nullptr) {
+        result->setNull(resultIndex, true);
+      } else {
+        result->setNull(resultIndex, false);
+        if constexpr (std::is_same_v<T, StringView>) {
+          extractString(valueAt<StringView>(row, offset), result, resultIndex);
+        } else {
+          values[resultIndex] = valueAt<T>(row, offset);
+        }
       }
     }
   }
@@ -831,11 +940,37 @@ class RowContainer {
       int32_t nullByte = 0,
       uint8_t nullMask = 0);
 
+  template <bool useRowNumbers>
   static void extractComplexType(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      folly::Range<const vector_size_t*> rowNumbers,
       int32_t numRows,
       RowColumn column,
-      VectorPtr result);
+      int32_t resultOffset,
+      VectorPtr& result) {
+    ByteStream stream;
+    auto nullByte = column.nullByte();
+    auto nullMask = column.nullMask();
+    auto offset = column.offset();
+
+    VELOX_DCHECK_LE(numRows + resultOffset, result->size());
+    for (int i = 0; i < numRows; ++i) {
+      const char* row;
+      if constexpr (useRowNumbers) {
+        row = rows[rowNumbers[i]];
+      } else {
+        row = rows[i];
+      }
+      auto resultIndex = resultOffset + i;
+      if (!row || isNullAt(row, nullByte, nullMask)) {
+        result->setNull(resultIndex, true);
+      } else {
+        prepareRead(row, offset, stream);
+        ContainerRowSerde::instance().deserialize(
+            stream, resultIndex, result.get());
+      }
+    }
+  }
 
   static void extractString(
       StringView value,
@@ -993,46 +1128,13 @@ inline void RowContainer::storeNoNulls<TypeKind::MAP>(
 }
 
 template <>
-inline void RowContainer::extractValuesNoNulls<StringView>(
-    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
-    int32_t numRows,
-    int32_t offset,
-    FlatVector<StringView>* FOLLY_NONNULL result) {
-  result->resize(numRows);
-  for (int32_t i = 0; i < numRows; ++i) {
-    if (rows[i] == nullptr) {
-      result->setNull(i, true);
-    } else {
-      result->setNull(i, false);
-      extractString(valueAt<StringView>(rows[i], offset), result, i);
-    }
-  }
-}
-
-template <>
-inline void RowContainer::extractValuesWithNulls<StringView>(
-    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
-    int32_t numRows,
-    int32_t offset,
-    int32_t nullByte,
-    uint8_t nullMask,
-    FlatVector<StringView>* FOLLY_NONNULL result) {
-  result->resize(numRows);
-  for (int32_t i = 0; i < numRows; ++i) {
-    if (!rows[i] || isNullAt(rows[i], nullByte, nullMask)) {
-      result->setNull(i, true);
-    } else {
-      extractString(valueAt<StringView>(rows[i], offset), result, i);
-    }
-  }
-}
-
-template <>
 inline void RowContainer::extractColumnTyped<TypeKind::OPAQUE>(
     const char* FOLLY_NONNULL const* FOLLY_NONNULL /*rows*/,
+    folly::Range<const vector_size_t*> /*rowNumbers*/,
     int32_t /*numRows*/,
     RowColumn /*column*/,
-    VectorPtr /*result*/) {
+    int32_t /*resultOffset*/,
+    VectorPtr& /*result*/) {
   VELOX_UNSUPPORTED("RowContainer doesn't support values of type OPAQUE");
 }
 
@@ -1040,9 +1142,34 @@ inline void RowContainer::extractColumn(
     const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
     int32_t numRows,
     RowColumn column,
-    VectorPtr result) {
+    int32_t resultOffset,
+    VectorPtr& result) {
   VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
-      extractColumnTyped, result->typeKind(), rows, numRows, column, result);
+      extractColumnTyped,
+      result->typeKind(),
+      rows,
+      {},
+      numRows,
+      column,
+      resultOffset,
+      result);
+}
+
+inline void RowContainer::extractColumn(
+    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+    folly::Range<const vector_size_t*> rowNumbers,
+    RowColumn column,
+    int32_t resultOffset,
+    VectorPtr& result) {
+  VELOX_DYNAMIC_TYPE_DISPATCH_ALL(
+      extractColumnTyped,
+      result->typeKind(),
+      rows,
+      rowNumbers,
+      rowNumbers.size(),
+      column,
+      resultOffset,
+      result);
 }
 
 template <bool mayHaveNulls>

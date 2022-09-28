@@ -388,27 +388,6 @@ void RowContainer::storeComplexType(
       StringView(reinterpret_cast<char*>(position.position), stream.size());
 }
 
-void RowContainer::extractComplexType(
-    const char* const* rows,
-    int32_t numRows,
-    RowColumn column,
-    VectorPtr result) {
-  ByteStream stream;
-  auto nullByte = column.nullByte();
-  auto nullMask = column.nullMask();
-  auto offset = column.offset();
-  result->resize(numRows);
-  for (int i = 0; i < numRows; ++i) {
-    auto row = rows[i];
-    if (!row || row[nullByte] & nullMask) {
-      result->setNull(i, true);
-    } else {
-      prepareRead(row, offset, stream);
-      ContainerRowSerde::instance().deserialize(stream, i, result.get());
-    }
-  }
-}
-
 //   static
 int32_t RowContainer::compareStringAsc(
     StringView left,
