@@ -118,6 +118,13 @@ bool SystemConfig::enableVeloxTaskLogging() const {
                                : kEnableVeloxTaskLoggingDefault;
 }
 
+bool SystemConfig::enableVeloxExprSetLogging() const {
+  auto loggingOpt =
+      optionalProperty<bool>(std::string(kEnableVeloxExprSetLogging));
+  return loggingOpt.hasValue() ? loggingOpt.value()
+                               : kEnableVeloxExprSetLoggingDefault;
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
