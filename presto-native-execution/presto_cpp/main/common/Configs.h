@@ -90,9 +90,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheSsdPath{"async-cache-ssd-path"};
   static constexpr std::string_view kEnableSerializedPageChecksum{
       "enable-serialized-page-checksum"};
-
   static constexpr std::string_view kEnableVeloxTaskLogging{
       "enable_velox_task_logging"};
+  static constexpr std::string_view kEnableVeloxExprSetLogging{
+      "enable_velox_expression_logging"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -106,7 +107,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
   static constexpr bool kEnableSerializedPageChecksumDefault = true;
-  static constexpr bool kEnableVeloxTaskLoggingDefault = true;
+  static constexpr bool kEnableVeloxTaskLoggingDefault = false;
+  static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
 
   static SystemConfig* instance();
 
@@ -137,6 +139,8 @@ class SystemConfig : public ConfigBase {
   bool enableSerializedPageChecksum() const;
 
   bool enableVeloxTaskLogging() const;
+
+  bool enableVeloxExprSetLogging() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
