@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,6 +70,7 @@ import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOV
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.expressions.CanonicalRowExpressionRewriter.canonicalizeRowExpression;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
+import static com.facebook.presto.spi.StandardErrorCode.PLAN_SERIALIZATION_ERROR;
 import static com.facebook.presto.sql.planner.CanonicalPartitioningScheme.getCanonicalPartitioningScheme;
 import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.getCanonicalTableHandle;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
@@ -283,7 +286,7 @@ public class CanonicalPlanGenerator
                 .collect(toCollection(LinkedHashSet::new));
         Set<RowExpression> newFilters = allFilters.build().stream()
                 .map(filter -> inlineAndCanonicalize(context.getExpressions(), filter))
-                .sorted(comparing(RowExpression::toString))
+                .sorted(comparing(this::writeValueAsString))
                 .collect(toCollection(LinkedHashSet::new));
         List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
                 .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
@@ -370,7 +373,7 @@ public class CanonicalPlanGenerator
 
         List<RowExpressionReference> rowExpressionReferences = node.getOutputVariables().stream()
                 .map(variable -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), variable, strategy == REMOVE_SAFE_CONSTANTS), variable))
-                .sorted(comparing(rowExpressionReference -> rowExpressionReference.getRowExpression().toString()))
+                .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
@@ -406,7 +409,7 @@ public class CanonicalPlanGenerator
         //   4. Record mapping from original variable reference to the new one
         List<AggregationReference> aggregationReferences = node.getAggregations().entrySet().stream()
                 .map(entry -> new AggregationReference(getCanonicalAggregation(entry.getValue(), context.getExpressions()), entry.getKey()))
-                .sorted(comparing(aggregationReference -> aggregationReference.getAggregation().getCall().toString()))
+                .sorted(comparing(aggregationReference -> writeValueAsString(aggregationReference.getAggregation().getCall())))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, Aggregation> aggregations = ImmutableMap.builder();
         for (AggregationReference aggregationReference : aggregationReferences) {
@@ -576,7 +579,7 @@ public class CanonicalPlanGenerator
 
         List<RowExpressionReference> rowExpressionReferences = node.getAssignments().entrySet().stream()
                 .map(entry -> new RowExpressionReference(inlineAndCanonicalize(context.getExpressions(), entry.getValue(), strategy == REMOVE_SAFE_CONSTANTS), entry.getKey()))
-                .sorted(comparing(rowExpressionReference -> rowExpressionReference.getRowExpression().toString()))
+                .sorted(comparing(rowExpressionReference -> writeValueAsString(rowExpressionReference.getRowExpression())))
                 .collect(toImmutableList());
         ImmutableMap.Builder<VariableReferenceExpression, RowExpression> assignments = ImmutableMap.builder();
         for (RowExpressionReference rowExpressionReference : rowExpressionReferences) {
@@ -720,6 +723,16 @@ public class CanonicalPlanGenerator
         VariableReferenceExpression newVariable = variableAllocator.newVariable(inlineAndCanonicalize(context.getExpressions(), variable));
         context.mapExpression(variable, newVariable);
         return newVariable;
+    }
+
+    private String writeValueAsString(RowExpression rowExpression)
+    {
+        try {
+            return objectMapper.writeValueAsString(rowExpression);
+        }
+        catch (JsonProcessingException e) {
+            throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
+        }
     }
 
     private static JoinNode.EquiJoinClause canonicalize(JoinNode.EquiJoinClause criteria, Context context)
