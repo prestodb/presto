@@ -46,7 +46,6 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -157,7 +156,7 @@ public class DeltaPageSourceProvider
 
         ConnectorPageSource dataPageSource = createParquetPageSource(
                 hdfsEnvironment,
-                session.getUser(),
+                session,
                 hdfsEnvironment.getConfiguration(hdfsContext, filePath),
                 filePath,
                 deltaSplit.getStart(),
@@ -165,13 +164,9 @@ public class DeltaPageSourceProvider
                 deltaSplit.getFileSize(),
                 regularColumnHandles,
                 deltaTableHandle.toSchemaTableName(),
-                getParquetMaxReadBlockSize(session),
-                isParquetBatchReadsEnabled(session),
-                isParquetBatchReaderVerificationEnabled(session),
                 typeManager,
                 deltaTableLayoutHandle.getPredicate(),
-                fileFormatDataSourceStats,
-                false);
+                fileFormatDataSourceStats);
 
         return new DeltaPageSource(
                 deltaColumnHandles,
@@ -201,7 +196,7 @@ public class DeltaPageSourceProvider
 
     private static ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
-            String user,
+            ConnectorSession session,
             Configuration configuration,
             Path path,
             long start,
@@ -209,15 +204,13 @@ public class DeltaPageSourceProvider
             long fileSize,
             List<DeltaColumnHandle> columns,
             SchemaTableName tableName,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
             TypeManager typeManager,
             TupleDomain<DeltaColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats stats,
-            boolean columnIndexFilterEnabled)
+            FileFormatDataSourceStats stats)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+
+        String user = session.getUser();
 
         ParquetDataSource dataSource = null;
         try {
@@ -258,8 +251,8 @@ public class DeltaPageSourceProvider
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : footerBlocks.build()) {
-                Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
+                Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
                     blocks.add(block);
                     blockIndexStores.add(columnIndexStore.orElse(null));
                 }
@@ -271,12 +264,12 @@ public class DeltaPageSourceProvider
                     Optional.empty(),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled,
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled,
+                    false,
                     fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();

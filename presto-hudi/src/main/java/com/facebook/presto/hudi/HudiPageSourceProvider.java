@@ -45,9 +45,6 @@ import java.util.Properties;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.getHiveSchema;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hudi.HudiParquetPageSources.createParquetPageSource;
-import static com.facebook.presto.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
-import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReaderVerificationEnabled;
-import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -101,18 +98,14 @@ public class HudiPageSourceProvider
             dataColumnPageSource = createParquetPageSource(
                     typeManager,
                     hdfsEnvironment,
-                    session.getUser(),
+                    session,
                     configuration,
                     path,
                     baseFile.getStart(),
                     baseFile.getLength(),
                     dataColumns,
-                    getParquetMaxReadBlockSize(session),
-                    isParquetBatchReadsEnabled(session),
-                    isParquetBatchReaderVerificationEnabled(session),
                     TupleDomain.all(), // TODO: predicates
-                    fileFormatDataSourceStats,
-                    false);
+                    fileFormatDataSourceStats);
         }
         else if (tableType == HudiTableType.MOR) {
             Properties schema = getHiveSchema(

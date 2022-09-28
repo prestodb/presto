@@ -45,7 +45,6 @@ import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -172,53 +171,9 @@ public class ParquetPageSourceFactory
         this.parquetMetadataSource = requireNonNull(parquetMetadataSource, "parquetMetadataSource is null");
     }
 
-    @Override
-    public Optional<? extends ConnectorPageSource> createPageSource(
-            Configuration configuration,
-            ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
-            Storage storage,
-            SchemaTableName tableName,
-            Map<String, String> tableParameters,
-            List<HiveColumnHandle> columns,
-            TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            HiveFileContext hiveFileContext,
-            Optional<EncryptionInformation> encryptionInformation)
-    {
-        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
-            return Optional.empty();
-        }
-
-        return Optional.of(createParquetPageSource(
-                hdfsEnvironment,
-                session.getUser(),
-                configuration,
-                path,
-                start,
-                length,
-                fileSize,
-                columns,
-                tableName,
-                isUseParquetColumnNames(session),
-                getParquetMaxReadBlockSize(session),
-                isParquetBatchReadsEnabled(session),
-                isParquetBatchReaderVerificationEnabled(session),
-                typeManager,
-                functionResolution,
-                effectivePredicate,
-                stats,
-                hiveFileContext,
-                parquetMetadataSource,
-                columnIndexFilterEnabled(session)));
-    }
-
     public static ConnectorPageSource createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
-            String user,
+            ConnectorSession session,
             Configuration configuration,
             Path path,
             long start,
@@ -226,19 +181,18 @@ public class ParquetPageSourceFactory
             long fileSize,
             List<HiveColumnHandle> columns,
             SchemaTableName tableName,
-            boolean useParquetColumnNames,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
             TypeManager typeManager,
             StandardFunctionResolution functionResolution,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             FileFormatDataSourceStats stats,
             HiveFileContext hiveFileContext,
-            ParquetMetadataSource parquetMetadataSource,
-            boolean columnIndexFilterEnabled)
+            ParquetMetadataSource parquetMetadataSource)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+
+        String user = session.getUser();
+        boolean useParquetColumnNames = isUseParquetColumnNames(session);
+        boolean columnIndexFilterEnabled = columnIndexFilterEnabled(session);
 
         ParquetDataSource dataSource = null;
         try {
@@ -292,7 +246,7 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
                 Optional<ColumnIndexStore> columnIndexStore = ColumnIndexFilterUtils.getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
+                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled, Optional.of(session.getWarningCollector()))) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     blockIndexStores.add(columnIndexStore.orElse(null));
@@ -314,9 +268,9 @@ public class ParquetPageSourceFactory
                     Optional.of(blockStarts.build()),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled,
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
                     parquetPredicate,
                     blockIndexStores,
                     columnIndexFilterEnabled,
@@ -556,5 +510,44 @@ public class ParquetPageSourceFactory
         DecryptionPropertiesFactory cryptoFactory = loadFactory(configuration);
         FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(configuration, path);
         return (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
+    }
+
+    @Override
+    public Optional<? extends ConnectorPageSource> createPageSource(
+            Configuration configuration,
+            ConnectorSession session,
+            Path path,
+            long start,
+            long length,
+            long fileSize,
+            Storage storage,
+            SchemaTableName tableName,
+            Map<String, String> tableParameters,
+            List<HiveColumnHandle> columns,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            DateTimeZone hiveStorageTimeZone,
+            HiveFileContext hiveFileContext,
+            Optional<EncryptionInformation> encryptionInformation)
+    {
+        if (!PARQUET_SERDE_CLASS_NAMES.contains(storage.getStorageFormat().getSerDe())) {
+            return Optional.empty();
+        }
+
+        return Optional.of(createParquetPageSource(
+                hdfsEnvironment,
+                session,
+                configuration,
+                path,
+                start,
+                length,
+                fileSize,
+                columns,
+                tableName,
+                typeManager,
+                functionResolution,
+                effectivePredicate,
+                stats,
+                hiveFileContext,
+                parquetMetadataSource));
     }
 }
