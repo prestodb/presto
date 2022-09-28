@@ -39,6 +39,7 @@ class DWRFFlushPolicy : virtual public dwio::common::FlushPolicy {
       bool stripeProgressDecision,
       bool overMemoryBudget,
       const WriterContext& context) = 0;
+  // This method needs to be safe to call *after* WriterBase::close().
   virtual void onClose() override = 0;
 };
 

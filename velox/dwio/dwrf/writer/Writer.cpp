@@ -16,6 +16,8 @@
 
 #include "velox/dwio/dwrf/writer/Writer.h"
 
+#include <folly/ScopeGuard.h>
+
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/utils/ProtoUtils.h"
@@ -639,8 +641,8 @@ void Writer::flush() {
 }
 
 void Writer::close() {
+  auto exitGuard = folly::makeGuard([this]() { flushPolicy_->onClose(); });
   flushInternal(true);
-  flushPolicy_->onClose();
   WriterBase::close();
 }
 
