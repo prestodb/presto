@@ -596,6 +596,9 @@ abstract class TestHiveQueries
         assertQuery("SELECT distinct orderkey FROM (" +
                 "SELECT orderkey FROM lineitem WHERE linenumber = 5 " +
                 "UNION ALL SELECT orderkey FROM lineitem WHERE linenumber = 6)");
+
+        assertQuery("WITH t AS (SELECT null as a, null as b UNION ALL SELECT 'xxx' as a, 12 as b) " +
+                "SELECT * FROM t, t as u WHERE t.a = u.a and t.b = u.b");
     }
 
     @Test
