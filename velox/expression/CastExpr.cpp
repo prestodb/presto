@@ -46,7 +46,7 @@ void applyCastKernel(
     const BaseVector& input,
     FlatVector<To>* resultFlatVector,
     bool& nullOutput) {
-  auto* flatInput = input.asUnchecked<SimpleVector<From>>();
+  auto* inputVector = input.asUnchecked<SimpleVector<From>>();
 
   // Special handling for string target type
   if constexpr (CppToType<To>::typeKind == TypeKind::VARCHAR) {
@@ -55,7 +55,7 @@ void applyCastKernel(
     } else {
       auto output =
           util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-              flatInput->valueAt(row), nullOutput);
+              inputVector->valueAt(row), nullOutput);
       // Write the result output to the output vector
       auto writer = exec::StringWriter<>(resultFlatVector, row);
       writer.resize(output.size());
@@ -67,7 +67,7 @@ void applyCastKernel(
   } else {
     auto result =
         util::Converter<CppToType<To>::typeKind, void, Truncate>::cast(
-            flatInput->valueAt(row), nullOutput);
+            inputVector->valueAt(row), nullOutput);
     if (nullOutput) {
       resultFlatVector->setNull(row, true);
     } else {
@@ -614,7 +614,10 @@ void CastExpr::apply(
   }
 
   VectorPtr localResult;
-  if (decoded->isIdentityMapping()) {
+  if (!nonNullRows->hasSelections()) {
+    localResult =
+        BaseVector::createNullConstant(toType, rows.end(), context.pool());
+  } else if (decoded->isIdentityMapping()) {
     applyPeeled(
         *nonNullRows, *decoded->base(), context, fromType, toType, localResult);
 
@@ -625,11 +628,11 @@ void CastExpr::apply(
     if (decoded->isConstantMapping()) {
       auto index = decoded->index(nonNullRows->begin());
       singleRow(translatedRowsHolder, index);
-      context.saveAndReset(saver, rows);
+      context.saveAndReset(saver, *nonNullRows);
       context.setConstantWrap(index);
     } else {
       translateToInnerRows(*nonNullRows, *decoded, translatedRowsHolder);
-      context.saveAndReset(saver, rows);
+      context.saveAndReset(saver, *nonNullRows);
       auto wrapping = decoded->dictionaryWrapping(*input, *nonNullRows);
       context.setDictionaryWrap(
           std::move(wrapping.indices), std::move(wrapping.nulls));
@@ -648,8 +651,9 @@ void CastExpr::apply(
   context.moveOrCopyResult(localResult, rows, result);
   context.releaseVector(localResult);
 
-  // Copy nulls from "input".
-  if (nullRows->hasSelections()) {
+  // If we have a mix of null and non-null in input, add nulls to the result.
+  VELOX_CHECK_NOT_NULL(result);
+  if (nullRows->hasSelections() && nonNullRows->hasSelections()) {
     auto targetNulls = result->mutableRawNulls();
     nullRows->applyToSelected(
         [&](auto row) { bits::setNull(targetNulls, row, true); });

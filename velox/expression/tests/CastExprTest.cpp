@@ -57,6 +57,10 @@ class CastExprTest : public functions::test::CastBaseTest {
     });
   }
 
+  std::shared_ptr<core::ConstantTypedExpr> makeConstantNullExpr(TypeKind kind) {
+    return std::make_shared<core::ConstantTypedExpr>(variant(kind));
+  }
+
   std::shared_ptr<core::CastTypedExpr> makeCastExpr(
       const core::TypedExprPtr& input,
       const TypePtr& toType,
@@ -747,4 +751,23 @@ TEST_F(CastExprTest, castInTry) {
 
   evaluateAndVerifyCastInTryDictEncoding(
       ARRAY(VARCHAR()), ARRAY(BIGINT()), input, expected);
+}
+
+TEST_F(CastExprTest, primitiveNullConstant) {
+  // Evaluate cast(NULL::double as bigint).
+  auto cast =
+      makeCastExpr(makeConstantNullExpr(TypeKind::DOUBLE), BIGINT(), false);
+
+  auto result = evaluate(
+      cast, makeRowVector({makeFlatVector<int64_t>(std::vector<int64_t>{1})}));
+  auto expectedResult = makeNullableFlatVector<int64_t>({std::nullopt});
+  assertEqualVectors(expectedResult, result);
+
+  // Evaluate cast(try_cast(NULL::varchar as double) as bigint).
+  auto innerCast =
+      makeCastExpr(makeConstantNullExpr(TypeKind::VARCHAR), DOUBLE(), true);
+  auto outerCast = makeCastExpr(innerCast, BIGINT(), false);
+
+  result = evaluate(outerCast, makeRowVector(ROW({}, {}), 1));
+  assertEqualVectors(expectedResult, result);
 }
