@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.ExceededMemoryLimitException;
+import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
@@ -49,6 +50,7 @@ import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
 import static com.facebook.presto.RowPagesBuilder.rowPagesBuilder;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -62,6 +64,7 @@ import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UN
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.BoundType.UNBOUNDED_PRECEDING;
 import static com.facebook.presto.sql.planner.plan.WindowNode.Frame.WindowType.RANGE;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.units.DataSize.succinctBytes;
 import static java.lang.String.format;
@@ -156,6 +159,43 @@ public class TestWindowOperator
         assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
 
         assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
+    }
+
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.* \\[Estimated Spilled:.*")
+    public void testSpillMemoryLimit()
+    {
+        // make operator produce multiple pages during finish phase
+        int numberOfRows = 80_000;
+        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                .addSequencePage(numberOfRows, 0, 0)
+                .build();
+
+        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                ImmutableList.of(BIGINT, DOUBLE),
+                Ints.asList(1, 0),
+                ROW_NUMBER,
+                Ints.asList(),
+                Ints.asList(0),
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.DESC_NULLS_FIRST}),
+                true);
+
+        Session session = testSessionBuilder().setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1000B").build();
+        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, session)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
+        MaterializedResult.Builder expectedBuilder = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT);
+        for (int i = 0; i < numberOfRows; ++i) {
+            expectedBuilder.row((double) numberOfRows - i - 1, (long) numberOfRows - i - 1, (long) i + 1);
+        }
+        MaterializedResult expected = expectedBuilder.build();
+
+        List<Page> pages = toPages(operatorFactory, driverContext, input, true);
+        assertGreaterThan(pages.size(), 1, "Expected more than one output page");
+
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+
+//        assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
     }
 
     @Test(dataProvider = "spillEnabled")

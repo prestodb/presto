@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.block.SortOrder;
@@ -23,6 +24,7 @@ import com.facebook.presto.operator.WorkProcessor.Transformation;
 import com.facebook.presto.operator.WorkProcessor.TransformationState;
 import com.facebook.presto.operator.window.FramedWindowFunction;
 import com.facebook.presto.operator.window.WindowPartition;
+import com.facebook.presto.spi.ErrorCause;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spiller.Spiller;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -44,6 +46,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalUserMemoryLimit;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST;
 import static com.facebook.presto.operator.SpillingUtils.checkSpillSucceeded;
 import static com.facebook.presto.operator.WorkProcessor.TransformationState.needsMoreData;
@@ -56,12 +60,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class WindowOperator
         implements Operator
 {
+    private static final Logger log = Logger.get(WindowOperator.class);
     public static class WindowOperatorFactory
             implements OperatorFactory
     {
@@ -674,6 +681,14 @@ public class WindowOperator
                 spillInProgress = Optional.of(immediateFuture(null));
                 return spillInProgress.get();
             }
+
+            long maxUserMemoryBytes = getQueryMaxMemoryPerNode(operatorContext.getSession()).toBytes();
+            long estimatedIndexSize = inMemoryPagesIndexWithHashStrategies.pagesIndex.getEstimatedSize().toBytes();
+            if (estimatedIndexSize > maxUserMemoryBytes) {
+                String additionalInfo = format("Estimated Spilled: %s, Operator: %s", succinctBytes(estimatedIndexSize), WindowOperator.class.getSimpleName());
+                throw exceededLocalUserMemoryLimit(succinctBytes(maxUserMemoryBytes), additionalInfo, false, Optional.empty(), ErrorCause.UNKNOWN);
+            }
+            log.debug("Spilling for operator %s, estimatedIndexSize %s", operatorContext, estimatedIndexSize);
 
             if (!spiller.isPresent()) {
                 spiller = Optional.of(spillerFactory.create(
