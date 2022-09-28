@@ -39,6 +39,7 @@ import com.facebook.presto.geospatial.SpatialPartitioningInternalAggregateFuncti
 import com.facebook.presto.geospatial.SphericalGeoFunctions;
 import com.facebook.presto.geospatial.aggregation.ConvexHullAggregation;
 import com.facebook.presto.geospatial.aggregation.GeometryUnionAgg;
+import com.facebook.presto.operator.aggregation.AlternativeApproxPercentile;
 import com.facebook.presto.operator.aggregation.ApproximateCountDistinctAggregation;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileAggregations;
 import com.facebook.presto.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
@@ -642,12 +643,6 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
-                .aggregates(ApproximateLongPercentileAggregations.class)
-                .aggregates(ApproximateLongPercentileArrayAggregations.class)
-                .aggregates(ApproximateDoublePercentileAggregations.class)
-                .aggregates(ApproximateDoublePercentileArrayAggregations.class)
-                .aggregates(ApproximateRealPercentileAggregations.class)
-                .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
                 .aggregates(BooleanOrAggregation.class)
@@ -935,6 +930,15 @@ public class BuiltInTypeAndFunctionNamespaceManager
             builder.override(MIN_AGGREGATION, ALTERNATIVE_MIN);
             builder.override(MAX_BY, ALTERNATIVE_MAX_BY);
             builder.override(MIN_BY, ALTERNATIVE_MIN_BY);
+            builder.functions(AlternativeApproxPercentile.getFunctions());
+        }
+        else {
+            builder.aggregates(ApproximateLongPercentileAggregations.class);
+            builder.aggregates(ApproximateLongPercentileArrayAggregations.class);
+            builder.aggregates(ApproximateDoublePercentileAggregations.class);
+            builder.aggregates(ApproximateDoublePercentileArrayAggregations.class);
+            builder.aggregates(ApproximateRealPercentileAggregations.class);
+            builder.aggregates(ApproximateRealPercentileArrayAggregations.class);
         }
 
         return builder.getFunctions();
