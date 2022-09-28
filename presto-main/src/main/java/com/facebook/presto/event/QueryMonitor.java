@@ -326,7 +326,7 @@ public class QueryMonitor
         return new QueryStatistics(
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getRetriedCpuTime().toMillis()),
-                ofMillis(queryStats.getTotalScheduledTime().toMillis()),
+                ofMillis(queryStats.getElapsedTime().toMillis()),
                 ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
                 ofMillis(queryStats.getResourceWaitingTime().toMillis()),
