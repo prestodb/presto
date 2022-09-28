@@ -564,6 +564,7 @@ class RowWriter {
   template <vector_size_t I>
   void set_null_at() {
     std::get<I>(childrenVectors_)->setNull(offset_, true);
+    std::get<I>(needCommit_) = false;
   }
 
   template <size_t I>
@@ -756,7 +757,8 @@ class GenericWriter {
       writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any>>,
       writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any>>,
       writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any, Any>>,
-      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any, Any, Any>>>;
+      writer_ptr_t<Row<Any, Any, Any, Any, Any, Any, Any, Any, Any, Any>>,
+      writer_ptr_t<DynamicRow>>;
 
   GenericWriter(writer_variant_t& castWriter, TypePtr& castType, size_t& index)
       : castWriter_{castWriter}, castType_{castType}, index_{index} {}
@@ -773,12 +775,13 @@ class GenericWriter {
   typename VectorWriter<ToType, void>::exec_out_t& castTo() {
     VELOX_USER_CHECK(
         CastTypeChecker<ToType>::check(type()),
-        fmt::format(
-            "castTo type is not compatible with type of vector, vector type is {}, casted to type is {}",
-            type()->toString(),
-            CppToType<ToType>::create()->toString()));
+        "castTo type is not compatible with type of vector, vector type is {}, casted to type is {}",
+        type()->toString(),
+        std::is_same_v<ToType, DynamicRow>
+            ? "DynamicRow"
+            : CppToType<ToType>::create()->toString());
 
-    return *castToImpl<ToType>();
+    return *castToImpl<ToType, false>();
   }
 
   template <typename ToType>
@@ -787,7 +790,7 @@ class GenericWriter {
       return nullptr;
     }
 
-    return castToImpl<ToType>();
+    return castToImpl<ToType, true>();
   }
 
   template <typename T>
@@ -801,7 +804,7 @@ class GenericWriter {
     if constexpr (
         std::is_same_v<T, writer_ptr_t<Array<Any>>> ||
         std::is_same_v<T, writer_ptr_t<Map<Any, Any>>> ||
-        isRowWriter<T>::value) {
+        std::is_same_v<T, writer_ptr_t<DynamicRow>> || isRowWriter<T>::value) {
       writer->current().finalizeNull();
     }
   }
@@ -819,40 +822,63 @@ class GenericWriter {
     vector_ = vector;
   }
 
-  template <typename ToType>
+  template <typename ToType, bool tryCast>
   typename VectorWriter<ToType, void>::exec_out_t* castToImpl() {
-    auto& typedWriter = ensureWriter<ToType>();
+    writer_ptr_t<ToType>* writer = nullptr;
+
+    if (castType_) {
+      writer = retrieveCastedWriter<ToType>();
+      if (!writer) {
+        if constexpr (tryCast) {
+          return nullptr;
+        } else {
+          VELOX_USER_FAIL(
+              "Not allowed to cast to two different types {} and {} within the same batch.",
+              castType_->toString(),
+              std::is_same_v<ToType, DynamicRow>
+                  ? "DynamicRow"
+                  : CppToType<ToType>::create()->toString());
+        }
+      }
+    } else {
+      writer = ensureWriter<ToType>();
+    }
+
+    auto& typedWriter = *writer;
     typedWriter->setOffset(index_);
     return &typedWriter->current();
   }
 
+  // Assuming the writer has been casted before and castType_ is not null,
+  // return a pointer to the casted writer if B matches with the previous
+  // cast type exactly. Return nullptr otherwise.
   template <typename B>
-  writer_ptr_t<B>& ensureWriter() {
+  writer_ptr_t<B>* retrieveCastedWriter() {
+    DCHECK(castType_);
+
+    if (!std::holds_alternative<writer_ptr_t<B>>(castWriter_)) {
+      return nullptr;
+    }
+    return &std::get<writer_ptr_t<B>>(castWriter_);
+  }
+
+  template <typename B>
+  writer_ptr_t<B>* ensureWriter() {
     static_assert(
         !isGenericType<B>::value && !isVariadicType<B>::value,
         "Cannot cast to VectorWriter of Generic or Variadic");
 
-    // TODO: optimize the mapping between template type B and requestedType.
-    // Make this mapping static since B is known at compile time and among
-    // only a limited number of supported types.
-    auto requestedType = CppToType<B>::create();
-
-    if (castType_) {
-      VELOX_USER_CHECK(
-          castType_->operator==(*requestedType),
-          fmt::format(
-              "Not allowed to cast to two different types {} and {} within the same batch.",
-              castType_->toString(),
-              requestedType->toString()));
-      return std::get<writer_ptr_t<B>>(castWriter_);
+    if constexpr (std::is_same_v<B, DynamicRow>) {
+      castType_ = vector_->type();
     } else {
+      auto requestedType = CppToType<B>::create();
       castType_ = std::move(requestedType);
-
-      castWriter_ = std::make_shared<VectorWriter<B, void>>();
-      auto& writer = std::get<writer_ptr_t<B>>(castWriter_);
-      writer->init(*vector_->as<typename TypeToFlatVector<B>::type>());
-      return writer;
     }
+
+    castWriter_ = std::make_shared<VectorWriter<B, void>>();
+    auto& writer = std::get<writer_ptr_t<B>>(castWriter_);
+    writer->init(*vector_->as<typename TypeToFlatVector<B>::type>());
+    return &writer;
   }
 
   BaseVector* vector_;
