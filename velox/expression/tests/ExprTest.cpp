@@ -129,7 +129,7 @@ class ExprTest : public testing::Test, public VectorTestBase {
           for (auto i = 0; i < rows.size(); i++) {
             VELOX_CHECK_EQ(rows[i], expectedRowAt(i));
           }
-          return vectorMaker_.flatVector<T>(size, valueAt, isNullAt);
+          return makeFlatVector<T>(size, valueAt, isNullAt);
         }));
   }
 
@@ -243,7 +243,7 @@ TEST_F(ExprTest, moreEncodings) {
   const vector_size_t size = 1'000;
   std::vector<std::string> fruits = {"apple", "pear", "grapes", "pineapple"};
   VectorPtr a = makeFlatVector<int64_t>(size, [](auto row) { return row; });
-  VectorPtr b = vectorMaker_.flatVector(fruits);
+  VectorPtr b = makeFlatVector(fruits);
 
   // Wrap b in a dictionary.
   auto indices =
@@ -332,7 +332,7 @@ TEST_F(ExprTest, constantNull) {
       "plus");
 
   // Execute it and check it returns all null results.
-  auto vector = vectorMaker_.flatVectorNullable<int32_t>({1, std::nullopt, 3});
+  auto vector = makeNullableFlatVector<int32_t>({1, std::nullopt, 3});
   auto rowVector = makeRowVector({vector});
   SelectivityVector rows(rowVector->size());
   std::vector<VectorPtr> result(1);
@@ -341,7 +341,7 @@ TEST_F(ExprTest, constantNull) {
   exec::EvalCtx context(execCtx_.get(), &exprSet, rowVector.get());
   exprSet.eval(rows, context, result);
 
-  auto expected = vectorMaker_.flatVectorNullable<int32_t>(
+  auto expected = makeNullableFlatVector<int32_t>(
       {std::nullopt, std::nullopt, std::nullopt});
   assertEqualVectors(expected, result.front());
 }
@@ -357,7 +357,7 @@ TEST_F(ExprTest, validateReturnType) {
       INTEGER(), std::vector<core::TypedExprPtr>{inputExpr, inputExpr}, "eq");
 
   // Execute it and check it returns all null results.
-  auto vector = vectorMaker_.flatVectorNullable<int32_t>({1, 2, 3});
+  auto vector = makeNullableFlatVector<int32_t>({1, 2, 3});
   auto rowVector = makeRowVector({vector});
   SelectivityVector rows(rowVector->size());
   std::vector<VectorPtr> result(1);
@@ -423,7 +423,7 @@ TEST_F(ExprTest, constantArray) {
       std::make_unique<exec::ExprSet>(std::move(expressions), execCtx_.get());
 
   const vector_size_t size = 1'000;
-  auto input = vectorMaker_.rowVector(ROW({}), size);
+  auto input = makeRowVector(ROW({}), size);
   exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
 
   SelectivityVector rows(input->size());
@@ -719,7 +719,7 @@ TEST_F(ExprTest, nonDeterministicConstantFolding) {
       std::make_unique<PlusRandomIntegerFunction>());
 
   const vector_size_t size = 1'000;
-  auto emptyRow = vectorMaker_.rowVector(ROW({}), size);
+  auto emptyRow = makeRowVector(ROW({}), size);
 
   auto result = evaluate("plus_random(cast(23 as integer))", emptyRow);
 
@@ -986,7 +986,7 @@ TEST_F(ExprTest, lazyVectors) {
 TEST_F(ExprTest, lazyLoading) {
   const vector_size_t size = 1'000;
   VectorPtr vector =
-      vectorMaker_.flatVector<int64_t>(size, [](auto row) { return row % 5; });
+      makeFlatVector<int64_t>(size, [](auto row) { return row % 5; });
   VectorPtr lazyVector = std::make_shared<LazyVector>(
       execCtx_->pool(),
       BIGINT(),
@@ -1017,7 +1017,7 @@ TEST_F(ExprTest, lazyLoading) {
 
   result = evaluate(
       "if(c0 = 10, c1 + 5, c0 - 5)", makeRowVector({vector, lazyVector}));
-  expected = vectorMaker_.flatVector<int64_t>(
+  expected = makeFlatVector<int64_t>(
       size,
       [](auto row) { return (row / 2) % 5 - 5; },
       [](auto row) { return (row / 2) % 7 == 0; });
@@ -2140,8 +2140,8 @@ TEST_F(ExprTest, exceptionContext) {
 
 /// Verify the output of ConstantExpr::toString().
 TEST_F(ExprTest, constantToString) {
-  auto arrayVector = vectorMaker_.arrayVectorNullable<float>(
-      {{{1.2, 3.4, std::nullopt, 5.6}}});
+  auto arrayVector =
+      makeNullableArrayVector<float>({{{1.2, 3.4, std::nullopt, 5.6}}});
 
   exec::ExprSet exprSet(
       {std::make_shared<core::ConstantTypedExpr>(23),
