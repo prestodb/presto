@@ -52,7 +52,7 @@ abstract class TestHiveQueries
             assertQuery("SELECT * FROM tmp");
         }
         finally {
-            dropTable("tmp");
+            dropTableIfExists("tmp");
         }
     }
 
@@ -571,20 +571,35 @@ abstract class TestHiveQueries
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .build();
 
-        getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
-        assertQuery("SELECT * FROM tmp", "SELECT * FROM nation");
-        dropTable("tmp");
+        // Clean up if table tmp already exists.
+        dropTableIfExists("tmp");
 
-        getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1");
-        assertQuery("SELECT * FROM tmp", "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
-        dropTable("tmp");
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
+            assertQuery("SELECT * FROM tmp", "SELECT * FROM nation");
+        }
+        finally {
+            dropTableIfExists("tmp");
+        }
 
-        getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
-        assertQuery("SELECT * FROM tmp", "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
-        dropTable("tmp");
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1");
+            assertQuery("SELECT * FROM tmp", "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
+        }
+        finally {
+            dropTableIfExists("tmp");
+        }
+
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
+            assertQuery("SELECT * FROM tmp", "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
+        }
+        finally {
+            dropTableIfExists("tmp");
+        }
     }
 
-    private void dropTable(String tableName)
+    private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
         computeExpected("DROP TABLE IF EXISTS " + tableName, ImmutableList.of(BIGINT));

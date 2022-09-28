@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "SHUTDOWN: Exiting main()";
 }
 
-// Initialize singleton for the reporter
+// Initialize singleton for the reporter.
 folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
   return new facebook::velox::DummyStatsReporter();
 });
