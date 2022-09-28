@@ -235,6 +235,8 @@ public class FeaturesConfig
     private boolean pushRemoteExchangeThroughGroupId;
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
 
+    private boolean tableWriteOrdering;
+
     public enum PartitioningPrecisionStrategy
     {
         // Let Presto decide when to repartition
@@ -2188,6 +2190,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeMultipleApproxPercentileOnSameFieldEnabled(boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled)
     {
         this.isOptimizeMultipleApproxPercentileOnSameFieldEnabled = isOptimizeMultipleApproxPercentileOnSameFieldEnabled;
+        return this;
+    }
+
+    public boolean isTableWriteOrdering()
+    {
+        return tableWriteOrdering;
+    }
+
+    @Config("table-write-ordering")
+    @ConfigDescription("Enable table write ordering")
+    public FeaturesConfig setTableWriteOrdering(boolean tableWriteOrdering)
+    {
+        this.tableWriteOrdering = tableWriteOrdering;
         return this;
     }
 }
