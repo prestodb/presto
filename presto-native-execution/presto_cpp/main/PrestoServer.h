@@ -17,6 +17,7 @@
 #include <folly/Synchronized.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <velox/exec/Task.h>
+#include <velox/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "velox/common/memory/MappedMemory.h"
 #if __has_include("filesystem")
@@ -78,6 +79,8 @@ class PrestoServer {
   virtual std::function<folly::SocketAddress()> discoveryAddressLookup();
 
   virtual std::shared_ptr<velox::exec::TaskListener> getTaskListiner();
+
+  virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
   void initializeAsyncCache();
 

@@ -252,6 +252,12 @@ void PrestoServer::run() {
     }
   }
 
+  if (systemConfig->enableVeloxExprSetLogging()) {
+    if (auto listener = getExprSetListener()) {
+      exec::registerExprSetListener(listener);
+    }
+  }
+
   LOG(INFO) << "STARTUP: Starting all periodic tasks...";
   PeriodicTaskManager periodicTaskManager(
       driverCPUExecutor(), httpServer_->getExecutor(), taskManager_.get());
@@ -394,6 +400,11 @@ std::function<folly::SocketAddress()> PrestoServer::discoveryAddressLookup() {
 }
 
 std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListiner() {
+  return nullptr;
+}
+
+std::shared_ptr<velox::exec::ExprSetListener>
+PrestoServer::getExprSetListener() {
   return nullptr;
 }
 
