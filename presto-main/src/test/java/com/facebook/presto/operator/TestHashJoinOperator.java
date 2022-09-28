@@ -1209,7 +1209,7 @@ public class TestHashJoinOperator
         buildLookupSource(buildSideSetup);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.* \\[Spilled:.*")
+    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of.* \\[Estimated Spilled:.*")
     public void testSpillMemoryLimit()
     {
         Session session = testSessionBuilder().setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1000B").build();
