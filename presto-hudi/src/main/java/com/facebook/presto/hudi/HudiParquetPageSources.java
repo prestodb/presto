@@ -32,10 +32,10 @@ import com.facebook.presto.parquet.cache.MetadataReader;
 import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -62,6 +62,9 @@ import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
 import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReaderVerificationEnabled;
+import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
@@ -82,20 +85,18 @@ class HudiParquetPageSources
     public static ConnectorPageSource createParquetPageSource(
             TypeManager typeManager,
             HdfsEnvironment hdfsEnvironment,
-            String user,
+            ConnectorSession session,
             Configuration configuration,
             Path path,
             long start,
             long length,
             List<HudiColumnHandle> regularColumns,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
             TupleDomain<HudiColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats fileFormatDataSourceStats,
-            boolean columnIndexFilterEnabled)
+            FileFormatDataSourceStats fileFormatDataSourceStats)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+
+        String user = session.getUser();
 
         ParquetDataSource dataSource = null;
         try {
@@ -137,9 +138,9 @@ class HudiParquetPageSources
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
                     long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
-                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
+                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
                     if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
+                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
                         blocks.add(block);
                         blockIndexStores.add(columnIndexStore.orElse(null));
                     }
@@ -153,12 +154,12 @@ class HudiParquetPageSources
                     Optional.empty(),
                     dataSource,
                     systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled,
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
                     parquetPredicate,
                     blockIndexStores,
-                    columnIndexFilterEnabled,
+                    false,
                     fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
