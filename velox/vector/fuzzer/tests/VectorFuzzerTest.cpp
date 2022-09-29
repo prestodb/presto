@@ -285,6 +285,28 @@ TEST_F(VectorFuzzerTest, map) {
   assertContainerSize(vector, 10, 10);
 }
 
+TEST_F(VectorFuzzerTest, row) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+
+  auto vector = fuzzer.fuzzRow(ROW({INTEGER(), REAL(), ARRAY(SMALLINT())}));
+  ASSERT_TRUE(
+      vector->type()->kindEquals(ROW({INTEGER(), REAL(), ARRAY(SMALLINT())})));
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  // fuzzInputRow() doesn't have top-level nulls.
+  vector = fuzzer.fuzzInputRow(ROW({INTEGER(), REAL()}));
+  ASSERT_TRUE(vector->type()->kindEquals(ROW({INTEGER(), REAL()})));
+  ASSERT_FALSE(vector->mayHaveNulls());
+
+  // Composable API.
+  vector = fuzzer.fuzzRow(
+      {fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(BIGINT(), 100)}, 100);
+  ASSERT_TRUE(vector->type()->kindEquals(ROW({REAL(), BIGINT()})));
+  ASSERT_TRUE(vector->mayHaveNulls());
+}
+
 TEST_F(VectorFuzzerTest, assorted) {
   VectorFuzzer::Options opts;
   VectorFuzzer fuzzer(opts, pool());
@@ -311,6 +333,17 @@ TEST_F(VectorFuzzerTest, assorted) {
   auto value = map->mapValues()->as<ArrayVector>();
 
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, value->elements()->encoding());
+}
+
+TEST_F(VectorFuzzerTest, randomized) {
+  VectorFuzzer::Options opts;
+  VectorFuzzer fuzzer(opts, pool());
+
+  for (size_t i = 0; i < 50; ++i) {
+    auto type = fuzzer.randType();
+    auto vector = fuzzer.fuzz(type);
+    ASSERT_TRUE(vector->type()->kindEquals(type));
+  }
 }
 
 } // namespace

@@ -25,9 +25,6 @@
 
 namespace facebook::velox {
 
-// Helper class to generate randomized vectors with random (and potentially
-// nested) encodings. Use the constructor seed to make it deterministic.
-
 using FuzzerGenerator = std::mt19937;
 
 enum UTF8CharList {
@@ -37,6 +34,50 @@ enum UTF8CharList {
   MATHEMATICAL_SYMBOLS = 3 // Mathematical Symbols.
 };
 
+/// VectorFuzzer is a helper class that generates randomized vectors and their
+/// data for testing, with a high degree of entropy.
+///
+/// `Options` can be used to customize its behavior, and a seed passed to the
+/// constructor can make it deterministic.
+///
+/// There a three main ways in which VectorFuzzer can be used:
+///
+/// #1.
+///
+/// The `fuzz(type)` method provides the highest degree of entropy. It randomly
+/// generates different types of (possibly nested) encodings given the input
+/// type, including constants, dictionaries, sliced vectors, and more. It
+/// accepts any primitive, complex, or nested types:
+///
+///   auto vector1 = fuzzer.fuzz(INTEGER());
+///   auto vector2 = fuzzer.fuzz(MAP(ARRAY(INTEGER()), ROW({REAL(), BIGINT()}));
+///   auto vector3 = fuzzer.fuzz(ROW({SMALLINT(), DOUBLE()}));
+///
+/// #2.
+///
+/// The `fuzzFlat(type)` method provides a similar API, except that generated
+/// vectors are guaranteed to be flat. It accepts complex types like arrays,
+/// maps, and rows. Complex types are guaranteed to have only flat children:
+///
+///   auto vector1 = fuzzer.fuzzFlat(TINYINT());
+///   auto vector2 = fuzzer.fuzzFlat(
+///                     MAP(ARRAY(INTEGER()), ROW({REAL(), BIGINT()}));
+///
+/// #3.
+///
+/// For more control over the generated encodings, VectorFuzzer also provides
+/// composable APIs to let users specify the generated encodings. For instance,
+/// to generate a map where the key is a dictionary wrapped around a flat
+/// vector, and the value an array with an internal constant vector, you can
+/// use:
+///
+///   auto vector = fuzzer.fuzzMap(
+///      fuzzer.fuzzDictionary(
+///          fuzzer.fuzzFlat(INTEGER(), 10), 100),
+///      fuzzer.fuzzArray(
+///          fuzzer.fuzzConstant(DOUBLE(), 40), 100),
+///      10);
+///
 class VectorFuzzer {
  public:
   struct Options {
@@ -97,22 +138,24 @@ class VectorFuzzer {
   }
 
   // Returns a "fuzzed" vector, containing randomized data, nulls, and indices
-  // vector (dictionary).
+  // vector (dictionary). Returns a vector of `opts_.vectorSize` size.
   VectorPtr fuzz(const TypePtr& type);
+
+  // Same as above, but returns a vector of `size` size.
+  VectorPtr fuzz(const TypePtr& type, vector_size_t size);
 
   // Returns a flat vector or a complex vector with flat children with
   // randomized data and nulls. Returns a vector of `opts_.vectorSize` size.
   VectorPtr fuzzFlat(const TypePtr& type);
 
-  // Returns a flat vector or a complex vector with flat children with
-  // randomized data and nulls. Returns a vector of `size` size.
+  // Same as above, but returns a vector of `size` size.
   VectorPtr fuzzFlat(const TypePtr& type, vector_size_t size);
 
-  // Returns a random constant vector (which could be a null constant).
+  // Returns a random constant vector (which could be a null constant). Returns
+  // a vector with size set to `opts_.vectorSize`.
   VectorPtr fuzzConstant(const TypePtr& type);
 
-  // Returns a random constant vector (which could be a null constant). The
-  // returned vector has `size` set as size.
+  // Same as above, but returns a vector of `size` size.
   VectorPtr fuzzConstant(const TypePtr& type, vector_size_t size);
 
   // Wraps `vector` using a randomized indices vector, returning a
@@ -120,8 +163,7 @@ class VectorFuzzer {
   // `vector` size.
   VectorPtr fuzzDictionary(const VectorPtr& vector);
 
-  // Wraps `vector` using a randomized indices vector, returning a
-  // DictionaryVector which has `size` indices.
+  // Same as above, but returns a dictionary vector of `size` size.
   VectorPtr fuzzDictionary(const VectorPtr& vector, vector_size_t size);
 
   // Uses `elements` as the internal elements vector, wrapping them into an
@@ -143,6 +185,10 @@ class VectorFuzzer {
 
   // Returns a "fuzzed" row vector with randomized data and nulls.
   RowVectorPtr fuzzRow(const RowTypePtr& rowType);
+
+  // Returns a RowVector based on the provided vectors, fuzzing its top-level
+  // null buffer.
+  RowVectorPtr fuzzRow(std::vector<VectorPtr>&& children, vector_size_t size);
 
   // Same as the function above, but never return nulls for the top-level row
   // elements.
@@ -171,23 +217,17 @@ class VectorFuzzer {
   }
 
  private:
-  VectorPtr
-  fuzz(const TypePtr& type, vector_size_t size, bool flatEncoding = false);
+  // Generates a flat vector for primitive types.
+  VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
 
   // Returns a complex vector with randomized data and nulls.  The children and
   // all other descendant vectors will randomly use constant, dictionary, or
   // flat encodings if flatEncoding is set to false, otherwise they will all be
   // flat.
-  VectorPtr fuzzComplex(
-      const TypePtr& type,
-      vector_size_t size,
-      bool flatEncoding = false);
+  VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
-  RowVectorPtr fuzzRow(
-      const RowTypePtr& rowType,
-      vector_size_t size,
-      bool rowHasNulls,
-      bool flatEncoding = false);
+  RowVectorPtr
+  fuzzRow(const RowTypePtr& rowType, vector_size_t size, bool rowHasNulls);
 
   // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
