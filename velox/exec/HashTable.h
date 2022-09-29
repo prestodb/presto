@@ -232,7 +232,13 @@ class BaseHashTable {
 #endif
   static TagVector
   loadTags(uint8_t* FOLLY_NULLABLE tags, int32_t tagIndex) {
-    return TagVector::load_unaligned(tags + tagIndex);
+    // Cannot use xsimd::batch::unaligned here because we need to skip TSAN.
+    auto src = tags + tagIndex;
+#if XSIMD_WITH_SSE2
+    return TagVector(_mm_loadu_si128(reinterpret_cast<__m128i const*>(src)));
+#elif XSIMD_WITH_NEON
+    return TagVector(vld1q_u8(src));
+#endif
   }
 
   /// Loads the payload row pointer corresponding to the tag at 'index'.
