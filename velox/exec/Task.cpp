@@ -551,6 +551,11 @@ void Task::createDriversLocked(
   for (auto& bridgeEntry : splitGroupState.bridges) {
     bridgeEntry.second->start();
   }
+
+  // Start all the spill groups before we start the driver execution.
+  for (auto& coordinatorEntry : splitGroupState.spillOperatorGroups) {
+    coordinatorEntry.second->start();
+  }
 }
 
 // static
@@ -1111,6 +1116,10 @@ void Task::addHashJoinBridgesLocked(
   for (const auto& planNodeId : planNodeIds) {
     splitGroupState.bridges.emplace(
         planNodeId, std::make_shared<HashJoinBridge>());
+    splitGroupState.spillOperatorGroups.emplace(
+        planNodeId,
+        std::make_unique<SpillOperatorGroup>(
+            taskId_, splitGroupId, planNodeId));
   }
 }
 
@@ -1890,6 +1899,21 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
     taskMemoryUsage.toString(out);
   }
   return out.str();
+}
+
+SpillOperatorGroup* Task::getSpillOperatorGroupLocked(
+    uint32_t splitGroupId,
+    const core::PlanNodeId& planNodeId) {
+  auto& groups = splitGroupStates_[splitGroupId].spillOperatorGroups;
+  auto it = groups.find(planNodeId);
+  VELOX_CHECK(it != groups.end(), "Split group is not set {}", splitGroupId);
+  SpillOperatorGroup* group = it->second.get();
+  VELOX_CHECK_NOT_NULL(
+      group,
+      "Spill group for plan node ID {} is not set in split group {}",
+      planNodeId,
+      splitGroupId);
+  return group;
 }
 
 std::string Task::getErrorMsgOnMemCapExceeded(

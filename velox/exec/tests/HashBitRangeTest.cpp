@@ -24,17 +24,22 @@ class HashRangeBitTest : public test::VectorTestBase, public testing::Test {};
 
 TEST_F(HashRangeBitTest, hashBitRange) {
   HashBitRange bitRange(29, 31);
-  EXPECT_EQ(29, bitRange.begin());
-  EXPECT_EQ(4, bitRange.numPartitions());
-  EXPECT_EQ(2, bitRange.numBits());
-  EXPECT_EQ(31, bitRange.end());
-  EXPECT_EQ(bitRange, bitRange);
+  ASSERT_EQ(29, bitRange.begin());
+  ASSERT_EQ(4, bitRange.numPartitions());
+  ASSERT_EQ(2, bitRange.numBits());
+  ASSERT_EQ(31, bitRange.end());
+  ASSERT_EQ(bitRange, bitRange);
 
   HashBitRange defaultRange;
-  EXPECT_EQ(0, defaultRange.begin());
-  EXPECT_EQ(1, defaultRange.numPartitions());
-  EXPECT_EQ(0, defaultRange.numBits());
-  EXPECT_EQ(0, defaultRange.end());
-  EXPECT_EQ(defaultRange, defaultRange);
-  EXPECT_NE(defaultRange, bitRange);
+  ASSERT_EQ(0, defaultRange.begin());
+  ASSERT_EQ(1, defaultRange.numPartitions());
+  ASSERT_EQ(0, defaultRange.numBits());
+  ASSERT_EQ(0, defaultRange.end());
+  ASSERT_EQ(defaultRange, defaultRange);
+  ASSERT_NE(defaultRange, bitRange);
+
+  // Error test cases.
+  HashBitRange validRange(63, 64);
+  ASSERT_ANY_THROW(HashBitRange(63, 65));
+  ASSERT_ANY_THROW(HashBitRange(65, 65));
 }

@@ -25,7 +25,10 @@ namespace facebook::velox::exec {
 class HashBitRange {
  public:
   HashBitRange(uint8_t begin, uint8_t end)
-      : begin_(begin), end_(end), fieldMask_(bits::lowMask(end - begin)) {}
+      : begin_(begin), end_(end), fieldMask_(bits::lowMask(end - begin)) {
+    VELOX_CHECK_LE(begin_, end_);
+    VELOX_CHECK_LE(end_, 64);
+  }
   HashBitRange() : HashBitRange(0, 0) {}
 
   int32_t partition(uint64_t hash, int32_t numPartitions) const {

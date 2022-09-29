@@ -652,10 +652,14 @@ std::string blockingReasonToString(BlockingReason reason) {
       return "kWaitForExchange";
     case BlockingReason::kWaitForJoinBuild:
       return "kWaitForJoinBuild";
+    case BlockingReason::kWaitForJoinProbe:
+      return "kWaitForJoinProbe";
     case BlockingReason::kWaitForMemory:
       return "kWaitForMemory";
     case BlockingReason::kWaitForConnector:
       return "kWaitForConnector";
+    case BlockingReason::kWaitForSpill:
+      return "kWaitForSpill";
   }
   VELOX_UNREACHABLE();
   return "";

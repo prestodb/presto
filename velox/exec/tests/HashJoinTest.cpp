@@ -31,6 +31,22 @@ using namespace facebook::velox::exec::test;
 
 using facebook::velox::test::BatchMaker;
 
+namespace {
+// Returns aggregated spilled stats by 'task'.
+Spiller::Stats taskSpilledStats(const exec::Task& task) {
+  Spiller::Stats spilledStats;
+  auto stats = task.taskStats();
+  for (auto& pipeline : stats.pipelineStats) {
+    for (auto op : pipeline.operatorStats) {
+      spilledStats.spilledBytes += op.spilledBytes;
+      spilledStats.spilledRows += op.spilledRows;
+      spilledStats.spilledPartitions += op.spilledPartitions;
+    }
+  }
+  return spilledStats;
+}
+} // namespace
+
 struct TestParam {
   int numDrivers;
 
@@ -47,10 +63,18 @@ class HashJoinTest : public HiveConnectorTestBase {
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
 
-    leftType_ =
-        ROW({{"t_k1", INTEGER()}, {"t_k2", VARCHAR()}, {"t_v1", VARCHAR()}});
-    rightType_ =
-        ROW({{"u_k1", INTEGER()}, {"u_k2", VARCHAR()}, {"u_v1", INTEGER()}});
+    // NOTE: use the same row types to ensure generating similar data for both
+    // build and probe sides if we use the same random seed to build vectors.
+    leftType_ = ROW(
+        {{"t_k1", INTEGER()},
+         {"t_k2", VARCHAR()},
+         {"t_v1", VARCHAR()},
+         {"t_v2", INTEGER()}});
+    rightType_ = ROW(
+        {{"u_k1", INTEGER()},
+         {"u_k2", VARCHAR()},
+         {"u_v1", VARCHAR()},
+         {"u_v2", INTEGER()}});
 
     // Small batches create more edge cases.
     fuzzerOpts_.vectorSize = 10;
@@ -79,7 +103,8 @@ class HashJoinTest : public HiveConnectorTestBase {
       const std::string& referenceQuery,
       const std::string& filter,
       const std::vector<std::string>& outputLayout,
-      core::JoinType joinType) {
+      core::JoinType joinType,
+      bool injectSpill) {
     CursorParameters params;
     auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
     params.planNode = PlanBuilder(planNodeIdGenerator)
@@ -96,6 +121,16 @@ class HashJoinTest : public HiveConnectorTestBase {
                           .planNode();
     params.maxDrivers = numDrivers_;
 
+    std::shared_ptr<TempDirectoryPath> spillDirectory;
+    if (injectSpill) {
+      spillDirectory = exec::test::TempDirectoryPath::create();
+      params.queryCtx = core::QueryCtx::createForTest();
+      params.queryCtx->setConfigOverridesUnsafe({
+          {core::QueryConfig::kTestingSpillPct, "100"},
+          {core::QueryConfig::kSpillPath, spillDirectory->path},
+      });
+    }
+
     auto task = ::assertQuery(
         params, [](auto*) {}, referenceQuery, duckDbQueryRunner_);
     // A quick sanity check for memory usage reporting. Check that peak total
@@ -103,6 +138,16 @@ class HashJoinTest : public HiveConnectorTestBase {
     auto planStats = toPlanStats(task->taskStats());
     auto joinNodeId = params.planNode->id();
     ASSERT_TRUE(planStats.at(joinNodeId).peakMemoryBytes > 0);
+    auto spillStats = taskSpilledStats(*task);
+    if (injectSpill) {
+      EXPECT_GT(spillStats.spilledRows, 0);
+      EXPECT_GT(spillStats.spilledBytes, 0);
+      EXPECT_GT(spillStats.spilledPartitions, 0);
+    } else {
+      EXPECT_EQ(spillStats.spilledRows, 0);
+      EXPECT_EQ(spillStats.spilledBytes, 0);
+      EXPECT_EQ(spillStats.spilledPartitions, 0);
+    }
   }
 
   void testJoin(
@@ -114,7 +159,8 @@ class HashJoinTest : public HiveConnectorTestBase {
       const std::string& referenceQuery,
       const std::string& filter = "",
       const std::vector<std::string>& outputLayout = {},
-      core::JoinType joinType = core::JoinType::kInner) {
+      core::JoinType joinType = core::JoinType::kInner,
+      bool injectSpill = false) {
     auto leftType = makeRowType(keyTypes, "t_");
     auto rightType = makeRowType(keyTypes, "u_");
 
@@ -155,7 +201,8 @@ class HashJoinTest : public HiveConnectorTestBase {
         referenceQuery,
         filter,
         outputLayout,
-        joinType);
+        joinType,
+        injectSpill);
   }
 
   void testJoin(
@@ -168,7 +215,8 @@ class HashJoinTest : public HiveConnectorTestBase {
       const std::string& referenceQuery,
       const std::string& filter = "",
       const std::vector<std::string>& outputLayout = {},
-      core::JoinType joinType = core::JoinType::kInner) {
+      core::JoinType joinType = core::JoinType::kInner,
+      bool injectSpill = false) {
     // NOTE: there is one value node copy per driver thread and if the value
     // node is not parallelizable, then the associated driver pipeline will be
     // single threaded. We will try to test different multithreading
@@ -225,7 +273,8 @@ class HashJoinTest : public HiveConnectorTestBase {
           filter,
           outputLayout.empty() ? concat(leftType->names(), rightType->names())
                                : outputLayout,
-          joinType);
+          joinType,
+          injectSpill);
     }
   }
 
@@ -362,6 +411,22 @@ TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
       "SELECT t_k0, t_data, u_k0, u_data FROM "
       "  t, u "
       "  WHERE t_k0 = u_k0");
+}
+
+TEST_P(MultiThreadedHashJoinTest, emptyProbe) {
+  testJoin(
+      {BIGINT()},
+      0,
+      5,
+      1500,
+      5,
+      "SELECT t_k0, t_data, u_k0, u_data FROM "
+      "  t, u "
+      "  WHERE t_k0 = u_k0",
+      "",
+      {},
+      core::JoinType::kInner,
+      true);
 }
 
 TEST_P(MultiThreadedHashJoinTest, normalizedKey) {

@@ -26,11 +26,11 @@ SpillOperatorGroup::State SpillOperatorGroup::state() {
 
 std::string SpillOperatorGroup::stateName(State state) {
   switch (state) {
-    case State::INIT:
+    case State::kInit:
       return "INIT";
-    case State::RUNNING:
+    case State::kRunning:
       return "RUNNING";
-    case State::STOPPED:
+    case State::kStopped:
       return "STOPPED";
     default:
       return fmt::format("UNKNOWN STATE: {}", static_cast<int>(state));
@@ -44,7 +44,7 @@ void SpillOperatorGroup::addOperator(
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK_EQ(
       state_,
-      State::INIT,
+      State::kInit,
       "Can only add an operator before group starts: {}",
       toStringLocked());
   operators_.push_back(&op);
@@ -60,14 +60,14 @@ void SpillOperatorGroup::operatorStopped(const Operator& op) {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_EQ(
         state_,
-        State::RUNNING,
+        State::kRunning,
         "Can only stop an operator when group is running: {}",
         toStringLocked());
     VELOX_CHECK(!stoppedOperators_.contains(&op));
     stoppedOperators_.insert(&op);
     VELOX_CHECK_LE(stoppedOperators_.size(), operators_.size());
     if (stoppedOperators_.size() == operators_.size()) {
-      state_ = State::STOPPED;
+      state_ = State::kStopped;
       checkStoppedStateLocked();
       return;
     }
@@ -86,20 +86,23 @@ void SpillOperatorGroup::operatorStopped(const Operator& op) {
 void SpillOperatorGroup::start() {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK_EQ(
-      state_, State::INIT, "Can only start a group once: {}", toStringLocked());
-  state_ = State::RUNNING;
+      state_,
+      State::kInit,
+      "Can only start a group once: {}",
+      toStringLocked());
+  state_ = State::kRunning;
 }
 
 void SpillOperatorGroup::restart() {
   std::lock_guard<std::mutex> l(mutex_);
   VELOX_CHECK_EQ(
       state_,
-      State::STOPPED,
+      State::kStopped,
       "Can only restart a stopped group: {}",
       toStringLocked());
   checkStoppedStateLocked();
   stoppedOperators_.clear();
-  state_ = State::RUNNING;
+  state_ = State::kRunning;
 }
 
 bool SpillOperatorGroup::requestSpill(Operator& op, ContinueFuture& future) {
@@ -108,7 +111,7 @@ bool SpillOperatorGroup::requestSpill(Operator& op, ContinueFuture& future) {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_EQ(
         state_,
-        State::RUNNING,
+        State::kRunning,
         "Can only request spill when group is running: {}",
         toStringLocked());
     VELOX_CHECK_LT(numWaitingOperators_, numActiveOperatorsLocked());
@@ -129,7 +132,7 @@ bool SpillOperatorGroup::waitSpill(Operator& op, ContinueFuture& future) {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_EQ(
         state_,
-        State::RUNNING,
+        State::kRunning,
         "Can only wait spill when group is running: {}",
         toStringLocked());
     VELOX_CHECK_LT(stoppedOperators_.size(), operators_.size());
@@ -171,7 +174,7 @@ void SpillOperatorGroup::runSpill(std::vector<ContinuePromise>& promises) {
     std::lock_guard<std::mutex> l(mutex_);
     VELOX_CHECK_EQ(
         state_,
-        State::RUNNING,
+        State::kRunning,
         "Can only run spill when group is running: {}",
         toStringLocked());
     needSpill_ = false;
@@ -183,7 +186,7 @@ void SpillOperatorGroup::runSpill(std::vector<ContinuePromise>& promises) {
 }
 
 void SpillOperatorGroup::checkStoppedStateLocked() const {
-  CHECK_EQ(state_, State::STOPPED);
+  CHECK_EQ(state_, State::kStopped);
   VELOX_CHECK_EQ(stoppedOperators_.size(), operators_.size());
   // Reset this coordinator state if all the participated operators have
   // finished memory intensive operations and won't trigger any more spill.

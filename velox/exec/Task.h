@@ -396,6 +396,10 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
+  SpillOperatorGroup* FOLLY_NONNULL getSpillOperatorGroupLocked(
+      uint32_t splitGroupId,
+      const core::PlanNodeId& planNodeId);
+
   // Transitions this to kFinished state if all Drivers are
   // finished. Otherwise sets a flag so that the last Driver to finish
   // will transition the state.

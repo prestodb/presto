@@ -39,15 +39,15 @@ class SpillOperatorGroup {
   /// Define the internal execution state of a spill group. The valid state
   /// transition is depicted as below:
 
-  ///       INIT --->  RUNNING  --->  STOPPED
-  ///                     ^             |
-  ///                     |             v
-  ///                     +-------------+
+  ///       kInit --->  kRunning  --->  kStopped
+  ///                      ^               |
+  ///                      |               v
+  ///                      +---------------+
   ///
   enum class State {
-    INIT = 0,
-    RUNNING = 1,
-    STOPPED = 2,
+    kInit = 0,
+    kRunning = 1,
+    kStopped = 2,
   };
   static std::string stateName(State state);
 
@@ -58,7 +58,7 @@ class SpillOperatorGroup {
       : taskId_(taskId),
         splitGroupId_(splitGroupId),
         planNodeId_(planNodeId),
-        state_(State::INIT){};
+        state_(State::kInit) {}
 
   State state();
 
