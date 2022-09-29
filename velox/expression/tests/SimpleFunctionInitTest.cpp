@@ -96,7 +96,8 @@ TEST_F(SimpleFunctionInitTest, initializationArray) {
         args.push_back(
             std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
 
-        auto rhsArrayVector = makeNullableArrayVector<int32_t>({second});
+        auto rhsArrayVector = makeNullableArrayVector(
+            std::vector<std::vector<std::optional<int32_t>>>{second});
         args.push_back(std::make_shared<core::ConstantTypedExpr>(
             BaseVector::wrapInConstant(1, 0, rhsArrayVector)));
         exec::ExprSet expr(
@@ -109,7 +110,7 @@ TEST_F(SimpleFunctionInitTest, initializationArray) {
           expr.eval(SelectivityVector(1), evalCtx, results);
           assertEqualVectors(results[0], expectedVector);
         };
-        auto expectedResult = makeVectorWithNullArrays<int32_t>(expected);
+        auto expectedResult = makeNullableArrayVector<int32_t>(expected);
         eval(
             makeRowVector({makeNullableFlatVector(std::vector{first})}),
             expectedResult);

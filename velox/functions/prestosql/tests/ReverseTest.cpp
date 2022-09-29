@@ -93,7 +93,7 @@ TEST_F(ReverseTest, nestedArray) {
   auto createArrayOfArrays =
       [&](std::vector<std::optional<std::vector<std::optional<int32_t>>>>
               data) {
-        auto baseArray = makeVectorWithNullArrays<int32_t>(data);
+        auto baseArray = makeNullableArrayVector<int32_t>(data);
 
         vector_size_t size = data.size() / 2;
         BufferPtr offsets =
@@ -160,9 +160,9 @@ TEST_F(ReverseTest, nullArray) {
   auto reverseNullVec = std::make_optional<std::vector<std::optional<int32_t>>>(
       {std::nullopt, 2, 1});
   auto nullArray =
-      makeVectorWithNullArrays<int32_t>({vecWithNull, std::nullopt});
+      makeNullableArrayVector<int32_t>({vecWithNull, std::nullopt});
   auto reverseNullArray =
-      makeVectorWithNullArrays<int32_t>({reverseNullVec, std::nullopt});
+      makeNullableArrayVector<int32_t>({reverseNullVec, std::nullopt});
 
   testExpr<ArrayVector>(reverseNullArray, nullArray);
 }

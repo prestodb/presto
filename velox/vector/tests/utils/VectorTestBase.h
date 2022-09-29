@@ -280,7 +280,7 @@ class VectorTestBase {
     }
 
     // Create the underlying vector.
-    auto baseArray = makeVectorWithNullArrays<T>(flattenedData);
+    auto baseArray = makeNullableArrayVector<T>(flattenedData);
 
     // Build and return a second-level of ArrayVector on top of baseArray.
     return std::make_shared<ArrayVector>(
@@ -410,8 +410,16 @@ class VectorTestBase {
     return vectorMaker_.arrayVectorNullable<T>(convData, type);
   }
 
+  // Just like makeNullableArrayVector above, but allows specifying null arrays.
+  //
+  //  Example:
+  //   auto arrayVector = makeNullableArrayVector<int64_t>({
+  //       {{1, 2, std::nullopt, 4}},
+  //       {{}},
+  //       std::nullopt,
+  //   });
   template <typename T>
-  ArrayVectorPtr makeVectorWithNullArrays(
+  ArrayVectorPtr makeNullableArrayVector(
       const std::vector<std::optional<std::vector<std::optional<T>>>>& data) {
     return vectorMaker_.arrayVectorNullable<T>(data);
   }
@@ -654,7 +662,7 @@ class VectorTestBase {
       }
     }
 
-    auto mapValues = makeVectorWithNullArrays(values);
+    auto mapValues = makeNullableArrayVector(values);
     auto mapKeys = makeNullableFlatVector<K>(keys);
     auto size = maps.size();
 

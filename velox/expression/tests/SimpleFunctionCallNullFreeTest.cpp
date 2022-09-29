@@ -48,7 +48,7 @@ TEST_F(SimpleFunctionCallNullFreeTest, defaultContainsNullsBehavior) {
       {"default_contains_nulls_behavior"});
 
   // Make a vector with some null arrays, and some arrays containing nulls.
-  auto arrayVector = makeVectorWithNullArrays<int32_t>(
+  auto arrayVector = makeNullableArrayVector<int32_t>(
       {std::nullopt, {{1, std::nullopt}}, {{std::nullopt, 2}}, {{1, 2, 3}}});
 
   // Check that default contains nulls behavior functions don't get called on a
@@ -104,11 +104,11 @@ TEST_F(SimpleFunctionCallNullFreeTest, nonDefaultBehavior) {
       {"non_default_behavior"});
 
   // Make a vector with a NULL.
-  auto arrayVectorWithNull = makeVectorWithNullArrays<int32_t>(
+  auto arrayVectorWithNull = makeNullableArrayVector<int32_t>(
       {std::nullopt, {{1, 2}}, {{3, 2}}, {{2, 2, 3}}});
   // Make a vector with an array that contains NULL.
-  auto arrayVectorContainsNull = makeVectorWithNullArrays<int32_t>(
-      {{{4, std::nullopt}}, {{1, 2}}, {{3, 2}}, {{2, 2, 3}}});
+  auto arrayVectorContainsNull = makeNullableArrayVector<int32_t>(
+      {{4, std::nullopt}, {1, 2}, {3, 2}, {2, 2, 3}});
   // Make a vector that's NULL-free.
   auto arrayVectorNullFree =
       makeArrayVector<int32_t>({{4, 5}, {1, 2}, {3, 2}, {2, 2, 3}});

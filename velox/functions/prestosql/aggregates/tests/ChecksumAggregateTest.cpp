@@ -161,24 +161,25 @@ TEST_F(ChecksumAggregateTest, varchars) {
 }
 
 TEST_F(ChecksumAggregateTest, arrays) {
-  auto arrayVector = makeVectorWithNullArrays<int64_t>({
-      {{1, 2}},
-      {{3, 4}},
+  auto arrayVector = makeArrayVector<int64_t>({
+      {1, 2},
+      {3, 4},
   });
-
   assertChecksum(arrayVector, "/jjpuD6xkXs=");
 
-  arrayVector = makeVectorWithNullArrays<int64_t>({{{12, std::nullopt}}});
+  arrayVector = makeNullableArrayVector<int64_t>({{12, std::nullopt}});
   assertChecksum(arrayVector, "sr3HNuzc+7Y=");
-  arrayVector = makeVectorWithNullArrays<int64_t>({{{1, 2}}, std::nullopt});
+
+  arrayVector = makeNullableArrayVector<int64_t>({{{1, 2}}, std::nullopt});
   assertChecksum(arrayVector, "Nlzernkj88A=");
+
   arrayVector =
-      makeVectorWithNullArrays<int64_t>({{{1, 2}}, std::nullopt, {{}}});
+      makeNullableArrayVector<int64_t>({{{1, 2}}, std::nullopt, {{}}});
   assertChecksum(arrayVector, "Nlzernkj88A=");
 
   // Array of arrays.
-  auto baseArrayVector = makeVectorWithNullArrays<int64_t>(
-      {{{1, 2}}, {{3, 4}}, {{4, std::nullopt}}, {{}}});
+  auto baseArrayVector =
+      makeNullableArrayVector<int64_t>({{1, 2}, {3, 4}, {4, std::nullopt}, {}});
   auto arrayOfArrayVector = makeArrayVector({0, 2}, baseArrayVector);
   assertChecksum(arrayOfArrayVector, "Wp67EOfWZPA=");
 }

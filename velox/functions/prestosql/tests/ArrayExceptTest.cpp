@@ -175,7 +175,7 @@ TEST_F(ArrayExceptTest, boolArrays) {
 
   testExpr(expected, "array_except(C0, C1)", {array1, array2});
 
-  expected = makeNullableArrayVector<bool>({{}, {}, {}, {}, {}, {}, {}, {}});
+  expected = makeArrayVector<bool>({{}, {}, {}, {}, {}, {}, {}, {}});
   testExpr(expected, "array_except(C1, C0)", {array1, array2});
 }
 
@@ -241,7 +241,7 @@ TEST_F(ArrayExceptTest, longStrArrays) {
       {S("purple is an elegant color")},
   });
   testExpr(expected, "array_except(C0, C1)", {array1, array2});
-  expected = makeNullableArrayVector<StringView>({
+  expected = makeArrayVector<StringView>({
       {},
       {},
       {},

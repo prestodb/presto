@@ -478,7 +478,7 @@ TEST_F(ArrayWriterTest, copyFromEmptyArray) {
   vectorWriter->commit();
   vectorWriter->finish();
 
-  assertEqualVectors(result, makeNullableArrayVector<int64_t>({{}}));
+  assertEqualVectors(result, makeArrayVector<int64_t>({{}}));
 }
 
 TEST_F(ArrayWriterTest, copyFromIntArray) {

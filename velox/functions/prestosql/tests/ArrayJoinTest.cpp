@@ -39,9 +39,10 @@ class ArrayJoinTest : public FunctionBaseTest {
       std::vector<std::optional<T>> array,
       const StringView& delimiter,
       const StringView& expected) {
-    auto arrayVector = makeNullableArrayVector<T>({array});
-    auto delimiterVector = makeNullableFlatVector<StringView>({delimiter});
-    auto expectedVector = makeNullableFlatVector<StringView>({expected});
+    auto arrayVector = makeNullableArrayVector(
+        std::vector<std::vector<std::optional<T>>>{array});
+    auto delimiterVector = makeFlatVector<StringView>({delimiter});
+    auto expectedVector = makeFlatVector<StringView>({expected});
     testExpr(
         expectedVector, "array_join(c0, c1)", {arrayVector, delimiterVector});
   }
@@ -52,10 +53,11 @@ class ArrayJoinTest : public FunctionBaseTest {
       const StringView& delimiter,
       const StringView& replacement,
       const StringView& expected) {
-    auto arrayVector = makeNullableArrayVector<T>({array});
-    auto delimiterVector = makeNullableFlatVector<StringView>({delimiter});
-    auto replacementVector = makeNullableFlatVector<StringView>({replacement});
-    auto expectedVector = makeNullableFlatVector<StringView>({expected});
+    auto arrayVector = makeNullableArrayVector(
+        std::vector<std::vector<std::optional<T>>>{array});
+    auto delimiterVector = makeFlatVector<StringView>({delimiter});
+    auto replacementVector = makeFlatVector<StringView>({replacement});
+    auto expectedVector = makeFlatVector<StringView>({expected});
     testExpr(
         expectedVector,
         "array_join(c0, c1, c2)",
@@ -65,65 +67,38 @@ class ArrayJoinTest : public FunctionBaseTest {
 
 TEST_F(ArrayJoinTest, intTest) {
   testArrayJoinNoReplacement<int64_t>(
-      std::vector<std::optional<int64_t>>{1, 2, std::nullopt, 3},
-      ","_sv,
-      "1,2,3"_sv);
+      {1, 2, std::nullopt, 3}, ","_sv, "1,2,3"_sv);
   testArrayJoinNoReplacement<int32_t>(
-      std::vector<std::optional<int32_t>>{1, 2, std::nullopt, 3},
-      ","_sv,
-      "1,2,3"_sv);
+      {1, 2, std::nullopt, 3}, ","_sv, "1,2,3"_sv);
   testArrayJoinNoReplacement<int16_t>(
-      std::vector<std::optional<int16_t>>{1, 2, std::nullopt, 3},
-      ","_sv,
-      "1,2,3"_sv);
+      {1, 2, std::nullopt, 3}, ","_sv, "1,2,3"_sv);
   testArrayJoinNoReplacement<int8_t>(
-      std::vector<std::optional<int8_t>>{1, 2, std::nullopt, 3},
-      ","_sv,
-      "1,2,3"_sv);
-  // Test single element
-  testArrayJoinNoReplacement<int8_t>(
-      std::vector<std::optional<int8_t>>{1}, ","_sv, "1"_sv);
-  // Test empty array
-  testArrayJoinNoReplacement<int8_t>(
-      std::vector<std::optional<int8_t>>{}, ","_sv, ""_sv);
-  testArrayJoinNoReplacement<int8_t>(
-      std::vector<std::optional<int8_t>>{std::nullopt}, ","_sv, ""_sv);
+      {1, 2, std::nullopt, 3}, ","_sv, "1,2,3"_sv);
+  // Test single element.
+  testArrayJoinNoReplacement<int8_t>({1}, ","_sv, "1"_sv);
+  // Test empty array.
+  testArrayJoinNoReplacement<int8_t>({}, ","_sv, ""_sv);
+  testArrayJoinNoReplacement<int8_t>({std::nullopt}, ","_sv, ""_sv);
 
   testArrayJoinReplacement<int64_t>(
-      std::vector<std::optional<int64_t>>{1, 2, std::nullopt, 3},
-      ","_sv,
-      "0"_sv,
-      "1,2,0,3"_sv);
+      {1, 2, std::nullopt, 3}, ","_sv, "0"_sv, "1,2,0,3"_sv);
 }
 
 TEST_F(ArrayJoinTest, varcharTest) {
   testArrayJoinNoReplacement<StringView>(
-      std::vector<std::optional<StringView>>{
-          "a"_sv, "b"_sv, std::nullopt, "c"_sv},
-      "-"_sv,
-      "a-b-c"_sv);
-  testArrayJoinNoReplacement<StringView>(
-      std::vector<std::optional<StringView>>{}, "-"_sv, ""_sv);
+      {"a"_sv, "b"_sv, std::nullopt, "c"_sv}, "-"_sv, "a-b-c"_sv);
+  testArrayJoinNoReplacement<StringView>({}, "-"_sv, ""_sv);
 
   testArrayJoinReplacement<StringView>(
-      std::vector<std::optional<StringView>>{
-          "a"_sv, "b"_sv, std::nullopt, "c"_sv},
-      "-"_sv,
-      "z"_sv,
-      "a-b-z-c"_sv);
+      {"a"_sv, "b"_sv, std::nullopt, "c"_sv}, "-"_sv, "z"_sv, "a-b-z-c"_sv);
 }
 
 TEST_F(ArrayJoinTest, boolTest) {
   testArrayJoinNoReplacement<bool>(
-      std::vector<std::optional<bool>>{true, std::nullopt, false},
-      StringView(","),
-      StringView("true,false"));
+      {true, std::nullopt, false}, ","_sv, "true,false"_sv);
 
   testArrayJoinReplacement<bool>(
-      std::vector<std::optional<bool>>{true, std::nullopt, false},
-      StringView(","),
-      StringView("apple"),
-      StringView("true,apple,false"));
+      {true, std::nullopt, false}, ","_sv, "apple"_sv, "true,apple,false"_sv);
 }
 
 } // namespace

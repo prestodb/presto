@@ -744,9 +744,9 @@ TEST_F(CastExprTest, castInTry) {
   // wrapped in dictinary encoding. The row of ["2a"] should trigger an error
   // during casting and the try expression should turn this error into a null at
   // this row.
-  auto input = makeRowVector({makeVectorWithNullArrays<StringView>(
+  auto input = makeRowVector({makeNullableArrayVector<StringView>(
       {{{"1"_sv}}, {{"2a"_sv}}, std::nullopt, std::nullopt})});
-  auto expected = makeVectorWithNullArrays<int64_t>(
+  auto expected = makeNullableArrayVector<int64_t>(
       {{{1}}, std::nullopt, std::nullopt, std::nullopt});
 
   evaluateAndVerifyCastInTryDictEncoding(

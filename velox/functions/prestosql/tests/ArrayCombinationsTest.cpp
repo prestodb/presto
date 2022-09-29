@@ -76,12 +76,14 @@ class ArrayCombinationsTest : public FunctionBaseTest {
 
   template <typename T>
   void testError(
-      const std::vector<std::optional<T>>& inputArray,
+      const std::vector<T>& inputArray,
       const int combinationLength,
       const std::string& expectedError) {
-    auto arrayVector = makeNullableArrayVector<T>({inputArray});
+    auto arrayVector = makeArrayVector<T>({
+        inputArray,
+    });
     auto comboLengthVector =
-        makeFlatVector<int32_t>(std::vector<int32_t>({combinationLength}));
+        makeFlatVector(std::vector<int32_t>({combinationLength}));
     VELOX_ASSERT_THROW(
         evaluate<ArrayVector>(
             "combinations(C0, C1)",
@@ -112,11 +114,11 @@ TEST_F(ArrayCombinationsTest, errorCases) {
       {0, 1, 2, 3}, -1, "combination size must not be negative: -1");
   testError<int32_t>({0, 1, 2, 3}, 8, "combination size must not exceed 5: 8");
   testError<int32_t>(
-      std::vector<std::optional<int32_t>>(100001, 1),
+      std::vector<int32_t>(100001, 1),
       3,
       "combinations exceed max size of 100000");
   testError<int32_t>(
-      std::vector<std::optional<int32_t>>(99999, 1),
+      std::vector<int32_t>(99999, 1),
       3,
       "combinations exceed max size of 100000");
 }

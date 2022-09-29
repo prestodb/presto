@@ -858,7 +858,7 @@ TEST_F(JsonCastTest, toArray) {
        "[]"_sv,
        "null"_sv},
       JSON());
-  auto expected = makeVectorWithNullArrays<StringView>(
+  auto expected = makeNullableArrayVector<StringView>(
       {{{"red"_sv, "blue"_sv}},
        {{std::nullopt, std::nullopt, "purple"_sv}},
        {{}},
@@ -869,7 +869,7 @@ TEST_F(JsonCastTest, toArray) {
   // Tests array that has null at every row.
   data = makeNullableFlatVector<Json>(
       {"null"_sv, "null"_sv, "null"_sv, "null"_sv, std::nullopt});
-  expected = makeVectorWithNullArrays<int64_t>(
+  expected = makeNullableArrayVector<int64_t>(
       {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt});
 
   testCast<ComplexType>(JSON(), ARRAY(BIGINT()), data, expected);
@@ -985,7 +985,7 @@ TEST_F(JsonCastTest, toNested) {
       {R"({"1":[1.1,1.2],"2":[2,2.1]})"_sv, R"({"3":null,"4":[4.1,4.2]})"_sv});
   auto keys =
       makeNullableFlatVector<StringView>({"1"_sv, "2"_sv, "3"_sv, "4"_sv});
-  auto innerArray = makeVectorWithNullArrays<double>(
+  auto innerArray = makeNullableArrayVector<double>(
       {{{1.1, 1.2}}, {{2.0, 2.1}}, std::nullopt, {{4.1, 4.2}}});
 
   auto offsets = AlignedBuffer::allocate<vector_size_t>(2, pool());

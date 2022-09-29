@@ -456,10 +456,14 @@ TEST_F(RowWriterTest, copyFromRowOfArrays) {
 
   assertEqualVectors(
       result,
-      makeRowVector(
-          {makeNullableArrayVector<int64_t>({expected1}),
-           makeNullableArrayVector<double>({expected2}),
-           makeNullableArrayVector<bool>({expected3})}));
+      makeRowVector({
+          makeNullableArrayVector(
+              std::vector<std::vector<std::optional<int64_t>>>{expected1}),
+          makeNullableArrayVector(
+              std::vector<std::vector<std::optional<double>>>{expected2}),
+          makeNullableArrayVector(
+              std::vector<std::vector<std::optional<bool>>>{expected3}),
+      }));
 }
 
 TEST_F(RowWriterTest, copyFromArrayOfRow) {

@@ -89,14 +89,17 @@ TEST_F(ZipTest, combineInt) {
 
 /// Test if we can zip with vectors containing null and empty Arrays
 TEST_F(ZipTest, nullEmptyArray) {
-  auto O = [](std::vector<std::optional<int32_t>> data) {
-    return std::make_optional(data);
-  };
+  auto firstVector = makeNullableArrayVector<int32_t>({
+      {{1, 1, 1, 1}},
+      {{}},
+      std::nullopt,
+  });
 
-  auto firstVector =
-      makeVectorWithNullArrays<int32_t>({O({1, 1, 1, 1}), O({}), std::nullopt});
-
-  auto secondVector = makeArrayVector<int32_t>({{0, 0, 0}, {4, 4}, {5, 5}});
+  auto secondVector = makeArrayVector<int32_t>({
+      {0, 0, 0},
+      {4, 4},
+      {5, 5},
+  });
 
   auto result = evaluate<ArrayVector>(
       "zip(c0, c1)",

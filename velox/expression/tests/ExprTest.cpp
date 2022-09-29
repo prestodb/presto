@@ -2227,7 +2227,7 @@ TEST_F(ExprTest, exceptionContext) {
 /// Verify the output of ConstantExpr::toString().
 TEST_F(ExprTest, constantToString) {
   auto arrayVector =
-      makeNullableArrayVector<float>({{{1.2, 3.4, std::nullopt, 5.6}}});
+      makeNullableArrayVector<float>({{1.2, 3.4, std::nullopt, 5.6}});
 
   exec::ExprSet exprSet(
       {std::make_shared<core::ConstantTypedExpr>(23),
