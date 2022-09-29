@@ -61,6 +61,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -101,6 +102,7 @@ import static com.facebook.presto.SystemSessionProperties.getQueryMaxStageCount;
 import static com.facebook.presto.SystemSessionProperties.getTaskPartitionedWriterCount;
 import static com.facebook.presto.SystemSessionProperties.isForceSingleNodeOutput;
 import static com.facebook.presto.SystemSessionProperties.isGroupedExecutionEnabled;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isRecoverableGroupedExecutionEnabled;
 import static com.facebook.presto.SystemSessionProperties.isTableWriterMergeOperatorEnabled;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -420,6 +422,12 @@ public class PlanFragmenter
                         "outputTableWriterNodeIds %s must include either all or none of tableWriterNodeIds %s",
                         outputTableWriterNodeIds,
                         tableWriterNodeIds);
+            }
+
+            // Only delegate non-coordinatorOnly plan fragment to native engine
+            if (isNativeExecutionEnabled(session) && !properties.getPartitioningHandle().isCoordinatorOnly()) {
+                root = new NativeExecutionNode(root);
+                schedulingOrder = scheduleOrder(root);
             }
 
             PlanFragment fragment = new PlanFragment(
