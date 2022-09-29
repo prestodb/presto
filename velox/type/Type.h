@@ -1341,12 +1341,6 @@ std::shared_ptr<const OpaqueType> OPAQUE() {
     } else if ((typeKind) == ::facebook::velox::TypeKind::OPAQUE) {         \
       return CLASS_NAME<::facebook::velox::TypeKind::OPAQUE>::METHOD_NAME(  \
           __VA_ARGS__);                                                     \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::SHORT_DECIMAL) {  \
-      return CLASS_NAME<::facebook::velox::TypeKind::SHORT_DECIMAL>::       \
-          METHOD_NAME(__VA_ARGS__);                                         \
-    } else if ((typeKind) == ::facebook::velox::TypeKind::LONG_DECIMAL) {   \
-      return CLASS_NAME<::facebook::velox::TypeKind::LONG_DECIMAL>::        \
-          METHOD_NAME(__VA_ARGS__);                                         \
     } else {                                                                \
       return VELOX_DYNAMIC_TYPE_DISPATCH_IMPL(                              \
           CLASS_NAME, ::METHOD_NAME, typeKind, __VA_ARGS__);                \
