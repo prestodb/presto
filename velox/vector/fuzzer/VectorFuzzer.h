@@ -31,10 +31,10 @@ namespace facebook::velox {
 using FuzzerGenerator = std::mt19937;
 
 enum UTF8CharList {
-  ASCII, /* Ascii character set.*/
-  UNICODE_CASE_SENSITIVE, /* Unicode scripts that support case.*/
-  EXTENDED_UNICODE, /* Extended Unicode: Arabic, Devanagiri etc*/
-  MATHEMATICAL_SYMBOLS /* Mathematical Symbols.*/
+  ASCII = 0, // Ascii character set.
+  UNICODE_CASE_SENSITIVE = 1, // Unicode scripts that support case.
+  EXTENDED_UNICODE = 2, // Extended Unicode: Arabic, Devanagiri etc
+  MATHEMATICAL_SYMBOLS = 3 // Mathematical Symbols.
 };
 
 class VectorFuzzer {
@@ -90,6 +90,10 @@ class VectorFuzzer {
 
   void setOptions(VectorFuzzer::Options options) {
     opts_ = options;
+  }
+
+  const VectorFuzzer::Options& getOptions() {
+    return opts_;
   }
 
   // Returns a "fuzzed" vector, containing randomized data, nulls, and indices

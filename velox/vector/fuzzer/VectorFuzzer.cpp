@@ -106,46 +106,48 @@ size_t genContainerLength(
       : opts.containerLength;
 }
 
-/// Unicode character ranges.
+/// Unicode character ranges. Ensure the vector indexes match the UTF8CharList
+/// enum values.
+///
 /// Source: https://jrgraphix.net/research/unicode_blocks.php
-const std::map<UTF8CharList, std::vector<std::pair<char16_t, char16_t>>>
-    kUTFChatSetMap{
-        {UTF8CharList::ASCII,
-         {
-             /*Numbers*/ {'0', '9'},
-             /*Upper*/ {'A', 'Z'},
-             /*Lower*/ {'a', 'z'},
-         }},
-        {UTF8CharList::UNICODE_CASE_SENSITIVE,
-         {
-             /*Basic Latin*/ {u'\u0020', u'\u007F'},
-             /*Cyrillic*/ {u'\u0400', u'\u04FF'},
-         }},
-        {UTF8CharList::EXTENDED_UNICODE,
-         {
-             /*Greek*/ {u'\u03F0', u'\u03FF'},
-             /*Latin Extended A*/ {u'\u0100', u'\u017F'},
-             /*Arabic*/ {u'\u0600', u'\u06FF'},
-             /*Devanagari*/ {u'\u0900', u'\u097F'},
-             /*Hebrew*/ {u'\u0600', u'\u06FF'},
-             /*Hiragana*/ {u'\u3040', u'\u309F'},
-             /*Punctuation*/ {u'\u2000', u'\u206F'},
-             /*Sub/Super Script*/ {u'\u2070', u'\u209F'},
-             /*Currency*/ {u'\u20A0', u'\u20CF'},
-         }},
-        {UTF8CharList::MATHEMATICAL_SYMBOLS,
-         {
-             /*Math Operators*/ {u'\u2200', u'\u22FF'},
-             /*Number Forms*/ {u'\u2150', u'\u218F'},
-             /*Geometric Shapes*/ {u'\u25A0', u'\u25FF'},
-             /*Math Symbols*/ {u'\u27C0', u'\u27EF'},
-             /*Supplemental*/ {u'\u2A00', u'\u2AFF'},
-         }}};
+const std::vector<std::vector<std::pair<char16_t, char16_t>>> kUTFChatSets{
+    // UTF8CharList::ASCII
+    {
+        {33, 127}, // All ASCII printable chars.
+    },
+    // UTF8CharList::UNICODE_CASE_SENSITIVE
+    {
+        {u'\u0020', u'\u007F'}, // Basic Latin.
+        {u'\u0400', u'\u04FF'}, // Cyrillic.
+    },
+    // UTF8CharList::EXTENDED_UNICODE
+    {
+        {u'\u03F0', u'\u03FF'}, // Greek.
+        {u'\u0100', u'\u017F'}, // Latin Extended A.
+        {u'\u0600', u'\u06FF'}, // Arabic.
+        {u'\u0900', u'\u097F'}, // Devanagari.
+        {u'\u0600', u'\u06FF'}, // Hebrew.
+        {u'\u3040', u'\u309F'}, // Hiragana.
+        {u'\u2000', u'\u206F'}, // Punctuation.
+        {u'\u2070', u'\u209F'}, // Sub/Super Script.
+        {u'\u20A0', u'\u20CF'}, // Currency.
+    },
+    // UTF8CharList::MATHEMATICAL_SYMBOLS
+    {
+        {u'\u2200', u'\u22FF'}, // Math Operators.
+        {u'\u2150', u'\u218F'}, // Number Forms.
+        {u'\u25A0', u'\u25FF'}, // Geometric Shapes.
+        {u'\u27C0', u'\u27EF'}, // Math Symbols.
+        {u'\u2A00', u'\u2AFF'}, // Supplemental.
+    },
+};
 
 FOLLY_ALWAYS_INLINE char16_t getRandomChar(
     FuzzerGenerator& rng,
     const std::vector<std::pair<char16_t, char16_t>>& charSet) {
-  const auto& chars = charSet[rand<uint32_t>(rng) % charSet.size()];
+  const auto& chars = charSet.size() == 1
+      ? charSet.front()
+      : charSet[rand<uint32_t>(rng) % charSet.size()];
   auto size = chars.second - chars.first;
   auto inc = (rand<uint32_t>(rng) % size);
   char16_t res = chars.first + inc;
@@ -167,9 +169,13 @@ StringView randString(
   wbuf.resize(stringLength);
 
   for (size_t i = 0; i < stringLength; ++i) {
-    auto encoding =
-        opts.charEncodings[rand<uint32_t>(rng) % opts.charEncodings.size()];
-    wbuf[i] = getRandomChar(rng, kUTFChatSetMap.at(encoding));
+    // First choose a random encoding from the list of input acceptable
+    // encodings.
+    const auto& encoding = (opts.charEncodings.size() == 1)
+        ? opts.charEncodings.front()
+        : opts.charEncodings[rand<uint32_t>(rng) % opts.charEncodings.size()];
+
+    wbuf[i] = getRandomChar(rng, kUTFChatSets[encoding]);
   }
 
   buf.append(converter.to_bytes(wbuf));
