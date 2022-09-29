@@ -23,13 +23,18 @@ import com.facebook.presto.operator.StageExecutionDescriptor;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.Partitioning;
 import com.facebook.presto.sql.planner.PartitioningScheme;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata;
@@ -185,5 +190,40 @@ public class TestPlanPrinter
         assertDomainFormat(
                 Domain.onlyNull(VARCHAR),
                 "[NULL]");
+    }
+
+    @Test
+    public void testPrintNativeExecutionNode()
+    {
+        ImmutableMap<VariableReferenceExpression, RowExpression> map = ImmutableMap.of(
+                COLUMN_VARIABLE,
+                COLUMN_VARIABLE);
+        TableScanNode scan = PLAN_BUILDER.tableScan(
+                TABLE_HANDLE_WITH_LAYOUT,
+                ImmutableList.of(COLUMN_VARIABLE),
+                ImmutableMap.of(COLUMN_VARIABLE, COLUMN_HANDLE));
+        LimitNode limit = PLAN_BUILDER.limit(10, scan);
+        ProjectNode project = PLAN_BUILDER.project(new Assignments(map), limit);
+        NativeExecutionNode nativeExecution = PLAN_BUILDER.nativeExecution(project);
+
+        PlanFragment testFragment = new PlanFragment(
+                new PlanFragmentId(0),
+                nativeExecution,
+                ImmutableSet.of(),
+                SOURCE_DISTRIBUTION,
+                ImmutableList.of(nativeExecution.getId()),
+                new PartitioningScheme(Partitioning.create(SOURCE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of()),
+                StageExecutionDescriptor.ungroupedExecution(),
+                false,
+                StatsAndCosts.empty(),
+                Optional.empty());
+
+        String textPlan = PlanPrinter.textPlanFragment(testFragment, FUNCTION_AND_TYPE_MANAGER, TEST_SESSION, true);
+        assertTrue(textPlan.contains("NativeExecution => [column:varchar]"));
+        assertTrue(textPlan.contains("Project[projectLocality = UNKNOWN] => [column:varchar]"));
+        assertTrue(textPlan.contains("Limit[10] => [column:varchar]"));
+        assertTrue(
+                textPlan.matches(
+                        "(?s).*TableScan\\[TableHandle \\{connectorId='testConnector',(?s).*\\[column:varchar\\](?s).*"));
     }
 }

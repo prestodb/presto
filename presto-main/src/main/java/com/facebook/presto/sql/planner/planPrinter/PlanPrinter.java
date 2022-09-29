@@ -77,6 +77,7 @@ import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeJoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
@@ -1211,6 +1212,15 @@ public class PlanPrinter
         }
 
         @Override
+        public Void visitNativeExecution(NativeExecutionNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, "NativeExecution", ImmutableList.of(node.getSubPlan()));
+            node.getSubPlan().accept(this, context);
+
+            return null;
+        }
+
+        @Override
         public Void visitPlan(PlanNode node, Void context)
         {
             throw new UnsupportedOperationException("not yet implemented: " + node.getClass().getName());
@@ -1288,6 +1298,11 @@ public class PlanPrinter
         public NodeRepresentation addNode(PlanNode node, String name, String identifier, List<PlanNode> children)
         {
             return addNode(node, name, identifier, ImmutableList.of(node.getId()), children, ImmutableList.of());
+        }
+
+        public NodeRepresentation addNode(PlanNode node, String name, List<PlanNode> children)
+        {
+            return addNode(node, name, "", ImmutableList.of(node.getId()), children, ImmutableList.of());
         }
 
         public NodeRepresentation addNode(PlanNode rootNode, String name, String identifier, List<PlanNodeId> allNodes, List<PlanNode> children, List<PlanFragmentId> remoteSources)
