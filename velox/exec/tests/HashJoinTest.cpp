@@ -413,7 +413,7 @@ TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
       "  WHERE t_k0 = u_k0");
 }
 
-TEST_P(MultiThreadedHashJoinTest, emptyProbe) {
+TEST_P(MultiThreadedHashJoinTest, DISABLED_emptyProbe) {
   testJoin(
       {BIGINT()},
       0,
