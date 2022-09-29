@@ -716,4 +716,70 @@ TEST_F(DecodedVectorTest, dictionaryOverFlatNulls) {
   d.decode(*dict, rows);
   assertNulls(dict, d);
 }
+
+TEST_F(DecodedVectorTest, dictionaryWrapping) {
+  constexpr vector_size_t baseVectorSize{100};
+  constexpr vector_size_t innerDictSize{30};
+  constexpr vector_size_t outerDictSize{15};
+  SelectivityVector rows(outerDictSize);
+  VectorPtr dict;
+  DecodedVector decoded;
+  BufferPtr nullsBuffer;
+
+  // Prepare indices to take every third element from the base vector.
+  auto innerIndices =
+      makeIndices(innerDictSize, [](auto row) { return row * 3; });
+  // Indices for the outer dictionary (need two or more dictionaries so we don't
+  // hit the simplified path for a single level dictionary).
+  auto outerIndices = makeIndices(outerDictSize, [outerDictSize](auto row) {
+    return (row * 11) % outerDictSize;
+  });
+
+  auto baseWithNulls = makeFlatVector<int64_t>(
+      baseVectorSize, [](auto row) { return row; }, nullEvery(7));
+
+  for (size_t i = 0; i < 4; ++i) {
+    switch (i) {
+      case 0: // Case dict_no_nulls(dict_no_nulls(base_with_nulls)).
+        dict = wrapInDictionary(innerIndices, baseWithNulls);
+        dict = wrapInDictionary(outerIndices, dict);
+        break;
+      case 1: // Case dict_no_nulls(dict_nulls(base_with_nulls)).
+        nullsBuffer = makeNulls(innerDictSize, nullEvery(5));
+        dict = BaseVector::wrapInDictionary(
+            nullsBuffer, innerIndices, innerDictSize, baseWithNulls);
+        dict = wrapInDictionary(outerIndices, dict);
+        break;
+      case 2: // Case dict_nulls(dict_no_nulls(base_with_nulls)).
+        dict = wrapInDictionary(innerIndices, baseWithNulls);
+        nullsBuffer = makeNulls(outerDictSize, nullEvery(5));
+        dict = BaseVector::wrapInDictionary(
+            nullsBuffer, outerIndices, outerDictSize, dict);
+        break;
+      case 3: // Case dict_nulls(dict_nulls(base_with_nulls)).
+        nullsBuffer = makeNulls(innerDictSize, nullEvery(9));
+        dict = BaseVector::wrapInDictionary(
+            nullsBuffer, innerIndices, innerDictSize, baseWithNulls);
+        nullsBuffer = makeNulls(outerDictSize, nullEvery(5));
+        dict = BaseVector::wrapInDictionary(
+            nullsBuffer, outerIndices, outerDictSize, dict);
+        break;
+      default:
+        break;
+    }
+
+    // Get wrap and nulls from the decoded vector and ensure they are correct,
+    // wrap base vector with them and compare initial dictionary and the new
+    // one.
+    decoded.decode(*dict, rows);
+    auto wrapping = decoded.dictionaryWrapping(*dict, rows);
+    auto wrapped = BaseVector::wrapInDictionary(
+        std::move(wrapping.nulls),
+        std::move(wrapping.indices),
+        rows.end(),
+        baseWithNulls);
+    assertEqualVectors(dict, wrapped);
+  }
+}
+
 } // namespace facebook::velox::test

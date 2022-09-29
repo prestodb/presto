@@ -487,7 +487,11 @@ DecodedVector::DictionaryWrapping DecodedVector::dictionaryWrapping(
   } else {
     // Make a copy of the indices and nulls buffers.
     BufferPtr indices = copyIndicesBuffer(indices_, rows.end(), wrapper.pool());
-    BufferPtr nulls = copyNullsBuffer(nulls_, rows.end(), wrapper.pool());
+    // Only copy nulls if we have nulls coming from one of the wrappers, don't
+    // do it if nulls are missing or from the base vector.
+    BufferPtr nulls = hasExtraNulls_
+        ? copyNullsBuffer(nulls_, rows.end(), wrapper.pool())
+        : nullptr;
     return {std::move(indices), std::move(nulls)};
   }
 }
