@@ -18,9 +18,9 @@
 #include "velox/core/Expressions.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/functions/FunctionRegistry.h"
-#include "velox/parse/VariantToVector.h"
 #include "velox/type/Type.h"
 #include "velox/vector/ConstantVector.h"
+#include "velox/vector/VariantToVector.h"
 
 namespace facebook::velox::core {
 

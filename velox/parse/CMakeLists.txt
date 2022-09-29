@@ -19,10 +19,6 @@ add_library(velox_parse_parser ExpressionsParser.cpp)
 target_link_libraries(velox_parse_parser velox_parse_expression velox_type
                       velox_duckdb_parser)
 
-add_library(velox_parse_utils TypeResolver.cpp VariantToVector.cpp)
+add_library(velox_parse_utils TypeResolver.cpp)
 target_link_libraries(velox_parse_utils velox_buffer velox_type velox_vector
                       velox_function_registry)
-
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()

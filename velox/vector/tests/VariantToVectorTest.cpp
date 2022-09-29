@@ -17,10 +17,10 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
-#include "velox/parse/VariantToVector.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/SimpleVector.h"
+#include "velox/vector/VariantToVector.h"
 
 using namespace facebook::velox;
 using facebook::velox::core::variantArrayToVector;

@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include "velox/parse/VariantToVector.h"
+#include "velox/vector/VariantToVector.h"
 #include "velox/buffer/StringViewBufferHolder.h"
 #include "velox/type/Variant.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
-
 namespace facebook::velox::core {
 namespace {
 
