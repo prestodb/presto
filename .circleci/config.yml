@@ -166,8 +166,12 @@ jobs:
       - run:
           name: "Run Unit Tests"
           command: |
+            mkdir -p /tmp/test_xml_output/
+            export XML_OUTPUT_FILE="/tmp/test_xml_output/"
             cd _build/debug && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
+      - store_test_results:
+          path: /tmp/test_xml_output/
       - run:
           name: "Run Fuzzer Tests"
           command: |
