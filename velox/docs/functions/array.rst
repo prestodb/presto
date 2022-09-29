@@ -173,3 +173,14 @@ Array Functions
     If the arguments have an uneven length, missing values are filled with ``NULL`` ::
 
     SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+
+.. function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
+
+    Merges the two given arrays, element-wise, into a single array using ``function``.
+    If one array is shorter, nulls are appended at the end to match the length of the longer array, before applying ``function``::
+
+        SELECT zip_with(ARRAY[1, 3, 5], ARRAY['a', 'b', 'c'], (x, y) -> (y, x)); -- [ROW('a', 1), ROW('b', 3), ROW('c', 5)]
+        SELECT zip_with(ARRAY[1, 2], ARRAY[3, 4], (x, y) -> x + y); -- [4, 6]
+        SELECT zip_with(ARRAY['a', 'b', 'c'], ARRAY['d', 'e', 'f'], (x, y) -> concat(x, y)); -- ['ad', 'be', 'cf']
+        SELECT zip_with(ARRAY['a'], ARRAY['d', null, 'f'], (x, y) -> coalesce(x, y)); -- ['a', null, 'f']
+

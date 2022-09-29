@@ -386,13 +386,4 @@ MapVectorPtr VectorMaker::mapVector(
       keys,
       values);
 }
-
-// static
-VectorPtr VectorMaker::flatten(const VectorPtr& vector) {
-  SelectivityVector allRows(vector->size());
-  auto flatVector =
-      BaseVector::create(vector->type(), vector->size(), vector->pool());
-  flatVector->copy(vector.get(), allRows, nullptr);
-  return flatVector;
-}
 } // namespace facebook::velox::test

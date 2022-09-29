@@ -637,8 +637,9 @@ class VectorTestBase {
 
   static VectorPtr wrapInDictionary(BufferPtr indices, VectorPtr vector);
 
-  static VectorPtr flatten(const VectorPtr& vector) {
-    return velox::test::VectorMaker::flatten(vector);
+  template <typename T = BaseVector>
+  static std::shared_ptr<T> flatten(const VectorPtr& vector) {
+    return velox::test::VectorMaker::flatten<T>(vector);
   }
 
   // Convenience function to create a vector of type Map(K, ARRAY(K)).

@@ -64,7 +64,8 @@ add_executable(
   URLFunctionsTest.cpp
   WidthBucketArrayTest.cpp
   GreatestLeastTest.cpp
-  ZipTest.cpp)
+  ZipTest.cpp
+  ZipWithTest.cpp)
 
 add_test(velox_functions_test velox_functions_test)
 
@@ -77,6 +78,7 @@ target_link_libraries(
   velox_functions_lib
   velox_exec_test_lib
   velox_dwio_common_test_utils
+  velox_vector_fuzzer
   gtest
   gtest_main
   ${gflags_LIBRARIES}

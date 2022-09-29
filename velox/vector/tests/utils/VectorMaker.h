@@ -678,7 +678,14 @@ class VectorMaker {
             pool_, rowType, nullptr, 1, std::move(fields)));
   }
 
-  static VectorPtr flatten(const VectorPtr& vector);
+  template <typename T = BaseVector>
+  static std::shared_ptr<T> flatten(const VectorPtr& vector) {
+    SelectivityVector allRows(vector->size());
+    auto flatVector =
+        BaseVector::create(vector->type(), vector->size(), vector->pool());
+    flatVector->copy(vector.get(), allRows, nullptr);
+    return std::dynamic_pointer_cast<T>(flatVector);
+  }
 
   /// Create an ArrayVector from a vector of offsets and a base element vector.
   /// The size of the arrays is computed from the difference of offsets.

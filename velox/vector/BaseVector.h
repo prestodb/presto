@@ -785,6 +785,11 @@ inline BufferPtr allocateIndices(vector_size_t size, memory::MemoryPool* pool) {
   return AlignedBuffer::allocate<vector_size_t>(size, pool, 0);
 }
 
+// Allocates a buffer to fit at least 'size' null bits and initializes them to
+// not-null.
+inline BufferPtr allocateNulls(vector_size_t size, memory::MemoryPool* pool) {
+  return AlignedBuffer::allocate<bool>(size, pool, bits::kNotNull);
+}
 } // namespace velox
 } // namespace facebook
 
