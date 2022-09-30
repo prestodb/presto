@@ -935,12 +935,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
     };
 
     return std::make_shared<core::LocalPartitionNode>(
-        node->id,
-        type,
-        partitionFunctionFactory,
-        outputType,
-        std::move(sourceNodes),
-        outputType); // TODO Remove this parameter once Velox is updated.
+        node->id, type, partitionFunctionFactory, std::move(sourceNodes));
   }
 
   if (isRoundRobinPartition(node)) {
@@ -950,20 +945,11 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
     };
 
     return std::make_shared<core::LocalPartitionNode>(
-        node->id,
-        type,
-        partitionFunctionFactory,
-        outputType,
-        std::move(sourceNodes),
-        outputType); // TODO Remove this parameter once Velox is updated.
+        node->id, type, partitionFunctionFactory, std::move(sourceNodes));
   }
 
   if (type == core::LocalPartitionNode::Type::kGather) {
-    return core::LocalPartitionNode::gather(
-        node->id,
-        outputType,
-        std::move(sourceNodes),
-        outputType); // TODO Remove this parameter once Velox is updated.
+    return core::LocalPartitionNode::gather(node->id, std::move(sourceNodes));
   }
 
   VELOX_UNSUPPORTED(
