@@ -1406,9 +1406,23 @@ uint64_t Task::timeSinceEndMs() const {
 
 void Task::onTaskCompletion() {
   listeners().withRLock([&](auto& listeners) {
+    if (listeners.empty()) {
+      return;
+    }
+
+    TaskStats stats;
+    TaskState state;
+    std::exception_ptr exception;
+    {
+      std::lock_guard<std::mutex> l(mutex_);
+      stats = taskStats_;
+      state = state_;
+      exception = exception_;
+    }
+
     for (auto& listener : listeners) {
       listener->onTaskCompletion(
-          uuid_, taskId_, state_, exception_, taskStats_);
+          uuid_, taskId_, state, exception, std::move(stats));
     }
   });
 }
