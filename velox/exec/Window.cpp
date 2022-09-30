@@ -341,8 +341,10 @@ void Window::callApplyForPartitionRows(
       }
     }
 
-    rawPeerStarts[j] = peerStartRow_;
-    rawPeerEnds[j] = peerEndRow_ - 1;
+    // Peer buffer values should be offsets from the start of the partition
+    // as WindowFunction only sees one partition at a time.
+    rawPeerStarts[j] = peerStartRow_ - firstPartitionRow;
+    rawPeerEnds[j] = peerEndRow_ - 1 - firstPartitionRow;
 
     // TODO: Calculate frame buffer values.
   }
