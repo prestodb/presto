@@ -238,6 +238,27 @@ TEST(DuckParserTest, cast) {
 
   // Unsupported casts for now.
   EXPECT_THROW(parseExpr("cast('2020-01-01' as TIME)"), std::runtime_error);
+
+  // Complex types.
+  EXPECT_EQ(
+      "cast(\"c0\", ARRAY<BIGINT>)", parseExpr("c0::bigint[]")->toString());
+  EXPECT_EQ(
+      "cast(\"c0\", ARRAY<BIGINT>)",
+      parseExpr("cast(c0 as bigint[])")->toString());
+
+  EXPECT_EQ(
+      "cast(\"c0\", MAP<VARCHAR,BIGINT>)",
+      parseExpr("c0::map(varchar, bigint)")->toString());
+  EXPECT_EQ(
+      "cast(\"c0\", MAP<VARCHAR,BIGINT>)",
+      parseExpr("cast(c0 as map(varchar, bigint))")->toString());
+
+  EXPECT_EQ(
+      "cast(\"c0\", ROW<a:BIGINT,b:REAL,c:VARCHAR>)",
+      parseExpr("c0::struct(a bigint, b real, c varchar)")->toString());
+  EXPECT_EQ(
+      "cast(\"c0\", ROW<a:BIGINT,b:REAL,c:VARCHAR>)",
+      parseExpr("cast(c0 as struct(a bigint, b real, c varchar))")->toString());
 }
 
 TEST(DuckParserTest, ifCase) {

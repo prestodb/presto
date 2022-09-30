@@ -139,6 +139,30 @@ TypePtr toVeloxType(LogicalType type) {
       return TIMESTAMP();
     case LogicalTypeId::BLOB:
       return VARBINARY();
+    case LogicalTypeId::LIST: {
+      auto childType = ::duckdb::ListType::GetChildType(type);
+      return ARRAY(toVeloxType(childType));
+    }
+    case LogicalTypeId::MAP: {
+      auto keyType = ::duckdb::MapType::KeyType(type);
+      auto valueType = ::duckdb::MapType::ValueType(type);
+      return MAP(toVeloxType(keyType), toVeloxType(valueType));
+    }
+    case LogicalTypeId::STRUCT: {
+      std::vector<std::string> names;
+      std::vector<TypePtr> types;
+
+      auto numChildren = ::duckdb::StructType::GetChildCount(type);
+      names.reserve(numChildren);
+      types.reserve(numChildren);
+
+      for (auto i = 0; i < numChildren; ++i) {
+        names.push_back(::duckdb::StructType::GetChildName(type, i));
+        types.push_back(
+            toVeloxType(::duckdb::StructType::GetChildType(type, i)));
+      }
+      return ROW(std::move(names), std::move(types));
+    }
     default:
       throw std::runtime_error(
           "unsupported type for duckdb -> velox conversion: " +
