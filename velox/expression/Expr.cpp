@@ -1383,7 +1383,7 @@ bool Expr::applyFunctionWithPeeling(
   VectorPtr peeledResult;
   applyFunction(*newRows, context, peeledResult);
   VectorPtr wrappedResult =
-      context.applyWrapToPeeledResult(this->type(), peeledResult, rows);
+      context.applyWrapToPeeledResult(this->type(), peeledResult, applyRows);
   context.moveOrCopyResult(wrappedResult, rows, result);
   return true;
 }

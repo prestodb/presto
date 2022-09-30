@@ -2759,3 +2759,22 @@ TEST_F(ExprTest, peelIntermediateResults) {
   });
   assertEqualVectors(expected, result);
 }
+
+TEST_F(ExprTest, peelWithDefaultNull) {
+  // dict vector is [null, "b", null, "a", null, null].
+  auto base =
+      makeNullableFlatVector<StringView>({"a"_sv, "b"_sv, std::nullopt});
+  auto indices = makeIndices({0, 1, 2, 0, 1, 2});
+  auto nulls = makeNulls(6, nullEvery(2));
+  auto dict = BaseVector::wrapInDictionary(nulls, indices, 6, base);
+  auto data = makeRowVector({dict});
+
+  // After peeling, to_utf8 is only evaluated on rows 0 and 1 in base vector.
+  // The result is then wrapped with the dictionary encoding. Unevaluated rows
+  // should be filled with nulls.
+  auto result =
+      evaluate("distinct_from(to_utf8('xB60ChtE03'),to_utf8(c0))", data);
+  auto expected =
+      makeNullableFlatVector<bool>({true, true, true, true, true, true});
+  assertEqualVectors(expected, result);
+}
