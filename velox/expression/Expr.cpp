@@ -314,74 +314,6 @@ void Expr::evalSimplifiedImpl(
 }
 
 namespace {
-
-/// Data needed to generate exception context for the top-level expression.
-struct ExprExceptionContext {
-  /// The expression.
-  Expr* expr;
-
-  /// The input vector, i.e. EvalCtx::row(). In some cases, input columns are
-  /// re-used for results. Hence, 'vector' may no longer contain input data at
-  /// the time of exception.
-  const RowVector* vector;
-
-  /// Path of the file storing the serialized 'vector'. Used to avoid
-  /// serializing vector repeatedly in cases when multiple rows generate
-  /// exceptions. This happens when exceptions are suppressed by TRY/AND/OR.
-  std::string serializedVectorPath{""};
-
-  /// Path of the file storing the expression SQL. Used to avoid writing SQL
-  /// repeatedly in cases when multiple rows generate exceptions.
-  std::string sqlPath{""};
-};
-
-/// Generates a file path in specified directory. Returns std::nullopt on
-/// failure.
-std::optional<std::string> generateFilePath(
-    const char* basePath,
-    const char* prefix) {
-  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
-  auto fd = mkstemp(path.data());
-  if (fd == -1) {
-    return std::nullopt;
-  }
-  return path;
-}
-
-std::string storeVector(const char* basePath, const BaseVector& vector) {
-  auto filePath = generateFilePath(basePath, "vector");
-  if (!filePath.has_value()) {
-    return "Failed to create file for saving input vector.";
-  }
-
-  try {
-    std::ofstream outputFile(filePath.value(), std::ofstream::binary);
-    saveVector(vector, outputFile);
-    outputFile.close();
-    return filePath.value();
-  } catch (...) {
-    return fmt::format("Failed to save input vector to {}.", filePath.value());
-  }
-}
-
-std::string storeSql(const char* basePath, const Expr& expr) {
-  auto filePath = generateFilePath(basePath, "sql");
-  if (!filePath.has_value()) {
-    return "Failed to create file for saving expression SQL.";
-  }
-
-  try {
-    auto sql = expr.toSql();
-    std::ofstream outputFile(filePath.value(), std::ofstream::binary);
-    outputFile.write(sql.data(), sql.size());
-    outputFile.close();
-    return filePath.value();
-  } catch (...) {
-    return fmt::format(
-        "Failed to save expression SQL to {}.", filePath.value());
-  }
-}
-
 /// Used to generate context for an error occurred while evaluating
 /// top-level expression or top-level context for an error occurred while
 /// evaluating top-level expression. If
@@ -395,10 +327,11 @@ std::string storeSql(const char* basePath, const Expr& expr) {
 ///
 /// This function may be called multiple times if exceptions are suppressed by
 /// TRY/AND/OR. The input vector will be saved only on first call and the
-/// file path will be saved in ExprExceptionContext::serializedVectorPath and
-/// used in subsequent calls. If an error occurs while saving the input vector,
-/// the error message is saved in ExprExceptionContext::serializedVectorPath and
-/// save operation is not attempted again on subsequent calls.
+/// file path will be saved in ExprExceptionContext::dataPath and
+/// used in subsequent calls. If an error occurs while saving the input
+/// vector, the error message is saved in
+/// ExprExceptionContext::dataPath and save operation is not
+/// attempted again on subsequent calls.
 std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
   auto* context = static_cast<ExprExceptionContext*>(arg);
 
@@ -408,20 +341,17 @@ std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
     basePath = FLAGS_velox_save_input_on_expression_system_failure_path.c_str();
   }
   if (strlen(basePath) == 0) {
-    return context->expr->toString();
+    return context->expr()->toString();
   }
 
   // Save input vector to a file.
-  if (context->serializedVectorPath.empty()) {
-    context->serializedVectorPath = storeVector(basePath, *context->vector);
-    context->sqlPath = storeSql(basePath, *context->expr);
-  }
+  context->persistDataAndSql(basePath);
 
   return fmt::format(
       "{}. Input data: {}. SQL expression: {}.",
-      context->expr->toString(),
-      context->serializedVectorPath,
-      context->sqlPath);
+      context->expr()->toString(),
+      context->dataPath(),
+      context->sqlPath());
 }
 
 /// Used to generate context for an error occurred while evaluating
@@ -430,7 +360,62 @@ std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
 std::string onException(VeloxException::Type /*exceptionType*/, void* arg) {
   return static_cast<Expr*>(arg)->toString();
 }
+
+/// Generates a file path in specified directory. Returns std::nullopt on
+/// failure.
+std::optional<std::string> generateFilePath(
+    const char* basePath,
+    const char* prefix) {
+  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
+  auto fd = mkstemp(path.data());
+  if (fd == -1) {
+    return std::nullopt;
+  }
+  return path;
+}
 } // namespace
+
+void ExprExceptionContext::persistDataAndSql(const char* basePath) {
+  // Exception already persisted or failed to persist. We don't persist again in
+  // this situation.
+  if (!dataPath_.empty()) {
+    return;
+  }
+
+  auto dataPath = generateFilePath(basePath, "vector");
+  auto sqlPath = generateFilePath(basePath, "sql");
+  if (!dataPath.has_value()) {
+    dataPath_ = "Failed to create file for saving input vector.";
+    return;
+  }
+  if (!sqlPath.has_value()) {
+    sqlPath_ = "Failed to create file for saving expression SQL.";
+    return;
+  }
+
+  // Persist vector to disk
+  try {
+    std::ofstream outputFile(dataPath.value(), std::ofstream::binary);
+    saveVector(*vector_, outputFile);
+    outputFile.close();
+    dataPath_ = dataPath.value();
+  } catch (...) {
+    dataPath_ =
+        fmt::format("Failed to save input vector to {}.", dataPath.value());
+  }
+
+  // Persist sql to disk
+  try {
+    auto sql = expr_->toSql();
+    std::ofstream outputFile(sqlPath.value(), std::ofstream::binary);
+    outputFile.write(sql.data(), sql.size());
+    outputFile.close();
+    sqlPath_ = sqlPath.value();
+  } catch (...) {
+    sqlPath_ =
+        fmt::format("Failed to save expression SQL to {}.", sqlPath.value());
+  }
+}
 
 void Expr::evalFlatNoNulls(
     const SelectivityVector& rows,
