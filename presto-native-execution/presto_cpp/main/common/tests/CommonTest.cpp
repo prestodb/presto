@@ -25,7 +25,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
   for (const bool withContext : {false, true}) {
     SCOPED_TRACE(fmt::format("withContext: {}", withContext));
     // Setup context based on 'withContext' flag.
-    auto contextMessageFunction = [](auto* arg) {
+    auto contextMessageFunction = [](VeloxException::Type type, auto* arg) {
       return std::string(static_cast<char*>(arg));
     };
     std::string contextMessage = "context message";
