@@ -428,11 +428,11 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             tableFuture.wait();
             tableOr = joinBridge->tableOrFuture(&tableFuture);
             ASSERT_TRUE(tableOr.has_value());
-            if (tableOr.value().antiJoinHasNullKeys) {
-              break;
-            }
-            ASSERT_TRUE(tableOr.value().table != nullptr);
           }
+          if (tableOr.value().antiJoinHasNullKeys) {
+            break;
+          }
+          ASSERT_TRUE(tableOr.value().table != nullptr);
           for (const auto& id : tableOr.value().spillPartitionIds) {
             ASSERT_FALSE(spillPartitionIdSet.contains(id));
             spillPartitionIdSet.insert(id);
@@ -445,7 +445,7 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
           }
 
           if (spillPartitionIdSet.empty()) {
-            return;
+            break;
           }
 
           // Wait for probe to finish.
