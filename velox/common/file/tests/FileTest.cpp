@@ -16,6 +16,7 @@
 
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 
 #include "gtest/gtest.h"
@@ -106,4 +107,45 @@ TEST(LocalFile, viaRegistry) {
   char buffer1[5];
   ASSERT_EQ(readFile->pread(0, 5, &buffer1), "snarf");
   lfs->remove(filename);
+}
+
+TEST(LocalFile, exists) {
+  filesystems::registerLocalFileSystem();
+  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+  auto a = fmt::format("{}/a", tempFolder->path);
+  auto b = fmt::format("{}/b", tempFolder->path);
+  auto localFs = filesystems::getFileSystem(a, nullptr);
+  {
+    auto writeFile = localFs->openFileForWrite(a);
+    writeFile = localFs->openFileForWrite(b);
+  }
+  ASSERT_TRUE(localFs->exists(a));
+  ASSERT_TRUE(localFs->exists(b));
+  localFs->remove(a);
+  ASSERT_FALSE(localFs->exists(a));
+  ASSERT_TRUE(localFs->exists(b));
+  localFs->remove(b);
+  ASSERT_FALSE(localFs->exists(a));
+  ASSERT_FALSE(localFs->exists(b));
+}
+
+TEST(LocalFile, list) {
+  filesystems::registerLocalFileSystem();
+  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+  auto a = fmt::format("{}/1", tempFolder->path);
+  auto b = fmt::format("{}/2", tempFolder->path);
+  auto localFs = filesystems::getFileSystem(a, nullptr);
+  {
+    auto writeFile = localFs->openFileForWrite(a);
+    writeFile = localFs->openFileForWrite(b);
+  }
+  ASSERT_EQ(
+      localFs->list(std::string_view(tempFolder->path)),
+      std::vector<std::string>({a, b}));
+  localFs->remove(a);
+  ASSERT_EQ(
+      localFs->list(std::string_view(tempFolder->path)),
+      std::vector<std::string>({b}));
+  localFs->remove(b);
+  ASSERT_TRUE(localFs->list(std::string_view(tempFolder->path)).empty());
 }

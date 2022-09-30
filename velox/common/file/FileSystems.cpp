@@ -21,6 +21,7 @@
 #include "velox/core/Context.h"
 
 #include <cstdio>
+#include <filesystem>
 
 namespace facebook::velox::filesystems {
 
@@ -75,29 +76,43 @@ class LocalFileSystem : public FileSystem {
     return "Local FS";
   }
 
-  std::unique_ptr<ReadFile> openFileForRead(std::string_view path) override {
+  inline std::string_view extractPath(std::string_view path) {
     if (path.find(kFileScheme) == 0) {
-      return std::make_unique<LocalReadFile>(path.substr(kFileScheme.length()));
+      return path.substr(kFileScheme.length());
     }
-    return std::make_unique<LocalReadFile>(path);
+    return path;
+  }
+
+  std::unique_ptr<ReadFile> openFileForRead(std::string_view path) override {
+    return std::make_unique<LocalReadFile>(extractPath(path));
   }
 
   std::unique_ptr<WriteFile> openFileForWrite(std::string_view path) override {
-    if (path.find(kFileScheme) == 0) {
-      return std::make_unique<LocalWriteFile>(
-          path.substr(kFileScheme.length()));
-    }
-    return std::make_unique<LocalWriteFile>(path);
+    return std::make_unique<LocalWriteFile>(extractPath(path));
   }
 
   void remove(std::string_view path) override {
-    auto file =
-        path.find(kFileScheme) == 0 ? path.substr(kFileScheme.length()) : path;
+    auto file = extractPath(path);
     int32_t rc = ::remove(std::string(file).c_str());
     if (rc < 0) {
       VELOX_USER_FAIL(
           "Failed to delete file {} with errno {}", file, strerror(errno));
     }
+  }
+
+  bool exists(std::string_view path) override {
+    auto file = extractPath(path);
+    return std::filesystem::exists(file);
+  }
+
+  virtual std::vector<std::string> list(std::string_view path) override {
+    auto directoryPath = extractPath(path);
+    const std::filesystem::path folder{directoryPath};
+    std::vector<std::string> filePaths;
+    for (auto const& entry : std::filesystem::directory_iterator{folder}) {
+      filePaths.push_back(entry.path());
+    }
+    return filePaths;
   }
 
   static std::function<bool(std::string_view)> schemeMatcher() {

@@ -43,6 +43,14 @@ class HdfsFileSystem : public FileSystem {
 
   void remove(std::string_view path) override;
 
+  bool exists(std::string_view path) override {
+    VELOX_UNSUPPORTED("exists for HDFS not implemented");
+  }
+
+  virtual std::vector<std::string> list(std::string_view path) override {
+    VELOX_UNSUPPORTED("list for HDFS not implemented");
+  }
+
   static bool isHdfsFile(std::string_view filename);
 
  protected:

@@ -35,16 +35,28 @@ class FileSystem {
   FileSystem(std::shared_ptr<const Config> config)
       : config_(std::move(config)) {}
   virtual ~FileSystem() {}
+
   // Returns the name of the File System
   virtual std::string name() const = 0;
+
   // Returns a ReadFile handle for a given file path
   virtual std::unique_ptr<ReadFile> openFileForRead(std::string_view path) = 0;
+
   // Returns a WriteFile handle for a given file path
   virtual std::unique_ptr<WriteFile> openFileForWrite(
       std::string_view path) = 0;
 
   // Deletes the file at 'path'. Throws on error.
   virtual void remove(std::string_view path) = 0;
+
+  // Returns true if the file exists.
+  virtual bool exists(std::string_view path) = 0;
+
+  // Returns the list of files or folders in a path.
+  // Currently, this method will be used for testing, but we will need
+  // change this to an iterator output method to avoid potential heavy
+  // output if there are many entries in the folder.
+  virtual std::vector<std::string> list(std::string_view path) = 0;
 
  protected:
   std::shared_ptr<const Config> config_;
