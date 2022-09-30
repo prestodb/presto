@@ -689,11 +689,57 @@ std::string CastExpr::toString(bool recursive) const {
   return out.str();
 }
 
+namespace {
+
+/// Appends type's SQL string to 'out'. Uses DuckDB SQL.
+void toTypeSql(const TypePtr& type, std::ostream& out) {
+  if (type->isPrimitiveType()) {
+    out << type->toString();
+    return;
+  }
+
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      // Append <type>[], e.g. bigint[].
+      toTypeSql(type->childAt(0), out);
+      out << "[]";
+      break;
+    case TypeKind::MAP:
+      // Append map(<key>, <value>), e.g. map(varchar, bigint).
+      out << "map(";
+      toTypeSql(type->childAt(0), out);
+      out << ", ";
+      toTypeSql(type->childAt(1), out);
+      out << ")";
+      break;
+    case TypeKind::ROW: {
+      // Append struct(name1 type1, name2 type2,..), e.g.
+      // struct(a bigint, b real);
+      const auto& rowType = type->asRow();
+      out << "struct(";
+      for (auto i = 0; i < type->size(); ++i) {
+        if (i > 0) {
+          out << ", ";
+        }
+        out << rowType.nameOf(i) << " ";
+        toTypeSql(type->childAt(i), out);
+      }
+      out << ")";
+      break;
+    }
+    default:
+      VELOX_UNSUPPORTED("Type is not supported: {}", type->toString());
+  }
+}
+} // namespace
+
 std::string CastExpr::toSql() const {
   std::stringstream out;
   out << "cast(";
   appendInputsSql(out);
-  out << " as " << type_->toString() << ")";
+  out << " as ";
+  toTypeSql(type_, out);
+  out << ")";
   return out.str();
 }
 } // namespace facebook::velox::exec

@@ -2333,6 +2333,10 @@ TEST_F(ExprTest, toSql) {
   testToSql("a + 3", rowType);
   testToSql("a * b", rowType);
   testToSql("a * 1.5", rowType);
+  testToSql("cast(e as varchar[])", rowType);
+  testToSql("cast(f as map(bigint, varchar))", rowType);
+  testToSql(
+      "cast(row_constructor(a, b) as struct(x bigint, y double))", rowType);
 
   // SWITCH.
   testToSql("if(a > 0, 1, 10)", rowType);
