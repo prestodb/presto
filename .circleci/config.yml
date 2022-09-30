@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 version: 2.1
+
 workflows:
   version: 2
   dist-compile:
@@ -53,6 +55,51 @@ workflows:
       - linux-adapters
       - macos-build
 
+commands:
+  update-submodules:
+    steps:
+      - run:
+          name: "Update Submodules"
+          command: |
+            git submodule sync --recursive
+            git submodule update --init --recursive
+
+  pre-steps:
+    steps:
+      - checkout
+      - update-submodules
+      - run:
+          name: "Setup Environment"
+          command: |
+            # Calculate ccache key.
+            git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
+
+            # Set up xml gtest output. 
+            mkdir -p /tmp/test_xml_output/
+            echo "export XML_OUTPUT_FILE=\"/tmp/test_xml_output/\"" >> $BASH_ENV
+
+            # Set up ccache configs.
+            mkdir -p .ccache
+            echo "export CCACHE_DIR=$(realpath .ccache)" >> $BASH_ENV
+            ccache -sz -M 5Gi
+            source /opt/rh/gcc-toolset-9/enable
+      - restore_cache:
+          name: "Restore CCache Cache"
+          keys:
+            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
+
+  post-steps:
+    steps:
+      - save_cache:
+          name: "Save CCache Cache"
+          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
+          paths:
+            - .ccache/
+      - store_artifacts:
+          path: '_build/debug/.ninja_log'
+      - store_test_results:
+          path: '/tmp/test_xml_output/'
+
 executors:
   build:
     docker:
@@ -75,11 +122,7 @@ jobs:
     resource_class: large
     steps:
       - checkout
-      - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
+      - update-submodules
       - restore_cache:
           name: "Restore Dependency Cache"
           # The version number in the key can be incremented
@@ -133,41 +176,16 @@ jobs:
   linux-build:
     executor: build
     steps:
-      - checkout
+      - pre-steps
       - run:
-          name: "Update submodules"
+          name: "Build"
           command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: Build
-          command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
             ccache -s
           no_output_timeout: 1h
-      - store_artifacts:
-          path: '_build/debug/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
       - run:
           name: "Run Unit Tests"
           command: |
-            mkdir -p /tmp/test_xml_output/
-            export XML_OUTPUT_FILE="/tmp/test_xml_output/"
             cd _build/debug && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
       - store_test_results:
@@ -181,76 +199,38 @@ jobs:
          name: "Run Example Binaries"
          command: |
            find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;
+      - post-steps
 
   linux-build-release:
     executor: build
     steps:
-      - checkout
-      - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
+      - pre-steps
       - run:
           name: Build
           command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make release NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
-      - store_artifacts:
-          path: '_build/release/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
       - run:
           name: "Run Unit Tests"
           command: |
             cd _build/release && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
+      - post-steps
 
   linux-benchmarks-basic:
     executor: build
     environment:
       CONBENCH_URL: https://velox-conbench.voltrondata.run/
     steps:
-      - checkout
-      - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: |
-            git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
+      - pre-steps
       - run:
           name: "Build Benchmarks"
           command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
       - run:
-          name: "Install conbench, benchalerts, and veloxbench"
+          name: "Install Conbench, Benchalerts, and Veloxbench"
           command: |
             # upgrade python to 3.8 for this job
             yum install -y python38
@@ -287,89 +267,45 @@ jobs:
 
             conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
       - run:
-          name: "Analyze benchmark regressions and post to Github"
+          name: "Analyze Benchmark Regressions and Post to Github"
           command: |
             export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
             python3.8 scripts/benchmark-github-status.py --z-score-threshold 50
-      - store_artifacts:
-          path: '_build/debug/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
+      - post-steps
 
   # Build with different options
   linux-build-options:
     executor: build
     steps:
-      - checkout
+      - pre-steps
       - run:
-          name: "Update submodules"
+          name: "Build Velox Minimal"
           command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: Build minimal velox
-          command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make min_debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
             ccache -s
           no_output_timeout: 1h
       - run:
-          name: Build velox without testing
+          name: "Build Velox Without Testing"
           command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make clean
             make debug EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_TESTING=OFF" NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=16
             ccache -s
           no_output_timeout: 1h
-      - store_artifacts:
-          path: '_build/debug/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
+      - post-steps
 
   linux-adapters:
     executor: build
     steps:
-      - checkout
+      - pre-steps
       - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-      - run:
-          name: "Install adapter dependencies"
+          name: "Install Adapter Dependencies"
           command: |
             mkdir ~/adapter-deps ~/adapter-deps/install
             source /opt/rh/gcc-toolset-9/enable
             set -xu
             DEPENDENCY_DIR=~/adapter-deps PROMPT_ALWAYS_RESPOND=n ./scripts/setup-adapters.sh
       - run:
-          name: "Install Minio server"
+          name: "Install Minio Server"
           command: |
             set -xu
             cd ~/adapter-deps/install/bin/
@@ -377,27 +313,16 @@ jobs:
             rpm -i minio-20220526054841.0.0.x86_64.rpm
             rm minio-20220526054841.0.0.x86_64.rpm
       - run:
-          name: "Install Hadoop dependency"
+          name: "Install Hadoop Dependency"
           command: |
             set -xu
             yum -y install java-1.8.0-openjdk
       - run:
           name: Build
           command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make release EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON -DVELOX_ENABLE_PARQUET=ON -DVELOX_ENABLE_HDFS=ON -DVELOX_ENABLE_S3=ON -DVELOX_ENABLE_SUBSTRAIT=ON" AWSSDK_ROOT_DIR=~/adapter-deps/install NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
           no_output_timeout: 1h
-      - store_artifacts:
-          path: '_build/release/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-release-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
       - run:
           name: "Run Unit Tests"
           command: |
@@ -408,40 +333,18 @@ jobs:
             export PATH=~/adapter-deps/install/bin:/usr/local/hadoop/bin:${PATH}
             cd _build/release && ctest -j 16 -VV --output-on-failure
           no_output_timeout: 1h
+      - post-steps
 
   linux-fuzzer-run:
     executor: build
     steps:
-      - checkout
-      - run:
-          name: "Update submodules"
-          command: |
-            git submodule sync --recursive
-            git submodule update --init --recursive
-      - run:
-          name: "Calculate merge-base date for CCache"
-          command: git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
-      - restore_cache:
-          name: "Restore CCache cache"
-          keys:
-            - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
+      - pre-steps
       - run:
           name: Build
           command: |
-            mkdir -p .ccache
-            export CCACHE_DIR=$(realpath .ccache)
-            ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
             make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8 EXTRA_CMAKE_FLAGS="-DVELOX_ENABLE_ARROW=ON"
             ccache -s
           no_output_timeout: 1h
-      - store_artifacts:
-          path: '_build/debug/.ninja_log'
-      - save_cache:
-          name: "Save CCache cache"
-          key: velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
-          paths:
-            - .ccache/
       - run:
           # Run Fuzzer, save the output to /tmp/fuzzer.log, and upload the file
           # as job artifact to make it convenient for users to inspect it -
@@ -462,6 +365,7 @@ jobs:
           no_output_timeout: 20m
       - store_artifacts:
           path: '/tmp/fuzzer.log'
+      - post-steps
 
   format-check:
     executor: check
