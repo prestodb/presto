@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.facebook.presto.SystemSessionProperties.getInitialSplitsPerNode;
 import static com.facebook.presto.SystemSessionProperties.getMaxDriversPerTask;
 import static com.facebook.presto.SystemSessionProperties.getSplitConcurrencyAdjustmentInterval;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -348,10 +349,11 @@ public class PrestoSparkTaskExecution
         public Driver createDriver(DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
         {
             Driver driver = driverFactory.createDriver(driverContext);
-
             if (partitionedSplit != null) {
+                boolean isNativeExecutionEnabled = isNativeExecutionEnabled(driver.getDriverContext().getSession());
+                PlanNodeId sourceNodeId = isNativeExecutionEnabled ? driver.getSourceId().get() : partitionedSplit.getPlanNodeId();
                 // TableScanOperator requires partitioned split to be added before the first call to process
-                driver.updateSource(new TaskSource(partitionedSplit.getPlanNodeId(), ImmutableSet.of(partitionedSplit), true));
+                driver.updateSource(new TaskSource(sourceNodeId, ImmutableSet.of(partitionedSplit), true));
             }
 
             verify(pendingCreation.get() > 0, "pendingCreation is expected to be greater than zero");

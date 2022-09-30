@@ -570,10 +570,7 @@ public class PrestoSparkTaskExecutorFactory
 
         LocalExecutionPlan localExecutionPlan = localExecutionPlanner.plan(
                 taskContext,
-                fragment.getRoot(),
-                fragment.getPartitioningScheme(),
-                fragment.getStageExecutionDescriptor(),
-                fragment.getTableScanSchedulingOrder(),
+                fragment,
                 output.getOutputFactory(),
                 new PrestoSparkRemoteSourceFactory(
                         blockEncodingManager,

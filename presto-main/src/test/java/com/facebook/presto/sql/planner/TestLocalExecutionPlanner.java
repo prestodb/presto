@@ -147,10 +147,7 @@ public class TestLocalExecutionPlanner
         PlanFragment leafFragment = subPlan.getChildren().get(0).getFragment();
         return createTestingPlanner().plan(
                 createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session),
-                leafFragment.getRoot(),
-                leafFragment.getPartitioningScheme(),
-                leafFragment.getStageExecutionDescriptor(),
-                leafFragment.getTableScanSchedulingOrder(),
+                leafFragment,
                 new TestingOutputBuffer(),
                 new TestingRemoteSourceFactory(),
                 new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));

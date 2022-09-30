@@ -29,6 +29,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SpatialJoinNode;
 import com.google.common.collect.ImmutableList;
@@ -151,6 +152,13 @@ public class InputExtractor
 
             inputs.add(createInput(metadata.getTableMetadata(session, tableHandle), tableHandle, columns, statistics));
 
+            return null;
+        }
+
+        @Override
+        public Void visitNativeExecution(NativeExecutionNode node, Context context)
+        {
+            node.getSubPlan().accept(this, context);
             return null;
         }
 
