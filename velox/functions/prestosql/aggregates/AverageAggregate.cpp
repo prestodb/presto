@@ -24,22 +24,27 @@ namespace facebook::velox::aggregate {
 
 namespace {
 
+template <typename TSum>
 struct SumCount {
-  double sum{0};
+  TSum sum{0};
   int64_t count{0};
 };
 
 // Partial aggregation produces a pair of sum and count.
-// Final aggregation takes a pair of sum and count and returns a real for real
-// input types and double for other input types.
-// T is the input type for partial aggregation. Not used for final aggregation.
-template <typename T>
+// Count is BIGINT() while sum  and the final aggregates type depends on
+// the input types:
+//       INPUT TYPE    |     SUM             |     AVG
+//   ------------------|---------------------|------------------
+//     REAL            |     DOUBLE          |    REAL
+//     ALL INTs        |     DOUBLE          |    DOUBLE
+//
+template <typename TInput, typename TAccumulator, typename TResult>
 class AverageAggregate : public exec::Aggregate {
  public:
   explicit AverageAggregate(TypePtr resultType) : exec::Aggregate(resultType) {}
 
   int32_t accumulatorFixedWidthSize() const override {
-    return sizeof(SumCount);
+    return sizeof(SumCount<TAccumulator>);
   }
 
   void initializeNewGroups(
@@ -47,7 +52,7 @@ class AverageAggregate : public exec::Aggregate {
       folly::Range<const vector_size_t*> indices) override {
     setAllNulls(groups, indices);
     for (auto i : indices) {
-      new (groups[i] + offset_) SumCount();
+      new (groups[i] + offset_) SumCount<TAccumulator>();
     }
   }
 
@@ -55,18 +60,13 @@ class AverageAggregate : public exec::Aggregate {
 
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
-    // Real input type in Presto has special case and returns REAL, not DOUBLE.
-    if (resultType_->isDouble()) {
-      extractValuesImpl<double>(groups, numGroups, result);
-    } else {
-      extractValuesImpl<float>(groups, numGroups, result);
-    }
+    extractValuesImpl(groups, numGroups, result);
   }
 
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto rowVector = (*result)->as<RowVector>();
-    auto sumVector = rowVector->childAt(0)->asFlatVector<double>();
+    auto sumVector = rowVector->childAt(0)->asFlatVector<TAccumulator>();
     auto countVector = rowVector->childAt(1)->asFlatVector<int64_t>();
 
     rowVector->resize(numGroups);
@@ -75,7 +75,7 @@ class AverageAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(rowVector);
 
     int64_t* rawCounts = countVector->mutableRawValues();
-    double* rawSums = sumVector->mutableRawValues();
+    TAccumulator* rawSums = sumVector->mutableRawValues();
     for (auto i = 0; i < numGroups; ++i) {
       char* group = groups[i];
       if (isNull(group)) {
@@ -97,25 +97,28 @@ class AverageAggregate : public exec::Aggregate {
     decodedRaw_.decode(*args[0], rows);
     if (decodedRaw_.isConstantMapping()) {
       if (!decodedRaw_.isNullAt(0)) {
-        auto value = decodedRaw_.valueAt<T>(0);
-        rows.applyToSelected(
-            [&](vector_size_t i) { updateNonNullValue(groups[i], value); });
+        auto value = decodedRaw_.valueAt<TInput>(0);
+        rows.applyToSelected([&](vector_size_t i) {
+          updateNonNullValue(groups[i], TAccumulator(value));
+        });
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (decodedRaw_.isNullAt(i)) {
           return;
         }
-        updateNonNullValue(groups[i], decodedRaw_.valueAt<T>(i));
+        updateNonNullValue(
+            groups[i], TAccumulator(decodedRaw_.valueAt<TInput>(i)));
       });
     } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
-      auto data = decodedRaw_.data<T>();
+      auto data = decodedRaw_.data<TInput>();
       rows.applyToSelected([&](vector_size_t i) {
         updateNonNullValue<false>(groups[i], data[i]);
       });
     } else {
       rows.applyToSelected([&](vector_size_t i) {
-        updateNonNullValue(groups[i], decodedRaw_.valueAt<T>(i));
+        updateNonNullValue(
+            groups[i], TAccumulator(decodedRaw_.valueAt<TInput>(i)));
       });
     }
   }
@@ -129,25 +132,26 @@ class AverageAggregate : public exec::Aggregate {
 
     if (decodedRaw_.isConstantMapping()) {
       if (!decodedRaw_.isNullAt(0)) {
-        const T value = decodedRaw_.valueAt<T>(0);
+        const TInput value = decodedRaw_.valueAt<TInput>(0);
         const auto numRows = rows.countSelected();
-        updateNonNullValue(group, numRows, value * numRows);
+        updateNonNullValue(group, numRows, TAccumulator(value * numRows));
       }
     } else if (decodedRaw_.mayHaveNulls()) {
       rows.applyToSelected([&](vector_size_t i) {
         if (!decodedRaw_.isNullAt(i)) {
-          updateNonNullValue(group, decodedRaw_.valueAt<T>(i));
+          updateNonNullValue(
+              group, TAccumulator(decodedRaw_.valueAt<TInput>(i)));
         }
       });
     } else if (!exec::Aggregate::numNulls_ && decodedRaw_.isIdentityMapping()) {
-      const T* data = decodedRaw_.data<T>();
-      double totalSum = 0;
+      const TInput* data = decodedRaw_.data<TInput>();
+      TAccumulator totalSum(0);
       rows.applyToSelected([&](vector_size_t i) { totalSum += data[i]; });
       updateNonNullValue<false>(group, rows.countSelected(), totalSum);
     } else {
-      double totalSum = 0;
+      TAccumulator totalSum(0);
       rows.applyToSelected(
-          [&](vector_size_t i) { totalSum += decodedRaw_.valueAt<T>(i); });
+          [&](vector_size_t i) { totalSum += decodedRaw_.valueAt<TInput>(i); });
       updateNonNullValue(group, rows.countSelected(), totalSum);
     }
   }
@@ -159,7 +163,8 @@ class AverageAggregate : public exec::Aggregate {
       bool /* mayPushdown */) override {
     decodedPartial_.decode(*args[0], rows);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto baseSumVector = baseRowVector->childAt(0)->as<SimpleVector<double>>();
+    auto baseSumVector =
+        baseRowVector->childAt(0)->as<SimpleVector<TAccumulator>>();
     auto baseCountVector =
         baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
 
@@ -201,7 +206,8 @@ class AverageAggregate : public exec::Aggregate {
       bool /* mayPushdown */) override {
     decodedPartial_.decode(*args[0], rows);
     auto baseRowVector = dynamic_cast<const RowVector*>(decodedPartial_.base());
-    auto baseSumVector = baseRowVector->childAt(0)->as<SimpleVector<double>>();
+    auto baseSumVector =
+        baseRowVector->childAt(0)->as<SimpleVector<TAccumulator>>();
     auto baseCountVector =
         baseRowVector->childAt(1)->as<SimpleVector<int64_t>>();
 
@@ -224,7 +230,7 @@ class AverageAggregate : public exec::Aggregate {
         }
       });
     } else {
-      double totalSum = 0;
+      TAccumulator totalSum(0);
       int64_t totalCount = 0;
       rows.applyToSelected([&](vector_size_t i) {
         auto decodedIndex = decodedPartial_.index(i);
@@ -238,7 +244,7 @@ class AverageAggregate : public exec::Aggregate {
  private:
   // partial
   template <bool tableHasNulls = true>
-  inline void updateNonNullValue(char* group, T value) {
+  inline void updateNonNullValue(char* group, TAccumulator value) {
     if constexpr (tableHasNulls) {
       exec::Aggregate::clearNull(group);
     }
@@ -247,7 +253,7 @@ class AverageAggregate : public exec::Aggregate {
   }
 
   template <bool tableHasNulls = true>
-  inline void updateNonNullValue(char* group, int64_t count, double sum) {
+  inline void updateNonNullValue(char* group, int64_t count, TAccumulator sum) {
     if constexpr (tableHasNulls) {
       exec::Aggregate::clearNull(group);
     }
@@ -255,11 +261,10 @@ class AverageAggregate : public exec::Aggregate {
     accumulator(group)->count += count;
   }
 
-  inline SumCount* accumulator(char* group) {
-    return exec::Aggregate::value<SumCount>(group);
+  inline SumCount<TAccumulator>* accumulator(char* group) {
+    return exec::Aggregate::value<SumCount<TAccumulator>>(group);
   }
 
-  template <typename TResult>
   void extractValuesImpl(char** groups, int32_t numGroups, VectorPtr* result) {
     auto vector = (*result)->as<FlatVector<TResult>>();
     VELOX_CHECK(vector);
@@ -274,7 +279,7 @@ class AverageAggregate : public exec::Aggregate {
       } else {
         clearNull(rawNulls, i);
         auto* sumCount = accumulator(group);
-        rawValues[i] = (TResult)sumCount->sum / sumCount->count;
+        rawValues[i] = TResult(sumCount->sum) / sumCount->count;
       }
     }
   }
@@ -321,15 +326,20 @@ bool registerAverageAggregate(const std::string& name) {
         if (exec::isRawInput(step)) {
           switch (inputType->kind()) {
             case TypeKind::SMALLINT:
-              return std::make_unique<AverageAggregate<int16_t>>(resultType);
+              return std::make_unique<
+                  AverageAggregate<int16_t, double, double>>(resultType);
             case TypeKind::INTEGER:
-              return std::make_unique<AverageAggregate<int32_t>>(resultType);
+              return std::make_unique<
+                  AverageAggregate<int32_t, double, double>>(resultType);
             case TypeKind::BIGINT:
-              return std::make_unique<AverageAggregate<int64_t>>(resultType);
+              return std::make_unique<
+                  AverageAggregate<int64_t, double, double>>(resultType);
             case TypeKind::REAL:
-              return std::make_unique<AverageAggregate<float>>(resultType);
+              return std::make_unique<AverageAggregate<float, double, float>>(
+                  resultType);
             case TypeKind::DOUBLE:
-              return std::make_unique<AverageAggregate<double>>(resultType);
+              return std::make_unique<AverageAggregate<double, double, double>>(
+                  resultType);
             default:
               VELOX_FAIL(
                   "Unknown input type for {} aggregation {}",
@@ -340,7 +350,19 @@ bool registerAverageAggregate(const std::string& name) {
           checkSumCountRowType(
               inputType,
               "Input type for final aggregation must be (sum:double, count:bigint) struct");
-          return std::make_unique<AverageAggregate<int64_t>>(resultType);
+          switch (resultType->kind()) {
+            case TypeKind::REAL:
+              return std::make_unique<AverageAggregate<int64_t, double, float>>(
+                  resultType);
+            case TypeKind::DOUBLE:
+            case TypeKind::ROW:
+              return std::make_unique<
+                  AverageAggregate<int64_t, double, double>>(resultType);
+            default:
+              VELOX_FAIL(
+                  "Unsupported result type for final aggregation: {}",
+                  resultType->kindName());
+          }
         }
       });
   return true;
