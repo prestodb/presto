@@ -29,3 +29,9 @@ user will always be routed to the same cluster.
 
 Randomly selecting a cluster from a list of candidates with pre-defined weights.
 Clusters with higher weights have higher opportunity to be selected.
+
+* ``WEIGHTED_ROUND_ROBIN``
+
+Selecting clusters from a list of candidates with pre-defined weights in turn.
+Note that similar to the `ROUND_ROBIN` approach, this algorithm keeps the state
+of the selected index so candidates and weights should be consistent.

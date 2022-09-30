@@ -18,6 +18,7 @@ import com.facebook.presto.router.scheduler.RoundRobinScheduler;
 import com.facebook.presto.router.scheduler.Scheduler;
 import com.facebook.presto.router.scheduler.UserHashScheduler;
 import com.facebook.presto.router.scheduler.WeightedRandomChoiceScheduler;
+import com.facebook.presto.router.scheduler.WeightedRoundRobinScheduler;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -119,5 +120,28 @@ public class TestScheduler
         URI target4 = scheduler.getDestination("test").orElse(new URI("invalid"));
         assertTrue(servers.contains(target4));
         assertEquals(target4.getPath(), "192.168.0.1");
+    }
+
+    @Test
+    public void testWeightedRoundRobinScheduler()
+            throws Exception
+    {
+        Scheduler scheduler = new WeightedRoundRobinScheduler();
+        scheduler.setCandidates(servers);
+        scheduler.setWeights(weights);
+
+        int serverDiffCount = 0;
+        URI priorURI = null;
+        for (int i = 0; i < 111; i++) {
+            URI target = scheduler.getDestination("test").orElse(new URI("invalid"));
+            assertTrue(servers.contains(target));
+            assertTrue(weights.containsKey(target));
+            if (!target.equals(priorURI)) {
+                serverDiffCount++;
+                priorURI = target;
+            }
+        }
+
+        assertEquals(serverDiffCount, servers.size());
     }
 }
