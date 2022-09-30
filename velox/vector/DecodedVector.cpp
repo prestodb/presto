@@ -500,7 +500,11 @@ VectorPtr DecodedVector::wrap(
     VectorPtr data,
     const BaseVector& wrapper,
     const SelectivityVector& rows) {
-  if (data->isConstantEncoding()) {
+  // Return `data` as is if it is constant encoded and the vector size matches
+  // exactly with the selection size. Otherwise, the constant vector will need
+  // to be resized to match it. The resizing will be done in the wrapping code
+  // later.
+  if (data->isConstantEncoding() && rows.end() == data->size()) {
     return data;
   }
   if (wrapper.isConstantEncoding()) {

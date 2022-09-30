@@ -556,6 +556,39 @@ TEST_F(DecodedVectorTest, wrapOnConstantEncoding) {
   }
 }
 
+TEST_F(DecodedVectorTest, dictionaryWrapOnConstantVector) {
+  // Constant Vector
+  constexpr vector_size_t size = 100;
+  auto constantVector =
+      BaseVector::createConstant(variant("abc"), size, pool_.get());
+  // int Vector
+  auto intVector = makeFlatVector<int32_t>(size, [](auto row) { return row; });
+  // Row (int, const)
+  auto rowVector = makeRowVector({intVector, constantVector});
+  // Dictionary encoded row
+  auto indices = makeEvenIndices(size);
+  auto dictionarySize = size / 2;
+  auto dictionaryVector =
+      BaseVector::wrapInDictionary(nullptr, indices, dictionarySize, rowVector);
+
+  EXPECT_EQ(dictionarySize, dictionaryVector->size());
+  SelectivityVector selection(dictionarySize);
+  DecodedVector decoded(*dictionaryVector, selection);
+  const auto& intChildVector = decoded.base()->as<RowVector>()->childAt(0);
+  const auto& constChildVector = decoded.base()->as<RowVector>()->childAt(1);
+  // Wrap the child vectors with the same dictionary wrapping as the parent row
+  // vector.
+  auto wrappedIntVector =
+      decoded.wrap(intChildVector, *dictionaryVector, selection);
+  auto wrappedConstVector =
+      decoded.wrap(constChildVector, *dictionaryVector, selection);
+
+  // Ensure size of each child is same as the number of indices in the
+  // dictionary encoding set.
+  EXPECT_EQ(dictionarySize, wrappedIntVector->size());
+  EXPECT_EQ(dictionarySize, wrappedConstVector->size());
+}
+
 TEST_F(DecodedVectorTest, noValues) {
   // Tests decoding a flat vector that consists of all nulls and has
   // no values() buffer.
