@@ -173,6 +173,8 @@ reordering during execution of the AND and OR expressions.
   :width: 600
   :align: center
 
+.. _expr-flatten-concat:
+
 Flatten concat-like functions
 `````````````````````````````
 
@@ -359,6 +361,8 @@ depth-first order. For each node a sequence of operations is performed.
 #. **Expr::evalWithNulls** - If expression propagates nulls, check input columns and identify rows where at least one input is null. Remove these rows from the set of rows for evaluation.
 #. **Expr::evalAll** - The expression can be either a special form or a function call. If it is a special form, evaluate the expression by invoking Expr::evalSpecialForm(). If it is a function call, recursively evaluate all input expressions by calling Expr::eval() on the child nodes and produce input vectors. If the function has default null behavior, identify all rows where input vectors are null and remove these from the set of rows for evaluation. If the function is deterministic and input vectors are not flat, try to peel off encodings. If peeling is successful, replace input vectors with corresponding inner vectors, update the set of rows for evaluation to corresponding rows in the inner vectors and store the peeled off wrappings for later use. Evaluate the function by calling VectorFunction::apply(). Adjust the results by wrapping them using peeled encodings and by setting nulls on rows which were removed due to null inputs. NOTE: The handling of nulls and peeling of encodings in this step may seem to be duplicating the similar steps from Expr::evalEncodings and Expr::evalWithNulls. The difference is that Expr::evalEncodings and Expr::evalWithNulls are working with the input data provided for the whole expression tree while this step is working with the input vectors that were calculated by evaluating input expressions.
 #. **Finalize** - Set nulls for rows that were removed from evaluation due to null inputs. If any encoding was peeled off, use it to wrap the result. If the expression is a shared subexpression and there is a partial result from prior evaluation, incorporate it into the final result, then save the result for future use.
+
+.. _expr-flat-no-nulls:
 
 Flat No-Nulls Fast Path
 ```````````````````````
