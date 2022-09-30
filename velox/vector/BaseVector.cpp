@@ -510,7 +510,7 @@ std::string BaseVector::toString(vector_size_t index) const {
 std::string BaseVector::toString(
     vector_size_t from,
     vector_size_t to,
-    const std::string& delimiter,
+    const char* delimiter,
     bool includeRowNumbers) const {
   const auto start = std::max(0, std::min<int32_t>(from, length_));
   const auto end = std::max(0, std::min<int32_t>(to, length_));

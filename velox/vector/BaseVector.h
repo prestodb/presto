@@ -655,18 +655,39 @@ class BaseVector {
   ///
   ///         [DICTIONARY INTEGER: 5 elements, no nulls], [FLAT INTEGER: 10
   ///             elements, no nulls]
-  std::string toString(bool recursive = false) const;
+  std::string toString(bool recursive) const;
+
+  /// Same as toString(false). Provided to allow for easy invocation from LLDB.
+  std::string toString() const {
+    return toString(false);
+  }
 
   /// Returns string representation of the value in the specified row.
   virtual std::string toString(vector_size_t index) const;
 
-  /// Returns a list of values in rows [from, to). By default rows are separated
-  /// by a new line and include row numbers.
+  /// Returns a list of values in rows [from, to).
+  ///
+  /// Automatically adjusts 'from' and 'to' to a range of valid indices. Returns
+  /// empty string if 'from' is greater than or equal to vector size or 'to' is
+  /// less than or equal to zero. Returns values up to the end of the vector if
+  /// 'to' is greater than vector size. Returns values from the start of the
+  /// vector if 'from' is negative.
+  ///
+  /// The type of the 'delimiter' is a const char* and not an std::string to
+  /// allow for invoking this method from LLDB.
   std::string toString(
       vector_size_t from,
       vector_size_t to,
-      const std::string& delimiter = "\n",
+      const char* delimiter,
       bool includeRowNumbers = true) const;
+
+  /// Returns a list of values in rows [from, to). Values are separated by a new
+  /// line and prefixed with a row number.
+  ///
+  /// This method is provided to allow to easy invocation from LLDB.
+  std::string toString(vector_size_t from, vector_size_t to) const {
+    return toString(from, to, "\n");
+  }
 
   void setCodegenOutput() {
     isCodegenOutput_ = true;
