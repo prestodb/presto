@@ -543,3 +543,13 @@ TEST_F(SpillTest, spillPartitionSpilt) {
     ASSERT_EQ(batchIdx, numBatches);
   }
 }
+
+TEST_F(SpillTest, nonExistSpillFileOnDeletion) {
+  const int32_t numRowsPerBatch = 100;
+  std::vector<RowVectorPtr> batches;
+  setupSpillState(kGB, 1, 2, numRowsPerBatch);
+  // Delete the tmp dir to verify the spill file deletion error won't fail the
+  // test.
+  tempDir_.reset();
+  state_.reset();
+}
