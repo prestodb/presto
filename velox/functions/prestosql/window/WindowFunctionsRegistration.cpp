@@ -19,10 +19,14 @@ namespace facebook::velox::window {
 
 extern void registerRowNumber(const std::string& name);
 extern void registerRank(const std::string& name);
+extern void registerDenseRank(const std::string& name);
+extern void registerPercentRank(const std::string& name);
 
 void registerWindowFunctions() {
   window::registerRowNumber("row_number");
   window::registerRank("rank");
+  window::registerDenseRank("dense_rank");
+  window::registerPercentRank("percent_rank");
 }
 
 } // namespace facebook::velox::window
