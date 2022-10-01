@@ -15,6 +15,7 @@
  */
 #include "velox/exec/Task.h"
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -22,6 +23,7 @@
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::exec::test {
 class TaskTest : public HiveConnectorTestBase {
@@ -595,5 +597,76 @@ TEST_F(TaskTest, supportsSingleThreadedExecution) {
   // PartitionedOutput does not support single threaded execution, therefore the
   // task doesn't support it either.
   ASSERT_FALSE(task->supportsSingleThreadedExecution());
+}
+
+DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
+  const int32_t numBatches = 10;
+  std::vector<RowVectorPtr> dataBatches;
+  dataBatches.reserve(numBatches);
+  for (int32_t i = 0; i < numBatches; ++i) {
+    dataBatches.push_back(makeRowVector({makeFlatVector<int64_t>({0, 1, 10})}));
+  }
+
+  // Create a query plan fragment with one input pipeline and one output
+  // pipeline and both have only one driver.
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto plan =
+      PlanBuilder(planNodeIdGenerator)
+          .localMerge(
+              {"c0"},
+              {PlanBuilder(planNodeIdGenerator).values(dataBatches).planNode()})
+          .limit(0, 1, false)
+          .planNode();
+
+  // Setup the test value to generate the race condition that the output
+  // pipeline finishes early and terminate the task while the input pipeline
+  // driver is running on thread.
+  ContinuePromise mergePromise("mergePromise");
+  ContinueFuture mergeFuture = mergePromise.getSemiFuture();
+  ContinuePromise valuePromise("mergePromise");
+  ContinueFuture valueFuture = valuePromise.getSemiFuture();
+  ContinuePromise driverPromise("driverPromise");
+  ContinueFuture driverFuture = driverPromise.getSemiFuture();
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const int32_t*)>(([&](const int32_t* outputIdx) {
+        // Only blocks the value node on the second output.
+        if (*outputIdx != 1) {
+          return;
+        }
+        mergePromise.setValue();
+        std::move(valueFuture).wait();
+        driverPromise.setValue();
+      })));
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Merge::isFinished",
+      std::function<void(const bool*)>(([&](const bool* isFinished) {
+        // Only wait for the value operator running after the merge operator is
+        // finished.
+        if (!*isFinished) {
+          return;
+        }
+
+        // There will be only one merge driver thread because of the limit node
+        // on the output pipeline so there is no race to access mergeFuture.
+        ContinueFuture future = std::move(mergeFuture);
+        if (future.valid()) {
+          future.wait();
+        }
+      })));
+
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx->setConfigOverridesUnsafe(
+      {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
+  auto task = assertQueryOrdered(params, "VALUES (0)", {0});
+  waitForTaskCompletion(task.get(), 1'000'000);
+  task.reset();
+  valuePromise.setValue();
+  // Wait for Values driver to complete.
+  driverFuture.wait();
 }
 } // namespace facebook::velox::exec::test

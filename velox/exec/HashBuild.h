@@ -219,16 +219,14 @@ class HashBuild final : public Operator {
 
   const core::JoinType joinType_;
 
-  const std::shared_ptr<HashJoinBridge> joinBridge_;
-
   // Holds the areas in RowContainer of 'table_'
   memory::MappedMemory* const FOLLY_NONNULL mappedMemory_;
 
-  const std::shared_ptr<HashJoinBridge> joinBride_;
+  const std::shared_ptr<HashJoinBridge> joinBridge_;
 
   const std::optional<Spiller::Config> spillConfig_;
 
-  SpillOperatorGroup* const FOLLY_NULLABLE spillGroup_{nullptr};
+  const std::shared_ptr<SpillOperatorGroup> spillGroup_;
 
   State state_{State::kRunning};
 

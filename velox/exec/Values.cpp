@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #include "velox/exec/Values.h"
+#include "velox/common/testutil/TestValue.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -38,6 +41,7 @@ Values::Values(
 }
 
 RowVectorPtr Values::getOutput() {
+  TestValue::notify("facebook::velox::exec::Values::getOutput", &current_);
   if (current_ >= values_.size()) {
     return nullptr;
   }

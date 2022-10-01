@@ -16,6 +16,7 @@
 
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/common/caching/AsyncDataCache.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
@@ -25,6 +26,8 @@
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/serializers/PrestoSerializer.h"
+
+using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::exec::test {
 
@@ -61,6 +64,7 @@ void OperatorTestBase::SetUp() {
 
 void OperatorTestBase::SetUpTestCase() {
   functions::prestosql::registerAllScalarFunctions();
+  TestValue::enable();
 }
 
 std::shared_ptr<Task> OperatorTestBase::assertQuery(

@@ -133,7 +133,7 @@ class SpillOperatorGroup {
 
   const std::string taskId_;
   const uint32_t splitGroupId_;
-  const core::PlanNodeId& planNodeId_;
+  const core::PlanNodeId planNodeId_;
 
   std::mutex mutex_;
   State state_;

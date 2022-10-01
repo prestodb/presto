@@ -396,7 +396,7 @@ class Task : public std::enable_shared_from_this<Task> {
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 
-  SpillOperatorGroup* FOLLY_NONNULL getSpillOperatorGroupLocked(
+  std::shared_ptr<SpillOperatorGroup> getSpillOperatorGroupLocked(
       uint32_t splitGroupId,
       const core::PlanNodeId& planNodeId);
 

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -826,69 +827,6 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
       task->pool()->getMemoryUsageTracker()->getCurrentTotalBytes());
 }
 
-TEST_F(AggregationTest, spill) {
-  constexpr int32_t kNumDistinct = 200000;
-  constexpr int64_t kMaxBytes = 24LL << 20; // 24 MB
-  rng_.seed(1);
-  rowType_ = ROW({"c0", "c1", "a"}, {INTEGER(), VARCHAR(), VARCHAR()});
-  // The input batch has kNumDistinct distinct keys. The repeat count of a key
-  // is given by min(1, (k % 100) - 90). The batch is repeated 3 times, each
-  // time in a different order.
-  RowVectorPtr rows = std::static_pointer_cast<RowVector>(
-      BaseVector::create(rowType_, kNumDistinct, pool_.get()));
-  folly::F14FastSet<uint64_t> order1;
-  folly::F14FastSet<uint64_t> order2;
-  folly::F14FastSet<uint64_t> order3;
-  auto c0 = rows->childAt(0)->as<FlatVector<int32_t>>();
-  c0->resize(kNumDistinct);
-  auto c1 = rows->childAt(1)->as<FlatVector<StringView>>();
-  c1->resize(kNumDistinct);
-  int32_t totalCount = 0;
-  for (int32_t i = 0; i < kNumDistinct; ++i) {
-    c0->set(i, i);
-    std::string str = fmt::format("{}{}", i, i);
-    c1->set(i, StringView(str));
-    auto numRepeats = std::max(1, (i % 100) - 90);
-    // We make random permutations of the data by adding the indices into a set
-    // with a random 6 high bits followed by a serial number. These are inlined
-    // in the F14FastSet in an order that depends on the hash number.
-    for (auto j = 0; j < numRepeats; ++j) {
-      ++totalCount;
-      insertRandomOrder(i, totalCount, order1);
-      insertRandomOrder(i, totalCount, order2);
-      insertRandomOrder(i, totalCount, order3);
-    }
-  }
-  std::vector<RowVectorPtr> batches;
-  makeBatches(rows, order1, batches);
-  makeBatches(rows, order2, batches);
-  makeBatches(rows, order3, batches);
-  auto results =
-      AssertQueryBuilder(PlanBuilder()
-                             .values(batches)
-                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
-                             .planNode())
-          .copyResults(pool_.get());
-
-  auto tempDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = core::QueryCtx::createForTest();
-  queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
-  auto task =
-      AssertQueryBuilder(PlanBuilder()
-                             .values(batches)
-                             .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
-                             .planNode())
-          .queryCtx(queryCtx)
-          .config(QueryConfig::kSpillPath, tempDirectory->path)
-          .assertResults(results);
-
-  auto stats = task->taskStats().pipelineStats;
-
-  // Over 20MB spilled.
-  EXPECT_LT(20 << 20, stats[0].operatorStats[1].spilledBytes);
-}
-
 TEST_F(AggregationTest, spillWithMemoryLimit) {
   constexpr int32_t kNumDistinct = 2000;
   constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
@@ -948,7 +886,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
   }
 }
 
-TEST_F(AggregationTest, spillWithEmptyPartition) {
+DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
   constexpr int32_t kNumDistinct = 100'000;
   constexpr int64_t kMaxBytes = 20LL << 20; // 20 MB
   rowType_ = ROW({"c0", "a"}, {INTEGER(), VARCHAR()});
@@ -1028,16 +966,14 @@ TEST_F(AggregationTest, spillWithEmptyPartition) {
     queryCtx->pool()->setMemoryUsageTracker(
         velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
 
-#ifndef NDEBUG
     SCOPED_TESTVALUE_SET(
-        "facebook::velox::exec::test::TestObject::set",
+        "facebook::velox::exec::Spiller",
         std::function<void(const HashBitRange*)>(
             ([&](const HashBitRange* spillerBitRange) {
               ASSERT_EQ(kPartitionStartBit, spillerBitRange->begin());
               ASSERT_EQ(
                   kPartitionStartBit + kPartitionsBits, spillerBitRange->end());
             })));
-#endif
 
     auto task =
         AssertQueryBuilder(PlanBuilder()

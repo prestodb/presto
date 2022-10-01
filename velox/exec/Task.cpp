@@ -1915,13 +1915,13 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
   return out.str();
 }
 
-SpillOperatorGroup* Task::getSpillOperatorGroupLocked(
+std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
     uint32_t splitGroupId,
     const core::PlanNodeId& planNodeId) {
   auto& groups = splitGroupStates_[splitGroupId].spillOperatorGroups;
   auto it = groups.find(planNodeId);
   VELOX_CHECK(it != groups.end(), "Split group is not set {}", splitGroupId);
-  SpillOperatorGroup* group = it->second.get();
+  auto group = it->second;
   VELOX_CHECK_NOT_NULL(
       group,
       "Spill group for plan node ID {} is not set in split group {}",

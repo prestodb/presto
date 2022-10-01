@@ -47,7 +47,7 @@ HashBuild::HashBuild(
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
       mappedMemory_(operatorCtx_->mappedMemory()),
-      joinBride_(operatorCtx_->task()->getHashJoinBridgeLocked(
+      joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillConfig_(makeOperatorSpillConfig(
@@ -59,8 +59,8 @@ HashBuild::HashBuild(
                                operatorCtx_->driverCtx()->splitGroupId,
                                planNodeId())
                          : nullptr) {
-  VELOX_CHECK_NOT_NULL(joinBride_);
-  joinBride_->addBuilder();
+  VELOX_CHECK_NOT_NULL(joinBridge_);
+  joinBridge_->addBuilder();
 
   auto outputType = joinNode_->sources()[1]->outputType();
 
@@ -642,12 +642,12 @@ bool HashBuild::finishHashBuild() {
     table_->prepareJoinTable(std::move(otherTables));
 
     addRuntimeStats();
-    if (joinBride_->setHashTable(
+    if (joinBridge_->setHashTable(
             std::move(table_), std::move(spillPartitions))) {
       spillGroup_->restart();
     }
   } else {
-    joinBride_->setAntiJoinHasNullKeys();
+    joinBridge_->setAntiJoinHasNullKeys();
   }
 
   // Realize the promises so that the other Drivers (which were not
@@ -671,7 +671,7 @@ void HashBuild::postHashBuildProcess() {
     return;
   }
 
-  auto spillInput = joinBride_->spillInputOrFuture(&future_);
+  auto spillInput = joinBridge_->spillInputOrFuture(&future_);
   if (!spillInput.has_value()) {
     VELOX_CHECK(future_.valid());
     setState(State::kWaitForProbe);

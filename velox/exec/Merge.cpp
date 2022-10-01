@@ -15,7 +15,10 @@
  */
 
 #include "velox/exec/Merge.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Task.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 
@@ -97,6 +100,7 @@ BlockingReason Merge::isBlocked(ContinueFuture* future) {
 }
 
 bool Merge::isFinished() {
+  TestValue::notify("facebook::velox::exec::Merge::isFinished", &finished_);
   return finished_;
 }
 

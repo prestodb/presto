@@ -80,7 +80,7 @@ struct SplitGroupState {
 
   /// Map from the plan node id to the associated spill operator group if disk
   /// spill is enabled for the corresponding plan operator.
-  std::unordered_map<core::PlanNodeId, std::unique_ptr<SpillOperatorGroup>>
+  std::unordered_map<core::PlanNodeId, std::shared_ptr<SpillOperatorGroup>>
       spillOperatorGroups;
 
   /// Holds states for Task::allPeersFinished.

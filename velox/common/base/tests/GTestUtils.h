@@ -44,7 +44,15 @@
 
 #ifndef NDEBUG
 #define DEBUG_ONLY_TEST(test_fixture, test_name) TEST(test_fixture, test_name)
+#define DEBUG_ONLY_TEST_F(test_fixture, test_name) \
+  TEST_F(test_fixture, test_name)
+#define DEBUG_ONLY_TEST_P(test_fixture, test_name) \
+  TEST_P(test_fixture, test_name)
 #else
 #define DEBUG_ONLY_TEST(test_fixture, test_name) \
   TEST(test_fixture, DISABLED_##test_name)
+#define DEBUG_ONLY_TEST_F(test_fixture, test_name) \
+  TEST_F(test_fixture, DISABLED_test_name)
+#define DEBUG_ONLY_TEST_P(test_fixture, test_name) \
+  TEST_P(test_fixture, DISABLED_test_name)
 #endif
