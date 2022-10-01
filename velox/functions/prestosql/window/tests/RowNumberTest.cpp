@@ -33,7 +33,7 @@ TEST_F(RowNumberTest, basic) {
           size, [](auto row) -> int32_t { return row % 7; }),
   });
 
-  testTwoColumnInput({vectors}, "row_number");
+  testTwoColumnInput({vectors}, "row_number()");
 }
 
 TEST_F(RowNumberTest, singlePartition) {
@@ -45,7 +45,7 @@ TEST_F(RowNumberTest, singlePartition) {
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
   });
 
-  testTwoColumnInput({vectors}, "row_number");
+  testTwoColumnInput({vectors}, "row_number()");
 }
 
 TEST_F(RowNumberTest, randomInput) {
@@ -65,7 +65,7 @@ TEST_F(RowNumberTest, randomInput) {
       "partition by c0, c1, c2, c3",
   };
 
-  testWindowFunction(vectors, "row_number", overClauses);
+  testWindowFunction(vectors, "row_number()", overClauses);
 }
 
 }; // namespace

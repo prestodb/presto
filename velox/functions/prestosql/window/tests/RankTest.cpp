@@ -33,9 +33,9 @@ TEST_F(RankTest, basic) {
           size, [](auto row) -> int32_t { return row % 7; }),
   });
 
-  testTwoColumnInput({vectors}, "rank");
-  testTwoColumnInput({vectors}, "dense_rank");
-  testTwoColumnInput({vectors}, "percent_rank");
+  testTwoColumnInput({vectors}, "rank()");
+  testTwoColumnInput({vectors}, "dense_rank()");
+  testTwoColumnInput({vectors}, "percent_rank()");
 }
 
 TEST_F(RankTest, singlePartition) {
@@ -47,9 +47,9 @@ TEST_F(RankTest, singlePartition) {
       makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
   });
 
-  testTwoColumnInput({vectors}, "rank");
-  testTwoColumnInput({vectors}, "dense_rank");
-  testTwoColumnInput({vectors}, "percent_rank");
+  testTwoColumnInput({vectors}, "rank()");
+  testTwoColumnInput({vectors}, "dense_rank()");
+  testTwoColumnInput({vectors}, "percent_rank()");
 }
 
 TEST_F(RankTest, singleRowPartitions) {
@@ -59,9 +59,9 @@ TEST_F(RankTest, singleRowPartitions) {
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
   });
 
-  testTwoColumnInput({vectors}, "rank");
-  testTwoColumnInput({vectors}, "dense_rank");
-  testTwoColumnInput({vectors}, "percent_rank");
+  testTwoColumnInput({vectors}, "rank()");
+  testTwoColumnInput({vectors}, "dense_rank()");
+  testTwoColumnInput({vectors}, "percent_rank()");
 }
 
 TEST_F(RankTest, randomInput) {
@@ -88,9 +88,9 @@ TEST_F(RankTest, randomInput) {
       "partition by c0, c1, c2, c3",
   };
 
-  testWindowFunction(vectors, "rank", overClauses);
-  testWindowFunction(vectors, "dense_rank", overClauses);
-  testWindowFunction(vectors, "percent_rank", overClauses);
+  testWindowFunction(vectors, "rank()", overClauses);
+  testWindowFunction(vectors, "dense_rank()", overClauses);
+  testWindowFunction(vectors, "percent_rank()", overClauses);
 }
 
 }; // namespace

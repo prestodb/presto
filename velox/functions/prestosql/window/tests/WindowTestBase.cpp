@@ -42,7 +42,7 @@ void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
     const std::string& overClause) {
-  auto functionSql = fmt::format("{}() over ({})", function, overClause);
+  auto functionSql = fmt::format("{} over ({})", function, overClause);
 
   SCOPED_TRACE(functionSql);
   auto op = PlanBuilder().values(input).window({functionSql}).planNode();
