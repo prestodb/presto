@@ -20,6 +20,7 @@ import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.spi.QueryFingerprint;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
@@ -51,6 +52,7 @@ public final class SessionRepresentation
     private final String user;
     private final Optional<String> principal;
     private final Optional<String> source;
+    private final Optional<QueryFingerprint> queryFingerprint;
     private final Optional<String> catalog;
     private final Optional<String> schema;
     private final Optional<String> traceToken;
@@ -78,6 +80,7 @@ public final class SessionRepresentation
             @JsonProperty("user") String user,
             @JsonProperty("principal") Optional<String> principal,
             @JsonProperty("source") Optional<String> source,
+            @JsonProperty("queryFingerprint") Optional<QueryFingerprint> queryFingerprint,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("traceToken") Optional<String> traceToken,
@@ -102,6 +105,7 @@ public final class SessionRepresentation
         this.user = requireNonNull(user, "user is null");
         this.principal = requireNonNull(principal, "principal is null");
         this.source = requireNonNull(source, "source is null");
+        this.queryFingerprint = requireNonNull(queryFingerprint, "fingerprint is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -292,6 +296,13 @@ public final class SessionRepresentation
         return sessionFunctions;
     }
 
+    @ThriftField(24)
+    @JsonProperty
+    public Optional<QueryFingerprint> getQueryFingerprint()
+    {
+        return queryFingerprint;
+    }
+
     public Session toSession(SessionPropertyManager sessionPropertyManager)
     {
         return toSession(sessionPropertyManager, emptyMap(), emptyMap());
@@ -315,6 +326,7 @@ public final class SessionRepresentation
                         extraCredentials,
                         extraAuthenticators),
                 source,
+                queryFingerprint,
                 catalog,
                 schema,
                 traceToken,

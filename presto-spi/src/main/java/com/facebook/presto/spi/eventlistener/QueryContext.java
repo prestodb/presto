@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi.eventlistener;
 
+import com.facebook.presto.spi.QueryFingerprint;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -32,6 +33,7 @@ public class QueryContext
     private final Optional<String> clientInfo;
     private final Set<String> clientTags;
     private final Optional<String> source;
+    private final Optional<QueryFingerprint> queryFingerprint;
 
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -53,6 +55,7 @@ public class QueryContext
             Optional<String> clientInfo,
             Set<String> clientTags,
             Optional<String> source,
+            Optional<QueryFingerprint> queryFingerprint,
             Optional<String> catalog,
             Optional<String> schema,
             Optional<ResourceGroupId> resourceGroupId,
@@ -69,6 +72,7 @@ public class QueryContext
         this.clientInfo = requireNonNull(clientInfo, "clientInfo is null");
         this.clientTags = requireNonNull(clientTags, "clientTags is null");
         this.source = requireNonNull(source, "source is null");
+        this.queryFingerprint = requireNonNull(queryFingerprint, "fingerprint is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.resourceGroupId = requireNonNull(resourceGroupId, "resourceGroupId is null");
@@ -119,6 +123,12 @@ public class QueryContext
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    @JsonProperty
+    public Optional<QueryFingerprint> getQueryFingerprint()
+    {
+        return queryFingerprint;
     }
 
     @JsonProperty

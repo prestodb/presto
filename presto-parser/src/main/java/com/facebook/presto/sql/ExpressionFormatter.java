@@ -691,7 +691,7 @@ public final class ExpressionFormatter
         }
     }
 
-    static String formatStringLiteral(String s)
+    public static String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
         if (CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(s)) {
@@ -724,7 +724,7 @@ public final class ExpressionFormatter
         return builder.toString();
     }
 
-    static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
+    public static String formatOrderBy(OrderBy orderBy, Optional<List<Expression>> parameters)
     {
         return "ORDER BY " + formatSortItems(orderBy.getSortItems(), parameters);
     }
@@ -736,7 +736,7 @@ public final class ExpressionFormatter
                 .iterator());
     }
 
-    static String formatGroupBy(List<GroupingElement> groupingElements)
+    public static String formatGroupBy(List<GroupingElement> groupingElements)
     {
         return formatGroupBy(groupingElements, Optional.empty());
     }
