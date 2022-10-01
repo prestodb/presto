@@ -75,6 +75,9 @@ GroupingSet::GroupingSet(
       intermediateTypes_(std::move(intermediateTypes)),
       ignoreNullKeys_(ignoreNullKeys),
       mappedMemory_(operatorCtx->mappedMemory()),
+      spillMemoryThreshold_(operatorCtx->driverCtx()
+                                ->queryConfig()
+                                .aggregationSpillMemoryThreshold()),
       spillConfig_(spillConfig),
       stringAllocator_(mappedMemory_),
       rows_(mappedMemory_),
@@ -504,7 +507,6 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   int64_t flatBytes = input->estimateFlatSize();
 
   // Test-only spill path.
-
   if (spillConfig_->testSpillPct > 0 &&
       (folly::hasher<uint64_t>()(++spillTestCounter_)) % 100 <=
           spillConfig_->testSpillPct) {
@@ -512,6 +514,20 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     spill(
         numDistinct - rowsToSpill,
         outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow));
+    return;
+  }
+
+  auto tracker = mappedMemory_->tracker();
+  const auto currentUsage = tracker->getCurrentUserBytes();
+  if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
+    const int64_t bytesToSpill =
+        currentUsage * spillConfig_->spillableReservationGrowthPct / 100;
+    auto rowsToSpill = std::max<int64_t>(
+        1, bytesToSpill / (rows->fixedRowSize() + outOfLineBytesPerRow));
+    spill(
+        std::max<int64_t>(0, numDistinct - rowsToSpill),
+        std::max<int64_t>(
+            0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
     return;
   }
 
@@ -527,7 +543,6 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   auto increment =
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0) +
       tableIncrement;
-  auto tracker = mappedMemory_->tracker();
   // There must be at least 2x the increment in reservation.
   if (tracker->getAvailableReservation() > 2 * increment) {
     return;
@@ -537,8 +552,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   // 'spillableReservationGrowthPct_' of the current reservation.
   auto targetIncrement = std::max<int64_t>(
       increment * 2,
-      tracker->getCurrentUserBytes() *
-          spillConfig_->spillableReservationGrowthPct / 100);
+      currentUsage * spillConfig_->spillableReservationGrowthPct / 100);
   if (tracker->maybeReserve(targetIncrement)) {
     return;
   }

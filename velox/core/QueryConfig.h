@@ -80,6 +80,11 @@ class QueryConfig {
   static constexpr const char* kMaxExtendedPartialAggregationMemory =
       "max_extended_partial_aggregation_memory";
 
+  /// The max memory that a final aggregation can use before spilling. If it 0,
+  /// then there is no limit.
+  static constexpr const char* kAggregationSpillMemoryThreshold =
+      "aggregation_spill_memory_threshold";
+
   /// Output volume as percentage of input volume below which we will not seek
   /// to increase reduction by using more memory. the data volume is measured as
   /// the number of rows.
@@ -125,6 +130,11 @@ class QueryConfig {
   uint64_t maxExtendedPartialAggregationMemoryUsage() const {
     static constexpr uint64_t kDefault = 1L << 24;
     return get<uint64_t>(kMaxExtendedPartialAggregationMemory, kDefault);
+  }
+
+  uint64_t aggregationSpillMemoryThreshold() const {
+    static constexpr uint64_t kDefault = 0;
+    return get<uint64_t>(kAggregationSpillMemoryThreshold, kDefault);
   }
 
   double partialAggregationGoodPct() const {

@@ -27,6 +27,7 @@
 #include "velox/exec/tests/utils/SumNonPODAggregate.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using facebook::velox::core::QueryConfig;
 using facebook::velox::exec::Aggregate;
@@ -420,8 +421,8 @@ TEST_F(AggregationTest, global) {
 TEST_F(AggregationTest, singleBigintKey) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
-  testSingleKey<int64_t>(std::move(vectors), "c0", false, false);
-  testSingleKey<int64_t>(std::move(vectors), "c0", true, false);
+  testSingleKey<int64_t>(vectors, "c0", false, false);
+  testSingleKey<int64_t>(vectors, "c0", true, false);
 }
 
 TEST_F(AggregationTest, singleBigintKeyDistinct) {
@@ -886,6 +887,65 @@ TEST_F(AggregationTest, spill) {
 
   // Over 20MB spilled.
   EXPECT_LT(20 << 20, stats[0].operatorStats[1].spilledBytes);
+}
+
+TEST_F(AggregationTest, spillWithMemoryLimit) {
+  constexpr int32_t kNumDistinct = 2000;
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  rng_.seed(1);
+  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
+  VectorFuzzer fuzzer({}, pool());
+  const int32_t numBatches = 5;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  struct {
+    uint64_t aggregationMemLimit;
+    bool expectSpill;
+
+    std::string debugString() const {
+      return fmt::format(
+          "aggregationMemLimit:{}, expectSpill:{}",
+          aggregationMemLimit,
+          expectSpill);
+    }
+  } testSettings[] = {// Memory limit is disabled so spilling is not triggered.
+                      {0, false},
+                      // Memory limit is too small so always trigger spilling.
+                      {1, true},
+                      // Memory limit is too large so spilling is not triggered.
+                      {1'000'000'000, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::createForTest();
+    queryCtx->pool()->setMemoryUsageTracker(
+        velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
+    auto results = AssertQueryBuilder(
+                       PlanBuilder()
+                           .values(batches)
+                           .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                           .planNode())
+                       .queryCtx(queryCtx)
+                       .copyResults(pool_.get());
+    auto task = AssertQueryBuilder(
+                    PlanBuilder()
+                        .values(batches)
+                        .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
+                        .planNode())
+                    .queryCtx(queryCtx)
+                    .config(QueryConfig::kSpillPath, tempDirectory->path)
+                    .config(
+                        QueryConfig::kAggregationSpillMemoryThreshold,
+                        std::to_string(testData.aggregationMemLimit))
+                    .config(QueryConfig::kSpillPath, tempDirectory->path)
+                    .assertResults(results);
+
+    auto stats = task->taskStats().pipelineStats;
+    ASSERT_EQ(testData.expectSpill, stats[0].operatorStats[1].spilledBytes > 0);
+  }
 }
 
 TEST_F(AggregationTest, spillWithEmptyPartition) {

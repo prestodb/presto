@@ -180,6 +180,10 @@ class GroupingSet {
 
   memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
 
+  // The maximum memory usage that a final aggregation can hold before spilling.
+  // If it is zero, then there is no such limit.
+  const uint64_t spillMemoryThreshold_;
+
   const Spiller::Config* FOLLY_NULLABLE const spillConfig_; // Not owned.
 
   // Boolean indicating whether accumulators for a global aggregation (i.e.
