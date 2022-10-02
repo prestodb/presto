@@ -112,14 +112,12 @@ void extractObject(
 void extractArray(
     const folly::dynamic* jsonArray,
     const std::string& key,
-    JsonVector& ret,
-    bool& isArrayResult) {
+    JsonVector& ret) {
   auto arrayLen = jsonArray->size();
   if (key == "*") {
     for (size_t i = 0; i < arrayLen; ++i) {
       ret.push_back(jsonArray->get_ptr(i));
     }
-    isArrayResult = true;
   } else {
     auto rv = folly::tryTo<int32_t>(key);
     if (rv.hasValue()) {
@@ -139,13 +137,12 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
   JsonVector result;
   input.push_back(&json);
 
-  bool isArrayResult = false;
   for (auto& token : tokens_) {
     for (auto& jsonObj : input) {
       if (jsonObj->isObject()) {
         extractObject(jsonObj, token, result);
       } else if (jsonObj->isArray()) {
-        extractArray(jsonObj, token, result, isArrayResult);
+        extractArray(jsonObj, token, result);
       }
     }
     if (result.empty()) {
@@ -158,7 +155,7 @@ folly::Optional<folly::dynamic> JsonExtractor::extract(
   auto len = input.size();
   if (0 == len) {
     return folly::none;
-  } else if (1 == len && !isArrayResult) {
+  } else if (1 == len) {
     return *input.front();
   } else {
     folly::dynamic array = folly::dynamic::array;
