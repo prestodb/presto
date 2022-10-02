@@ -23,7 +23,7 @@ General Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``PARTITIONED``, ``BROADCAST``
-    * **Default value:** ``PARTITIONED``
+    * **Default value:** ``AUTOMATIC``
 
     The type of distributed join to use.  When set to ``PARTITIONED``, presto will
     use hash distributed joins.  When set to ``BROADCAST``, it will broadcast the
@@ -715,7 +715,7 @@ Optimizer Properties
 
     * **Type:** ``string``
     * **Allowed values:** ``AUTOMATIC``, ``ELIMINATE_CROSS_JOINS``, ``NONE``
-    * **Default value:** ``ELIMINATE_CROSS_JOINS``
+    * **Default value:** ``AUTOMATIC``
 
     The join reordering strategy to use.  ``NONE`` maintains the order the tables are listed in the
     query.  ``ELIMINATE_CROSS_JOINS`` reorders joins to eliminate cross joins where possible and
