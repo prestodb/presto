@@ -78,6 +78,13 @@ The query ranks orders for each clerk by price:
 Ranking functions
 =================
 
+.. function:: cume_dist() -> bigint
+
+Returns the cumulative distribution of a value in a group of values. The result is the number of rows
+preceding or peer with the row in the window ordering of the window partition divided by the total
+number of rows in the window partition. Thus, any tie values in the ordering will evaluate to the same
+distribution value.
+
 .. function:: dense_rank() -> bigint
 
 Returns the rank of a value in a group of values. This is similar to rank(), except that tie values do

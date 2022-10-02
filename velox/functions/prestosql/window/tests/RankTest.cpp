@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/window/tests/WindowTestBase.h"
 
 using namespace facebook::velox::exec::test;
@@ -21,9 +22,31 @@ namespace facebook::velox::window::test {
 
 namespace {
 
-class RankTest : public WindowTestBase {};
+class RankTest : public WindowTestBase {
+ protected:
+  explicit RankTest(const std::string& rankFunction)
+      : rankFunction_(rankFunction) {}
 
-TEST_F(RankTest, basic) {
+  void testTwoColumnInput(const RowVectorPtr& vectors) {
+    WindowTestBase::testTwoColumnInput({vectors}, rankFunction_);
+  }
+
+  void testWindowFunction(
+      const std::vector<RowVectorPtr>& vectors,
+      const std::vector<std::string>& overClauses) {
+    WindowTestBase::testWindowFunction(vectors, rankFunction_, overClauses);
+  }
+
+  const std::string rankFunction_;
+};
+
+class MultiRankTest : public RankTest,
+                      public testing::WithParamInterface<std::string> {
+ public:
+  MultiRankTest() : RankTest(GetParam()) {}
+};
+
+TEST_P(MultiRankTest, basic) {
   vector_size_t size = 1000;
 
   auto vectors = makeRowVector({
@@ -33,12 +56,10 @@ TEST_F(RankTest, basic) {
           size, [](auto row) -> int32_t { return row % 7; }),
   });
 
-  testTwoColumnInput({vectors}, "rank()");
-  testTwoColumnInput({vectors}, "dense_rank()");
-  testTwoColumnInput({vectors}, "percent_rank()");
+  testTwoColumnInput({vectors});
 }
 
-TEST_F(RankTest, singlePartition) {
+TEST_P(MultiRankTest, singlePartition) {
   // Test all input rows in a single partition.
   vector_size_t size = 1'000;
 
@@ -47,24 +68,20 @@ TEST_F(RankTest, singlePartition) {
       makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
   });
 
-  testTwoColumnInput({vectors}, "rank()");
-  testTwoColumnInput({vectors}, "dense_rank()");
-  testTwoColumnInput({vectors}, "percent_rank()");
+  testTwoColumnInput({vectors});
 }
 
-TEST_F(RankTest, singleRowPartitions) {
+TEST_P(MultiRankTest, singleRowPartitions) {
   vector_size_t size = 1000;
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
   });
 
-  testTwoColumnInput({vectors}, "rank()");
-  testTwoColumnInput({vectors}, "dense_rank()");
-  testTwoColumnInput({vectors}, "percent_rank()");
+  testTwoColumnInput({vectors});
 }
 
-TEST_F(RankTest, randomInput) {
+TEST_P(MultiRankTest, randomInput) {
   auto vectors = makeVectors(
       ROW({"c0", "c1", "c2", "c3"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
@@ -88,10 +105,17 @@ TEST_F(RankTest, randomInput) {
       "partition by c0, c1, c2, c3",
   };
 
-  testWindowFunction(vectors, "rank()", overClauses);
-  testWindowFunction(vectors, "dense_rank()", overClauses);
-  testWindowFunction(vectors, "percent_rank()", overClauses);
+  testWindowFunction(vectors, overClauses);
 }
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    RankTest,
+    MultiRankTest,
+    testing::ValuesIn(
+        {std::string("rank()"),
+         std::string("dense_rank()"),
+         std::string("percent_rank()"),
+         std::string("cume_dist()")}));
 
 }; // namespace
 }; // namespace facebook::velox::window::test
