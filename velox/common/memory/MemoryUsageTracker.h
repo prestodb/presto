@@ -256,6 +256,36 @@ class MemoryUsageTracker
  protected:
   static constexpr int64_t kMB = 1 << 20;
 
+  explicit MemoryUsageTracker(
+      const std::shared_ptr<MemoryUsageTracker>& parent,
+      UsageType type,
+      const MemoryUsageConfig& config)
+      : parent_(parent),
+        type_(type),
+        maxMemory_{
+            config.maxUserMemory.value_or(kMaxMemory),
+            config.maxSystemMemory.value_or(kMaxMemory),
+            config.maxTotalMemory.value_or(kMaxMemory)} {}
+
+  static std::shared_ptr<MemoryUsageTracker> create(
+      const std::shared_ptr<MemoryUsageTracker>& parent,
+      UsageType type,
+      const MemoryUsageConfig& config);
+
+  void maySetMax(UsageType type, int64_t newPeak);
+
+  // Increments the reservation of 'type' and checks against
+  // limits. Calls 'growCallback_' if this is set and limit
+  // exceeded. Should be called without holding 'mutex_'. This throws if a limit
+  // is exceeded and there is no corresponding GrowCallback or the GrowCallback
+  // fails.
+  void incrementUsage(UsageType type, int64_t size);
+
+  //  Decrements usage in 'this' and parents.
+  void decrementUsage(UsageType type, int64_t size) noexcept;
+
+  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
+
   template <typename T, size_t size>
   static T& usage(std::array<T, size>& array, UsageType type) {
     return array[static_cast<int32_t>(type)];
@@ -363,36 +393,6 @@ class MemoryUsageTracker
   GrowCallback growCallback_{};
 
   MakeMemoryCapExceededMessage makeMemoryCapExceededMessage_{};
-
-  explicit MemoryUsageTracker(
-      const std::shared_ptr<MemoryUsageTracker>& parent,
-      UsageType type,
-      const MemoryUsageConfig& config)
-      : parent_(parent),
-        type_(type),
-        maxMemory_{
-            config.maxUserMemory.value_or(kMaxMemory),
-            config.maxSystemMemory.value_or(kMaxMemory),
-            config.maxTotalMemory.value_or(kMaxMemory)} {}
-
-  static std::shared_ptr<MemoryUsageTracker> create(
-      const std::shared_ptr<MemoryUsageTracker>& parent,
-      UsageType type,
-      const MemoryUsageConfig& config);
-
-  void maySetMax(UsageType type, int64_t newPeak);
-
-  // Increments the reservation of 'type' and checks against
-  // limits. Calls 'growCallback_' if this is set and limit
-  // exceeded. Should be called without holding 'mutex_'. This throws if a limit
-  // is exceeded and there is no corresponding GrowCallback or the GrowCallback
-  // fails.
-  void incrementUsage(UsageType type, int64_t size);
-
-  //  Decrements usage in 'this' and parents.
-  void decrementUsage(UsageType type, int64_t size) noexcept;
-
-  void checkNonNegativeSizes(const char* FOLLY_NONNULL message) const;
 };
 
 // A temporary solution to MemoryUsageTracker accounting leak without properly

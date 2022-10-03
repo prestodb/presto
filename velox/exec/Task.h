@@ -485,7 +485,33 @@ class Task : public std::enable_shared_from_this<Task> {
     return mutex_;
   }
 
+  /// Returns the number of created and deleted tasks since the velox engine
+  /// starts running so far.
+  static uint64_t numCreatedTasks() {
+    return numCreatedTasks_;
+  }
+
+  static uint64_t numDeletedTasks() {
+    return numDeletedTasks_;
+  }
+
  private:
+  // Counts the number of created tasks which is incremented on each task
+  // creation.
+  static std::atomic<uint64_t> numCreatedTasks_;
+
+  // Counts the number of deleted tasks which is incremented on each task
+  // destruction.
+  static std::atomic<uint64_t> numDeletedTasks_;
+
+  static void taskCreated() {
+    ++numCreatedTasks_;
+  }
+
+  static void taskDeleted() {
+    ++numDeletedTasks_;
+  }
+
   /// Returns true if state is 'running'.
   bool isRunningLocked() const;
 
@@ -659,32 +685,52 @@ class Task : public std::enable_shared_from_this<Task> {
         [&]() { onTaskCompletion(); }, std::move(stateChangePromises_));
   }
 
-  /// Universally unique identifier of the task. Used to identify the task when
-  /// calling TaskListener.
+  // The helper class used to maintain 'numCreatedTasks_' and 'numDeletedTasks_'
+  // on task construction and destruction.
+  class TaskCounter {
+   public:
+    TaskCounter() {
+      Task::taskCreated();
+    }
+    ~TaskCounter() {
+      Task::taskDeleted();
+    }
+  };
+  friend class Task::TaskCounter;
+
+  // NOTE: keep 'taskCount_' the first member so that it will be the first
+  // constructed member and the last destructed one. The purpose is to make
+  // 'numCreatedTasks_' and 'numDeletedTasks_' counting more robust to the
+  // timing race condition when used in scenarios such as waiting for all the
+  // tasks to be destructed in test.
+  const TaskCounter taskCounter_;
+
+  // Universally unique identifier of the task. Used to identify the task when
+  // calling TaskListener.
   const std::string uuid_;
 
-  /// Application specific task ID specified at construction time. May not be
-  /// unique or universally unique.
+  // Application specific task ID specified at construction time. May not be
+  // unique or universally unique.
   const std::string taskId_;
   core::PlanFragment planFragment_;
   const int destination_;
   const std::shared_ptr<core::QueryCtx> queryCtx_;
 
-  /// Root MemoryPool for this Task. All member variables that hold references
-  /// to pool_ must be defined after pool_, childPools_, and
-  /// childMappedMemories_
+  // Root MemoryPool for this Task. All member variables that hold references
+  // to pool_ must be defined after pool_, childPools_, and
+  // childMappedMemories_
   std::unique_ptr<memory::MemoryPool> pool_;
 
-  /// Keep driver and operator memory pools alive for the duration of the task
-  /// to allow for sharing vectors across drivers without copy.
+  // Keep driver and operator memory pools alive for the duration of the task
+  // to allow for sharing vectors across drivers without copy.
   std::vector<std::unique_ptr<memory::MemoryPool>> childPools_;
 
-  /// Keep operator MappedMemory instances alive for the duration of the task to
-  /// allow for sharing data without copy.
+  // Keep operator MappedMemory instances alive for the duration of the task to
+  // allow for sharing data without copy.
   std::vector<std::shared_ptr<memory::MappedMemory>> childMappedMemories_;
 
-  /// A set of IDs of leaf plan nodes that require splits. Used to check plan
-  /// node IDs specified in split management methods.
+  // A set of IDs of leaf plan nodes that require splits. Used to check plan
+  // node IDs specified in split management methods.
   const std::unordered_set<core::PlanNodeId> splitPlanNodeIds_;
 
   // True if produces output via PartitionedOutputBufferManager.

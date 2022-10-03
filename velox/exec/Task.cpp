@@ -42,6 +42,9 @@ folly::Synchronized<std::vector<std::shared_ptr<TaskListener>>>& listeners() {
 }
 } // namespace
 
+std::atomic<uint64_t> Task::numCreatedTasks_ = 0;
+std::atomic<uint64_t> Task::numDeletedTasks_ = 0;
+
 bool registerTaskListener(std::shared_ptr<TaskListener> listener) {
   return listeners().withWLock([&](auto& listeners) {
     for (const auto& existingListener : listeners) {

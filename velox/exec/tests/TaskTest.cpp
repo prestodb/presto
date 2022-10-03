@@ -443,10 +443,14 @@ TEST_F(TaskTest, singleThreadedExecution) {
       makeFlatVector<int64_t>(100, [](auto row) { return row + 5; }),
   });
 
+  uint64_t numCreatedTasks = Task::numCreatedTasks();
+  uint64_t numDeletedTasks = Task::numDeletedTasks();
   {
     auto [task, results] = executeSingleThreaded(plan);
     assertEqualResults({expectedResult, expectedResult}, results);
   }
+  ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
+  ASSERT_EQ(numDeletedTasks + 1, Task::numDeletedTasks());
 
   // Project + Aggregation.
   plan = PlanBuilder()
@@ -471,10 +475,14 @@ TEST_F(TaskTest, singleThreadedExecution) {
            995 / 2.0 + 4}),
   });
 
+  ++numCreatedTasks;
+  ++numDeletedTasks;
   {
     auto [task, results] = executeSingleThreaded(plan);
     assertEqualResults({expectedResult}, results);
   }
+  ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
+  ASSERT_EQ(numDeletedTasks + 1, Task::numDeletedTasks());
 
   // Project + Aggregation over TableScan.
   auto filePath = TempFilePath::create();
