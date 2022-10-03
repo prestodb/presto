@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner.assertions;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.block.IntArrayBlock;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.Metadata;
@@ -73,6 +74,7 @@ import static com.facebook.presto.common.function.OperatorType.MODULUS;
 import static com.facebook.presto.common.function.OperatorType.MULTIPLY;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.SUBTRACT;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.COALESCE;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
@@ -82,6 +84,7 @@ import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.IS_NUL
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.SWITCH;
 import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.WHEN;
 import static com.facebook.presto.sql.planner.RowExpressionInterpreter.rowExpressionInterpreter;
+import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.AND;
 import static com.facebook.presto.sql.tree.LogicalBinaryExpression.Operator.OR;
 import static com.google.common.base.Preconditions.checkState;
@@ -125,6 +128,18 @@ final class RowExpressionVerifier
             }
             for (int i = 0; i < node.getValues().size(); ++i) {
                 if (!process(node.getValues().get(i), ((CallExpression) context).getArguments().get(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        else if (context instanceof ConstantExpression && ((ConstantExpression) context).getValue() instanceof IntArrayBlock) {
+            IntArrayBlock block = (IntArrayBlock) ((ConstantExpression) context).getValue();
+            if (block.getPositionCount() != node.getValues().size()) {
+                return false;
+            }
+            for (int i = 0; i < node.getValues().size(); ++i) {
+                if (!process(node.getValues().get(i), constant((long) block.getInt(i), BIGINT))) {
                     return false;
                 }
             }
