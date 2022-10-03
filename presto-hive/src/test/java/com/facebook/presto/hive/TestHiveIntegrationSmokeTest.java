@@ -213,6 +213,7 @@ public class TestHiveIntegrationSmokeTest
                         ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .build();
 
@@ -237,6 +238,7 @@ public class TestHiveIntegrationSmokeTest
                         ImmutableMap.of("hive", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("admin"))),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .build();
 
