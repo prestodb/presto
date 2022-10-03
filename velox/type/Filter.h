@@ -984,7 +984,11 @@ class AbstractRange : public Filter {
         lowerUnbounded_(lowerUnbounded),
         lowerExclusive_(lowerExclusive),
         upperUnbounded_(upperUnbounded),
-        upperExclusive_(upperExclusive) {}
+        upperExclusive_(upperExclusive) {
+    VELOX_CHECK(
+        !lowerUnbounded_ || !upperUnbounded_,
+        "A range filter must have  a lower or upper  bound");
+  }
 
  protected:
   const bool lowerUnbounded_;
