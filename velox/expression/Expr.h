@@ -61,6 +61,14 @@ struct ExprStats {
     numProcessedRows += other.numProcessedRows;
     numProcessedVectors += other.numProcessedVectors;
   }
+
+  std::string toString() const {
+    return fmt::format(
+        "timing: {}, numProcessedRows: {}, numProcessedVectors: {}",
+        timing.toString(),
+        numProcessedRows,
+        numProcessedVectors);
+  }
 };
 
 /// Data needed to generate exception context for the top-level expression. It
