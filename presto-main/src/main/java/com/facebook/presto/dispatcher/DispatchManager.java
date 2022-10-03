@@ -38,6 +38,7 @@ import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControlContext;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
@@ -187,11 +188,14 @@ public class DispatchManager
                 throw new PrestoException(QUERY_TEXT_TOO_LARGE, format("Query text length (%s) exceeds the maximum length (%s)", queryLength, maxQueryLength));
             }
 
-            // check permissions
+            // check permissions if needed
             checkPermissions(queryId, sessionContext);
 
+            // get authorized identity if possible
+            Optional<AuthorizedIdentity> authorizedIdentity = getAuthorizedIdentity(queryId, sessionContext);
+
             // decode session
-            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
+            session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, authorizedIdentity);
 
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query, session.getWarningCollector());
@@ -251,10 +255,12 @@ public class DispatchManager
         }
     }
 
+    /**
+     * When selectAuthorizedIdentity API is not enabled, we check the delegation permission
+     */
     private void checkPermissions(QueryId queryId, SessionContext sessionContext)
     {
         Identity identity = sessionContext.getIdentity();
-        // When selectAuthorizedIdentity API is not enabled, only check delegation permission
         if (!securityConfig.isAuthorizedIdentitySelectionEnabled()) {
             accessControl.checkCanSetUser(
                     identity,
@@ -264,21 +270,29 @@ public class DispatchManager
                             Optional.ofNullable(sessionContext.getSource())),
                     identity.getPrincipal(),
                     identity.getUser());
-            return;
         }
+    }
 
-        // When selectAuthorizedIdentity API is enabled,
-        // 1. Check the delegation permission, which is inside the API call
-        // 2. Select the authorized user
-        // 3. TODO: UPDATE the identity of the session according to the authorized identity from the API call
-        accessControl.selectAuthorizedIdentity(
-                identity,
-                new AccessControlContext(
-                        queryId,
-                        Optional.ofNullable(sessionContext.getClientInfo()),
-                        Optional.ofNullable(sessionContext.getSource())),
-                identity.getUser(),
-                sessionContext.getCertificates());
+    /**
+     * When selectAuthorizedIdentity API is enabled,
+     * 1. Check the delegation permission, which is inside the API call
+     * 2. Select and return the authorized identity
+     */
+    private Optional<AuthorizedIdentity> getAuthorizedIdentity(QueryId queryId, SessionContext sessionContext)
+    {
+        if (securityConfig.isAuthorizedIdentitySelectionEnabled()) {
+            Identity identity = sessionContext.getIdentity();
+            AuthorizedIdentity authorizedIdentity = accessControl.selectAuthorizedIdentity(
+                    identity,
+                    new AccessControlContext(
+                            queryId,
+                            Optional.ofNullable(sessionContext.getClientInfo()),
+                            Optional.ofNullable(sessionContext.getSource())),
+                    identity.getUser(),
+                    sessionContext.getCertificates());
+            return Optional.of(authorizedIdentity);
+        }
+        return Optional.empty();
     }
 
     private boolean queryCreated(DispatchQuery dispatchQuery)

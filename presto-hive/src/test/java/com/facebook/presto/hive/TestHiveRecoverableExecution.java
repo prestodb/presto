@@ -440,6 +440,7 @@ public class TestHiveRecoverableExecution
                         .orElse(ImmutableMap.of()),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
+                Optional.empty(),
                 Optional.empty());
 
         return testSessionBuilder()
