@@ -696,9 +696,16 @@ class PlanBuilder {
     return *this;
   }
 
- private:
+ protected:
+  // Users who create customer operators might want to extend the PlanBuilder to
+  // customized extended plan builders, those functions are needed in such
+  // extensions.
   std::string nextPlanNodeId();
 
+  std::shared_ptr<const core::ITypedExpr> inferTypes(
+      const std::shared_ptr<const core::IExpr>& untypedExpr);
+
+ private:
   std::shared_ptr<const core::FieldAccessTypedExpr> field(column_index_t index);
 
   std::vector<std::shared_ptr<const core::FieldAccessTypedExpr>> fields(
@@ -732,9 +739,6 @@ class PlanBuilder {
       core::AggregationNode::Step step,
       const core::AggregationNode* partialAggNode);
 
-  core::TypedExprPtr inferTypes(
-      const std::shared_ptr<const core::IExpr>& untypedExpr);
-
   struct ExpressionsAndNames {
     std::vector<std::shared_ptr<const core::CallTypedExpr>> expressions;
     std::vector<std::string> names;
@@ -750,9 +754,12 @@ class PlanBuilder {
       size_t numAggregates,
       const std::vector<std::string>& masks);
 
-  std::shared_ptr<PlanNodeIdGenerator> planNodeIdGenerator_;
+ protected:
   core::PlanNodePtr planNode_;
-  memory::MemoryPool* pool_;
   parse::ParseOptions options_;
+
+ private:
+  std::shared_ptr<PlanNodeIdGenerator> planNodeIdGenerator_;
+  memory::MemoryPool* pool_;
 };
 } // namespace facebook::velox::exec::test

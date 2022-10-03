@@ -287,7 +287,9 @@ class ProjectNode : public PlanNode {
     return projections_;
   }
 
-  std::string_view name() const override {
+  // This function is virtual to allow customized projections to inherit from
+  // this class without re-implementing the other functions.
+  virtual std::string_view name() const override {
     return "Project";
   }
 
