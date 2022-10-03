@@ -84,10 +84,10 @@ TEST_F(ExprStatsTest, printWithStats) {
             "multiply .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#1.\n"
             "   plus .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#2.\n"
             "      cast.c0 as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
-            "      3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#5.\n"
+            "         c0 .cpu time: 0ns, rows: 2048, batches: 2. -> INTEGER .#4.\n"
+            "      3:BIGINT .cpu time: 0ns, rows: 1024, batches: 1. -> BIGINT .#5.\n"
             "   cast.c1 as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#6.\n"
-            "      c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#7.\n"
+            "      c1 .cpu time: 0ns, rows: 2048, batches: 2. -> INTEGER .#7.\n"
             "\n"
             "eq .cpu time: .+, rows: 1024, batches: 1. -> BOOLEAN .#8.\n"
             "   mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#9.\n"
@@ -95,8 +95,8 @@ TEST_F(ExprStatsTest, printWithStats) {
             "         plus .cpu time: .+, rows: 1024, batches: 1. -> INTEGER .#11.\n"
             "            c0 -> INTEGER .CSE #4.\n"
             "            c1 -> INTEGER .CSE #7.\n"
-            "      2:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#12.\n"
-            "   0:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#13.\n"));
+            "      2:BIGINT .cpu time: 0ns, rows: 1024, batches: 1. -> BIGINT .#12.\n"
+            "   0:BIGINT .cpu time: 0ns, rows: 1024, batches: 1. -> BIGINT .#13.\n"));
   }
 
   // Verify that common sub-expressions are identified properly.
@@ -110,13 +110,13 @@ TEST_F(ExprStatsTest, printWithStats) {
             "mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#1.\n"
             "   cast.plus as BIGINT. .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#2.\n"
             "      plus .cpu time: .+, rows: 1024, batches: 1. -> INTEGER .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
-            "         c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#5.\n"
-            "   5:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#6.\n"
+            "         c0 .cpu time: 0ns, rows: 1024, batches: 1. -> INTEGER .#4.\n"
+            "         c1 .cpu time: 0ns, rows: 1024, batches: 1. -> INTEGER .#5.\n"
+            "   5:BIGINT .cpu time: 0ns, rows: 1024, batches: 1. -> BIGINT .#6.\n"
             "\n"
             "mod .cpu time: .+, rows: 1024, batches: 1. -> BIGINT .#7.\n"
             "   cast..plus.c0, c1.. as BIGINT. -> BIGINT .CSE #2.\n"
-            "   3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#8.\n"));
+            "   3:BIGINT .cpu time: 0ns, rows: 1024, batches: 1. -> BIGINT .#8.\n"));
   }
 
   // Use dictionary encoding to repeat each row 5 times.
@@ -137,10 +137,10 @@ TEST_F(ExprStatsTest, printWithStats) {
             "multiply .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#1.\n"
             "   plus .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#2.\n"
             "      cast.c0 as BIGINT. .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#3.\n"
-            "         c0 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#4.\n"
-            "      3:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#5.\n"
+            "         c0 .cpu time: 0ns, rows: 410, batches: 2. -> INTEGER .#4.\n"
+            "      3:BIGINT .cpu time: 0ns, rows: 205, batches: 1. -> BIGINT .#5.\n"
             "   cast.c1 as BIGINT. .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#6.\n"
-            "      c1 .cpu time: 0ns, rows: 0, batches: 0. -> INTEGER .#7.\n"
+            "      c1 .cpu time: 0ns, rows: 410, batches: 2. -> INTEGER .#7.\n"
             "\n"
             "eq .cpu time: .+, rows: 205, batches: 1. -> BOOLEAN .#8.\n"
             "   mod .cpu time: .+, rows: 205, batches: 1. -> BIGINT .#9.\n"
@@ -148,8 +148,8 @@ TEST_F(ExprStatsTest, printWithStats) {
             "         plus .cpu time: .+, rows: 205, batches: 1. -> INTEGER .#11.\n"
             "            c0 -> INTEGER .CSE #4.\n"
             "            c1 -> INTEGER .CSE #7.\n"
-            "      2:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#12.\n"
-            "   0:BIGINT .cpu time: 0ns, rows: 0, batches: 0. -> BIGINT .#13.\n"));
+            "      2:BIGINT .cpu time: 0ns, rows: 205, batches: 1. -> BIGINT .#12.\n"
+            "   0:BIGINT .cpu time: 0ns, rows: 205, batches: 1. -> BIGINT .#13.\n"));
   }
 }
 
@@ -293,6 +293,67 @@ TEST_F(ExprStatsTest, listener) {
     evaluate(*exprSet, data);
   }
   ASSERT_EQ(3, events.size());
+}
+
+TEST_F(ExprStatsTest, specialForms) {
+  vector_size_t size = 1'024;
+
+  // Register a listener to receive stats on ExprSet destruction.
+  std::vector<Event> events;
+  std::vector<std::string> exceptions;
+  auto listener = std::make_shared<TestListener>(events, exceptions);
+  ASSERT_TRUE(exec::registerExprSetListener(listener));
+
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+  });
+
+  // AND.
+  evaluate("c0 > 5 and c1 > 5", data);
+  ASSERT_EQ(1, events.size());
+  auto stats = events.back().stats;
+
+  ASSERT_EQ(1, stats.at("and").numProcessedVectors);
+  ASSERT_EQ(1024, stats.at("and").numProcessedRows);
+
+  // OR.
+  events.clear();
+  evaluate("c0 > 5 or c1 > 5", data);
+  ASSERT_EQ(1, events.size());
+  stats = events.back().stats;
+
+  ASSERT_EQ(1, stats.at("or").numProcessedVectors);
+  ASSERT_EQ(1024, stats.at("or").numProcessedRows);
+
+  // TRY.
+  events.clear();
+  evaluate("try(c0 / c1)", data);
+  ASSERT_EQ(1, events.size());
+  stats = events.back().stats;
+
+  ASSERT_EQ(1, stats.at("try").numProcessedVectors);
+  ASSERT_EQ(1024, stats.at("try").numProcessedRows);
+
+  // COALESCE.
+  events.clear();
+  evaluate("coalesce(c0, c1)", data);
+  ASSERT_EQ(1, events.size());
+  stats = events.back().stats;
+
+  ASSERT_EQ(1, stats.at("coalesce").numProcessedVectors);
+  ASSERT_EQ(1024, stats.at("coalesce").numProcessedRows);
+
+  // SWITCH.
+  events.clear();
+  evaluate("case c0 when 7 then 1 when 11 then 2 else 0 end", data);
+  ASSERT_EQ(1, events.size());
+  stats = events.back().stats;
+
+  ASSERT_EQ(1, stats.at("switch").numProcessedVectors);
+  ASSERT_EQ(1024, stats.at("switch").numProcessedRows);
+
+  ASSERT_TRUE(exec::unregisterExprSetListener(listener));
 }
 
 TEST_F(ExprStatsTest, errorLog) {

@@ -428,7 +428,7 @@ void Expr::evalFlatNoNulls(
        topLevel ? (void*)&exprExceptionContext : this});
 
   if (isSpecialForm()) {
-    evalSpecialForm(rows, context, result);
+    evalSpecialFormWithStats(rows, context, result);
     return;
   }
 
@@ -1144,7 +1144,7 @@ void Expr::evalAll(
     return;
   }
   if (isSpecialForm()) {
-    evalSpecialForm(rows, context, result);
+    evalSpecialFormWithStats(rows, context, result);
     return;
   }
   bool tryPeelArgs = deterministic_ ? true : false;
@@ -1392,6 +1392,17 @@ void Expr::applyFunction(
     result->asUnchecked<SimpleVector<StringView>>()->setIsAscii(
         isAscii.value(), rows);
   }
+}
+
+void Expr::evalSpecialFormWithStats(
+    const SelectivityVector& rows,
+    EvalCtx& context,
+    VectorPtr& result) {
+  stats_.numProcessedVectors += 1;
+  stats_.numProcessedRows += rows.countSelected();
+  auto timer = cpuWallTimer();
+
+  evalSpecialForm(rows, context, result);
 }
 
 namespace {

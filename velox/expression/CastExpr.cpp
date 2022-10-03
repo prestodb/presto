@@ -669,9 +669,6 @@ void CastExpr::evalSpecialForm(
   auto fromType = inputs_[0]->type();
   auto toType = std::const_pointer_cast<const Type>(type_);
 
-  stats_.numProcessedVectors += 1;
-  stats_.numProcessedRows += rows.countSelected();
-  auto timer = cpuWallTimer();
   apply(rows, input, context, fromType, toType, result);
   // Return 'input' back to the vector pool in 'context' so it can be reused.
   context.releaseVector(input);

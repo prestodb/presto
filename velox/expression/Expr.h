@@ -388,6 +388,11 @@ class Expr {
       EvalCtx& context,
       VectorPtr& result);
 
+  void evalSpecialFormWithStats(
+      const SelectivityVector& rows,
+      EvalCtx& context,
+      VectorPtr& result);
+
  protected:
   void appendInputs(std::stringstream& stream) const;
 
