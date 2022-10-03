@@ -18,11 +18,6 @@ set -eufx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 
-# Folly must be built with the same compiler flags so that some low level types
-# are the same size.
-CPU_TARGET="${CPU_TARGET:-avx}"
-export COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
-FB_OS_VERSION=v2022.07.11.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
@@ -78,11 +73,6 @@ function install_fmt {
   cmake_install -DFMT_TEST=OFF
 }
 
-function install_folly {
-  github_checkout facebook/folly "${FB_OS_VERSION}"
-  cmake_install -DBUILD_TESTS=OFF
-}
-
 function install_protobuf {
   wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz
   tar -xzf protobuf-all-21.4.tar.gz
@@ -95,7 +85,6 @@ function install_protobuf {
 
 function install_velox_deps {
   run_and_time install_fmt
-  run_and_time install_folly
   run_and_time install_protobuf
 }
 

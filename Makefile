@@ -82,7 +82,7 @@ build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 
 debug:					#: Build with debugging symbols
 	$(MAKE) cmake BUILD_DIR=debug BUILD_TYPE=Debug
-	$(MAKE) build BUILD_DIR=debug
+	$(MAKE) build BUILD_DIR=debug -j ${NUM_THREADS}
 
 release:				#: Build the release version
 	$(MAKE) cmake BUILD_DIR=release BUILD_TYPE=Release && \

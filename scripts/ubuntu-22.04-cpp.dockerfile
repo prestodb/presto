@@ -19,8 +19,8 @@ FROM ${base}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN apt-get update && \
-      apt-get -y install sudo
+RUN apt update && \
+      apt install -y sudo
 
 ADD scripts /velox/scripts/
 

@@ -103,7 +103,7 @@ commands:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-avx-circleci:mikesh-20220717
+      - image : prestocpp/velox-avx-circleci:raulcd-20220923
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
@@ -163,6 +163,7 @@ jobs:
             mkdir -p .ccache
             export CCACHE_DIR=$(pwd)/.ccache
             ccache -sz -M 5Gi
+            export OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1)
             cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=~/deps -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DFLEX_INCLUDE_DIR=~/deps/opt/flex/include
             ninja -C _build/debug
             ccache -s
@@ -193,7 +194,7 @@ jobs:
       - run:
           name: "Run Fuzzer Tests"
           command: |
-            make fuzzertest
+            make fuzzertest NUM_THREADS=10
           no_output_timeout: 5m
       - run:
          name: "Run Example Binaries"
@@ -352,7 +353,7 @@ jobs:
           # the job output for context.
           name: "Run Fuzzer Tests"
           command: |
-            make fuzzertest FUZZER_DURATION_SEC=600 FUZZER_SEED=${RANDOM} \
+            make fuzzertest NUM_THREADS=16 FUZZER_DURATION_SEC=600 FUZZER_SEED=${RANDOM} \
               > /tmp/fuzzer.log 2>&1 || ( \
                 tail -n 1000 /tmp/fuzzer.log;
                 echo "FAIL: Fuzzer run failed, logs saved to \"/tmp/fuzzer.log\" and uploaded" \

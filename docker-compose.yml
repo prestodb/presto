@@ -28,4 +28,4 @@ services:
       /bin/bash -c "
         make &&
         cd _build/release &&
-        ctest -j 16 -VV --output-on-failure"
+        ctest -j 16 --output-on-failure"

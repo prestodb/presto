@@ -31,10 +31,7 @@ set -x # Print commands that are executed.
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 
-CPU_TARGET="${CPU_TARGET:-avx}"
-FB_OS_VERSION=v2022.07.11.00
 NPROC=$(getconf _NPROCESSORS_ONLN)
-COMPILER_FLAGS=$(get_cxx_flags $CPU_TARGET)
 
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 MACOS_DEPS="ninja flex bison cmake ccache protobuf icu4c boost gflags glog libevent lz4 lzo snappy xz zstd openssl@1.1"
@@ -93,12 +90,6 @@ function install_double_conversion {
   cmake_install -DBUILD_TESTING=OFF
 }
 
-function install_folly {
-  github_checkout facebook/folly "${FB_OS_VERSION}"
-  OPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
-    cmake_install -DBUILD_TESTS=OFF
-}
-
 function install_ranges_v3 {
   github_checkout ericniebler/range-v3 0.12.0
   cmake_install -DRANGES_ENABLE_WERROR=OFF -DRANGE_V3_TESTS=OFF -DRANGE_V3_EXAMPLES=OFF
@@ -116,7 +107,6 @@ function install_velox_deps {
   run_and_time install_ranges_v3
   run_and_time install_fmt
   run_and_time install_double_conversion
-  run_and_time install_folly
   run_and_time install_re2
 }
 

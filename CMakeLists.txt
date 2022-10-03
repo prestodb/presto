@@ -11,11 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 # set the project name
 project(velox)
+
+# Include our ThirdPartyToolchain dependencies macros
+include(ThirdpartyToolchain.cmake)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -223,6 +226,8 @@ if("${ENABLE_ALL_WARNINGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra ${KNOWN_WARNINGS}")
 endif()
 
+message("FINAL CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(Boost_USE_MULTITHREADED TRUE)
@@ -273,13 +278,23 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
   link_directories("${ICU_INCLUDE_DIRS}/../lib")
 endif()
 
-find_package(folly CONFIG REQUIRED)
-set(FOLLY_WITH_DEPENDENCIES
-    ${FOLLY_LIBRARIES} ${Boost_LIBRARIES} ${DOUBLE_CONVERSION_LIBRARIES}
-    ${EVENT} ${SNAPPY} ${CMAKE_DL_LIBS})
+set(folly_SOURCE AUTO)
+resolve_dependency(folly)
 
-set(FOLLY ${FOLLY_LIBRARIES})
-set(FOLLY_BENCHMARK Folly::follybenchmark)
+set(FOLLY_WITH_DEPENDENCIES
+    ${FOLLY_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${DOUBLE_CONVERSION}
+    ${EVENT}
+    ${SNAPPY}
+    ${CMAKE_DL_LIBS}
+    ${FMT})
+
+if(DEFINED FOLLY_BENCHMARK_STATIC_LIB)
+  set(FOLLY_BENCHMARK ${FOLLY_BENCHMARK_STATIC_LIB})
+else()
+  set(FOLLY_BENCHMARK Folly::follybenchmark)
+endif()
 
 if(NOT ${VELOX_BUILD_MINIMAL})
   find_package(BZip2 MODULE)

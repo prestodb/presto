@@ -19,6 +19,7 @@ set -efx -o pipefail
 SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 source $SCRIPTDIR/setup-helper-functions.sh
 CPU_TARGET="${CPU_TARGET:-avx}"
+NPROC=$(getconf _NPROCESSORS_ONLN)
 export CFLAGS=$(get_cxx_flags $CPU_TARGET)  # Used by LZO.
 export CXXFLAGS=$CFLAGS  # Used by boost.
 export CPPFLAGS=$CFLAGS  # Used by LZO.
@@ -67,7 +68,6 @@ wget_and_untar https://github.com/google/glog/archive/v0.4.0.tar.gz glog &
 wget_and_untar http://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz lzo &
 wget_and_untar https://boostorg.jfrog.io/artifactory/main/release/1.72.0/source/boost_1_72_0.tar.gz boost &
 wget_and_untar https://github.com/google/snappy/archive/1.1.8.tar.gz snappy &
-wget_and_untar https://github.com/facebook/folly/archive/v2022.07.11.00.tar.gz folly &
 wget_and_untar https://github.com/fmtlib/fmt/archive/8.0.0.tar.gz fmt &
 #  wget_and_untar https://github.com/ericniebler/range-v3/archive/0.11.0.tar.gz ranges-v3 &
 wget_and_untar https://archive.apache.org/dist/hadoop/common/hadoop-2.10.1/hadoop-2.10.1.tar.gz hadoop
@@ -102,9 +102,7 @@ cp -a hadoop /usr/local/
 cmake_install gflags -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON -DLIB_SUFFIX=64 -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install glog -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr
 cmake_install snappy -DSNAPPY_BUILD_TESTS=OFF
-# folly depends on fmt so this needs to come first.
 cmake_install fmt -DFMT_TEST=OFF
-cmake_install folly
 # cmake_install ranges-v3
 
 dnf clean all
