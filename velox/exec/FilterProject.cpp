@@ -58,9 +58,9 @@ FilterProject::FilterProject(
     allExprs.push_back(filter->filter());
   }
   if (project) {
-    auto inputType = project->sources()[0]->outputType();
+    const auto& inputType = project->sources()[0]->outputType();
     for (column_index_t i = 0; i < project->projections().size(); i++) {
-      auto projection = project->projections()[i];
+      auto& projection = project->projections()[i];
       bool identityProjection = checkAddIdentityProjection(
           projection, inputType, i, identityProjections_);
       if (!identityProjection) {
