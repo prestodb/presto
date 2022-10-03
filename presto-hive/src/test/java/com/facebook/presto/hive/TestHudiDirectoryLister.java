@@ -13,20 +13,23 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.exception.TableNotFoundException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Iterator;
 import java.util.Optional;
 
@@ -42,27 +45,44 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHudiDirectoryLister
 {
-    private Configuration hadoopConf;
-
-    @BeforeClass
-    private void setup()
+    private Configuration getHadoopConfWithCopyOnFirstWriteDisabled()
     {
-        hadoopConf = new Configuration();
+        Configuration hadoopConf = new Configuration();
         hadoopConf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         hadoopConf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        return new HiveCachingHdfsConfiguration.CachingJobConf((factoryConfig, factoryUri) -> {
+            FileSystem localFileSystem = new LocalFileSystem();
+            try {
+                localFileSystem.initialize(URI.create("file:///"), hadoopConf);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return new HadoopExtendedFileSystem(localFileSystem);
+        }, hadoopConf);
     }
 
-    @AfterClass(alwaysRun = true)
-    private void tearDown()
+    private Configuration getHadoopConfWithCopyOnFirstWriteEnabled()
     {
-        hadoopConf = null;
+        Configuration hadoopConf = new Configuration();
+        hadoopConf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
+        hadoopConf.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
+        CopyOnFirstWriteConfiguration configuration = new CopyOnFirstWriteConfiguration(hadoopConf);
+        return new HiveCachingHdfsConfiguration.CachingJobConf((factoryConfig, factoryUri) -> {
+            FileSystem localFileSystem = new LocalFileSystem();
+            try {
+                localFileSystem.initialize(URI.create("file:///"), hadoopConf);
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            return new HadoopExtendedFileSystem(localFileSystem);
+        }, configuration);
     }
 
-    @Test
-    public void testDirectoryListerForHudiTable()
-            throws IOException
+    private Table getMockTable()
     {
-        Table mockTable = new Table(
+        return new Table(
                 "schema",
                 "hudi_non_part_cow",
                 "user",
@@ -83,16 +103,50 @@ public class TestHudiDirectoryLister
                 ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty());
+    }
 
-        HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
-        HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
-        assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
-        Path path = new Path(mockTable.getStorage().getLocation());
-        ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
-        Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(IGNORED, false, ImmutableMap.of()));
-        assertTrue(fileInfoIterator.hasNext());
-        HiveFileInfo fileInfo = fileInfoIterator.next();
-        assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
+    @Test
+    public void testDirectoryListerForHudiTable()
+            throws IOException
+    {
+        Table mockTable = getMockTable();
+        Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
+        try {
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
+            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            Path path = new Path(mockTable.getStorage().getLocation());
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(IGNORED, false, ImmutableMap.of()));
+            assertTrue(fileInfoIterator.hasNext());
+            HiveFileInfo fileInfo = fileInfoIterator.next();
+            assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
+        }
+        finally {
+            hadoopConf = null;
+        }
+    }
+
+    @Test
+    public void testDirectoryListerForHudiTableWithCopyOnFirstWriteEnabled()
+            throws IOException
+    {
+        Table mockTable = getMockTable();
+        Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteEnabled();
+        try {
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
+            assertEquals(metaClient.getBasePath(), mockTable.getStorage().getLocation());
+            Path path = new Path(mockTable.getStorage().getLocation());
+            ExtendedFileSystem fs = (ExtendedFileSystem) path.getFileSystem(hadoopConf);
+            Iterator<HiveFileInfo> fileInfoIterator = directoryLister.list(fs, mockTable, path, Optional.empty(), new NamenodeStats(), new HiveDirectoryContext(IGNORED, false, ImmutableMap.of()));
+            assertTrue(fileInfoIterator.hasNext());
+            HiveFileInfo fileInfo = fileInfoIterator.next();
+            assertEquals(fileInfo.getPath().getName(), "d0875d00-483d-4e8b-bbbe-c520366c47a0-0_0-6-11_20211217110514527.parquet");
+        }
+        finally {
+            hadoopConf = null;
+        }
     }
 
     @Test
@@ -120,7 +174,7 @@ public class TestHudiDirectoryLister
                 Optional.empty(),
                 Optional.empty());
 
-        assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(hadoopConf, SESSION, mockTable));
+        assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(getHadoopConfWithCopyOnFirstWriteDisabled(), SESSION, mockTable));
     }
 
     private static String getTableBasePath(String tableName)
