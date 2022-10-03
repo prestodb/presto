@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static java.lang.String.format;
@@ -570,32 +571,32 @@ abstract class TestHiveQueries
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .build();
-
-        // Clean up if table tmp already exists.
-        dropTableIfExists("tmp");
-
+        // Generate temporary table name.
+        String tmpTableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        // Clean up if temporary table already exists.
+        dropTableIfExists(tmpTableName);
         try {
-            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT * FROM nation");
-            assertQuery("SELECT * FROM tmp", "SELECT * FROM nation");
+            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + tmpTableName, "SELECT * FROM nation");
         }
         finally {
-            dropTableIfExists("tmp");
-        }
-
-        try {
-            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1");
-            assertQuery("SELECT * FROM tmp", "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
-        }
-        finally {
-            dropTableIfExists("tmp");
+            dropTableIfExists(tmpTableName);
         }
 
         try {
-            getQueryRunner().execute(session, "CREATE TABLE tmp AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
-            assertQuery("SELECT * FROM tmp", "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
+            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1");
+            assertQuery("SELECT * FROM " + tmpTableName, "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
         }
         finally {
-            dropTableIfExists("tmp");
+            dropTableIfExists(tmpTableName);
+        }
+
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
+            assertQuery("SELECT * FROM " + tmpTableName, "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
         }
     }
 
