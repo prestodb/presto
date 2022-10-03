@@ -1104,6 +1104,10 @@ std::shared_ptr<const LongDecimalType> LONG_DECIMAL(
 
 TypePtr DECIMAL(uint8_t precision, uint8_t scale);
 
+std::shared_ptr<const FunctionType> FUNCTION(
+    std::vector<std::shared_ptr<const Type>>&& argumentTypes,
+    std::shared_ptr<const Type> returnType);
+
 template <typename Class>
 std::shared_ptr<const OpaqueType> OPAQUE() {
   return OpaqueType::create<Class>();

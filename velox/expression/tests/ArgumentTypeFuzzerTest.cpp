@@ -39,7 +39,10 @@ class ArgumentTypeFuzzerTest : public testing::Test {
     auto& argumentSignatures = signature->argumentTypes();
     int i;
     for (i = 0; i < expectedArgumentTypes.size(); ++i) {
-      ASSERT_TRUE(expectedArgumentTypes[i]->equivalent(*argumentTypes[i]));
+      ASSERT_TRUE(expectedArgumentTypes[i]->equivalent(*argumentTypes[i]))
+          << "at " << i
+          << ": Expected: " << expectedArgumentTypes[i]->toString()
+          << ". Got: " << argumentTypes[i]->toString();
     }
 
     if (i < argumentTypes.size()) {
@@ -231,6 +234,67 @@ TEST_F(ArgumentTypeFuzzerTest, unsupported) {
           .build();
 
   testFuzzingFailure(signature, DECIMAL(13, 6));
+}
+
+TEST_F(ArgumentTypeFuzzerTest, lambda) {
+  // array(T), function(T, boolean) -> array(T)
+  auto signature = exec::FunctionSignatureBuilder()
+                       .typeVariable("T")
+                       .returnType("array(T)")
+                       .argumentType("array(T)")
+                       .argumentType("function(T,boolean)")
+                       .build();
+
+  testFuzzingSuccess(
+      signature,
+      ARRAY(BIGINT()),
+      {ARRAY(BIGINT()), FUNCTION(std::vector<TypePtr>{BIGINT()}, BOOLEAN())});
+
+  // array(T), function(T, U) -> array(U)
+  signature = exec::FunctionSignatureBuilder()
+                  .typeVariable("T")
+                  .typeVariable("U")
+                  .returnType("array(U)")
+                  .argumentType("array(T)")
+                  .argumentType("function(T,U)")
+                  .build();
+
+  {
+    std::mt19937 seed{0};
+    ArgumentTypeFuzzer fuzzer{*signature, ARRAY(VARCHAR()), seed};
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+
+    const auto& argumentTypes = fuzzer.argumentTypes();
+    ASSERT_TRUE(argumentTypes[0]->isArray());
+
+    // T is chosen randomly.
+    auto randomType = argumentTypes[0]->asArray().elementType();
+    ASSERT_EQ(*argumentTypes[1], *FUNCTION({randomType}, VARCHAR()));
+  }
+
+  // map(K, V1), function(K, V1, V2) -> map(K, V2)
+  signature = exec::FunctionSignatureBuilder()
+                  .typeVariable("K")
+                  .typeVariable("V1")
+                  .typeVariable("V2")
+                  .returnType("map(K,V2)")
+                  .argumentType("map(K,V1)")
+                  .argumentType("function(K,V1,V2)")
+                  .build();
+
+  {
+    std::mt19937 seed{0};
+    ArgumentTypeFuzzer fuzzer{*signature, MAP(BIGINT(), VARCHAR()), seed};
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+
+    const auto& argumentTypes = fuzzer.argumentTypes();
+    ASSERT_TRUE(argumentTypes[0]->isMap());
+    ASSERT_TRUE(argumentTypes[0]->asMap().keyType()->isBigint());
+
+    // V1 is chosen randomly.
+    auto randomType = argumentTypes[0]->asMap().valueType();
+    ASSERT_EQ(*argumentTypes[1], *FUNCTION({BIGINT(), randomType}, VARCHAR()));
+  }
 }
 
 } // namespace facebook::velox::test

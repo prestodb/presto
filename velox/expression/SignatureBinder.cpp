@@ -273,16 +273,16 @@ TypePtr SignatureBinder::tryResolveType(
 
     // createType(kind) function doesn't support ROW, UNKNOWN and OPAQUE type
     // kinds.
-    if (*typeKind == TypeKind::ROW) {
-      return ROW(std::move(children));
+    switch (*typeKind) {
+      case TypeKind::ROW:
+        return ROW(std::move(children));
+      case TypeKind::UNKNOWN:
+        return UNKNOWN();
+      case TypeKind::OPAQUE:
+        return OpaqueType::create<void>();
+      default:
+        return createType(*typeKind, std::move(children));
     }
-    if (*typeKind == TypeKind::UNKNOWN) {
-      return UNKNOWN();
-    }
-    if (*typeKind == TypeKind::OPAQUE) {
-      return OpaqueType::create<void>();
-    }
-    return createType(*typeKind, std::move(children));
   } else if (typeParameters.count(baseName) != 0) {
     return typeParameters.at(baseName);
   }

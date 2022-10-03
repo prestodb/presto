@@ -693,6 +693,15 @@ std::shared_ptr<const Type> createScalarType(TypeKind kind) {
 std::shared_ptr<const Type> createType(
     TypeKind kind,
     std::vector<std::shared_ptr<const Type>>&& children) {
+  if (kind == TypeKind::FUNCTION) {
+    VELOX_USER_CHECK_GE(
+        children.size(),
+        1,
+        "FUNCTION type should have at least one child type");
+    std::vector<TypePtr> argTypes(
+        children.begin(), children.begin() + children.size() - 1);
+    return std::make_shared<FunctionType>(std::move(argTypes), children.back());
+  }
   return VELOX_DYNAMIC_TYPE_DISPATCH(createType, kind, std::move(children));
 }
 
