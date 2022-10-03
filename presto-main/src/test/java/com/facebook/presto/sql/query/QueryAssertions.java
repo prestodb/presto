@@ -26,6 +26,7 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -46,6 +47,15 @@ class QueryAssertions
                 .setCatalog("local")
                 .setSchema("default")
                 .build());
+    }
+
+    public QueryAssertions(Map<String, String> systemProperties)
+    {
+        Session.SessionBuilder builder = testSessionBuilder()
+                .setCatalog("local")
+                .setSchema("default");
+        systemProperties.forEach(builder::setSystemProperty);
+        runner = new LocalQueryRunner(builder.build());
     }
 
     public QueryAssertions(Session session)

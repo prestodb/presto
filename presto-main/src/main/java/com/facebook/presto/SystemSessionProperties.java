@@ -245,6 +245,7 @@ public final class SystemSessionProperties
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
+    public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1377,6 +1378,11 @@ public final class SystemSessionProperties
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "Randomize null join key for outer join",
                         featuresConfig.isRandomizeOuterJoinNullKeyEnabled(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
+                        "Enable rewrite from IF(predicate, AGG(x)) to AGG(IF(predicate), x)",
+                        featuresConfig.isOptimizeConditionalAggregationEnabled(),
                         false));
     }
 
@@ -2316,5 +2322,10 @@ public final class SystemSessionProperties
     public static boolean randomizeOuterJoinNullKeyEnabled(Session session)
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, Boolean.class);
+    }
+
+    public static boolean isOptimizeConditionalAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED, Boolean.class);
     }
 }
