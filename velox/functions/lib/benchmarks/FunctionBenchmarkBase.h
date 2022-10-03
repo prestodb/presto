@@ -46,6 +46,11 @@ class FunctionBenchmarkBase {
     return results[0];
   }
 
+  VectorPtr evaluate(const std::string& expression, const RowVectorPtr& data) {
+    auto exprSet = compileExpression(expression, asRowType(data->type()));
+    return evaluate(exprSet, data);
+  }
+
   facebook::velox::test::VectorMaker& maker() {
     return vectorMaker_;
   }

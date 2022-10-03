@@ -89,8 +89,8 @@ class ZipWithFunction : public exec::VectorFunction {
         rightNeedsPadding);
 
     const auto numResultElements = resultBuffers.numElements;
-    auto rawOffsets = resultBuffers.offsets->as<vector_size_t>();
-    auto rawSizes = resultBuffers.sizes->as<vector_size_t>();
+    auto* rawOffsets = resultBuffers.offsets->as<vector_size_t>();
+    auto* rawSizes = resultBuffers.sizes->as<vector_size_t>();
 
     const SelectivityVector allElementRows(numResultElements);
 
@@ -101,12 +101,17 @@ class ZipWithFunction : public exec::VectorFunction {
     // loop will run once.
     auto it = args[2]->asUnchecked<FunctionVector>()->iterator(&rows);
     while (auto entry = it.next()) {
-      SelectivityVector elementRows(numResultElements, false);
-      entry.rows->applyToSelected([&](auto row) {
-        elementRows.setValidRange(
-            rawOffsets[row], rawOffsets[row] + rawSizes[row], true);
-      });
-      elementRows.updateBounds();
+      // Optimize for the case of a single lambda expression and 'rows' covering
+      // all rows.
+      const bool allSelected = entry.rows->isAllSelected();
+      SelectivityVector elementRows(numResultElements, allSelected);
+      if (!allSelected) {
+        entry.rows->applyToSelected([&](auto row) {
+          elementRows.setValidRange(
+              rawOffsets[row], rawOffsets[row] + rawSizes[row], true);
+        });
+        elementRows.updateBounds();
+      }
 
       BufferPtr wrapCapture;
       if (entry.callable->hasCapture()) {
@@ -168,28 +173,35 @@ class ZipWithFunction : public exec::VectorFunction {
       bool& leftNeedsPadding,
       bool& rightNeedsPadding) {
     BufferPtr sizes = allocateSizes(rows.end(), pool);
-    auto rawSizes = sizes->asMutable<vector_size_t>();
+    auto* rawSizes = sizes->asMutable<vector_size_t>();
 
     BufferPtr offsets = allocateOffsets(rows.end(), pool);
-    auto rawOffsets = offsets->asMutable<vector_size_t>();
+    auto* rawOffsets = offsets->asMutable<vector_size_t>();
 
-    BufferPtr nulls = allocateNulls(rows.end(), pool);
-    auto rawNulls = nulls->asMutable<uint64_t>();
+    BufferPtr nulls;
+    uint64_t* rawNulls = nullptr;
+    if (decodedInputs.decodedLeft->mayHaveNulls() ||
+        decodedInputs.decodedRight->mayHaveNulls()) {
+      nulls = allocateNulls(rows.end(), pool);
+      rawNulls = nulls->asMutable<uint64_t>();
+    }
+
+    auto leftSizes = decodedInputs.baseLeft->rawSizes();
+    auto rightSizes = decodedInputs.baseRight->rawSizes();
 
     vector_size_t offset = 0;
     rows.applyToSelected([&](auto row) {
-      if (decodedInputs.decodedLeft->isNullAt(row) ||
-          decodedInputs.decodedRight->isNullAt(row)) {
-        rawSizes[row] = 0;
-        rawOffsets[row] = 0;
+      if (rawNulls &&
+          (decodedInputs.decodedLeft->isNullAt(row) ||
+           decodedInputs.decodedRight->isNullAt(row))) {
         bits::setNull(rawNulls, row);
         return;
       }
 
       auto leftRow = decodedInputs.decodedLeft->index(row);
       auto rightRow = decodedInputs.decodedRight->index(row);
-      auto leftSize = decodedInputs.baseLeft->sizeAt(leftRow);
-      auto rightSize = decodedInputs.baseRight->sizeAt(rightRow);
+      auto leftSize = leftSizes[leftRow];
+      auto rightSize = rightSizes[rightRow];
       auto size = std::max(leftSize, rightSize);
       if (leftSize < size) {
         leftNeedsPadding = true;
@@ -205,14 +217,41 @@ class ZipWithFunction : public exec::VectorFunction {
     return {offsets, sizes, nulls, offset};
   }
 
+  static bool areSameOffsets(
+      const vector_size_t* offsets,
+      const vector_size_t* desiredOffsets,
+      vector_size_t size) {
+    for (auto i = 0; i < size; ++i) {
+      if (offsets[i] != desiredOffsets[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Takes a decoded array vector and list of new array sizes. Returns a new
+  // elements vector that have nulls added at the end of the arrays up to the
+  // new sizes. The new elements vector has elements placed sequentially, e.g.
+  // offset[N + 1] = offset[N] + size[N].
+  // @param needsPaddiing is true if at least one array needs to grow to a
+  // larger size.
   static VectorPtr flattenAndPadArray(
       DecodedVector* decoded,
       const ArrayVector* base,
       const SelectivityVector& rows,
       memory::MemoryPool* pool,
       vector_size_t numResultElements,
+      const vector_size_t* resultOffsets,
       const vector_size_t* resultSizes,
       bool needsPadding) {
+    auto* offsets = base->rawOffsets();
+    auto* sizes = base->rawSizes();
+
+    if (!needsPadding && decoded->isIdentityMapping() && rows.isAllSelected() &&
+        areSameOffsets(offsets, resultOffsets, rows.size())) {
+      return base->elements();
+    }
+
     BufferPtr indices = allocateIndices(numResultElements, pool);
     auto* rawIndices = indices->asMutable<vector_size_t>();
 
@@ -224,6 +263,7 @@ class ZipWithFunction : public exec::VectorFunction {
     }
 
     vector_size_t resultOffset = 0;
+
     rows.applyToSelected([&](auto row) {
       const auto resultSize = resultSizes[row];
       if (resultSize == 0) {
@@ -231,8 +271,8 @@ class ZipWithFunction : public exec::VectorFunction {
       }
 
       auto baseRow = decoded->index(row);
-      auto size = base->sizeAt(baseRow);
-      auto offset = base->offsetAt(baseRow);
+      auto size = sizes[baseRow];
+      auto offset = offsets[baseRow];
 
       for (auto i = 0; i < size; ++i) {
         rawIndices[resultOffset + i] = offset + i;
@@ -254,7 +294,8 @@ class ZipWithFunction : public exec::VectorFunction {
       memory::MemoryPool* pool,
       bool leftNeedsPadding,
       bool rightNeedsPadding) {
-    auto resultSizes = resultBuffers.sizes->as<vector_size_t>();
+    auto* resultSizes = resultBuffers.sizes->as<vector_size_t>();
+    auto* resultOffsets = resultBuffers.offsets->as<vector_size_t>();
 
     auto paddedLeft = flattenAndPadArray(
         decodedInputs.decodedLeft,
@@ -262,6 +303,7 @@ class ZipWithFunction : public exec::VectorFunction {
         rows,
         pool,
         resultBuffers.numElements,
+        resultOffsets,
         resultSizes,
         leftNeedsPadding);
 
@@ -271,6 +313,7 @@ class ZipWithFunction : public exec::VectorFunction {
         rows,
         pool,
         resultBuffers.numElements,
+        resultOffsets,
         resultSizes,
         rightNeedsPadding);
 

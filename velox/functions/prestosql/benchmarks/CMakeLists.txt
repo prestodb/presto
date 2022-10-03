@@ -146,3 +146,8 @@ target_link_libraries(velox_functions_prestosql_benchmarks_comparisons
 add_executable(velox_functions_prestosql_benchmarks_concat ConcatBenchmark.cpp)
 target_link_libraries(velox_functions_prestosql_benchmarks_concat
                       ${BENCHMARK_DEPENDENCIES})
+
+add_executable(velox_functions_prestosql_benchmarks_zip_with
+               ZipWithBenchmark.cpp)
+target_link_libraries(velox_functions_prestosql_benchmarks_zip_with
+                      ${BENCHMARK_DEPENDENCIES})
