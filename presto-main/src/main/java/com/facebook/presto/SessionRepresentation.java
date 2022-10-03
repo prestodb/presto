@@ -315,6 +315,7 @@ public final class SessionRepresentation
                         roles,
                         extraCredentials,
                         extraAuthenticators,
+                        Optional.empty(),
                         Optional.empty()),
                 ImmutableList.of(),
                 source,

@@ -29,6 +29,7 @@ public class Identity
     private final Optional<Principal> principal;
     private final Map<String, SelectedRole> roles;
     private final Map<String, String> extraCredentials;
+    private final Optional<String> selectedUser;
     private final Optional<String> reasonForSelect;
 
     /**
@@ -39,9 +40,20 @@ public class Identity
      */
     private final Map<String, TokenAuthenticator> extraAuthenticators;
 
+    public Identity(Identity other)
+    {
+        this.user = other.user;
+        this.principal = other.principal;
+        this.roles = other.roles;
+        this.extraCredentials = other.extraCredentials;
+        this.extraAuthenticators = other.extraAuthenticators;
+        this.selectedUser = other.selectedUser;
+        this.reasonForSelect = other.reasonForSelect;
+    }
+
     public Identity(String user, Optional<Principal> principal)
     {
-        this(user, principal, emptyMap(), emptyMap(), emptyMap(), Optional.empty());
+        this(user, principal, emptyMap(), emptyMap(), emptyMap(), Optional.empty(), Optional.empty());
     }
 
     public Identity(
@@ -50,6 +62,7 @@ public class Identity
             Map<String, SelectedRole> roles,
             Map<String, String> extraCredentials,
             Map<String, TokenAuthenticator> extraAuthenticators,
+            Optional<String> selectedUser,
             Optional<String> reasonForSelect)
     {
         this.user = requireNonNull(user, "user is null");
@@ -57,6 +70,7 @@ public class Identity
         this.roles = unmodifiableMap(requireNonNull(roles, "roles is null"));
         this.extraCredentials = unmodifiableMap(new HashMap<>(requireNonNull(extraCredentials, "extraCredentials is null")));
         this.extraAuthenticators = unmodifiableMap(new HashMap<>(requireNonNull(extraAuthenticators, "extraAuthenticators is null")));
+        this.selectedUser = requireNonNull(selectedUser, "selectedUser is null");
         this.reasonForSelect = requireNonNull(reasonForSelect, "reasonForSelect is null");
     }
 
@@ -85,6 +99,11 @@ public class Identity
         return extraAuthenticators;
     }
 
+    public Optional<String> getSelectedUser()
+    {
+        return selectedUser;
+    }
+
     public Optional<String> getReasonForSelect()
     {
         return reasonForSelect;
@@ -98,6 +117,7 @@ public class Identity
                 Optional.empty(),
                 extraCredentials,
                 extraAuthenticators,
+                selectedUser,
                 reasonForSelect);
     }
 
@@ -110,6 +130,7 @@ public class Identity
                 Optional.ofNullable(roles.get(catalog)),
                 extraCredentials,
                 extraAuthenticators,
+                selectedUser,
                 reasonForSelect);
     }
 
@@ -141,6 +162,7 @@ public class Identity
         sb.append(", roles=").append(roles);
         sb.append(", extraCredentials=").append(extraCredentials.keySet());
         sb.append(", extraAuthenticators=").append(extraAuthenticators.keySet());
+        selectedUser.ifPresent(user -> sb.append(", selectedUser=").append(user));
         reasonForSelect.ifPresent(
                 reason -> sb.append(", reasonForSelect=").append(reason));
         sb.append('}');
