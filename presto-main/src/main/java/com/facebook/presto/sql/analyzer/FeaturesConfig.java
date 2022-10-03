@@ -237,6 +237,7 @@ public class FeaturesConfig
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
     private boolean randomizeOuterJoinNullKey;
+    private boolean isOptimizeConditionalAggregationEnabled;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2230,6 +2231,19 @@ public class FeaturesConfig
     public FeaturesConfig setRandomizeOuterJoinNullKeyEnabled(boolean randomizeOuterJoinNullKey)
     {
         this.randomizeOuterJoinNullKey = randomizeOuterJoinNullKey;
+        return this;
+    }
+
+    public boolean isOptimizeConditionalAggregationEnabled()
+    {
+        return isOptimizeConditionalAggregationEnabled;
+    }
+
+    @Config("optimizer.optimize-conditional-aggregation-enabled")
+    @ConfigDescription("Enable rewriting from IF(predicate, AGG(x)) to AGG(IF(predicate), x)")
+    public FeaturesConfig setOptimizeConditionalAggregationEnabled(boolean isOptimizeConditionalAggregationEnabled)
+    {
+        this.isOptimizeConditionalAggregationEnabled = isOptimizeConditionalAggregationEnabled;
         return this;
     }
 }
