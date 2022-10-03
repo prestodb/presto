@@ -344,6 +344,7 @@ public final class HiveQueryRunner
                                 .orElse(ImmutableMap.of()),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .setCatalog(HIVE_CATALOG)
                 .setSchema(schema)
@@ -365,6 +366,7 @@ public final class HiveQueryRunner
                                 .orElse(ImmutableMap.of()),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .setCatalog(HIVE_BUCKETED_CATALOG)
                 .setSchema(schema)
@@ -381,6 +383,7 @@ public final class HiveQueryRunner
                                 .orElse(ImmutableMap.of()),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .setSystemProperty(PARTITIONING_PROVIDER_CATALOG, HIVE_CATALOG)
                 .setSystemProperty(EXCHANGE_MATERIALIZATION_STRATEGY, ExchangeMaterializationStrategy.ALL.name())

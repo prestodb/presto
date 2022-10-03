@@ -389,7 +389,7 @@ public class PrestoSparkQueryExecutionFactory
         // To keep the same behavior as before, we check the permissions separately here
         checkPermissions(queryId, sessionContext);
 
-        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory);
+        Session session = sessionSupplier.createSession(queryId, sessionContext, warningCollectorFactory, Optional.empty());
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), Optional.empty());
 

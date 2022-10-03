@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
@@ -23,6 +24,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.transaction.TransactionManager;
@@ -44,6 +46,8 @@ import static java.util.Objects.requireNonNull;
 public class QuerySessionSupplier
         implements SessionSupplier
 {
+    private final Logger log = Logger.get(QuerySessionSupplier.class);
+
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
@@ -64,9 +68,25 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory)
+    public Session createSession(QueryId queryId, SessionContext context, WarningCollectorFactory warningCollectorFactory, Optional<AuthorizedIdentity> authorizedIdentity)
     {
         Identity identity = context.getIdentity();
+        if (authorizedIdentity.isPresent()) {
+            identity = new Identity(
+                    identity.getUser(),
+                    identity.getPrincipal(),
+                    identity.getRoles(),
+                    identity.getExtraCredentials(),
+                    identity.getExtraAuthenticators(),
+                    Optional.of(authorizedIdentity.get().getUserName()),
+                    authorizedIdentity.get().getReasonForSelect());
+            log.info(String.format(
+                    "For query %s, given user is %s, authorized user is %s",
+                    queryId.getId(),
+                    identity.getUser(),
+                    authorizedIdentity.get().getUserName()));
+        }
+
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)

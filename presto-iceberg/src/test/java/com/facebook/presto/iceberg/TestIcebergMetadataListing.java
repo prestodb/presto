@@ -47,6 +47,7 @@ public class TestIcebergMetadataListing
                         ImmutableMap.of("hive", new SelectedRole(ROLE, Optional.of("admin"))),
                         ImmutableMap.of(),
                         ImmutableMap.of(),
+                        Optional.empty(),
                         Optional.empty()))
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();

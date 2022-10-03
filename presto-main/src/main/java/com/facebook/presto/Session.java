@@ -402,6 +402,7 @@ public final class Session
                         roles.build(),
                         identity.getExtraCredentials(),
                         identity.getExtraAuthenticators(),
+                        identity.getSelectedUser(),
                         identity.getReasonForSelect()),
                 certificates,
                 source,

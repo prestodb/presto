@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServletRequest;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -99,7 +100,7 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
+        Session session = sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory, Optional.empty());
 
         assertEquals(session.getQueryId(), new QueryId("test_query_id"));
         assertEquals(session.getUser(), "testUser");
@@ -170,6 +171,6 @@ public class TestQuerySessionSupplier
                 return WarningCollector.NOOP;
             }
         };
-        sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory);
+        sessionSupplier.createSession(new QueryId("test_query_id"), context, warningCollectorFactory, Optional.empty());
     }
 }
