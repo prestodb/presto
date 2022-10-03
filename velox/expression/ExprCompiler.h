@@ -26,7 +26,7 @@ class Expr;
 class ExprSet;
 
 std::vector<std::shared_ptr<Expr>> compileExpressions(
-    std::vector<core::TypedExprPtr>&& sources,
+    const std::vector<core::TypedExprPtr>& sources,
     core::ExecCtx* execCtx,
     ExprSet* exprSet,
     bool enableConstantFolding = true);

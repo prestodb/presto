@@ -1485,12 +1485,12 @@ void Expr::appendInputsSql(std::stringstream& stream) const {
 }
 
 ExprSet::ExprSet(
-    std::vector<core::TypedExprPtr>&& sources,
+    const std::vector<core::TypedExprPtr>& sources,
     core::ExecCtx* execCtx,
     bool enableConstantFolding)
     : execCtx_(execCtx) {
-  exprs_ = compileExpressions(
-      std::move(sources), execCtx, this, enableConstantFolding);
+  exprs_ = compileExpressions(sources, execCtx, this, enableConstantFolding);
+  std::vector<FieldReference*> allDistinctFields;
   for (auto& expr : exprs_) {
     mergeFields(
         distinctFields_, multiplyReferencedFields_, expr->distinctFields());

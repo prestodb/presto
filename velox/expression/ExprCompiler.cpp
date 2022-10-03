@@ -549,7 +549,7 @@ std::unordered_set<std::string> collectFlatteningCandidates(
 } // namespace
 
 std::vector<std::shared_ptr<Expr>> compileExpressions(
-    std::vector<TypedExprPtr>&& sources,
+    const std::vector<TypedExprPtr>& sources,
     core::ExecCtx* execCtx,
     ExprSet* exprSet,
     bool enableConstantFolding) {

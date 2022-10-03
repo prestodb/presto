@@ -506,7 +506,7 @@ using ExprPtr = std::shared_ptr<Expr>;
 class ExprSet {
  public:
   explicit ExprSet(
-      std::vector<core::TypedExprPtr>&& source,
+      const std::vector<core::TypedExprPtr>& source,
       core::ExecCtx* FOLLY_NONNULL execCtx,
       bool enableConstantFolding = true);
 
@@ -590,9 +590,9 @@ class ExprSet {
 class ExprSetSimplified : public ExprSet {
  public:
   ExprSetSimplified(
-      std::vector<core::TypedExprPtr>&& source,
+      const std::vector<core::TypedExprPtr>& source,
       core::ExecCtx* FOLLY_NONNULL execCtx)
-      : ExprSet(std::move(source), execCtx, /*enableConstantFolding*/ false) {}
+      : ExprSet(source, execCtx, /*enableConstantFolding*/ false) {}
 
   virtual ~ExprSetSimplified() override {}
 

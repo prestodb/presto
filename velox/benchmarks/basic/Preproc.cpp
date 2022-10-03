@@ -265,7 +265,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
           untyped, ROW({"c0"}, {REAL()}), execCtx_.pool());
       typedExprs.push_back(typed);
     }
-    return exec::ExprSet(std::move(typedExprs), &execCtx_);
+    return exec::ExprSet(typedExprs, &execCtx_);
   }
 
   std::string makeExpression(int n, RunConfig config) {
