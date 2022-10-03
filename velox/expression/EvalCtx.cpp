@@ -20,7 +20,7 @@
 
 namespace facebook::velox::exec {
 
-ContextSaver::~ContextSaver() {
+ScopedContextSaver::~ScopedContextSaver() {
   if (context) {
     context->restore(*this);
   }
@@ -98,7 +98,9 @@ VectorPtr EvalCtx::applyWrapToPeeledResult(
   return wrappedResult;
 }
 
-void EvalCtx::saveAndReset(ContextSaver& saver, const SelectivityVector& rows) {
+void EvalCtx::saveAndReset(
+    ScopedContextSaver& saver,
+    const SelectivityVector& rows) {
   if (saver.context) {
     return;
   }
@@ -153,7 +155,7 @@ void EvalCtx::addError(
   }
 }
 
-void EvalCtx::restore(ContextSaver& saver) {
+void EvalCtx::restore(ScopedContextSaver& saver) {
   peeledFields_ = std::move(saver.peeled);
   nullsPruned_ = saver.nullsPruned;
   if (errors_) {
@@ -241,6 +243,25 @@ VectorPtr EvalCtx::ensureFieldLoaded(
   }
 
   return field;
+}
+
+ScopedFinalSelectionSetter::ScopedFinalSelectionSetter(
+    EvalCtx& evalCtx,
+    const SelectivityVector* finalSelection,
+    bool checkCondition,
+    bool override)
+    : evalCtx_(evalCtx),
+      oldFinalSelection_(*evalCtx.mutableFinalSelection()),
+      oldIsFinalSelection_(*evalCtx.mutableIsFinalSelection()) {
+  if ((evalCtx.isFinalSelection() && checkCondition) || override) {
+    *evalCtx.mutableFinalSelection() = finalSelection;
+    *evalCtx.mutableIsFinalSelection() = false;
+  }
+}
+
+ScopedFinalSelectionSetter::~ScopedFinalSelectionSetter() {
+  *evalCtx_.mutableFinalSelection() = oldFinalSelection_;
+  *evalCtx_.mutableIsFinalSelection() = oldIsFinalSelection_;
 }
 
 } // namespace facebook::velox::exec

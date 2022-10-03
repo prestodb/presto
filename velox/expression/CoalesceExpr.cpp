@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/expression/CoalesceExpr.h"
-#include "velox/expression/VarSetter.h"
 
 namespace facebook::velox::exec {
 
@@ -47,9 +46,7 @@ void CoalesceExpr::evalSpecialForm(
   *activeRows = rows;
 
   // Fix finalSelection at "rows" unless already fixed.
-  VarSetter finalSelection(
-      context.mutableFinalSelection(), &rows, context.isFinalSelection());
-  VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
+  ScopedFinalSelectionSetter scopedFinalSelectionSetter(context, &rows);
 
   exec::LocalDecodedVector decodedVector(context);
   for (int i = 0; i < inputs_.size(); i++) {

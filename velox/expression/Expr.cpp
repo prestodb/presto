@@ -25,7 +25,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/ExprCompiler.h"
 #include "velox/expression/FieldReference.h"
-#include "velox/expression/VarSetter.h"
+#include "velox/expression/ScopedVarSetter.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/vector/SelectivityVector.h"
 #include "velox/vector/VectorSaver.h"
@@ -561,11 +561,12 @@ bool Expr::checkGetSharedSubexprValues(
       VELOX_DCHECK_NOT_NULL(context.finalSelection());
       newFinalSelection->select(*context.finalSelection());
     }
-    VarSetter finalSelectionPreservePrecomputedValues(
-        context.mutableFinalSelection(),
-        const_cast<const SelectivityVector*>(newFinalSelection));
-    VarSetter isFinalSelectionPreservePrecomputedValues(
-        context.mutableIsFinalSelection(), false, context.isFinalSelection());
+
+    ScopedFinalSelectionSetter scopedFinalSelectionSetter(
+        context,
+        const_cast<const SelectivityVector*>(newFinalSelection),
+        true /*checkCondition*/,
+        true /*override*/);
 
     evalEncodings(*missingRows, context, sharedSubexprValues_);
   }
@@ -647,7 +648,7 @@ SelectivityVector* singleRow(
 
 Expr::PeelEncodingsResult Expr::peelEncodings(
     EvalCtx& context,
-    ContextSaver& saver,
+    ScopedContextSaver& saver,
     const SelectivityVector& rows,
     LocalDecodedVector& localDecoded,
     LocalSelectivityVector& newRowsHolder,
@@ -809,7 +810,7 @@ void Expr::evalEncodings(
       VectorPtr wrappedResult;
       // Attempt peeling and bound the scope of the context used for it.
       {
-        ContextSaver saveContext;
+        ScopedContextSaver saveContext;
         LocalSelectivityVector newRowsHolder(context);
         LocalSelectivityVector finalRowsHolder(context);
         LocalDecodedVector decodedHolder(context);
@@ -933,7 +934,7 @@ void Expr::evalWithNulls(
     if (mayHaveNulls && !distinctFields_.empty()) {
       LocalSelectivityVector nonNullHolder(context);
       if (removeSureNulls(rows, context, nonNullHolder)) {
-        VarSetter noMoreNulls(context.mutableNullsPruned(), true);
+        ScopedVarSetter noMoreNulls(context.mutableNullsPruned(), true);
         if (nonNullHolder.get()->hasSelections()) {
           evalAll(*nonNullHolder.get(), context, result);
         }
@@ -987,12 +988,8 @@ void Expr::evalWithMemo(
       // Fix finalSelection at "rows" if uncached rows is a strict subset to
       // avoid losing values not in uncached rows that were copied earlier into
       // "result" from the cached rows.
-      bool updateFinalSelection = context.isFinalSelection() &&
-          (uncached->countSelected() < rows.countSelected());
-      VarSetter finalSelectionMemo(
-          context.mutableFinalSelection(), &rows, updateFinalSelection);
-      VarSetter isFinalSelectionMemo(
-          context.mutableIsFinalSelection(), false, updateFinalSelection);
+      ScopedFinalSelectionSetter scopedFinalSelectionSetter(
+          context, &rows, uncached->countSelected() < rows.countSelected());
 
       evalWithNulls(*uncached, context, result);
       deselectErrors(context, *uncached);
@@ -1335,7 +1332,7 @@ bool Expr::applyFunctionWithPeeling(
     return false;
   }
   LocalSelectivityVector newRowsHolder(context);
-  ContextSaver saver;
+  ScopedContextSaver saver;
   // We peel off the wrappers and make a new selection.
   SelectivityVector* newRows;
   LocalDecodedVector localDecoded(context);

@@ -19,6 +19,13 @@
 
 namespace facebook::velox::exec {
 
+/// Expressions that are higher order functions that take arguments which are
+/// functions themselves. These are used to implement computations over arrays
+/// and maps and are of the form LAMBDA_EXPR(ARRAY/MAP, INNER_EXPR).
+/// The inner expression is applied to elements of the array/map and can contain
+/// references to other columns in the input row vector which are required to
+/// evaluate the function. These references are called captures.
+/// eg. filter(array[1, 2, 3, 4], x -> x % 2 = 0)
 class LambdaExpr : public SpecialForm {
  public:
   LambdaExpr(
@@ -34,8 +41,8 @@ class LambdaExpr : public SpecialForm {
             false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage),
         signature_(std::move(signature)),
-        capture_(std::move(capture)),
-        body_(std::move(body)) {
+        body_(std::move(body)),
+        capture_(std::move(capture)) {
     for (auto& field : capture_) {
       distinctFields_.push_back(field.get());
     }
@@ -56,13 +63,28 @@ class LambdaExpr : public SpecialForm {
       VectorPtr& result) override;
 
  private:
+  /// Used to initialize captureChannels_ and typeWithCapture_ on first use.
   void makeTypeWithCapture(EvalCtx& context);
 
   RowTypePtr signature_;
-  std::vector<std::shared_ptr<FieldReference>> capture_;
+
+  /// The inner expression that will be applied to the elements of the input
+  /// array/map.
   ExprPtr body_;
-  // Filled on first use.
-  RowTypePtr typeWithCapture_;
+
+  /// List of field references to columns in the input row vector.
+  std::vector<std::shared_ptr<FieldReference>> capture_;
+
+  /// These contain column indices of the captured columns with respect to the
+  /// input row vector. Stored in the same order as in capture_. Filled on first
+  /// use.
   std::vector<column_index_t> captureChannels_;
+
+  /// A row type representing column types in the order starting with inner
+  /// types of the array/map it operates on followed by types of the columns
+  /// that it captures (in the same order as that in capture_). This is used to
+  /// create an input row vector which is fed to the inner expression. Filled on
+  /// first use.
+  RowTypePtr typeWithCapture_;
 };
 } // namespace facebook::velox::exec

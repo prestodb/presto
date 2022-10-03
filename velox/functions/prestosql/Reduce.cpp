@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
-#include "velox/vector/FunctionVector.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -96,9 +94,7 @@ class ReduceFunction : public exec::VectorFunction {
     });
 
     // Fix finalSelection at "rows" unless already fixed.
-    VarSetter finalSelection(
-        context.mutableFinalSelection(), &rows, context.isFinalSelection());
-    VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
+    exec::ScopedFinalSelectionSetter scopedFinalSelectionSetter(context, &rows);
     const SelectivityVector& finalSelectionRows = *context.finalSelection();
 
     // Loop over lambda functions and apply these to elements of the base array.

@@ -27,7 +27,7 @@ namespace facebook::velox::exec {
 
 class Expr;
 class ExprSet;
-struct ContextSaver;
+struct ScopedContextSaver;
 
 // Context for holding the base row vector, error state and various
 // flags for Expr interpreter.
@@ -70,9 +70,9 @@ class EvalCtx {
   }
 
   /// Used by peelEncodings.
-  void saveAndReset(ContextSaver& saver, const SelectivityVector& rows);
+  void saveAndReset(ScopedContextSaver& saver, const SelectivityVector& rows);
 
-  void restore(ContextSaver& saver);
+  void restore(ScopedContextSaver& saver);
 
   // Wraps the 'peeledResult' in the wrap produced by the last peeling in
   // EvalEncoding() and returns the vector created as a result.
@@ -272,8 +272,12 @@ class EvalCtx {
   ErrorVectorPtr errors_;
 };
 
-struct ContextSaver {
-  ~ContextSaver();
+/// Utility wrapper struct that is used to temporarily reset the value of the an
+/// ExprCtx till it goes out of scope. EvalCtx::saveAndReset() is used to
+/// achieve that. The old context can also be explicitly restored using
+/// EvalCtx::restore().
+struct ScopedContextSaver {
+  ~ScopedContextSaver();
   // The context to restore. nullptr if nothing to restore.
   EvalCtx* FOLLY_NULLABLE context = nullptr;
   std::vector<VectorPtr> peeled;
@@ -461,6 +465,26 @@ class LocalDecodedVector {
  private:
   std::reference_wrapper<core::ExecCtx> context_;
   std::unique_ptr<DecodedVector> vector_;
+};
+
+/// Utility class used to activate final selection (setting isFinalSelection to
+/// false and finalSelection to the input 'finalSelection') temporarily till it
+/// goes out of scope. It only sets final selection if it has not already been
+/// set and 'checkCondition' is true. Additionally, 'override' can be set to
+/// true to always set finalSelection even if its already set.
+class ScopedFinalSelectionSetter {
+ public:
+  ScopedFinalSelectionSetter(
+      EvalCtx& evalCtx,
+      const SelectivityVector* FOLLY_NULLABLE finalSelection,
+      bool checkCondition = true,
+      bool override = false);
+  ~ScopedFinalSelectionSetter();
+
+ private:
+  EvalCtx& evalCtx_;
+  const SelectivityVector* FOLLY_NULLABLE oldFinalSelection_;
+  bool oldIsFinalSelection_;
 };
 
 } // namespace facebook::velox::exec

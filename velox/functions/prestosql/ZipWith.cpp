@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/expression/Expr.h"
-#include "velox/expression/VarSetter.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/vector/FunctionVector.h"
@@ -128,9 +127,7 @@ class ZipWithFunction : public exec::VectorFunction {
 
       // Make sure already populated entries in newElements do not get
       // overwritten.
-      VarSetter finalSelection(
-          context.mutableFinalSelection(), &allElementRows);
-      VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
+      exec::ScopedFinalSelectionSetter(context, &allElementRows, true, true);
 
       entry.callable->apply(
           elementRows,

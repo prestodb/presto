@@ -622,7 +622,7 @@ void CastExpr::apply(
         *nonNullRows, *decoded->base(), context, fromType, toType, localResult);
 
   } else {
-    ContextSaver saver;
+    ScopedContextSaver saver;
     LocalSelectivityVector translatedRowsHolder(*context.execCtx());
 
     if (decoded->isConstantMapping()) {

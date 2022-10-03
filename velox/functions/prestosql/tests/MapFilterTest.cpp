@@ -15,7 +15,6 @@
  */
 
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/expression/VarSetter.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -236,8 +235,8 @@ TEST_F(MapFilterTest, lambdaSelectivityVector) {
   // Ensure that our context would have 'final selection' false.
   exec::EvalCtx context(&execCtx_, exprSet.get(), data.get());
   const SelectivityVector allRows(data->size());
-  VarSetter finalSelection(context.mutableFinalSelection(), &allRows);
-  VarSetter isFinalSelection(context.mutableIsFinalSelection(), false);
+  exec::ScopedFinalSelectionSetter scopedFinalSelectionSetter(
+      context, &allRows);
 
   // Evaluate. Result would be overwritten.
   std::vector<VectorPtr> result = {
