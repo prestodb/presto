@@ -19,7 +19,7 @@
 #include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 
-#include "velox/common/base/Nulls.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/vector/arrow/Bridge.h"
 
 namespace {
@@ -123,6 +123,9 @@ TEST_F(ArrowBridgeSchemaExportTest, scalar) {
 
   testScalarType(TIMESTAMP(), "ttn");
   testScalarType(DATE(), "tdD");
+
+  testScalarType(DECIMAL(10, 4), "d:10,4");
+  testScalarType(DECIMAL(20, 15), "d:20,15");
 }
 
 TEST_F(ArrowBridgeSchemaExportTest, nested) {
@@ -235,6 +238,12 @@ TEST_F(ArrowBridgeSchemaImportTest, scalar) {
   // Temporal.
   EXPECT_EQ(*TIMESTAMP(), *testSchemaImport("ttn"));
   EXPECT_EQ(*DATE(), *testSchemaImport("tdD"));
+
+  EXPECT_EQ(*DECIMAL(10, 4), *testSchemaImport("d:10,4"));
+  EXPECT_EQ(*DECIMAL(20, 15), *testSchemaImport("d:20,15"));
+  VELOX_ASSERT_THROW(
+      *testSchemaImport("d2,15"),
+      "Unable to convert 'd2,15' ArrowSchema decimal format to Velox decimal");
 }
 
 TEST_F(ArrowBridgeSchemaImportTest, complexTypes) {
@@ -243,6 +252,10 @@ TEST_F(ArrowBridgeSchemaImportTest, complexTypes) {
   EXPECT_EQ(*ARRAY(TIMESTAMP()), *testSchemaImportComplex("+l", {"ttn"}));
   EXPECT_EQ(*ARRAY(DATE()), *testSchemaImportComplex("+l", {"tdD"}));
   EXPECT_EQ(*ARRAY(VARCHAR()), *testSchemaImportComplex("+l", {"U"}));
+
+  EXPECT_EQ(*ARRAY(DECIMAL(10, 4)), *testSchemaImportComplex("+l", {"d:10,4"}));
+  EXPECT_EQ(
+      *ARRAY(DECIMAL(20, 15)), *testSchemaImportComplex("+l", {"d:20,15"}));
 
   // Map.
   EXPECT_EQ(
@@ -271,7 +284,6 @@ TEST_F(ArrowBridgeSchemaImportTest, unsupported) {
   EXPECT_THROW(testSchemaImport("L"), VeloxUserError);
   EXPECT_THROW(testSchemaImport("e"), VeloxUserError);
 
-  EXPECT_THROW(testSchemaImport("d:19,10"), VeloxUserError);
   EXPECT_THROW(testSchemaImport("w:42"), VeloxUserError);
 
   EXPECT_THROW(testSchemaImport("tdm"), VeloxUserError);
@@ -322,6 +334,8 @@ TEST_F(ArrowBridgeSchemaTest, validateInArrow) {
   const std::pair<TypePtr, std::shared_ptr<arrow::DataType>> kTypes[] = {
       {BOOLEAN(), arrow::boolean()},
       {VARCHAR(), arrow::utf8()},
+      {DECIMAL(10, 4), arrow::decimal(10, 4)},
+      {DECIMAL(20, 15), arrow::decimal(20, 15)},
       {ARRAY(DOUBLE()), arrow::list(arrow::float64())},
       {ARRAY(ARRAY(DOUBLE())), arrow::list(arrow::list(arrow::float64()))},
       {MAP(VARCHAR(), REAL()), arrow::map(arrow::utf8(), arrow::float32())},

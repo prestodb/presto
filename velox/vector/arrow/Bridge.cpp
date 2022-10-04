@@ -121,6 +121,9 @@ struct VeloxToArrowSchemaBridgeHolder {
   RowTypePtr rowType;
 
   std::unique_ptr<ArrowSchema> dictionary;
+
+  // Buffer required to generate a decimal format.
+  std::string formatBuffer;
 };
 
 void setUniqueChild(
@@ -204,7 +207,9 @@ static void bridgeSchemaRelease(ArrowSchema* arrowSchema) {
 }
 
 // Returns the Arrow C data interface format type for a given Velox type.
-const char* exportArrowFormatStr(const TypePtr& type) {
+const char* exportArrowFormatStr(
+    const TypePtr& type,
+    std::string& formatBuffer) {
   switch (type->kind()) {
     // Scalar types.
     case TypeKind::BOOLEAN:
@@ -221,7 +226,13 @@ const char* exportArrowFormatStr(const TypePtr& type) {
       return "f"; // float32
     case TypeKind::DOUBLE:
       return "g"; // float64
-
+    // Decimal types encode the precision, scale values.
+    case TypeKind::SHORT_DECIMAL:
+    case TypeKind::LONG_DECIMAL: {
+      const auto& [precision, scale] = getDecimalPrecisionScale(*type);
+      formatBuffer = fmt::format("d:{},{}", precision, scale);
+      return formatBuffer.c_str();
+    }
     // We always map VARCHAR and VARBINARY to the "small" version (lower case
     // format string), which uses 32 bit offsets.
     case TypeKind::VARCHAR:
@@ -346,11 +357,13 @@ void exportValues(
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
   out.n_buffers = 2;
+
   if (!rows.changed()) {
     holder.setBuffer(1, vec.values());
     return;
   }
-  auto values = vec.typeKind() == TypeKind::BOOLEAN
+
+  auto values = vec.type()->isBoolean()
       ? AlignedBuffer::allocate<bool>(out.length, pool)
       : AlignedBuffer::allocate<uint8_t>(
             checkedMultiply<size_t>(out.length, vec.type()->cppSizeInBytes()),
@@ -408,6 +421,8 @@ void exportFlat(
     case TypeKind::BIGINT:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
+    case TypeKind::SHORT_DECIMAL:
+    case TypeKind::LONG_DECIMAL:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:
@@ -624,7 +639,7 @@ void exportToArrow(const VectorPtr& vec, ArrowSchema& arrowSchema) {
     exportToArrow(vec->valueVector(), *arrowSchema.dictionary);
 
   } else {
-    arrowSchema.format = exportArrowFormatStr(type);
+    arrowSchema.format = exportArrowFormatStr(type, bridgeHolder->formatBuffer);
     arrowSchema.dictionary = nullptr;
 
     if (type->kind() == TypeKind::MAP) {
@@ -743,6 +758,21 @@ TypePtr importFromArrow(const ArrowSchema& arrowSchema) {
         return DATE();
       }
       break;
+
+    case 'd': { // decimal types.
+      try {
+        std::string::size_type sz;
+        // Parse "d:".
+        int precision = std::stoi(&format[2], &sz);
+        // Parse ",".
+        int scale = std::stoi(&format[2 + sz + 1], &sz);
+        return DECIMAL(precision, scale);
+      } catch (std::invalid_argument& err) {
+        VELOX_USER_FAIL(
+            "Unable to convert '{}' ArrowSchema decimal format to Velox decimal",
+            format);
+      }
+    }
 
     // Complex types.
     case '+': {
