@@ -41,14 +41,11 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
 
     flatVector_ = fuzzer.fuzzFlat(BIGINT());
 
-    arrayVector_ =
-        fuzzer.fuzzFlat(std::make_shared<ArrayType>(ArrayType(BIGINT())));
+    arrayVector_ = fuzzer.fuzzFlat(ARRAY(BIGINT()));
 
-    mapVector_ =
-        fuzzer.fuzzFlat(std::make_shared<MapType>(MapType(BIGINT(), BIGINT())));
+    mapVector_ = fuzzer.fuzzFlat(MAP(BIGINT(), BIGINT()));
 
-    rowVector_ =
-        fuzzer.fuzzFlat(vectorMaker_.rowType({BIGINT(), BIGINT(), BIGINT()}));
+    rowVector_ = fuzzer.fuzzFlat(ROW({BIGINT(), BIGINT(), BIGINT()}));
   }
 
   size_t run(const VectorPtr& vector) {
@@ -99,11 +96,11 @@ BENCHMARK_MULTI(compareSimilarArray) {
   return benchmark->run(benchmark->arrayVector_);
 }
 
-BENCHMARK_MULTI(CompareSimilarMap) {
+BENCHMARK_MULTI(compareSimilarMap) {
   return benchmark->run(benchmark->mapVector_);
 }
 
-BENCHMARK_MULTI(CompareSimilarRow) {
+BENCHMARK_MULTI(compareSimilarRow) {
   return benchmark->run(benchmark->rowVector_);
 }
 

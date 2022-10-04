@@ -291,6 +291,34 @@ class FlatVector final : public SimpleVector<T> {
     return SimpleVector<T>::compare(other, index, otherIndex, flags);
   }
 
+  void sortIndices(std::vector<vector_size_t>& indices, CompareFlags flags)
+      const override {
+    auto compareNonNull = [&](vector_size_t left, vector_size_t right) {
+      auto leftValue = valueAtFast(left);
+      auto rightValue = valueAtFast(right);
+      auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+      return (flags.ascending ? result : result * -1) < 0;
+    };
+
+    if (BaseVector::rawNulls_) {
+      std::sort(
+          indices.begin(),
+          indices.end(),
+          [&](vector_size_t left, vector_size_t right) {
+            bool leftNull = BaseVector::isNullAt(left);
+            bool rightNull = BaseVector::isNullAt(right);
+            if (leftNull || rightNull) {
+              return BaseVector::compareNulls(leftNull, rightNull, flags)
+                         .value() < 0;
+            }
+
+            return compareNonNull(left, right);
+          });
+    } else {
+      std::sort(indices.begin(), indices.end(), compareNonNull);
+    }
+  }
+
   bool isScalar() const override {
     return this->typeKind() != TypeKind::UNKNOWN;
   }

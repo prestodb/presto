@@ -847,12 +847,7 @@ std::vector<vector_size_t> MapVector::sortedKeyIndices(
   std::vector<vector_size_t> indices(rawSizes_[index]);
   std::iota(indices.begin(), indices.end(), rawOffsets_[index]);
   if (!sortedKeys_) {
-    std::sort(
-        indices.begin(),
-        indices.end(),
-        [&](vector_size_t left, vector_size_t right) {
-          return keys_->compare(keys_.get(), left, right) < 0;
-        });
+    keys_->sortIndices(indices, CompareFlags());
   }
   return indices;
 }

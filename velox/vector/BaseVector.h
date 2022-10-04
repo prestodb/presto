@@ -255,6 +255,18 @@ class BaseVector {
       vector_size_t otherIndex,
       CompareFlags flags) const = 0;
 
+  /// Sort values at specified 'indices'. Used to sort map keys.
+  virtual void sortIndices(
+      std::vector<vector_size_t>& indices,
+      CompareFlags flags) const {
+    std::sort(
+        indices.begin(),
+        indices.end(),
+        [&](vector_size_t left, vector_size_t right) {
+          return compare(this, left, right, flags) < 0;
+        });
+  }
+
   /**
    * @return the hash of the value at the given index in this vector
    */
