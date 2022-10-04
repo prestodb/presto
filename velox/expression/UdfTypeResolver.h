@@ -74,6 +74,7 @@ namespace detail {
 template <typename T>
 struct resolver {
   using in_type = typename CppToType<T>::NativeType;
+  using null_free_in_type = in_type;
   using out_type = typename CppToType<T>::NativeType;
 };
 
@@ -101,18 +102,21 @@ struct resolver<Array<V>> {
 template <>
 struct resolver<Varchar> {
   using in_type = StringView;
+  using null_free_in_type = in_type;
   using out_type = StringWriter<false>;
 };
 
 template <>
 struct resolver<Varbinary> {
   using in_type = StringView;
+  using null_free_in_type = in_type;
   using out_type = StringWriter<false>;
 };
 
 template <typename T>
 struct resolver<std::shared_ptr<T>> {
   using in_type = std::shared_ptr<T>;
+  using null_free_in_type = in_type;
   using out_type = std::shared_ptr<T>;
 };
 
@@ -126,6 +130,7 @@ struct resolver<Variadic<T>> {
 template <typename T>
 struct resolver<Generic<T>> {
   using in_type = GenericView;
+  using null_free_in_type = in_type;
   using out_type = void; // Not supported as output type yet.
 };
 } // namespace detail
