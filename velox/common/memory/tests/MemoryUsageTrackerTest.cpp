@@ -48,32 +48,43 @@ TEST(MemoryUsageTrackerTest, update) {
   auto child1 = parent->addChild();
   auto child2 = parent->addChild();
 
-  EXPECT_THROW(child1->reserve(2 * kMaxSize), VeloxRuntimeError);
+  ASSERT_THROW(child1->reserve(2 * kMaxSize), VeloxRuntimeError);
 
-  EXPECT_EQ(0, parent->getCurrentTotalBytes());
+  ASSERT_EQ(0, parent->getCurrentTotalBytes());
+  ASSERT_EQ(0, parent->getCumulativeBytes());
   child1->update(1000);
-  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
-  EXPECT_EQ(kMB - 1000, child1->getAvailableReservation());
+  ASSERT_EQ(kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(kMB, parent->getCumulativeBytes());
+  ASSERT_EQ(kMB - 1000, child1->getAvailableReservation());
   child1->update(1000);
-  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(kMB, parent->getCumulativeBytes());
   child1->update(kMB);
-  EXPECT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(2 * kMB, parent->getCumulativeBytes());
+
   child1->update(100 * kMB);
   // Larger sizes round up to next 8MB.
-  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
   child1->update(-kMB);
   // 1MB less does not decrease the reservation.
-  EXPECT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
 
   child1->update(-7 * kMB);
-  EXPECT_EQ(96 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(96 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
   child1->update(-92 * kMB);
-  EXPECT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(2 * kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
   child1->update(-kMB);
-  EXPECT_EQ(kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(kMB, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
 
   child1->update(-2000);
-  EXPECT_EQ(0, parent->getCurrentTotalBytes());
+  ASSERT_EQ(0, parent->getCurrentTotalBytes());
+  ASSERT_EQ(104 * kMB, parent->getCumulativeBytes());
 }
 
 TEST(MemoryUsageTrackerTest, reserve) {

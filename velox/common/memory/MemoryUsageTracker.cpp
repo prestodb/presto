@@ -141,8 +141,6 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
                       .fetch_add(size, std::memory_order_relaxed) +
       size;
 
-  usage(cumulativeBytes_, type) += size;
-
   // We track the peak usage of total memory independent of user and
   // system memory since freed user memory can be reallocated as system
   // memory and vice versa.
@@ -166,6 +164,7 @@ void MemoryUsageTracker::incrementUsage(UsageType type, int64_t size) {
       VELOX_MEM_CAP_EXCEEDED(errorMessage);
     }
   }
+  usage(cumulativeBytes_, type) += size;
   maySetMax(type, newUsage);
   maySetMax(UsageType::kTotalMem, totalBytes);
   checkNonNegativeSizes("after update");

@@ -131,12 +131,6 @@ class OperatorTestBase : public testing::Test,
       RowTypePtr rowType,
       const parse::ParseOptions& options = {});
 
-  /// Invoked to wait for all the tasks created by the test to be deleted.
-  ///
-  /// NOTE: it is assumed that there is no more task to be created after or
-  /// during this wait call.gi
-  static void waitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
-
   DuckDbQueryRunner duckDbQueryRunner_;
 
   // Used as default MappedMemory. Created on first use.

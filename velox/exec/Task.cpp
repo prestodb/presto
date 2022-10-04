@@ -171,6 +171,10 @@ Task::~Task() {
   } catch (const std::exception& e) {
     LOG(WARNING) << "Caught exception in ~Task(): " << e.what();
   }
+  // NOTE: this is a hack to enforce destruction on 'planFragment_'. We found in
+  // some case the task dtor doesn't call 'planFragment_' dtor which cause the
+  // memory leak of the vectors held by the plan node such as Value node.
+  planFragment_.planNode.reset();
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL
@@ -1936,6 +1940,27 @@ std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
 std::string Task::getErrorMsgOnMemCapExceeded(
     memory::MemoryUsageTracker& /*tracker*/) {
   return getQueryMemoryUsageString(queryCtx()->pool());
+}
+
+// static
+void Task::testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
+  const uint64_t numCreatedTasks = Task::numCreatedTasks();
+  uint64_t numDeletedTasks = Task::numDeletedTasks();
+  uint64_t waitUs = 0;
+  while (numCreatedTasks > numDeletedTasks) {
+    constexpr uint64_t kWaitInternalUs = 1'000;
+    std::this_thread::sleep_for(std::chrono::microseconds(kWaitInternalUs));
+    waitUs += kWaitInternalUs;
+    numDeletedTasks = Task::numDeletedTasks();
+    if (waitUs >= maxWaitUs) {
+      break;
+    }
+  }
+  if (numDeletedTasks < numCreatedTasks) {
+    LOG(ERROR) << numCreatedTasks << " tasks hav been created while only "
+               << numDeletedTasks << " have been deleted after waiting for "
+               << waitUs << " us";
+  }
 }
 
 } // namespace facebook::velox::exec

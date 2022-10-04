@@ -37,6 +37,8 @@ class VectorTestBase {
     pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
   }
 
+  ~VectorTestBase();
+
   template <typename T>
   using EvalType = typename CppToType<T>::NativeType;
 

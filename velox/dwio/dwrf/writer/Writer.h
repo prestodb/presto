@@ -191,13 +191,13 @@ class Writer : public WriterBase {
       const std::shared_ptr<velox::memory::MemoryUsageTracker>& tracker) {
     getContext()
         .getMemoryPool(velox::dwrf::MemoryUsageCategory::DICTIONARY)
-        .setMemoryUsageTracker(tracker);
+        .setMemoryUsageTracker(tracker->addChild());
     getContext()
         .getMemoryPool(velox::dwrf::MemoryUsageCategory::GENERAL)
-        .setMemoryUsageTracker(tracker);
+        .setMemoryUsageTracker(tracker->addChild());
     getContext()
         .getMemoryPool(velox::dwrf::MemoryUsageCategory::OUTPUT_STREAM)
-        .setMemoryUsageTracker(tracker);
+        .setMemoryUsageTracker(tracker->addChild());
   }
 
  protected:

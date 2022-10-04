@@ -200,7 +200,7 @@ class MemoryUsageTracker
   }
 
   int64_t getCumulativeBytes() const {
-    return total(cumulativeBytes_);
+    return user(cumulativeBytes_) + system(cumulativeBytes_);
   }
 
   // Returns the total size including unused reservation.
@@ -256,7 +256,7 @@ class MemoryUsageTracker
  protected:
   static constexpr int64_t kMB = 1 << 20;
 
-  explicit MemoryUsageTracker(
+  MemoryUsageTracker(
       const std::shared_ptr<MemoryUsageTracker>& parent,
       UsageType type,
       const MemoryUsageConfig& config)

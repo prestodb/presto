@@ -495,6 +495,12 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDeletedTasks_;
   }
 
+  /// Invoked to wait for all the tasks created by the test to be deleted.
+  ///
+  /// NOTE: it is assumed that there is no more task to be created after or
+  /// during this wait call. This is for testing purpose for now.
+  static void testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs = 3'000'000);
+
  private:
   // Counts the number of created tasks which is incremented on each task
   // creation.

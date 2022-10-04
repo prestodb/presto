@@ -417,11 +417,25 @@ class MemoryPoolImpl : public MemoryPoolBase {
  public:
   // Should perhaps make this method private so that we only create node through
   // parent.
-  explicit MemoryPoolImpl(
+  MemoryPoolImpl(
       MemoryManager<Allocator, ALIGNMENT>& memoryManager,
       const std::string& name,
       std::weak_ptr<MemoryPool> parent,
       int64_t cap = kMaxMemory);
+
+  ~MemoryPoolImpl() {
+    if (const auto& tracker = getMemoryUsageTracker()) {
+      auto remainingBytes = tracker->getCurrentUserBytes();
+      VELOX_CHECK_EQ(
+          0,
+          remainingBytes,
+          "Memory pool should be destroyed only after all allocated memory "
+          "has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
+          remainingBytes,
+          tracker->getCumulativeBytes(),
+          tracker->getNumAllocs());
+    }
+  }
 
   // Actual memory allocation operations. Can be delegated.
   // Access global MemoryManager to check usage of current node and enforce

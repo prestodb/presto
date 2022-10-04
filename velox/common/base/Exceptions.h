@@ -67,7 +67,7 @@ template <typename Exception, typename StringType>
       "BUG: we should not pass std::string by value to veloxCheckFail");
   LOG(ERROR) << "Line: " << args.file << ":" << args.line
              << ", Function:" << args.function
-             << ", Expression: " << args.expression << s
+             << ", Expression: " << args.expression << " " << s
              << ", Source: " << args.errorSource
              << ", ErrorCode: " << args.errorCode;
 

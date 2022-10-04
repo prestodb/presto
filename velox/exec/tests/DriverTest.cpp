@@ -86,6 +86,15 @@ class DriverTest : public OperatorTestBase {
   }
 
   void TearDown() override {
+    for (auto& task : tasks_) {
+      if (task != nullptr) {
+        waitForTaskCompletion(task.get(), 1'000'000);
+      }
+    }
+    // NOTE: destroy the tasks first to release all the allocated memory held
+    // by the plan nodes (Values) in tasks.
+    tasks_.clear();
+
     if (wakeupInitialized_) {
       wakeupCancelled_ = true;
       wakeupThread_.join();
@@ -347,8 +356,8 @@ TEST_F(DriverTest, cancel) {
       rowType_,
       "m1 % 10 > 0",
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
-      100,
-      100'000);
+      1'000,
+      1'000);
   params.maxDrivers = 10;
   int32_t numRead = 0;
   try {
@@ -374,8 +383,8 @@ TEST_F(DriverTest, terminate) {
       rowType_,
       "m1 % 10 > 0",
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
-      100,
-      100'000);
+      1'000,
+      1'000);
   params.maxDrivers = 10;
   int32_t numRead = 0;
   try {
@@ -434,8 +443,8 @@ TEST_F(DriverTest, pause) {
       rowType_,
       "m1 % 10 > 0",
       "m1 % 3 + m2 % 5 + m3 % 7 + m4 % 11 + m5 % 13 + m6 % 17 + m7 % 19",
-      100,
-      10'000,
+      1'000,
+      1'000,
       [](int64_t num) { return num % 10 > 0; },
       &hits);
   params.maxDrivers = 10;
