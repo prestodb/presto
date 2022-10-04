@@ -84,9 +84,9 @@ class DirectDecoder : public IntDecoder<isSigned> {
           }
         }
       }
-      if (std::is_same<typename Visitor::DataType, float>::value) {
+      if (std::is_same_v<typename Visitor::DataType, float>) {
         toSkip = visitor.process(readFloat(), atEnd);
-      } else if (std::is_same<typename Visitor::DataType, double>::value) {
+      } else if (std::is_same_v<typename Visitor::DataType, double>) {
         toSkip = visitor.process(readDouble(), atEnd);
       } else {
         toSkip = visitor.process(super::readLong(), atEnd);
@@ -140,12 +140,12 @@ class DirectDecoder : public IntDecoder<isSigned> {
   void fastPath(const uint64_t* FOLLY_NULLABLE nulls, Visitor& visitor) {
     using T = typename Visitor::DataType;
     constexpr bool hasFilter =
-        !std::is_same<typename Visitor::FilterType, velox::common::AlwaysTrue>::
-            value;
+        !std::
+            is_same_v<typename Visitor::FilterType, velox::common::AlwaysTrue>;
     constexpr bool filterOnly =
-        std::is_same<typename Visitor::Extract, DropValues>::value;
+        std::is_same_v<typename Visitor::Extract, DropValues>;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
+        !std::is_same_v<typename Visitor::HookType, dwio::common::NoHook>;
 
     int32_t numValues = 0;
     auto rows = visitor.rows();

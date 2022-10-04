@@ -289,7 +289,7 @@ struct ArraySumFunction {
     TOutput sum = 0;
     for (const auto& item : array) {
       if (item.has_value()) {
-        if constexpr (std::is_same<TOutput, int64_t>::value) {
+        if constexpr (std::is_same_v<TOutput, int64_t>) {
           sum = checkedPlus<TOutput>(sum, *item);
         } else {
           sum += *item;
@@ -305,7 +305,7 @@ struct ArraySumFunction {
     // Not nulls path
     TOutput sum = 0;
     for (const auto& item : array) {
-      if constexpr (std::is_same<TOutput, int64_t>::value) {
+      if constexpr (std::is_same_v<TOutput, int64_t>) {
         sum = checkedPlus<TOutput>(sum, item);
       } else {
         sum += item;

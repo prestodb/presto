@@ -168,8 +168,8 @@ void fixedWidthScan(
   constexpr bool is16 = sizeof(T) == 2;
   constexpr int32_t kStep = is16 ? 16 : 8;
   constexpr bool hasFilter =
-      !std::is_same<TFilter, velox::common::AlwaysTrue>::value;
-  constexpr bool hasHook = !std::is_same<THook, NoHook>::value;
+      !std::is_same_v<TFilter, velox::common::AlwaysTrue>;
+  constexpr bool hasHook = !std::is_same_v<THook, NoHook>;
   auto rawValues = reinterpret_cast<T*>(voidValues);
   loopOverBuffers<T>(
       rows,
@@ -393,10 +393,10 @@ template <typename Visitor, bool hasNulls>
 bool useFastPath(Visitor& visitor) {
   return process::hasAvx2() && Visitor::FilterType::deterministic &&
       Visitor::kHasBulkPath &&
-      (std::is_same<typename Visitor::FilterType, velox::common::AlwaysTrue>::
-           value ||
+      (std::
+           is_same_v<typename Visitor::FilterType, velox::common::AlwaysTrue> ||
        !hasNulls || !visitor.allowNulls()) &&
-      (std::is_same<typename Visitor::HookType, NoHook>::value || !hasNulls ||
+      (std::is_same_v<typename Visitor::HookType, NoHook> || !hasNulls ||
        Visitor::HookType::kSkipNulls);
 }
 
@@ -449,8 +449,8 @@ void processFixedWidthRun(
     THook& hook) {
   constexpr int32_t kWidth = xsimd::batch<T>::size;
   constexpr bool hasFilter =
-      !std::is_same<TFilter, velox::common::AlwaysTrue>::value;
-  constexpr bool hasHook = !std::is_same<THook, NoHook>::value;
+      !std::is_same_v<TFilter, velox::common::AlwaysTrue>;
+  constexpr bool hasHook = !std::is_same_v<THook, NoHook>;
   if (!hasFilter) {
     if (hasHook) {
       hook.addValues(scatterRows + rowIndex, values, rows.size(), sizeof(T));

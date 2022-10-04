@@ -28,7 +28,7 @@ namespace velox {
 namespace dwio {
 namespace common {
 
-template <typename T, typename = std::enable_if_t<std::is_trivial<T>::value>>
+template <typename T, typename = std::enable_if_t<std::is_trivial_v<T>>>
 class DataBuffer final {
  private:
   velox::memory::AbstractMemoryPool& pool_;

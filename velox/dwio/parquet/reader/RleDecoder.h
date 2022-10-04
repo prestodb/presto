@@ -191,9 +191,9 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
   template <bool hasNulls, typename Visitor>
   void fastPath(const uint64_t* FOLLY_NULLABLE nulls, Visitor& visitor) {
     constexpr bool hasFilter =
-        !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
+        !std::is_same_v<typename Visitor::FilterType, common::AlwaysTrue>;
     constexpr bool hasHook =
-        !std::is_same<typename Visitor::HookType, dwio::common::NoHook>::value;
+        !std::is_same_v<typename Visitor::HookType, dwio::common::NoHook>;
     auto rows = visitor.rows();
     auto numRows = visitor.numRows();
     auto rowsAsRange = folly::Range<const int32_t*>(rows, numRows);

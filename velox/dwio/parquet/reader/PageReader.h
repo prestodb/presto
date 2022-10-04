@@ -156,7 +156,7 @@ class PageReader {
   template <
       typename Visitor,
       typename std::enable_if<
-          !std::is_same<typename Visitor::DataType, folly::StringPiece>::value,
+          !std::is_same_v<typename Visitor::DataType, folly::StringPiece>,
           int>::type = 0>
   void callDecoder(
       const uint64_t* FOLLY_NULLABLE nulls,
@@ -183,7 +183,7 @@ class PageReader {
   template <
       typename Visitor,
       typename std::enable_if<
-          std::is_same<typename Visitor::DataType, folly::StringPiece>::value,
+          std::is_same_v<typename Visitor::DataType, folly::StringPiece>,
           int>::type = 0>
   void callDecoder(
       const uint64_t* FOLLY_NULLABLE nulls,
@@ -305,9 +305,9 @@ class PageReader {
 template <typename Visitor>
 void PageReader::readWithVisitor(Visitor& visitor) {
   constexpr bool hasFilter =
-      !std::is_same<typename Visitor::FilterType, common::AlwaysTrue>::value;
+      !std::is_same_v<typename Visitor::FilterType, common::AlwaysTrue>;
   constexpr bool filterOnly =
-      std::is_same<typename Visitor::Extract, dwio::common::DropValues>::value;
+      std::is_same_v<typename Visitor::Extract, dwio::common::DropValues>;
   bool mayProduceNulls = !filterOnly && visitor.allowNulls();
   auto rows = visitor.rows();
   auto numRows = visitor.numRows();

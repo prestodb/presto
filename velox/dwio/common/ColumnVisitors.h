@@ -377,14 +377,14 @@ class ColumnVisitor {
 
   void filterPassed(T value) {
     addResult(value);
-    if (!std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
+    if (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       addOutputRow(currentRow());
     }
   }
 
   inline void filterPassedForNull() {
     addNull();
-    if (!std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
+    if (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       addOutputRow(currentRow());
     }
   }
@@ -408,7 +408,7 @@ class ColumnVisitor {
 
   void setNumValues(int32_t size) {
     reader_->setNumValues(numValuesBias_ + size);
-    if (!std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
+    if (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       reader_->setNumRows(numValuesBias_ + size);
     }
   }
@@ -727,7 +727,7 @@ class DictionaryColumnVisitor
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
     T valueInDictionary = dict()[value];
-    if (std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
+    if (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       super::filterPassed(valueInDictionary);
     } else {
       // check the dictionary cache
@@ -818,7 +818,7 @@ class DictionaryColumnVisitor
     // permute the passing values to the left of a vector register and
     // write  the whole register to the end of 'values'
     constexpr bool kFilterOnly =
-        std::is_same<typename super::Extract, DropValues>::value;
+        std::is_same_v<typename super::Extract, DropValues>;
     constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     int32_t last = numInput & ~(kWidth - 1);
     for (auto i = 0; i < numInput; i += kWidth) {
@@ -1112,7 +1112,7 @@ class StringDictionaryColumnVisitor
     }
     vector_size_t previous =
         isDense && TFilter::deterministic ? 0 : super::currentRow();
-    if (std::is_same<TFilter, velox::common::AlwaysTrue>::value) {
+    if (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       super::filterPassed(index);
     } else {
       // check the dictionary cache
@@ -1186,7 +1186,7 @@ class StringDictionaryColumnVisitor
       return;
     }
     constexpr bool filterOnly =
-        std::is_same<typename super::Extract, DropValues>::value;
+        std::is_same_v<typename super::Extract, DropValues>;
     constexpr int32_t kWidth = xsimd::batch<int32_t>::size;
     for (auto i = 0; i < numInput; i += kWidth) {
       auto indices = xsimd::load_unaligned(input + i);
@@ -1402,7 +1402,7 @@ class DirectRleColumnVisitor
       int32_t& numValues) {
     DCHECK_EQ(input, values + numValues);
     constexpr bool filterOnly =
-        std::is_same<typename super::Extract, DropValues>::value;
+        std::is_same_v<typename super::Extract, DropValues>;
 
     dwio::common::processFixedWidthRun<T, filterOnly, scatter, isDense>(
         folly::Range<const vector_size_t*>(super::rows_, super::numRows_),

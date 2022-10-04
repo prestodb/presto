@@ -276,7 +276,7 @@ void verifyBatch(
       ASSERT_FALSE(out->isNullAt(index))
           << "null mismatch with index, seed " << index << seed;
 
-      if constexpr (std::is_floating_point<T>::value) {
+      if constexpr (std::is_floating_point_v<T>) {
         // for floating point nan != nan
         if (std::isnan(val.value())) {
           ASSERT_TRUE(std::isnan(outFv->rawValues()[index]))

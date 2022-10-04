@@ -298,7 +298,7 @@ class SelectiveColumnReader {
   inline void addValue(const T value) {
     // @lint-ignore-every HOWTOEVEN ConstantArgumentPassByValue
     static_assert(
-        std::is_pod<T>::value,
+        std::is_pod_v<T>,
         "General case of addValue is only for primitive types");
     VELOX_DCHECK_LE(
         rawValues_ && (numValues_ + 1) * sizeof(T), values_->capacity());

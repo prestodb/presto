@@ -373,7 +373,7 @@ void read(
   auto nullCount = readNulls(source, size, flatResult);
 
   BufferPtr values = flatResult->mutableValues(size);
-  if constexpr (std::is_same<T, Timestamp>::value) {
+  if constexpr (std::is_same_v<T, Timestamp>) {
     if (useLosslessTimestamp) {
       readLosslessTimestampValues(
           source, size, flatResult->nulls(), nullCount, values);

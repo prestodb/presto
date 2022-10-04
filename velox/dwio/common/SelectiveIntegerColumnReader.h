@@ -118,12 +118,10 @@ void SelectiveIntegerColumnReader::processFilter(
       break;
     case velox::common::FilterKind::kIsNull:
       filterNulls<int64_t>(
-          rows,
-          true,
-          !std::is_same<decltype(extractValues), DropValues>::value);
+          rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
       break;
     case velox::common::FilterKind::kIsNotNull:
-      if (std::is_same<decltype(extractValues), DropValues>::value) {
+      if (std::is_same_v<decltype(extractValues), DropValues>) {
         filterNulls<int64_t>(rows, false, false);
       } else {
         readHelper<Reader, velox::common::IsNotNull, isDense>(

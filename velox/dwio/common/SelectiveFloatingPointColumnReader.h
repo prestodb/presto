@@ -36,7 +36,7 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
 
   // Offers fast path only if data and result widths match.
   bool hasBulkPath() const override {
-    return std::is_same<TData, TRequested>::value;
+    return std::is_same_v<TData, TRequested>;
   }
 
   template <typename Reader>
@@ -95,12 +95,10 @@ void SelectiveFloatingPointColumnReader<TData, TRequested>::processFilter(
       break;
     case velox::common::FilterKind::kIsNull:
       filterNulls<TRequested>(
-          rows,
-          true,
-          !std::is_same<decltype(extractValues), DropValues>::value);
+          rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
       break;
     case velox::common::FilterKind::kIsNotNull:
-      if (std::is_same<decltype(extractValues), DropValues>::value) {
+      if (std::is_same_v<decltype(extractValues), DropValues>) {
         filterNulls<TRequested>(rows, false, false);
       } else {
         readHelper<Reader, velox::common::IsNotNull, isDense>(
