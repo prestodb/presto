@@ -309,26 +309,29 @@ TEST_F(CastExprTest, timestampAdjustToTimezoneInvalid) {
 }
 
 TEST_F(CastExprTest, date) {
-  testCast<std::string, Date>(
-      "date",
-      {
-          "1970-01-01",
-          "2020-01-01",
-          "2135-11-09",
-          "1969-12-27",
-          "1812-04-15",
-          "1920-01-02",
-          std::nullopt,
-      },
-      {
-          Date(0),
-          Date(18262),
-          Date(60577),
-          Date(-5),
-          Date(-57604),
-          Date(-18262),
-          std::nullopt,
-      });
+  std::vector<std::optional<std::string>> input{
+      "1970-01-01",
+      "2020-01-01",
+      "2135-11-09",
+      "1969-12-27",
+      "1812-04-15",
+      "1920-01-02",
+      std::nullopt,
+  };
+  std::vector<std::optional<Date>> result{
+      Date(0),
+      Date(18262),
+      Date(60577),
+      Date(-5),
+      Date(-57604),
+      Date(-18262),
+      std::nullopt,
+  };
+
+  testCast<std::string, Date>("date", input, result);
+
+  setCastIntByTruncate(true);
+  testCast<std::string, Date>("date", input, result);
 }
 
 TEST_F(CastExprTest, invalidDate) {

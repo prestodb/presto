@@ -408,8 +408,8 @@ struct Converter<TypeKind::TIMESTAMP> {
 };
 
 // Allow conversions from string to DATE type.
-template <>
-struct Converter<TypeKind::DATE> {
+template <bool TRUNCATE>
+struct Converter<TypeKind::DATE, void, TRUNCATE> {
   using T = typename TypeTraits<TypeKind::DATE>::NativeType;
   template <typename From>
   static T cast(const From& /* v */, bool& nullOutput) {
