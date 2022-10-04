@@ -103,7 +103,7 @@ class SystemConfig : public ConfigBase {
   static constexpr int32_t kNumIoThreadsDefault = 30;
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
-  static constexpr int32_t kAsyncCacheSsdGbDefault = 0;
+  static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
   static constexpr bool kEnableSerializedPageChecksumDefault = true;
@@ -132,7 +132,7 @@ class SystemConfig : public ConfigBase {
 
   int32_t systemMemoryGb() const;
 
-  int32_t asyncCacheSsdGb() const;
+  uint64_t asyncCacheSsdGb() const;
 
   std::string asyncCacheSsdPath() const;
 

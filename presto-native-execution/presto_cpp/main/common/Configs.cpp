@@ -96,8 +96,8 @@ int32_t SystemConfig::systemMemoryGb() const {
   return opt.hasValue() ? opt.value() : kSystemMemoryGbDefault;
 }
 
-int32_t SystemConfig::asyncCacheSsdGb() const {
-  auto opt = optionalProperty<int32_t>(std::string(kAsyncCacheSsdGb));
+uint64_t SystemConfig::asyncCacheSsdGb() const {
+  auto opt = optionalProperty<uint64_t>(std::string(kAsyncCacheSsdGb));
   return opt.hasValue() ? opt.value() : kAsyncCacheSsdGbDefault;
 }
 
