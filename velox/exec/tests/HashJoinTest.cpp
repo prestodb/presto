@@ -1149,7 +1149,7 @@ TEST_F(HashJoinTest, antiJoin) {
   assertQuery(op, "SELECT t.c1 FROM t WHERE t.c0 NOT IN (SELECT c0 FROM u)");
 }
 
-TEST_F(HashJoinTest, antiJoinWithFilter) {
+TEST_F(HashJoinTest, nullAwareAntiJoinWithFilter) {
   auto leftVectors = makeRowVector(
       {"t0", "t1"},
       {
@@ -1181,8 +1181,7 @@ TEST_F(HashJoinTest, antiJoinWithFilter) {
                     core::JoinType::kNullAwareAnti)
                 .planNode();
 
-  assertQuery(
-      op, "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0)");
+  assertQuery(op, "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u)");
 
   op = PlanBuilder(planNodeIdGenerator)
            .values({leftVectors})
@@ -1199,7 +1198,93 @@ TEST_F(HashJoinTest, antiJoinWithFilter) {
 
   assertQuery(
       op,
-      "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 <> u1)");
+      "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u WHERE t1 <> u1)");
+}
+
+TEST_F(HashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
+  auto leftVectors = makeRowVector(
+      {"t0", "t1"},
+      {
+          makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
+          makeFlatVector<int32_t>({0, 1, 2}),
+      });
+  auto rightVectors = makeRowVector(
+      {"u0", "u1"},
+      {
+          makeNullableFlatVector<int32_t>({std::nullopt, 2, 3}),
+          makeFlatVector<int32_t>({0, 2, 3}),
+      });
+  createDuckDbTable("t", {leftVectors});
+  createDuckDbTable("u", {rightVectors});
+  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  for (const std::string& filter : {"u1 > t1", "u1 * t1 > 0"}) {
+    auto sql = fmt::format(
+        "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u WHERE {})",
+        filter);
+    auto op = PlanBuilder(planNodeIdGenerator)
+                  .values({leftVectors})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values({rightVectors})
+                          .planNode(),
+                      filter,
+                      {"t0", "t1"},
+                      core::JoinType::kNullAwareAnti)
+                  .planNode();
+    assertQuery(op, sql);
+  }
+}
+
+TEST_F(HashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
+  auto runTest = [this](
+                     const std::string& desc,
+                     const std::vector<VectorPtr>& leftColumns,
+                     const std::vector<VectorPtr>& rightColumns) {
+    SCOPED_TRACE(desc);
+    auto left = makeRowVector({"t0", "t1"}, leftColumns);
+    auto right = makeRowVector({"u0", "u1"}, rightColumns);
+    createDuckDbTable("t", {left});
+    createDuckDbTable("u", {right});
+    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto op =
+        PlanBuilder(planNodeIdGenerator)
+            .values({left})
+            .hashJoin(
+                {"t0"},
+                {"u0"},
+                PlanBuilder(planNodeIdGenerator).values({right}).planNode(),
+                "t1 <> u1",
+                {"t0", "t1"},
+                core::JoinType::kNullAwareAnti)
+            .planNode();
+    assertQuery(
+        op,
+        "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u WHERE t1 <> u1)");
+  };
+  runTest(
+      "null filter column",
+      {
+          makeFlatVector<int32_t>(1'000, [](auto row) { return row % 11; }),
+          makeFlatVector<int32_t>(1'000, folly::identity, nullEvery(97)),
+      },
+      {
+          makeFlatVector<int32_t>(1'234, [](auto row) { return row % 5; }),
+          makeFlatVector<int32_t>(1'234, folly::identity, nullEvery(91)),
+      });
+  runTest(
+      "null filter and key column",
+      {
+          makeFlatVector<int32_t>(
+              1'000, [](auto row) { return row % 11; }, nullEvery(23)),
+          makeFlatVector<int32_t>(1'000, folly::identity, nullEvery(29)),
+      },
+      {
+          makeFlatVector<int32_t>(
+              1'234, [](auto row) { return row % 5; }, nullEvery(31)),
+          makeFlatVector<int32_t>(1'234, folly::identity, nullEvery(37)),
+      });
 }
 
 TEST_F(HashJoinTest, dynamicFilters) {

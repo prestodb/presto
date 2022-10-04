@@ -215,6 +215,13 @@ class HashBuild final : public Operator {
   // Invoked to check if it needs to trigger spilling for test purpose only.
   bool testingTriggerSpill();
 
+  // Check and store properties of the filter.
+  void setupFilter(const folly::F14FastMap<column_index_t, column_index_t>&);
+
+  // When prepare for null-aware anti join with null-propagating filter,
+  // deselect the rows when there is null in filter input columns.
+  void removeFilterInputNullRows();
+
   const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
   const core::JoinType joinType_;
@@ -284,6 +291,13 @@ class HashBuild final : public Operator {
   std::vector<BufferPtr> spillInputIndicesBuffers_;
   std::vector<vector_size_t*> rawSpillInputIndicesBuffers_;
   std::vector<VectorPtr> spillChildVectors_;
+
+  // Whether the filter is null-propagating.
+  bool filterPropagatesNulls_{false};
+
+  // Indices of columns used by filter in build side table.
+  std::vector<column_index_t> keyFilterChannels_;
+  std::vector<column_index_t> dependentFilterChannels_;
 };
 
 inline std::ostream& operator<<(std::ostream& os, HashBuild::State state) {

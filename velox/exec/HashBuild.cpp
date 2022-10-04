@@ -17,6 +17,7 @@
 #include "velox/exec/HashBuild.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
+#include "velox/expression/FieldReference.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -66,16 +67,16 @@ HashBuild::HashBuild(
 
   auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
-  folly::F14FastSet<column_index_t> keyChannelSet;
-  keyChannelSet.reserve(numKeys);
+  folly::F14FastMap<column_index_t, column_index_t> keyChannelPosition(numKeys);
   std::vector<std::string> names;
   names.reserve(outputType->size());
   std::vector<TypePtr> types;
   types.reserve(outputType->size());
 
-  for (auto& key : joinNode_->rightKeys()) {
+  for (int i = 0; i < joinNode_->rightKeys().size(); ++i) {
+    auto& key = joinNode_->rightKeys()[i];
     auto channel = exprToChannel(key.get(), outputType);
-    keyChannelSet.emplace(channel);
+    keyChannelPosition[channel] = i;
     keyChannels_.emplace_back(channel);
     names.emplace_back(outputType->nameOf(channel));
     types.emplace_back(outputType->childAt(channel));
@@ -86,7 +87,7 @@ HashBuild::HashBuild(
   dependentChannels_.reserve(numDependents);
   decoders_.reserve(numDependents);
   for (auto i = 0; i < outputType->size(); ++i) {
-    if (keyChannelSet.find(i) == keyChannelSet.end()) {
+    if (keyChannelPosition.find(i) == keyChannelPosition.end()) {
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
       names.emplace_back(outputType->nameOf(i));
@@ -97,6 +98,10 @@ HashBuild::HashBuild(
   tableType_ = ROW(std::move(names), std::move(types));
   setupTable();
   setupSpiller();
+
+  if (isNullAwareAntiJoin(joinType_) && joinNode_->filter()) {
+    setupFilter(keyChannelPosition);
+  }
 }
 
 void HashBuild::setupTable() {
@@ -131,13 +136,23 @@ void HashBuild::setupTable() {
         (joinNode_->isLeftSemiJoin() || joinNode_->isNullAwareAntiJoin());
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiJoin();
-    // Ignore null keys
-    table_ = HashTable<true>::createForJoin(
-        std::move(keyHashers),
-        dependentTypes,
-        !dropDuplicates, // allowDuplicates
-        needProbedFlag, // hasProbedFlag
-        mappedMemory_);
+    if (joinNode_->isNullAwareAntiJoin() && joinNode_->filter()) {
+      // We need to check null key rows in build side in this case.
+      table_ = HashTable<false>::createForJoin(
+          std::move(keyHashers),
+          dependentTypes,
+          !dropDuplicates, // allowDuplicates
+          needProbedFlag, // hasProbedFlag
+          mappedMemory_);
+    } else {
+      // Ignore null keys
+      table_ = HashTable<true>::createForJoin(
+          std::move(keyHashers),
+          dependentTypes,
+          !dropDuplicates, // allowDuplicates
+          needProbedFlag, // hasProbedFlag
+          mappedMemory_);
+    }
   }
   analyzeKeys_ = table_->hashMode() != BaseHashTable::HashMode::kHash;
 }
@@ -199,6 +214,56 @@ RowTypePtr HashBuild::inputType() const {
                             : joinNode_->sources()[1]->outputType();
 }
 
+void HashBuild::setupFilter(
+    const folly::F14FastMap<column_index_t, column_index_t>&
+        keyChannelPosition) {
+  VELOX_DCHECK(
+      std::is_sorted(dependentChannels_.begin(), dependentChannels_.end()));
+  ExprSet exprs({joinNode_->filter()}, operatorCtx_->execCtx());
+  VELOX_DCHECK_EQ(exprs.exprs().size(), 1);
+  auto& expr = exprs.expr(0);
+  filterPropagatesNulls_ = expr->propagatesNulls();
+  if (filterPropagatesNulls_) {
+    auto outputType = joinNode_->sources()[1]->outputType();
+    for (auto& field : expr->distinctFields()) {
+      if (auto index = outputType->getChildIdxIfExists(field->field());
+          index.has_value()) {
+        auto it = keyChannelPosition.find(*index);
+        if (it != keyChannelPosition.end()) {
+          auto j = it->second;
+          keyFilterChannels_.push_back(j);
+        } else {
+          auto it2 = std::lower_bound(
+              dependentChannels_.begin(), dependentChannels_.end(), *index);
+          VELOX_DCHECK(it2 != dependentChannels_.end() && *it2 == *index);
+          auto j = it2 - dependentChannels_.begin();
+          dependentFilterChannels_.push_back(j);
+        }
+      }
+    }
+  }
+}
+
+void HashBuild::removeFilterInputNullRows() {
+  bool changed = false;
+  auto rawActiveRows = activeRows_.asMutableRange().bits();
+  auto removeNulls = [&](DecodedVector& decoded) {
+    if (decoded.mayHaveNulls()) {
+      changed = true;
+      bits::andBits(rawActiveRows, decoded.nulls(), 0, activeRows_.end());
+    }
+  };
+  for (auto i : keyFilterChannels_) {
+    removeNulls(table_->hashers()[i]->decodedVector());
+  }
+  for (auto i : dependentFilterChannels_) {
+    removeNulls(*decoders_[i]);
+  }
+  if (changed) {
+    activeRows_.updateBounds();
+  }
+}
+
 void HashBuild::addInput(RowVectorPtr input) {
   checkRunning();
 
@@ -218,14 +283,24 @@ void HashBuild::addInput(RowVectorPtr input) {
     hashers[i]->decode(*key, activeRows_);
   }
 
-  if (!isRightJoin(joinType_) && !isFullJoin(joinType_)) {
+  if (!isRightJoin(joinType_) && !isFullJoin(joinType_) &&
+      !(isNullAwareAntiJoin(joinType_) && joinNode_->filter())) {
     deselectRowsWithNulls(hashers, activeRows_);
   }
 
+  for (auto i = 0; i < dependentChannels_.size(); ++i) {
+    decoders_[i]->decode(
+        *input->childAt(dependentChannels_[i])->loadedVector(), activeRows_);
+  }
+
   if (joinType_ == core::JoinType::kNullAwareAnti) {
-    // Null-aware anti join returns no rows if build side has nulls in join
-    // keys. Hence, we can stop processing on first null.
-    if (activeRows_.countSelected() < input->size()) {
+    if (joinNode_->filter()) {
+      if (filterPropagatesNulls_) {
+        removeFilterInputNullRows();
+      }
+    } else if (activeRows_.countSelected() < input->size()) {
+      // Null-aware anti join with no extra filter returns no rows if build side
+      // has nulls in join keys. Hence, we can stop processing on first null.
       antiJoinHasNullKeys_ = true;
       noMoreInput();
       return;
@@ -253,10 +328,6 @@ void HashBuild::addInput(RowVectorPtr input) {
       hasher->computeValueIds(activeRows_, hashes_);
       analyzeKeys_ = hasher->mayUseValueIds();
     }
-  }
-  for (auto i = 0; i < dependentChannels_.size(); ++i) {
-    decoders_[i]->decode(
-        *input->childAt(dependentChannels_[i])->loadedVector(), activeRows_);
   }
   auto rows = table_->rows();
   auto nextOffset = rows->nextOffset();
