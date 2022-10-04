@@ -52,6 +52,15 @@ struct IsMapWriter<MapWriter<K, V>> {
   static constexpr bool value = true;
 };
 
+template <class T, class = void>
+struct udf_reuse_strings_from_arg : std::integral_constant<int32_t, -1> {};
+
+template <class T>
+struct udf_reuse_strings_from_arg<
+    T,
+    util::detail::void_t<decltype(T::reuse_strings_from_arg)>>
+    : std::integral_constant<int32_t, T::reuse_strings_from_arg> {};
+
 template <typename FUNC>
 class SimpleFunctionAdapter : public VectorFunction {
   using T = typename FUNC::exec_return_type;
@@ -77,6 +86,10 @@ class SimpleFunctionAdapter : public VectorFunction {
       !isGenericType<arg_at<POSITION>>::value &&
       CppToType<arg_at<POSITION>>::isPrimitiveType &&
       CppToType<arg_at<POSITION>>::typeKind != TypeKind::BOOLEAN;
+
+  constexpr int32_t reuseStringsFromArgValue() const {
+    return udf_reuse_strings_from_arg<typename FUNC::udf_struct_t>();
+  }
 
   // Check if all arguments that satisfy
   // isArgFlatConstantFastPathEligible<Is> and not part of variadic pack have
@@ -341,7 +354,7 @@ class SimpleFunctionAdapter : public VectorFunction {
 
     // Check if the function reuses input strings for the result, and add
     // references to input string buffers to all result vectors.
-    auto reuseStringsFromArg = fn_->reuseStringsFromArg();
+    auto reuseStringsFromArg = reuseStringsFromArgValue();
     if (reuseStringsFromArg >= 0) {
       VELOX_CHECK_LT(reuseStringsFromArg, args.size());
       VELOX_CHECK_EQ(args[reuseStringsFromArg]->typeKind(), TypeKind::VARCHAR);

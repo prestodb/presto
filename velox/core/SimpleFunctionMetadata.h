@@ -52,15 +52,6 @@ struct udf_is_default_ascii_behavior<
     util::detail::void_t<decltype(T::is_default_ascii_behavior)>>
     : std::integral_constant<bool, T::is_default_ascii_behavior> {};
 
-template <class T, class = void>
-struct udf_reuse_strings_from_arg : std::integral_constant<int32_t, -1> {};
-
-template <class T>
-struct udf_reuse_strings_from_arg<
-    T,
-    util::detail::void_t<decltype(T::reuse_strings_from_arg)>>
-    : std::integral_constant<int32_t, T::reuse_strings_from_arg> {};
-
 // If a UDF doesn't declare a default help(),
 template <class T, class = void>
 struct udf_help {
@@ -290,7 +281,6 @@ class ISimpleFunctionMetadata {
   virtual std::vector<std::shared_ptr<const Type>> argTypes() const = 0;
   virtual std::string getName() const = 0;
   virtual bool isDeterministic() const = 0;
-  virtual int32_t reuseStringsFromArg() const = 0;
   virtual uint32_t priority() const = 0;
   virtual const std::shared_ptr<exec::FunctionSignature> signature() const = 0;
   virtual std::string helpMessage(const std::string& name) const = 0;
@@ -344,10 +334,6 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
 
   bool isDeterministic() const final {
     return udf_is_deterministic<Fun>();
-  }
-
-  int32_t reuseStringsFromArg() const final {
-    return udf_reuse_strings_from_arg<Fun>();
   }
 
   std::shared_ptr<const Type> returnType() const final {
@@ -490,6 +476,7 @@ class UDFHolder final
   Fun instance_;
 
  public:
+  using udf_struct_t = Fun;
   using Metadata = core::SimpleFunctionMetadata<Fun, TReturn, TArgs...>;
 
   template <typename T>
