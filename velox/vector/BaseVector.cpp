@@ -847,5 +847,25 @@ BufferPtr BaseVector::sliceBuffer(
   return ans;
 }
 
+std::string printNulls(const BufferPtr& nulls, vector_size_t maxBitsToPrint) {
+  VELOX_CHECK_GE(maxBitsToPrint, 0);
+
+  vector_size_t totalCount = nulls->size() * 8;
+  auto* rawNulls = nulls->as<uint64_t>();
+  auto nullCount = bits::countNulls(rawNulls, 0, totalCount);
+
+  std::stringstream out;
+  out << nullCount << " out of " << totalCount << " rows are null";
+
+  if (nullCount) {
+    out << ": ";
+    for (auto i = 0; i < maxBitsToPrint && i < totalCount; ++i) {
+      out << (bits::isBitNull(rawNulls, i) ? "n" : ".");
+    }
+  }
+
+  return out.str();
+}
+
 } // namespace velox
 } // namespace facebook

@@ -811,6 +811,15 @@ inline BufferPtr allocateIndices(vector_size_t size, memory::MemoryPool* pool) {
 inline BufferPtr allocateNulls(vector_size_t size, memory::MemoryPool* pool) {
   return AlignedBuffer::allocate<bool>(size, pool, bits::kNotNull);
 }
+
+// Returns a summary of the null bits in the specified buffer and prints out
+// first 'maxBitsToPrint' bits. Automatically adjusts if 'maxBitsToPrint' is
+// greater than total number of bits available.
+// For example: 3 out of 8 rows are null: .nn.n...
+std::string printNulls(
+    const BufferPtr& nulls,
+    vector_size_t maxBitsToPrint = 30);
+
 } // namespace velox
 } // namespace facebook
 

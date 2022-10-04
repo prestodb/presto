@@ -234,4 +234,41 @@ TEST_F(VectorToStringTest, dictionary) {
       "[CONSTANT INTEGER: 100 elements, 75]");
 }
 
+TEST_F(VectorToStringTest, printNulls) {
+  // No nulls.
+  BufferPtr nulls = allocateNulls(1024, pool());
+  EXPECT_EQ(printNulls(nulls), "0 out of 1024 rows are null");
+
+  // Some nulls.
+  for (auto i = 3; i < 1024; i += 7) {
+    bits::setNull(nulls->asMutable<uint64_t>(), i);
+  }
+  EXPECT_EQ(
+      printNulls(nulls),
+      "146 out of 1024 rows are null: ...n......n......n......n.....");
+
+  EXPECT_EQ(
+      printNulls(nulls, 15), "146 out of 1024 rows are null: ...n......n....");
+
+  EXPECT_EQ(
+      printNulls(nulls, 50),
+      "146 out of 1024 rows are null: "
+      "...n......n......n......n......n......n......n....");
+
+  // All nulls.
+  for (auto i = 0; i < 1024; ++i) {
+    bits::setNull(nulls->asMutable<uint64_t>(), i);
+  }
+  EXPECT_EQ(
+      printNulls(nulls),
+      "1024 out of 1024 rows are null: nnnnnnnnnnnnnnnnnnnnnnnnnnnnnn");
+
+  // Short buffer.
+  nulls = allocateNulls(5, pool());
+  bits::setNull(nulls->asMutable<uint64_t>(), 1);
+  bits::setNull(nulls->asMutable<uint64_t>(), 2);
+  bits::setNull(nulls->asMutable<uint64_t>(), 4);
+  EXPECT_EQ(printNulls(nulls), "3 out of 8 rows are null: .nn.n...");
+}
+
 } // namespace facebook::velox::test
