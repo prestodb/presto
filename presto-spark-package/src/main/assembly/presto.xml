@@ -84,5 +84,9 @@
             <directory>${project.build.directory}/dependency/presto-session-property-managers-${project.version}</directory>
             <outputDirectory>plugin/session-property-managers</outputDirectory>
         </fileSet>
+        <fileSet>
+            <directory>${project.build.directory}/dependency/presto-hive-function-namespace-${project.version}</directory>
+            <outputDirectory>plugin/hive-function-namespace</outputDirectory>
+        </fileSet>
     </fileSets>
 </assembly>

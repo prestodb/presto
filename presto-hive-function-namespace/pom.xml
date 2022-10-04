@@ -163,5 +163,12 @@
             <artifactId>presto-memory</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.9.9</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 </project>

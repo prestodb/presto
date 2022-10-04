@@ -208,6 +208,7 @@ public class HiveFunctionNamespaceManager
                 }
             }
             catch (ClassNotFoundException e) {
+                e.printStackTrace();
                 throw functionNotFound(name.toString());
             }
         }

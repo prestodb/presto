@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.Page;
@@ -111,6 +112,8 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class FunctionAndTypeManager
         implements FunctionMetadataManager, TypeManager
 {
+    private static final Logger log = Logger.get(FunctionAndTypeManager.class);
+
     private final TransactionManager transactionManager;
     private final BlockEncodingSerde blockEncodingSerde;
     private final BuiltInTypeAndFunctionNamespaceManager builtInTypeAndFunctionNamespaceManager;
@@ -564,6 +567,7 @@ public class FunctionAndTypeManager
 
     private FunctionHandle resolveFunctionInternal(Optional<TransactionId> transactionId, QualifiedObjectName functionName, List<TypeSignatureProvider> parameterTypes)
     {
+        // log.info("functionName: " + functionName.toString());
         FunctionNamespaceManager<?> functionNamespaceManager = getServingFunctionNamespaceManager(functionName.getCatalogSchemaName()).orElse(null);
         if (functionNamespaceManager == null) {
             throw new PrestoException(FUNCTION_NOT_FOUND, constructFunctionNotFoundErrorMessage(functionName, parameterTypes, ImmutableList.of()));
@@ -621,6 +625,8 @@ public class FunctionAndTypeManager
 
     private Optional<FunctionNamespaceManager<? extends SqlFunction>> getServingFunctionNamespaceManager(CatalogSchemaName functionNamespace)
     {
+        // log.info("functionNamespaceManagers are: " + functionNamespace.toString());
+        // functionNamespaceManagers.keySet().forEach(log::info);
         return Optional.ofNullable(functionNamespaceManagers.get(functionNamespace.getCatalogName()));
     }
 

@@ -33,14 +33,17 @@ import com.facebook.presto.hive.HiveHdfsConfiguration;
 import com.facebook.presto.hive.HivePlugin;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
+import com.facebook.presto.hive.functions.HiveFunctionNamespacePlugin;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.file.FileHiveMetastore;
 import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.plugin.memory.MemoryPlugin;
 import com.facebook.presto.server.PluginManager;
 import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
@@ -132,6 +135,7 @@ public class PrestoSparkQueryRunner
 
     private final Session defaultSession;
 
+    private final Injector injector;
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final SplitManager splitManager;
@@ -197,6 +201,11 @@ public class PrestoSparkQueryRunner
         return queryRunner;
     }
 
+    public <T> T getInstance(Key<T> key)
+    {
+        return injector.getInstance(key);
+    }
+
     public static void copyTpchTablesBucketed(
             QueryRunner queryRunner,
             String sourceCatalog,
@@ -256,7 +265,7 @@ public class PrestoSparkQueryRunner
                 ImmutableList.of(new PrestoSparkLocalMetadataStorageModule()),
                 true);
 
-        Injector injector = injectorFactory.create();
+        injector = injectorFactory.create();
 
         defaultSession = testSessionBuilder(injector.getInstance(SessionPropertyManager.class))
                 .setCatalog(defaultCatalog)
@@ -301,6 +310,8 @@ public class PrestoSparkQueryRunner
         this.metastore = new FileHiveMetastore(hdfsEnvironment, baseDir.toURI().toString(), "test");
         metastore.createDatabase(METASTORE_CONTEXT, createDatabaseMetastoreObject("hive_test"));
         pluginManager.installPlugin(new HivePlugin("hive", Optional.of(metastore)));
+//        pluginManager.installPlugin(new MemoryPlugin());
+//        pluginManager.installPlugin(new HiveFunctionNamespacePlugin());
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("hive.experimental-optimized-partition-update-serialization-enabled", "true")
@@ -321,6 +332,12 @@ public class PrestoSparkQueryRunner
                                 ImmutableMap.of(SQL, FunctionImplementationType.SQL),
                                 new NoopSqlFunctionExecutor()),
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
+
+//        FunctionAndTypeManager functionAndTypeManager = getInstance(Key.get(FunctionAndTypeManager.class));
+//        functionAndTypeManager.loadFunctionNamespaceManager(
+//                "hive-functions",
+//                "hive",
+//                Collections.emptyMap());
 
         // add bogus catalog for testing procedures and session properties
         CatalogManager catalogManager = injector.getInstance(CatalogManager.class);

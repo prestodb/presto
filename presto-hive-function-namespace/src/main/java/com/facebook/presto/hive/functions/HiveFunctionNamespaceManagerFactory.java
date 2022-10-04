@@ -15,6 +15,7 @@
 package com.facebook.presto.hive.functions;
 
 import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.function.FunctionHandleResolver;
@@ -22,8 +23,14 @@ import com.facebook.presto.spi.function.FunctionNamespaceManager;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerContext;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.google.inject.Injector;
+import org.apache.hadoop.hive.common.JavaUtils;
 import org.apache.hadoop.hive.llap.security.LlapSigner;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.Map;
 
 import static com.facebook.presto.hive.functions.HiveFunctionErrorCode.HIVE_FUNCTION_INITIALIZATION_ERROR;
@@ -32,6 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class HiveFunctionNamespaceManagerFactory
         implements FunctionNamespaceManagerFactory
 {
+    private static final Logger log = Logger.get(HiveFunctionNamespaceManagerFactory.class);
+
     private final ClassLoader classLoader;
     private final FunctionHandleResolver functionHandleResolver;
 
@@ -39,14 +48,26 @@ public class HiveFunctionNamespaceManagerFactory
 
     public HiveFunctionNamespaceManagerFactory(ClassLoader classLoader)
     {
-        this.classLoader = requireNonNull(classLoader, "classLoader is null");
+        // Register hive-udfs
+        URLClassLoader urlClassLoader = null;
+        try {
+            urlClassLoader = new URLClassLoader(new URL[]{
+                    new File("/tmp/core-udfs-1.0-SNAPSHOT-standalone.jar").toURI().toURL()
+            }, classLoader);
+            // Thread.currentThread().setContextClassLoader(urlClassLoader);
+            // registerUdfs(urlClassLoader);
+        }
+        catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        this.classLoader = requireNonNull(urlClassLoader, "classLoader is null");
         this.functionHandleResolver = new HiveFunctionHandleResolver();
 
         try {
             // the class is needed for UDF registration
             // this step can be ignored as long as the class can be found by the classloader
             // it is only to force an import of the class so that the compilation does not fail on "unused declared dependencies"
-            Class<?> ignored = classLoader.loadClass(LlapSigner.class.getName());
+            Class<?> ignored = this.classLoader.loadClass(LlapSigner.class.getName());
         }
         catch (ClassNotFoundException e) {
             throw new PrestoException(HIVE_FUNCTION_INITIALIZATION_ERROR, e);
