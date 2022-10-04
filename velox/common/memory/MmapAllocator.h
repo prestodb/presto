@@ -189,7 +189,8 @@ class MmapAllocator : public MappedMemory {
     static constexpr int32_t kNoLastLookup = -1;
     // Number of bits in 'mappedPages_' for one bit in
     // 'mappedFreeLookup_'.
-    static constexpr int32_t kPagesPerLookupBit = 512;
+    static constexpr int32_t kPagesPerLookupBit =
+        xsimd::batch<int64_t>::size * 128;
     // Number of extra 0 uint64's at te end of allocation bitmaps for SIMD
     // checks.
     static constexpr int32_t kSimdTail = 8;

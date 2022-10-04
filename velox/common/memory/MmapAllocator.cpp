@@ -486,7 +486,7 @@ bool isAllZero(xsimd::batch<uint64_t> bits) {
 } // namespace
 
 int32_t MmapAllocator::SizeClass::findMappedFreeGroup() {
-  constexpr int32_t kWidth = 4;
+  constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
   int32_t index = lastLookupIndex_;
   if (index == kNoLastLookup) {
     index = 0;
@@ -522,7 +522,7 @@ xsimd::batch<uint64_t> MmapAllocator::SizeClass::mappedFreeBits(int32_t index) {
 void MmapAllocator::SizeClass::allocateFromMappdFree(
     int32_t numPages,
     Allocation& allocation) {
-  constexpr int32_t kWidth = 4;
+  constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
   constexpr int32_t kWordsPerGroup = kPagesPerLookupBit / 64;
   int needed = numPages;
   for (;;) {
