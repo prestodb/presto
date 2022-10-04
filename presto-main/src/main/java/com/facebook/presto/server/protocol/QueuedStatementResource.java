@@ -183,6 +183,17 @@ public class QueuedStatementResource
         queryPurger.shutdownNow();
     }
 
+    /**
+     * HTTP endpoint for submitting queries to the Presto Coordinator
+     * Presto performs lazy execution. The submission of a query returns
+     * a placeholder for the result set, but the query gets
+     * scheduled/dispatched only when the client polls for results
+     * @param statement The statement or sql query string submitted
+     * @param xForwardedProto Forwarded protocol (http or https)
+     * @param servletRequest The http request
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
+     */
     @POST
     @Path("/v1/statement")
     @Produces(APPLICATION_JSON)
@@ -212,6 +223,13 @@ public class QueuedStatementResource
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl)), compressionEnabled).build();
     }
 
+    /**
+     * HTTP endpoint for re-processing a failed query
+     * @param queryId Query Identifier of the query to be retried
+     * @param xForwardedProto Forwarded protocol (http or https)
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
+     */
     @GET
     @Path("/v1/statement/queued/retry/{queryId}")
     @Produces(APPLICATION_JSON)
@@ -253,6 +271,16 @@ public class QueuedStatementResource
         return withCompressionConfiguration(Response.ok(query.getInitialQueryResults(uriInfo, xForwardedProto, xPrestoPrefixUrl)), compressionEnabled).build();
     }
 
+    /**
+     * HTTP endpoint for retrieving the status of a submitted query
+     * @param queryId Query Identifier of query whose status is polled
+     * @param token Monotonically increasing token that identifies the next batch of query results
+     * @param slug Unique security token generated for each query that controls access to that query's results
+     * @param maxWait Time to wait for the query to be dispatched
+     * @param xForwardedProto Forwarded protocol (http or https)
+     * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+     * @param asyncResponse
+     */
     @GET
     @Path("/v1/statement/queued/{queryId}/{token}")
     @Produces(APPLICATION_JSON)
@@ -291,6 +319,13 @@ public class QueuedStatementResource
         bindAsyncResponse(asyncResponse, queryResultsFuture, responseExecutor);
     }
 
+    /**
+     * HTTP endpoint to cancel execution of a query in flight
+     * @param queryId Query Identifier of query to be canceled
+     * @param token Monotonically increasing token that identifies the next batch of query results
+     * @param slug Unique security token generated for each query that controls access to that query's results
+     * @return {@link javax.ws.rs.core.Response} HTTP response code
+     */
     @DELETE
     @Path("/v1/statement/queued/{queryId}/{token}")
     @Produces(APPLICATION_JSON)
@@ -427,41 +462,65 @@ public class QueuedStatementResource
             this.retryCount = retryCount;
         }
 
+        /**
+         * Returns the unique identifier of a query
+         */
         public QueryId getQueryId()
         {
             return queryId;
         }
 
+        /**
+         * Returns the query string
+         */
         public String getQuery()
         {
             return query;
         }
 
+        /**
+         * Returns the session context of the query
+         */
         public SessionContext getSessionContext()
         {
             return sessionContext;
         }
 
+        /**
+         * Returns the secure slug associated with the query
+         */
         public String getSlug()
         {
             return slug;
         }
 
+        /**
+         * Returns the last token of the result set
+         */
         public long getLastToken()
         {
             return lastToken.get();
         }
 
+        /**
+         * Returns the retry attempt of the query
+         */
         public int getRetryCount()
         {
             return retryCount;
         }
 
+        /**
+         * Checks whether the query has been processed by the dispatchManager
+         */
         public synchronized boolean isSubmissionFinished()
         {
             return querySubmissionFuture != null && querySubmissionFuture.isDone();
         }
 
+        /**
+         * Submit query to dispatchManager, if required, and for the dispatchManager to process the query
+         */
         private ListenableFuture<?> waitForDispatched()
         {
             // if query submission has not finished, wait for it to finish
@@ -477,6 +536,12 @@ public class QueuedStatementResource
             return dispatchManager.waitForDispatched(queryId);
         }
 
+        /**
+         * Returns a placeholder for query results for the client to poll
+         * @param uriInfo {@link javax.ws.rs.core.UriInfo}
+         * @param xForwardedProto Forwarded protocol (http or https)
+         * @return {@link com.facebook.presto.client.QueryResults}
+         */
         public synchronized QueryResults getInitialQueryResults(UriInfo uriInfo, String xForwardedProto, String xPrestoPrefixUrl)
         {
             verify(lastToken.get() == 0);

@@ -102,6 +102,9 @@ public class QueryResults
         this.updateCount = updateCount;
     }
 
+    /**
+     * Returns identifier of query that produces this result set
+     */
     @JsonProperty
     @Override
     public String getId()
@@ -109,6 +112,10 @@ public class QueryResults
         return id;
     }
 
+    /**
+     * Returns the URI at the coordinator that provides information about the query
+     * @return {@link java.net.URI}
+     */
     @JsonProperty
     @Override
     public URI getInfoUri()
@@ -116,6 +123,10 @@ public class QueryResults
         return infoUri;
     }
 
+    /**
+     *  Returns URI to a leaf stage that is currently executing in order to issue a cancel signal
+     * @return {@link java.net.URI}
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -124,6 +135,10 @@ public class QueryResults
         return partialCancelUri;
     }
 
+    /**
+     *  Returns URI to get next batch of query results
+     * @return {@link java.net.URI}
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -132,6 +147,9 @@ public class QueryResults
         return nextUri;
     }
 
+    /**
+     * Returns list of columns (with corresponding data types) present in the result set
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -140,6 +158,9 @@ public class QueryResults
         return columns;
     }
 
+    /**
+     * Returns an iterator to the payload (results)
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -148,6 +169,10 @@ public class QueryResults
         return data;
     }
 
+    /**
+     * Returns cumulative statistics on the query being executed
+     * @return {@link com.facebook.presto.client.StatementStats}
+     */
     @JsonProperty
     @Override
     public StatementStats getStats()
@@ -155,6 +180,11 @@ public class QueryResults
         return stats;
     }
 
+    /**
+     * Returns error encountered in query execution to the client
+     * The client is expected to check this field before consuming results
+     * @return {@link com.facebook.presto.client.QueryError}
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -163,6 +193,10 @@ public class QueryResults
         return error;
     }
 
+    /**
+     * Returns a list of warnings encountered in query execution to the client
+     * @return {@link com.facebook.presto.spi.PrestoWarning}
+     */
     @JsonProperty
     @Override
     public List<PrestoWarning> getWarnings()
@@ -170,6 +204,10 @@ public class QueryResults
         return warnings;
     }
 
+    /**
+     * Returns the update type, if any, of the query as determined by the Analyzer
+     * Could be INSERT, DELETE, CREATE, etc.
+     */
     @Nullable
     @JsonProperty
     @Override
@@ -178,6 +216,9 @@ public class QueryResults
         return updateType;
     }
 
+    /**
+     * Returns a count of number of rows updated by the query
+     */
     @Nullable
     @JsonProperty
     @Override
