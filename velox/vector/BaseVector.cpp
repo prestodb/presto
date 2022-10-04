@@ -867,5 +867,31 @@ std::string printNulls(const BufferPtr& nulls, vector_size_t maxBitsToPrint) {
   return out.str();
 }
 
+std::string printIndices(
+    const BufferPtr& indices,
+    vector_size_t maxIndicesToPrint) {
+  VELOX_CHECK_GE(maxIndicesToPrint, 0);
+
+  auto* rawIndices = indices->as<vector_size_t>();
+
+  vector_size_t size = indices->size() / sizeof(vector_size_t);
+
+  std::unordered_set<vector_size_t> uniqueIndices;
+  for (auto i = 0; i < size; ++i) {
+    uniqueIndices.insert(rawIndices[i]);
+  }
+
+  std::stringstream out;
+  out << uniqueIndices.size() << " unique indices out of " << size << ": ";
+  for (auto i = 0; i < maxIndicesToPrint && i < size; ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+    out << rawIndices[i];
+  }
+
+  return out.str();
+}
+
 } // namespace velox
 } // namespace facebook

@@ -271,4 +271,35 @@ TEST_F(VectorToStringTest, printNulls) {
   EXPECT_EQ(printNulls(nulls), "3 out of 8 rows are null: .nn.n...");
 }
 
+TEST_F(VectorToStringTest, printIndices) {
+  BufferPtr indices = allocateIndices(1024, pool());
+  EXPECT_EQ(
+      printIndices(indices),
+      "1 unique indices out of 1024: 0, 0, 0, 0, 0, 0, 0, 0, 0, 0");
+
+  indices = makeIndices(1024, [](auto row) { return row / 3; });
+  EXPECT_EQ(
+      printIndices(indices),
+      "342 unique indices out of 1024: 0, 0, 0, 1, 1, 1, 2, 2, 2, 3");
+
+  indices = makeIndices(1024, [](auto row) { return row % 7; });
+  EXPECT_EQ(
+      printIndices(indices),
+      "7 unique indices out of 1024: 0, 1, 2, 3, 4, 5, 6, 0, 1, 2");
+
+  indices = makeIndices(1024, [](auto row) { return row; });
+  EXPECT_EQ(
+      printIndices(indices),
+      "1024 unique indices out of 1024: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9");
+
+  indices = makeIndices(1024, [](auto row) { return row; });
+  EXPECT_EQ(
+      printIndices(indices, 15),
+      "1024 unique indices out of 1024: "
+      "0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14");
+
+  indices = makeIndices({34, 79, 11, 0, 0, 33});
+  EXPECT_EQ(
+      printIndices(indices), "5 unique indices out of 6: 34, 79, 11, 0, 0, 33");
+}
 } // namespace facebook::velox::test

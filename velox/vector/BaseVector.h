@@ -832,6 +832,14 @@ std::string printNulls(
     const BufferPtr& nulls,
     vector_size_t maxBitsToPrint = 30);
 
+// Returns a summary of the indices buffer and prints out first
+// 'maxIndicesToPrint' indices. Automatically adjusts if 'maxIndicesToPrint' is
+// greater than total number of indices available.
+// For example: 5 unique indices out of 6: 34, 79, 11, 0, 0, 33.
+std::string printIndices(
+    const BufferPtr& indices,
+    vector_size_t maxIndicesToPrint = 10);
+
 } // namespace velox
 } // namespace facebook
 
