@@ -34,7 +34,7 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
   // We look for these lines separately, since their order can change (not sure
   // why).
-  std::array<std::string, 8> expectedTexts = {
+  std::array<std::string, 9> expectedTexts = {
       "Exceeded memory cap of 5.00MB when requesting 2.00MB.",
       "query.: total: 5.00MB",
       "pipe.0: 1.78MB in 5 operators, min 0B, max 1.77MB",
@@ -43,6 +43,7 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
       "op.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
       "op.Values: 0B in 1 instances, min 0B, max 0B",
       "Failed Operator: Aggregation.2: 1.77MB",
+      "Top memory usages:",
   };
 
   std::vector<RowVectorPtr> data;

@@ -1840,11 +1840,10 @@ struct TaskMemoryUsage {
       out << ": ";
       pipelineMemoryUsage.total.toString(out, "operators");
       for (const auto& it : pipelineMemoryUsage.operators) {
-        const MemoryUsage& operatorMemoryUsage = it.second;
         out << "\n            ";
         out << it.first;
         out << ": ";
-        operatorMemoryUsage.toString(out, "instances");
+        it.second.toString(out, "instances");
       }
     }
   }
@@ -1903,6 +1902,8 @@ static void collectTaskMemoryUsage(
 }
 
 static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
+  // Collect the memory usage numbers from query's tasks, pipelines and
+  // operators.
   std::vector<TaskMemoryUsage> taskMemoryUsages;
   taskMemoryUsages.reserve(queryPool->getChildCount());
   queryPool->visitChildren([&taskMemoryUsages](memory::MemoryPool* taskPool) {
@@ -1910,6 +1911,15 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
     collectTaskMemoryUsage(taskMemoryUsages.back(), taskPool);
   });
 
+  // We will collect each operator's aggregated memory usage to later show the
+  // largest memory consumers.
+  struct TopMemoryUsage {
+    int64_t totalBytes;
+    std::string description;
+  };
+  std::vector<TopMemoryUsage> topMemoryUsages;
+
+  // Build the query memory use tree (task->pipeline->operator).
   std::stringstream out;
   out << "\n";
   out << queryPool->getName();
@@ -1918,7 +1928,35 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
       queryPool->getMemoryUsageTracker()->getCurrentTotalBytes());
   for (const auto& taskMemoryUsage : taskMemoryUsages) {
     taskMemoryUsage.toString(out);
+
+    // Collect each operator's memory usage into the vector.
+    for (auto i = 0; i < taskMemoryUsage.pipelines.size(); ++i) {
+      const auto& pipelineMemoryUsage = taskMemoryUsage.pipelines[i];
+      for (const auto& it : pipelineMemoryUsage.operators) {
+        const MemoryUsage& operatorMemoryUsage = it.second;
+        // Ignore operators with zero memory for top memory users.
+        if (operatorMemoryUsage.totalBytes > 0) {
+          topMemoryUsages.emplace_back(TopMemoryUsage{
+              operatorMemoryUsage.totalBytes,
+              fmt::format(
+                  "{}.pipe{}.{}", taskMemoryUsage.taskId, i, it.first)});
+        }
+      }
+    }
   }
+
+  // Sort and show top memory users.
+  out << "\nTop memory usages:";
+  std::sort(
+      topMemoryUsages.begin(),
+      topMemoryUsages.end(),
+      [](const TopMemoryUsage& left, const TopMemoryUsage& right) {
+        return left.totalBytes > right.totalBytes;
+      });
+  for (const auto& top : topMemoryUsages) {
+    out << "\n    " << top.description << ": " << succinctBytes(top.totalBytes);
+  }
+
   return out.str();
 }
 
