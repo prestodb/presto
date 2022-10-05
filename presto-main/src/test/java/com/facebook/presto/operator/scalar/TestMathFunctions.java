@@ -770,6 +770,8 @@ public class TestMathFunctions
         assertFunction("round(DOUBLE '-" + GREATEST_DOUBLE_LESS_THAN_HALF + "', 0)", DOUBLE, -0.0);
         assertFunction("round(0.3E0)", DOUBLE, 0.0);
         assertFunction("round(-0.3E0)", DOUBLE, -0.0);
+        assertFunction("round(DOUBLE '5.0', 20)", DOUBLE, 5.0);
+        assertFunction("round(DOUBLE '1e100', 0)", DOUBLE, 1e100d);
 
         assertFunction("round(TINYINT '3', TINYINT '1')", TINYINT, (byte) 3);
         assertFunction("round(TINYINT '3', 1)", TINYINT, (byte) 3);
@@ -808,6 +810,8 @@ public class TestMathFunctions
         assertFunction("round(REAL '-3.5', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.5001', 1)", REAL, -3.5f);
         assertFunction("round(REAL '-3.99', 1)", REAL, -4.0f);
+        assertFunction("round(REAL '5.0', 20)", REAL, 5.0f);
+        assertFunction("round(REAL '1e30', 0)", REAL, 1e30f);
 
         // ROUND short DECIMAL -> short DECIMAL
         assertFunction("round(DECIMAL '0')", createDecimalType(1, 0), SqlDecimal.of("0"));
