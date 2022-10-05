@@ -35,7 +35,6 @@ sudo --preserve-env apt install -y \
   libgoogle-glog-dev \
   libbz2-dev \
   libgflags-dev \
-  libgtest-dev \
   libgmock-dev \
   libevent-dev \
   liblz4-dev \

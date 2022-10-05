@@ -31,7 +31,6 @@ yum -y install double-conversion-devel
 yum -y install glog-devel
 yum -y install bzip2-devel
 yum -y install gflags-devel
-yum -y install gtest-devel
 yum -y install libevent-devel
 yum -y install lz4-devel
 yum -y install libzstd-devel
