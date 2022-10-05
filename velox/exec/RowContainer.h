@@ -255,7 +255,8 @@ class RowContainer {
   /// 'result' (starting at 'resultOffset') for the rows at positions in
   /// the 'rowNumbers' array. If a 'row' is null, sets
   /// corresponding row in 'result' to null. The positions in 'rowNumbers'
-  /// array can repeat and also appear out of order.
+  /// array can repeat and also appear out of order. If rowNumbers has a
+  /// negative value, then the corresponding row in 'result' is set to null.
   static void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
@@ -289,7 +290,10 @@ class RowContainer {
   /// Copies the values at 'columnIndex' at positions in the 'rowNumbers' array
   /// for the rows pointed to by 'rows'. The values are copied into the 'result'
   /// vector at the offset pointed by 'resultOffset'. If an entry in 'rows'
-  /// is null, sets corresponding row in 'result' to null.
+  /// is null, sets corresponding row in 'result' to null. The positions in
+  /// 'rowNumbers' array can repeat and also appear out of order. If rowNumbers
+  /// has a negative value, then the corresponding row in 'result' is set to
+  /// null.
   void extractColumn(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       folly::Range<const vector_size_t*> rowNumbers,
@@ -741,7 +745,8 @@ class RowContainer {
     for (int32_t i = 0; i < numRows; ++i) {
       const char* row;
       if constexpr (useRowNumbers) {
-        row = rows[rowNumbers[i]];
+        auto rowNumber = rowNumbers[i];
+        row = rowNumber >= 0 ? rows[rowNumber] : nullptr;
       } else {
         row = rows[i];
       }
@@ -774,7 +779,8 @@ class RowContainer {
     for (int32_t i = 0; i < numRows; ++i) {
       const char* row;
       if constexpr (useRowNumbers) {
-        row = rows[rowNumbers[i]];
+        auto rowNumber = rowNumbers[i];
+        row = (rowNumber >= 0) ? rows[rowNumber] : nullptr;
       } else {
         row = rows[i];
       }
@@ -957,7 +963,8 @@ class RowContainer {
     for (int i = 0; i < numRows; ++i) {
       const char* row;
       if constexpr (useRowNumbers) {
-        row = rows[rowNumbers[i]];
+        auto rowNumber = rowNumbers[i];
+        row = rowNumber >= 0 ? rows[rowNumbers[i]] : nullptr;
       } else {
         row = rows[i];
       }
