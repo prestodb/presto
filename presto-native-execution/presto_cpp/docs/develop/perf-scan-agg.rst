@@ -6,14 +6,14 @@ Introduction
 ------------
 
 In this guide I’ll explain how to investigate the performance of a scan +
-aggregation query that runs on Prestissimo, a next-generation Presto worker
-powered by Velox. After reading this guide you’ll know about the domain and
-remaining filters and how they differ, you’ll understand how to determine
-whether aggregation pushdown happens or not for a given query, you’ll have the
-tools to reproduce a production query in a unit test for quick debugging and
-profiling. You will also learn about special columns $path and $bucket and
-special table xxx$partition. The learnings from this guide can be applied to
-troubleshooting a failure or a crash as well.
+aggregation query that runs on Presto Native Execution, a next-generation
+Presto worker powered by Velox. After reading this guide you’ll know about
+the domain and remaining filters and how they differ, you’ll understand
+how to determine whether aggregation pushdown happens or not for a given
+query, you’ll have the tools to reproduce a production query in a unit test
+for quick debugging and profiling. You will also learn about special columns
+$path and $bucket and special table xxx$partition. The learnings from this
+guide can be applied to troubleshooting a failure or a crash as well.
 
 Query Plan
 ----------

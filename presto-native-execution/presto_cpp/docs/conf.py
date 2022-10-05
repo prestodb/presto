@@ -28,7 +28,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = "Prestissimo"
+project = "Presto Native Execution"
 copyright = "TBD"
 
 

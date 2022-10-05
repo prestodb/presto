@@ -1,4 +1,4 @@
-# Prestissimo Documentation
+# Presto Native Execution Documentation
 
 We use Sphinx to generate documentation and GitHub pages to publish it.
 - Sphinx: https://pythonhosted.org/an_example_pypi_project/sphinx.html
