@@ -156,6 +156,7 @@ TEST_F(ExprStatsTest, printWithStats) {
 struct Event {
   std::string uuid;
   std::unordered_map<std::string, exec::ExprStats> stats;
+  std::vector<std::string> sqls;
 };
 
 class TestListener : public exec::ExprSetListener {
@@ -168,7 +169,7 @@ class TestListener : public exec::ExprSetListener {
   void onCompletion(
       const std::string& uuid,
       const exec::ExprSetCompletionEvent& event) override {
-    events_.push_back({uuid, event.stats});
+    events_.push_back({uuid, event.stats, event.sqls});
   }
 
   void onError(
@@ -228,6 +229,15 @@ TEST_F(ExprStatsTest, listener) {
   }
   ASSERT_EQ(1, events.size());
   auto stats = events.back().stats;
+  auto sqls = events.back().sqls;
+
+  ASSERT_EQ(2, sqls.size());
+  ASSERT_EQ(
+      "\"multiply\"(\"plus\"(cast((\"c0\") as BIGINT), 3::BIGINT), cast((\"c1\") as BIGINT))",
+      sqls.front());
+  ASSERT_EQ(
+      "\"eq\"(\"mod\"(cast((\"plus\"(\"c0\", \"c1\")) as BIGINT), 2::BIGINT), 0::BIGINT)",
+      sqls.back());
 
   ASSERT_EQ(2, stats.at("plus").numProcessedVectors);
   ASSERT_EQ(1024 * 2, stats.at("plus").numProcessedRows);

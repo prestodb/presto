@@ -1527,13 +1527,15 @@ ExprSet::~ExprSet() {
     if (!listeners.empty()) {
       std::unordered_map<std::string, exec::ExprStats> stats;
       std::unordered_set<const exec::Expr*> uniqueExprs;
+      std::vector<std::string> sqls;
       for (const auto& expr : exprs()) {
+        sqls.emplace_back(expr->toSql());
         addStats(*expr, stats, uniqueExprs);
       }
 
       auto uuid = makeUuid();
-      for (auto& listener : listeners) {
-        listener->onCompletion(uuid, {stats});
+      for (const auto& listener : listeners) {
+        listener->onCompletion(uuid, {stats, sqls});
       }
     }
   });

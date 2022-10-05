@@ -629,6 +629,8 @@ struct ExprSetCompletionEvent {
   /// Aggregated runtime stats keyed on expression name (e.g. built-in
   /// expression like and, or, switch or a function name).
   std::unordered_map<std::string, exec::ExprStats> stats;
+  /// List containing sql representation of each top level expression in ExprSet
+  std::vector<std::string> sqls;
 };
 
 /// Listener invoked on ExprSet destruction.
