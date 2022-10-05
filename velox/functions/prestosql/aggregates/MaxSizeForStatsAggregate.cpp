@@ -173,13 +173,13 @@ class MaxSizeForStatsAggregate
     std::fill(elementSizes_.begin(), elementSizes_.end(), 0);
     elementIndices_.resize(numToProcess);
     elementSizePtrs_.resize(numToProcess);
-    vector_size_t selectedIndex = 0;
-    auto selectivityIterator = SelectivityIterator(rows);
-    for (int i = 0; i < numToProcess; i++) {
-      selectivityIterator.next(selectedIndex);
-      elementIndices_[i] = IndexRange{selectedIndex, 1};
+
+    vector_size_t i = 0;
+    rows.testSelected([&](auto row) {
+      elementIndices_[i] = IndexRange{row, 1};
       elementSizePtrs_[i] = &elementSizes_[i];
-    }
+      return ++i < numToProcess;
+    });
 
     getVectorSerde()->estimateSerializedSize(
         vector,

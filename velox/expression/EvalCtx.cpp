@@ -163,12 +163,10 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
     // A constant wrap has no indices.
     auto indices = wrap_ ? wrap_->as<vector_size_t>() : nullptr;
     auto wrapNulls = wrapNulls_ ? wrapNulls_->as<uint64_t>() : nullptr;
-    SelectivityIterator iter(*saver.rows);
-    vector_size_t row;
-    while (iter.next(row)) {
+    saver.rows->applyToSelected([&](auto row) {
       // A known null in the outer row masks an error.
       if (wrapNulls && bits::isBitNull(wrapNulls, row)) {
-        continue;
+        return;
       }
       vector_size_t innerRow = indices ? indices[row] : constantWrapIndex_;
       if (innerRow < errorSize && !errors_->isNullAt(innerRow)) {
@@ -178,7 +176,7 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
                 errors_->valueAt(innerRow)),
             saver.errors);
       }
-    }
+    });
   }
   errors_ = std::move(saver.errors);
   wrap_ = std::move(saver.wrap);

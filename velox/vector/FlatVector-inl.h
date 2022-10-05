@@ -144,8 +144,6 @@ void FlatVector<T>::copyValuesAndNulls(
   VELOX_CHECK(
       BaseVector::compatibleKind(BaseVector::typeKind(), source->typeKind()));
   VELOX_CHECK_GE(BaseVector::length_, rows.end());
-  SelectivityIterator iter(rows);
-  vector_size_t row;
   const uint64_t* sourceNulls = source->rawNulls();
   uint64_t* rawNulls = const_cast<uint64_t*>(BaseVector::rawNulls_);
   if (source->mayHaveNulls()) {
@@ -163,7 +161,7 @@ void FlatVector<T>::copyValuesAndNulls(
     auto* sourceValues =
         source->typeKind() != TypeKind::UNKNOWN ? flat->rawValues() : nullptr;
     if (toSourceRow) {
-      while (iter.next(row)) {
+      rows.applyToSelected([&](auto row) {
         auto sourceRow = toSourceRow[row];
         if (sourceValues) {
           rawValues_[row] = sourceValues[sourceRow];
@@ -174,7 +172,7 @@ void FlatVector<T>::copyValuesAndNulls(
               row,
               sourceNulls && bits::isBitNull(sourceNulls, sourceRow));
         }
-      }
+      });
     } else {
       VELOX_CHECK_GE(source->size(), rows.end());
       rows.applyToSelected([&](vector_size_t row) {
@@ -200,7 +198,7 @@ void FlatVector<T>::copyValuesAndNulls(
     auto sourceVector = source->typeKind() != TypeKind::UNKNOWN
         ? source->asUnchecked<SimpleVector<T>>()
         : nullptr;
-    while (iter.next(row)) {
+    rows.applyToSelected([&](auto row) {
       auto sourceRow = toSourceRow ? toSourceRow[row] : row;
       if (!source->isNullAt(sourceRow)) {
         if (sourceVector) {
@@ -212,7 +210,7 @@ void FlatVector<T>::copyValuesAndNulls(
       } else {
         bits::setNull(rawNulls, row);
       }
-    }
+    });
   }
 }
 
