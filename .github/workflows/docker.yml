@@ -15,6 +15,11 @@ name: Build & Push Docker Images
 
 on:
   pull_request:
+    paths:
+      - scripts/*.dockfile
+      - scripts/*.dockerfile
+      - scripts/setup-*.sh
+      - .github/workflows/docker.yml
   push:
     branches: [main]
     paths:
@@ -56,7 +61,7 @@ jobs:
           context: scripts
           file: scripts/check-container.dockfile
           build-args: cpu_target=avx
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event != 'pull_request'}}
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
           tags: ghcr.io/facebookincubator/velox-dev:check-avx
 
       - name: Build and Push circle-ci
@@ -65,7 +70,7 @@ jobs:
           context: scripts
           file: scripts/circleci-container.dockfile
           build-args: cpu_target=avx
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event != 'pull_request'}}
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
           tags: ghcr.io/facebookincubator/velox-dev:circleci-avx
 
       - name: Build and Push velox-torcharrow
@@ -74,12 +79,12 @@ jobs:
           context: scripts
           file: scripts/velox-torcharrow-container.dockfile
           build-args: cpu_target=avx
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event != 'pull_request'}}
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
           tags: ghcr.io/facebookincubator/velox-dev:torcharrow-avx
 
       - name: Build and Push dev-image
         uses: docker/build-push-action@v3
         with:
           file: scripts/ubuntu-22.04-cpp.dockerfile
-          push: ${{ github.repository == 'facebookincubator/velox' && github.event != 'pull_request'}}
+          push: ${{ github.repository == 'facebookincubator/velox' && github.event_name != 'pull_request'}}
           tags: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
