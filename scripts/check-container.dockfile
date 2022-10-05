@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM ubuntu:hirsute
+FROM amd64/ubuntu:22.04
 ARG cpu_target
 COPY setup-check.sh /root
 COPY setup-helper-functions.sh /

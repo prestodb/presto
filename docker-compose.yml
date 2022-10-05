@@ -16,9 +16,9 @@ version: '3.5'
 services:
   ubuntu-cpp:
     # Usage:
-    #   docker-compose build ubuntu-cpp
+    #   docker-compose pull ubuntu-cpp or docker-compose build ubuntu-cpp
     #   docker-compose run --rm ubuntu-cpp
-    image: facebookincubator/velox:amd64-ubuntu-22.04-cpp
+    image: ghcr.io/facebookincubator/velox-dev:amd64-ubuntu-22.04-avx
     build:
       context: .
       dockerfile: scripts/ubuntu-22.04-cpp.dockerfile
@@ -28,4 +28,4 @@ services:
       /bin/bash -c "
         make &&
         cd _build/release &&
-        ctest -j 16 --output-on-failure"
+        ctest -j 16 -VV --output-on-failure"
