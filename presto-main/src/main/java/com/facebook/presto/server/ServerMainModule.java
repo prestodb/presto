@@ -407,7 +407,12 @@ public class ServerMainModule
                     public void configure(Binder moduleBinder)
                     {
                         configBinder(moduleBinder).bindConfig(ResourceManagerConfig.class);
-                        moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+
+                        // In the disaggregated-coordinators setup, we should only send heartbeat from the coordinators and workers.
+                        if (serverConfig.isCoordinator() || serverConfig.isWorker()) {
+                            moduleBinder.bind(ClusterStatusSender.class).to(ResourceManagerClusterStatusSender.class).in(Scopes.SINGLETON);
+                        }
+
                         if (serverConfig.isCoordinator()) {
                             moduleBinder.bind(ClusterMemoryManagerService.class).in(Scopes.SINGLETON);
                             moduleBinder.bind(ResourceGroupService.class).to(ResourceManagerResourceGroupService.class).in(Scopes.SINGLETON);
@@ -548,7 +553,7 @@ public class ServerMainModule
         binder.bind(ConnectorTypeSerdeManager.class).in(Scopes.SINGLETON);
 
         // connector metadata update handle json serde
-        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>(){})
+        binder.bind(new TypeLiteral<ConnectorTypeSerde<ConnectorMetadataUpdateHandle>>() {})
                 .annotatedWith(ForJsonMetadataUpdateHandle.class)
                 .to(ConnectorMetadataUpdateHandleJsonSerde.class)
                 .in(Scopes.SINGLETON);

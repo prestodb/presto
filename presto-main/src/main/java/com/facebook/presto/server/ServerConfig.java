@@ -94,6 +94,13 @@ public class ServerConfig
         return this;
     }
 
+    public boolean isWorker()
+    {
+        // At this moment we use the inverted logic to determine a worker, but this is fragile since the presto architecture might add new components in the future.
+        // It would be better to have a flag set from the configuration.
+        return !isCoordinator() && !isCatalogServer() && !isResourceManager();
+    }
+
     @NotNull(message = "presto.version must be provided when it cannot be automatically determined")
     public String getPrestoVersion()
     {
