@@ -1,6 +1,6 @@
-#########################
-Prestissimo Documentation
-#########################
+#####################################
+Presto Native Execution Documentation
+#####################################
 
 .. toctree::
     :maxdepth: 2
