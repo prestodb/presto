@@ -353,7 +353,7 @@ jobs:
           # the job output for context.
           name: "Run Fuzzer Tests"
           command: |
-            make fuzzertest NUM_THREADS=16 FUZZER_DURATION_SEC=600 FUZZER_SEED=${RANDOM} \
+            make fuzzertest NUM_THREADS=8 FUZZER_DURATION_SEC=600 FUZZER_SEED=${RANDOM} \
               > /tmp/fuzzer.log 2>&1 || ( \
                 tail -n 1000 /tmp/fuzzer.log;
                 echo "FAIL: Fuzzer run failed, logs saved to \"/tmp/fuzzer.log\" and uploaded" \
