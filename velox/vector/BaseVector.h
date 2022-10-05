@@ -267,6 +267,20 @@ class BaseVector {
         });
   }
 
+  /// Sort values at specified 'indices' after applying the 'mapping'. Used to
+  /// sort map keys.
+  virtual void sortIndices(
+      std::vector<vector_size_t>& indices,
+      const vector_size_t* mapping,
+      CompareFlags flags) const {
+    std::sort(
+        indices.begin(),
+        indices.end(),
+        [&](vector_size_t left, vector_size_t right) {
+          return compare(this, mapping[left], mapping[right], flags) < 0;
+        });
+  }
+
   /**
    * @return the hash of the value at the given index in this vector
    */

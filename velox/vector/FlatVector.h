@@ -276,19 +276,30 @@ class FlatVector final : public SimpleVector<T> {
       CompareFlags flags) const override {
     if (other->isFlatEncoding()) {
       auto otherFlat = other->asUnchecked<FlatVector<T>>();
-      bool otherNull = otherFlat->isNullAt(otherIndex);
+      return compareFlat<true>(otherFlat, index, otherIndex, flags);
+    }
+
+    return SimpleVector<T>::compare(other, index, otherIndex, flags);
+  }
+
+  template <bool compareNulls>
+  std::optional<int32_t> compareFlat(
+      const FlatVector<T>* other,
+      vector_size_t index,
+      vector_size_t otherIndex,
+      CompareFlags flags) const {
+    if constexpr (compareNulls) {
+      bool otherNull = other->isNullAt(otherIndex);
       bool isNull = BaseVector::isNullAt(index);
       if (isNull || otherNull) {
         return BaseVector::compareNulls(isNull, otherNull, flags);
       }
-
-      auto thisValue = valueAtFast(index);
-      auto otherValue = otherFlat->valueAtFast(otherIndex);
-      auto result = SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
-      return flags.ascending ? result : result * -1;
     }
 
-    return SimpleVector<T>::compare(other, index, otherIndex, flags);
+    auto thisValue = valueAtFast(index);
+    auto otherValue = other->valueAtFast(otherIndex);
+    auto result = SimpleVector<T>::comparePrimitiveAsc(thisValue, otherValue);
+    return flags.ascending ? result : result * -1;
   }
 
   void sortIndices(std::vector<vector_size_t>& indices, CompareFlags flags)
@@ -307,6 +318,36 @@ class FlatVector final : public SimpleVector<T> {
           [&](vector_size_t left, vector_size_t right) {
             bool leftNull = BaseVector::isNullAt(left);
             bool rightNull = BaseVector::isNullAt(right);
+            if (leftNull || rightNull) {
+              return BaseVector::compareNulls(leftNull, rightNull, flags)
+                         .value() < 0;
+            }
+
+            return compareNonNull(left, right);
+          });
+    } else {
+      std::sort(indices.begin(), indices.end(), compareNonNull);
+    }
+  }
+
+  void sortIndices(
+      std::vector<vector_size_t>& indices,
+      const vector_size_t* mapping,
+      CompareFlags flags) const override {
+    auto compareNonNull = [&](vector_size_t left, vector_size_t right) {
+      auto leftValue = valueAtFast(mapping[left]);
+      auto rightValue = valueAtFast(mapping[right]);
+      auto result = SimpleVector<T>::comparePrimitiveAsc(leftValue, rightValue);
+      return (flags.ascending ? result : result * -1) < 0;
+    };
+
+    if (BaseVector::rawNulls_) {
+      std::sort(
+          indices.begin(),
+          indices.end(),
+          [&](vector_size_t left, vector_size_t right) {
+            bool leftNull = BaseVector::isNullAt(mapping[left]);
+            bool rightNull = BaseVector::isNullAt(mapping[right]);
             if (leftNull || rightNull) {
               return BaseVector::compareNulls(leftNull, rightNull, flags)
                          .value() < 0;

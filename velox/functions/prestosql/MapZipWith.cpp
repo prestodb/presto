@@ -21,6 +21,57 @@
 namespace facebook::velox::functions {
 namespace {
 
+struct DecodedInputs {
+  DecodedVector* decodedLeft;
+  DecodedVector* decodedRight;
+  const MapVector* baseLeft;
+  const MapVector* baseRight;
+
+  DecodedInputs(DecodedVector* _decodedLeft, DecodedVector* _decodeRight)
+      : decodedLeft{_decodedLeft},
+        decodedRight{_decodeRight},
+        baseLeft{decodedLeft->base()->asUnchecked<MapVector>()},
+        baseRight{decodedRight->base()->asUnchecked<MapVector>()} {}
+};
+
+struct MergeResults {
+  BufferPtr newNulls;
+  uint64_t* rawNewNulls;
+  BufferPtr newOffsets;
+  vector_size_t* rawNewOffsets;
+  BufferPtr newSizes;
+  vector_size_t* rawNewSizes;
+
+  BufferPtr leftKeyNulls;
+  uint64_t* rawLeftKeyNulls;
+  BufferPtr leftKeyIndices;
+  vector_size_t* rawLeftKeyIndices;
+
+  BufferPtr rightKeyNulls;
+  uint64_t* rawRightKeyNulls;
+  BufferPtr rightKeyIndices;
+  vector_size_t* rawRightKeyIndices;
+
+  MergeResults(
+      vector_size_t numMaps,
+      vector_size_t maxNumKeys,
+      memory::MemoryPool* pool)
+      : newNulls{allocateNulls(numMaps, pool)},
+        rawNewNulls(newNulls->asMutable<uint64_t>()),
+        newOffsets(allocateOffsets(numMaps, pool)),
+        rawNewOffsets(newOffsets->asMutable<vector_size_t>()),
+        newSizes(allocateSizes(numMaps, pool)),
+        rawNewSizes(newSizes->asMutable<vector_size_t>()),
+        leftKeyNulls(allocateNulls(maxNumKeys, pool)),
+        rawLeftKeyNulls(leftKeyNulls->asMutable<uint64_t>()),
+        leftKeyIndices(allocateIndices(maxNumKeys, pool)),
+        rawLeftKeyIndices(leftKeyIndices->asMutable<vector_size_t>()),
+        rightKeyNulls(allocateNulls(maxNumKeys, pool)),
+        rawRightKeyNulls(rightKeyNulls->asMutable<uint64_t>()),
+        rightKeyIndices(allocateIndices(maxNumKeys, pool)),
+        rawRightKeyIndices(rightKeyIndices->asMutable<vector_size_t>()) {}
+};
+
 // See documentation at
 // https://prestodb.io/docs/current/functions/map.html#map_zip_with
 class MapZipWithFunction : public exec::VectorFunction {
@@ -41,86 +92,55 @@ class MapZipWithFunction : public exec::VectorFunction {
       VectorPtr& result) const override {
     VELOX_CHECK_EQ(args.size(), 3);
     exec::DecodedArgs decodedArgs(rows, {args[0], args[1]}, context);
-    auto decodedLeft = decodedArgs.at(0);
-    auto decodedRight = decodedArgs.at(1);
-    auto* baseLeft = decodedLeft->base()->asUnchecked<MapVector>();
-    auto* baseRight = decodedRight->base()->asUnchecked<MapVector>();
+    DecodedInputs decodedInputs(decodedArgs.at(0), decodedArgs.at(1));
 
-    // Merge two maps. Allocate nulls, offsets and sizes buffers for the merged
-    // maps.
-    BufferPtr newNulls = allocateNulls(rows.end(), context.pool());
-    auto* rawNewNulls = newNulls->asMutable<uint64_t>();
-    BufferPtr newOffsets = allocateIndices(rows.end(), context.pool());
-    auto* rawNewOffsets = newOffsets->asMutable<vector_size_t>();
-    BufferPtr newSizes = allocateIndices(rows.end(), context.pool());
-    auto* rawNewSizes = newSizes->asMutable<vector_size_t>();
+    // Merge two maps. The total number of elements in the merged maps will not
+    // exceed the total sum of elements in the input maps.
+    auto numLeftElements = countMapElements(rows, *decodedInputs.decodedLeft);
+    auto numRightElements = countMapElements(rows, *decodedInputs.decodedRight);
 
-    auto numLeftElements = countElements<MapVector>(rows, *decodedLeft);
-    auto numRightElements = countElements<MapVector>(rows, *decodedRight);
-
-    // The total number of elements in the merged maps will not exceed the total
-    // sum of elements in the input maps.
     auto maxElements = numLeftElements + numRightElements;
 
-    BufferPtr leftIndices = allocateIndices(maxElements, context.pool());
-    auto* rawLeftIndices = leftIndices->asMutable<vector_size_t>();
-    BufferPtr leftNulls = allocateNulls(maxElements, context.pool());
-    auto* rawLeftNulls = leftNulls->asMutable<uint64_t>();
+    MergeResults mergeResults(rows.end(), maxElements, context.pool());
 
-    BufferPtr rightIndices = allocateIndices(maxElements, context.pool());
-    auto* rawRightIndices = rightIndices->asMutable<vector_size_t>();
-    BufferPtr rightNulls = allocateNulls(maxElements, context.pool());
-    auto* rawRightNulls = rightNulls->asMutable<uint64_t>();
+    auto leftKeys = decodedInputs.baseLeft->mapKeys();
+    auto rightKeys = decodedInputs.baseRight->mapKeys();
 
-    auto leftKeys = baseLeft->mapKeys();
-    auto rightKeys = baseRight->mapKeys();
+    vector_size_t index;
 
-    vector_size_t index = 0;
-    rows.applyToSelected([&](vector_size_t row) {
-      if (decodedLeft->isNullAt(row) || decodedRight->isNullAt(row)) {
-        bits::setNull(rawNewNulls, row);
-        return;
-      }
-
-      rawNewOffsets[row] = index;
-
-      auto leftRow = decodedLeft->index(row);
-      auto rightRow = decodedRight->index(row);
-
-      auto leftSorted = baseLeft->sortedKeyIndices(leftRow);
-      auto rightSorted = baseRight->sortedKeyIndices(rightRow);
-
-      mergeKeys(
-          leftKeys,
-          rightKeys,
-          leftSorted,
-          rightSorted,
-          rawLeftNulls,
-          rawRightNulls,
-          rawLeftIndices,
-          rawRightIndices,
-          index);
-
-      rawNewSizes[row] = index - rawNewOffsets[row];
-    });
+    // Take fast path for non-null keys of primitive types.
+    if (leftKeys->type()->isPrimitiveType() && !leftKeys->mayHaveNulls() &&
+        !rightKeys->mayHaveNulls()) {
+      index = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH_ALL(
+          mergeScalarNoNullKeys,
+          leftKeys->typeKind(),
+          rows,
+          decodedInputs,
+          mergeResults);
+    } else {
+      index = mergeKeys(
+          rows,
+          decodedInputs,
+          [&](auto left, auto right) {
+            return leftKeys->compare(rightKeys.get(), left, right);
+          },
+          mergeResults);
+    }
 
     auto mergedLeftValues = BaseVector::wrapInDictionary(
-        leftNulls, leftIndices, index, baseLeft->mapValues());
-    auto mergedRightValues = BaseVector::wrapInDictionary(
-        rightNulls, rightIndices, index, baseRight->mapValues());
+        mergeResults.leftKeyNulls,
+        mergeResults.leftKeyIndices,
+        index,
+        decodedInputs.baseLeft->mapValues());
 
-    // Merge keys.
-    auto mergedKeys =
-        BaseVector::create(leftKeys->type(), index, context.pool());
-    for (auto i = 0; i < index; ++i) {
-      if (bits::isBitNull(rawLeftNulls, i)) {
-        // Copy right key.
-        mergedKeys->copy(rightKeys.get(), i, rawRightIndices[i], 1);
-      } else {
-        // Copy left key.
-        mergedKeys->copy(leftKeys.get(), i, rawLeftIndices[i], 1);
-      }
-    }
+    auto mergedRightValues = BaseVector::wrapInDictionary(
+        mergeResults.rightKeyNulls,
+        mergeResults.rightKeyIndices,
+        index,
+        decodedInputs.baseRight->mapValues());
+
+    auto mergedKeys = materializeMergedKeys(
+        index, leftKeys, rightKeys, mergeResults, context.pool());
 
     std::vector<VectorPtr> lambdaArgs = {
         mergedKeys, mergedLeftValues, mergedRightValues};
@@ -137,14 +157,16 @@ class MapZipWithFunction : public exec::VectorFunction {
       SelectivityVector elementRows(index, false);
       entry.rows->applyToSelected([&](auto row) {
         elementRows.setValidRange(
-            rawNewOffsets[row], rawNewOffsets[row] + rawNewSizes[row], true);
+            mergeResults.rawNewOffsets[row],
+            mergeResults.rawNewOffsets[row] + mergeResults.rawNewSizes[row],
+            true);
       });
       elementRows.updateBounds();
 
       BufferPtr wrapCapture;
       if (entry.callable->hasCapture()) {
-        wrapCapture =
-            makeWrapCapture(*entry.rows, index, rawNewSizes, context.pool());
+        wrapCapture = makeWrapCapture(
+            *entry.rows, index, mergeResults.rawNewSizes, context.pool());
       }
 
       // Make sure already populated entries in newElements do not get
@@ -163,10 +185,10 @@ class MapZipWithFunction : public exec::VectorFunction {
     auto localResult = std::make_shared<MapVector>(
         context.pool(),
         outputType,
-        newNulls,
+        mergeResults.newNulls,
         rows.end(),
-        newOffsets,
-        newSizes,
+        mergeResults.newOffsets,
+        mergeResults.newSizes,
         mergedKeys,
         mergedValues);
     context.moveOrCopyResult(localResult, rows, result);
@@ -187,11 +209,175 @@ class MapZipWithFunction : public exec::VectorFunction {
   }
 
  private:
-  static void mergeKeys(
-      const VectorPtr& leftKeys,
-      const VectorPtr& rightKeys,
+  static vector_size_t countMapElements(
+      const SelectivityVector& rows,
+      DecodedVector& decodedMap) {
+    return countElements<MapVector>(rows, decodedMap);
+  }
+
+  template <TypeKind kind>
+  static vector_size_t mergeScalarNoNullKeys(
+      const SelectivityVector& rows,
+      const DecodedInputs& decodedInputs,
+      MergeResults& mergeResults) {
+    using T = typename TypeTraits<kind>::NativeType;
+
+    auto leftKeys = decodedInputs.baseLeft->mapKeys();
+    SelectivityVector leftKeyRows(leftKeys->size());
+    DecodedVector decodedLeftKeys(*leftKeys, leftKeyRows);
+
+    auto rightKeys = decodedInputs.baseRight->mapKeys();
+    SelectivityVector rightKeyRows(rightKeys->size());
+    DecodedVector decodedRightKeys(*rightKeys, rightKeyRows);
+
+    if (decodedLeftKeys.isConstantMapping() ||
+        decodedRightKeys.isConstantMapping()) {
+      return mergeKeys(
+          rows,
+          decodedInputs,
+          [&](auto left, auto right) {
+            return leftKeys->compare(
+                rightKeys.get(), left, right, CompareFlags());
+          },
+          mergeResults);
+    }
+
+    auto baseLeftKeys = decodedLeftKeys.base()->asUnchecked<FlatVector<T>>();
+    auto baseRightKeys = decodedRightKeys.base()->asUnchecked<FlatVector<T>>();
+
+    if (decodedLeftKeys.isIdentityMapping() &&
+        decodedRightKeys.isIdentityMapping()) {
+      return mergeDecodedKeys(
+          rows,
+          decodedInputs,
+          decodedLeftKeys,
+          decodedRightKeys,
+          [&](auto left, auto right) {
+            return baseLeftKeys->template compareFlat<false>(
+                baseRightKeys, left, right, CompareFlags());
+          },
+          mergeResults);
+    }
+
+    auto* leftMapping = decodedLeftKeys.indices();
+    auto* rightMapping = decodedRightKeys.indices();
+
+    return mergeDecodedKeys(
+        rows,
+        decodedInputs,
+        decodedLeftKeys,
+        decodedRightKeys,
+        [&](auto left, auto right) {
+          return baseLeftKeys->template compareFlat<false>(
+              baseRightKeys,
+              leftMapping[left],
+              rightMapping[right],
+              CompareFlags());
+        },
+        mergeResults);
+  }
+
+  template <typename TCompare>
+  static vector_size_t mergeKeys(
+      const SelectivityVector& rows,
+      const DecodedInputs& decodedInputs,
+      TCompare doCompare,
+      MergeResults& mergeResults) {
+    vector_size_t index = 0;
+    rows.applyToSelected([&](vector_size_t row) {
+      if (decodedInputs.decodedLeft->isNullAt(row) ||
+          decodedInputs.decodedRight->isNullAt(row)) {
+        bits::setNull(mergeResults.rawNewNulls, row);
+        return;
+      }
+
+      mergeResults.rawNewOffsets[row] = index;
+
+      auto leftRow = decodedInputs.decodedLeft->index(row);
+      auto rightRow = decodedInputs.decodedRight->index(row);
+
+      auto leftSorted = decodedInputs.baseLeft->sortedKeyIndices(leftRow);
+      auto rightSorted = decodedInputs.baseRight->sortedKeyIndices(rightRow);
+
+      mergeSingleMapKeys(
+          leftSorted,
+          rightSorted,
+          doCompare,
+          mergeResults.rawLeftKeyNulls,
+          mergeResults.rawRightKeyNulls,
+          mergeResults.rawLeftKeyIndices,
+          mergeResults.rawRightKeyIndices,
+          index);
+
+      mergeResults.rawNewSizes[row] = index - mergeResults.rawNewOffsets[row];
+    });
+    return index;
+  }
+
+  // Sorts keys of a single map. Returns a sorted list of key indices.
+  static std::vector<vector_size_t> sortKeys(
+      const MapVector* map,
+      vector_size_t mapRow,
+      DecodedVector& decodedKeys) {
+    auto size = map->sizeAt(mapRow);
+    auto offset = map->offsetAt(mapRow);
+    std::vector<vector_size_t> sorted(size);
+    std::iota(sorted.begin(), sorted.end(), offset);
+    if (decodedKeys.isIdentityMapping()) {
+      decodedKeys.base()->sortIndices(sorted, CompareFlags());
+    } else {
+      decodedKeys.base()->sortIndices(
+          sorted, decodedKeys.indices(), CompareFlags());
+    }
+    return sorted;
+  }
+
+  template <typename TCompare>
+  static vector_size_t mergeDecodedKeys(
+      const SelectivityVector& rows,
+      const DecodedInputs& decodedInputs,
+      DecodedVector& decodedLeftKeys,
+      DecodedVector& decodedRightKeys,
+      TCompare doCompare,
+      MergeResults& mergeResults) {
+    vector_size_t index = 0;
+    rows.applyToSelected([&](vector_size_t row) {
+      if (decodedInputs.decodedLeft->isNullAt(row) ||
+          decodedInputs.decodedRight->isNullAt(row)) {
+        bits::setNull(mergeResults.rawNewNulls, row);
+        return;
+      }
+
+      mergeResults.rawNewOffsets[row] = index;
+
+      auto leftRow = decodedInputs.decodedLeft->index(row);
+      auto rightRow = decodedInputs.decodedRight->index(row);
+
+      auto leftSorted =
+          sortKeys(decodedInputs.baseLeft, leftRow, decodedLeftKeys);
+      auto rightSorted =
+          sortKeys(decodedInputs.baseRight, rightRow, decodedRightKeys);
+
+      mergeSingleMapKeys(
+          leftSorted,
+          rightSorted,
+          doCompare,
+          mergeResults.rawLeftKeyNulls,
+          mergeResults.rawRightKeyNulls,
+          mergeResults.rawLeftKeyIndices,
+          mergeResults.rawRightKeyIndices,
+          index);
+
+      mergeResults.rawNewSizes[row] = index - mergeResults.rawNewOffsets[row];
+    });
+    return index;
+  }
+
+  template <typename TCompare>
+  static void mergeSingleMapKeys(
       const std::vector<vector_size_t>& leftSorted,
       const std::vector<vector_size_t>& rightSorted,
+      TCompare doCompare,
       uint64_t* rawLeftNulls,
       uint64_t* rawRightNulls,
       vector_size_t* rawLeftIndices,
@@ -203,8 +389,7 @@ class MapZipWithFunction : public exec::VectorFunction {
     vector_size_t leftIndex = 0;
     vector_size_t rightIndex = 0;
     while (leftIndex < numLeft && rightIndex < numRight) {
-      auto compare = leftKeys->compare(
-          rightKeys.get(), leftSorted[leftIndex], rightSorted[rightIndex]);
+      auto compare = doCompare(leftSorted[leftIndex], rightSorted[rightIndex]);
       if (compare == 0) {
         // Left key == right key.
         rawLeftIndices[index] = leftSorted[leftIndex];
@@ -236,6 +421,28 @@ class MapZipWithFunction : public exec::VectorFunction {
       rawRightIndices[index] = rightSorted[rightIndex];
       ++index;
     }
+  }
+
+  static VectorPtr materializeMergedKeys(
+      vector_size_t size,
+      const VectorPtr& leftKeys,
+      const VectorPtr& rightKeys,
+      const MergeResults& mergeResults,
+      memory::MemoryPool* pool) {
+    auto mergedKeys = BaseVector::create(leftKeys->type(), size, pool);
+
+    // Copy left keys.
+    SelectivityVector copyRows(size);
+    copyRows.deselectNulls(mergeResults.rawLeftKeyNulls, 0, size);
+    mergedKeys->copy(leftKeys.get(), copyRows, mergeResults.rawLeftKeyIndices);
+
+    // Copy right keys.
+    copyRows.setAll();
+    copyRows.deselectNonNulls(mergeResults.rawLeftKeyNulls, 0, size);
+    mergedKeys->copy(
+        rightKeys.get(), copyRows, mergeResults.rawRightKeyIndices);
+
+    return mergedKeys;
   }
 
   static BufferPtr makeWrapCapture(
