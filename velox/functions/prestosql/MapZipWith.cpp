@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <optional>
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
@@ -190,7 +191,9 @@ class MapZipWithFunction : public exec::VectorFunction {
         mergeResults.newOffsets,
         mergeResults.newSizes,
         mergedKeys,
-        mergedValues);
+        mergedValues,
+        std::nullopt, /* nullCount */
+        true /* sortedKeys */);
     context.moveOrCopyResult(localResult, rows, result);
   }
 

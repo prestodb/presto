@@ -462,7 +462,8 @@ class MapVector : public ArrayVectorBase {
       BufferPtr sizes,
       VectorPtr keys,
       VectorPtr values,
-      std::optional<vector_size_t> nullCount = std::nullopt)
+      std::optional<vector_size_t> nullCount = std::nullopt,
+      bool sortedKeys = false)
       : ArrayVectorBase(
             pool,
             type,
@@ -479,7 +480,8 @@ class MapVector : public ArrayVectorBase {
         values_(BaseVector::getOrCreateEmpty(
             std::move(values),
             type->childAt(1),
-            pool)) {
+            pool)),
+        sortedKeys_{sortedKeys} {
     VELOX_CHECK_EQ(type->kind(), TypeKind::MAP);
 
     VELOX_CHECK(
@@ -612,7 +614,7 @@ class MapVector : public ArrayVectorBase {
 
   VectorPtr keys_;
   VectorPtr values_;
-  bool sortedKeys_ = false;
+  bool sortedKeys_;
 };
 
 using RowVectorPtr = std::shared_ptr<RowVector>;

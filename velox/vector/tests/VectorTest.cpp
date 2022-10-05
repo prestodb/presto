@@ -1972,6 +1972,59 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   EXPECT_EQ(2, flatVector->stringBuffers().size());
 }
 
+TEST_F(VectorTest, mapCanonicalize) {
+  auto mapVector = makeMapVector<int64_t, int64_t>({
+      {{4, 40}, {3, 30}, {2, 20}, {5, 50}, {1, 10}},
+      {{4, 41}},
+      {},
+  });
+
+  EXPECT_FALSE(mapVector->hasSortedKeys());
+
+  test::assertEqualVectors(
+      mapVector->mapKeys(), makeFlatVector<int64_t>({4, 3, 2, 5, 1, 4}));
+  test::assertEqualVectors(
+      mapVector->mapValues(),
+      makeFlatVector<int64_t>({40, 30, 20, 50, 10, 41}));
+
+  // Sort keys.
+  MapVector::canonicalize(mapVector);
+  EXPECT_TRUE(mapVector->hasSortedKeys());
+
+  test::assertEqualVectors(
+      mapVector->mapKeys(), makeFlatVector<int64_t>({1, 2, 3, 4, 5, 4}));
+  test::assertEqualVectors(
+      mapVector->mapValues(),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 41}));
+
+  EXPECT_EQ(mapVector->sizeAt(0), 5);
+  EXPECT_EQ(mapVector->offsetAt(0), 0);
+
+  EXPECT_EQ(mapVector->sizeAt(1), 1);
+  EXPECT_EQ(mapVector->offsetAt(1), 5);
+
+  EXPECT_EQ(mapVector->sizeAt(2), 0);
+  EXPECT_EQ(mapVector->offsetAt(2), 6);
+}
+
+TEST_F(VectorTest, mapCreateSorted) {
+  BufferPtr offsets = makeIndices({0, 5, 6});
+  BufferPtr sizes = makeIndices({5, 1, 0});
+  auto mapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      3,
+      offsets,
+      sizes,
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5, 4}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50, 41}),
+      std::nullopt,
+      true);
+
+  EXPECT_TRUE(mapVector->hasSortedKeys());
+}
+
 TEST_F(VectorTest, flatSliceMutability) {
   auto vec = makeFlatVector<int64_t>(
       10,
