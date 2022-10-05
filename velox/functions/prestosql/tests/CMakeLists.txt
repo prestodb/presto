@@ -50,6 +50,7 @@ add_executable(
   MapFilterTest.cpp
   MapKeysAndValuesTest.cpp
   MapTest.cpp
+  MapZipWithTest.cpp
   NotTest.cpp
   ReduceTest.cpp
   RegexpReplaceTest.cpp

@@ -29,6 +29,7 @@ void registerMapFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_map_values, "map_values");
   VELOX_REGISTER_VECTOR_FUNCTION(
       udf_map_concat_empty_null, "map_concat_empty_nulls");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_map_zip_with, "map_zip_with");
 }
 
 void registerMapAllowingDuplicates(const std::string& name) {

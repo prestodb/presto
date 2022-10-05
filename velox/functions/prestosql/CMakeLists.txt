@@ -36,6 +36,7 @@ add_library(
   MapConcat.cpp
   MapEntries.cpp
   MapKeysAndValues.cpp
+  MapZipWith.cpp
   Not.cpp
   Reduce.cpp
   Reverse.cpp
