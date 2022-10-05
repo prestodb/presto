@@ -314,22 +314,27 @@ class MapZipWithFunction : public exec::VectorFunction {
     return index;
   }
 
-  // Sorts keys of a single map. Returns a sorted list of key indices.
-  static std::vector<vector_size_t> sortKeys(
+  // Sorts keys of a single map and writes sorted key indices into provided
+  // 'sorted' vector.
+  static void sortKeys(
       const MapVector* map,
       vector_size_t mapRow,
-      DecodedVector& decodedKeys) {
+      DecodedVector& decodedKeys,
+      std::vector<vector_size_t>& sorted) {
     auto size = map->sizeAt(mapRow);
     auto offset = map->offsetAt(mapRow);
-    std::vector<vector_size_t> sorted(size);
+
+    sorted.resize(size);
     std::iota(sorted.begin(), sorted.end(), offset);
-    if (decodedKeys.isIdentityMapping()) {
-      decodedKeys.base()->sortIndices(sorted, CompareFlags());
-    } else {
-      decodedKeys.base()->sortIndices(
-          sorted, decodedKeys.indices(), CompareFlags());
+
+    if (!map->hasSortedKeys()) {
+      if (decodedKeys.isIdentityMapping()) {
+        decodedKeys.base()->sortIndices(sorted, CompareFlags());
+      } else {
+        decodedKeys.base()->sortIndices(
+            sorted, decodedKeys.indices(), CompareFlags());
+      }
     }
-    return sorted;
   }
 
   template <typename TCompare>
@@ -341,6 +346,10 @@ class MapZipWithFunction : public exec::VectorFunction {
       TCompare doCompare,
       MergeResults& mergeResults) {
     vector_size_t index = 0;
+
+    std::vector<vector_size_t> leftSorted;
+    std::vector<vector_size_t> rightSorted;
+
     rows.applyToSelected([&](vector_size_t row) {
       if (decodedInputs.decodedLeft->isNullAt(row) ||
           decodedInputs.decodedRight->isNullAt(row)) {
@@ -353,10 +362,9 @@ class MapZipWithFunction : public exec::VectorFunction {
       auto leftRow = decodedInputs.decodedLeft->index(row);
       auto rightRow = decodedInputs.decodedRight->index(row);
 
-      auto leftSorted =
-          sortKeys(decodedInputs.baseLeft, leftRow, decodedLeftKeys);
-      auto rightSorted =
-          sortKeys(decodedInputs.baseRight, rightRow, decodedRightKeys);
+      sortKeys(decodedInputs.baseLeft, leftRow, decodedLeftKeys, leftSorted);
+      sortKeys(
+          decodedInputs.baseRight, rightRow, decodedRightKeys, rightSorted);
 
       mergeSingleMapKeys(
           leftSorted,

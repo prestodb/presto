@@ -530,6 +530,10 @@ class MapVector : public ArrayVectorBase {
     return values_;
   }
 
+  bool hasSortedKeys() const {
+    return sortedKeys_;
+  }
+
   vector_size_t reserveMap(vector_size_t offset, vector_size_t size);
 
   void setKeysAndValues(VectorPtr keys, VectorPtr values) {
