@@ -38,6 +38,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -86,8 +87,7 @@ public class TestPrestoSparkHttpWorkerClient
             assertEquals(0, page.getToken());
             assertEquals(true, page.isClientComplete());
             assertEquals(taskId.toString(), page.getTaskInstanceId());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
@@ -111,8 +111,7 @@ public class TestPrestoSparkHttpWorkerClient
         ListenableFuture<?> future = workerClient.abortResults();
         try {
             future.get();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             fail();
         }
@@ -128,21 +127,20 @@ public class TestPrestoSparkHttpWorkerClient
                 newScheduledThreadPool(1),
                 workerClient,
                 taskId,
-                new Duration(30, TimeUnit.SECONDS));
+                Optional.of(new Duration(30, TimeUnit.SECONDS)));
         CompletableFuture<Void> future = taskResultFetcher.start();
         try {
             future.get();
             List<SerializedPage> pages = new ArrayList<>();
-            SerializedPage page = taskResultFetcher.pollPage();
-            while (page != null) {
-                pages.add(page);
+            Optional<SerializedPage> page = taskResultFetcher.pollPage();
+            while (page.isPresent()) {
+                pages.add(page.get());
                 page = taskResultFetcher.pollPage();
             }
 
             assertEquals(1, pages.size());
             assertEquals(0, pages.get(0).getSizeInBytes());
-        }
-        catch (InterruptedException | ExecutionException e) {
+        } catch (InterruptedException | ExecutionException e) {
             e.printStackTrace();
             fail();
         }
@@ -162,7 +160,7 @@ public class TestPrestoSparkHttpWorkerClient
                 newScheduledThreadPool(1),
                 workerClient,
                 taskId,
-                new Duration(200, TimeUnit.MILLISECONDS));
+                Optional.of(new Duration(200, TimeUnit.MILLISECONDS)));
         CompletableFuture<Void> future = taskResultFetcher.start();
         assertThrows(ExecutionException.class, future::get);
     }
@@ -200,8 +198,7 @@ public class TestPrestoSparkHttpWorkerClient
         {
             try {
                 return executeAsync(request, responseHandler).get();
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 e.printStackTrace();
                 return null;
             }
@@ -225,8 +222,7 @@ public class TestPrestoSparkHttpWorkerClient
                                 if (path.contains("acknowledge")) {
                                     try {
                                         future.complete(responseHandler.handle(request, TestingResponse.createDummyResultResponse()));
-                                    }
-                                    catch (Exception e) {
+                                    } catch (Exception e) {
                                         e.printStackTrace();
                                         future.completeExceptionally(e);
                                     }
@@ -242,20 +238,17 @@ public class TestPrestoSparkHttpWorkerClient
                                                         0,
                                                         1,
                                                         true)));
-                                    }
-                                    catch (Exception e) {
+                                    } catch (Exception e) {
                                         e.printStackTrace();
                                         future.completeExceptionally(e);
                                     }
                                 }
                             }
-                        }
-                        else if (method.equalsIgnoreCase("DELETE")) {
+                        } else if (method.equalsIgnoreCase("DELETE")) {
                             // DELETE /v1/task/{taskId}
                             try {
                                 future.complete(responseHandler.handle(request, TestingResponse.createDummyResultResponse()));
-                            }
-                            catch (Exception e) {
+                            } catch (Exception e) {
                                 e.printStackTrace();
                                 future.completeExceptionally(e);
                             }
