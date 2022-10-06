@@ -34,7 +34,6 @@ import com.facebook.presto.spi.tracing.Tracer;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -42,9 +41,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 
 import java.security.Principal;
-import java.security.cert.X509Certificate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -73,7 +70,6 @@ public final class Session
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
-    private final List<X509Certificate> certificates;
     private final Optional<String> source;
     private final Optional<String> catalog;
     private final Optional<String> schema;
@@ -103,7 +99,6 @@ public final class Session
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
-            List<X509Certificate> certificates,
             Optional<String> source,
             Optional<String> catalog,
             Optional<String> schema,
@@ -129,7 +124,6 @@ public final class Session
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
-        this.certificates = requireNonNull(certificates, "certificates is null");
         this.source = requireNonNull(source, "source is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -180,11 +174,6 @@ public final class Session
     public Identity getIdentity()
     {
         return identity;
-    }
-
-    public List<X509Certificate> getCertificates()
-    {
-        return certificates;
     }
 
     public Optional<String> getSource()
@@ -404,7 +393,6 @@ public final class Session
                         identity.getExtraAuthenticators(),
                         identity.getSelectedUser(),
                         identity.getReasonForSelect()),
-                certificates,
                 source,
                 catalog,
                 schema,
@@ -460,7 +448,6 @@ public final class Session
                 transactionId,
                 clientTransactionSupport,
                 identity,
-                certificates,
                 source,
                 catalog,
                 schema,
@@ -582,7 +569,6 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
-        private List<X509Certificate> certificates = ImmutableList.of();
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
@@ -621,7 +607,6 @@ public final class Session
             this.transactionId = session.transactionId.orElse(null);
             this.clientTransactionSupport = session.clientTransactionSupport;
             this.identity = session.identity;
-            this.certificates = session.certificates;
             this.source = session.source.orElse(null);
             this.catalog = session.catalog.orElse(null);
             this.schema = session.schema.orElse(null);
@@ -720,12 +705,6 @@ public final class Session
             return this;
         }
 
-        public SessionBuilder setCertificates(List<X509Certificate> certificates)
-        {
-            this.certificates = requireNonNull(certificates, "certificates is null");
-            return this;
-        }
-
         public SessionBuilder setUserAgent(String userAgent)
         {
             this.userAgent = userAgent;
@@ -807,7 +786,6 @@ public final class Session
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,
-                    certificates,
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),

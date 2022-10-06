@@ -90,7 +90,6 @@ public class QuerySessionSupplier
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
                 .setIdentity(identity)
-                .setCertificates(context.getCertificates())
                 .setSource(context.getSource())
                 .setCatalog(context.getCatalog())
                 .setSchema(context.getSchema())
