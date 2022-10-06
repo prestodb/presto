@@ -14,6 +14,7 @@
 package com.facebook.presto.server.protocol;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.client.StageStats;
 import com.facebook.presto.client.StatementStats;
@@ -29,10 +30,15 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.net.URLEncoder;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -44,16 +50,20 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_ADDED_SESSION_FUNC
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_CLEAR_TRANSACTION_ID;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_DEALLOCATED_PREPARE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_REMOVED_SESSION_FUNCTION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_CATALOG;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_ROLE;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SCHEMA;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
+import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 
 public final class QueryResourceUtil
 {
+    private static final Logger log = Logger.get(QueryResourceUtil.class);
     private static final JsonCodec<SqlFunctionId> SQL_FUNCTION_ID_JSON_CODEC = jsonCodec(SqlFunctionId.class);
     private static final JsonCodec<SqlInvokedFunction> SQL_INVOKED_FUNCTION_JSON_CODEC = jsonCodec(SqlInvokedFunction.class);
 
@@ -118,6 +128,56 @@ public final class QueryResourceUtil
         }
 
         return response.build();
+    }
+
+    public static Response toResponse(Query query, QueryResults queryResults, String xPrestoPrefixUri, boolean compressionEnabled)
+    {
+        QueryResults resultsClone = new QueryResults(
+                queryResults.getId(),
+                prependUri(queryResults.getInfoUri(), xPrestoPrefixUri),
+                prependUri(queryResults.getPartialCancelUri(), xPrestoPrefixUri),
+                prependUri(queryResults.getNextUri(), xPrestoPrefixUri),
+                queryResults.getColumns(),
+                queryResults.getData(),
+                queryResults.getStats(),
+                queryResults.getError(),
+                queryResults.getWarnings(),
+                queryResults.getUpdateType(),
+                queryResults.getUpdateCount());
+
+        return toResponse(query, resultsClone, compressionEnabled);
+    }
+
+    public static void abortIfPrefixUrlInvalid(String xPrestoPrefixUrl)
+    {
+        if (xPrestoPrefixUrl != null) {
+            try {
+                URL url = new URL(xPrestoPrefixUrl);
+            }
+            catch (java.net.MalformedURLException e) {
+                throw new WebApplicationException(
+                        Response.status(Response.Status.BAD_REQUEST)
+                                .type(TEXT_PLAIN_TYPE)
+                                .entity(PRESTO_PREFIX_URL + " is not a valid URL")
+                                .build());
+            }
+        }
+    }
+
+    public static URI prependUri(URI backendUri, String xPrestoPrefixUrl)
+    {
+        if (!isNullOrEmpty(xPrestoPrefixUrl) && (backendUri != null)) {
+            String encodedBackendUri = Base64.getUrlEncoder().encodeToString(backendUri.toASCIIString().getBytes());
+
+            try {
+                return new URI(xPrestoPrefixUrl + encodedBackendUri);
+            }
+            catch (URISyntaxException e) {
+                log.error(e, "Unable to add Proxy Prefix to URL");
+            }
+        }
+
+        return backendUri;
     }
 
     public static StatementStats toStatementStats(QueryInfo queryInfo)
