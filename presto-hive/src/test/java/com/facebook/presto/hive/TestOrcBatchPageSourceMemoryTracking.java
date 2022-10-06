@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -503,7 +504,11 @@ public class TestOrcBatchPageSourceMemoryTracking
                     table,
                     columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(
+                    new ScheduledSplit(
+                            0,
+                            operator.getSourceId(),
+                            new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
             return operator;
         }
 
@@ -530,7 +535,11 @@ public class TestOrcBatchPageSourceMemoryTracking
                     new DataSize(0, BYTE),
                     0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(
+                    new ScheduledSplit(
+                            0,
+                            operator.getSourceId(),
+                            new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
             return operator;
         }
 

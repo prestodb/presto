@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
@@ -113,7 +114,7 @@ public class TestMergeOperator
         assertFalse(operator.isFinished());
         assertFalse(operator.isBlocked().isDone());
 
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
         assertFalse(operator.isFinished());
         assertFalse(operator.isBlocked().isDone());
 
@@ -155,8 +156,8 @@ public class TestMergeOperator
     {
         ImmutableList<Type> types = ImmutableList.of(BIGINT, INTEGER);
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(1, 0), ImmutableList.of(1, 0), ImmutableList.of(DESC_NULLS_FIRST, ASC_NULLS_FIRST));
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
-        operator.addSplit(createRemoteSplit(TASK_2_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), createRemoteSplit(TASK_2_ID)));
         operator.noMoreSplits();
 
         List<Page> task1Pages = rowPagesBuilder(types)
@@ -205,9 +206,9 @@ public class TestMergeOperator
         List<Type> types = ImmutableList.of(BIGINT, BIGINT, BIGINT);
 
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(0, 1, 2), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST));
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
-        operator.addSplit(createRemoteSplit(TASK_2_ID));
-        operator.addSplit(createRemoteSplit(TASK_3_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), createRemoteSplit(TASK_2_ID)));
+        operator.addSplit(new ScheduledSplit(2, operator.getSourceId(), createRemoteSplit(TASK_3_ID)));
         operator.noMoreSplits();
 
         List<Page> source1Pages = rowPagesBuilder(types)

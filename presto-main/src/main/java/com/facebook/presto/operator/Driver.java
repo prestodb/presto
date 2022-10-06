@@ -273,7 +273,7 @@ public class Driver
                 this.split.set(split);
             }
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(newSplit);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
         }
 
