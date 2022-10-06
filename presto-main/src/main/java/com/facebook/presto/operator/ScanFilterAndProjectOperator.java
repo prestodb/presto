@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
@@ -135,8 +136,9 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        Split split = requireNonNull(scheduledSplit, "scheduledSplit is null").getSplit();
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 

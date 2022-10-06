@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -145,8 +146,9 @@ public class TableScanOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        Split split = requireNonNull(scheduledSplit, "scheduledSplit is null").getSplit();
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 

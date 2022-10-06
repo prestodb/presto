@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
@@ -119,8 +120,9 @@ public class IndexSourceOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        Split split = requireNonNull(scheduledSplit, "scheduledSplit is null").getSplit();
         requireNonNull(split, "split is null");
         checkState(source == null, "Index source split already set");
 
