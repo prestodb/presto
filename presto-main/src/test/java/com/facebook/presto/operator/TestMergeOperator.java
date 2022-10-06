@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
@@ -113,19 +114,13 @@ public class TestMergeOperator
         assertFalse(operator.isFinished());
         assertFalse(operator.isBlocked().isDone());
 
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
         assertFalse(operator.isFinished());
         assertFalse(operator.isBlocked().isDone());
 
         operator.noMoreSplits();
 
-        List<Page> input = rowPagesBuilder(types)
-                .row(1, 1)
-                .row(2, 2)
-                .pageBreak()
-                .row(3, 3)
-                .row(4, 4)
-                .build();
+        List<Page> input = rowPagesBuilder(types).row(1, 1).row(2, 2).pageBreak().row(3, 3).row(4, 4).build();
 
         assertNull(operator.getOutput());
         assertFalse(operator.isFinished());
@@ -138,13 +133,7 @@ public class TestMergeOperator
         taskBuffers.getUnchecked(TASK_1_ID).addPage(input.get(1), true);
         assertOperatorIsUnblocked(operator);
 
-        Page expected = rowPagesBuilder(BIGINT)
-                .row(1)
-                .row(2)
-                .row(3)
-                .row(4)
-                .build()
-                .get(0);
+        Page expected = rowPagesBuilder(BIGINT).row(1).row(2).row(3).row(4).build().get(0);
         assertPageEquals(ImmutableList.of(BIGINT), getOnlyElement(pullAvailablePages(operator)), expected);
         operator.close();
     }
@@ -155,21 +144,13 @@ public class TestMergeOperator
     {
         ImmutableList<Type> types = ImmutableList.of(BIGINT, INTEGER);
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(1, 0), ImmutableList.of(1, 0), ImmutableList.of(DESC_NULLS_FIRST, ASC_NULLS_FIRST));
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
-        operator.addSplit(createRemoteSplit(TASK_2_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), createRemoteSplit(TASK_2_ID)));
         operator.noMoreSplits();
 
-        List<Page> task1Pages = rowPagesBuilder(types)
-                .row(0, null)
-                .row(1, 4)
-                .row(2, 3)
-                .build();
+        List<Page> task1Pages = rowPagesBuilder(types).row(0, null).row(1, 4).row(2, 3).build();
 
-        List<Page> task2Pages = rowPagesBuilder(types)
-                .row(null, 5)
-                .row(2, 5)
-                .row(4, 3)
-                .build();
+        List<Page> task2Pages = rowPagesBuilder(types).row(null, 5).row(2, 5).row(4, 3).build();
 
         // blocked on first data source
         assertNull(operator.getOutput());
@@ -184,15 +165,7 @@ public class TestMergeOperator
         assertOperatorIsUnblocked(operator);
 
         ImmutableList<Type> outputTypes = ImmutableList.of(INTEGER, BIGINT);
-        Page expected = rowPagesBuilder(outputTypes)
-                .row(null, 0)
-                .row(5, null)
-                .row(5, 2)
-                .row(4, 1)
-                .row(3, 2)
-                .row(3, 4)
-                .build()
-                .get(0);
+        Page expected = rowPagesBuilder(outputTypes).row(null, 0).row(5, null).row(5, 2).row(4, 1).row(3, 2).row(3, 4).build().get(0);
 
         assertPageEquals(outputTypes, getOnlyElement(pullAvailablePages(operator)), expected);
         operator.close();
@@ -205,60 +178,16 @@ public class TestMergeOperator
         List<Type> types = ImmutableList.of(BIGINT, BIGINT, BIGINT);
 
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(0, 1, 2), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_FIRST));
-        operator.addSplit(createRemoteSplit(TASK_1_ID));
-        operator.addSplit(createRemoteSplit(TASK_2_ID));
-        operator.addSplit(createRemoteSplit(TASK_3_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), createRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), createRemoteSplit(TASK_2_ID)));
+        operator.addSplit(new ScheduledSplit(2, operator.getSourceId(), createRemoteSplit(TASK_3_ID)));
         operator.noMoreSplits();
 
-        List<Page> source1Pages = rowPagesBuilder(types)
-                .row(1, 1, 2)
-                .row(8, 1, 1)
-                .row(19, 1, 3)
-                .row(27, 1, 4)
-                .row(41, 2, 5)
-                .pageBreak()
-                .row(55, 1, 2)
-                .row(89, 1, 3)
-                .row(101, 1, 4)
-                .row(202, 1, 3)
-                .row(399, 2, 2)
-                .pageBreak()
-                .row(400, 1, 1)
-                .row(401, 1, 7)
-                .row(402, 1, 6)
-                .build();
+        List<Page> source1Pages = rowPagesBuilder(types).row(1, 1, 2).row(8, 1, 1).row(19, 1, 3).row(27, 1, 4).row(41, 2, 5).pageBreak().row(55, 1, 2).row(89, 1, 3).row(101, 1, 4).row(202, 1, 3).row(399, 2, 2).pageBreak().row(400, 1, 1).row(401, 1, 7).row(402, 1, 6).build();
 
-        List<Page> source2Pages = rowPagesBuilder(types)
-                .row(2, 1, 2)
-                .row(8, 1, 1)
-                .row(19, 1, 3)
-                .row(25, 1, 4)
-                .row(26, 2, 5)
-                .pageBreak()
-                .row(56, 1, 2)
-                .row(66, 1, 3)
-                .row(77, 1, 4)
-                .row(88, 1, 3)
-                .row(99, 2, 2)
-                .pageBreak()
-                .row(99, 1, 1)
-                .row(100, 1, 7)
-                .row(100, 1, 6)
-                .build();
+        List<Page> source2Pages = rowPagesBuilder(types).row(2, 1, 2).row(8, 1, 1).row(19, 1, 3).row(25, 1, 4).row(26, 2, 5).pageBreak().row(56, 1, 2).row(66, 1, 3).row(77, 1, 4).row(88, 1, 3).row(99, 2, 2).pageBreak().row(99, 1, 1).row(100, 1, 7).row(100, 1, 6).build();
 
-        List<Page> source3Pages = rowPagesBuilder(types)
-                .row(88, 1, 3)
-                .row(89, 1, 3)
-                .row(90, 1, 3)
-                .row(91, 1, 4)
-                .row(92, 2, 5)
-                .pageBreak()
-                .row(93, 1, 2)
-                .row(94, 1, 3)
-                .row(95, 1, 4)
-                .row(97, 1, 3)
-                .row(98, 2, 2)
-                .build();
+        List<Page> source3Pages = rowPagesBuilder(types).row(88, 1, 3).row(89, 1, 3).row(90, 1, 3).row(91, 1, 4).row(92, 2, 5).pageBreak().row(93, 1, 2).row(94, 1, 3).row(95, 1, 4).row(97, 1, 3).row(98, 2, 2).build();
 
         // blocked on first data source
         assertNull(operator.getOutput());
@@ -286,45 +215,7 @@ public class TestMergeOperator
         taskBuffers.getUnchecked(TASK_3_ID).addPage(source3Pages.get(1), true);
         taskBuffers.getUnchecked(TASK_2_ID).addPage(source2Pages.get(2), true);
         taskBuffers.getUnchecked(TASK_1_ID).addPage(source1Pages.get(2), true);
-        Page expected = rowPagesBuilder(types)
-                .row(1, 1, 2)
-                .row(2, 1, 2)
-                .row(8, 1, 1)
-                .row(8, 1, 1)
-                .row(19, 1, 3)
-                .row(19, 1, 3)
-                .row(25, 1, 4)
-                .row(26, 2, 5)
-                .row(27, 1, 4)
-                .row(41, 2, 5)
-                .row(55, 1, 2)
-                .row(56, 1, 2)
-                .row(66, 1, 3)
-                .row(77, 1, 4)
-                .row(88, 1, 3)
-                .row(88, 1, 3)
-                .row(89, 1, 3)
-                .row(89, 1, 3)
-                .row(90, 1, 3)
-                .row(91, 1, 4)
-                .row(92, 2, 5)
-                .row(93, 1, 2)
-                .row(94, 1, 3)
-                .row(95, 1, 4)
-                .row(97, 1, 3)
-                .row(98, 2, 2)
-                .row(99, 2, 2)
-                .row(99, 1, 1)
-                .row(100, 1, 7)
-                .row(100, 1, 6)
-                .row(101, 1, 4)
-                .row(202, 1, 3)
-                .row(399, 2, 2)
-                .row(400, 1, 1)
-                .row(401, 1, 7)
-                .row(402, 1, 6)
-                .build()
-                .get(0);
+        Page expected = rowPagesBuilder(types).row(1, 1, 2).row(2, 1, 2).row(8, 1, 1).row(8, 1, 1).row(19, 1, 3).row(19, 1, 3).row(25, 1, 4).row(26, 2, 5).row(27, 1, 4).row(41, 2, 5).row(55, 1, 2).row(56, 1, 2).row(66, 1, 3).row(77, 1, 4).row(88, 1, 3).row(88, 1, 3).row(89, 1, 3).row(89, 1, 3).row(90, 1, 3).row(91, 1, 4).row(92, 2, 5).row(93, 1, 2).row(94, 1, 3).row(95, 1, 4).row(97, 1, 3).row(98, 2, 2).row(99, 2, 2).row(99, 1, 1).row(100, 1, 7).row(100, 1, 6).row(101, 1, 4).row(202, 1, 3).row(399, 2, 2).row(400, 1, 1).row(401, 1, 7).row(402, 1, 6).build().get(0);
 
         assertPageEquals(types, getOnlyElement(pullAvailablePages(operator)), expected);
         operator.close();
@@ -333,19 +224,8 @@ public class TestMergeOperator
     private MergeOperator createMergeOperator(List<Type> sourceTypes, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
     {
         int mergeOperatorId = operatorId.getAndIncrement();
-        MergeOperator.MergeOperatorFactory factory = new MergeOperator.MergeOperatorFactory(
-                mergeOperatorId,
-                new PlanNodeId("plan_node_id" + mergeOperatorId),
-                new TaskExchangeClientManager(exchangeClientFactory),
-                serdeFactory,
-                orderingCompiler,
-                sourceTypes,
-                outputChannels,
-                sortChannels,
-                sortOrder);
-        DriverContext driverContext = createTaskContext(executor, executor, TEST_SESSION)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+        MergeOperator.MergeOperatorFactory factory = new MergeOperator.MergeOperatorFactory(mergeOperatorId, new PlanNodeId("plan_node_id" + mergeOperatorId), new TaskExchangeClientManager(exchangeClientFactory), serdeFactory, orderingCompiler, sourceTypes, outputChannels, sortChannels, sortOrder);
+        DriverContext driverContext = createTaskContext(executor, executor, TEST_SESSION).addPipelineContext(0, true, true, false).addDriverContext();
         return (MergeOperator) factory.createOperator(driverContext);
     }
 

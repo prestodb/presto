@@ -14,6 +14,7 @@
 package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
@@ -47,11 +48,7 @@ public class ExchangeOperator
         private ExchangeClient exchangeClient;
         private boolean closed;
 
-        public ExchangeOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                TaskExchangeClientManager taskExchangeClientManager,
-                PagesSerdeFactory serdeFactory)
+        public ExchangeOperatorFactory(int operatorId, PlanNodeId sourceId, TaskExchangeClientManager taskExchangeClientManager, PagesSerdeFactory serdeFactory)
         {
             this.operatorId = operatorId;
             this.sourceId = sourceId;
@@ -74,11 +71,7 @@ public class ExchangeOperator
                 exchangeClient = taskExchangeClientManager.createExchangeClient(driverContext.getPipelineContext().localSystemMemoryContext());
             }
 
-            return new ExchangeOperator(
-                    operatorContext,
-                    sourceId,
-                    serdeFactory.createPagesSerde(),
-                    exchangeClient);
+            return new ExchangeOperator(operatorContext, sourceId, serdeFactory.createPagesSerde(), exchangeClient);
         }
 
         @Override
@@ -94,11 +87,7 @@ public class ExchangeOperator
     private final PagesSerde serde;
     private ListenableFuture<?> isBlocked = NOT_BLOCKED;
 
-    public ExchangeOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            PagesSerde serde,
-            ExchangeClient exchangeClient)
+    public ExchangeOperator(OperatorContext operatorContext, PlanNodeId sourceId, PagesSerde serde, ExchangeClient exchangeClient)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -115,8 +104,10 @@ public class ExchangeOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        requireNonNull(scheduledSplit, "scheduledSplit is null");
+        Split split = scheduledSplit.getSplit();
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorId().equals(REMOTE_CONNECTOR_ID), "split is not a remote split");
 

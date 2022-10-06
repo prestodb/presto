@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.hive.orc.OrcBatchPageSourceFactory;
@@ -146,10 +147,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
     private final Random random = new Random();
-    private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder()
-            .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true))
-            .add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false))
-            .build();
+    private final List<TestColumn> testColumns = ImmutableList.<TestColumn>builder().add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true)).add(new TestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false)).build();
 
     private File tempFile;
     private TestPreparer testPreparer;
@@ -250,19 +248,13 @@ public class TestOrcBatchPageSourceMemoryTracking
         int maxReadBytes = 1_000;
         HiveClientConfig config = new HiveClientConfig();
         config.setOrcMaxReadBlockSize(new DataSize(maxReadBytes, BYTE));
-        ConnectorSession session = new TestingConnectorSession(
-                new HiveSessionProperties(
-                        config,
-                        new OrcFileWriterConfig(),
-                        new ParquetFileWriterConfig(),
-                        new CacheConfig()).getSessionProperties());
+        ConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(config, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties());
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
 
         // Build a table where every row gets larger, so we can test that the "batchSize" reduces
         int numColumns = 5;
         int step = 250;
-        ImmutableList.Builder<TestColumn> columnBuilder = ImmutableList.<TestColumn>builder()
-                .add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
+        ImmutableList.Builder<TestColumn> columnBuilder = ImmutableList.<TestColumn>builder().add(new TestColumn("p_empty_string", javaStringObjectInspector, () -> "", true));
         GrowingTestColumn[] dataColumns = new GrowingTestColumn[numColumns];
         for (int i = 0; i < numColumns; i++) {
             dataColumns[i] = new GrowingTestColumn("p_string", javaStringObjectInspector, () -> Long.toHexString(random.nextLong()), false, step * (i + 1));
@@ -398,24 +390,11 @@ public class TestOrcBatchPageSourceMemoryTracking
                 throws Exception
         {
             OrcSerde serde = new OrcSerde();
-            storage = new Storage(
-                    StorageFormat.create(serde.getClass().getName(), OrcInputFormat.class.getName(), OrcOutputFormat.class.getName()),
-                    "location",
-                    Optional.empty(),
-                    false,
-                    ImmutableMap.of(),
-                    ImmutableMap.of());
+            storage = new Storage(StorageFormat.create(serde.getClass().getName(), OrcInputFormat.class.getName(), OrcOutputFormat.class.getName()), "location", Optional.empty(), false, ImmutableMap.of(), ImmutableMap.of());
 
-            partitionKeys = testColumns.stream()
-                    .filter(TestColumn::isPartitionKey)
-                    .map(input -> new HivePartitionKey(input.getName(), Optional.ofNullable((String) input.getWriteValue())))
-                    .collect(toList());
+            partitionKeys = testColumns.stream().filter(TestColumn::isPartitionKey).map(input -> new HivePartitionKey(input.getName(), Optional.ofNullable((String) input.getWriteValue()))).collect(toList());
 
-            table = new TableHandle(
-                    new ConnectorId("test"),
-                    new ConnectorTableHandle() {},
-                    new ConnectorTransactionHandle() {},
-                    Optional.empty());
+            table = new TableHandle(new ConnectorId("test"), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}, Optional.empty());
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
@@ -449,61 +428,16 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
-                    FUNCTION_AND_TYPE_MANAGER,
-                    FUNCTION_RESOLUTION,
-                    false,
-                    HDFS_ENVIRONMENT,
-                    stats,
-                    100,
-                    new StorageOrcFileTailSource(),
-                    StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
-            return HivePageSourceProvider.createHivePageSource(
-                    ImmutableSet.of(),
-                    ImmutableSet.of(orcPageSourceFactory),
-                    new Configuration(),
-                    session,
-                    fileSplit.getPath(),
-                    OptionalInt.empty(),
-                    fileSplit.getStart(),
-                    fileSplit.getLength(),
-                    fileSplit.getLength(),
-                    Instant.now().toEpochMilli(),
-                    storage,
-                    TupleDomain.all(),
-                    columns,
-                    ImmutableMap.of(),
-                    partitionKeys,
-                    DateTimeZone.UTC,
-                    FUNCTION_AND_TYPE_MANAGER,
-                    new SchemaTableName("schema", "table"),
-                    ImmutableList.of(),
-                    ImmutableList.of(),
-                    ImmutableMap.of(),
-                    0,
-                    TableToPartitionMapping.empty(),
-                    Optional.empty(),
-                    false,
-                    DEFAULT_HIVE_FILE_CONTEXT,
-                    null,
-                    false,
-                    ROW_EXPRESSION_SERVICE,
-                    Optional.empty(),
-                    ImmutableMap.of())
-                    .get();
+            OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(FUNCTION_AND_TYPE_MANAGER, FUNCTION_RESOLUTION, false, HDFS_ENVIRONMENT, stats, 100, new StorageOrcFileTailSource(), StripeMetadataSourceFactory.of(new StorageStripeMetadataSource()));
+            return HivePageSourceProvider.createHivePageSource(ImmutableSet.of(), ImmutableSet.of(orcPageSourceFactory), new Configuration(), session, fileSplit.getPath(), OptionalInt.empty(), fileSplit.getStart(), fileSplit.getLength(), fileSplit.getLength(), Instant.now().toEpochMilli(), storage, TupleDomain.all(), columns, ImmutableMap.of(), partitionKeys, DateTimeZone.UTC, FUNCTION_AND_TYPE_MANAGER, new SchemaTableName("schema", "table"), ImmutableList.of(), ImmutableList.of(), ImmutableMap.of(), 0, TableToPartitionMapping.empty(), Optional.empty(), false, DEFAULT_HIVE_FILE_CONTEXT, null, false, ROW_EXPRESSION_SERVICE, Optional.empty(), ImmutableMap.of()).get();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)
         {
             ConnectorPageSource pageSource = newPageSource();
-            SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(
-                    0,
-                    new PlanNodeId("0"),
-                    (session, split, table, columnHandles) -> pageSource,
-                    table,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
+            SourceOperatorFactory sourceOperatorFactory = new TableScanOperatorFactory(0, new PlanNodeId("0"), (session, split, table, columnHandles) -> pageSource, table, columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()));
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new ScheduledSplit(0, new PlanNodeId("0"), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
             return operator;
         }
 
@@ -516,39 +450,19 @@ public class TestOrcBatchPageSourceMemoryTracking
             }
             Supplier<CursorProcessor> cursorProcessor = EXPRESSION_COMPILER.compileCursorProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build(), "key");
             Supplier<PageProcessor> pageProcessor = EXPRESSION_COMPILER.compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projectionsBuilder.build());
-            SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(
-                    0,
-                    new PlanNodeId("test"),
-                    new PlanNodeId("0"),
-                    (session, split, table, columnHandles) -> pageSource,
-                    cursorProcessor,
-                    pageProcessor,
-                    table,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
-                    types,
-                    Optional.empty(),
-                    new DataSize(0, BYTE),
-                    0);
+            SourceOperatorFactory sourceOperatorFactory = new ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columnHandles) -> pageSource, cursorProcessor, pageProcessor, table, columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()), types, Optional.empty(), new DataSize(0, BYTE), 0);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
-            operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+            operator.addSplit(new ScheduledSplit(0, new PlanNodeId("0"), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
             return operator;
         }
 
         private DriverContext newDriverContext()
         {
-            return createTaskContext(executor, scheduledExecutor, testSessionBuilder().build())
-                    .addPipelineContext(0, true, true, false)
-                    .addDriverContext();
+            return createTaskContext(executor, scheduledExecutor, testSessionBuilder().build()).addPipelineContext(0, true, true, false).addDriverContext();
         }
     }
 
-    public static FileSplit createTestFile(String filePath,
-            HiveOutputFormat<?, ?> outputFormat,
-            Serializer serializer,
-            String compressionCodec,
-            List<TestColumn> testColumns,
-            int numRows,
-            int stripeRows)
+    public static FileSplit createTestFile(String filePath, HiveOutputFormat<?, ?> outputFormat, Serializer serializer, String compressionCodec, List<TestColumn> testColumns, int numRows, int stripeRows)
             throws Exception
     {
         // filter out partition keys, which are not written to the file
@@ -569,9 +483,7 @@ public class TestOrcBatchPageSourceMemoryTracking
         RecordWriter recordWriter = createRecordWriter(new Path(filePath), CONFIGURATION);
 
         try {
-            SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getName)),
-                    ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
+            SettableStructObjectInspector objectInspector = getStandardStructObjectInspector(ImmutableList.copyOf(transform(testColumns, TestColumn::getName)), ImmutableList.copyOf(transform(testColumns, TestColumn::getObjectInspector)));
 
             Object row = objectInspector.create();
 
@@ -606,9 +518,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     private static void flushStripe(RecordWriter recordWriter)
     {
         try {
-            Field writerField = OrcOutputFormat.class.getClassLoader()
-                    .loadClass(ORC_RECORD_WRITER)
-                    .getDeclaredField("writer");
+            Field writerField = OrcOutputFormat.class.getClassLoader().loadClass(ORC_RECORD_WRITER).getDeclaredField("writer");
             writerField.setAccessible(true);
             Writer writer = (Writer) writerField.get(recordWriter);
             Method flushStripe = WriterImpl.class.getDeclaredMethod("flushStripe");
@@ -623,9 +533,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     private static RecordWriter createRecordWriter(Path target, Configuration conf)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(FileSystem.class.getClassLoader())) {
-            WriterOptions options = OrcFile.writerOptions(conf)
-                    .memory(new NullMemoryManager())
-                    .compress(ZLIB);
+            WriterOptions options = OrcFile.writerOptions(conf).memory(new NullMemoryManager()).compress(ZLIB);
 
             try {
                 return WRITER_CONSTRUCTOR.newInstance(target, options);
@@ -639,10 +547,7 @@ public class TestOrcBatchPageSourceMemoryTracking
     private static Constructor<? extends RecordWriter> getOrcWriterConstructor()
     {
         try {
-            Constructor<? extends RecordWriter> constructor = OrcOutputFormat.class.getClassLoader()
-                    .loadClass(ORC_RECORD_WRITER)
-                    .asSubclass(RecordWriter.class)
-                    .getDeclaredConstructor(Path.class, WriterOptions.class);
+            Constructor<? extends RecordWriter> constructor = OrcOutputFormat.class.getClassLoader().loadClass(ORC_RECORD_WRITER).asSubclass(RecordWriter.class).getDeclaredConstructor(Path.class, WriterOptions.class);
             constructor.setAccessible(true);
             return constructor;
         }

@@ -22,6 +22,7 @@ import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.FunctionListBuilder;
 import com.facebook.presto.metadata.Metadata;
@@ -169,34 +170,11 @@ public final class FunctionAssertions
     private static final RowType TEST_ROW_TYPE = createTestRowType(TEST_ROW_NUMBER_OF_FIELDS);
     private static final Block TEST_ROW_DATA = createTestRowData(TEST_ROW_TYPE);
 
-    private static final Page SOURCE_PAGE = new Page(
-            createLongsBlock(1234L),
-            createStringsBlock("hello"),
-            createDoublesBlock(12.34),
-            createBooleansBlock(true),
-            createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()),
-            createStringsBlock("%el%"),
-            createStringsBlock((String) null),
-            createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))),
-            createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)),
-            createIntsBlock(1234),
-            TEST_ROW_DATA);
+    private static final Page SOURCE_PAGE = new Page(createLongsBlock(1234L), createStringsBlock("hello"), createDoublesBlock(12.34), createBooleansBlock(true), createLongsBlock(new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis()), createStringsBlock("%el%"), createStringsBlock((String) null), createTimestampsWithTimezoneBlock(packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z"))), createSlicesBlock(Slices.wrappedBuffer((byte) 0xab)), createIntsBlock(1234), TEST_ROW_DATA);
 
     private static final Page ZERO_CHANNEL_PAGE = new Page(1);
 
-    private static final Map<VariableReferenceExpression, Integer> INPUT_MAPPING = ImmutableMap.<VariableReferenceExpression, Integer>builder()
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_long", BIGINT), 0)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_string", VARCHAR), 1)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_double", DOUBLE), 2)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_boolean", BOOLEAN), 3)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp", BIGINT), 4)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_pattern", VARCHAR), 5)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_null_string", VARCHAR), 6)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_binary_literal", VARBINARY), 8)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_integer", INTEGER), 9)
-            .put(new VariableReferenceExpression(Optional.empty(), "bound_row", TEST_ROW_TYPE), 10)
-            .build();
+    private static final Map<VariableReferenceExpression, Integer> INPUT_MAPPING = ImmutableMap.<VariableReferenceExpression, Integer>builder().put(new VariableReferenceExpression(Optional.empty(), "bound_long", BIGINT), 0).put(new VariableReferenceExpression(Optional.empty(), "bound_string", VARCHAR), 1).put(new VariableReferenceExpression(Optional.empty(), "bound_double", DOUBLE), 2).put(new VariableReferenceExpression(Optional.empty(), "bound_boolean", BOOLEAN), 3).put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp", BIGINT), 4).put(new VariableReferenceExpression(Optional.empty(), "bound_pattern", VARCHAR), 5).put(new VariableReferenceExpression(Optional.empty(), "bound_null_string", VARCHAR), 6).put(new VariableReferenceExpression(Optional.empty(), "bound_timestamp_with_timezone", TIMESTAMP_WITH_TIME_ZONE), 7).put(new VariableReferenceExpression(Optional.empty(), "bound_binary_literal", VARBINARY), 8).put(new VariableReferenceExpression(Optional.empty(), "bound_integer", INTEGER), 9).put(new VariableReferenceExpression(Optional.empty(), "bound_row", TEST_ROW_TYPE), 10).build();
 
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.fromVariables(INPUT_MAPPING.keySet());
 
@@ -408,9 +386,7 @@ public final class FunctionAssertions
 
     public void assertFunctionThrowsIncorrectly(@Language("SQL") String projection, Class<? extends Throwable> throwableClass, @Language("RegExp") String message)
     {
-        assertThatThrownBy(() -> evaluateInvalid(projection))
-                .isInstanceOf(throwableClass)
-                .hasMessageMatching(message);
+        assertThatThrownBy(() -> evaluateInvalid(projection)).isInstanceOf(throwableClass).hasMessageMatching(message);
     }
 
     public void assertNumericOverflow(String projection, String message)
@@ -490,17 +466,11 @@ public final class FunctionAssertions
         long maxRetainedSize = 0;
         int maxIterationCount = 0;
         for (int iterationCount = 0; iterationCount < Math.max(1000, maxIterationCount * 4); iterationCount++) {
-            Iterator<Optional<Page>> output = processor.process(
-                    session.getSqlFunctionProperties(),
-                    new DriverYieldSignal(),
-                    newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                    SOURCE_PAGE);
+            Iterator<Optional<Page>> output = processor.process(session.getSqlFunctionProperties(), new DriverYieldSignal(), newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()), SOURCE_PAGE);
             // consume the iterator
             Iterators.getOnlyElement(output);
 
-            long retainedSize = processor.getProjections().stream()
-                    .mapToLong(this::getRetainedSizeOfCachedInstance)
-                    .sum();
+            long retainedSize = processor.getProjections().stream().mapToLong(this::getRetainedSizeOfCachedInstance).sum();
             if (retainedSize > maxRetainedSize) {
                 maxRetainedSize = retainedSize;
                 maxIterationCount = iterationCount;
@@ -560,9 +530,7 @@ public final class FunctionAssertions
             }
             else if (type == Block[].class) {
                 Object[] objects = (Object[]) object;
-                return Arrays.stream(objects)
-                        .mapToLong(this::getRetainedSizeOf)
-                        .sum();
+                return Arrays.stream(objects).mapToLong(this::getRetainedSizeOf).sum();
             }
             else {
                 throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
@@ -641,14 +609,7 @@ public final class FunctionAssertions
 
     private RowExpression toRowExpression(Session session, Expression projectionExpression)
     {
-        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(
-                session,
-                metadata,
-                SQL_PARSER,
-                SYMBOL_TYPES,
-                projectionExpression,
-                ImmutableMap.of(),
-                WarningCollector.NOOP);
+        Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, metadata, SQL_PARSER, SYMBOL_TYPES, projectionExpression, ImmutableMap.of(), WarningCollector.NOOP);
         return toRowExpression(projectionExpression, expressionTypes, INPUT_MAPPING);
     }
 
@@ -661,7 +622,7 @@ public final class FunctionAssertions
     private Object selectSingleValue(SourceOperatorFactory operatorFactory, Type type, Split split, Session session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
-        operator.addSplit(split);
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), split));
         operator.noMoreSplits();
         return selectSingleValue(operator, type);
     }
@@ -762,15 +723,7 @@ public final class FunctionAssertions
 
         parsedExpression = rewriteIdentifiersToSymbolReferences(parsedExpression);
 
-        final ExpressionAnalysis analysis = analyzeExpressions(
-                session,
-                metadata,
-                SQL_PARSER,
-                symbolTypes,
-                ImmutableList.of(parsedExpression),
-                ImmutableMap.of(),
-                WarningCollector.NOOP,
-                false);
+        final ExpressionAnalysis analysis = analyzeExpressions(session, metadata, SQL_PARSER, symbolTypes, ImmutableList.of(parsedExpression), ImmutableMap.of(), WarningCollector.NOOP, false);
 
         Expression rewrittenExpression = ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
@@ -782,11 +735,7 @@ public final class FunctionAssertions
                 // cast expression if coercion is registered
                 Type coercion = analysis.getCoercion(node);
                 if (coercion != null) {
-                    rewrittenExpression = new Cast(
-                            rewrittenExpression,
-                            coercion.getTypeSignature().toString(),
-                            false,
-                            analysis.isTypeOnlyCoercion(node));
+                    rewrittenExpression = new Cast(rewrittenExpression, coercion.getTypeSignature().toString(), false, analysis.isTypeOnlyCoercion(node));
                 }
 
                 return rewrittenExpression;
@@ -827,7 +776,7 @@ public final class FunctionAssertions
     private static boolean executeFilter(SourceOperatorFactory operatorFactory, Split split, Session session)
     {
         SourceOperator operator = operatorFactory.createOperator(createDriverContext(session));
-        operator.addSplit(split);
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), split));
         operator.noMoreSplits();
         return executeFilter(operator);
     }
@@ -958,34 +907,11 @@ public final class FunctionAssertions
     private static SourceOperatorFactory compileScanFilterProject(SqlFunctionProperties sqlFunctionProperties, Optional<RowExpression> filter, RowExpression projection, ExpressionCompiler compiler)
     {
         try {
-            Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(
-                    sqlFunctionProperties,
-                    filter,
-                    ImmutableList.of(projection),
-                    SOURCE_ID);
+            Supplier<CursorProcessor> cursorProcessor = compiler.compileCursorProcessor(sqlFunctionProperties, filter, ImmutableList.of(projection), SOURCE_ID);
 
-            Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(
-                    sqlFunctionProperties,
-                    filter,
-                    ImmutableList.of(projection));
+            Supplier<PageProcessor> pageProcessor = compiler.compilePageProcessor(sqlFunctionProperties, filter, ImmutableList.of(projection));
 
-            return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                    0,
-                    new PlanNodeId("test"),
-                    SOURCE_ID,
-                    PAGE_SOURCE_PROVIDER,
-                    cursorProcessor,
-                    pageProcessor,
-                    new TableHandle(
-                            new ConnectorId("test"),
-                            new ConnectorTableHandle() {},
-                            new ConnectorTransactionHandle() {},
-                            Optional.empty()),
-                    ImmutableList.of(),
-                    ImmutableList.of(projection.getType()),
-                    Optional.empty(),
-                    new DataSize(0, BYTE),
-                    0);
+            return new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), SOURCE_ID, PAGE_SOURCE_PROVIDER, cursorProcessor, pageProcessor, new TableHandle(new ConnectorId("test"), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}, Optional.empty()), ImmutableList.of(), ImmutableList.of(projection.getType()), Optional.empty(), new DataSize(0, BYTE), 0);
         }
         catch (Throwable e) {
             if (e instanceof UncheckedExecutionException) {
@@ -1030,9 +956,7 @@ public final class FunctionAssertions
 
     private static DriverContext createDriverContext(Session session)
     {
-        return createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+        return createTaskContext(EXECUTOR, SCHEDULED_EXECUTOR, session).addPipelineContext(0, true, true, false).addDriverContext();
     }
 
     private static void assertType(List<Type> types, Type expectedType)
@@ -1062,20 +986,7 @@ public final class FunctionAssertions
             assertInstanceOf(split.getConnectorSplit(), FunctionAssertions.TestSplit.class);
             FunctionAssertions.TestSplit testSplit = (FunctionAssertions.TestSplit) split.getConnectorSplit();
             if (testSplit.isRecordSet()) {
-                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE))
-                        .addRow(
-                                1234L,
-                                "hello",
-                                12.34,
-                                true,
-                                new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(),
-                                "%el%",
-                                null,
-                                packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")),
-                                Slices.wrappedBuffer((byte) 0xab),
-                                1234,
-                                TEST_ROW_DATA.getBlock(0))
-                        .build();
+                RecordSet records = InMemoryRecordSet.builder(ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BOOLEAN, BIGINT, VARCHAR, VARCHAR, TIMESTAMP_WITH_TIME_ZONE, VARBINARY, INTEGER, TEST_ROW_TYPE)).addRow(1234L, "hello", 12.34, true, new DateTime(2001, 8, 22, 3, 4, 5, 321, DateTimeZone.UTC).getMillis(), "%el%", null, packDateTimeWithZone(new DateTime(1970, 1, 1, 0, 1, 0, 999, DateTimeZone.UTC).getMillis(), TimeZoneKey.getTimeZoneKey("Z")), Slices.wrappedBuffer((byte) 0xab), 1234, TEST_ROW_DATA.getBlock(0)).build();
                 return new RecordPageSource(records);
             }
             else {
@@ -1096,14 +1007,7 @@ public final class FunctionAssertions
 
     private static RowType createTestRowType(int numberOfFields)
     {
-        Iterator<Type> types = Iterables.<Type>cycle(
-                BIGINT,
-                INTEGER,
-                VARCHAR,
-                DOUBLE,
-                BOOLEAN,
-                VARBINARY,
-                RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
+        Iterator<Type> types = Iterables.<Type>cycle(BIGINT, INTEGER, VARCHAR, DOUBLE, BOOLEAN, VARBINARY, RowType.from(ImmutableList.of(RowType.field("nested_nested_column", VARCHAR)))).iterator();
 
         List<RowType.Field> fields = new ArrayList<>();
         for (int fieldIdx = 0; fieldIdx < numberOfFields; fieldIdx++) {
@@ -1115,14 +1019,7 @@ public final class FunctionAssertions
 
     private static Block createTestRowData(RowType rowType)
     {
-        Iterator<Object> values = Iterables.cycle(
-                1234L,
-                34,
-                "hello",
-                12.34d,
-                true,
-                Slices.wrappedBuffer((byte) 0xab),
-                createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
+        Iterator<Object> values = Iterables.cycle(1234L, 34, "hello", 12.34d, true, Slices.wrappedBuffer((byte) 0xab), createRowBlock(ImmutableList.of(VARCHAR), Collections.singleton("innerFieldValue").toArray()).getBlock(0)).iterator();
 
         final int numFields = rowType.getFields().size();
         Object[] rowValues = new Object[numFields];

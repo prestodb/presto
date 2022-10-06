@@ -15,6 +15,7 @@ package com.facebook.presto.operator;
 
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -60,12 +61,7 @@ public class TableScanOperator
         private final List<ColumnHandle> columns;
         private boolean closed;
 
-        public TableScanOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
-                TableHandle table,
-                Iterable<ColumnHandle> columns)
+        public TableScanOperatorFactory(int operatorId, PlanNodeId sourceId, PageSourceProvider pageSourceProvider, TableHandle table, Iterable<ColumnHandle> columns)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -85,12 +81,7 @@ public class TableScanOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, TableScanOperator.class.getSimpleName());
-            return new TableScanOperator(
-                    operatorContext,
-                    sourceId,
-                    pageSourceProvider,
-                    table,
-                    columns);
+            return new TableScanOperator(operatorContext, sourceId, pageSourceProvider, table, columns);
         }
 
         @Override
@@ -117,12 +108,7 @@ public class TableScanOperator
     private long completedPositions;
     private long readTimeNanos;
 
-    public TableScanOperator(
-            OperatorContext operatorContext,
-            PlanNodeId planNodeId,
-            PageSourceProvider pageSourceProvider,
-            TableHandle table,
-            Iterable<ColumnHandle> columns)
+    public TableScanOperator(OperatorContext operatorContext, PlanNodeId planNodeId, PageSourceProvider pageSourceProvider, TableHandle table, Iterable<ColumnHandle> columns)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -145,8 +131,10 @@ public class TableScanOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        requireNonNull(scheduledSplit, "scheduledSplit is null");
+        Split split = scheduledSplit.getSplit();
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 

@@ -160,35 +160,10 @@ public class TestSqlTaskExecution
             //
             // See #testComplex for all the behaviors that are tested. Not all of them apply here.
             TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
-            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
-                    1,
-                    TABLE_SCAN_NODE_ID,
-                    outputBuffer,
-                    Function.identity(),
-                    new PagesSerdeFactory(new BlockEncodingManager(), false));
-            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
-                    ImmutableList.of(new DriverFactory(
-                            0,
-                            true,
-                            true,
-                            ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
-                            OptionalInt.empty(),
-                            executionStrategy,
-                            Optional.empty())),
-                    ImmutableList.of(TABLE_SCAN_NODE_ID),
-                    executionStrategy == GROUPED_EXECUTION
-                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID), 8)
-                            : StageExecutionDescriptor.ungroupedExecution());
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(1, TABLE_SCAN_NODE_ID, outputBuffer, Function.identity(), new PagesSerdeFactory(new BlockEncodingManager(), false));
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(ImmutableList.of(new DriverFactory(0, true, true, ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory), OptionalInt.empty(), executionStrategy, Optional.empty())), ImmutableList.of(TABLE_SCAN_NODE_ID), executionStrategy == GROUPED_EXECUTION ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(TABLE_SCAN_NODE_ID), 8) : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
-            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
-                    taskStateMachine,
-                    taskContext,
-                    outputBuffer,
-                    ImmutableList.of(),
-                    localExecutionPlan,
-                    taskExecutor,
-                    taskNotificationExecutor,
-                    createTestSplitMonitor());
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(taskStateMachine, taskContext, outputBuffer, ImmutableList.of(), localExecutionPlan, taskExecutor, taskNotificationExecutor, createTestSplitMonitor());
 
             //
             // test body
@@ -197,10 +172,7 @@ public class TestSqlTaskExecution
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
                     // add source for pipeline
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            TABLE_SCAN_NODE_ID,
-                            ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 100000, 123)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 100000, 123)), false)));
                     // assert that partial task result is produced
                     outputBufferConsumer.consume(123, ASSERT_WAIT_TIMEOUT);
 
@@ -209,12 +181,7 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
                     // add source for pipeline, mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            TABLE_SCAN_NODE_ID,
-                            ImmutableSet.of(
-                                    newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, 300),
-                                    newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 300000, 200)),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 200000, 300), newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 300000, 200)), true)));
                     // assert that pipeline will have no more drivers
                     waitUntilEquals(testingScanOperatorFactory::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
                     // assert that no DriverGroup is fully completed
@@ -228,13 +195,7 @@ public class TestSqlTaskExecution
                     break;
                 case GROUPED_EXECUTION:
                     // add source for pipeline (driver group [1, 5]), mark driver group [1] as noMoreSplits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            TABLE_SCAN_NODE_ID,
-                            ImmutableSet.of(
-                                    newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(1), 0, 1),
-                                    newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(5), 100000, 10)),
-                            ImmutableSet.of(Lifespan.driverGroup(1)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(newScheduledSplit(0, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(1), 0, 1), newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(5), 100000, 10)), ImmutableSet.of(Lifespan.driverGroup(1)), false)));
                     // assert that pipeline will have no more drivers for driver group [1]
                     waitUntilEquals(testingScanOperatorFactory::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(1)), ASSERT_WAIT_TIMEOUT);
                     // assert that partial result is produced for both driver groups
@@ -247,11 +208,7 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
                     // add source for pipeline (driver group [5]), mark driver group [5] as noMoreSplits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            TABLE_SCAN_NODE_ID,
-                            ImmutableSet.of(newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(5), 200000, 300)),
-                            ImmutableSet.of(Lifespan.driverGroup(5)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(newScheduledSplit(2, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(5), 200000, 300)), ImmutableSet.of(Lifespan.driverGroup(5)), false)));
                     // assert that pipeline will have no more drivers for driver group [1, 5]
                     waitUntilEquals(testingScanOperatorFactory::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(1), Lifespan.driverGroup(5)), ASSERT_WAIT_TIMEOUT);
                     // assert that driver group [5] is NOT YET fully completed
@@ -268,13 +225,7 @@ public class TestSqlTaskExecution
                     // * completedDriverGroups will NOT include the newly scheduled driver group while pause is in place
                     testingScanOperatorFactory.getPauser().pause();
                     // add source for pipeline (driver group [7]), mark pipeline as noMoreSplits without explicitly marking driver group 7
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            TABLE_SCAN_NODE_ID,
-                            ImmutableSet.of(
-                                    newScheduledSplit(3, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(7), 300000, 45),
-                                    newScheduledSplit(4, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(7), 400000, 54)),
-                            ImmutableSet.of(),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(newScheduledSplit(3, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(7), 300000, 45), newScheduledSplit(4, TABLE_SCAN_NODE_ID, Lifespan.driverGroup(7), 400000, 54)), ImmutableSet.of(), true)));
                     // assert that pipeline will have no more drivers for driver group [1, 5, 7]
                     waitUntilEquals(testingScanOperatorFactory::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(1), Lifespan.driverGroup(5), Lifespan.driverGroup(7)), ASSERT_WAIT_TIMEOUT);
                     // assert that pipeline will have no more drivers
@@ -381,21 +332,10 @@ public class TestSqlTaskExecution
             BuildStates buildStatesB = new BuildStates(executionStrategy);
             BuildStates buildStatesC = new BuildStates(UNGROUPED_EXECUTION);
             TestingScanOperatorFactory scanOperatorFactory0 = new TestingScanOperatorFactory(1, scan0NodeId, ImmutableList.of(VARCHAR));
-            ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(
-                    101,
-                    values1NodeId,
-                    ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
+            ValuesOperatorFactory valuesOperatorFactory1 = new ValuesOperatorFactory(101, values1NodeId, ImmutableList.of(new Page(createStringsBlock("multiplier1"))));
             TestingScanOperatorFactory scanOperatorFactory2 = new TestingScanOperatorFactory(201, scan2NodeId, ImmutableList.of(VARCHAR));
-            ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(
-                    301,
-                    values3NodeId,
-                    ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
-            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
-                    4,
-                    joinCNodeId,
-                    outputBuffer,
-                    Function.identity(),
-                    new PagesSerdeFactory(new BlockEncodingManager(), false));
+            ValuesOperatorFactory valuesOperatorFactory3 = new ValuesOperatorFactory(301, values3NodeId, ImmutableList.of(new Page(createStringsBlock("x", "y", "multiplier3"))));
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(4, joinCNodeId, outputBuffer, Function.identity(), new PagesSerdeFactory(new BlockEncodingManager(), false));
             TestingCrossJoinOperatorFactory joinOperatorFactoryA = new TestingCrossJoinOperatorFactory(2, joinANodeId, buildStatesA);
             TestingCrossJoinOperatorFactory joinOperatorFactoryB = new TestingCrossJoinOperatorFactory(102, joinBNodeId, buildStatesB);
             TestingCrossJoinOperatorFactory joinOperatorFactoryC = new TestingCrossJoinOperatorFactory(3, joinCNodeId, buildStatesC);
@@ -403,54 +343,9 @@ public class TestSqlTaskExecution
             TestingBuildOperatorFactory buildOperatorFactoryB = new TestingBuildOperatorFactory(202, joinBNodeId, buildStatesB);
             TestingBuildOperatorFactory buildOperatorFactoryC = new TestingBuildOperatorFactory(302, joinCNodeId, buildStatesC);
 
-            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
-                    ImmutableList.of(
-                            new DriverFactory(
-                                    0,
-                                    true,
-                                    true,
-                                    ImmutableList.of(scanOperatorFactory0, joinOperatorFactoryA, joinOperatorFactoryC, taskOutputOperatorFactory),
-                                    OptionalInt.empty(),
-                                    executionStrategy,
-                                    Optional.empty()),
-                            new DriverFactory(
-                                    1,
-                                    false,
-                                    false,
-                                    ImmutableList.of(valuesOperatorFactory1, joinOperatorFactoryB, buildOperatorFactoryA),
-                                    OptionalInt.empty(),
-                                    executionStrategy,
-                                    Optional.empty()),
-                            new DriverFactory(
-                                    2,
-                                    true,
-                                    false,
-                                    ImmutableList.of(scanOperatorFactory2, buildOperatorFactoryB),
-                                    OptionalInt.empty(),
-                                    executionStrategy,
-                                    Optional.empty()),
-                            new DriverFactory(
-                                    3,
-                                    false,
-                                    false,
-                                    ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC),
-                                    OptionalInt.empty(),
-                                    UNGROUPED_EXECUTION,
-                                    Optional.empty())),
-                    ImmutableList.of(scan2NodeId, scan0NodeId),
-                    executionStrategy == GROUPED_EXECUTION
-                            ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4)
-                            : StageExecutionDescriptor.ungroupedExecution());
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(ImmutableList.of(new DriverFactory(0, true, true, ImmutableList.of(scanOperatorFactory0, joinOperatorFactoryA, joinOperatorFactoryC, taskOutputOperatorFactory), OptionalInt.empty(), executionStrategy, Optional.empty()), new DriverFactory(1, false, false, ImmutableList.of(valuesOperatorFactory1, joinOperatorFactoryB, buildOperatorFactoryA), OptionalInt.empty(), executionStrategy, Optional.empty()), new DriverFactory(2, true, false, ImmutableList.of(scanOperatorFactory2, buildOperatorFactoryB), OptionalInt.empty(), executionStrategy, Optional.empty()), new DriverFactory(3, false, false, ImmutableList.of(valuesOperatorFactory3, buildOperatorFactoryC), OptionalInt.empty(), UNGROUPED_EXECUTION, Optional.empty())), ImmutableList.of(scan2NodeId, scan0NodeId), executionStrategy == GROUPED_EXECUTION ? StageExecutionDescriptor.fixedLifespanScheduleGroupedExecution(ImmutableList.of(scan0NodeId, scan2NodeId), 4) : StageExecutionDescriptor.ungroupedExecution());
             TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
-            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
-                    taskStateMachine,
-                    taskContext,
-                    outputBuffer,
-                    ImmutableList.of(),
-                    localExecutionPlan,
-                    taskExecutor,
-                    taskNotificationExecutor,
-                    createTestSplitMonitor());
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(taskStateMachine, taskContext, outputBuffer, ImmutableList.of(), localExecutionPlan, taskExecutor, taskNotificationExecutor, createTestSplitMonitor());
 
             //
             // test body
@@ -465,16 +360,8 @@ public class TestSqlTaskExecution
                     waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
 
                     // add source for pipeline 2, and mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan2NodeId,
-                            ImmutableSet.of(
-                                    newScheduledSplit(0, scan2NodeId, Lifespan.taskWide(), 100000, 1),
-                                    newScheduledSplit(1, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
-                            false)));
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan2NodeId,
-                            ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.taskWide(), 300000, 2)),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan2NodeId, ImmutableSet.of(newScheduledSplit(0, scan2NodeId, Lifespan.taskWide(), 100000, 1), newScheduledSplit(1, scan2NodeId, Lifespan.taskWide(), 300000, 2)), false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan2NodeId, ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.taskWide(), 300000, 2)), true)));
                     // assert that pipeline 2 will have no more drivers
                     waitUntilEquals(scanOperatorFactory2::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryB::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
@@ -485,10 +372,7 @@ public class TestSqlTaskExecution
                     scanOperatorFactory0.getPauser().pause();
 
                     // add source for pipeline 0, mark as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan0NodeId,
-                            ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.taskWide(), 400000, 100)),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan0NodeId, ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.taskWide(), 400000, 100)), true)));
                     // assert that pipeline 0 will have no more drivers
                     waitUntilEquals(scanOperatorFactory0::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(joinOperatorFactoryA::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
@@ -508,20 +392,11 @@ public class TestSqlTaskExecution
                     waitUntilEquals(buildOperatorFactoryC::isOverallNoMoreOperators, true, ASSERT_WAIT_TIMEOUT);
 
                     // add source for pipeline 2 driver group 3, and mark driver group 3 as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan2NodeId,
-                            ImmutableSet.of(
-                                    newScheduledSplit(0, scan2NodeId, Lifespan.driverGroup(3), 0, 1),
-                                    newScheduledSplit(1, scan2NodeId, Lifespan.driverGroup(3), 100000, 2)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan2NodeId, ImmutableSet.of(newScheduledSplit(0, scan2NodeId, Lifespan.driverGroup(3), 0, 1), newScheduledSplit(1, scan2NodeId, Lifespan.driverGroup(3), 100000, 2)), false)));
                     // assert that pipeline 1 driver group [3] will have no more drivers
                     waitUntilEquals(joinOperatorFactoryB::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryA::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan2NodeId,
-                            ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.driverGroup(3), 200000, 2)),
-                            ImmutableSet.of(Lifespan.driverGroup(3)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan2NodeId, ImmutableSet.of(newScheduledSplit(2, scan2NodeId, Lifespan.driverGroup(3), 200000, 2)), ImmutableSet.of(Lifespan.driverGroup(3)), false)));
                     // assert that pipeline 2 driver group [3] will have no more drivers
                     waitUntilEquals(scanOperatorFactory2::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryB::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
@@ -531,11 +406,7 @@ public class TestSqlTaskExecution
                     scanOperatorFactory0.getPauser().pause();
 
                     // add source for pipeline 0 driver group 3, and mark driver group 3 as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan0NodeId,
-                            ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.driverGroup(3), 300000, 10)),
-                            ImmutableSet.of(Lifespan.driverGroup(3)),
-                            false)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan0NodeId, ImmutableSet.of(newScheduledSplit(3, scan0NodeId, Lifespan.driverGroup(3), 300000, 10)), ImmutableSet.of(Lifespan.driverGroup(3)), false)));
                     // assert that pipeline 0 driver group [3] will have no more drivers
                     waitUntilEquals(scanOperatorFactory0::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(joinOperatorFactoryA::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
@@ -550,11 +421,7 @@ public class TestSqlTaskExecution
                     waitUntilEquals(taskContext::getCompletedDriverGroups, ImmutableSet.of(Lifespan.driverGroup(3)), ASSERT_WAIT_TIMEOUT);
 
                     // add source for pipeline 2 driver group 7, and mark pipeline as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan2NodeId,
-                            ImmutableSet.of(newScheduledSplit(4, scan2NodeId, Lifespan.driverGroup(7), 400000, 2)),
-                            ImmutableSet.of(Lifespan.driverGroup(7)),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan2NodeId, ImmutableSet.of(newScheduledSplit(4, scan2NodeId, Lifespan.driverGroup(7), 400000, 2)), ImmutableSet.of(Lifespan.driverGroup(7)), true)));
                     // assert that pipeline 2 driver group [3, 7] will have no more drivers
                     waitUntilEquals(scanOperatorFactory2::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3), Lifespan.driverGroup(7)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(buildOperatorFactoryB::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3), Lifespan.driverGroup(7)), ASSERT_WAIT_TIMEOUT);
@@ -565,11 +432,7 @@ public class TestSqlTaskExecution
                     scanOperatorFactory0.getPauser().pause();
 
                     // add source for pipeline 0 driver group 7, mark pipeline as no more splits
-                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
-                            scan0NodeId,
-                            ImmutableSet.of(newScheduledSplit(5, scan0NodeId, Lifespan.driverGroup(7), 500000, 1000)),
-                            ImmutableSet.of(Lifespan.driverGroup(7)),
-                            true)));
+                    sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(scan0NodeId, ImmutableSet.of(newScheduledSplit(5, scan0NodeId, Lifespan.driverGroup(7), 500000, 1000)), ImmutableSet.of(Lifespan.driverGroup(7)), true)));
                     // assert that pipeline 0 driver group [3, 7] will have no more drivers
                     waitUntilEquals(scanOperatorFactory0::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3), Lifespan.driverGroup(7)), ASSERT_WAIT_TIMEOUT);
                     waitUntilEquals(joinOperatorFactoryA::getDriverGroupsWithNoMoreOperators, ImmutableSet.of(Lifespan.driverGroup(3), Lifespan.driverGroup(7)), ASSERT_WAIT_TIMEOUT);
@@ -618,41 +481,13 @@ public class TestSqlTaskExecution
 
     private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, TaskStateMachine taskStateMachine)
     {
-        QueryContext queryContext = new QueryContext(
-                new QueryId("queryid"),
-                new DataSize(1, MEGABYTE),
-                new DataSize(2, MEGABYTE),
-                new DataSize(1, MEGABYTE),
-                new DataSize(1, GIGABYTE),
-                new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)),
-                new TestingGcMonitor(),
-                taskNotificationExecutor,
-                driverYieldExecutor,
-                new DataSize(1, MEGABYTE),
-                new SpillSpaceTracker(new DataSize(1, GIGABYTE)),
-                listJsonCodec(TaskMemoryReservationSummary.class));
-        return queryContext.addTaskContext(
-                taskStateMachine,
-                TEST_SESSION,
-                Optional.of(PLAN_FRAGMENT.getRoot()),
-                false,
-                false,
-                false,
-                false,
-                false);
+        QueryContext queryContext = new QueryContext(new QueryId("queryid"), new DataSize(1, MEGABYTE), new DataSize(2, MEGABYTE), new DataSize(1, MEGABYTE), new DataSize(1, GIGABYTE), new MemoryPool(new MemoryPoolId("test"), new DataSize(1, GIGABYTE)), new TestingGcMonitor(), taskNotificationExecutor, driverYieldExecutor, new DataSize(1, MEGABYTE), new SpillSpaceTracker(new DataSize(1, GIGABYTE)), listJsonCodec(TaskMemoryReservationSummary.class));
+        return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, Optional.of(PLAN_FRAGMENT.getRoot()), false, false, false, false, false);
     }
 
     private PartitionedOutputBuffer newTestingOutputBuffer(ScheduledExecutorService taskNotificationExecutor)
     {
-        return new PartitionedOutputBuffer(
-                "queryId.0.0",
-                new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES),
-                createInitialEmptyOutputBuffers(PARTITIONED)
-                        .withBuffer(OUTPUT_BUFFER_ID, 0)
-                        .withNoMoreBufferIds(),
-                new DataSize(1, MEGABYTE),
-                () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"),
-                taskNotificationExecutor);
+        return new PartitionedOutputBuffer("queryId.0.0", new StateMachine<>("bufferState", taskNotificationExecutor, OPEN, TERMINAL_BUFFER_STATES), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUTPUT_BUFFER_ID, 0).withNoMoreBufferIds(), new DataSize(1, MEGABYTE), () -> new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), "test"), taskNotificationExecutor);
     }
 
     private <T> void waitUntilEquals(Supplier<T> actualSupplier, T expected, Duration timeout)
@@ -776,10 +611,7 @@ public class TestSqlTaskExecution
         private final Set<Lifespan> driverGroupsWithNoMoreOperators = new HashSet<>();
         private boolean overallNoMoreOperators;
 
-        public TestingScanOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                List<Type> types)
+        public TestingScanOperatorFactory(int operatorId, PlanNodeId sourceId, List<Type> types)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -841,10 +673,7 @@ public class TestSqlTaskExecution
 
             private boolean finished;
 
-            public TestingScanOperator(
-                    OperatorContext operatorContext,
-                    PlanNodeId planNodeId,
-                    Lifespan lifespan)
+            public TestingScanOperator(OperatorContext operatorContext, PlanNodeId planNodeId, Lifespan lifespan)
             {
                 this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
                 this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -864,8 +693,10 @@ public class TestSqlTaskExecution
             }
 
             @Override
-            public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+            public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
             {
+                requireNonNull(scheduledSplit, "scheduledSplit is null");
+                Split split = scheduledSplit.getSplit();
                 requireNonNull(split, "split is null");
                 checkState(this.split == null, "Table scan split already set");
 
@@ -949,10 +780,7 @@ public class TestSqlTaskExecution
         private boolean overallNoMoreOperators;
         private final BuildStates buildStates;
 
-        public TestingBuildOperatorFactory(
-                int operatorId,
-                PlanNodeId planNodeId,
-                BuildStates buildStates)
+        public TestingBuildOperatorFactory(int operatorId, PlanNodeId planNodeId, BuildStates buildStates)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -1014,9 +842,7 @@ public class TestSqlTaskExecution
 
             private boolean finishing;
 
-            public TestingBuildOperator(
-                    OperatorContext operatorContext,
-                    Lifespan lifespan)
+            public TestingBuildOperator(OperatorContext operatorContext, Lifespan lifespan)
             {
                 this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
                 this.lifespan = requireNonNull(lifespan, "lifespan is null");
@@ -1084,10 +910,7 @@ public class TestSqlTaskExecution
         private boolean overallNoMoreOperators;
         private final BuildStates buildStates;
 
-        public TestingCrossJoinOperatorFactory(
-                int operatorId,
-                PlanNodeId planNodeId,
-                BuildStates buildStates)
+        public TestingCrossJoinOperatorFactory(int operatorId, PlanNodeId planNodeId, BuildStates buildStates)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -1150,17 +973,13 @@ public class TestSqlTaskExecution
             private final Queue<Page> pages = new ArrayDeque<>();
             private boolean finishing;
 
-            public TestingCrossJoinOperator(
-                    OperatorContext operatorContext,
-                    Lifespan lifespan)
+            public TestingCrossJoinOperator(OperatorContext operatorContext, Lifespan lifespan)
             {
                 this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
                 this.lifespan = requireNonNull(lifespan, "lifespan is null");
                 multiplierFuture = Futures.transform(buildStates.get(lifespan).getPagesFuture(), buildPages -> {
                     requireNonNull(buildPages, "buildPages is null");
-                    return buildPages.stream()
-                            .mapToInt(Page::getPositionCount)
-                            .sum();
+                    return buildPages.stream().mapToInt(Page::getPositionCount).sum();
                 }, directExecutor());
             }
 

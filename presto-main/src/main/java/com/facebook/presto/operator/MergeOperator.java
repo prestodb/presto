@@ -16,6 +16,7 @@ package com.facebook.presto.operator;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.UpdatablePageSource;
@@ -59,16 +60,7 @@ public class MergeOperator
         private final OrderingCompiler orderingCompiler;
         private boolean closed;
 
-        public MergeOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                TaskExchangeClientManager taskExchangeClientManager,
-                PagesSerdeFactory serdeFactory,
-                OrderingCompiler orderingCompiler,
-                List<Type> types,
-                List<Integer> outputChannels,
-                List<Integer> sortChannels,
-                List<SortOrder> sortOrder)
+        public MergeOperatorFactory(int operatorId, PlanNodeId sourceId, TaskExchangeClientManager taskExchangeClientManager, PagesSerdeFactory serdeFactory, OrderingCompiler orderingCompiler, List<Type> types, List<Integer> outputChannels, List<Integer> sortChannels, List<SortOrder> sortOrder)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -94,14 +86,7 @@ public class MergeOperator
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, MergeOperator.class.getSimpleName());
 
-            return new MergeOperator(
-                    operatorContext,
-                    sourceId,
-                    taskExchangeClientManager,
-                    serdeFactory.createPagesSerde(),
-                    orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
-                    outputChannels,
-                    outputTypes);
+            return new MergeOperator(operatorContext, sourceId, taskExchangeClientManager, serdeFactory.createPagesSerde(), orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder), outputChannels, outputTypes);
         }
 
         @Override
@@ -127,14 +112,7 @@ public class MergeOperator
     private WorkProcessor<Page> mergedPages;
     private boolean closed;
 
-    public MergeOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            TaskExchangeClientManager taskExchangeClientManager,
-            PagesSerde pagesSerde,
-            PageWithPositionComparator comparator,
-            List<Integer> outputChannels,
-            List<Type> outputTypes)
+    public MergeOperator(OperatorContext operatorContext, PlanNodeId sourceId, TaskExchangeClientManager taskExchangeClientManager, PagesSerde pagesSerde, PageWithPositionComparator comparator, List<Integer> outputChannels, List<Type> outputTypes)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -152,8 +130,10 @@ public class MergeOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        requireNonNull(scheduledSplit, "scheduledSplit is null");
+        Split split = scheduledSplit.getSplit();
         requireNonNull(split, "split is null");
         checkArgument(split.getConnectorSplit() instanceof RemoteSplit, "split is not a remote split");
         checkState(!blockedOnSplits.isDone(), "noMoreSplits has been called already");
@@ -162,11 +142,10 @@ public class MergeOperator
         ExchangeClient exchangeClient = closer.register(taskExchangeClientManager.createExchangeClient(operatorContext.localSystemMemoryContext()));
         exchangeClient.addLocation(remoteSplit.getLocation().toURI(), remoteSplit.getRemoteSourceTaskId());
         exchangeClient.noMoreLocations();
-        pageProducers.add(exchangeClient.pages()
-                .map(serializedPage -> {
-                    operatorContext.recordRawInput(serializedPage.getSizeInBytes(), serializedPage.getPositionCount());
-                    return pagesSerde.deserialize(serializedPage);
-                }));
+        pageProducers.add(exchangeClient.pages().map(serializedPage -> {
+            operatorContext.recordRawInput(serializedPage.getSizeInBytes(), serializedPage.getPositionCount());
+            return pagesSerde.deserialize(serializedPage);
+        }));
 
         return Optional::empty;
     }
@@ -174,15 +153,7 @@ public class MergeOperator
     @Override
     public void noMoreSplits()
     {
-        mergedPages = mergeSortedPages(
-                pageProducers,
-                comparator,
-                outputChannels,
-                outputTypes,
-                (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
-                false,
-                operatorContext.aggregateUserMemoryContext(),
-                operatorContext.getDriverContext().getYieldSignal());
+        mergedPages = mergeSortedPages(pageProducers, comparator, outputChannels, outputTypes, (pageBuilder, pageWithPosition) -> pageBuilder.isFull(), false, operatorContext.aggregateUserMemoryContext(), operatorContext.getDriverContext().getYieldSignal());
         blockedOnSplits.set(null);
     }
 

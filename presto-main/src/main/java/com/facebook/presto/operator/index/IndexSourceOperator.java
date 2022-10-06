@@ -14,6 +14,7 @@
 package com.facebook.presto.operator.index;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.FinishedOperator;
@@ -50,11 +51,7 @@ public class IndexSourceOperator
         private final Function<RecordSet, RecordSet> probeKeyNormalizer;
         private boolean closed;
 
-        public IndexSourceOperatorFactory(
-                int operatorId,
-                PlanNodeId sourceId,
-                ConnectorIndex index,
-                Function<RecordSet, RecordSet> probeKeyNormalizer)
+        public IndexSourceOperatorFactory(int operatorId, PlanNodeId sourceId, ConnectorIndex index, Function<RecordSet, RecordSet> probeKeyNormalizer)
         {
             this.operatorId = operatorId;
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
@@ -73,11 +70,7 @@ public class IndexSourceOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, IndexSourceOperator.class.getSimpleName());
-            return new IndexSourceOperator(
-                    operatorContext,
-                    sourceId,
-                    index,
-                    probeKeyNormalizer);
+            return new IndexSourceOperator(operatorContext, sourceId, index, probeKeyNormalizer);
         }
 
         @Override
@@ -94,11 +87,7 @@ public class IndexSourceOperator
 
     private Operator source;
 
-    public IndexSourceOperator(
-            OperatorContext operatorContext,
-            PlanNodeId planNodeId,
-            ConnectorIndex index,
-            Function<RecordSet, RecordSet> probeKeyNormalizer)
+    public IndexSourceOperator(OperatorContext operatorContext, PlanNodeId planNodeId, ConnectorIndex index, Function<RecordSet, RecordSet> probeKeyNormalizer)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -119,8 +108,10 @@ public class IndexSourceOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        requireNonNull(scheduledSplit, "scheduledSplit is null");
+        Split split = scheduledSplit.getSplit();
         requireNonNull(split, "split is null");
         checkState(source == null, "Index source split already set");
 

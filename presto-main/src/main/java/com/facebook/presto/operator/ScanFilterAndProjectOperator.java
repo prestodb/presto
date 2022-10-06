@@ -22,6 +22,7 @@ import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.project.CursorProcessor;
@@ -93,17 +94,7 @@ public class ScanFilterAndProjectOperator
     private long completedPositions;
     private long readTimeNanos;
 
-    protected ScanFilterAndProjectOperator(
-            OperatorContext operatorContext,
-            PlanNodeId sourceId,
-            PageSourceProvider pageSourceProvider,
-            CursorProcessor cursorProcessor,
-            PageProcessor pageProcessor,
-            TableHandle table,
-            Iterable<ColumnHandle> columns,
-            Iterable<Type> types,
-            Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
-            MergingPageOutput mergingOutput)
+    protected ScanFilterAndProjectOperator(OperatorContext operatorContext, PlanNodeId sourceId, PageSourceProvider pageSourceProvider, CursorProcessor cursorProcessor, PageProcessor pageProcessor, TableHandle table, Iterable<ColumnHandle> columns, Iterable<Type> types, Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier, MergingPageOutput mergingOutput)
     {
         this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
         this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
@@ -135,8 +126,10 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
+        requireNonNull(scheduledSplit, "scheduledSplit is null");
+        Split split = scheduledSplit.getSplit();
         requireNonNull(split, "split is null");
         checkState(this.split == null, "Table scan split already set");
 
@@ -419,19 +412,7 @@ public class ScanFilterAndProjectOperator
         private final int minOutputPageRowCount;
         private boolean closed;
 
-        public ScanFilterAndProjectOperatorFactory(
-                int operatorId,
-                PlanNodeId planNodeId,
-                PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
-                Supplier<CursorProcessor> cursorProcessor,
-                Supplier<PageProcessor> pageProcessor,
-                TableHandle table,
-                Iterable<ColumnHandle> columns,
-                List<Type> types,
-                Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier,
-                DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+        public ScanFilterAndProjectOperatorFactory(int operatorId, PlanNodeId planNodeId, PlanNodeId sourceId, PageSourceProvider pageSourceProvider, Supplier<CursorProcessor> cursorProcessor, Supplier<PageProcessor> pageProcessor, TableHandle table, Iterable<ColumnHandle> columns, List<Type> types, Optional<Supplier<TupleDomain<ColumnHandle>>> dynamicFilterSupplier, DataSize minOutputPageSize, int minOutputPageRowCount)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -458,17 +439,7 @@ public class ScanFilterAndProjectOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, ScanFilterAndProjectOperator.class.getSimpleName());
-            return new ScanFilterAndProjectOperator(
-                    operatorContext,
-                    sourceId,
-                    pageSourceProvider,
-                    cursorProcessor.get(),
-                    pageProcessor.get(),
-                    table,
-                    columns,
-                    types,
-                    dynamicFilterSupplier,
-                    new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
+            return new ScanFilterAndProjectOperator(operatorContext, sourceId, pageSourceProvider, cursorProcessor.get(), pageProcessor.get(), table, columns, types, dynamicFilterSupplier, new MergingPageOutput(types, minOutputPageSize.toBytes(), minOutputPageRowCount));
         }
 
         @Override

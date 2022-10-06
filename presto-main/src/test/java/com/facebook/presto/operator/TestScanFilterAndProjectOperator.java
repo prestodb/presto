@@ -19,6 +19,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -89,11 +90,7 @@ import static org.testng.Assert.assertTrue;
 public class TestScanFilterAndProjectOperator
         extends AbstractTestFunctions
 {
-    private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(
-            new ConnectorId("test"),
-            new ConnectorTableHandle() {},
-            new ConnectorTransactionHandle() {},
-            Optional.empty());
+    private static final TableHandle TESTING_TABLE_HANDLE = new TableHandle(new ConnectorId("test"), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}, Optional.empty());
 
     private final MetadataManager metadata = createTestMetadataManager();
     private final ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
@@ -116,22 +113,10 @@ public class TestScanFilterAndProjectOperator
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)),
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(VARCHAR),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)), cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(VARCHAR), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -144,50 +129,23 @@ public class TestScanFilterAndProjectOperator
     @Test
     public void testPageSourceMergeOutput()
     {
-        List<Page> input = rowPagesBuilder(BIGINT)
-                .addSequencePage(100, 0)
-                .addSequencePage(100, 0)
-                .addSequencePage(100, 0)
-                .addSequencePage(100, 0)
-                .build();
+        List<Page> input = rowPagesBuilder(BIGINT).addSequencePage(100, 0).addSequencePage(100, 0).addSequencePage(100, 0).addSequencePage(100, 0).build();
 
-        RowExpression filter = call(
-                EQUAL.name(),
-                createTestMetadataManager().getFunctionAndTypeManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)),
-                BOOLEAN,
-                field(0, BIGINT),
-                constant(10L, BIGINT));
+        RowExpression filter = call(EQUAL.name(), createTestMetadataManager().getFunctionAndTypeManager().resolveOperator(EQUAL, fromTypes(BIGINT, BIGINT)), BOOLEAN, field(0, BIGINT), constant(10L, BIGINT));
         List<RowExpression> projections = ImmutableList.of(field(0, BIGINT));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(TEST_SESSION.getSqlFunctionProperties(), Optional.of(filter), projections);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new FixedPageSource(input),
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(BIGINT),
-                Optional.empty(),
-                new DataSize(64, KILOBYTE),
-                2);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new FixedPageSource(input), cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(BIGINT), Optional.empty(), new DataSize(64, KILOBYTE), 2);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
         assertEquals(actual.size(), 1);
 
-        List<Page> expected = rowPagesBuilder(BIGINT)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .row(10L)
-                .build();
+        List<Page> expected = rowPagesBuilder(BIGINT).row(10L).row(10L).row(10L).row(10L).build();
 
         assertPageEquals(ImmutableList.of(BIGINT), actual.get(0), expected.get(0));
     }
@@ -204,24 +162,13 @@ public class TestScanFilterAndProjectOperator
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {0})));
+        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new PageProjectionWithOutputs(new LazyPagePageProjection(), new int[] {
+                0})));
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new SinglePagePageSource(input),
-                cursorProcessor,
-                () -> pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(BIGINT),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new SinglePagePageSource(input), cursorProcessor, () -> pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(BIGINT), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -245,22 +192,10 @@ public class TestScanFilterAndProjectOperator
 
         CountingLazyPageSource pageSource = new CountingLazyPageSource(ImmutableList.of(new Page(inputBlock)));
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> pageSource,
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(BIGINT),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> pageSource, cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(BIGINT), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(BIGINT), ImmutableList.of(new Page(inputBlock)));
@@ -290,22 +225,10 @@ public class TestScanFilterAndProjectOperator
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)),
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(VARCHAR),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(VARCHAR), input)), cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(VARCHAR), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         MaterializedResult expected = toMaterializedResult(driverContext.getSession(), ImmutableList.of(VARCHAR), ImmutableList.of(input));
@@ -344,22 +267,10 @@ public class TestScanFilterAndProjectOperator
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections.build(), false, MAX_BATCH_SIZE);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)),
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(BIGINT),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new FixedPageSource(ImmutableList.of(input)), cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(BIGINT), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         // In the below loop we yield for every cell: 20 X 1000 times
@@ -404,30 +315,14 @@ public class TestScanFilterAndProjectOperator
         })));
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
 
-        List<RowExpression> projections = ImmutableList.of(call(
-                "generic_long_record_cursor",
-                functionAndTypeManager.lookupFunction("generic_long_record_cursor", fromTypes(BIGINT)),
-                BIGINT,
-                field(0, BIGINT)));
+        List<RowExpression> projections = ImmutableList.of(call("generic_long_record_cursor", functionAndTypeManager.lookupFunction("generic_long_record_cursor", fromTypes(BIGINT)), BIGINT, field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(driverContext.getSession().getSqlFunctionProperties(), Optional.empty(), projections);
 
-        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(
-                0,
-                new PlanNodeId("test"),
-                new PlanNodeId("0"),
-                (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)),
-                cursorProcessor,
-                pageProcessor,
-                TESTING_TABLE_HANDLE,
-                ImmutableList.of(),
-                ImmutableList.of(BIGINT),
-                Optional.empty(),
-                new DataSize(0, BYTE),
-                0);
+        ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory factory = new ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory(0, new PlanNodeId("test"), new PlanNodeId("0"), (session, split, table, columns) -> new RecordPageSource(new PageRecordSet(ImmutableList.of(BIGINT), input)), cursorProcessor, pageProcessor, TESTING_TABLE_HANDLE, ImmutableList.of(), ImmutableList.of(BIGINT), Optional.empty(), new DataSize(0, BYTE), 0);
 
         SourceOperator operator = factory.createOperator(driverContext);
-        operator.addSplit(new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit()));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), new Split(new ConnectorId("test"), TestingTransactionHandle.create(), TestingSplit.createLocalSplit())));
         operator.noMoreSplits();
 
         // start driver; get null value due to yield for the first 15 times
@@ -469,9 +364,7 @@ public class TestScanFilterAndProjectOperator
 
     private DriverContext newDriverContext()
     {
-        return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+        return createTaskContext(executor, scheduledExecutor, TEST_SESSION).addPipelineContext(0, true, true, false).addDriverContext();
     }
 
     public class SinglePagePageSource

@@ -77,8 +77,7 @@ public class Driver
     private final AtomicReference<Optional<FragmentResultCacheContext>> fragmentResultCacheContext;
     private final List<Operator> activeOperators;
     // this is present only for debugging
-    @SuppressWarnings("unused")
-    private final List<Operator> allOperators;
+    @SuppressWarnings("unused") private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
 
@@ -93,8 +92,7 @@ public class Driver
 
     private final DriverLock exclusiveLock = new DriverLock();
 
-    @GuardedBy("exclusiveLock")
-    private TaskSource currentTaskSource;
+    @GuardedBy("exclusiveLock") private TaskSource currentTaskSource;
 
     private final AtomicReference<SettableFuture<?>> driverBlockedFuture = new AtomicReference<>();
 
@@ -122,10 +120,7 @@ public class Driver
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(firstOperator, "firstOperator is null");
         requireNonNull(otherOperators, "otherOperators is null");
-        ImmutableList<Operator> operators = ImmutableList.<Operator>builder()
-                .add(firstOperator)
-                .add(otherOperators)
-                .build();
+        ImmutableList<Operator> operators = ImmutableList.<Operator>builder().add(firstOperator).add(otherOperators).build();
         return createDriver(driverContext, operators);
     }
 
@@ -165,9 +160,7 @@ public class Driver
     // another thread, which will cause unsafe publication of this instance.
     private void initialize()
     {
-        activeOperators.stream()
-                .map(Operator::getOperatorContext)
-                .forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
+        activeOperators.stream().map(Operator::getOperatorContext).forEach(operatorContext -> operatorContext.setMemoryRevocationRequestListener(() -> driverBlockedFuture.get().set(null)));
     }
 
     public DriverContext getDriverContext()
@@ -218,9 +211,7 @@ public class Driver
     public void updateSource(TaskSource sourceUpdate)
     {
         checkLockNotHeld("Can not update sources while holding the driver lock");
-        checkArgument(
-                sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()),
-                "sourceUpdate is for a canonicalPlan node that is different from this Driver's source node");
+        checkArgument(sourceOperator.isPresent() && sourceOperator.get().getSourceId().equals(sourceUpdate.getPlanNodeId()), "sourceUpdate is for a canonicalPlan node that is different from this Driver's source node");
 
         // stage the new updates
         pendingTaskSourceUpdates.updateAndGet(current -> current == null ? sourceUpdate : current.update(sourceUpdate));
@@ -264,16 +255,13 @@ public class Driver
             if (fragmentResultCacheContext.get().isPresent() && !(split.getConnectorSplit() instanceof RemoteSplit)) {
                 checkState(!this.cachedResult.get().isPresent());
                 this.fragmentResultCacheContext.set(this.fragmentResultCacheContext.get().map(context -> context.updateRuntimeInformation(split.getConnectorSplit())));
-                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get()
-                        .getFragmentResultCacheManager()
-                        .get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
-                sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(
-                        pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
+                Optional<Iterator<Page>> pages = fragmentResultCacheContext.get().get().getFragmentResultCacheManager().get(fragmentResultCacheContext.get().get().getHashedCanonicalPlanFragment(), split);
+                sourceOperator.getOperatorContext().getRuntimeStats().addMetricValue(pages.isPresent() ? FRAGMENT_RESULT_CACHE_HIT : FRAGMENT_RESULT_CACHE_MISS, NONE, 1);
                 this.cachedResult.set(pages);
                 this.split.set(split);
             }
 
-            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(split);
+            Supplier<Optional<UpdatablePageSource>> pageSource = sourceOperator.addSplit(newSplit);
             deleteOperator.ifPresent(deleteOperator -> deleteOperator.setPageSource(pageSource));
         }
 
@@ -341,11 +329,7 @@ public class Driver
 
     private OperationTimer createTimer()
     {
-        return new OperationTimer(
-                driverContext.isCpuTimerEnabled(),
-                driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled(),
-                driverContext.isAllocationTrackingEnabled(),
-                driverContext.isAllocationTrackingEnabled() && driverContext.isPerOperatorAllocationTrackingEnabled());
+        return new OperationTimer(driverContext.isCpuTimerEnabled(), driverContext.isCpuTimerEnabled() && driverContext.isPerOperatorCpuTimerEnabled(), driverContext.isAllocationTrackingEnabled(), driverContext.isAllocationTrackingEnabled() && driverContext.isPerOperatorAllocationTrackingEnabled());
     }
 
     private ListenableFuture<?> updateDriverBlockedFuture(ListenableFuture<?> sourceBlockedFuture)
@@ -359,10 +343,7 @@ public class Driver
         // it's possible that memory revoking is requested for some operator
         // before we update driverBlockedFuture above and we don't want to miss that
         // notification, so we check to see whether that's the case before returning.
-        boolean memoryRevokingRequested = activeOperators.stream()
-                .filter(operator -> !revokingOperators.containsKey(operator))
-                .map(Operator::getOperatorContext)
-                .anyMatch(OperatorContext::isMemoryRevokingRequested);
+        boolean memoryRevokingRequested = activeOperators.stream().filter(operator -> !revokingOperators.containsKey(operator)).map(Operator::getOperatorContext).anyMatch(OperatorContext::isMemoryRevokingRequested);
 
         if (memoryRevokingRequested) {
             newDriverBlockedFuture.set(null);
@@ -581,11 +562,7 @@ public class Driver
         }
         catch (Throwable t) {
             // this shouldn't happen but be safe
-            inFlightException = addSuppressedException(
-                    inFlightException,
-                    t,
-                    "Error destroying driver for task %s",
-                    driverContext.getTaskId());
+            inFlightException = addSuppressedException(inFlightException, t, "Error destroying driver for task %s", driverContext.getTaskId());
         }
 
         if (inFlightException != null) {
@@ -611,23 +588,13 @@ public class Driver
                     wasInterrupted = true;
                 }
                 catch (Throwable t) {
-                    inFlightException = addSuppressedException(
-                            inFlightException,
-                            t,
-                            "Error closing operator %s for task %s",
-                            operator.getOperatorContext().getOperatorId(),
-                            driverContext.getTaskId());
+                    inFlightException = addSuppressedException(inFlightException, t, "Error closing operator %s for task %s", operator.getOperatorContext().getOperatorId(), driverContext.getTaskId());
                 }
                 try {
                     operator.getOperatorContext().destroy();
                 }
                 catch (Throwable t) {
-                    inFlightException = addSuppressedException(
-                            inFlightException,
-                            t,
-                            "Error freeing all allocated memory for operator %s for task %s",
-                            operator.getOperatorContext().getOperatorId(),
-                            driverContext.getTaskId());
+                    inFlightException = addSuppressedException(inFlightException, t, "Error freeing all allocated memory for operator %s for task %s", operator.getOperatorContext().getOperatorId(), driverContext.getTaskId());
                 }
             }
         }
@@ -748,8 +715,7 @@ public class Driver
         // NOTE: this is separate duplicate code to make debugging lock reacquisition easier
         // The first condition is for processing the pending updates if this driver is still ALIVE
         // The second condition is to destroy the driver if the state is NEED_DESTRUCTION
-        while (((pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION)
-                && exclusiveLock.tryLock()) {
+        while (((pendingTaskSourceUpdates.get() != null && state.get() == State.ALIVE) || state.get() == State.NEED_DESTRUCTION) && exclusiveLock.tryLock()) {
             try {
                 try {
                     processNewSources();
@@ -770,11 +736,9 @@ public class Driver
     {
         private final ReentrantLock lock = new ReentrantLock();
 
-        @GuardedBy("this")
-        private Thread currentOwner;
+        @GuardedBy("this") private Thread currentOwner;
 
-        @GuardedBy("this")
-        private List<StackTraceElement> interrupterStack;
+        @GuardedBy("this") private List<StackTraceElement> interrupterStack;
 
         public boolean isHeldByCurrentThread()
         {
