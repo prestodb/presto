@@ -18,6 +18,7 @@ import com.facebook.airlift.http.client.testing.TestingHttpClient;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.Location;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.buffer.TestingPagesSerdeFactory;
@@ -127,9 +128,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(newRemoteSplit(TASK_1_ID));
-        operator.addSplit(newRemoteSplit(TASK_2_ID));
-        operator.addSplit(newRemoteSplit(TASK_3_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), newRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
+        operator.addSplit(new ScheduledSplit(2, operator.getSourceId(), newRemoteSplit(TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and close the buffers
@@ -155,9 +156,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(newRemoteSplit(TASK_1_ID));
-        operator.addSplit(newRemoteSplit(TASK_2_ID));
-        operator.addSplit(newRemoteSplit(TASK_3_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), newRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
+        operator.addSplit(new ScheduledSplit(2, operator.getSourceId(), newRemoteSplit(TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and leave buffers open
@@ -192,7 +193,7 @@ public class TestExchangeOperator
         SourceOperator operator = createExchangeOperator();
 
         // add a buffer location containing one page and close the buffer
-        operator.addSplit(newRemoteSplit(TASK_1_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), newRemoteSplit(TASK_1_ID)));
         // add pages and leave buffers open
         taskBuffers.getUnchecked(TASK_1_ID).addPages(1, true);
 
@@ -205,7 +206,7 @@ public class TestExchangeOperator
         assertEquals(operator.getOutput(), null);
 
         // add a buffer location
-        operator.addSplit(newRemoteSplit(TASK_2_ID));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
         // set no more splits (buffer locations)
         operator.noMoreSplits();
         // add two pages and close the last buffer
@@ -224,9 +225,9 @@ public class TestExchangeOperator
     {
         SourceOperator operator = createExchangeOperator();
 
-        operator.addSplit(newRemoteSplit(TASK_1_ID));
-        operator.addSplit(newRemoteSplit(TASK_2_ID));
-        operator.addSplit(newRemoteSplit(TASK_3_ID));
+        operator.addSplit(new ScheduledSplit(0, operator.getSourceId(), newRemoteSplit(TASK_1_ID)));
+        operator.addSplit(new ScheduledSplit(1, operator.getSourceId(), newRemoteSplit(TASK_2_ID)));
+        operator.addSplit(new ScheduledSplit(2, operator.getSourceId(), newRemoteSplit(TASK_3_ID)));
         operator.noMoreSplits();
 
         // add pages and leave buffers open

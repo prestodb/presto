@@ -14,8 +14,8 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.common.Page;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
-import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.DriverContext;
 import com.facebook.presto.operator.OperatorContext;
 import com.facebook.presto.operator.SourceOperator;
@@ -105,7 +105,7 @@ public class PrestoSparkRemoteSourceOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
     {
         throw new UnsupportedOperationException();
     }
