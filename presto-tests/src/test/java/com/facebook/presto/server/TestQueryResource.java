@@ -27,6 +27,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
@@ -34,9 +36,11 @@ import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonRes
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
+import static com.facebook.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
 import static com.facebook.airlift.testing.Closeables.closeQuietly;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_PREFIX_URL;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.tpch.TpchQueryRunner.createQueryRunner;
@@ -184,6 +188,52 @@ public class TestQueryResource
         assertTrue(millis > 10000);
     }
 
+    @Test
+    public void testShouldPrependPrestoPrefixUrl()
+            throws Exception
+    {
+        runner = createQueryRunner();
+        server = runner.getCoordinator();
+
+        String sql = "SELECT * from tpch.sf100.orders LIMIT 1";
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+        String xPrestoPrefixUrl = "http://proxy.com:443/v1/proxy?uri=";
+        QueryResults queryResults = postQuery(sql, uri, xPrestoPrefixUrl);
+
+        while (queryResults.getNextUri() != null) {
+            assertTrue(queryResults.getInfoUri().toString().startsWith(xPrestoPrefixUrl));
+            if (queryResults.getNextUri() != null) {
+                assertTrue(queryResults.getNextUri().toString().startsWith(xPrestoPrefixUrl));
+            }
+            if (queryResults.getPartialCancelUri() != null) {
+                assertTrue(queryResults.getPartialCancelUri().toString().startsWith(xPrestoPrefixUrl));
+            }
+            queryResults = getQueryResults(queryResults, xPrestoPrefixUrl);
+        }
+
+        assertTrue(queryResults.getInfoUri().toString().startsWith(xPrestoPrefixUrl));
+    }
+
+    @Test
+    public void testShouldReturnErrorOnBadPrestoPrefixUrl()
+            throws Exception
+    {
+        runner = createQueryRunner();
+        server = runner.getCoordinator();
+
+        String sql = "SELECT * from tpch.sf100.orders LIMIT 1";
+        URI uri = uriBuilderFrom(server.getBaseUrl().resolve("/v1/statement")).build();
+        String xPrestoPrefixUrl = "invalid";
+
+        Request request = preparePost()
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_PREFIX_URL, xPrestoPrefixUrl)
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+        assertEquals(client.execute(request, createStringResponseHandler()).getStatusCode(), 400);
+    }
+
     private List<BasicQueryInfo> getQueryInfos(String path)
     {
         Request request = prepareGet().setUri(server.resolve(path)).build();
@@ -225,6 +275,17 @@ public class TestQueryResource
         getQueryResults(queryResults);
     }
 
+    private QueryResults postQuery(String sql, URI uri, String xPrestoPrefixUrl)
+    {
+        Request request = preparePost()
+                .setHeader(PRESTO_USER, "user")
+                .setHeader(PRESTO_PREFIX_URL, xPrestoPrefixUrl)
+                .setUri(uri)
+                .setBodyGenerator(createStaticBodyGenerator(sql, UTF_8))
+                .build();
+        return client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
+    }
+
     private QueryResults postQuery(String sql, URI uri)
     {
         Request request = preparePost()
@@ -235,14 +296,30 @@ public class TestQueryResource
         return client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
     }
 
-    private QueryResults getQueryResults(QueryResults queryResults)
+    private QueryResults getQueryResults(QueryResults queryResults, String xPrestoPrefixUrl)
     {
-        Request request = prepareGet()
-                .setHeader(PRESTO_USER, "user")
-                .setUri(queryResults.getNextUri())
-                .build();
+        URI nextUri = queryResults.getNextUri();
+
+        Request.Builder requestBuilder = prepareGet().setHeader(PRESTO_USER, "user");
+
+        if (xPrestoPrefixUrl != null) {
+            String payload = nextUri.toString().substring(xPrestoPrefixUrl.length());
+            nextUri = URI.create(
+                    new String(
+                            Base64.getUrlDecoder().decode(payload.getBytes()),
+                            StandardCharsets.UTF_8));
+            requestBuilder.setHeader(PRESTO_PREFIX_URL, xPrestoPrefixUrl);
+        }
+
+        Request request = requestBuilder.setUri(nextUri).build();
+
         queryResults = client.execute(request, createJsonResponseHandler(jsonCodec(QueryResults.class)));
         return queryResults;
+    }
+
+    private QueryResults getQueryResults(QueryResults queryResults)
+    {
+        return getQueryResults(queryResults, null);
     }
 
     private void assertStateCounts(List<BasicQueryInfo> infos, int expectedFinished, int expectedFailed, int expectedRunning, int expectedQueued)
