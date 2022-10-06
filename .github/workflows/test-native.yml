@@ -63,8 +63,7 @@ jobs:
           export CCACHE_DIR=$(realpath ~/.ccache)
           ccache -s
           cd ${GITHUB_WORKSPACE}/presto-native-execution
-          make velox-submodule
-          cmake -B _build/debug -GNinja -DTREAT_WARNINGS_AS_ERRORS=1 -DENABLE_ALL_WARNINGS=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          make debug EXTRA_CMAKE_FLAGS=" -DPRESTO_ENABLE_PARQUET=ON "
           ninja -C _build/debug -j 2
           ccache -s
 
