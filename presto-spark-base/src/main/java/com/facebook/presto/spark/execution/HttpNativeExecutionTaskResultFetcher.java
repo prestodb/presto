@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
 import com.facebook.presto.spi.HostAddress;
@@ -61,7 +60,6 @@ public class HttpNativeExecutionTaskResultFetcher
     private final PrestoSparkHttpWorkerClient workerClient;
     // Timeout for each fetching request
     private final Duration requestTimeout;
-    private final TaskId taskId;
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
     private final AtomicLong bufferMemoryBytes;
 
@@ -71,12 +69,10 @@ public class HttpNativeExecutionTaskResultFetcher
     public HttpNativeExecutionTaskResultFetcher(
             ScheduledExecutorService scheduler,
             PrestoSparkHttpWorkerClient workerClient,
-            TaskId taskId,
             Optional<Duration> requestTimeout)
     {
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
-        this.taskId = requireNonNull(taskId, "taskId is null");
         this.requestTimeout = requestTimeout.orElse(REQUEST_TIMEOUT);
         this.bufferMemoryBytes = new AtomicLong();
     }
@@ -86,7 +82,7 @@ public class HttpNativeExecutionTaskResultFetcher
         if (started) {
             throw new PrestoException(
                     GENERIC_INTERNAL_ERROR,
-                    "trying to start an already started TaskResultFetcher for '" + taskId + "'");
+                    "trying to start an already started TaskResultFetcher");
         }
         CompletableFuture<Void> future = new CompletableFuture<>();
         schedulerFuture = scheduler.scheduleAtFixedRate(
@@ -139,7 +135,7 @@ public class HttpNativeExecutionTaskResultFetcher
             implements Runnable
     {
         private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
-        private static final int MAX_HTTP_TIMEOUT_RETRIES = 3;
+        private static final int MAX_HTTP_TIMEOUT_RETRIES = 5;
 
         private final Duration requestTimeout;
         private final PrestoSparkHttpWorkerClient client;

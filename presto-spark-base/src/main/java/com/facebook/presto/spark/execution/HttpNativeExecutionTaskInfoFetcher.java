@@ -13,9 +13,7 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
@@ -23,10 +21,10 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -36,7 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class helps to fetch {@link TaskInfo} for a native task through HTTP communications with a Presto worker. Upon callling start(), object of this class will continuously poll
+ * This class helps to fetch {@link TaskInfo} for a native task through HTTP communications with a Presto worker. Upon calling start(), object of this class will continuously poll
  * {@link TaskInfo} from Presto worker and update its internal {@link TaskInfo} buffer. Caller is responsible for retrieving updated {@link TaskInfo} by calling getTaskInfo()
  * method.
  * Caller is also responsible for calling stop() to release resource when this fetcher is no longer needed.
@@ -51,7 +49,6 @@ public class HttpNativeExecutionTaskInfoFetcher
     private final ScheduledExecutorService updateScheduledExecutor;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final Executor executor;
-    private final TaskId taskId;
 
     @GuardedBy("this")
     private ScheduledFuture<?> scheduledFuture;
@@ -59,13 +56,11 @@ public class HttpNativeExecutionTaskInfoFetcher
     public HttpNativeExecutionTaskInfoFetcher(
             ScheduledExecutorService updateScheduledExecutor,
             PrestoSparkHttpWorkerClient workerClient,
-            Executor executor,
-            TaskId taskId)
+            Executor executor)
     {
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.executor = requireNonNull(executor, "executor is null");
-        this.taskId = requireNonNull(taskId, "taskId is null");
     }
 
     public void start()
@@ -79,20 +74,16 @@ public class HttpNativeExecutionTaskInfoFetcher
                         new FutureCallback<BaseResponse<TaskInfo>>()
                         {
                             @Override
-                            public void onSuccess(@Nullable BaseResponse<TaskInfo> result)
+                            public void onSuccess(BaseResponse<TaskInfo> result)
                             {
-                                try (SetThreadName ignored = new SetThreadName("TaskInfoCallback-%s", taskId)) {
-                                    log.debug("TaskInfoCallback success %s", result.getValue().getTaskId());
-                                    taskInfo.set(result.getValue());
-                                }
+                                log.debug("TaskInfoCallback success %s", result.getValue().getTaskId());
+                                taskInfo.set(result.getValue());
                             }
 
                             @Override
                             public void onFailure(Throwable t)
                             {
-                                try (SetThreadName ignored = new SetThreadName("TaskInfoCallback-%s", taskId)) {
-                                    log.error("TaskInfoCallback failed %s", t);
-                                }
+                                log.error("TaskInfoCallback failed %s", t);
                             }
                         },
                         executor);
@@ -110,8 +101,9 @@ public class HttpNativeExecutionTaskInfoFetcher
         }
     }
 
-    public TaskInfo getTaskInfo()
+    public Optional<TaskInfo> getTaskInfo()
     {
-        return taskInfo.get();
+        TaskInfo info = taskInfo.get();
+        return info == null ? Optional.empty() : Optional.of(info);
     }
 }
