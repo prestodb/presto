@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spark.execution;
 
-import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
@@ -28,7 +27,6 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.net.URI;
 import java.util.List;
@@ -37,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -50,7 +47,7 @@ import static java.util.Objects.requireNonNull;
  * Caller should manage the lifecycle of the task by exposed APIs. The general workflow will look like:
  * 1. Caller shall start() to start the task. The task finish signal can be told by the returned future.
  * 2. Caller shall call getTaskInfo() any time to get the current task info. Until the caller calls stop(), the task info fetcher will not stop fetching task info.
- * 3. Caller shall call pollResult() continously to poll result page from the internal buffer. The result fetcher will stop fetching more results if buffer hits its memory cap,
+ * 3. Caller shall call pollResult() continuously to poll result page from the internal buffer. The result fetcher will stop fetching more results if buffer hits its memory cap,
  * until pages are fetched by caller to reduce the buffer under its memory cap.
  * 4. Caller must call stop() to release resource.
  */
@@ -59,14 +56,12 @@ public class NativeExecutionTask
     private static final Logger log = Logger.get(NativeExecutionTask.class);
 
     private final Session session;
-    private final TaskId taskId;
     private final PlanFragment planFragment;
     private final OutputBuffers outputBuffers;
     private final PrestoSparkHttpWorkerClient workerClient;
     private final TableWriteInfo tableWriteInfo;
     private final List<TaskSource> sources;
     private final Executor executor;
-    private final ScheduledExecutorService updateScheduledExecutor;
     private final HttpNativeExecutionTaskInfoFetcher taskInfoFetcher;
     private final HttpNativeExecutionTaskResultFetcher taskResultFetcher;
 
@@ -81,44 +76,31 @@ public class NativeExecutionTask
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor)
     {
-        requireNonNull(session, "session is null");
-        requireNonNull(taskId, "taskId is null");
-        requireNonNull(planFragment, "planFragment is null");
-        requireNonNull(sources, "sources is null");
-        requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(tableWriteInfo, "tableWriteInfo is null");
-        requireNonNull(executor, "executor is null");
+        this.session = requireNonNull(session, "session is null");
+        this.planFragment = requireNonNull(planFragment, "planFragment is null");
+        this.tableWriteInfo = requireNonNull(tableWriteInfo, "tableWriteInfo is null");
+        this.sources = requireNonNull(sources, "sources is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
+        this.workerClient = new PrestoSparkHttpWorkerClient(requireNonNull(httpClient, "httpClient is null"), taskId, location);
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-
-        try (SetThreadName ignored = new SetThreadName("NativeExecutionTask-%s", taskId)) {
-            this.taskId = taskId;
-            this.session = session;
-            this.planFragment = planFragment;
-            this.tableWriteInfo = tableWriteInfo;
-            this.sources = sources;
-            this.executor = executor;
-            this.updateScheduledExecutor = updateScheduledExecutor;
-            this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
-            this.workerClient = new PrestoSparkHttpWorkerClient(httpClient, taskId, location);
-            this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
-                    this.updateScheduledExecutor,
-                    this.workerClient,
-                    this.executor,
-                    this.taskId);
-            this.taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
-                    this.updateScheduledExecutor,
-                    this.workerClient,
-                    this.taskId,
-                    Optional.empty());
-        }
+        this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
+                updateScheduledExecutor,
+                this.workerClient,
+                this.executor);
+        this.taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
+                updateScheduledExecutor,
+                this.workerClient,
+                Optional.empty());
     }
 
     /**
-     * Gets the most updated TaskInfo of the task of the native task.
+     * Gets the most updated {@link TaskInfo} of the task of the native task.
      *
-     * @return most updated TaskInfo, null if TaskInfoFetcher has not yet retrieved the very first TaskInfo.
+     * @return an {@link Optional} of most updated {@link TaskInfo}, empty {@link Optional} if {@link HttpNativeExecutionTaskInfoFetcher} has not yet retrieved the very first
+     * TaskInfo.
      */
-    public TaskInfo getTaskInfo()
+    public Optional<TaskInfo> getTaskInfo()
     {
         return taskInfoFetcher.getTaskInfo();
     }
@@ -141,18 +123,16 @@ public class NativeExecutionTask
      */
     public CompletableFuture<Void> start()
     {
-        AtomicReference<CompletableFuture<Void>> resultFuture = new AtomicReference<>();
         CompletableFuture<Void> updateFuture = sendUpdateRequest().handle((Void result, Throwable t) ->
         {
             if (t != null) {
                 throw new CompletionException(t.getCause());
             }
             taskInfoFetcher.start();
-            resultFuture.set(taskResultFetcher.start());
             return null;
         });
 
-        return updateFuture.thenCombine(resultFuture.get(), (r1, r2) -> null);
+        return updateFuture.thenCombine(taskResultFetcher.start(), (r1, r2) -> null);
     }
 
     /**
@@ -190,22 +170,18 @@ public class NativeExecutionTask
         }
 
         @Override
-        public void onSuccess(@Nullable BaseResponse<TaskInfo> result)
+        public void onSuccess(BaseResponse<TaskInfo> result)
         {
-            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
-                TaskInfo value = result.getValue();
-                log.debug("success %s", value.getTaskId());
-                future.complete(null);
-            }
+            TaskInfo value = result.getValue();
+            log.debug("success %s", value.getTaskId());
+            future.complete(null);
         }
 
         @Override
         public void onFailure(Throwable t)
         {
-            try (SetThreadName ignored = new SetThreadName("UpdateResponseHandler-%s", taskId)) {
-                log.error("failed %s", t);
-                future.completeExceptionally(t);
-            }
+            log.error("failed %s", t);
+            future.completeExceptionally(t);
         }
     }
 }
