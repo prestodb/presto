@@ -89,7 +89,7 @@ public final class GlueToPrestoConverter
             // the table is an Iceberg/Delta table and decide whether to redirect or fail.
             tableBuilder.setDataColumns(ImmutableList.of(new Column("dummy", HIVE_INT, Optional.empty(), Optional.empty())));
             tableBuilder.getStorageBuilder().setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.PARQUET));
-            tableBuilder.getStorageBuilder().setLocation(sd.getLocation());
+            tableBuilder.getStorageBuilder().setLocation(sd == null ? "" : sd.getLocation());
         }
         else {
             if (sd == null) {
