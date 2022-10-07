@@ -61,6 +61,7 @@ class QueryCtx : public Context {
         connectorConfigs_(connectorConfigs),
         executor_{std::move(executor)},
         config_{this},
+        queryId_(queryId),
         spillExecutor_(std::move(spillExecutor)) {
     setConfigOverrides(config);
     if (!pool_) {
@@ -165,8 +166,8 @@ class QueryCtx : public Context {
   std::shared_ptr<folly::Executor> executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig config_;
-  std::shared_ptr<folly::Executor> spillExecutor_;
   const std::string queryId_;
+  std::shared_ptr<folly::Executor> spillExecutor_;
 };
 
 // Represents the state of one thread of query execution.
