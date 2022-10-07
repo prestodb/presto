@@ -650,4 +650,15 @@ VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {
       VELOX_UNREACHABLE();
   }
 }
+
+std::optional<std::string> generateFilePath(
+    const char* basePath,
+    const char* prefix) {
+  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
+  auto fd = mkstemp(path.data());
+  if (fd == -1) {
+    return std::nullopt;
+  }
+  return path;
+}
 } // namespace facebook::velox

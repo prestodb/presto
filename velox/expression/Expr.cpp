@@ -360,19 +360,6 @@ std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
 std::string onException(VeloxException::Type /*exceptionType*/, void* arg) {
   return static_cast<Expr*>(arg)->toString();
 }
-
-/// Generates a file path in specified directory. Returns std::nullopt on
-/// failure.
-std::optional<std::string> generateFilePath(
-    const char* basePath,
-    const char* prefix) {
-  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
-  auto fd = mkstemp(path.data());
-  if (fd == -1) {
-    return std::nullopt;
-  }
-  return path;
-}
 } // namespace
 
 void ExprExceptionContext::persistDataAndSql(const char* basePath) {

@@ -462,17 +462,6 @@ struct VectorSaverInfo {
   // Vector to store.
   BaseVector* vector;
 };
-
-/// Generates a file path in specified directory. Returns std::nullopt on
-/// failure.
-std::optional<std::string> generateFilePath(const char* basePath) {
-  auto path = fmt::format("{}/velox_vector_XXXXXX", basePath);
-  auto fd = mkstemp(path.data());
-  if (fd == -1) {
-    return std::nullopt;
-  }
-  return path;
-}
 } // namespace
 
 /// A demonstration of using VectorSaver to save 'current' vector being
@@ -483,7 +472,7 @@ TEST_F(VectorSaverTest, exceptionContext) {
   auto messageFunction = [](VeloxException::Type /*exceptionType*/,
                             auto* arg) -> std::string {
     auto* info = static_cast<VectorSaverInfo*>(arg);
-    auto filePath = generateFilePath(info->path);
+    auto filePath = generateFilePath(info->path, "vector");
     if (!filePath.has_value()) {
       return "Cannot generate file path to store the vector.";
     }

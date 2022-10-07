@@ -36,4 +36,10 @@ void saveVector(const BaseVector& vector, std::ostream& out);
 
 /// Deserializes a vector serialized by 'save' from the provided input stream.
 VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool);
+
+/// Generates a file path in specified directory. Returns std::nullopt on
+/// failure.
+std::optional<std::string> generateFilePath(
+    const char* basePath,
+    const char* prefix);
 } // namespace facebook::velox
