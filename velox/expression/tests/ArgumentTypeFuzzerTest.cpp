@@ -23,6 +23,10 @@
 
 namespace facebook::velox::test {
 
+namespace {
+const uint32_t kMaxVariadicArgs = 5;
+} // namespace
+
 class ArgumentTypeFuzzerTest : public testing::Test {
  protected:
   void testFuzzingSuccess(
@@ -31,7 +35,7 @@ class ArgumentTypeFuzzerTest : public testing::Test {
       const std::vector<TypePtr>& expectedArgumentTypes) {
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
-    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
     auto& argumentTypes = fuzzer.argumentTypes();
     ASSERT_LE(expectedArgumentTypes.size(), argumentTypes.size());
@@ -47,6 +51,8 @@ class ArgumentTypeFuzzerTest : public testing::Test {
 
     if (i < argumentTypes.size()) {
       ASSERT_TRUE(signature->variableArity());
+      ASSERT_LE(
+          argumentTypes.size() - argumentSignatures.size(), kMaxVariadicArgs);
       for (int j = i; j < argumentTypes.size(); ++j) {
         ASSERT_TRUE(argumentTypes[j]->equivalent(*argumentTypes[i - 1]));
       }
@@ -58,7 +64,7 @@ class ArgumentTypeFuzzerTest : public testing::Test {
       const TypePtr& returnType) {
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
-    ASSERT_FALSE(fuzzer.fuzzArgumentTypes());
+    ASSERT_FALSE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
   }
 };
 
@@ -132,7 +138,7 @@ TEST_F(ArgumentTypeFuzzerTest, signatureTemplate) {
                                    const TypePtr& firstArg) {
       std::mt19937 seed{0};
       ArgumentTypeFuzzer fuzzer{*signature, returnType, seed};
-      ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+      ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
       auto& argumentTypes = fuzzer.argumentTypes();
       ASSERT_TRUE(argumentTypes[0]->equivalent(*firstArg));
@@ -157,7 +163,7 @@ TEST_F(ArgumentTypeFuzzerTest, signatureTemplate) {
     {
       std::mt19937 seed{0};
       ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
-      ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+      ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
       auto& argumentTypes = fuzzer.argumentTypes();
       // Only check the top-level type because the children types are randomly
@@ -192,7 +198,7 @@ TEST_F(ArgumentTypeFuzzerTest, variableArity) {
                          .build();
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
-    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
     auto& argumentTypes = fuzzer.argumentTypes();
     auto& firstArg = argumentTypes[0];
@@ -209,7 +215,7 @@ TEST_F(ArgumentTypeFuzzerTest, any) {
                        .build();
   std::mt19937 seed{0};
   ArgumentTypeFuzzer fuzzer{*signature, BIGINT(), seed};
-  ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+  ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
   auto& argumentTypes = fuzzer.argumentTypes();
   ASSERT_EQ(argumentTypes.size(), 1);
@@ -262,7 +268,7 @@ TEST_F(ArgumentTypeFuzzerTest, lambda) {
   {
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, ARRAY(VARCHAR()), seed};
-    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
     const auto& argumentTypes = fuzzer.argumentTypes();
     ASSERT_TRUE(argumentTypes[0]->isArray());
@@ -285,7 +291,7 @@ TEST_F(ArgumentTypeFuzzerTest, lambda) {
   {
     std::mt19937 seed{0};
     ArgumentTypeFuzzer fuzzer{*signature, MAP(BIGINT(), VARCHAR()), seed};
-    ASSERT_TRUE(fuzzer.fuzzArgumentTypes());
+    ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
 
     const auto& argumentTypes = fuzzer.argumentTypes();
     ASSERT_TRUE(argumentTypes[0]->isMap());

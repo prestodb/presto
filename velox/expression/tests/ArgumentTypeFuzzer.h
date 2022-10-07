@@ -37,8 +37,9 @@ class ArgumentTypeFuzzer {
 
   /// Generate random argument types if returnType_ can be bound to the return
   /// type of signature_. Return true if the generation succeeds, false
-  /// otherwise.
-  bool fuzzArgumentTypes();
+  /// otherwise. If signature_ has variable arity, repeat the last argument at
+  /// most maxVariadicArgs times.
+  bool fuzzArgumentTypes(uint32_t maxVariadicArgs);
 
   /// Return the generated list of argument types. This function should be
   /// called after fuzzArgumentTypes() is called and returns true.

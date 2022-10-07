@@ -66,7 +66,7 @@ void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
   }
 }
 
-bool ArgumentTypeFuzzer::fuzzArgumentTypes() {
+bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
   const auto& formalArgs = signature_.argumentTypes();
   auto formalArgsCnt = formalArgs.size();
 
@@ -92,7 +92,7 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes() {
   // Generate random repeats of the last argument type if the signature is
   // variadic.
   if (signature_.variableArity()) {
-    auto repeat = folly::Random::rand32(5, seed_);
+    auto repeat = folly::Random::rand32(maxVariadicArgs + 1, seed_);
     auto last = argumentTypes_[formalArgsCnt - 1];
     for (int i = 0; i < repeat; ++i) {
       argumentTypes_.push_back(last);
