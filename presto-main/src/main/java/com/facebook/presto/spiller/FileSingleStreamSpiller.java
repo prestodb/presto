@@ -74,7 +74,7 @@ public class FileSingleStreamSpiller
 
     private boolean writable = true;
     private boolean committed;
-    private long spilledPagesInMemorySize;
+    private volatile long spilledPagesInMemorySize;
     private ListenableFuture<?> spillInProgress = Futures.immediateFuture(null);
 
     public FileSingleStreamSpiller(
