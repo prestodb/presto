@@ -107,6 +107,23 @@ Map Functions
 
     Returns all the values in the map ``x``.
 
+.. function:: map_top_n_values(x(K,V), n) -> array(K)
+
+    Returns top n values in the map ``x``.
+    ``n`` must be a positive integer
+    For bottom ``n`` values, use the function with lambda operator to perform custom sorting
+
+        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2) --- [3, 2]
+
+.. function:: map_top_n_values(x(K,V), n, function(V,V,int)) -> array(V)
+
+    Returns top n values in the map ``x`` based on the given comparator ``function``. The comparator will take
+    two nullable arguments representing two values of the ``map``. It returns -1, 0, or 1
+    as the first value is less than, equal to, or greater than the second value.
+    If the comparator function returns other values (including ``NULL``), the query will fail and raise an error ::
+
+        SELECT map_top_n_values(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- [3, 2]
+
 .. function:: map_zip_with(map(K,V1), map(K,V2), function(K,V1,V2,V3)) -> map(K,V3)
 
     Merges the two given maps into a single map by applying ``function`` to the pair of values with the same key.
