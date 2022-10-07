@@ -42,7 +42,6 @@ import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.PluginManager;
-import com.facebook.presto.spark.PrestoSparkQueryExecutionFactory.PrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecution;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkQueryExecutionFactory;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -51,6 +50,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
+import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.eventlistener.EventListener;
 import com.facebook.presto.spi.function.FunctionImplementationType;
@@ -464,8 +464,8 @@ public class PrestoSparkQueryRunner
                 .map(result -> new MaterializedRow(DEFAULT_PRECISION, result))
                 .collect(toImmutableList());
 
-        if (execution instanceof PrestoSparkQueryExecution) {
-            PrestoSparkQueryExecution p = (PrestoSparkQueryExecution) execution;
+        if (execution instanceof AbstractPrestoSparkQueryExecution) {
+            AbstractPrestoSparkQueryExecution p = (AbstractPrestoSparkQueryExecution) execution;
             if (!p.getUpdateType().isPresent()) {
                 return new MaterializedResult(rows, p.getOutputTypes());
             }
