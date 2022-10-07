@@ -100,8 +100,7 @@ void registerRankInternal(
       name,
       std::move(signatures),
       [name](
-          const std::vector<TypePtr>& /*argTypes*/,
-          const std::vector<column_index_t>& /*argIndices*/,
+          const std::vector<exec::WindowFunctionArg>& /*args*/,
           const TypePtr& resultType,
           velox::memory::MemoryPool* /*pool*/)
           -> std::unique_ptr<exec::WindowFunction> {

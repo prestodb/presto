@@ -21,6 +21,15 @@
 
 namespace facebook::velox::exec {
 
+// Represents arguments for window functions. Stores argument type,
+// the constant value(if it is one) or the column index in the input row
+// (if the argument is a FieldAccessTypedExpr).
+struct WindowFunctionArg {
+  const TypePtr type;
+  const VectorPtr constantValue;
+  std::optional<const column_index_t> index;
+};
+
 class WindowFunction {
  public:
   explicit WindowFunction(TypePtr resultType, memory::MemoryPool* pool)
@@ -75,8 +84,7 @@ class WindowFunction {
 
   static std::unique_ptr<WindowFunction> create(
       const std::string& name,
-      const std::vector<TypePtr>& argTypes,
-      const std::vector<column_index_t>& argIndices,
+      const std::vector<WindowFunctionArg>& args,
       const TypePtr& resultType,
       memory::MemoryPool* pool);
 
@@ -86,14 +94,13 @@ class WindowFunction {
 };
 
 /// Information from the Window operator that is useful for the function logic.
-/// @param argTypes  Vector of the types of the input arguments to the function
-/// @param argIndices  Vector of the positions of the corresponding input
-/// argument column in the input row of the Operator. These indices are used
-/// to access data from the WindowPartition object.
-///  @param resultType  Type of the result of the function.
+/// @param args  Vector of the input arguments to the function. These could be
+/// constants or positions of the input argument column in the input row of the
+/// operator. These indices are used to access data from the WindowPartition
+/// object.
+/// @param resultType  Type of the result of the function.
 using WindowFunctionFactory = std::function<std::unique_ptr<WindowFunction>(
-    const std::vector<TypePtr>& argTypes,
-    const std::vector<column_index_t>& argIndices,
+    const std::vector<WindowFunctionArg>& args,
     const TypePtr& resultType,
     memory::MemoryPool* pool)>;
 

@@ -102,6 +102,20 @@ Window::Window(
 void Window::createWindowFunctions(
     const std::shared_ptr<const core::WindowNode>& windowNode,
     const RowTypePtr& inputType) {
+  auto constantArg = [&](const core::TypedExprPtr arg) -> const VectorPtr {
+    if (auto typedExpr =
+            dynamic_cast<const core::ConstantTypedExpr*>(arg.get())) {
+      if (typedExpr->hasValueVector()) {
+        return BaseVector::wrapInConstant(1, 0, typedExpr->valueVector());
+      }
+      if (typedExpr->value().isNull()) {
+        return BaseVector::createNullConstant(typedExpr->type(), 1, pool());
+      }
+      return BaseVector::createConstant(typedExpr->value(), 1, pool());
+    }
+    return nullptr;
+  };
+
   auto fieldArgToChannel =
       [&](const core::TypedExprPtr arg) -> std::optional<column_index_t> {
     if (arg) {
@@ -116,19 +130,20 @@ void Window::createWindowFunctions(
   };
 
   for (const auto& windowNodeFunction : windowNode->windowFunctions()) {
-    std::vector<TypePtr> argTypes;
-    std::vector<column_index_t> argIndices;
-    argTypes.reserve(windowNodeFunction.functionCall->inputs().size());
-    argIndices.reserve(windowNodeFunction.functionCall->inputs().size());
+    std::vector<WindowFunctionArg> functionArgs;
+    functionArgs.reserve(windowNodeFunction.functionCall->inputs().size());
     for (auto& arg : windowNodeFunction.functionCall->inputs()) {
-      argTypes.push_back(arg->type());
-      argIndices.push_back(fieldArgToChannel(arg).value());
+      if (auto constant = constantArg(arg)) {
+        functionArgs.push_back({arg->type(), constant, std::nullopt});
+      } else {
+        functionArgs.push_back(
+            {arg->type(), nullptr, fieldArgToChannel(arg).value()});
+      }
     }
 
     windowFunctions_.push_back(WindowFunction::create(
         windowNodeFunction.functionCall->name(),
-        argTypes,
-        argIndices,
+        functionArgs,
         windowNodeFunction.functionCall->type(),
         operatorCtx_->pool()));
 
