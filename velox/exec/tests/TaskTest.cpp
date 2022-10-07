@@ -390,7 +390,7 @@ TEST_F(TaskTest, testTerminateDeadlock) {
   auto rightBatch = makeRowVector(
       {makeFlatVector<int32_t>(10, [](auto row) { return row; })});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto leftNode =
       PlanBuilder(planNodeIdGenerator).values({leftBatch}, true).planNode();
   auto rightNode =
@@ -525,7 +525,7 @@ TEST_F(TaskTest, singleThreadedHashJoin) {
   auto rightPath = TempFilePath::create();
   writeToFile(rightPath->path, {right});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
   core::PlanNodeId rightScanId;
   auto plan = PlanBuilder(planNodeIdGenerator)
@@ -565,7 +565,7 @@ TEST_F(TaskTest, singleThreadedCrossJoin) {
   auto rightPath = TempFilePath::create();
   writeToFile(rightPath->path, {right});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
   core::PlanNodeId rightScanId;
   auto plan = PlanBuilder(planNodeIdGenerator)
@@ -617,7 +617,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 
   // Create a query plan fragment with one input pipeline and one output
   // pipeline and both have only one driver.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .localMerge(

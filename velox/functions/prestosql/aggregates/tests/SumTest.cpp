@@ -156,8 +156,7 @@ void SumTest::testAggregateOverflow(
   // output into a final aggregate plan node. Each of those input fragments
   // only have a single input value under the max limit which when added in
   // the final step causes a potential overflow.
-  auto planNodeIdGenerator =
-      std::make_shared<exec::test::PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   aggsToTest.push_back(
       {PlanBuilder(planNodeIdGenerator)
            .localPartition(

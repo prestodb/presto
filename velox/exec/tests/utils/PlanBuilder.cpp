@@ -1259,8 +1259,8 @@ PlanBuilder& PlanBuilder::window(
   return *this;
 }
 
-std::string PlanBuilder::nextPlanNodeId() {
-  return fmt::format("{}", planNodeIdGenerator_->next());
+core::PlanNodeId PlanBuilder::nextPlanNodeId() {
+  return planNodeIdGenerator_->next();
 }
 
 // static

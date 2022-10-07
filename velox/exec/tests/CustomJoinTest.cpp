@@ -290,7 +290,7 @@ class CustomJoinTest : public OperatorTestBase {
       const std::string& referenceQuery) {
     createDuckDbTable("t", {leftBatch});
 
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto leftNode =
         PlanBuilder(planNodeIdGenerator).values({leftBatch}, true).planNode();
     auto rightNode =

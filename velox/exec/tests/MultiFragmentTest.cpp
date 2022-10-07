@@ -255,7 +255,7 @@ TEST_F(MultiFragmentTest, mergeExchange) {
   for (int i = 0; i < 2; ++i) {
     auto sortTaskId = makeTaskId("orderby", tasks.size());
     partialSortTaskIds.push_back(sortTaskId);
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto partialSortPlan = PlanBuilder(planNodeIdGenerator)
                                .localMerge(
                                    {"c0"},
@@ -568,7 +568,7 @@ namespace {
 core::PlanNodePtr makeJoinOverExchangePlan(
     const RowTypePtr& exchangeType,
     const RowVectorPtr& buildData) {
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   return PlanBuilder(planNodeIdGenerator)
       .exchange(exchangeType)
       .hashJoin(
@@ -756,7 +756,7 @@ TEST_F(MultiFragmentTest, earlyCompletionMerge) {
           {"u_c0"}, {makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6})});
     }
 
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto joinPlan =
         PlanBuilder(planNodeIdGenerator)
             .mergeExchange(asRowType(data->type()), {"c0"})

@@ -101,7 +101,7 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
   auto buildFile = TempFilePath::create();
   writeToFile(buildFile->path, {buildData});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId probeScanId;
   core::PlanNodeId buildScanId;
   auto joinPlan = PlanBuilder(planNodeIdGenerator)

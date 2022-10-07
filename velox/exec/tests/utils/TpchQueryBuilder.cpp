@@ -231,7 +231,7 @@ TpchPlan TpchQueryBuilder::getQ3Plan() const {
       formatDateFilter(shipDate, lineitemSelectedRowType, "'1995-03-15'", "");
   auto customerFilter = "c_mktsegment = 'BUILDING'";
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId lineitemPlanNodeId;
   core::PlanNodeId ordersPlanNodeId;
   core::PlanNodeId customerPlanNodeId;
@@ -326,7 +326,7 @@ TpchPlan TpchQueryBuilder::getQ5Plan() const {
   std::string orderDateFilter = formatDateFilter(
       orderDate, ordersSelectedRowType, "'1994-01-01'", "'1994-12-31'");
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId customerScanNodeId;
   core::PlanNodeId ordersScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
@@ -483,7 +483,7 @@ TpchPlan TpchQueryBuilder::getQ7Plan() const {
   auto shipDateFilter = formatDateFilter(
       "l_shipdate", lineitemSelectedRowType, "'1995-01-01'", "'1996-12-31'");
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId supplierScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
   core::PlanNodeId ordersScanNodeId;
@@ -631,7 +631,7 @@ TpchPlan TpchQueryBuilder::getQ8Plan() const {
   const auto orderDateFilter = formatDateFilter(
       "o_orderdate", ordersSelectedRowType, "'1995-01-01'", "'1996-12-31'");
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId partScanNodeId;
   core::PlanNodeId supplierScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
@@ -804,7 +804,7 @@ TpchPlan TpchQueryBuilder::getQ9Plan() const {
   auto nationSelectedRowType = getRowType(kNation, nationColumns);
   const auto& nationFileColumns = getFileColumnNames(kNation);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId partScanNodeId;
   core::PlanNodeId supplierScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
@@ -939,7 +939,7 @@ TpchPlan TpchQueryBuilder::getQ10Plan() const {
   const std::vector<std::string> customerOutputColumns = {
       "c_name", "c_acctbal", "c_phone", "c_address", "c_custkey", "c_comment"};
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId customerScanNodeId;
   core::PlanNodeId nationScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
@@ -1044,7 +1044,7 @@ TpchPlan TpchQueryBuilder::getQ12Plan() const {
   auto lineitemSelectedRowType = getRowType(kLineitem, lineitemColumns);
   const auto& lineitemFileColumns = getFileColumnNames(kLineitem);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId ordersScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
 
@@ -1111,7 +1111,7 @@ TpchPlan TpchQueryBuilder::getQ13Plan() const {
   const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
   const auto& customerFileColumns = getFileColumnNames(kCustomer);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId customerScanNodeId;
   core::PlanNodeId ordersScanNodeId;
 
@@ -1167,7 +1167,7 @@ TpchPlan TpchQueryBuilder::getQ14Plan() const {
   const std::string shipDateFilter = formatDateFilter(
       shipDate, lineitemSelectedRowType, "'1995-09-01'", "'1995-09-30'");
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId lineitemScanNodeId;
   core::PlanNodeId partScanNodeId;
 
@@ -1230,7 +1230,7 @@ TpchPlan TpchQueryBuilder::getQ15Plan() const {
   const std::string shipDateFilter = formatDateFilter(
       "l_shipdate", lineitemSelectedRowType, "'1996-01-01'", "'1996-03-31'");
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId lineitemScanNodeIdSubQuery;
   core::PlanNodeId lineitemScanNodeId;
   core::PlanNodeId supplierScanNodeId;
@@ -1311,7 +1311,7 @@ TpchPlan TpchQueryBuilder::getQ16Plan() const {
   const auto partsuppSelectedRowType = getRowType(kPartsupp, partsuppColumns);
   const auto& partsuppFileColumns = getFileColumnNames(kPartsupp);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId partScanNodeId;
   core::PlanNodeId supplierScanNodeId;
   core::PlanNodeId partsuppScanNodeId;
@@ -1396,7 +1396,7 @@ TpchPlan TpchQueryBuilder::getQ18Plan() const {
   const auto customerSelectedRowType = getRowType(kCustomer, customerColumns);
   const auto& customerFileColumns = getFileColumnNames(kCustomer);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId customerScanNodeId;
   core::PlanNodeId ordersScanNodeId;
   core::PlanNodeId lineitemScanNodeId;
@@ -1473,7 +1473,7 @@ TpchPlan TpchQueryBuilder::getQ19Plan() const {
   auto partSelectedRowType = getRowType(kPart, partColumns);
   const auto& partFileColumns = getFileColumnNames(kPart);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId lineitemScanNodeId;
   core::PlanNodeId partScanNodeId;
 
@@ -1548,7 +1548,7 @@ TpchPlan TpchQueryBuilder::getQ22Plan() const {
   const std::string phoneFilter =
       "substr(c_phone, 1, 2) IN ('13', '31', '23', '29', '30', '18', '17')";
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId customerScanNodeId;
   core::PlanNodeId customerScanNodeIdWithKey;
   core::PlanNodeId ordersScanNodeId;

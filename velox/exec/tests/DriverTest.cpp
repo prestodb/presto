@@ -797,7 +797,7 @@ TEST_F(DriverTest, driverCreationThrow) {
 
   auto rows = makeRowVector({"c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .values({rows}, true)

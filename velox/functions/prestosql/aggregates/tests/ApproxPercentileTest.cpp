@@ -289,7 +289,7 @@ TEST_F(ApproxPercentileTest, partialFull) {
 TEST_F(ApproxPercentileTest, finalAggregateAccuracy) {
   auto batch = makeRowVector(
       {makeFlatVector<int32_t>(1000, [](auto row) { return row; })});
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   std::vector<std::shared_ptr<const core::PlanNode>> sources;
   for (int i = 0; i < 10; ++i) {
     sources.push_back(

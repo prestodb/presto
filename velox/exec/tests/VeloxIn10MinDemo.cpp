@@ -247,7 +247,7 @@ void VeloxIn10MinDemo::run() {
   // build side. We are going to use PlanNodeIdGenerator to ensure that all plan
   // nodes in the final plan have unique IDs.
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId nationScanId;
   core::PlanNodeId regionScanId;
   plan = PlanBuilder(planNodeIdGenerator)

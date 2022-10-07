@@ -76,7 +76,7 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
   }
   auto probeType = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   // 100 key values in [35, 233] range.
   auto rightKey = makeFlatVector<int32_t>(
       numRowsBuild, [](auto row) { return 35 + row * 2; });

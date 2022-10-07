@@ -31,7 +31,7 @@ class MergeTest : public OperatorTestBase {
 
     for (const auto& sortOrderSql : sortOrderSqls) {
       const auto orderByClause = fmt::format("{} {}", key, sortOrderSql);
-      auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+      auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
       auto plan = PlanBuilder(planNodeIdGenerator)
                       .localMerge(
                           {orderByClause},
@@ -89,7 +89,8 @@ class MergeTest : public OperatorTestBase {
             fmt::format("{} {}", key2, sortOrderSqls[j])};
         const auto orderBySql = fmt::format(
             "ORDER BY {}, {}", orderByClauses[0], orderByClauses[1]);
-        auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+        auto planNodeIdGenerator =
+            std::make_shared<core::PlanNodeIdGenerator>();
         auto plan = PlanBuilder(planNodeIdGenerator)
                         .localMerge(
                             orderByClauses,
@@ -161,7 +162,7 @@ TEST_F(MergeTest, offByOne) {
       makeFlatVector<int64_t>({2, 3, 4, 5}),
   });
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto plan =
       PlanBuilder(planNodeIdGenerator)

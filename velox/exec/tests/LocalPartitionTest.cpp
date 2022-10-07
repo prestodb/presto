@@ -90,7 +90,7 @@ TEST_F(LocalPartitionTest, gather) {
       makeRowVector({makeFlatSequence<int32_t>(-71, 100)}),
   };
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto valuesNode = [&](int index) {
     return PlanBuilder(planNodeIdGenerator).values({vectors[index]}).planNode();
@@ -154,7 +154,7 @@ TEST_F(LocalPartitionTest, partition) {
 
   auto rowType = getRowType(vectors[0]);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   std::vector<core::PlanNodeId> scanNodeIds;
 
@@ -197,7 +197,7 @@ TEST_F(LocalPartitionTest, maxBufferSizeGather) {
         100, [i](auto row) { return -71 + i * 10 + row; })}));
   }
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto valuesNode = [&](int start, int end) {
     return PlanBuilder(planNodeIdGenerator)
@@ -237,7 +237,7 @@ TEST_F(LocalPartitionTest, maxBufferSizePartition) {
 
   auto rowType = getRowType(vectors[0]);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   std::vector<core::PlanNodeId> scanNodeIds;
 
@@ -299,7 +299,7 @@ TEST_F(LocalPartitionTest, multipleExchanges) {
 
   auto rowType = getRowType(vectors[0]);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   std::vector<core::PlanNodeId> scanNodeIds;
 
   auto tableScanNode = [&]() {
@@ -350,7 +350,7 @@ TEST_F(LocalPartitionTest, earlyCompletion) {
       makeRowVector({makeFlatSequence(13, 100)}),
   };
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
@@ -375,7 +375,7 @@ TEST_F(LocalPartitionTest, earlyCancelation) {
       makeRowVector({makeFlatSequence(13, 100)}),
   };
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .localPartition(
@@ -424,7 +424,7 @@ TEST_F(LocalPartitionTest, producerError) {
       makeRowVector({makeFlatSequence(-13, 100)}),
   };
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .localPartition(
                       {},
@@ -463,7 +463,7 @@ TEST_F(LocalPartitionTest, unionAll) {
       {makeFlatVector<int32_t>({20, 21}),
        makeFlatVector<StringView>({"z", "w"})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .localPartition(
                       {},
@@ -488,7 +488,7 @@ TEST_F(LocalPartitionTest, unionAllLocalExchange) {
   auto data1 = makeRowVector({"d0"}, {makeFlatVector<StringView>({"x"})});
   auto data2 = makeRowVector({"e0"}, {makeFlatVector<StringView>({"y"})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan = PlanBuilder(planNodeIdGenerator)
                   .localPartitionRoundRobin(
                       {PlanBuilder(planNodeIdGenerator)

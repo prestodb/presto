@@ -58,7 +58,7 @@ TEST_F(CrossJoinTest, basic) {
   createDuckDbTable("u", {rightVectors});
 
   // All x 13. Join output vectors contains multiple probe rows each.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .crossJoin(
@@ -170,7 +170,7 @@ TEST_F(CrossJoinTest, lazyVectors) {
   createDuckDbTable("t", {makeRowVector({sequence<int32_t>(1117)})});
   createDuckDbTable("u", {makeRowVector({sequence<int32_t>(1121)})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .crossJoin(
@@ -202,7 +202,7 @@ TEST_F(CrossJoinTest, zeroColumnBuild) {
   createDuckDbTable("t", {leftVectors});
 
   // Build side has > 1 row.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .crossJoin(
@@ -244,7 +244,7 @@ TEST_F(CrossJoinTest, parallelism) {
   auto left = {makeRowVector({sequence<int32_t>(2)})};
   auto right = {makeRowVector({"u_c0"}, {sequence<int32_t>(3)})};
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   CursorParameters params;
   params.maxDrivers = 5;
   params.planNode =

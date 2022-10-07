@@ -232,8 +232,7 @@ TEST_F(TpchConnectorTest, multipleSplits) {
 
 // Join nation and region.
 TEST_F(TpchConnectorTest, join) {
-  auto planNodeIdGenerator =
-      std::make_shared<exec::test::PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId nationScanId;
   core::PlanNodeId regionScanId;
   auto plan =

@@ -120,7 +120,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
     createDuckDbTable("u", right);
 
     // Test INNER join.
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto plan = PlanBuilder(planNodeIdGenerator)
                     .values(left)
                     .mergeJoin(
@@ -151,7 +151,7 @@ class MergeJoinTest : public HiveConnectorTestBase {
         "SELECT t.c0, t.c1, u.c1 FROM t, u WHERE t.c0 = u.c0");
 
     // Test LEFT join.
-    planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     plan = PlanBuilder(planNodeIdGenerator)
                .values(left)
                .mergeJoin(
@@ -222,7 +222,7 @@ TEST_F(MergeJoinTest, aggregationOverJoin) {
       makeRowVector({"t_c0"}, {makeFlatVector<int32_t>({1, 2, 3, 4, 5})});
   auto right = makeRowVector({"u_c0"}, {makeFlatVector<int32_t>({2, 4, 6})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values({left})
@@ -255,7 +255,7 @@ TEST_F(MergeJoinTest, nonFirstJoinKeys) {
           makeFlatVector<int32_t>({2, 4, 6}),
       });
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values({left})
@@ -297,7 +297,7 @@ TEST_F(MergeJoinTest, innerJoinFilter) {
   createDuckDbTable("u", {right});
 
   auto plan = [&](const std::string& filter) {
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     return PlanBuilder(planNodeIdGenerator)
         .values({left})
         .mergeJoin(
@@ -362,7 +362,7 @@ TEST_F(MergeJoinTest, leftJoinFilter) {
   createDuckDbTable("t", {left});
   createDuckDbTable("u", {right});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan = [&](const std::string& filter) {
     return PlanBuilder(planNodeIdGenerator)
         .values({left})
@@ -423,7 +423,7 @@ TEST_F(MergeJoinTest, numDrivers) {
   auto left = makeRowVector({"t_c0"}, {makeFlatVector<int32_t>({1, 2, 3})});
   auto right = makeRowVector({"u_c0"}, {makeFlatVector<int32_t>({0, 2, 5})});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values({left}, true)
@@ -474,7 +474,7 @@ TEST_F(MergeJoinTest, lazyVectors) {
   writeToFile(rightFile->path, rightVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
   core::PlanNodeId rightScanId;
   auto op = PlanBuilder(planNodeIdGenerator)

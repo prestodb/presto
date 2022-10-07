@@ -106,7 +106,7 @@ class HashJoinTest : public HiveConnectorTestBase {
       core::JoinType joinType,
       bool injectSpill) {
     CursorParameters params;
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     params.planNode = PlanBuilder(planNodeIdGenerator)
                           .values(leftBatches, isLeftParallelizable)
                           .hashJoin(
@@ -606,7 +606,7 @@ TEST_F(HashJoinTest, joinSidesDifferentSchema) {
       "  u.c2 > 10 AND ltrim(t.c1) = 'a%'";
   // In this hash join the 2 tables have a common key which is the
   // first channel in both tables.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto planNode =
       PlanBuilder(planNodeIdGenerator)
           .values({leftVectors})
@@ -646,7 +646,7 @@ TEST_F(HashJoinTest, memory) {
         BatchMaker::createBatch(rightType, 800, *pool_)));
   }
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   CursorParameters params;
   params.planNode = PlanBuilder(planNodeIdGenerator)
@@ -694,7 +694,7 @@ TEST_F(HashJoinTest, lazyVectors) {
   writeToFile(rightFile->path, rightVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId leftScanId;
   core::PlanNodeId rightScanId;
   auto op = PlanBuilder(planNodeIdGenerator)
@@ -717,7 +717,7 @@ TEST_F(HashJoinTest, lazyVectors) {
       .split(leftScanId, makeHiveConnectorSplit(leftFile->path))
       .assertResults("SELECT t.c1 + 1 FROM t, u WHERE t.c0 = u.c0");
 
-  planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   op = PlanBuilder(planNodeIdGenerator)
            .tableScan(
                ROW({"c0", "c1", "c2", "c3"},
@@ -782,7 +782,7 @@ TEST_F(HashJoinTest, arrayBasedLookup) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op =
       PlanBuilder(planNodeIdGenerator)
           .values(leftVectors)
@@ -812,7 +812,7 @@ TEST_F(HashJoinTest, innerJoinWithEmptyBuild) {
   auto rightVectors = makeRowVector({makeFlatVector<int32_t>(
       123, [](auto row) { return row % 5; }, nullEvery(7))});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -845,7 +845,7 @@ TEST_F(HashJoinTest, leftSemiJoin) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -899,7 +899,7 @@ TEST_F(HashJoinTest, leftSemiJoinWithFilter) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -955,7 +955,7 @@ TEST_F(HashJoinTest, rightSemiJoin) {
   createDuckDbTable("u", {leftVectors});
   createDuckDbTable("t", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -1025,7 +1025,7 @@ TEST_F(HashJoinTest, rightSemiJoinWithFilter) {
   createDuckDbTable("u", {leftVectors});
   createDuckDbTable("t", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   core::PlanNodeId hashJoinId;
   auto plan = [&](const std::string& filter) -> core::PlanNodePtr {
     return PlanBuilder(planNodeIdGenerator)
@@ -1092,7 +1092,7 @@ TEST_F(HashJoinTest, antiJoin) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -1167,7 +1167,7 @@ TEST_F(HashJoinTest, nullAwareAntiJoinWithFilter) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto op = PlanBuilder(planNodeIdGenerator)
                 .values({leftVectors})
                 .hashJoin(
@@ -1216,7 +1216,7 @@ TEST_F(HashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
       });
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   for (const std::string& filter : {"u1 > t1", "u1 * t1 > 0"}) {
     auto sql = fmt::format(
         "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u WHERE {})",
@@ -1247,7 +1247,7 @@ TEST_F(HashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
     auto right = makeRowVector({"u0", "u1"}, rightColumns);
     createDuckDbTable("t", {left});
     createDuckDbTable("u", {right});
-    auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     auto op =
         PlanBuilder(planNodeIdGenerator)
             .values({left})
@@ -1320,7 +1320,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
 
   auto probeType = ROW({"c0", "c1"}, {INTEGER(), BIGINT()});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto buildSide = PlanBuilder(planNodeIdGenerator)
                        .values(rightVectors)
@@ -1664,7 +1664,7 @@ TEST_F(HashJoinTest, leftJoin) {
   createDuckDbTable("t", leftVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto buildSide = PlanBuilder(planNodeIdGenerator)
                        .values({rightVectors})
                        .project({"c0 AS u_c0", "c1 AS u_c1"})
@@ -1807,7 +1807,7 @@ TEST_F(HashJoinTest, leftJoinWithNullableFilter) {
   createDuckDbTable("t", leftVectors);
   createDuckDbTable("u", rightVectors);
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto buildSide = PlanBuilder(planNodeIdGenerator)
                        .values(rightVectors)
@@ -1855,7 +1855,7 @@ TEST_F(HashJoinTest, rightJoin) {
   createDuckDbTable("t", leftVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto buildSide = PlanBuilder(planNodeIdGenerator)
                        .values({rightVectors})
@@ -1975,7 +1975,7 @@ TEST_F(HashJoinTest, fullJoin) {
   createDuckDbTable("t", leftVectors);
   createDuckDbTable("u", {rightVectors});
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
 
   auto buildSide = PlanBuilder(planNodeIdGenerator)
                        .values({rightVectors})
@@ -2092,7 +2092,7 @@ TEST_F(HashJoinTest, memoryUsage) {
 
   core::PlanNodeId joinNodeId;
 
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values(probeData)
@@ -2143,7 +2143,7 @@ TEST_F(HashJoinTest, smallOutputBatchSize) {
   createDuckDbTable("u", {buildData});
 
   // Plan hash inner join with a filter.
-  auto planNodeIdGenerator = std::make_shared<PlanNodeIdGenerator>();
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   auto plan =
       PlanBuilder(planNodeIdGenerator)
           .values({probeData})
