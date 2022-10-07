@@ -86,6 +86,26 @@ using exec::Expr;
       throw std::runtime_error("Unsupported DuckDB type: " + type.ToString()); \
   }
 
+/// Returns true if specified type is supported as a type of an argument or
+/// return value of a function.
+bool duckdbTypeIsSupported(LogicalType type) {
+  switch (type.id()) {
+    case LogicalTypeId::BOOLEAN:
+    case LogicalTypeId::TINYINT:
+    case LogicalTypeId::SMALLINT:
+    case LogicalTypeId::INTEGER:
+    case LogicalTypeId::BIGINT:
+    case LogicalTypeId::FLOAT:
+    case LogicalTypeId::DOUBLE:
+    case LogicalTypeId::VARCHAR:
+    case LogicalTypeId::TIMESTAMP:
+    case LogicalTypeId::DATE:
+      return true;
+    default:
+      return false;
+  }
+}
+
 template <class T>
 static void veloxFlatVectorToDuckTemplated(
     VectorPtr input,
@@ -425,7 +445,7 @@ class DuckDBFunction : public exec::VectorFunction {
     // FIXME: this binding does not need to be performed on every function call
     std::vector<LogicalType> inputTypes;
     for (auto& arg : args) {
-      inputTypes.push_back(fromVeloxType(arg->typeKind()));
+      inputTypes.push_back(fromVeloxType(arg->type()));
     }
 
     duckdb::VeloxPoolAllocator duckDBAllocator(*context.pool());

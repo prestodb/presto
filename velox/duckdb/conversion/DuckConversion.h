@@ -24,8 +24,10 @@ class variant;
 
 namespace facebook::velox::duckdb {
 
-::duckdb::LogicalType fromVeloxType(TypeKind kind);
-bool duckdbTypeIsSupported(::duckdb::LogicalType type);
+/// Converts Velox type to DuckDB type.
+::duckdb::LogicalType fromVeloxType(const TypePtr& type);
+
+/// Converts DuckDB type to Velox type.
 TypePtr toVeloxType(::duckdb::LogicalType type);
 
 static ::duckdb::timestamp_t veloxTimestampToDuckDB(
@@ -179,5 +181,10 @@ struct DuckDateConversion {
     return Date(::duckdb::Date::EpochDays(input));
   }
 };
+
+/// Returns CREATE TABLE <tableName>(<schema>) DuckDB SQL.
+std::string makeCreateTableSql(
+    const std::string& tableName,
+    const RowType& rowType);
 
 } // namespace facebook::velox::duckdb

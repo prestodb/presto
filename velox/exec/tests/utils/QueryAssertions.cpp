@@ -33,33 +33,6 @@ static const std::string kDuckDbTimestampWarning =
     "test involves timestamp inputs, please make sure you use the right"
     " precision.";
 
-std::string makeCreateTableSql(
-    const std::string& tableName,
-    const RowType& rowType) {
-  std::ostringstream sql;
-  sql << "CREATE TABLE " << tableName << "(";
-  for (int32_t i = 0; i < rowType.size(); i++) {
-    if (i > 0) {
-      sql << ", ";
-    }
-    sql << rowType.nameOf(i) << " ";
-    auto child = rowType.childAt(i);
-    if (child->isArray()) {
-      sql << child->asArray().elementType()->kindName() << "[]";
-    } else if (child->isMap()) {
-      sql << "MAP(" << child->asMap().keyType()->kindName() << ", "
-          << child->asMap().valueType()->kindName() << ")";
-    } else if (child->isShortDecimal() || child->isLongDecimal()) {
-      const auto& [precision, scale] = getDecimalPrecisionScale(*child);
-      sql << "DECIMAL(" << precision << ", " << scale << ")";
-    } else {
-      sql << child->kindName();
-    }
-  }
-  sql << ")";
-  return sql.str();
-}
-
 template <TypeKind kind>
 ::duckdb::Value duckValueAt(const VectorPtr& vector, vector_size_t index) {
   using T = typename KindToFlatVector<kind>::WrapperType;
@@ -153,9 +126,8 @@ template <>
   auto size = mapVector->sizeAt(row);
   if (size == 0) {
     return ::duckdb::Value::MAP(
-        ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(mapKeys->typeKind())),
-        ::duckdb::Value::EMPTYLIST(
-            duckdb::fromVeloxType(mapValues->typeKind())));
+        ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(mapKeys->type())),
+        ::duckdb::Value::EMPTYLIST(duckdb::fromVeloxType(mapValues->type())));
   }
 
   std::vector<::duckdb::Value> duckKeysVector;
@@ -571,7 +543,7 @@ void DuckDbQueryRunner::createTable(
 
   auto rowType = data[0]->type()->as<TypeKind::ROW>();
   ::duckdb::Connection con(db_);
-  auto res = con.Query(makeCreateTableSql(name, rowType));
+  auto res = con.Query(duckdb::makeCreateTableSql(name, rowType));
   if (!res->success) {
     VELOX_FAIL(res->error);
   }

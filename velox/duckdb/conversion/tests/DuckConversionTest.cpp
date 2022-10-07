@@ -103,3 +103,27 @@ TEST(DuckConversionTest, duckValueToVariantUnsupported) {
     EXPECT_THROW(duckValueToVariant(Value(i), true), std::runtime_error);
   }
 }
+
+namespace {
+
+void testRoundTrip(const TypePtr& type) {
+  ASSERT_EQ(*toVeloxType(fromVeloxType(type)), *type);
+}
+} // namespace
+
+TEST(DuckConversionTest, types) {
+  testRoundTrip(BOOLEAN());
+
+  testRoundTrip(TINYINT());
+  testRoundTrip(SMALLINT());
+  testRoundTrip(INTEGER());
+  testRoundTrip(BIGINT());
+
+  testRoundTrip(REAL());
+  testRoundTrip(DOUBLE());
+
+  testRoundTrip(ARRAY(BIGINT()));
+  testRoundTrip(MAP(VARCHAR(), REAL()));
+  testRoundTrip(ROW(
+      {"a", "b", "c"}, {BIGINT(), ARRAY(DOUBLE()), MAP(BIGINT(), VARCHAR())}));
+}

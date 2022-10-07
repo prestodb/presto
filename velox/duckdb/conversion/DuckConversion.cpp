@@ -60,8 +60,8 @@ variant decimalVariant(const Value& val) {
 } // namespace
 
 //! Type mapping for velox -> DuckDB conversions
-LogicalType fromVeloxType(TypeKind kind) {
-  switch (kind) {
+LogicalType fromVeloxType(const TypePtr& type) {
+  switch (type->kind()) {
     case TypeKind::BOOLEAN:
       return LogicalType::BOOLEAN;
     case TypeKind::TINYINT:
@@ -80,31 +80,24 @@ LogicalType fromVeloxType(TypeKind kind) {
       return LogicalType::VARCHAR;
     case TypeKind::TIMESTAMP:
       return LogicalType::TIMESTAMP;
+    case TypeKind::ARRAY:
+      return LogicalType::LIST(fromVeloxType(type->childAt(0)));
+    case TypeKind::MAP:
+      return LogicalType::MAP(
+          fromVeloxType(type->childAt(0)), fromVeloxType(type->childAt(1)));
+    case TypeKind::ROW: {
+      const auto& rowType = type->asRow();
+      std::vector<std::pair<std::string, LogicalType>> children;
+      for (auto i = 0; i < rowType.size(); ++i) {
+        children.push_back(
+            {rowType.nameOf(i), fromVeloxType(rowType.childAt(i))});
+      }
+      return LogicalType::STRUCT(std::move(children));
+    }
     default:
       throw std::runtime_error(
-          "unsupported type for velox -> DuckDB conversion: " +
-          mapTypeKindToName(kind));
-  }
-}
-
-//! Whether or not a type is supported for velox <-> DuckDB conversion; note
-//! that this is more restrictive than toVeloxType We only support types that
-//! have a 1:1 mapping between DuckDB and velox here
-bool duckdbTypeIsSupported(LogicalType type) {
-  switch (type.id()) {
-    case LogicalTypeId::BOOLEAN:
-    case LogicalTypeId::TINYINT:
-    case LogicalTypeId::SMALLINT:
-    case LogicalTypeId::INTEGER:
-    case LogicalTypeId::BIGINT:
-    case LogicalTypeId::FLOAT:
-    case LogicalTypeId::DOUBLE:
-    case LogicalTypeId::VARCHAR:
-    case LogicalTypeId::TIMESTAMP:
-    case LogicalTypeId::DATE:
-      return true;
-    default:
-      return false;
+          "Unsupported type for velox -> DuckDB conversion: " +
+          type->toString());
   }
 }
 
@@ -203,6 +196,33 @@ variant duckValueToVariant(const Value& val, bool parseDecimalAsDouble) {
           "unsupported type for duckdb value -> velox  variant conversion: " +
           val.type().ToString());
   }
+}
+
+std::string makeCreateTableSql(
+    const std::string& tableName,
+    const RowType& rowType) {
+  std::ostringstream sql;
+  sql << "CREATE TABLE " << tableName << "(";
+  for (int32_t i = 0; i < rowType.size(); i++) {
+    if (i > 0) {
+      sql << ", ";
+    }
+    sql << rowType.nameOf(i) << " ";
+    auto child = rowType.childAt(i);
+    if (child->isArray()) {
+      sql << child->asArray().elementType()->kindName() << "[]";
+    } else if (child->isMap()) {
+      sql << "MAP(" << child->asMap().keyType()->kindName() << ", "
+          << child->asMap().valueType()->kindName() << ")";
+    } else if (child->isShortDecimal() || child->isLongDecimal()) {
+      const auto& [precision, scale] = getDecimalPrecisionScale(*child);
+      sql << "DECIMAL(" << precision << ", " << scale << ")";
+    } else {
+      sql << child->kindName();
+    }
+  }
+  sql << ")";
+  return sql.str();
 }
 
 } // namespace facebook::velox::duckdb
