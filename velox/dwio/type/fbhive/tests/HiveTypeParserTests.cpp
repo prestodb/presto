@@ -161,4 +161,10 @@ TEST(FbHive, parseTypeToString) {
   ASSERT_EQ(*t, *t2);
 }
 
+TEST(FbHive, parseSpecialChar) {
+  HiveTypeParser parser;
+  auto t = parser.parse("struct<a$_#:int>");
+  ASSERT_EQ(t->toString(), "ROW<\"a$_#\":INTEGER>");
+}
+
 } // namespace facebook::velox::dwio::type::fbhive

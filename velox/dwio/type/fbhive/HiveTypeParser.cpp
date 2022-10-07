@@ -34,6 +34,11 @@ bool isPositiveInteger(const std::string& str) {
         return !std::isdigit(c);
       }) == str.end();
 }
+
+bool isSupportedSpecialChar(char c) {
+  static std::unordered_set<char> supported{'_', '$', '#'};
+  return supported.count(c) == 1;
+}
 } // namespace
 
 namespace facebook::velox::dwio::type::fbhive {
@@ -198,7 +203,7 @@ TokenAndRemaining HiveTypeParser::nextToken(
 
   auto iter = sp.cbegin();
   size_t len = 0;
-  while (isalnum(*iter) || '_' == *iter || '$' == *iter) {
+  while (isalnum(*iter) || isSupportedSpecialChar(*iter)) {
     ++len;
     ++iter;
   }
