@@ -463,7 +463,7 @@ TpchPlan TpchQueryBuilder::getQ6Plan() const {
 TpchPlan TpchQueryBuilder::getQ7Plan() const {
   std::vector<std::string> supplierColumns = {"s_nationkey", "s_suppkey"};
   std::vector<std::string> lineitemColumns = {
-      "l_shipdate", "l_suppkey", "l_discount", "l_extendedprice", "l_orderkey"};
+      "l_shipdate", "l_suppkey", "l_orderkey", "l_discount", "l_extendedprice"};
   std::vector<std::string> ordersColumns = {"o_custkey", "o_orderkey"};
   std::vector<std::string> customerColumns = {"c_custkey", "c_nationkey"};
   std::vector<std::string> nationColumns = {"n_nationkey", "n_name"};
