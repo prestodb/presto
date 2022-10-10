@@ -64,6 +64,9 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * This class defines the Query dispatch process handled by Dispatch Manager
+ */
 public class DispatchManager
 {
     private final QueryIdGenerator queryIdGenerator;
@@ -90,6 +93,25 @@ public class DispatchManager
 
     private final SecurityConfig securityConfig;
 
+    /**
+     * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
+     *
+     * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
+     *
+     * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
+     * @param analyzerProvider analyzer provider provides an interface for query preparer when a dispatch query is created and registered
+     * @param resourceGroupManager the resource group manager to select corresponding resource group for query to retrieve basic information from session context for selection context
+     * @param warningCollectorFactory the warning collector factory to collect presto warning in a query session
+     * @param dispatchQueryFactory the dispatch query factory is used to create a {@link DispatchQuery} object.  The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query.
+     * @param failedDispatchQueryFactory the failed dispatch query factory is used to register a failed query
+     * @param transactionManager the transaction manager is used to active existing transaction if this is a transaction control statement
+     * @param accessControl the access control is used as part of activate transaction operation
+     * @param sessionSupplier the session supplier to create a query session
+     * @param sessionPropertyDefaults allow dispatch manager to apply system default session properties
+     * @param queryManagerConfig contains all query manager config properties
+     * @param dispatchExecutor the dispatch executor contains both pre-queued query executor {@link BoundedExecutor} and post-queued query executor {@link Executor}
+     * @param clusterStatusSender An API to register a created query to resource manager for sending heartbeat and start task execution
+     */
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
@@ -130,18 +152,29 @@ public class DispatchManager
         this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
     }
 
+    /**
+     * Start query tracker as a background task.
+     */
     @PostConstruct
     public void start()
     {
         queryTracker.start();
     }
 
+    /**
+     * Stop any running queries and cancel background tasks if any.
+     */
     @PreDestroy
     public void stop()
     {
         queryTracker.stop();
     }
 
+    /**
+     * This method returns the statistics from query manager
+     *
+     * @return {@link QueryManagerStats}
+     */
     @Managed
     @Flatten
     public QueryManagerStats getStats()
@@ -149,11 +182,60 @@ public class DispatchManager
         return stats;
     }
 
+    /**
+     * Create a query id
+     *
+     * This method is called when a {@code Query} object is created
+     *
+     * @return {@link QueryId}
+     */
     public QueryId createQueryId()
     {
         return queryIdGenerator.createNextQueryId();
     }
 
+    /**
+     * Create a listenable future to start executing a query for a given queryID and slug
+     * <br>
+     * This method instantiates a dispatch query with the query tracker. The logic flow is as follows:
+     * <ol>
+     *     <li> Check to see if the query is too big. This is to protect the coordinator not be overwhelmed </li>
+     *     <li> Take the raw session information from {@code sessionContext} into a genuine session object of the query that can be used to check for access control,
+     *     privacy/security guarded by session properties, check for user query id, etc </li>
+     *     <li> {@code prepareQuery} is responsible for calling SQL parsing and generate abstract syntax tree (AST). This wil return a query object with placeholders
+     *     for prepared statement to fill in the actual query execution</li>
+     *     <li> Select corresponding resource group {@link ResourceGroupManager} for the query which is done in two steps
+     *     <ul>
+     *         <li> Retrieve basic information from the session context and use this to prepare for selection context.</li>
+     *         <li> The selection context will then be used by the {@link ResourceGroupManager} to figure out what resource group to go to
+     *         and which resource group the query should belong to. </li>
+     *     </ul>
+     *     <li> Enhance the session with session property defaults. User may use the plugin feature to provide default session property overrides
+     *     for dynamically configurable feature-toggle type of use cases. </li>
+     *     <li> Create a {@link DispatchQuery} object. The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query. </li>
+     *     <li> The event of creating the dispatch query is logged after registering to the query tracker which is used to keep track of the state of the query.
+     *     The log is done by adding a state change listener to the query.
+     *     The state transition listener is useful to understand the state when a query has moved from created to running, running to error completed. </li>
+     *     <li> Once dispatch query object is created and it's registered with the query tracker, start sending heard beat to indicate that this query is now running
+     *     to the {@link ResourceGroupManager}. This is no-op for no disaggregated coordinator setup</li>
+     *     <li> invoke query prerequisite manager by {@code startWaitingForResources} to start process pre-resource management stage.
+     *     <ul>
+     *         <li>This is to allow user to add a plugin and custom functionality to the query prior to it getting queued so that user may for instance prepare for something
+     *         prior to that query getting queued. By default this is a no-op</li>
+     *         <li> proceed to queue the query {@code queueQuery()} which internally change the state machine of the local dispatch query as {@code QUEUED},
+     *         and then call query queuer to submit the query to the {@link ResourceGroupManager} </li>
+     *     </ul>
+     *     </li>
+     * </ol>
+     *
+     * @param queryId the query id
+     * @param slug the query slug
+     * @param retryCount per-query retry limit due to communication failures
+     * @param sessionContext the raw session context
+     * @param query the query in String
+     * @return the listenable future
+     * @see ResourceGroupManager <a href="https://prestodb.io/docs/current/admin/resource-groups.html">Resource Groups</a>
+     */
     public ListenableFuture<?> createQuery(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
@@ -315,6 +397,12 @@ public class DispatchManager
         return queryAdded;
     }
 
+    /**
+     * Wait for dispatched listenable future.
+     *
+     * @param queryId the query id
+     * @return the listenable future
+     */
     public ListenableFuture<?> waitForDispatched(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)
@@ -325,6 +413,10 @@ public class DispatchManager
                 .orElseGet(() -> immediateFuture(null));
     }
 
+    /**
+     * Return a list of {@link BasicQueryInfo}.
+     *
+     */
     public List<BasicQueryInfo> getQueries()
     {
         return queryTracker.getAllQueries().stream()
@@ -332,11 +424,23 @@ public class DispatchManager
                 .collect(toImmutableList());
     }
 
+    /**
+     * Return a lightweight query info.
+     *
+     * @param queryId the query id
+     * @return {@link BasicQueryInfo}
+     */
     public BasicQueryInfo getQueryInfo(QueryId queryId)
     {
         return queryTracker.getQuery(queryId).getBasicQueryInfo();
     }
 
+    /**
+     * Return dispatch info
+     *
+     * @param queryId the query id
+     * @return an optional of {@link DispatchInfo}
+     */
     public Optional<DispatchInfo> getDispatchInfo(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId)
@@ -346,11 +450,22 @@ public class DispatchManager
                 });
     }
 
+    /**
+     * Check if a given queryId exists in query tracker
+     *
+     * @param queryId the query id
+     */
     public boolean isQueryPresent(QueryId queryId)
     {
         return queryTracker.tryGetQuery(queryId).isPresent();
     }
 
+    /**
+     * For a given queryId, trigger immediate query failure if exists in query tracker along with a given reason
+     *
+     * @param queryId the query id
+     * @param cause the cause
+     */
     public void failQuery(QueryId queryId, Throwable cause)
     {
         requireNonNull(cause, "cause is null");
@@ -359,6 +474,11 @@ public class DispatchManager
                 .ifPresent(query -> query.fail(cause));
     }
 
+    /**
+     * For a given queryId, make the query state Cancel and trigger immediate query failure.
+     *
+     * @param queryId the query id
+     */
     public void cancelQuery(QueryId queryId)
     {
         queryTracker.tryGetQuery(queryId)
