@@ -329,6 +329,13 @@ bool registerAggregateFunction(
 std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
 getAggregateFunctionSignatures(const std::string& name);
 
+/// Returns a mapping of all Aggregate functions in registry.
+/// The mapping is function name -> list of function signatures.
+std::unordered_map<
+    std::string,
+    std::vector<std::shared_ptr<AggregateFunctionSignature>>>
+getAggregateFunctionSignatures();
+
 struct AggregateFunctionEntry {
   std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures;
   AggregateFunctionFactory factory;

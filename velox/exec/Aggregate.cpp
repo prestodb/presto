@@ -61,6 +61,21 @@ bool registerAggregateFunction(
   return true;
 }
 
+std::unordered_map<
+    std::string,
+    std::vector<std::shared_ptr<AggregateFunctionSignature>>>
+getAggregateFunctionSignatures() {
+  std::unordered_map<
+      std::string,
+      std::vector<std::shared_ptr<AggregateFunctionSignature>>>
+      map;
+  auto aggregateFunctions = exec::aggregateFunctions();
+  for (const auto& aggregateFunction : aggregateFunctions) {
+    map[aggregateFunction.first] = aggregateFunction.second.signatures;
+  }
+  return map;
+}
+
 std::optional<std::vector<std::shared_ptr<AggregateFunctionSignature>>>
 getAggregateFunctionSignatures(const std::string& name) {
   if (auto func = getAggregateFunctionEntry(name)) {

@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-
-#include "velox/exec/Aggregate.h"
 #include "velox/exec/AggregateFunctionRegistry.h"
+#include <gtest/gtest.h>
+#include "velox/exec/Aggregate.h"
 #include "velox/functions/Registerer.h"
 #include "velox/type/Type.h"
 
@@ -72,28 +71,32 @@ class AggregateFunc : public Aggregate {
       char** /*groups*/,
       int32_t /*numGroups*/,
       VectorPtr* /*result*/) override {}
+  static std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures() {
+    std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures{
+        AggregateFunctionSignatureBuilder()
+            .returnType("bigint")
+            .intermediateType("array(bigint)")
+            .argumentType("bigint")
+            .argumentType("double")
+            .build(),
+        AggregateFunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("T")
+            .intermediateType("array(T)")
+            .argumentType("T")
+            .argumentType("T")
+            .build(),
+        AggregateFunctionSignatureBuilder()
+            .returnType("date")
+            .intermediateType("date")
+            .build(),
+    };
+    return signatures;
+  }
 };
 
 bool registerAggregateFunc(const std::string& name) {
-  std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures{
-      AggregateFunctionSignatureBuilder()
-          .returnType("bigint")
-          .intermediateType("array(bigint)")
-          .argumentType("bigint")
-          .argumentType("double")
-          .build(),
-      AggregateFunctionSignatureBuilder()
-          .typeVariable("T")
-          .returnType("T")
-          .intermediateType("array(T)")
-          .argumentType("T")
-          .argumentType("T")
-          .build(),
-      AggregateFunctionSignatureBuilder()
-          .returnType("date")
-          .intermediateType("date")
-          .build(),
-  };
+  auto signatures = AggregateFunc::signatures();
 
   registerAggregateFunction(
       name,
@@ -175,4 +178,24 @@ TEST_F(FunctionRegistryTest, functionNameInMixedCase) {
       "aggregatE_funC_aliaS", {DOUBLE(), DOUBLE()}, DOUBLE(), ARRAY(DOUBLE()));
 }
 
+TEST_F(FunctionRegistryTest, getAggregateFunctionSignatures) {
+  auto functionSignatures = getAggregateFunctionSignatures();
+  auto aggregateFuncSignatures = functionSignatures["aggregate_func"];
+  std::vector<std::string> aggregateFuncSignaturesStr;
+  std::transform(
+      aggregateFuncSignatures.begin(),
+      aggregateFuncSignatures.end(),
+      std::back_inserter(aggregateFuncSignaturesStr),
+      [](auto& signature) { return signature->toString(); });
+
+  auto expectedSignatures = AggregateFunc::signatures();
+  std::vector<std::string> expectedSignaturesStr;
+  std::transform(
+      expectedSignatures.begin(),
+      expectedSignatures.end(),
+      std::back_inserter(expectedSignaturesStr),
+      [](auto& signature) { return signature->toString(); });
+
+  ASSERT_EQ(aggregateFuncSignaturesStr, expectedSignaturesStr);
+}
 } // namespace facebook::velox::exec::test
