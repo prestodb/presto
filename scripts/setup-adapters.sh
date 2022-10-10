@@ -61,7 +61,14 @@ cd "${DEPENDENCY_DIR}" || exit
 # aws-sdk-cpp missing dependencies
 
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-   yum -y install libxml2-devel libgsasl-devel libuuid-devel
+   # /etc/os-release is a standard way to query various distribution
+   # information and is available everywhere
+   LINUX_DISTRIBUTION=$(. /etc/os-release && echo ${ID})
+   if [[ "$LINUX_DISTRIBUTION" == "ubuntu" ]]; then
+      apt install -y --no-install-recommends libxml2-dev libgsasl-dev uuid-dev
+   else # Assume Fedora/CentOS
+      yum -y install libxml2-devel libgsasl-devel libuuid-devel
+   fi
 fi
 
 if [[ "$OSTYPE" == darwin* ]]; then
