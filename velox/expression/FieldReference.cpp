@@ -84,7 +84,7 @@ void FieldReference::evalSpecialForm(
         child = BaseVector::wrapInConstant(rows.size(), 0, child);
       }
     }
-    result = useDecode ? std::move(decoded.wrap(child, *input, rows))
+    result = useDecode ? std::move(decoded.wrap(child, *input, rows.end()))
                        : std::move(child);
   }
 }

@@ -268,8 +268,7 @@ const TOut& getDecoded(const DecodedVector& decoded) {
 }
 
 inline DecodedVector* decode(DecodedVector& decoder, const BaseVector& vector) {
-  SelectivityVector rows(vector.size());
-  decoder.decode(vector, rows);
+  decoder.decode(vector);
   return &decoder;
 }
 } // namespace detail

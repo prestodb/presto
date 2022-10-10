@@ -15,12 +15,11 @@
  */
 
 #pragma once
+#include <vector>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
-
-#include <vector>
 
 namespace facebook::velox {
 
@@ -58,11 +57,16 @@ class DecodedVector {
   ///
   /// Limitations: Decoding a constant vector wrapping a lazy vector that has
   /// not been loaded yet with is not supported loadLazy = false.
+  /// if `rows` is not passed then the vector is decoded for its size.
   DecodedVector(
       const BaseVector& vector,
       const SelectivityVector& rows,
       bool loadLazy = true) {
-    decode(vector, rows, loadLazy);
+    decode(vector, &rows, loadLazy);
+  }
+
+  DecodedVector(const BaseVector& vector, bool loadLazy = true) {
+    decode(vector, nullptr, loadLazy);
   }
 
   /// Resets the internal state and decodes 'vector' for 'rows'. See
@@ -70,14 +74,26 @@ class DecodedVector {
   void decode(
       const BaseVector& vector,
       const SelectivityVector& rows,
-      bool loadLazy = true);
+      bool loadLazy = true) {
+    decode(vector, &rows, loadLazy);
+  }
+
+  void decode(const BaseVector& vector, bool loadLazy = true) {
+    decode(vector, nullptr, loadLazy);
+  }
 
   /// Given a dictionary vector with at least 'numLevel' levels of dictionary
   /// wrapping, combines 'numLevel' wrappings into one.
   void makeIndices(
       const BaseVector& vector,
       const SelectivityVector& rows,
-      int32_t numLevels);
+      int32_t numLevels) {
+    return makeIndices(vector, &rows, numLevels);
+  }
+
+  void makeIndices(const BaseVector& vector, int32_t numLevels) {
+    return makeIndices(vector, nullptr, numLevels);
+  }
 
   /// Returns the values buffer for the base vector. Assumes the vector is of
   /// scalar type and has been already decoded. Use indices() to access
@@ -184,10 +200,14 @@ class DecodedVector {
   /// have been previously decoded by 'this'. This is used when 'data'
   /// is a component of the base vector of 'wrapper' and must be used
   /// in the same context, thus with the same indirections.
+  VectorPtr wrap(VectorPtr data, const BaseVector& wrapper, vector_size_t size);
+
   VectorPtr wrap(
       VectorPtr data,
       const BaseVector& wrapper,
-      const SelectivityVector& rows);
+      const SelectivityVector& rows) {
+    return wrap(std::move(data), wrapper, rows.end());
+  }
 
   struct DictionaryWrapping {
     BufferPtr indices;
@@ -199,12 +219,35 @@ class DecodedVector {
   /// isIdentityMapping() == false and isConstantMapping() == false.
   DictionaryWrapping dictionaryWrapping(
       const BaseVector& wrapper,
-      const SelectivityVector& rows) const;
+      vector_size_t size) const;
+
+  DictionaryWrapping dictionaryWrapping(
+      const BaseVector& wrapper,
+      const SelectivityVector& rows) const {
+    return dictionaryWrapping(wrapper, rows.end());
+  }
 
   /// Pre-allocated vector of 0, 1, 2,..
   static const std::vector<vector_size_t>& consecutiveIndices();
 
  private:
+  DecodedVector(
+      const BaseVector& vector,
+      const SelectivityVector* rows,
+      bool loadLazy = true) {
+    decode(vector, rows, loadLazy);
+  }
+
+  void decode(
+      const BaseVector& vector,
+      const SelectivityVector* rows,
+      bool loadLazy = true);
+
+  void makeIndices(
+      const BaseVector& vector,
+      const SelectivityVector* rows,
+      int32_t numLevels);
+
   /// Pre-allocated vector of all zeros.
   static const std::vector<vector_size_t>& zeroIndices();
 
@@ -217,39 +260,39 @@ class DecodedVector {
     return copiedNulls_.empty() || nulls_ != copiedNulls_.data();
   }
 
-  void setFlatNulls(const BaseVector& vector, const SelectivityVector& rows);
+  void setFlatNulls(const BaseVector& vector, const SelectivityVector* rows);
 
   template <TypeKind kind>
-  void decodeBiased(const BaseVector& vector, const SelectivityVector& rows);
+  void decodeBiased(const BaseVector& vector, const SelectivityVector* rows);
 
   void makeIndicesMutable();
 
   void combineWrappers(
       const BaseVector* vector,
-      const SelectivityVector& rows,
+      const SelectivityVector* rows,
       int numLevels = -1);
 
   void applyDictionaryWrapper(
       const BaseVector& dictionaryVector,
-      const SelectivityVector& rows);
+      const SelectivityVector* rows);
 
   void applySequenceWrapper(
       const BaseVector& sequenceVector,
-      const SelectivityVector& rows);
+      const SelectivityVector* rows);
 
   void copyNulls(vector_size_t size);
 
   void fillInIndices();
 
-  void setBaseData(const BaseVector& vector, const SelectivityVector& rows);
+  void setBaseData(const BaseVector& vector, const SelectivityVector* rows);
 
   void setBaseDataForConstant(
       const BaseVector& vector,
-      const SelectivityVector& rows);
+      const SelectivityVector* rows);
 
   void setBaseDataForBias(
       const BaseVector& vector,
-      const SelectivityVector& rows);
+      const SelectivityVector* rows);
 
   void reset(vector_size_t size);
 

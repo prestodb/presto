@@ -595,7 +595,7 @@ void setDictionaryWrapping(
     const SelectivityVector& rows,
     BaseVector& firstWrapper,
     EvalCtx& context) {
-  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows);
+  auto wrapping = decoded.dictionaryWrapping(firstWrapper, rows.end());
   context.setDictionaryWrap(
       std::move(wrapping.indices), std::move(wrapping.nulls));
 }
