@@ -157,7 +157,7 @@ void LazyVector::ensureLoadedRows(
     // The loaded base vector may have fewer rows than the original. Make sure
     // there are no indices referring to rows past the end of the base vector.
 
-    BufferPtr indices = allocateIndices(vector->size(), vector->pool());
+    BufferPtr indices = allocateIndices(rows.end(), vector->pool());
     auto rawIndices = indices->asMutable<vector_size_t>();
     auto decodedIndices = decoded.indices();
     rows.applyToSelected(
@@ -165,17 +165,24 @@ void LazyVector::ensureLoadedRows(
 
     BufferPtr nulls = nullptr;
     if (decoded.nulls()) {
-      nulls = AlignedBuffer::allocate<bool>(vector->size(), vector->pool());
-      std::memcpy(
-          nulls->asMutable<uint64_t>(),
-          decoded.nulls(),
-          bits::nbytes(vector->size()));
+      if (!baseRows.hasSelections()) {
+        // All valid values in 'rows' are nulls. Set the nulls buffer to all
+        // nulls to avoid hitting DCHECK when creating a dictionary with a zero
+        // sized base vector.
+        nulls = allocateNulls(rows.end(), vector->pool(), bits::kNull);
+      } else {
+        nulls = allocateNulls(rows.end(), vector->pool());
+        std::memcpy(
+            nulls->asMutable<uint64_t>(),
+            decoded.nulls(),
+            bits::nbytes(rows.end()));
+      }
     }
 
     vector = BaseVector::wrapInDictionary(
         std::move(nulls),
         std::move(indices),
-        vector->size(),
+        rows.end(),
         lazyVector->loadedVectorShared());
     return;
   }

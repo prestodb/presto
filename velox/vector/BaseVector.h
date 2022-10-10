@@ -833,9 +833,12 @@ inline BufferPtr allocateIndices(vector_size_t size, memory::MemoryPool* pool) {
 }
 
 // Allocates a buffer to fit at least 'size' null bits and initializes them to
-// not-null.
-inline BufferPtr allocateNulls(vector_size_t size, memory::MemoryPool* pool) {
-  return AlignedBuffer::allocate<bool>(size, pool, bits::kNotNull);
+// the provided 'initValue' which has a default value of non-null.
+inline BufferPtr allocateNulls(
+    vector_size_t size,
+    memory::MemoryPool* pool,
+    bool initValue = bits::kNotNull) {
+  return AlignedBuffer::allocate<bool>(size, pool, initValue);
 }
 
 // Returns a summary of the null bits in the specified buffer and prints out
