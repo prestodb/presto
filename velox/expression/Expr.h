@@ -631,6 +631,8 @@ struct ExprSetCompletionEvent {
   std::unordered_map<std::string, exec::ExprStats> stats;
   /// List containing sql representation of each top level expression in ExprSet
   std::vector<std::string> sqls;
+  // Query id corresponding query
+  std::string queryId;
 };
 
 /// Listener invoked on ExprSet destruction.

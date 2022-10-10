@@ -1522,7 +1522,8 @@ ExprSet::~ExprSet() {
 
       auto uuid = makeUuid();
       for (const auto& listener : listeners) {
-        listener->onCompletion(uuid, {stats, sqls});
+        listener->onCompletion(
+            uuid, {stats, sqls, execCtx()->queryCtx()->queryId()});
       }
     }
   });
