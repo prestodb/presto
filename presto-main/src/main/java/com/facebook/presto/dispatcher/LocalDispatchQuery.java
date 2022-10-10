@@ -17,6 +17,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.ClusterSizeMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryExecution;
@@ -77,6 +78,19 @@ public class LocalDispatchQuery
     private final QueryPrerequisites queryPrerequisites;
     private final WarningCollector warningCollector;
 
+    /**
+     * Local dispatch query encapsulates QueryExecution and submit to the ResourceGroupManager waiting for resource to get executed.
+     *
+     * @param stateMachine the state machine to keep track of the state of the query
+     * @param queryMonitor the query monitor records information to the {@link EventListenerManager}
+     * @param queryExecutionFuture the query execution future
+     * @param clusterSizeMonitor the cluster size monitor provides a method to obtain a listener object when the minimum number of workers for the cluster has been met
+     * @param queryExecutor the query executor is used to start a future for query to get executed. This will trigger the query execution phase by involving {@code querySubmitter}
+     * @param queryQueuer the query queuer is used to register the query that is being queued while waiting for query prerequisites being returned
+     * @param querySubmitter the query submitter takes in query execution object. This will trigger query to start executed with {@link com.facebook.presto.execution.SqlQueryManager}
+     * @param retry if this is a retry query
+     * @param queryPrerequisites the query prerequisites are conditions when the query is ready to be queued for execution
+     */
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             QueryMonitor queryMonitor,
