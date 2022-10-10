@@ -22,3 +22,16 @@ pulls:
     recent activity. If you'd still like this PR merged, please comment on the PR,
     make sure you've addressed reviewer comments, and rebase on the latest main.
     Thank you for your contributions!
+
+
+issues:
+  daysUntilStale: 3650 # 10 years
+  exemptLabels:
+    - bug
+  markComment: >
+    This issue has been automatically marked as stale because it has not had
+    any activity in the last year. If you feel that this issue is important,
+    add a comment explaining why the issue is still relevant and the stale tag
+    will be removed; otherwise it will be closed in 14 days. This is an attempt to
+    ensure that our open issues remain valuable and relevant so that we can keep
+    track of what needs to be done and prioritize the right things.
