@@ -160,6 +160,7 @@ Driver::Driver(
   curOpIndex_ = operators_.size() - 1;
   // Operators need access to their Driver for adaptation.
   ctx_->driver = this;
+  trackOperatorCpuUsage_ = ctx_->queryConfig().operatorTrackCpuUsage();
 }
 
 namespace {
@@ -347,7 +348,7 @@ StopReason Driver::runInternal(
             uint64_t resultBytes = 0;
             RowVectorPtr result;
             {
-              CpuWallTimer timer(op->stats().getOutputTiming);
+              auto timer = cpuWallTimer(op->stats().getOutputTiming);
               result = op->getOutput();
               if (result) {
                 VELOX_CHECK(
@@ -362,7 +363,7 @@ StopReason Driver::runInternal(
             }
             pushdownFilters(i);
             if (result) {
-              CpuWallTimer timer(nextOp->stats().addInputTiming);
+              auto timer = cpuWallTimer(op->stats().addInputTiming);
               nextOp->stats().inputVectors += 1;
               nextOp->stats().inputPositions += result->size();
               nextOp->stats().inputBytes += resultBytes;
@@ -391,7 +392,7 @@ StopReason Driver::runInternal(
                 return StopReason::kBlock;
               }
               if (op->isFinished()) {
-                CpuWallTimer timer(nextOp->stats().finishTiming);
+                auto timer = cpuWallTimer(op->stats().finishTiming);
                 nextOp->noMoreInput();
                 break;
               }
@@ -403,7 +404,7 @@ StopReason Driver::runInternal(
           // this will be detected when trying to add input, and we
           // will come back here after this is again on thread.
           {
-            CpuWallTimer timer(op->stats().getOutputTiming);
+            auto timer = cpuWallTimer(op->stats().getOutputTiming);
             result = op->getOutput();
             if (result) {
               VELOX_CHECK(

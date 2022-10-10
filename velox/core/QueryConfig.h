@@ -58,6 +58,11 @@ class QueryConfig {
   static constexpr const char* kExprTrackCpuUsage =
       "expression.track_cpu_usage";
 
+  // Whether to track CPU usage for stages of individual operators. True by
+  // default. Can be expensive when processing small batches, e.g. < 10K rows.
+  static constexpr const char* kOperatorTrackCpuUsage =
+      "driver.track_operator_cpu_usage";
+
   // Flags used to configure the CAST operator:
 
   // This flag makes the Row conversion to by applied
@@ -269,6 +274,10 @@ class QueryConfig {
 
   bool exprTrackCpuUsage() const {
     return get<bool>(kExprTrackCpuUsage, false);
+  }
+
+  bool operatorTrackCpuUsage() const {
+    return get<bool>(kOperatorTrackCpuUsage, true);
   }
 
   template <typename T>

@@ -17,8 +17,10 @@
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/futures/Future.h>
 #include <folly/portability/SysSyscall.h>
+#include <memory>
 
 #include "velox/common/future/VeloxPromise.h"
+#include "velox/common/time/CpuWallTimer.h"
 #include "velox/connectors/Connector.h"
 #include "velox/core/PlanNode.h"
 #include "velox/core/QueryCtx.h"
@@ -295,6 +297,11 @@ class Driver : public std::enable_shared_from_this<Driver> {
   // position in the pipeline.
   void pushdownFilters(int operatorIndex);
 
+  std::unique_ptr<CpuWallTimer> cpuWallTimer(CpuWallTiming& timing) {
+    return trackOperatorCpuUsage_ ? std::make_unique<CpuWallTimer>(timing)
+                                  : nullptr;
+  }
+
   std::unique_ptr<DriverCtx> ctx_;
   std::atomic_bool closed_{false};
 
@@ -310,6 +317,8 @@ class Driver : public std::enable_shared_from_this<Driver> {
   std::vector<std::unique_ptr<Operator>> operators_;
 
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
+
+  bool trackOperatorCpuUsage_;
 };
 
 using OperatorSupplier = std::function<std::unique_ptr<Operator>(
