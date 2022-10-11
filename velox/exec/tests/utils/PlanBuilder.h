@@ -32,11 +32,6 @@ enum class Table : uint8_t;
 
 namespace facebook::velox::exec::test {
 
-// TODO Remove after updating presto_cpp.
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-using PlanNodeIdGenerator = core::PlanNodeIdGenerator;
-#endif
-
 /// A builder class with fluent API for building query plans. Plans are built
 /// bottom up starting with the source node (table scan or similar). Expressions
 /// and orders can be specified using SQL. See filter, project and orderBy
