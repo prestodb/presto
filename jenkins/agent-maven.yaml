@@ -8,14 +8,17 @@ spec:
     serviceAccountName: oss-agent
     containers:
     - name: maven
-      image: maven:3.8.5-openjdk-17-slim
+      image: maven:3.8.6-openjdk-8-slim
+      env:
+      - name: MAVEN_OPTS
+        value: "-Xmx6000m -Xms6000m"
       resources:
         requests:
-          memory: "1Gi"
-          cpu: "500m"
+          memory: "8Gi"
+          cpu: "4000m"
         limits:
-          memory: "2Gi"
-          cpu: "1000m"
+          memory: "8Gi"
+          cpu: "4000m"
       tty: true
       command:
       - cat
