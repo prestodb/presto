@@ -470,6 +470,14 @@ TEST_F(Re2FunctionsTest, likePatternWildcard) {
   EXPECT_FALSE(like(
       generateString(kLikePatternCharacterSet),
       generateString(kSingleWildcardCharacter, 65)));
+
+  // Test that % matches newline.
+  EXPECT_TRUE(like("\nabcde\n", "%bcd%"));
+  EXPECT_TRUE(like("\nabcd", "%bcd"));
+  EXPECT_TRUE(like("bcde\n", "bcd%"));
+  EXPECT_FALSE(like("\nabcde\n", "bcd%"));
+  EXPECT_FALSE(like("\nabcde\n", "%bcd"));
+  EXPECT_FALSE(like("\nabcde\n", "%bcf%"));
 }
 
 TEST_F(Re2FunctionsTest, likePatternFixed) {
@@ -526,6 +534,9 @@ TEST_F(Re2FunctionsTest, likePatternPrefix) {
   EXPECT_FALSE(like("ABCDE", "abc%"));
   EXPECT_FALSE(like("abcde", "ad%%"));
   EXPECT_FALSE(like("ABCDE", "abc_%"));
+  EXPECT_TRUE(like("ABC\n", "ABC_"));
+  EXPECT_TRUE(like("ABC\n", "ABC_%"));
+  EXPECT_TRUE(like("\nABC\n", "_ABC%"));
 
   std::string input = generateString(kLikePatternCharacterSet, 66);
   EXPECT_TRUE(like(input, input + generateString(kAnyWildcardCharacter)));

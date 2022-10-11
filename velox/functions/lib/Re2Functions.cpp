@@ -465,9 +465,13 @@ class OptimizedLikeWithMemcmp final : public VectorFunction {
 
 class LikeWithRe2 final : public VectorFunction {
  public:
-  LikeWithRe2(StringView pattern, std::optional<char> escapeChar)
-      : re_(toStringPiece(likePatternToRe2(pattern, escapeChar, validPattern_)),
-            RE2::Quiet) {}
+  LikeWithRe2(StringView pattern, std::optional<char> escapeChar) {
+    RE2::Options opt{RE2::Quiet};
+    opt.set_dot_nl(true);
+    re_.emplace(
+        toStringPiece(likePatternToRe2(pattern, escapeChar, validPattern_)),
+        opt);
+  }
 
   void apply(
       const SelectivityVector& rows,
@@ -485,7 +489,7 @@ class LikeWithRe2 final : public VectorFunction {
     }
 
     // apply() will not be invoked if the selection is empty.
-    checkForBadPattern(re_);
+    checkForBadPattern(*re_);
     FlatVector<bool>& result = ensureWritableBool(rows, context, resultRef);
 
     exec::DecodedArgs decodedArgs(rows, args, context);
@@ -493,13 +497,13 @@ class LikeWithRe2 final : public VectorFunction {
     if (toSearch->isIdentityMapping()) {
       auto rawStrings = toSearch->data<StringView>();
       rows.applyToSelected([&](vector_size_t i) {
-        result.set(i, re2FullMatch(rawStrings[i], re_));
+        result.set(i, re2FullMatch(rawStrings[i], *re_));
       });
       return;
     }
 
     if (toSearch->isConstantMapping()) {
-      bool match = re2FullMatch(toSearch->valueAt<StringView>(0), re_);
+      bool match = re2FullMatch(toSearch->valueAt<StringView>(0), *re_);
       rows.applyToSelected([&](vector_size_t i) { result.set(i, match); });
       return;
     }
@@ -511,7 +515,7 @@ class LikeWithRe2 final : public VectorFunction {
   }
 
  private:
-  RE2 re_;
+  std::optional<RE2> re_;
   bool validPattern_;
 };
 
