@@ -189,7 +189,7 @@ public class HudiSplitManager
             // non-partitioned tableLayout
             Table table = metastore.getTable(context, databaseName, tableName)
                     .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Table %s.%s expected but not found", databaseName, tableName)));
-            return new HudiPartition(partitionName, ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns());
+            return new HudiPartition(tableName, partitionName, ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns());
         }
         else {
             // partitioned tableLayout
@@ -199,7 +199,7 @@ public class HudiSplitManager
             Partition partition = metastore.getPartition(context, databaseName, tableName, partitionValues)
                     .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Partition %s expected but not found", partitionName)));
             Map<String, String> keyValues = zipPartitionKeyValues(partitionColumns, partitionValues);
-            return new HudiPartition(partitionName, partitionValues, keyValues, partition.getStorage(), fromDataColumns(partition.getColumns()));
+            return new HudiPartition(tableName, partitionName, partitionValues, keyValues, partition.getStorage(), fromDataColumns(partition.getColumns()));
         }
     }
 

@@ -14,7 +14,9 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.hive.metastore.Storage;
+import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,26 +24,31 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class HudiPartition
 {
-    private final String name;
+    private final String tableName;
+    private final String partitionName;
     private final List<String> values;
     private final Map<String, String> keyValues;
     // TODO: storage and dataColumns is required from MOR record cursor, might be able to remove later
     private final Storage storage;
     private final List<HudiColumnHandle> dataColumns;
+    private Map<ColumnHandle, NullableValue> keys;
 
     @JsonCreator
     public HudiPartition(
-            @JsonProperty("name") String name,
+            @JsonProperty("tableName") String tableName,
+            @JsonProperty("partitionName") String partitionName,
             @JsonProperty("values") List<String> values,
             @JsonProperty("keyValues") Map<String, String> keyValues,
             @JsonProperty("storage") Storage storage,
             @JsonProperty("dataColumns") List<HudiColumnHandle> dataColumns)
     {
-        this.name = requireNonNull(name, "name is null");
+        this.tableName = requireNonNull(tableName, "name is null");
+        this.partitionName = requireNonNull(partitionName, "name is null");
         this.values = requireNonNull(values, "values is null");
         this.keyValues = requireNonNull(keyValues, "keyValues is null");
         this.storage = requireNonNull(storage, "storage is null");
@@ -49,9 +56,15 @@ public class HudiPartition
     }
 
     @JsonProperty
-    public String getName()
+    public String getTableName()
     {
-        return name;
+        return tableName;
+    }
+
+    @JsonProperty
+    public String getPartitionName()
+    {
+        return partitionName;
     }
 
     @JsonProperty
@@ -78,6 +91,16 @@ public class HudiPartition
         return dataColumns;
     }
 
+    public Map<ColumnHandle, NullableValue> getKeys()
+    {
+        return keys;
+    }
+
+    public void setKeys(Map<ColumnHandle, NullableValue> keys)
+    {
+        this.keys = keys;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -88,7 +111,8 @@ public class HudiPartition
             return false;
         }
         HudiPartition that = (HudiPartition) o;
-        return name.equals(that.name) &&
+        return tableName.equals(that.tableName) &&
+                partitionName.equals(that.partitionName) &&
                 values.equals(that.values) &&
                 keyValues.equals(that.keyValues) &&
                 storage.equals(that.storage) &&
@@ -98,12 +122,15 @@ public class HudiPartition
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, values, keyValues, storage, dataColumns);
+        return Objects.hash(tableName, partitionName, values, keyValues, storage, dataColumns);
     }
 
     @Override
     public String toString()
     {
-        return name;
+        return toStringHelper(this)
+                .add("tableName", tableName)
+                .add("partitionName", partitionName)
+                .toString();
     }
 }
