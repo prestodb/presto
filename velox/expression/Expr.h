@@ -71,55 +71,6 @@ struct ExprStats {
   }
 };
 
-/// Data needed to generate exception context for the top-level expression. It
-/// also provides functionality to persist both data and sql to disk for
-/// debugging purpose
-class ExprExceptionContext {
- public:
-  ExprExceptionContext(
-      const Expr* FOLLY_NONNULL expr,
-      const RowVector* FOLLY_NONNULL vector)
-      : expr_(expr), vector_(vector) {}
-
-  /// Persist data and sql on disk. Data will be persisted in $basePath/vector
-  /// and sql will be persisted in $basePath/sql
-  void persistDataAndSql(const char* FOLLY_NONNULL basePath);
-
-  const Expr* FOLLY_NONNULL expr() const {
-    return expr_;
-  }
-
-  const RowVector* FOLLY_NONNULL vector() const {
-    return vector_;
-  }
-
-  const std::string& dataPath() const {
-    return dataPath_;
-  }
-
-  const std::string& sqlPath() const {
-    return sqlPath_;
-  }
-
- private:
-  /// The expression.
-  const Expr* FOLLY_NONNULL expr_;
-
-  /// The input vector, i.e. EvalCtx::row(). In some cases, input columns are
-  /// re-used for results. Hence, 'vector' may no longer contain input data at
-  /// the time of exception.
-  const RowVector* FOLLY_NONNULL vector_;
-
-  /// Path of the file storing the serialized 'vector'. Used to avoid
-  /// serializing vector repeatedly in cases when multiple rows generate
-  /// exceptions. This happens when exceptions are suppressed by TRY/AND/OR.
-  std::string dataPath_{""};
-
-  /// Path of the file storing the expression SQL. Used to avoid writing SQL
-  /// repeatedly in cases when multiple rows generate exceptions.
-  std::string sqlPath_{""};
-};
-
 // An executable expression.
 class Expr {
  public:
