@@ -30,8 +30,6 @@ class StreamingAggregation : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::AggregationNode>& aggregationNode);
 
-  ~StreamingAggregation();
-
   void addInput(RowVectorPtr input) override;
 
   RowVectorPtr getOutput() override;
@@ -45,6 +43,8 @@ class StreamingAggregation : public Operator {
   }
 
   bool isFinished() override;
+
+  void close() override;
 
  private:
   // Returns the rows to aggregate with masking applied if applicable.
