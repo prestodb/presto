@@ -32,8 +32,9 @@ std::string announcementBody(
       boost::lexical_cast<std::string>(boost::uuids::random_generator()());
 
   std::ostringstream connectors;
-  for (int i = 0; i < connectorIds.size(); i++) {
-    if (i > 0) {
+  for (int i = 0; i < connectorIds.size(); i++){
+    if (i>0)
+    {
       connectors << ",";
     }
     connectors << connectorIds[i];
