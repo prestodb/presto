@@ -50,6 +50,7 @@ add_executable(
   SpillTest.cpp
   SpillOperatorGroupTest.cpp
   SpillerTest.cpp
+  SqlTest.cpp
   StreamingAggregationTest.cpp
   TableScanTest.cpp
   TableWriteTest.cpp
