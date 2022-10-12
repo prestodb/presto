@@ -502,6 +502,12 @@ TEST_F(Re2FunctionsTest, likePatternFixed) {
   EXPECT_FALSE(like("ab", "_"));
   EXPECT_FALSE(like("abc", "__%_%_"));
   EXPECT_FALSE(like("abcd", "_c%_%_"));
+  EXPECT_TRUE(like("\nab\ncd\n", "\nab\ncd\n"));
+  EXPECT_TRUE(like("abcd\n", "abcd\n"));
+  EXPECT_TRUE(like("\nabcd", "\nabcd"));
+  EXPECT_TRUE(like("\tab\ncd\b", "\tab\ncd\b"));
+  EXPECT_FALSE(like("\nabcd\n", "\nabc\nd\n"));
+  EXPECT_FALSE(like("\nab\tcd\b", "\nabcd\b"));
 
   std::string input = generateString(kLikePatternCharacterSet, 66);
   EXPECT_TRUE(like(input, input));
@@ -537,6 +543,10 @@ TEST_F(Re2FunctionsTest, likePatternPrefix) {
   EXPECT_TRUE(like("ABC\n", "ABC_"));
   EXPECT_TRUE(like("ABC\n", "ABC_%"));
   EXPECT_TRUE(like("\nABC\n", "_ABC%"));
+  EXPECT_TRUE(like("\nabcde\n", "\nab%"));
+  EXPECT_TRUE(like("\nab\ncde\n", "\nab\n%"));
+  EXPECT_FALSE(like("\nabc\nde\n", "ab\nc%"));
+  EXPECT_FALSE(like("\nabc\nde\n", "abc%"));
 
   std::string input = generateString(kLikePatternCharacterSet, 66);
   EXPECT_TRUE(like(input, input + generateString(kAnyWildcardCharacter)));
@@ -568,6 +578,14 @@ TEST_F(Re2FunctionsTest, likePatternSuffix) {
   EXPECT_FALSE(like("ABCDE", "%de"));
   EXPECT_FALSE(like("abcde", "%%ce"));
   EXPECT_FALSE(like("ABCDE", "%%e"));
+  EXPECT_TRUE(like("\nabc\nde\n", "%\nde\n"));
+  EXPECT_TRUE(like("\nabcde\n", "%%de\n"));
+  EXPECT_TRUE(like("\nabc\tde\b", "%\tde\b"));
+  EXPECT_TRUE(like("\nabcde\t", "%%de\t"));
+  EXPECT_TRUE(like("\nabc\nde\t", "%bc_de_"));
+  EXPECT_FALSE(like("\nabcde\n", "%de\b"));
+  EXPECT_FALSE(like("\nabcde\n", "%d\n"));
+  EXPECT_FALSE(like("\nabcde\n", "%e_\n"));
 
   std::string input = generateString(kLikePatternCharacterSet, 65);
   EXPECT_TRUE(like(input, generateString(kAnyWildcardCharacter) + input));
