@@ -49,11 +49,11 @@ StackTrace::StackTrace(const StackTrace& other) {
   bt_pointers_ = other.bt_pointers_;
   if (folly::test_once(other.bt_vector_flag_)) {
     bt_vector_ = other.bt_vector_;
-    folly::call_once(bt_vector_flag_, [] {}); // Set the flag.
+    folly::set_once(bt_vector_flag_);
   }
   if (folly::test_once(other.bt_flag_)) {
     bt_ = other.bt_;
-    folly::call_once(bt_flag_, [] {}); // Set the flag.
+    folly::set_once(bt_flag_);
   }
 }
 
