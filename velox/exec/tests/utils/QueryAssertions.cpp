@@ -585,6 +585,9 @@ void DuckDbQueryRunner::initializeTpch(double scaleFactor) {
 
 DuckDBQueryResult DuckDbQueryRunner::execute(const std::string& sql) {
   ::duckdb::Connection con(db_);
+  // Changing the default null order of NULLS FIRST used by DuckDB. Velox uses
+  // NULLS LAST.
+  con.Query("PRAGMA default_null_order='NULLS LAST'");
   auto duckDbResult = con.Query(sql);
   verifyDuckDBResult(duckDbResult, sql);
   return duckDbResult;

@@ -48,7 +48,7 @@ class LastAggregateTest : public aggregate::test::AggregationTestBase {
         vectors,
         {"c0"},
         {"last(c1, c2)"},
-        "SELECT c0, last(c1 ORDER BY c1) FROM tmp GROUP BY c0");
+        "SELECT c0, last(c1 ORDER BY c1 NULLS FIRST) FROM tmp GROUP BY c0");
 
     // Verify when ignoreNull is false.
     // Expected result should have last 7 rows [91..98) including nulls.
@@ -170,7 +170,7 @@ TEST_F(LastAggregateTest, varcharGroupBy) {
       vectors,
       {"c0"},
       {"last(c1, c2)"},
-      "SELECT c0, last(c1 ORDER BY c1) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
+      "SELECT c0, last(c1 ORDER BY c1 NULLS FIRST) FROM tmp WHERE c1 IS NOT NULL GROUP BY c0");
 
   // Verify when ignoreNull is false.
   // Expected result should have last 7 rows [91..98) including nulls.
