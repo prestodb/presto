@@ -28,6 +28,8 @@ CMAKE_FLAGS += -DCMAKE_PREFIX_PATH=$(CMAKE_PREFIX_PATH)
 CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=$(PRESTO_ENABLE_PARQUET)
 
+SHELL := /bin/bash
+
 # Use Ninja if available. If Ninja is used, pass through parallelism control flags.
 USE_NINJA ?= 1
 ifeq ($(USE_NINJA), 1)
