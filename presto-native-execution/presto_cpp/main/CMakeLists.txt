@@ -55,6 +55,7 @@ target_link_libraries(
   velox_dwio_common_exception
   velox_functions_lib
   velox_hive_partition_function
+  velox_window
   ${THRIFT_LIBRARY}
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}

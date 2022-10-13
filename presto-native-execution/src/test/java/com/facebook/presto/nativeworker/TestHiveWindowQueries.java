@@ -23,9 +23,13 @@ public class TestHiveWindowQueries
         super(true);
     }
 
-    @Test (enabled = false)
+    @Test
     public void testWindow()
     {
-        assertQueryFails("SELECT clerk, orderdate, orderkey, totalprice, rank() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk", ".*Unknown plan node type com.facebook.presto.sql.planner.plan.WindowNode.*");
+        assertQuery("SELECT clerk, orderdate, orderkey, totalprice, row_number() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk");
+        assertQuery("SELECT clerk, orderdate, orderkey, totalprice, rank() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk");
+        assertQuery("SELECT clerk, orderdate, orderkey, totalprice, dense_rank() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk");
+        assertQuery("SELECT clerk, orderdate, orderkey, totalprice, percent_rank() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk");
+        assertQuery("SELECT clerk, orderdate, orderkey, totalprice, cume_dist() OVER (PARTITION BY clerk ORDER BY totalprice) AS rnk FROM orders ORDER BY clerk, rnk");
     }
 }
