@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.Failure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
-import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import org.apache.spark.ExceptionFailure;

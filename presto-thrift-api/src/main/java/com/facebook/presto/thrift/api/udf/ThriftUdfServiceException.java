@@ -16,7 +16,7 @@ package com.facebook.presto.thrift.api.udf;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
-import com.facebook.presto.spi.ErrorCode;
+import com.facebook.presto.common.ErrorCode;
 
 import java.util.Arrays;
 

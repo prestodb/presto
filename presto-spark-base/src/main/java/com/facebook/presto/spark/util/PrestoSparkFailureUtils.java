@@ -14,11 +14,11 @@
 package com.facebook.presto.spark.util;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.RetryExecutionStrategy;
 import com.facebook.presto.spi.ErrorCause;
-import com.facebook.presto.spi.ErrorCode;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nullable;

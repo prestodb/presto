@@ -17,6 +17,10 @@
     <dependencies>
         <dependency>
             <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
             <artifactId>presto-main</artifactId>
         </dependency>
     </dependencies>
@@ -28,6 +32,7 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
                     <ignoredDependencies>
+                        <ignoredDependency>com.facebook.presto:presto-common</ignoredDependency>
                         <ignoredDependency>com.facebook.presto:presto-main</ignoredDependency>
                     </ignoredDependencies>
                 </configuration>

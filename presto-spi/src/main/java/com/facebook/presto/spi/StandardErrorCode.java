@@ -13,9 +13,12 @@
  */
 package com.facebook.presto.spi;
 
-import static com.facebook.presto.spi.ErrorType.INSUFFICIENT_RESOURCES;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
-import static com.facebook.presto.spi.ErrorType.USER_ERROR;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
+
+import static com.facebook.presto.common.ErrorType.INSUFFICIENT_RESOURCES;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.USER_ERROR;
 
 public enum StandardErrorCode
         implements ErrorCodeSupplier
