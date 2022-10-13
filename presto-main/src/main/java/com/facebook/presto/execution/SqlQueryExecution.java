@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
@@ -39,7 +40,6 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;

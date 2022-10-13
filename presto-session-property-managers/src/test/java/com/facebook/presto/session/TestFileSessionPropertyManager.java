@@ -15,7 +15,7 @@
 package com.facebook.presto.session;
 
 import com.facebook.airlift.testing.TempFile;
-import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.session.SessionConfigurationContext;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager;

@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -34,7 +35,6 @@ import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.resourceGroups.QueryType;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControlContext;
