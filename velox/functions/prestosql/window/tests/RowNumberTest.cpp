@@ -27,10 +27,9 @@ TEST_F(RowNumberTest, basic) {
   vector_size_t size = 100;
 
   auto vectors = makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
       makeFlatVector<int32_t>(
-          size, [](auto row) -> int32_t { return row % 5; }),
-      makeFlatVector<int32_t>(
-          size, [](auto row) -> int32_t { return row % 7; }),
+          size, [](auto row) { return row % 7; }, nullEvery(15)),
   });
 
   testTwoColumnInput({vectors}, "row_number()");
@@ -42,7 +41,8 @@ TEST_F(RowNumberTest, singlePartition) {
 
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(
+          size, [](auto row) { return row; }, nullEvery(7)),
   });
 
   testTwoColumnInput({vectors}, "row_number()");
@@ -53,7 +53,8 @@ TEST_F(RowNumberTest, randomInput) {
       ROW({"c0", "c1", "c2", "c3"},
           {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
       10,
-      2);
+      2,
+      0.3);
   createDuckDbTable(vectors);
 
   std::vector<std::string> overClauses = {
@@ -61,7 +62,12 @@ TEST_F(RowNumberTest, randomInput) {
       "partition by c1 order by c0, c2, c3",
       "partition by c0 order by c1 desc, c2, c3",
       "partition by c1 order by c0 desc, c2, c3",
+      "partition by c0 order by c1 desc, c2 nulls first, c3",
+      "partition by c1 order by c0 desc, c2 nulls first, c3",
+      "partition by c0 order by c1 desc nulls first, c2 nulls first, c3",
+      "partition by c1 order by c0 desc nulls first, c2 nulls first, c3",
       "order by c0, c1, c2, c3",
+      "order by c0, c1 nulls first, c2, c3",
       "partition by c0, c1, c2, c3",
   };
 

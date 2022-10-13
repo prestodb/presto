@@ -26,10 +26,12 @@ namespace facebook::velox::window::test {
 std::vector<RowVectorPtr> WindowTestBase::makeVectors(
     const RowTypePtr& rowType,
     vector_size_t size,
-    int numVectors) {
+    int numVectors,
+    float nullRatio) {
   std::vector<RowVectorPtr> vectors;
   VectorFuzzer::Options options;
   options.vectorSize = size;
+  options.nullRatio = nullRatio;
   VectorFuzzer fuzzer(options, pool_.get(), 0);
   for (int32_t i = 0; i < numVectors; ++i) {
     auto vector = std::dynamic_pointer_cast<RowVector>(fuzzer.fuzzRow(rowType));
@@ -73,11 +75,19 @@ void WindowTestBase::testTwoColumnInput(
       "partition by c1 order by c0",
       "partition by c0 order by c1 desc",
       "partition by c1 order by c0 desc",
+      "partition by c0 order by c1 nulls first",
+      "partition by c1 order by c0 nulls first",
+      "partition by c0 order by c1 desc nulls first",
+      "partition by c1 order by c0 desc nulls first",
       // No partition by clause.
       "order by c0, c1",
       "order by c1, c0",
       "order by c0 asc, c1 desc",
       "order by c1 asc, c0 desc",
+      "order by c0 asc nulls first, c1 desc nulls first",
+      "order by c1 asc nulls first, c0 desc nulls first",
+      "order by c0 desc nulls first, c1 asc nulls first",
+      "order by c1 desc nulls first, c0 asc nulls first",
       // No order by clause.
       "partition by c0, c1",
   };

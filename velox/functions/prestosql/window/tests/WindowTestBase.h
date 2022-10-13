@@ -25,8 +25,11 @@ class WindowTestBase : public exec::test::OperatorTestBase {
     velox::window::registerWindowFunctions();
   }
 
-  std::vector<RowVectorPtr>
-  makeVectors(const RowTypePtr& rowType, vector_size_t size, int numVectors);
+  std::vector<RowVectorPtr> makeVectors(
+      const RowTypePtr& rowType,
+      vector_size_t size,
+      int numVectors,
+      float nullRatio = 0.0);
 
   // This function tests SQL queries for the window function and
   // the specified overClauses with the input RowVectors.
