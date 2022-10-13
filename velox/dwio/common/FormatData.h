@@ -77,7 +77,8 @@ class FormatData {
   /// existence of an actual null, though. For example, if the format
   /// is ORC and there is a nulls decoder for the column this returns
   /// true. False if it is certain there is no null in the range of
-  /// 'this'.
+  /// 'this'. In ORC this means the column does not add nulls but does
+  /// not exclude nulls coming from enclosing null structs.
   virtual bool hasNulls() const = 0;
 
   /// Seeks the position to the 'index'th row group for the streams
@@ -97,6 +98,15 @@ class FormatData {
       const velox::common::ScanSpec& scanSpec,
       uint64_t rowsPerRowGroup,
       const StatsContext& writerContext) = 0;
+
+  /// If the format divides data into even-sized runs for purposes of
+  /// column statistics and random access, returns the number of rows
+  /// in such a group. This is the row group size for ORC and nullopt
+  /// for Parquet, where row groups are physically separate runs of
+  /// arbitrary nunber of rows.
+  virtual std::optional<int64_t> rowsPerRowGroup() const {
+    return std::nullopt;
+  }
 
   /// Test if the 'i'th RowGroup can potentially match the 'filter' using the
   /// RowGroup's statistics on all columns. Returns true if all columns in this

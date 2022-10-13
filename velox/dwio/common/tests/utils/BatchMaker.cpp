@@ -593,8 +593,10 @@ VectorPtr BatchMaker::createBatch(
     MemoryPool& memoryPool,
     std::mt19937& gen,
     std::function<bool(vector_size_t /*index*/)> isNullAt) {
-  return createRow(
+  auto result = createRow(
       type, capacity, /* allowNulls */ false, memoryPool, gen, isNullAt);
+  propagateNullsRecursive(*result);
+  return result;
 }
 
 VectorPtr BatchMaker::createBatch(
@@ -605,6 +607,73 @@ VectorPtr BatchMaker::createBatch(
     std::mt19937::result_type seed) {
   std::mt19937 gen(seed);
   return createBatch(type, capacity, memoryPool, gen, isNullAt);
+}
+
+namespace {
+void setNullRecursive(BaseVector& vector, vector_size_t i) {
+  vector.setNull(i, true);
+  switch (vector.typeKind()) {
+    case TypeKind::ROW: {
+      auto row = vector.asUnchecked<RowVector>();
+      for (auto& child : row->children()) {
+        setNullRecursive(*child, i);
+      }
+    } break;
+
+    case TypeKind::ARRAY: {
+      auto array = vector.asUnchecked<ArrayVector>();
+      for (auto j = 0; j < array->sizeAt(i); ++j) {
+        setNullRecursive(*array->elements(), array->offsetAt(i) + j);
+      }
+    } break;
+    case TypeKind::MAP: {
+      auto map = vector.asUnchecked<MapVector>();
+      for (auto j = 0; j < map->sizeAt(i); ++j) {
+        setNullRecursive(*map->mapKeys(), map->offsetAt(i) + j);
+        setNullRecursive(*map->mapValues(), map->offsetAt(i) + j);
+      }
+    } break;
+    default:;
+  }
+}
+} // namespace
+
+void propagateNullsRecursive(BaseVector& vector) {
+  switch (vector.typeKind()) {
+    case TypeKind::ROW: {
+      auto row = vector.asUnchecked<RowVector>();
+      for (auto& child : row->children()) {
+        propagateNullsRecursive(*child);
+      }
+      for (auto i = 0; i < row->size(); ++i) {
+        if (row->isNullAt(i)) {
+          setNullRecursive(*row, i);
+        }
+      }
+    } break;
+
+    case TypeKind::ARRAY: {
+      auto array = vector.asUnchecked<ArrayVector>();
+      propagateNullsRecursive(*array->elements());
+      for (auto i = 0; i < array->size(); ++i) {
+        if (array->isNullAt(i)) {
+          setNullRecursive(*array, i);
+        }
+      }
+    } break;
+
+    case TypeKind::MAP: {
+      auto map = vector.asUnchecked<MapVector>();
+      propagateNullsRecursive(*map->mapKeys());
+      propagateNullsRecursive(*map->mapValues());
+      for (auto i = 0; i < map->size(); ++i) {
+        if (map->isNullAt(i)) {
+          setNullRecursive(*map, i);
+        }
+      }
+    } break;
+    default:;
+  }
 }
 
 } // namespace facebook::velox::test

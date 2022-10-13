@@ -51,6 +51,7 @@ class SelectiveByteRleColumnReader
   }
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     if (boolRle_) {
       boolRle_->seekToRowGroup(positionsProvider);

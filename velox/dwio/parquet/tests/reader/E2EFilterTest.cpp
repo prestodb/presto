@@ -18,6 +18,8 @@
 #include "velox/dwio/parquet/reader/ParquetReader.h"
 #include "velox/dwio/parquet/writer/Writer.h"
 
+#include <folly/init/Init.h>
+
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 using namespace facebook::velox::dwio::common;
@@ -231,4 +233,11 @@ TEST_F(E2EFilterTest, stringDictionary) {
       {"string_val", "string_val_2"},
       20,
       true);
+}
+
+// Define main so that gflags get processed.
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }

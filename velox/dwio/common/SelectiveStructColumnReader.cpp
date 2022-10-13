@@ -116,6 +116,22 @@ void SelectiveStructColumnReader::read(
   const uint64_t* structNulls =
       nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
   bool hasFilter = false;
+  // a struct reader may have a null/non-null filter
+  if (scanSpec_->filter()) {
+    auto kind = scanSpec_->filter()->kind();
+    VELOX_CHECK(
+        kind == velox::common::FilterKind::kIsNull ||
+        kind == velox::common::FilterKind::kIsNotNull);
+    hasFilter = true;
+    filterNulls<int32_t>(
+        rows, kind == velox::common::FilterKind::kIsNull, false);
+    if (outputRows_.empty()) {
+      recordParentNullsInChildren(offset, rows);
+      return;
+    }
+    activeRows = outputRows_;
+  }
+
   assert(!children_.empty());
   for (size_t i = 0; i < childSpecs.size(); ++i) {
     auto& childSpec = childSpecs[i];
@@ -125,12 +141,12 @@ void SelectiveStructColumnReader::read(
     auto fieldIndex = childSpec->subscript();
     auto reader = children_.at(fieldIndex).get();
     if (reader->isTopLevel() && childSpec->projectOut() &&
-        !childSpec->filter() && !childSpec->extractValues()) {
+        !childSpec->hasFilter() && !childSpec->extractValues()) {
       // Will make a LazyVector.
       continue;
     }
     advanceFieldReader(reader, offset);
-    if (childSpec->filter()) {
+    if (childSpec->hasFilter()) {
       hasFilter = true;
       {
         SelectivityTimer timer(childSpec->selectivity(), activeRows.size());
@@ -151,11 +167,33 @@ void SelectiveStructColumnReader::read(
       reader->read(offset, activeRows, structNulls);
     }
   }
+  // If this adds nulls, the field readers will miss a value for each null added
+  // here.
+  recordParentNullsInChildren(offset, rows);
+
   if (hasFilter) {
     setOutputRows(activeRows);
   }
   lazyVectorReadOffset_ = offset;
   readOffset_ = offset + rows.back() + 1;
+}
+
+void SelectiveStructColumnReader::recordParentNullsInChildren(
+    vector_size_t offset,
+    RowSet rows) {
+  auto& childSpecs = scanSpec_->children();
+  for (auto i = 0; i < childSpecs.size(); ++i) {
+    auto& childSpec = childSpecs[i];
+    if (childSpec->isConstant()) {
+      continue;
+    }
+    auto fieldIndex = childSpec->subscript();
+    auto reader = children_.at(fieldIndex).get();
+    reader->addParentNulls(
+        offset,
+        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr,
+        rows);
+  }
 }
 
 namespace {
@@ -229,7 +267,7 @@ void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
       resultRow->childAt(channel) = BaseVector::wrapInConstant(
           rows.size(), 0, childSpec->constantValue());
     } else {
-      if (!childSpec->extractValues() && !childSpec->filter() &&
+      if (!childSpec->extractValues() && !childSpec->hasFilter() &&
           children_[index]->isTopLevel()) {
         // LazyVector result.
         if (!lazyPrepared) {

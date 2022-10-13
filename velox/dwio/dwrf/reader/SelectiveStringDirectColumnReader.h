@@ -31,6 +31,7 @@ class SelectiveStringDirectColumnReader
       common::ScanSpec& scanSpec);
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     blobStream_->seekToPosition(positionsProvider);
     lengthDecoder_->seekToRowGroup(positionsProvider);

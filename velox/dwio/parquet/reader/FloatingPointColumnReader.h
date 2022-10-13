@@ -37,6 +37,7 @@ class FloatingPointColumnReader
       common::ScanSpec& scanSpec);
 
   void seekToRowGroup(uint32_t index) override {
+    root::seekToRowGroup(index);
     root::scanState().clear();
     root::readOffset_ = 0;
     root::formatData_->as<ParquetData>().seekToRowGroup(index);

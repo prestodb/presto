@@ -178,11 +178,16 @@ class SelectiveColumnReader {
 
   // Advances to 'offset', so that the next item to be read is the
   // offset-th from the start of stripe.
-  void seekTo(vector_size_t offset, bool readsNullsOnly);
+  virtual void seekTo(vector_size_t offset, bool readsNullsOnly);
 
-  // Positions this at the start of 'index'th row group. Interpretation of
-  // 'index' depends on format.
-  virtual void seekToRowGroup(uint32_t index) = 0;
+  // Positions this at the start of 'index'th row
+  // group. Interpretation of 'index' depends on format. Clears counts
+  // of skipped enclosing struct nulls for formats where nulls are
+  // recorded at each nesting level, i.e. not rep-def.
+  virtual void seekToRowGroup(uint32_t /*index*/) {
+    numParentNulls_ = 0;
+    parentNullsRecordedTo_ = 0;
+  }
 
   const TypePtr& type() const {
     return type_;
@@ -388,6 +393,34 @@ class SelectiveColumnReader {
     return scanState_;
   }
 
+  // If 'this' has values set for returning as dictionary-encoded,
+  // converts these values to flat so that additional values can be
+  // added without reference to dictionary. Resets dictionary info in
+  // 'scanState_'. No-op for non-string readers. This is needed when
+  // scanning a Parquet ColumnChunk that begins with dictionaries and
+  // converts to direct in mid-read.
+  virtual void dedictionarize() {}
+
+  // A reader nested inside nullable containers has fewer rows than
+  // the top level table. addParentNulls records how many parent nulls
+  // there are between the position of 'this' and 'rows.back() + 1',
+  // i.e. the position of the scan in top level rows. 'firstRowInNulls' is
+  // the top level row corresponding to the first bit in
+  // 'nulls'. 'nulls' is in terms of top level rows and represents all
+  // null parents at any enclosing level. 'nulls' is nullptr if there are no
+  // parent nulls.
+  void addParentNulls(
+      int32_t firstRowInNulls,
+      const uint64_t* FOLLY_NULLABLE nulls,
+      RowSet rows);
+
+  // When skipping rows in a struct, records how many parent nulls at
+  // any level there are between top level row 'from' and 'to'. If
+  // called many times, the 'from' of the next should be the 'to' of
+  // the previous.
+  void
+  addSkippedParentNulls(vector_size_t from, vector_size_t to, int32_t numNulls);
+
   static constexpr int8_t kNoValueSize = -1;
   static constexpr uint32_t kRowGroupNotSet = ~0;
 
@@ -403,20 +436,12 @@ class SelectiveColumnReader {
   // 'extraSpace' bits worth of space in the nulls buffer.
   void prepareNulls(RowSet rows, bool hasNulls, int32_t extraRows = 0);
 
+ protected:
   // Filters 'rows' according to 'is_null'. Only applies to cases where
   // readsNullsOnly() is true.
   template <typename T>
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
 
-  // If 'this' has values set for returning as dictionary-encoded,
-  // converts these values to flat so that additional values can be
-  // added without reference to dictionary. Resets dictionary info in
-  // 'scanState_'. No-op for non-string readers. This is needed when
-  // scanning a Parquet ColumnChunk that begins with dictionaries and
-  // converts to direct in mid-read.
-  virtual void dedictionarize() {}
-
- protected:
   template <typename T>
   void
   prepareRead(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
@@ -447,6 +472,14 @@ class SelectiveColumnReader {
   template <typename T, typename TVector>
   void compactScalarValues(RowSet rows, bool isFinal);
 
+  // Compacts values extracted for a complex type column with
+  // filter. The values for 'rows' are shifted to be consecutive at
+  // indices [0..rows.size() - 1]'. 'move' is a function that takes
+  // two indices source and target and moves the value at source to
+  // target. target is <= source for all calls.
+  template <typename Move>
+  void compactComplexValues(RowSet rows, Move move, bool isFinal);
+
   template <typename T, typename TVector>
   void upcastScalarValues(RowSet rows);
 
@@ -475,6 +508,16 @@ class SelectiveColumnReader {
 
   // Row number after last read row, relative to stripe start.
   vector_size_t readOffset_ = 0;
+
+  // Number of parent nulls between 'readOffset_' and 'parentNullsRecordedTo_'.
+  // When skipping, subtract the parent nulls from the skip distance because the
+  // child does not have values for these.
+  int32_t numParentNulls_{0};
+
+  // The end of the row range starting at 'readOffset_' to which
+  // 'numParentNulls_' applies.
+  int32_t parentNullsRecordedTo_{0};
+
   // The rows to process in read(). References memory supplied by
   // caller. The values must remain live until the next call to read().
   RowSet inputRows_;

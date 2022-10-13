@@ -32,6 +32,7 @@ class SelectiveStringDictionaryColumnReader
       common::ScanSpec& scanSpec);
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->as<DwrfData>().seekToRowGroup(index);
     if (strideDictStream_) {
       strideDictStream_->seekToPosition(positionsProvider);

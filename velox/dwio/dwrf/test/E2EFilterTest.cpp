@@ -19,6 +19,8 @@
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 
+#include <folly/init/Init.h>
+
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::dwrf;
 using namespace facebook::velox;
@@ -237,4 +239,31 @@ TEST_F(E2EFilterTest, lazyStruct) {
       10,
       true,
       false);
+}
+
+TEST_F(E2EFilterTest, filterStruct) {
+  // The data has a struct member with one second level struct
+  // column. Both structs have a column that gets filtered 'nestedxxx'
+  // and one that does not 'dataxxx'.
+  testWithTypes(
+      "long_val:bigint,"
+      "outer_struct: struct<nested1:bigint, "
+      "  data1: string, "
+      "  inner_struct: struct<nested2: bigint, data2: smallint>>",
+      [&]() {},
+      true,
+      {"long_val",
+       "outer_struct.inner_struct",
+       "outer_struct.nested1",
+       "outer_struct.inner_struct.nested2"},
+      40,
+      true,
+      false);
+}
+
+// Define main so that gflags get processed.
+int main(int argc, char** argv) {
+  testing::InitGoogleTest(&argc, argv);
+  folly::init(&argc, &argv, false);
+  return RUN_ALL_TESTS();
 }

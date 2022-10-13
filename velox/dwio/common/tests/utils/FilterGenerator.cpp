@@ -436,8 +436,11 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::DOUBLE:
         stats = makeStats<TypeKind::DOUBLE>(vector->type(), rowType_);
         break;
-        // TODO:
-        // Add support for TTypeKind::IMESTAMP and TypeKind::ROW
+      case TypeKind::ROW:
+        stats = makeStats<TypeKind::ROW>(vector->type(), rowType_);
+        break;
+      // TODO:
+      // Add support for TTypeKind::IMESTAMP.
       default:
         VELOX_CHECK(
             false,
@@ -457,7 +460,9 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
           subfield,
           hitRows);
     }
-    filters[Subfield(filterSpec.field)] = std::move(filter);
+    if (filter) {
+      filters[Subfield(filterSpec.field)] = std::move(filter);
+    }
   }
 
   return filters;

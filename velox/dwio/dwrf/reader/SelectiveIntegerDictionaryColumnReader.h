@@ -34,6 +34,7 @@ class SelectiveIntegerDictionaryColumnReader
       uint32_t numBytes);
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     if (inDictionaryReader_) {
       inDictionaryReader_->seekToRowGroup(positionsProvider);

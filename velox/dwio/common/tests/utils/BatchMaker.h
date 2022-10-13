@@ -22,6 +22,13 @@
 
 namespace facebook::velox::test {
 
+// sets child elements of null row/array/map to null. the result of
+// 'a.b.c is null' can be determined just by looking at 'c' because
+// a null parent 'b' is also null in 'c'. This makes generating
+// testing filters simpler. Non-null content under a null container
+// cannot be represented in file formats in any case.
+void propagateNullsRecursive(BaseVector& vector);
+
 struct BatchMaker {
   static VectorPtr createBatch(
       const std::shared_ptr<const Type>& type,

@@ -68,7 +68,7 @@ void ScanSpec::reorder() {
       [this](
           const std::unique_ptr<ScanSpec>& left,
           const std::unique_ptr<ScanSpec>& right) {
-        if (left->filter_ && right->filter_) {
+        if (left->hasFilter() && right->hasFilter()) {
           if (enableFilterReorder_ &&
               (left->selectivity_.numIn() || right->selectivity_.numIn())) {
             return left->selectivity_.timeToDropValue() <
@@ -76,12 +76,23 @@ void ScanSpec::reorder() {
           }
           // Integer filters are before other filters if there is no
           // history data.
-          return left->filter_->kind() < right->filter_->kind();
+          if (left->filter_ && right->filter_) {
+            return left->filter_->kind() < right->filter_->kind();
+          }
+          // If hasFilter() is true but 'filter_' is nullptr, we have a filter
+          // on complex type members. The simple type filter goes first.
+          if (left->filter_) {
+            return true;
+          }
+          if (right->filter_) {
+            return false;
+          }
+          return left->fieldName_ < right->fieldName_;
         }
-        if (left->filter_) {
+        if (left->hasFilter()) {
           return true;
         }
-        if (right->filter_) {
+        if (right->hasFilter()) {
           return false;
         }
         return left->fieldName_ < right->fieldName_;

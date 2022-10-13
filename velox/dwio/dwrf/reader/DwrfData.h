@@ -78,7 +78,7 @@ class DwrfData : public dwio::common::FormatData {
   // and returns a PositionsProvider for the other streams.
   dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
 
-  uint32_t rowsPerRowGroup() const {
+  std::optional<int64_t> rowsPerRowGroup() const override {
     return rowsPerRowGroup_;
   }
 

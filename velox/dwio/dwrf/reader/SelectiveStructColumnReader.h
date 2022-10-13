@@ -30,7 +30,10 @@ class SelectiveStructColumnReader
       DwrfParams& params,
       common::ScanSpec& scanSpec);
 
+  void seekTo(vector_size_t offset, bool readsNullsOnly) override;
+
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     if (isTopLevel_ && !formatData_->hasNulls()) {
       readOffset_ = index * rowsPerRowGroup_;
       return;
@@ -60,6 +63,12 @@ class SelectiveStructColumnReader
       reader->setReadOffset(nextRowGroup * rowsPerRowGroup_);
     }
   }
+
+  // Records the number of nulls added by 'this' between the end
+  // position of each child reader and the of the range of
+  // 'read(). This must be done also if a child is not read so that we
+  // know how much to skip when seeking forward within the row group.
+  void recordParentNullsInChildren(vector_size_t offset, RowSet rows);
 
  private:
   const int32_t rowsPerRowGroup_;

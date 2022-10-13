@@ -106,6 +106,12 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   }
 
  protected:
+  // Records the number of nulls added by 'this' between the end
+  // position of each child reader and the end of the range of
+  // 'read(). This must be done also if a child is not read so that we
+  // know how much to skip when seeking forward within the row group.
+  void recordParentNullsInChildren(vector_size_t offset, RowSet rows);
+
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
   std::vector<std::unique_ptr<SelectiveColumnReader>> children_;
   // Sequence number of output batch. Checked against ColumnLoaders

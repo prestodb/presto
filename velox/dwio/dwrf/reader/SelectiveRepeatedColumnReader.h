@@ -185,6 +185,7 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
   }
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
     length_->seekToRowGroup(positionsProvider);
 
@@ -221,6 +222,7 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
   }
 
   void seekToRowGroup(uint32_t index) override {
+    SelectiveColumnReader::seekToRowGroup(index);
     auto positionsProvider = formatData_->seekToRowGroup(index);
 
     length_->seekToRowGroup(positionsProvider);

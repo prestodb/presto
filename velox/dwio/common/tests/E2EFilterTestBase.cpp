@@ -17,6 +17,7 @@
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
 
 DEFINE_int32(timing_repeats, 0, "Count of repeats for timing filter tests");
+DEFINE_bool(verbose, false, "Print filter test times");
 
 namespace facebook::velox::dwio::common {
 
@@ -320,6 +321,14 @@ void E2EFilterTestBase::testFilterSpecs(
     for (auto i = 0; i < FLAGS_timing_repeats; ++i) {
       readWithFilter(spec, batches_, hitRows, timeWithFilter, false, true);
     }
+    if (FLAGS_verbose) {
+      LOG(INFO) << fmt::format(
+          "    {} hits in {} us, {} input rows/s\n",
+          hitRows.size(),
+          timeWithFilter,
+          batches_[0]->size() * batches_.size() * FLAGS_timing_repeats /
+              (timeWithFilter / 1000000.0));
+    }
   }
   // Redo the test with LazyVectors for non-filtered columns.
   timeWithFilter = 0;
@@ -369,6 +378,11 @@ void E2EFilterTestBase::testWithTypes(
   for (int32_t noVInts = 0; noVInts < (tryNoVInts ? 2 : 1); ++noVInts) {
     useVInts_ = !noVInts;
     for (int32_t noNulls = 0; noNulls < (tryNoNulls ? 2 : 1); ++noNulls) {
+      if (FLAGS_verbose) {
+        LOG(INFO) << "Running with " << (noNulls ? " no nulls " : "nulls")
+                  << " and " << (noVInts ? " no VInts " : " VInts ")
+                  << std::endl;
+      }
       filterGenerator->reseedRng();
 
       auto newCustomize = customize;
@@ -384,6 +398,10 @@ void E2EFilterTestBase::testWithTypes(
       for (auto i = 0; i < numCombinations; ++i) {
         std::vector<FilterSpec> specs =
             filterGenerator->makeRandomSpecs(filterable, 125);
+        if (FLAGS_verbose) {
+          LOG(INFO) << i << ": " << FilterGenerator::specsToString(specs)
+                    << std::endl;
+        }
         testFilterSpecs(specs);
       }
       makeDataset(customize, true);
