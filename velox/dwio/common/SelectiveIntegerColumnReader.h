@@ -36,7 +36,7 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
             type) {}
 
   void getValues(RowSet rows, VectorPtr* result) override {
-    getIntValues(rows, nodeType_->type.get(), result);
+    getIntValues(rows, nodeType_->type, result);
   }
 
  protected:
@@ -92,7 +92,6 @@ void SelectiveIntegerColumnReader::readHelper(
           rows,
           ColumnVisitor<int32_t, TFilter, ExtractValues, isDense>(
               *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
-
       break;
 
     case 8:
@@ -101,6 +100,7 @@ void SelectiveIntegerColumnReader::readHelper(
           ColumnVisitor<int64_t, TFilter, ExtractValues, isDense>(
               *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
       break;
+
     default:
       VELOX_FAIL("Unsupported valueSize_ {}", valueSize_);
   }

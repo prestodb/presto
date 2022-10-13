@@ -35,12 +35,14 @@ class IntDecoder {
   IntDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
-      uint32_t numBytes)
+      uint32_t numBytes,
+      bool bigEndian = false)
       : inputStream(std::move(input)),
         bufferStart(nullptr),
         bufferEnd(bufferStart),
         useVInts(useVInts),
-        numBytes(numBytes) {}
+        numBytes(numBytes),
+        bigEndian(bigEndian) {}
 
   // Constructs for use in Parquet /Alphawhere the buffer is always preloaded.
   IntDecoder(const char* FOLLY_NONNULL start, const char* FOLLY_NONNULL end)
@@ -231,6 +233,7 @@ class IntDecoder {
   const char* FOLLY_NULLABLE bufferEnd;
   const bool useVInts;
   const uint32_t numBytes;
+  bool bigEndian;
 };
 
 template <bool isSigned>
@@ -340,6 +343,16 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
   int64_t result = 0;
   if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
     bufferStart += numBytes;
+    if (bigEndian) {
+      auto valueOffset = bufferStart - numBytes;
+      result = *(valueOffset) >= 0 ? 0 : -1;
+      memcpy(
+          reinterpret_cast<char*>(&result) + (8 - numBytes),
+          reinterpret_cast<const char*>(valueOffset),
+          numBytes);
+      result = __builtin_bswap64(result);
+      return result;
+    }
     if (numBytes == 8) {
       return *reinterpret_cast<const int64_t*>(bufferStart - 8);
     }
@@ -354,13 +367,22 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
     }
     return *reinterpret_cast<const uint16_t*>(bufferStart - 2);
   }
-
   char b;
   int64_t offset = 0;
   for (uint32_t i = 0; i < numBytes; ++i) {
     b = readByte();
     result |= (b & BASE_256_MASK) << offset;
     offset += 8;
+  }
+
+  if (bigEndian) {
+    int64_t value = (result >= 0) ? 0 : -1;
+    memcpy(
+        reinterpret_cast<char*>(&value) + (8 - numBytes),
+        reinterpret_cast<const char*>(&result),
+        numBytes);
+    result = __builtin_bswap64(value);
+    return result;
   }
 
   if (isSigned && numBytes < 8) {

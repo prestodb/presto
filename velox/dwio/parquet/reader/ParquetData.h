@@ -122,6 +122,10 @@ class ParquetData : public dwio::common::FormatData {
     return reader_->dictionaryValues();
   }
 
+  bool hasDictionary() const {
+    return reader_->isDictionary();
+  }
+
  protected:
   memory::MemoryPool& pool_;
   std::shared_ptr<const ParquetTypeWithId> type_;

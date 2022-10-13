@@ -280,8 +280,12 @@ class ColumnStats : public AbstractColumnStats {
         }
       }
     }
-
-    return std::make_unique<velox::common::BigintRange>(max, max, false);
+    if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
+      return std::make_unique<velox::common::BigintRange>(
+          max.unscaledValue(), max.unscaledValue(), false);
+    } else {
+      return std::make_unique<velox::common::BigintRange>(max, max, false);
+    }
   }
 
   static constexpr size_t kUniquesMask = 0xfff;

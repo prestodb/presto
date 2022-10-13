@@ -202,6 +202,66 @@ TEST_F(E2EFilterTest, floatAndDouble) {
       false);
 }
 
+TEST_F(E2EFilterTest, shortDecimalDictionary) {
+  // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
+  // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
+  for (const auto& type : {
+           "shortdecimal_val:short_decimal(10, 5)",
+           "shortdecimal_val:short_decimal(17, 5)",
+       }) {
+    testWithTypes(
+        type,
+        [&]() {
+          makeIntDistribution<UnscaledShortDecimal>(
+              Subfield("shortdecimal_val"),
+              UnscaledShortDecimal(10), // min
+              UnscaledShortDecimal(100), // max
+              22, // repeats
+              19, // rareFrequency
+              UnscaledShortDecimal(-999), // rareMin
+              UnscaledShortDecimal(30000), // rareMax
+              true);
+        },
+        false,
+        {"shortdecimal_val"},
+        20,
+        true,
+        false);
+  }
+}
+
+TEST_F(E2EFilterTest, shortDecimalDirect) {
+  writerProperties_ = ::parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(4 * 1024)
+                          ->build();
+  // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
+  // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
+  for (const auto& type : {
+           "shortdecimal_val:short_decimal(10, 5)",
+           "shortdecimal_val:short_decimal(17, 5)",
+       }) {
+    testWithTypes(
+        type,
+        [&]() {
+          makeIntDistribution<UnscaledShortDecimal>(
+              Subfield("shortdecimal_val"),
+              UnscaledShortDecimal(10), // min
+              UnscaledShortDecimal(100), // max
+              22, // repeats
+              19, // rareFrequency
+              UnscaledShortDecimal(-999), // rareMin
+              UnscaledShortDecimal(30000), // rareMax
+              true);
+        },
+        false,
+        {"shortdecimal_val"},
+        20,
+        true,
+        false);
+  }
+}
+
 TEST_F(E2EFilterTest, stringDirect) {
   writerProperties_ = ::parquet::WriterProperties::Builder()
                           .disable_dictionary()

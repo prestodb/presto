@@ -456,7 +456,8 @@ class SelectiveColumnReader {
 
   // Returns integer values for 'rows' cast to the width of
   // 'requestedType' in '*result'.
-  void getIntValues(RowSet rows, const Type* requestedType, VectorPtr* result);
+  void
+  getIntValues(RowSet rows, const TypePtr& requestedType, VectorPtr* result);
 
   // Returns read values for 'rows' in 'vector'. This can be called
   // multiple times for consecutive subsets of 'rows'. If 'isFinal' is

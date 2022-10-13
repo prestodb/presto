@@ -43,7 +43,8 @@ VectorPtr createScalar(
     std::mt19937& gen,
     std::function<T()> val,
     MemoryPool& pool,
-    std::function<bool(vector_size_t /*index*/)> isNullAt) {
+    std::function<bool(vector_size_t /*index*/)> isNullAt,
+    const TypePtr type = CppToType<T>::create()) {
   BufferPtr values = AlignedBuffer::allocate<T>(size, &pool);
   auto valuesPtr = values->asMutableRange<T>();
 
@@ -62,7 +63,7 @@ VectorPtr createScalar(
   }
 
   return std::make_shared<FlatVector<T>>(
-      &pool, nulls, size, values, std::vector<BufferPtr>{});
+      &pool, type, nulls, size, values, std::vector<BufferPtr>{});
 }
 
 template <TypeKind KIND>
@@ -174,6 +175,22 @@ VectorPtr BatchMaker::createVector<TypeKind::DOUBLE>(
       [&gen]() { return Random::randDouble01(gen); },
       pool,
       isNullAt);
+}
+
+template <>
+VectorPtr BatchMaker::createVector<TypeKind::SHORT_DECIMAL>(
+    const std::shared_ptr<const Type>& type,
+    size_t size,
+    MemoryPool& pool,
+    std::mt19937& gen,
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
+  return createScalar<UnscaledShortDecimal>(
+      size,
+      gen,
+      [&gen]() { return UnscaledShortDecimal(Random::rand32(gen)); },
+      pool,
+      isNullAt,
+      type);
 }
 
 VectorPtr createBinary(

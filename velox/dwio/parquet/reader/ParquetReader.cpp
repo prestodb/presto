@@ -248,11 +248,13 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
             maxRepeat,
             maxDefine,
             precision,
-            scale);
+            scale,
+            type_length);
 
     if (schemaElement.repetition_type ==
         thrift::FieldRepetitionType::REPEATED) {
       // Array
+      children.clear();
       children.reserve(1);
       children.push_back(leafTypePtr);
       return std::make_shared<const ParquetTypeWithId>(
@@ -352,11 +354,16 @@ TypePtr ReaderBase::convertType(
             "TIMESTAMP_MICROS or TIMESTAMP_MILLIS converted type can only be set for value of thrift::Type::INT64");
         return TIMESTAMP();
 
-      case thrift::ConvertedType::DECIMAL:
+      case thrift::ConvertedType::DECIMAL: {
         VELOX_CHECK(
-            !schemaElement.__isset.precision || !schemaElement.__isset.scale,
+            schemaElement.__isset.precision && schemaElement.__isset.scale,
             "DECIMAL requires a length and scale specifier!");
-        VELOX_UNSUPPORTED("Decimal type is not supported yet");
+        auto decimalType =
+            DECIMAL(schemaElement.precision, schemaElement.scale);
+        VELOX_CHECK(
+            decimalType->isShortDecimal(), "Only SHORT DECIMAL is supported");
+        return decimalType;
+      }
 
       case thrift::ConvertedType::UTF8:
         switch (schemaElement.type) {

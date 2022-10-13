@@ -30,8 +30,9 @@ class DirectDecoder : public IntDecoder<isSigned> {
   DirectDecoder(
       std::unique_ptr<dwio::common::SeekableInputStream> input,
       bool useVInts,
-      uint32_t numBytes)
-      : IntDecoder<isSigned>{std::move(input), useVInts, numBytes} {}
+      uint32_t numBytes,
+      bool bigEndian = false)
+      : IntDecoder<isSigned>{std::move(input), useVInts, numBytes, bigEndian} {}
 
   void seekToRowGroup(dwio::common::PositionProvider&) override;
 
@@ -57,8 +58,11 @@ class DirectDecoder : public IntDecoder<isSigned> {
   }
 
   template <bool hasNulls, typename Visitor>
-  void readWithVisitor(const uint64_t* FOLLY_NULLABLE nulls, Visitor visitor) {
-    if (dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
+  void readWithVisitor(
+      const uint64_t* FOLLY_NULLABLE nulls,
+      Visitor visitor,
+      bool useFastPath = true) {
+    if (useFastPath && dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
       fastPath<hasNulls>(nulls, visitor);
       return;
     }

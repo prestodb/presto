@@ -144,7 +144,7 @@ bool SelectiveColumnReader::shouldMoveNulls(RowSet rows) {
 
 void SelectiveColumnReader::getIntValues(
     RowSet rows,
-    const Type* requestedType,
+    const TypePtr& requestedType,
     VectorPtr* result) {
   switch (requestedType->kind()) {
     case TypeKind::SMALLINT: {
@@ -179,6 +179,10 @@ void SelectiveColumnReader::getIntValues(
         break;
       case TypeKind::DATE:
         getFlatValues<Date, Date>(rows, result);
+        break;
+      case TypeKind::SHORT_DECIMAL:
+        getFlatValues<UnscaledShortDecimal, UnscaledShortDecimal>(
+            rows, result, requestedType);
         break;
       case TypeKind::BIGINT:
         switch (valueSize_) {

@@ -131,12 +131,12 @@ class E2EFilterTestBase : public testing::Test {
   template <typename T>
   void makeIntDistribution(
       const common::Subfield& field,
-      int64_t min,
-      int64_t max,
+      T min,
+      T max,
       int32_t repeats,
       int32_t rareFrequency,
-      int64_t rareMin,
-      int64_t rareMax,
+      T rareMin,
+      T rareMax,
       bool keepNulls) {
     int counter = 0;
     for (RowVectorPtr batch : batches_) {
@@ -146,20 +146,21 @@ class E2EFilterTestBase : public testing::Test {
         if (keepNulls && numbers->isNullAt(row)) {
           continue;
         }
-        int64_t value;
+        T value;
         if (counter % 100 < repeats) {
-          value = counter % repeats;
+          value = T(counter % repeats);
           numbers->set(row, value);
         } else if (counter % 100 > 90 && row > 0) {
           numbers->copy(numbers, row - 1, row, 1);
         } else {
           if (rareFrequency && counter % rareFrequency == 0) {
             value = rareMin +
-                (folly::Random::rand32(filterGenerator->rng()) %
-                 (rareMax - rareMin));
+                (T(folly::Random::rand32(filterGenerator->rng())) %
+                 T(rareMax - rareMin));
           } else {
             value = min +
-                (folly::Random::rand32(filterGenerator->rng()) % (max - min));
+                (T(folly::Random::rand32(filterGenerator->rng())) %
+                 (max - min));
           }
           numbers->set(row, value);
         }

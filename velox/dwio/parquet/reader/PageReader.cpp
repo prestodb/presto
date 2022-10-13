@@ -356,8 +356,53 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
       VELOX_CHECK_EQ(header, strings + numBytes);
       break;
     }
+    case thrift::Type::FIXED_LEN_BYTE_ARRAY: {
+      auto parquetTypeLength = type_->typeLength_;
+      auto numParquetBytes = dictionary_.numValues * parquetTypeLength;
+      auto veloxTypeLength = type_->type->cppSizeInBytes();
+      auto numVeloxBytes = dictionary_.numValues * veloxTypeLength;
+      dictionary_.values = AlignedBuffer::allocate<char>(numVeloxBytes, &pool_);
+      auto data = dictionary_.values->asMutable<char>();
+      // Read the data bytes.
+      if (pageData_) {
+        memcpy(data, pageData_, numParquetBytes);
+      } else {
+        dwio::common::readBytes(
+            numParquetBytes,
+            inputStream_.get(),
+            data,
+            bufferStart_,
+            bufferEnd_);
+      }
+      if (type_->type->isShortDecimal()) {
+        // Parquet decimal values have a fixed typeLength_ and are in big-endian
+        // layout.
+        if (numParquetBytes < numVeloxBytes) {
+          auto values = dictionary_.values->asMutable<int64_t>();
+          for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
+            // Expand the Parquet type length values to Velox type length.
+            // We start from the end to allow in-place expansion.
+            auto sourceValue = data + (i * parquetTypeLength);
+            int64_t value = *sourceValue >= 0 ? 0 : -1;
+            memcpy(
+                reinterpret_cast<uint8_t*>(&value) + veloxTypeLength -
+                    parquetTypeLength,
+                sourceValue,
+                parquetTypeLength);
+            values[i] = value;
+          }
+        }
+        auto values = dictionary_.values->asMutable<UnscaledShortDecimal>();
+        for (auto i = 0; i < dictionary_.numValues; ++i) {
+          values[i] = UnscaledShortDecimal(
+              __builtin_bswap64(values[i].unscaledValue()));
+        }
+        break;
+      }
+      VELOX_UNSUPPORTED(
+          "Parquet type {} not supported for dictionary", parquetType);
+    }
     case thrift::Type::INT96:
-    case thrift::Type::FIXED_LEN_BYTE_ARRAY:
     default:
       VELOX_UNSUPPORTED(
           "Parquet type {} not supported for dictionary", parquetType);
@@ -404,12 +449,21 @@ void PageReader::makeDecoder() {
           stringDecoder_ = std::make_unique<StringDecoder>(
               pageData_, pageData_ + encodedDataSize_);
           break;
-        default:
+        case thrift::Type::FIXED_LEN_BYTE_ARRAY:
+          directDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
+              std::make_unique<dwio::common::SeekableArrayInputStream>(
+                  pageData_, encodedDataSize_),
+              false,
+              type_->typeLength_,
+              true);
+          break;
+        default: {
           directDecoder_ = std::make_unique<dwio::common::DirectDecoder<true>>(
               std::make_unique<dwio::common::SeekableArrayInputStream>(
                   pageData_, encodedDataSize_),
               false,
               parquetTypeBytes(type_->parquetType_.value()));
+        }
       }
       break;
     case Encoding::DELTA_BINARY_PACKED:

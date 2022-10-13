@@ -321,6 +321,12 @@ void gatherFromBuffer(
     rows.apply([&](vector_size_t i) {
       bits::setBit(dst, j++, bits::isBitSet(src, i));
     });
+  } else if (type.kind() == TypeKind::SHORT_DECIMAL) {
+    rows.apply([&](vector_size_t i) {
+      auto decimalSrc = buf.as<UnscaledShortDecimal>();
+      int128_t value = decimalSrc[i].unscaledValue();
+      memcpy(dst + (j++) * sizeof(int128_t), &value, sizeof(int128_t));
+    });
   } else {
     auto typeSize = type.cppSizeInBytes();
     rows.apply([&](vector_size_t i) {
@@ -357,17 +363,18 @@ void exportValues(
     memory::MemoryPool* pool,
     VeloxToArrowBridgeHolder& holder) {
   out.n_buffers = 2;
-
-  if (!rows.changed()) {
+  // Short decimals need to be converted to 128 bit values as they are mapped
+  // to Arrow Decimal128.
+  if (!rows.changed() && !vec.type()->isShortDecimal()) {
     holder.setBuffer(1, vec.values());
     return;
   }
-
+  auto size = vec.type()->isShortDecimal() ? sizeof(int128_t)
+                                           : vec.type()->cppSizeInBytes();
   auto values = vec.type()->isBoolean()
       ? AlignedBuffer::allocate<bool>(out.length, pool)
       : AlignedBuffer::allocate<uint8_t>(
-            checkedMultiply<size_t>(out.length, vec.type()->cppSizeInBytes()),
-            pool);
+            checkedMultiply<size_t>(out.length, size), pool);
   gatherFromBuffer(*vec.type(), *vec.values(), rows, *values);
   holder.setBuffer(1, values);
 }
@@ -422,7 +429,6 @@ void exportFlat(
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
     case TypeKind::SHORT_DECIMAL:
-    case TypeKind::LONG_DECIMAL:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:

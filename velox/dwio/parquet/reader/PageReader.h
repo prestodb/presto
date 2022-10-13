@@ -70,6 +70,12 @@ class PageReader {
   // Returns the current string dictionary as a FlatVector<StringView>.
   const VectorPtr& dictionaryValues();
 
+  // True if the current page holds dictionary indices.
+  bool isDictionary() const {
+    return encoding_ == thrift::Encoding::PLAIN_DICTIONARY ||
+        encoding_ == thrift::Encoding::RLE_DICTIONARY;
+  }
+
  private:
   // If the current page has nulls, returns a nulls bitmap owned by 'this'. This
   // is filled for 'numRows' bits.
@@ -79,12 +85,6 @@ class PageReader {
   // rows. Returns the number of non-nulls skipped. The range is the
   // current page.
   int32_t skipNulls(int32_t numRows);
-
-  // True if the current page holds dictionary indices.
-  bool isDictionary() const {
-    return encoding_ == thrift::Encoding::PLAIN_DICTIONARY ||
-        encoding_ == thrift::Encoding::RLE_DICTIONARY;
-  }
 
   // Initializes a filter result cache for the dictionary in 'state'.
   void makeFilterCache(dwio::common::ScanState& state);
@@ -163,19 +163,23 @@ class PageReader {
       bool& nullsFromFastPath,
       Visitor visitor) {
     if (nulls) {
-      nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
+      nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor) &&
+          (this->type_->type->isShortDecimal() ? isDictionary() : true);
+
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
         rleDecoder_->readWithVisitor<true>(nulls, dictVisitor);
       } else {
-        directDecoder_->readWithVisitor<true>(nulls, visitor);
+        directDecoder_->readWithVisitor<true>(
+            nulls, visitor, nullsFromFastPath);
       }
     } else {
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
         rleDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
       } else {
-        directDecoder_->readWithVisitor<false>(nulls, visitor);
+        directDecoder_->readWithVisitor<false>(
+            nulls, visitor, !this->type_->type->isShortDecimal());
       }
     }
   }
