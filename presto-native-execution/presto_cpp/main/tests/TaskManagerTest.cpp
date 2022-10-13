@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
