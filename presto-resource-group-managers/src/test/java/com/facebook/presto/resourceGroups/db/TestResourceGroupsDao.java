@@ -34,10 +34,10 @@ import java.util.regex.Pattern;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
-import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
-import static com.facebook.presto.spi.resourceGroups.QueryType.EXPLAIN;
-import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
-import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
+import static com.facebook.presto.common.resourceGroups.QueryType.DELETE;
+import static com.facebook.presto.common.resourceGroups.QueryType.EXPLAIN;
+import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
+import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
