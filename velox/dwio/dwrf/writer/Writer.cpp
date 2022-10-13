@@ -201,26 +201,32 @@ void Writer::write(const VectorPtr& slice) {
   size_t offset = 0;
   // Calculate length increment based on linear projection of micro batch size.
   // Total length is capped later.
+  const auto& sliceMemoryEstimate = slice->retainedSize();
+  const auto& sliceRowCount = slice->size();
   const size_t lengthIncrement = std::max<size_t>(
       1UL,
-      slice->retainedSize() > 0 ? folly::to<size_t>(std::floor(
-                                      1.0 * context.rawDataSizePerBatch /
-                                      slice->retainedSize() * slice->size()))
-                                : folly::to<size_t>(slice->size()));
-  LOG(INFO) << fmt::format(
-      "Micro batch size {} rows. Slice memory estimate {} bytes. "
-      "Batching threshold {} bytes.",
-      lengthIncrement,
-      slice->retainedSize(),
-      context.rawDataSizePerBatch);
-  while (offset < slice->size()) {
+      sliceMemoryEstimate > 0 ? folly::to<size_t>(std::floor(
+                                    1.0 * context.rawDataSizePerBatch /
+                                    sliceMemoryEstimate * sliceRowCount))
+                              : folly::to<size_t>(sliceRowCount));
+  if (UNLIKELY(
+          sliceMemoryEstimate == 0 ||
+          sliceMemoryEstimate > context.rawDataSizePerBatch)) {
+    LOG(WARNING) << fmt::format(
+        "Unpopulated or huge vector memory estimate! Micro batch size {} rows. "
+        "Slice memory estimate {} bytes. Batching threshold {} bytes.",
+        lengthIncrement,
+        sliceMemoryEstimate,
+        context.rawDataSizePerBatch);
+  }
+  while (offset < sliceRowCount) {
     size_t length = lengthIncrement;
     if (context.isIndexEnabled) {
       length =
           std::min<size_t>(length, context.indexStride - context.indexRowCount);
     }
 
-    length = std::min(length, slice->size() - offset);
+    length = std::min(length, sliceRowCount - offset);
     VELOX_CHECK_GT(length, 0);
     bool flushDecision = shouldFlush(context, length);
     if (flushDecision) {
