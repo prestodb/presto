@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.udf.thrift;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.BlockEncodingSerde;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.thrift.api.udf.PrestoThriftPage;
 import com.facebook.presto.thrift.api.udf.ThriftUdfPage;
@@ -31,7 +31,7 @@ import com.google.inject.Inject;
 
 import java.util.Optional;
 
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.prestoPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfPage.thriftPage;
 import static com.facebook.presto.thrift.api.udf.ThriftUdfServiceException.toThriftUdfServiceException;

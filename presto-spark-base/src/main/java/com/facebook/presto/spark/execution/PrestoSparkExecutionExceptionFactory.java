@@ -14,12 +14,12 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkNonRetryableExecutionException;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkRetryableExecutionException;
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
 import org.apache.spark.SparkException;
 
 import javax.inject.Inject;
@@ -29,10 +29,10 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.compress;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.decompress;
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
-import static com.facebook.presto.spi.ErrorType.INTERNAL_ERROR;
 import static com.facebook.presto.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Pattern.DOTALL;

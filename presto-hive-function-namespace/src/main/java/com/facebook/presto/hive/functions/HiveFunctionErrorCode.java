@@ -14,15 +14,15 @@
 
 package com.facebook.presto.hive.functions;
 
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.ErrorCode;
 import com.facebook.presto.spi.ErrorCodeSupplier;
-import com.facebook.presto.spi.ErrorType;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 
-import static com.facebook.presto.spi.ErrorType.EXTERNAL;
+import static com.facebook.presto.common.ErrorType.EXTERNAL;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static java.lang.String.format;
 
