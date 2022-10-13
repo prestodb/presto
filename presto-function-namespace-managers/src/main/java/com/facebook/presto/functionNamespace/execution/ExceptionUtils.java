@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.functionNamespace.execution;
 
-import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.common.ErrorCode;
+import com.facebook.presto.common.ErrorType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.thrift.api.udf.ThriftUdfErrorCodeSupplier;
 import com.facebook.presto.thrift.api.udf.ThriftUdfServiceException;
