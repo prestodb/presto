@@ -172,6 +172,35 @@ class ProbeState {
     }
   }
 
+  FOLLY_ALWAYS_INLINE char* FOLLY_NULLABLE joinNormalizedKeyFullProbe(
+      uint8_t* tags,
+      char** table,
+      uint64_t sizeMask,
+      const uint64_t* keys) {
+    if (group_ && RowContainer::normalizedKey(group_) == keys[row_]) {
+      return group_;
+    }
+    const auto kEmptyGroup = BaseHashTable::TagVector::broadcast(0);
+    for (;;) {
+      if (!hits_) {
+        uint16_t empty =
+            simd::toBitMask(tagsInTable_ == kEmptyGroup) & kFullMask;
+        if (empty) {
+          return nullptr;
+        }
+      } else {
+        loadNextHit<Operation::kProbe>(table, 0);
+        if (RowContainer::normalizedKey(group_) == keys[row_]) {
+          return group_;
+        }
+        continue;
+      }
+      tagIndex_ = (tagIndex_ + sizeof(BaseHashTable::TagVector)) & sizeMask;
+      tagsInTable_ = BaseHashTable::loadTags(tags, tagIndex_);
+      hits_ = simd::toBitMask(tagsInTable_ == wantedTags_) & kFullMask;
+    }
+  }
+
  private:
   static constexpr uint8_t kNotSet = 0xff;
 
@@ -325,23 +354,31 @@ FOLLY_ALWAYS_INLINE void HashTable<ignoreNullKeys>::fullProbe(
 }
 
 namespace {
-// A normalized key is spread evenly over 64 bits. This mixes the bits
-// so that they affect the low 'bits', which are actually used for
-// indexing the hash table.
+// Normalized keys have non0-random bits. Bits need to be propagated
+// up to make a tag byte and down so that non-lowest bits of
+// normalized key affect the hash table index.
 inline uint64_t mixNormalizedKey(uint64_t k, uint8_t bits) {
-  constexpr uint64_t prime1 = 0xc6a4a7935bd1e995UL; // M from Murmurhash.
-  constexpr uint64_t prime2 = 527729;
-  constexpr uint64_t prime3 = 28047;
-  auto h = (k ^ ((k >> 32))) * prime1;
-  return h + (h >> bits) * prime2 + (h >> (2 * bits)) * prime3;
+  return folly::hasher<uint64_t>()(k);
 }
 
 void populateNormalizedKeys(HashLookup& lookup, int8_t sizeBits) {
   lookup.normalizedKeys.resize(lookup.rows.back() + 1);
-  auto hashes = lookup.hashes.data();
+  uint64_t* __restrict hashes = lookup.hashes.data();
+  uint64_t* __restrict keys = lookup.normalizedKeys.data();
+  int32_t end = lookup.rows.back() + 1;
+  if (end / 4 < lookup.rows.size()) {
+    // For more than 1/4 of the positions in use, run the loop on all
+    // elements, since the loop will do 4 at a time.
+    for (auto row = 0; row < end; ++row) {
+      auto hash = hashes[row];
+      keys[row] = hash; // NOLINT
+      hashes[row] = mixNormalizedKey(hash, sizeBits);
+    }
+    return;
+  }
   for (auto row : lookup.rows) {
     auto hash = hashes[row];
-    lookup.normalizedKeys[row] = hash; // NOLINT
+    keys[row] = hash; // NOLINT
     hashes[row] = mixNormalizedKey(hash, sizeBits);
   }
 }
@@ -455,6 +492,8 @@ void HashTable<ignoreNullKeys>::joinProbe(HashLookup& lookup) {
   }
   if (hashMode_ == HashMode::kNormalizedKey) {
     populateNormalizedKeys(lookup, sizeBits_);
+    joinNormalizedKeyProbe(lookup);
+    return;
   }
   int32_t probeIndex = 0;
   int32_t numProbes = lookup.rows.size();
@@ -486,6 +525,49 @@ void HashTable<ignoreNullKeys>::joinProbe(HashLookup& lookup) {
     state1.preProbe(tags_, sizeMask_, lookup.hashes[row], row);
     state1.firstProbe(table_, 0);
     fullProbe<true>(lookup, state1, false);
+  }
+}
+
+template <bool ignoreNullKeys>
+void HashTable<ignoreNullKeys>::joinNormalizedKeyProbe(HashLookup& lookup) {
+  int32_t probeIndex = 0;
+  int32_t numProbes = lookup.rows.size();
+  const vector_size_t* rows = lookup.rows.data();
+  ProbeState state1;
+  ProbeState state2;
+  ProbeState state3;
+  ProbeState state4;
+  const uint64_t* keys = lookup.normalizedKeys.data();
+  const uint64_t* hashes = lookup.hashes.data();
+  char** hits = lookup.hits.data();
+  for (; probeIndex + 4 <= numProbes; probeIndex += 4) {
+    int32_t row = rows[probeIndex];
+    state1.preProbe(tags_, sizeMask_, hashes[row], row);
+    row = rows[probeIndex + 1];
+    state2.preProbe(tags_, sizeMask_, hashes[row], row);
+    row = rows[probeIndex + 2];
+    state3.preProbe(tags_, sizeMask_, hashes[row], row);
+    row = rows[probeIndex + 3];
+    state4.preProbe(tags_, sizeMask_, hashes[row], row);
+    state1.firstProbe(table_, 0);
+    state2.firstProbe(table_, 0);
+    state3.firstProbe(table_, 0);
+    state4.firstProbe(table_, 0);
+    hits[state1.row()] =
+        state1.joinNormalizedKeyFullProbe(tags_, table_, sizeMask_, keys);
+    hits[state2.row()] =
+        state2.joinNormalizedKeyFullProbe(tags_, table_, sizeMask_, keys);
+    hits[state3.row()] =
+        state3.joinNormalizedKeyFullProbe(tags_, table_, sizeMask_, keys);
+    hits[state4.row()] =
+        state4.joinNormalizedKeyFullProbe(tags_, table_, sizeMask_, keys);
+  }
+  for (; probeIndex < numProbes; ++probeIndex) {
+    int32_t row = rows[probeIndex];
+    state1.preProbe(tags_, sizeMask_, lookup.hashes[row], row);
+    state1.firstProbe(table_, 0);
+    hits[row] =
+        state1.joinNormalizedKeyFullProbe(tags_, table_, sizeMask_, keys);
   }
 }
 
@@ -1281,6 +1363,9 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
     folly::Range<vector_size_t*> inputRows,
     folly::Range<char**> hits) {
   VELOX_CHECK_LE(inputRows.size(), hits.size());
+  if (!hasDuplicates_) {
+    return listJoinResultsNoDuplicates(iter, includeMisses, inputRows, hits);
+  }
   int numOut = 0;
   auto maxOut = inputRows.size();
   while (iter.lastRowIndex < iter.rows->size()) {
@@ -1321,6 +1406,61 @@ int32_t HashTable<ignoreNullKeys>::listJoinResults(
       }
     }
   }
+  return numOut;
+}
+
+template <bool ignoreNullKeys>
+int32_t HashTable<ignoreNullKeys>::listJoinResultsNoDuplicates(
+    JoinResultIterator& iter,
+    bool includeMisses,
+    folly::Range<vector_size_t*> inputRows,
+    folly::Range<char**> hits) {
+  int32_t numOut = 0;
+  auto maxOut = inputRows.size();
+  int32_t i = iter.lastRowIndex;
+  auto numRows = iter.rows->size();
+
+  constexpr int32_t kWidth = xsimd::batch<int64_t>::size;
+  auto sourceHits = reinterpret_cast<int64_t*>(iter.hits->data());
+  auto sourceRows = iter.rows->data();
+  // We pass the pointers as int64_t's in 'hitWords'.
+  auto resultHits = reinterpret_cast<int64_t*>(hits.data());
+  auto resultRows = inputRows.data();
+  int32_t outLimit = maxOut - kWidth;
+  for (; i + kWidth <= numRows && numOut < outLimit; i += kWidth) {
+    auto indices = simd::loadGatherIndices<int64_t, int32_t>(sourceRows + i);
+    auto hitWords = simd::gather(sourceHits, indices);
+    auto misses = includeMisses ? 0 : simd::toBitMask(hitWords == 0);
+    if (misses == 0xf) {
+      continue;
+    }
+    if (!misses) {
+      hitWords.store_unaligned(resultHits + numOut);
+      indices.store_unaligned(resultRows + numOut);
+      numOut += kWidth;
+      continue;
+    }
+    auto matches = misses ^ bits::lowMask(kWidth);
+    simd::filter<int64_t>(hitWords, matches, xsimd::default_arch{})
+        .store_unaligned(resultHits + numOut);
+    simd::filter<int32_t>(indices, matches, xsimd::default_arch{})
+        .store_unaligned(resultRows + numOut);
+    numOut += __builtin_popcount(matches);
+  }
+  for (; i < numRows; ++i) {
+    auto row = sourceRows[i];
+    if (includeMisses || sourceHits[row]) {
+      resultHits[numOut] = sourceHits[row];
+      resultRows[numOut] = row;
+      ++numOut;
+      if (numOut >= maxOut) {
+        ++i;
+        break;
+      }
+    }
+  }
+
+  iter.lastRowIndex = i;
   return numOut;
 }
 

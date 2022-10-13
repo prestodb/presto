@@ -404,6 +404,13 @@ class HashTable : public BaseHashTable {
 
   void setHashMode(HashMode mode, int32_t numNew) override;
 
+  // Fast path for join results when there are no duplicates in the table.
+  int32_t listJoinResultsNoDuplicates(
+      JoinResultIterator& iter,
+      bool includeMisses,
+      folly::Range<vector_size_t*> inputRows,
+      folly::Range<char**> hits);
+
   /// Tries to use as many range hashers as can in a normalized key situation.
   void enableRangeWhereCan(
       const std::vector<uint64_t>& rangeSizes,
@@ -511,6 +518,9 @@ class HashTable : public BaseHashTable {
 
   template <bool isJoin>
   void fullProbe(HashLookup& lookup, ProbeState& state, bool extraCheck);
+
+  // Shortcut for probe with normalized keys.
+  void joinNormalizedKeyProbe(HashLookup& lookup);
 
   // Adds a row to a hash join table in kArray hash mode. Returns true
   // if a new entry was made and false if the row was added to an

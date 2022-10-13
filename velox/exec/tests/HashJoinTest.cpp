@@ -1217,7 +1217,8 @@ TEST_F(HashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
   createDuckDbTable("t", {leftVectors});
   createDuckDbTable("u", {rightVectors});
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  for (const std::string& filter : {"u1 > t1", "u1 * t1 > 0"}) {
+  std::vector<std::string> filters = {"u1 > t1", "u1 * t1 > 0"};
+  for (const std::string& filter : filters) {
     auto sql = fmt::format(
         "SELECT t.* FROM t WHERE t0 NOT IN (SELECT u0 FROM u WHERE {})",
         filter);
