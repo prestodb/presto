@@ -822,6 +822,35 @@ column_index_t exprToChannel(
   return 0; // not reached.
 }
 
+core::WindowNode::WindowType toVeloxWindowType(
+    protocol::WindowType windowType) {
+  switch (windowType) {
+    case protocol::WindowType::RANGE:
+      return core::WindowNode::WindowType::kRange;
+    case protocol::WindowType::ROWS:
+      return core::WindowNode::WindowType::kRows;
+    default:
+      VELOX_UNSUPPORTED("Unsupported window type: {}", windowType);
+  }
+}
+
+core::WindowNode::BoundType toVeloxBoundType(protocol::BoundType boundType) {
+  switch (boundType) {
+    case protocol::BoundType::CURRENT_ROW:
+      return core::WindowNode::BoundType::kCurrentRow;
+    case protocol::BoundType::PRECEDING:
+      return core::WindowNode::BoundType::kPreceding;
+    case protocol::BoundType::FOLLOWING:
+      return core::WindowNode::BoundType::kFollowing;
+    case protocol::BoundType::UNBOUNDED_PRECEDING:
+      return core::WindowNode::BoundType::kUnboundedPreceding;
+    case protocol::BoundType::UNBOUNDED_FOLLOWING:
+      return core::WindowNode::BoundType::kUnboundedFollowing;
+    default:
+      VELOX_UNSUPPORTED("Unsupported window bound type: {}", boundType);
+  }
+}
+
 // Stores partitioned output channels.
 // For each 'kConstantChannel', there is an entry in 'constValues'.
 struct PartitionedOutputChannels {
@@ -1693,6 +1722,68 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
+core::WindowNode::Function VeloxQueryPlanConverter::toVeloxWindowFunction(
+    const protocol::Function& func) {
+  core::WindowNode::Function windowFunc;
+  windowFunc.functionCall =
+      std::dynamic_pointer_cast<const core::CallTypedExpr>(
+          exprConverter_.toVeloxExpr(func.functionCall));
+  windowFunc.ignoreNulls = func.ignoreNulls;
+
+  windowFunc.frame.type = toVeloxWindowType(func.frame.type);
+  windowFunc.frame.startType = toVeloxBoundType(func.frame.startType);
+  windowFunc.frame.startValue = func.frame.startValue
+      ? exprConverter_.toVeloxExpr(func.frame.startValue)
+      : nullptr;
+
+  windowFunc.frame.endType = toVeloxBoundType(func.frame.endType);
+  windowFunc.frame.endValue = func.frame.endValue
+      ? exprConverter_.toVeloxExpr(func.frame.endValue)
+      : nullptr;
+
+  return windowFunc;
+}
+
+std::shared_ptr<const velox::core::WindowNode>
+VeloxQueryPlanConverter::toVeloxQueryPlan(
+    const std::shared_ptr<const protocol::WindowNode>& node,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId) {
+  std::vector<core::FieldAccessTypedExprPtr> partitionFields;
+  partitionFields.reserve(node->specification.partitionBy.size());
+  for (const auto& entry : node->specification.partitionBy) {
+    partitionFields.emplace_back(exprConverter_.toVeloxExpr(entry));
+  }
+
+  std::vector<core::FieldAccessTypedExprPtr> sortFields;
+  std::vector<core::SortOrder> sortOrders;
+  auto nodeSpecOrdering = node->specification.orderingScheme->orderBy;
+  sortFields.reserve(nodeSpecOrdering.size());
+  sortOrders.reserve(nodeSpecOrdering.size());
+  for (const auto& spec : nodeSpecOrdering) {
+    sortFields.emplace_back(exprConverter_.toVeloxExpr(spec.variable));
+    sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+  }
+
+  std::vector<std::string> windowNames;
+  std::vector<core::WindowNode::Function> windowFunctions;
+  windowNames.reserve(node->windowFunctions.size());
+  windowFunctions.reserve(node->windowFunctions.size());
+  for (const auto& func : node->windowFunctions) {
+    windowNames.emplace_back(func.first.name);
+    windowFunctions.emplace_back(toVeloxWindowFunction(func.second));
+  }
+
+  return std::make_shared<velox::core::WindowNode>(
+      node->id,
+      partitionFields,
+      sortFields,
+      sortOrders,
+      windowNames,
+      windowFunctions,
+      toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
+}
+
 core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::PlanNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1765,6 +1856,10 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
   if (auto assignUniqueId =
           std::dynamic_pointer_cast<const protocol::AssignUniqueId>(node)) {
     return toVeloxQueryPlan(assignUniqueId, tableWriteInfo, taskId);
+  }
+  if (auto window =
+          std::dynamic_pointer_cast<const protocol::WindowNode>(node)) {
+    return toVeloxQueryPlan(window, tableWriteInfo, taskId);
   }
   VELOX_UNSUPPORTED("Unknown plan node type {}", node->_type);
 }

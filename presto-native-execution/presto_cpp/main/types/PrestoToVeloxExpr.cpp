@@ -81,7 +81,7 @@ std::string mapScalarFunction(const std::string& name) {
   return lowerCaseName;
 }
 
-std::string mapAggregateFunctionName(const std::string& name) {
+std::string mapAggregateOrWindowFunction(const std::string& name) {
   std::string lowerCaseName = boost::to_lower_copy(name);
 
   auto mappedName = mapDefaultFunctionName(lowerCaseName);
@@ -97,7 +97,8 @@ std::string getFunctionName(const protocol::Signature& signature) {
     case protocol::FunctionKind::SCALAR:
       return mapScalarFunction(signature.name);
     case protocol::FunctionKind::AGGREGATE:
-      return mapAggregateFunctionName(signature.name);
+    case protocol::FunctionKind::WINDOW:
+      return mapAggregateOrWindowFunction(signature.name);
     default:
       return signature.name;
   }
