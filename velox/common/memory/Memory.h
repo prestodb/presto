@@ -424,20 +424,20 @@ class MemoryPoolImpl : public MemoryPoolBase {
       int64_t cap = kMaxMemory);
 
   ~MemoryPoolImpl() {
-    // TODO(xiaoxmeng): Inconsistency discovered by following check when
-    // running with Prestissmo. Re-enable this check after the issue gets fixed.
-    //
-    // if (const auto& tracker = getMemoryUsageTracker()) {
-    //   auto remainingBytes = tracker->getCurrentUserBytes();
-    //   VELOX_CHECK_EQ(
-    //       0,
-    //       remainingBytes,
-    //       "Memory pool should be destroyed only after all allocated memory "
-    //       "has been freed. Remaining bytes allocated: {}, cumulative bytes
-    //       allocated: {}, number of allocations: {}", remainingBytes,
-    //       tracker->getCumulativeBytes(),
-    //       tracker->getNumAllocs());
-    // }
+    // TODO(xiaoxmeng): enable this in release build after fix the issue exposed
+    // by Prestissmo in real cluster.
+#ifndef NDEBUG
+    if (const auto& tracker = getMemoryUsageTracker()) {
+      auto remainingBytes = tracker->getCurrentUserBytes();
+      VELOX_CHECK_EQ(
+          0,
+          remainingBytes,
+          "Memory pool should be destroyed only after all allocated memory has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
+          remainingBytes,
+          tracker->getCumulativeBytes(),
+          tracker->getNumAllocs());
+    }
+#endif
   }
 
   // Actual memory allocation operations. Can be delegated.
