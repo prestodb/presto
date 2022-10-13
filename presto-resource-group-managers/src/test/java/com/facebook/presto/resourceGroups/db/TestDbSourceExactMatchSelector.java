@@ -26,9 +26,9 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.facebook.presto.spi.resourceGroups.QueryType.DELETE;
-import static com.facebook.presto.spi.resourceGroups.QueryType.INSERT;
-import static com.facebook.presto.spi.resourceGroups.QueryType.SELECT;
+import static com.facebook.presto.common.resourceGroups.QueryType.DELETE;
+import static com.facebook.presto.common.resourceGroups.QueryType.INSERT;
+import static com.facebook.presto.common.resourceGroups.QueryType.SELECT;
 import static org.testng.Assert.assertEquals;
 
 public class TestDbSourceExactMatchSelector

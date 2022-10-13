@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.util;
 
-import com.facebook.presto.spi.resourceGroups.QueryType;
+import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AlterFunction;
 import com.facebook.presto.sql.tree.Analyze;
