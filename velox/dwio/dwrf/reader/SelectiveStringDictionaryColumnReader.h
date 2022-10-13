@@ -139,10 +139,12 @@ void SelectiveStringDictionaryColumnReader::processFilter(
       break;
     case common::FilterKind::kIsNull:
       filterNulls<int32_t>(
-          rows, true, !std::is_same_v<decltype(extractValues), DropValues>);
+          rows,
+          true,
+          !std::is_same_v<decltype(extractValues), dwio::common::DropValues>);
       break;
     case common::FilterKind::kIsNotNull:
-      if (std::is_same_v<decltype(extractValues), DropValues>) {
+      if (std::is_same_v<decltype(extractValues), dwio::common::DropValues>) {
         filterNulls<int32_t>(rows, false, false);
       } else {
         readHelper<common::IsNotNull, isDense>(filter, rows, extractValues);

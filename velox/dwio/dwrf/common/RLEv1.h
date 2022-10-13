@@ -225,8 +225,6 @@ uint64_t RleEncoderV1<isSigned>::addImpl(
   return count;
 }
 
-struct DropValues;
-
 template <bool isSigned>
 class RleDecoderV1 : public dwio::common::IntDecoder<isSigned> {
  public:

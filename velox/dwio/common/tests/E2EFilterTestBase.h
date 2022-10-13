@@ -231,6 +231,10 @@ class E2EFilterTestBase : public testing::Test {
       bool useValueHook,
       bool skipCheck = false);
 
+  // Sets one in five filtered columns to be filter-only, so no
+  // passing values are retained.
+  void unprojectSomeFilters(ScanSpec& spec);
+
   template <TypeKind Kind>
   bool checkLoadWithHook(
       RowVector* batch,

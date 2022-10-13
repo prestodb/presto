@@ -208,6 +208,19 @@ class PageReader {
     }
   }
 
+  // Returns the number of passed rows/values gathered by
+  // 'reader'. Only numRows() is set for a filter-only case, only
+  // numValues() is set for a non-filtered case.
+  template <bool hasFilter>
+  static int32_t numRowsInReader(
+      const dwio::common::SelectiveColumnReader& reader) {
+    if (hasFilter) {
+      return reader.numRows();
+    } else {
+      return reader.numValues();
+    }
+  }
+
   memory::MemoryPool& pool_;
 
   std::unique_ptr<dwio::common::SeekableInputStream> inputStream_;
@@ -319,7 +332,7 @@ void PageReader::readWithVisitor(Visitor& visitor) {
   bool isMultiPage = false;
   while (rowsForPage(reader, hasFilter, pageRows, nulls)) {
     bool nullsFromFastPath = false;
-    int32_t numValuesBeforePage = reader.numValues();
+    int32_t numValuesBeforePage = numRowsInReader<hasFilter>(reader);
     visitor.setNumValuesBias(numValuesBeforePage);
     visitor.setRows(pageRows);
     callDecoder(nulls, nullsFromFastPath, visitor);
@@ -335,20 +348,21 @@ void PageReader::readWithVisitor(Visitor& visitor) {
         }
         if (!nulls) {
           nullConcatenation_.appendOnes(
-              reader.numValues() - numValuesBeforePage);
+              numRowsInReader<hasFilter>(reader) - numValuesBeforePage);
         } else if (reader.returnReaderNulls()) {
           // Nulls from decoding go directly to result.
           nullConcatenation_.append(
               reader.nullsInReadRange()->template as<uint64_t>(),
               0,
-              reader.numValues() - numValuesBeforePage);
+              numRowsInReader<hasFilter>(reader) - numValuesBeforePage);
         } else {
           // Add the nulls produced from the decoder to the result.
           auto firstNullIndex = nullsFromFastPath ? 0 : numValuesBeforePage;
           nullConcatenation_.append(
               reader.mutableNulls(0),
               firstNullIndex,
-              firstNullIndex + reader.numValues() - numValuesBeforePage);
+              firstNullIndex + numRowsInReader<hasFilter>(reader) -
+                  numValuesBeforePage);
         }
       }
       isMultiPage = true;

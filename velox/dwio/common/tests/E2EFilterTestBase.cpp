@@ -278,11 +278,22 @@ void E2EFilterTestBase::readWithFilter(
     // Outside of timed section.
     for (int32_t i = 0; i < batch->size(); ++i) {
       uint32_t hit = hitRows[rowIndex++];
-      ASSERT_TRUE(batch->equalValueAt(
-          batches[batchNumber(hit)].get(), i, batchRow(hit)))
-          << "Content mismatch at " << rowIndex - 1 << ": expected: "
-          << batches[batchNumber(hit)]->toString(batchRow(hit))
-          << " actual: " << batch->toString(i);
+      auto expectedBatch = batches[batchNumber(hit)].get();
+      auto expectedRow = batchRow(hit);
+      // We compare column by column, skipping over filter-only columns.
+      for (auto childIndex = 0; childIndex < spec->children().size();
+           ++childIndex) {
+        if (!spec->children()[childIndex]->keepValues()) {
+          continue;
+        }
+        auto column = spec->children()[childIndex]->channel();
+        auto result = batch->asUnchecked<RowVector>()->childAt(column);
+        auto expectedColumn = expectedBatch->childAt(column).get();
+        ASSERT_TRUE(result->equalValueAt(expectedColumn, i, expectedRow))
+            << "Content mismatch at " << rowIndex - 1 << " column " << column
+            << ": expected: " << expectedColumn->toString(expectedRow)
+            << " actual: " << result->toString(i);
+      }
     }
     // Check no overwrites after all LazyVectors are loaded.
     ownershipChecker.check(batch);
@@ -314,6 +325,7 @@ void E2EFilterTestBase::testFilterSpecs(
   auto filters =
       filterGenerator->makeSubfieldFilters(filterSpecs, batches_, hitRows);
   auto spec = filterGenerator->makeScanSpec(std::move(filters));
+  unprojectSomeFilters(*spec);
   uint64_t timeWithFilter = 0;
   readWithFilter(spec, batches_, hitRows, timeWithFilter, false);
 
@@ -338,6 +350,17 @@ void E2EFilterTestBase::testFilterSpecs(
   readWithFilter(spec, batches_, hitRows, timeWithFilter, false);
   timeWithFilter = 0;
   readWithFilter(spec, batches_, hitRows, timeWithFilter, true);
+}
+
+void E2EFilterTestBase::unprojectSomeFilters(ScanSpec& spec) {
+  // Each filtered column has a 1 in 5 chance to be filter-only.
+  for (auto& child : spec.children()) {
+    if (child->filter() &&
+        folly::Random::rand32(filterGenerator->rng()) % 5 == 0) {
+      child->setProjectOut(false);
+      child->setExtractValues(false);
+    }
+  }
 }
 
 void E2EFilterTestBase::testRowGroupSkip(
@@ -417,6 +440,19 @@ void OwnershipChecker::check(const VectorPtr& batch) {
   if (batchCounter_ > 11) {
     return;
   }
+  // We fill filter-only columns with nulls to make the RowVector well formed
+  // for copy.
+  auto rowVector = batch->as<RowVector>();
+  // Columns corresponding to filter-only access will not be filled in and have
+  // a zero-length or null child vector. Fill these in with nulls for the size
+  // of the batch to make the batch well formed for copy.
+  for (auto i = 0; i < rowVector->childrenSize(); ++i) {
+    auto& child = rowVector->children()[i];
+    if (!child || child->size() != batch->size()) {
+      child = BaseVector::createNullConstant(
+          batch->type()->childAt(i), batch->size(), batch->pool());
+    }
+  }
   if (batchCounter_ % 2 == 0) {
     previousBatch_ = std::make_shared<RowVector>(
         batch->pool(),
@@ -429,8 +465,8 @@ void OwnershipChecker::check(const VectorPtr& batch) {
   if (batchCounter_ % 2 == 1) {
     for (auto i = 0; i < previousBatch_->size(); ++i) {
       ASSERT_TRUE(previousBatch_->equalValueAt(previousBatchCopy_.get(), i, i))
-          << "Retained reference of a batch has been overwritten by the next "
-          << "index " << i << " batch " << previousBatch_->toString(i)
+          << "Retained reference of a batch has been overwritten by the next: "
+          << " index  " << i << " batch " << previousBatch_->toString(i)
           << " original " << previousBatchCopy_->toString(i);
     }
   }
