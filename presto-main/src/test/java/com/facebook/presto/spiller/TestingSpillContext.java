@@ -27,6 +27,11 @@ public class TestingSpillContext
     }
 
     @Override
+    public void updateBytesRead(long bytes)
+    {
+    }
+
+    @Override
     public Session getSession()
     {
         return testSessionBuilder().build();

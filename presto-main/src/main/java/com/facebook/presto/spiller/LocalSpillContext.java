@@ -26,6 +26,8 @@ public final class LocalSpillContext
 {
     private final SpillContext parentSpillContext;
     private long spilledBytes;
+
+    private long spilledBytesRead;
     private boolean closed;
 
     public LocalSpillContext(SpillContext parentSpillContext)
@@ -39,6 +41,13 @@ public final class LocalSpillContext
         checkState(!closed, "Already closed");
         parentSpillContext.updateBytes(bytes);
         spilledBytes += bytes;
+    }
+
+    @Override
+    public synchronized void updateBytesRead(long bytes)
+    {
+        checkState(!closed, "Already closed");
+        spilledBytesRead += bytes;
     }
 
     @Override

@@ -23,6 +23,8 @@ public interface SpillContext
 {
     void updateBytes(long bytes);
 
+    void updateBytesRead(long bytes);
+
     Session getSession();
 
     default SpillContext newLocalSpillContext()

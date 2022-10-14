@@ -246,6 +246,7 @@ public class TaskResourceUtils
                 operatorStats.getPeakSystemMemoryReservation(),
                 operatorStats.getPeakTotalMemoryReservation(),
                 operatorStats.getSpilledDataSize(),
+                operatorStats.getUnSpilledDataSize(),
                 operatorStats.getBlockedReason(),
                 operatorStats.getRuntimeStats(),
                 convertToOperatorInfoUnion(operatorStats.getInfo()));
@@ -476,6 +477,7 @@ public class TaskResourceUtils
                 thriftOperatorStats.getPeakSystemMemoryReservation(),
                 thriftOperatorStats.getPeakTotalMemoryReservation(),
                 thriftOperatorStats.getSpilledDataSize(),
+                thriftOperatorStats.getUnSpilledDataSize(),
                 thriftOperatorStats.getBlockedReason(),
                 convertToOperatorInfo(thriftOperatorStats.getInfoUnion()),
                 thriftOperatorStats.getRuntimeStats());
