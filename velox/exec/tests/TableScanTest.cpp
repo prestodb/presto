@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include <velox/type/Timestamp.h>
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"

@@ -15,7 +15,7 @@
  */
 
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"

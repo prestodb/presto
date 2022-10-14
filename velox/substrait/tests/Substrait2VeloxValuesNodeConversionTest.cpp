@@ -16,7 +16,7 @@
 
 #include "velox/substrait/tests/JsonToProtoConverter.h"
 
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 #include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"

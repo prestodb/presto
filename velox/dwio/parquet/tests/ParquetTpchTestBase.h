@@ -17,7 +17,7 @@
 #include <folly/init/Init.h>
 #include <vector>
 
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/parquet/RegisterParquetReader.h"
 #include "velox/dwio/parquet/duckdb_reader/ParquetReader.h"

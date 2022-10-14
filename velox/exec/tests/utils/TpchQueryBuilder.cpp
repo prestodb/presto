@@ -15,7 +15,7 @@
  */
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
 
-#include "velox/common/base/tests/Fs.h"
+#include "velox/common/base/Fs.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/tpch/gen/TpchGen.h"
 
