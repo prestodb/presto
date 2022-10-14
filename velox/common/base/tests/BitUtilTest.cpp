@@ -709,6 +709,43 @@ TEST_F(BitUtilTest, pad) {
   EXPECT_EQ(1, bytes[11 + 13]);
 }
 
+TEST_F(BitUtilTest, forBatches) {
+  uint64_t bits[] = {
+      0x0f0f'000f'ff00'f0f0, 0xff00'ffff'0000'00ff, 0x0, 0x0fff'0000'0000'ff0f};
+  auto test = [&](int32_t begin, int32_t end) {
+    int32_t numSet = 0;
+    auto numOnes = countBits(bits, begin, end);
+    forBatches<8>(bits, begin, end, [&](int32_t index, uint8_t mask) {
+      EXPECT_EQ(0, index % 8);
+      auto bitfield = reinterpret_cast<const uint8_t*>(bits)[index / 8] & mask;
+      EXPECT_NE(0, bitfield & mask);
+      numSet += __builtin_popcount(bitfield);
+    });
+    EXPECT_EQ(numOnes, numSet);
+    numSet = 0;
+    forBatches<64>(bits, begin, end, [&](int32_t index, uint64_t mask) {
+      EXPECT_EQ(0, index % 64);
+      auto bitfield =
+          reinterpret_cast<const uint64_t*>(bits)[index / 64] & mask;
+      EXPECT_NE(0, bitfield & mask);
+      numSet += __builtin_popcountl(bitfield);
+    });
+    EXPECT_EQ(numOnes, numSet);
+  };
+
+  // Empty
+  test(11, 11);
+
+  // Begins and ends in the same word
+  test(65, 75);
+
+  // multiword, starts and ends on and off 64 bit boundaries.
+  test(64, 140);
+  test(31, 128);
+  test(1, sizeof(bits) * 8 - 22);
+  test(0, sizeof(bits) * 8);
+}
+
 } // namespace bits
 } // namespace velox
 } // namespace facebook

@@ -868,3 +868,78 @@ TEST_F(VectorHasherTest, hashCollision) {
   UniqueValueHasher h;
   EXPECT_NE(h(x), h(y));
 }
+
+TEST_F(VectorHasherTest, simdRange) {
+  // Tests the SIMD path for integer value ranges. We make hashers based on a
+  // sample, then introduce out of range values and check that unmappable rows
+  // are detected and correctt normalized keys are produced for the rows with
+  // in-range values.
+  constexpr int32_t kNumRows = 1001;
+  using exec::VectorHasher;
+
+  auto smallValues =
+      vectorMaker_->flatVector<int16_t>(kNumRows, [](auto i) { return i; });
+  auto intValues =
+      vectorMaker_->flatVector<int32_t>(kNumRows, [](auto i) { return i; });
+  auto int64Values =
+      vectorMaker_->flatVector<int64_t>(kNumRows, [](auto i) { return i; });
+
+  auto smallHasher = VectorHasher::create(SMALLINT(), 0);
+  auto intHasher = VectorHasher::create(INTEGER(), 1);
+  auto int64Hasher = VectorHasher::create(BIGINT(), 2);
+
+  raw_vector<uint64_t> result(kNumRows);
+
+  // Analyze the sample data.
+  SelectivityVector rows(kNumRows);
+  smallHasher->decode(*smallValues, rows);
+  smallHasher->computeValueIds(rows, result);
+
+  intHasher->decode(*intValues, rows);
+  intHasher->computeValueIds(rows, result);
+
+  int64Hasher->decode(*int64Values, rows);
+  int64Hasher->computeValueIds(rows, result);
+
+  // Set the VectorHashers to encode inputs as offsets within the the range of
+  // each.
+  auto multiplier1 = smallHasher->enableValueRange(1, 0);
+  auto multiplier2 = intHasher->enableValueRange(multiplier1, 0);
+  auto multiplier3 = int64Hasher->enableValueRange(multiplier2, 0);
+  // All have kNumRows distinct values.
+  EXPECT_EQ((kNumRows + 1) * (kNumRows + 1) * (kNumRows + 1), multiplier3);
+
+  for (auto i = 0; i < kNumRows; ++i) {
+    // We add some unmappable values at fixed positions.
+    if (i % 7 == 0) {
+      smallValues->set(i, -10000);
+    }
+    if (i % 11 == 0) {
+      intValues->set(i, -10000);
+    }
+    if (i % 13 == 0) {
+      int64Values->set(i, 10000);
+    }
+  }
+  // make normalized keys.
+  result.resize(kNumRows);
+  rows.resize(kNumRows);
+
+  VectorHasher::ScratchMemory scratch;
+  smallHasher->lookupValueIds(*smallValues, rows, scratch, result);
+  intHasher->lookupValueIds(*intValues, rows, scratch, result);
+  int64Hasher->lookupValueIds(*int64Values, rows, scratch, result);
+
+  for (auto i = 0; i < kNumRows; ++i) {
+    if (i % 7 == 0 || i % 11 == 0 || i % 13 == 0) {
+      EXPECT_FALSE(rows.isValid(i));
+    } else {
+      EXPECT_TRUE(rows.isValid(i));
+      EXPECT_EQ(
+          smallValues->valueAt(i) + 1 +
+              ((intValues->valueAt(i) + 1) * multiplier1) +
+              ((int64Values->valueAt(i) + 1) * multiplier2),
+          result[i]);
+    }
+  }
+}
