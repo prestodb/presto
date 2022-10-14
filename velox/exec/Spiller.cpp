@@ -103,7 +103,8 @@ Spiller::Spiller(
           spillMappedMemory()),
       pool_(pool),
       executor_(executor) {
-  TestValue::notify("facebook::velox::exec::Spiller", &bits_);
+  TestValue::adjust(
+      "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
 
   VELOX_CHECK_EQ(container_ == nullptr, type_ == Type::kHashJoinProbe);
   // kOrderBy spiller type must only have one partition.

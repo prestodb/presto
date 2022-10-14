@@ -29,8 +29,8 @@ class TestObject {
   void set(int value) {
     ++count_;
     value_ = value;
-    const std::pair<int, int> testValue(value_, count_);
-    TestValue::notify(
+    std::pair<int, int> testValue(value_, count_);
+    TestValue::adjust(
         "facebook::velox::exec::test::TestObject::set", &testValue);
   }
 

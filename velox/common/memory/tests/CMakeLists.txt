@@ -28,6 +28,7 @@ target_link_libraries(
   velox_memory_test
   velox_memory
   velox_exception
+  velox_test_util
   gtest
   gtest_main
   ${gflags_LIBRARIES}

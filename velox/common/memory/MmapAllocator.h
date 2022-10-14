@@ -70,7 +70,7 @@ class MmapAllocator : public MappedMemory {
       MachinePageCount numPages,
       int32_t owner,
       Allocation& out,
-      std::function<void(int64_t)> beforeAllocCB = nullptr,
+      std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) override;
 
   int64_t free(Allocation& allocation) override;
@@ -79,11 +79,11 @@ class MmapAllocator : public MappedMemory {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) override {
+      std::function<void(int64_t, bool)> userAllocCB = nullptr) override {
     bool result;
     stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
-      result = allocateContiguousImpl(
-          numPages, collateral, allocation, beforeAllocCB);
+      result =
+          allocateContiguousImpl(numPages, collateral, allocation, userAllocCB);
     });
     return result;
   }
@@ -300,7 +300,7 @@ class MmapAllocator : public MappedMemory {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB);
+      std::function<void(int64_t, bool)> userAllocCB);
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 

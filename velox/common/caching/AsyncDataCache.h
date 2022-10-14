@@ -611,7 +611,7 @@ class AsyncDataCache : public memory::MappedMemory {
       memory::MachinePageCount numPages,
       int32_t owner,
       Allocation& out,
-      std::function<void(int64_t)> beforeAllocCB = nullptr,
+      std::function<void(int64_t, bool)> beforeAllocCB = nullptr,
       memory::MachinePageCount minSizeClass = 0) override;
 
   int64_t free(Allocation& allocation) override {
@@ -622,7 +622,7 @@ class AsyncDataCache : public memory::MappedMemory {
       memory::MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) override;
+      std::function<void(int64_t, bool)> beforeAllocCB = nullptr) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override {
     mappedMemory_->freeContiguous(allocation);

@@ -592,7 +592,7 @@ bool AsyncDataCache::allocate(
     MachinePageCount numPages,
     int32_t owner,
     Allocation& out,
-    std::function<void(int64_t)> beforeAllocCB,
+    std::function<void(int64_t, bool)> beforeAllocCB,
     MachinePageCount minSizeClass) {
   free(out);
   return makeSpace(numPages, [&]() {
@@ -605,7 +605,7 @@ bool AsyncDataCache::allocateContiguous(
     MachinePageCount numPages,
     Allocation* collateral,
     ContiguousAllocation& allocation,
-    std::function<void(int64_t)> beforeAllocCB) {
+    std::function<void(int64_t, bool)> beforeAllocCB) {
   return makeSpace(numPages, [&]() {
     return mappedMemory_->allocateContiguous(
         numPages, collateral, allocation, beforeAllocCB);

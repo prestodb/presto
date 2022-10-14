@@ -45,7 +45,7 @@ class TestValue {
   template <typename T>
   static void set(
       const std::string& injectionPoint,
-      std::function<void(const T*)> injectionCb);
+      std::function<void(T*)> injectionCb);
 
   /// Invoked by the test code to unregister a callback hook at the specified
   /// execution point.
@@ -53,11 +53,11 @@ class TestValue {
 
   /// Invoked by the production code to try to invoke the test callback hook
   /// with 'testData' if there is one registered at the specified execution
-  /// point. 'testData' capture the production execution state in readonly mode.
-  static void notify(const std::string& injectionPoint, const void* testData);
+  /// point. 'testData' capture the mutable production execution state.
+  static void adjust(const std::string& injectionPoint, void* testData);
 
  private:
-  using Callback = std::function<void(const void*)>;
+  using Callback = std::function<void(void*)>;
 
   static std::mutex mutex_;
   static bool enabled_;
@@ -67,9 +67,7 @@ class TestValue {
 class ScopedTestValue {
  public:
   template <typename T>
-  ScopedTestValue(
-      const std::string& point,
-      std::function<void(const T*)> callback)
+  ScopedTestValue(const std::string& point, std::function<void(T*)> callback)
       : point_(point) {
     VELOX_CHECK_NOT_NULL(callback);
     VELOX_CHECK(!point_.empty());
@@ -87,13 +85,13 @@ class ScopedTestValue {
 template <typename T>
 void TestValue::set(
     const std::string& injectionPoint,
-    std::function<void(const T*)> injectionCb) {
+    std::function<void(T*)> injectionCb) {
   std::lock_guard<std::mutex> l(mutex_);
   if (!enabled_) {
     return;
   }
-  injectionMap_[injectionPoint] = [injectionCb](const void* testData) {
-    const T* typedData = static_cast<const T*>(testData);
+  injectionMap_[injectionPoint] = [injectionCb](void* testData) {
+    T* typedData = static_cast<T*>(testData);
     injectionCb(typedData);
   };
 }
@@ -101,7 +99,7 @@ void TestValue::set(
 template <typename T>
 void TestValue::set(
     const std::string& injectionPoint,
-    std::function<void(const T*)> injectionCb) {}
+    std::function<void(T*)> injectionCb) {}
 #endif
 
 #define VELOX_CONCAT(x, y) __##x##y

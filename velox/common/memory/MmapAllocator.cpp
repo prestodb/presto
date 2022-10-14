@@ -16,8 +16,11 @@
 
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/base/Portability.h"
+#include "velox/common/testutil/TestValue.h"
 
 #include <sys/mman.h>
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
@@ -47,7 +50,7 @@ bool MmapAllocator::allocate(
     MachinePageCount numPages,
     int32_t owner,
     Allocation& out,
-    std::function<void(int64_t)> beforeAllocCB,
+    std::function<void(int64_t, bool)> userAllocCB,
     MachinePageCount minSizeClass) {
   auto numFreed = freeInternal(out);
   if (numFreed != 0) {
@@ -63,9 +66,9 @@ bool MmapAllocator::allocate(
   }
   ++numAllocations_;
   numAllocatedPages_ += mix.totalPages;
-  if (beforeAllocCB) {
+  if (userAllocCB != nullptr) {
     try {
-      beforeAllocCB(mix.totalPages * kPageSize);
+      userAllocCB(mix.totalPages * kPageSize, true);
     } catch (const std::exception& e) {
       numAllocated_.fetch_sub(mix.totalPages);
       std::rethrow_exception(std::current_exception());
@@ -81,6 +84,12 @@ bool MmapAllocator::allocate(
           success = sizeClasses_[mix.sizeIndices[i]]->allocate(
               mix.sizeCounts[i], owner, newMapsNeeded, out);
         });
+    if (TestValue::enabled()) {
+      // NOTE: the test callback might overwrite 'success' to inject an
+      // allocation failure for test purpose.
+      TestValue::adjust(
+          "facebook::velox::memory::MmapAllocator::allocate", &success);
+    }
     if (!success) {
       // This does not normally happen since any size class can accommodate
       // all the capacity. 'allocatedPages_' must be out of sync.
@@ -89,6 +98,9 @@ bool MmapAllocator::allocate(
       auto failedPages = mix.totalPages - out.numPages();
       free(out);
       numAllocated_.fetch_sub(failedPages);
+      if (userAllocCB != nullptr) {
+        userAllocCB(mix.totalPages * kPageSize, false);
+      }
       return false;
     }
   }
@@ -100,6 +112,9 @@ bool MmapAllocator::allocate(
     return true;
   }
   free(out);
+  if (userAllocCB != nullptr) {
+    userAllocCB(mix.totalPages * kPageSize, false);
+  }
   return false;
 }
 
@@ -132,6 +147,7 @@ int64_t MmapAllocator::free(Allocation& allocation) {
   numAllocated_.fetch_sub(numFreed);
   return numFreed * kPageSize;
 }
+
 MachinePageCount MmapAllocator::freeInternal(Allocation& allocation) {
   if (allocation.numRuns() == 0) {
     return 0;
@@ -163,7 +179,7 @@ bool MmapAllocator::allocateContiguousImpl(
     MachinePageCount numPages,
     MmapAllocator::Allocation* FOLLY_NULLABLE collateral,
     MmapAllocator::ContiguousAllocation& allocation,
-    std::function<void(int64_t)> beforeAllocCB) {
+    std::function<void(int64_t, bool)> userAllocCB) {
   MachinePageCount numCollateralPages = 0;
   // 'collateral' and 'allocation' get freed anyway. But the counters
   // are not updated to reflect this. Rather, we add the delta that is
@@ -200,15 +216,16 @@ bool MmapAllocator::allocateContiguousImpl(
   auto totalCollateralPages = numCollateralPages + numLargeCollateralPages;
   auto numCollateralUnmap = numLargeCollateralPages;
   int64_t newPages = numPages - totalCollateralPages;
-  if (beforeAllocCB) {
+  if (userAllocCB) {
     try {
-      beforeAllocCB(newPages * kPageSize);
+      userAllocCB(newPages * kPageSize, true);
     } catch (const std::exception& e) {
       numAllocated_ -= totalCollateralPages;
       // We failed to grow by 'newPages. So we record the freeing off
       // the whole collaterall and the unmap of former 'allocation'.
       try {
-        beforeAllocCB(-static_cast<int64_t>(totalCollateralPages) * kPageSize);
+        userAllocCB(
+            static_cast<int64_t>(totalCollateralPages) * kPageSize, false);
       } catch (const std::exception& inner) {
       };
       numMapped_ -= numCollateralUnmap;
@@ -224,7 +241,7 @@ bool MmapAllocator::allocateContiguousImpl(
     // freed.
     numAllocated_ -= numPages;
     try {
-      beforeAllocCB(-numPages * kPageSize);
+      userAllocCB(numPages * kPageSize, false);
     } catch (const std::exception& e) {
       // Ignore exception, this is run on failure return path.
     }

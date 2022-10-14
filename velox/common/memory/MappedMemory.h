@@ -362,42 +362,45 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   // process-wide default instance.
   static void setDefaultInstance(MappedMemory* FOLLY_NULLABLE instance);
 
-  /// Allocates one or more runs that add up to at least 'numPages',
-  /// with the smallest run being at least 'minSizeClass'
-  /// pages. 'minSizeClass' must be <= the size of the largest size
-  /// class. The new memory is returned in 'out' and any memory
-  /// formerly referenced by 'out' is freed. 'beforeAllocCb' is called
-  /// before making the allocation. Returns true if the allocation
-  /// succeeded. If returning false, 'out' references no memory and
-  /// any partially allocated memory is freed.
+  /// Allocates one or more runs that add up to at least 'numPages', with the
+  /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
+  /// <= the size of the largest size class. The new memory is returned in 'out'
+  /// and any memory formerly referenced by 'out' is freed. 'userAllocCB' is
+  /// called with the actual allocation bytes and a flag indicating if it is
+  /// called for pre-allocation or post-allocation failure. The flag is true for
+  /// pre-allocation call and false for post-allocation failure call. The latter
+  /// is to let user have a chance to rollback if needed. For instance,
+  /// 'ScopedMappedMemory' object will make memory counting reservation in
+  /// 'userAllocCB' before the actual memory allocation so it needs to release
+  /// the reservation if the actual allocation fails. The function returns true
+  /// if the allocation succeeded. If returning false, 'out' references no
+  /// memory and any partially allocated memory is freed.
   virtual bool allocate(
       MachinePageCount numPages,
       int32_t owner,
       Allocation& out,
-      std::function<void(int64_t)> beforeAllocCB = nullptr,
+      std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) = 0;
 
   // Returns the number of freed bytes.
   virtual int64_t free(Allocation& allocation) = 0;
 
-  // Makes a contiguous mmap of 'numPages'. Advises away the required
-  // number of free pages so as not to have resident size exceed the
-  // capacity if capacity is bounded. Returns false if sufficient free
-  // pages do not exist. 'collateral' and 'allocation' are freed and
-  // unmapped or advised away to provide pages to back the new
-  // 'allocation'. This will always succeed if collateral and
-  // allocation together cover the new size of
-  // allocation. 'allocation' is newly mapped and hence zeroed. The
-  // contents of 'allocation' and 'collateral' are freed in all cases,
-  // also if the allocation fails. 'beforeAllocCB can be used to
-  // update trackers. It may throw and the end state will be
-  // consistent, with no new allocation and 'allocation' and
-  // 'collateral' cleared.
+  /// Makes a contiguous mmap of 'numPages'. Advises away the required number of
+  /// free pages so as not to have resident size exceed the capacity if capacity
+  /// is bounded. Returns false if sufficient free pages do not exist.
+  /// 'collateral' and 'allocation' are freed and unmapped or advised away to
+  /// provide pages to back the new 'allocation'. This will always succeed if
+  /// collateral and allocation together cover the new size of allocation.
+  /// 'allocation' is newly mapped and hence zeroed. The contents of
+  /// 'allocation' and 'collateral' are freed in all cases, also if the
+  /// allocation fails. 'userAllocCB' is used in the same way as allocate does.
+  /// It may throw and the end state will be consistent, with no new allocation
+  /// and 'allocation' and 'collateral' cleared.
   virtual bool allocateContiguous(
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) = 0;
+      std::function<void(int64_t, bool)> userAllocCB = nullptr) = 0;
 
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
 
@@ -535,7 +538,7 @@ class ScopedMappedMemory final : public MappedMemory {
       MachinePageCount numPages,
       int32_t owner,
       Allocation& out,
-      std::function<void(int64_t)> beforeAllocCB,
+      std::function<void(int64_t, bool)> userAllocCB,
       MachinePageCount minSizeClass) override;
 
   int64_t free(Allocation& allocation) override {
@@ -550,7 +553,7 @@ class ScopedMappedMemory final : public MappedMemory {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t)> beforeAllocCB = nullptr) override;
+      std::function<void(int64_t, bool)> userAllocCB = nullptr) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override {
     int64_t size = allocation.size();

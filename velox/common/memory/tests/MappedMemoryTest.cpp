@@ -18,6 +18,7 @@
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/memory/MmapArena.h"
+#include "velox/common/testutil/TestValue.h"
 
 #include <thread>
 
@@ -29,6 +30,8 @@
 
 DECLARE_int32(velox_memory_pool_mb);
 
+using namespace facebook::velox::common::testutil;
+
 namespace facebook::velox::memory {
 
 static constexpr uint64_t kMaxMappedMemory = 128UL * 1024 * 1024;
@@ -37,6 +40,10 @@ static constexpr MachinePageCount kCapacity =
 
 class MappedMemoryTest : public testing::TestWithParam<bool> {
  protected:
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
   void SetUp() override {
     MappedMemory::destroyTestOnly();
     auto tracker = MemoryUsageTracker::create(
@@ -548,7 +555,9 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
   auto numAllocs = kCapacity / kSmallSize;
   int64_t trackedBytes = 0;
-  auto trackCallback = [&](int64_t delta) { trackedBytes += delta; };
+  auto trackCallback = [&](int64_t delta, bool preAlloc) {
+    trackedBytes += preAlloc ? delta : -delta;
+  };
   allocations.reserve(numAllocs);
   for (int32_t i = 0; i < numAllocs; ++i) {
     allocations.push_back(std::make_unique<MappedMemory::Allocation>(instance));
@@ -702,6 +711,79 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
   }
 }
 
+DEBUG_ONLY_TEST_P(
+    MappedMemoryTest,
+    nonContiguousScopedMappedMemoryAllocationFailure) {
+  auto tracker = MemoryUsageTracker::create();
+  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  auto* mappedMemory = MappedMemory::getInstance();
+  auto scopedMemory = mappedMemory->addChild(tracker);
+  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+
+  const std::string testValueStr = useMmap_
+      ? "facebook::velox::memory::MmapAllocator::allocate"
+      : "facebook::velox::memory::MappedMemoryImpl::allocate";
+  std::atomic<bool> injectFailureOnce{true};
+  SCOPED_TESTVALUE_SET(
+      testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
+        if (!injectFailureOnce.exchange(false)) {
+          return;
+        }
+        if (useMmap_) {
+          *testFlag = false;
+        } else {
+          *testFlag = true;
+        }
+      }));
+
+  constexpr MachinePageCount kAllocSize = 8;
+  std::unique_ptr<MappedMemory::Allocation> allocation(
+      new MappedMemory::Allocation(scopedMemory.get()));
+  ASSERT_FALSE(scopedMemory->allocate(kAllocSize, 0, *allocation));
+  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  ASSERT_TRUE(scopedMemory->allocate(kAllocSize, 0, *allocation));
+  ASSERT_GT(tracker->getCurrentUserBytes(), 0);
+  allocation.reset();
+  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+}
+
+TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
+  if (!useMmap_) {
+    // This test doesn't apply for MappedMemoryImpl which doesn't have memory
+    // allocation failure rollback code path.
+    return;
+  }
+  auto* mappedMemory =
+      dynamic_cast<MmapAllocator*>(MappedMemory::getInstance());
+  std::vector<MmapAllocator::Failure> failureTypes(
+      {MmapAllocator::Failure::kMadvise, MmapAllocator::Failure::kMmap});
+  for (const auto& failure : failureTypes) {
+    mappedMemory->injectFailure(failure);
+    auto tracker = MemoryUsageTracker::create();
+    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    auto scopedMemory = mappedMemory->addChild(tracker);
+    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+
+    constexpr MachinePageCount kAllocSize = 8;
+    std::unique_ptr<MappedMemory::ContiguousAllocation> allocation(
+        new MappedMemory::ContiguousAllocation());
+    ASSERT_FALSE(
+        scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
+    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    mappedMemory->injectFailure(MmapAllocator::Failure::kNone);
+    ASSERT_TRUE(
+        scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
+    ASSERT_GT(tracker->getCurrentUserBytes(), 0);
+    allocation.reset();
+    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  }
+}
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    MappedMemoryTests,
+    MappedMemoryTest,
+    testing::Values(true, false));
+
 class MmapArenaTest : public testing::Test {
  public:
   // 32 MB arena space
@@ -838,10 +920,4 @@ TEST_F(MmapArenaTest, managedMmapArenas) {
     EXPECT_EQ(managedArenas->arenas().size(), 2);
   }
 }
-
-VELOX_INSTANTIATE_TEST_SUITE_P(
-    MappedMemoryTests,
-    MappedMemoryTest,
-    testing::Values(true, false));
-
 } // namespace facebook::velox::memory

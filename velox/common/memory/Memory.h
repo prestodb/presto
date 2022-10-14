@@ -424,9 +424,6 @@ class MemoryPoolImpl : public MemoryPoolBase {
       int64_t cap = kMaxMemory);
 
   ~MemoryPoolImpl() {
-    // TODO(xiaoxmeng): enable this in release build after fix the issue exposed
-    // by Prestissmo in real cluster.
-#ifndef NDEBUG
     if (const auto& tracker = getMemoryUsageTracker()) {
       auto remainingBytes = tracker->getCurrentUserBytes();
       VELOX_CHECK_EQ(
@@ -437,7 +434,6 @@ class MemoryPoolImpl : public MemoryPoolBase {
           tracker->getCumulativeBytes(),
           tracker->getNumAllocs());
     }
-#endif
   }
 
   // Actual memory allocation operations. Can be delegated.
