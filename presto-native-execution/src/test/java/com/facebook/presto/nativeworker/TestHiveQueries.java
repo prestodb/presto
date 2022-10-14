@@ -565,7 +565,7 @@ abstract class TestHiveQueries
     }
 
     @Test
-    public void testCreateTableAsSelect()
+    public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
@@ -604,6 +604,33 @@ abstract class TestHiveQueries
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
         computeExpected("DROP TABLE IF EXISTS " + tableName, ImmutableList.of(BIGINT));
+    }
+
+    @Test
+    public void testInsertIntoUnpartitionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("table_writer_merge_operator_enabled", "false")
+                .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .build();
+
+        // Generate temporary table name.
+        String tmpTableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        // Clean up if temporary table already exists.
+        dropTableIfExists(tmpTableName);
+
+        try {
+            getQueryRunner().execute(session, "CREATE TABLE IF NOT EXISTS " + tmpTableName + " ( LIKE nation )");
+
+            getQueryRunner().execute(session, "INSERT INTO " + tmpTableName + " SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + tmpTableName, "SELECT * FROM nation");
+
+            getQueryRunner().execute(session, "INSERT INTO " + tmpTableName + " SELECT * FROM nation");
+            assertQuery("SELECT * FROM " + tmpTableName, "SELECT * FROM ( SELECT * FROM nation UNION ALL SELECT * FROM nation)");
+        }
+        finally {
+            dropTableIfExists(tmpTableName);
+        }
     }
 
     @Test
