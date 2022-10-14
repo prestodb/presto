@@ -49,6 +49,9 @@ public class OrcFileWriterConfig
     private DataSize dwrfStripeCacheMaxSize = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;
     private DwrfStripeCacheMode dwrfStripeCacheMode = OrcWriterOptions.DEFAULT_DWRF_STRIPE_CACHE_MODE;
     private int compressionLevel = DEFAULT_COMPRESSION_LEVEL;
+    private boolean isIntegerDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED;
+    private boolean isStringDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
+    private boolean isStringDictionarySortingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
@@ -137,6 +140,42 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         this.dictionaryMaxMemory = dictionaryMaxMemory;
+        return this;
+    }
+
+    public boolean isIntegerDictionaryEncodingEnabled()
+    {
+        return isIntegerDictionaryEncodingEnabled;
+    }
+
+    @Config("hive.orc.writer.integer-dictionary-encoding-enabled")
+    public OrcFileWriterConfig setIntegerDictionaryEncodingEnabled(boolean isIntegerDictionaryEncodingEnabled)
+    {
+        this.isIntegerDictionaryEncodingEnabled = isIntegerDictionaryEncodingEnabled;
+        return this;
+    }
+
+    public boolean isStringDictionaryEncodingEnabled()
+    {
+        return isStringDictionaryEncodingEnabled;
+    }
+
+    @Config("hive.orc.writer.string-dictionary-encoding-enabled")
+    public OrcFileWriterConfig setStringDictionaryEncodingEnabled(boolean isStringDictionaryEncodingEnabled)
+    {
+        this.isStringDictionaryEncodingEnabled = isStringDictionaryEncodingEnabled;
+        return this;
+    }
+
+    public boolean isStringDictionarySortingEnabled()
+    {
+        return isStringDictionarySortingEnabled;
+    }
+
+    @Config("hive.orc.writer.string-dictionary-sorting-enabled")
+    public OrcFileWriterConfig setStringDictionarySortingEnabled(boolean isStringDictionarySortingEnabled)
+    {
+        this.isStringDictionarySortingEnabled = isStringDictionarySortingEnabled;
         return this;
     }
 
