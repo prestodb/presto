@@ -440,6 +440,34 @@ TEST(SignatureBinderTest, unresolvable) {
     assertCannotResolve(signature, {BIGINT()});
     assertCannotResolve(signature, {INTEGER(), BIGINT()});
   }
+
+  // row(bigint, varchar) -> bigint
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("bigint")
+                         .argumentType("row(bigint, varchar)")
+                         .build();
+
+    testSignatureBinder(signature, {ROW({BIGINT(), VARCHAR()})}, BIGINT());
+
+    // wrong type
+    assertCannotResolve(signature, {ROW({BIGINT()})});
+    assertCannotResolve(signature, {ROW({BIGINT(), VARCHAR(), BOOLEAN()})});
+  }
+
+  // array(row(boolean)) -> bigint
+  {
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("bigint")
+                         .argumentType("array(row(boolean))")
+                         .build();
+
+    testSignatureBinder(signature, {ARRAY(ROW({BOOLEAN()}))}, BIGINT());
+
+    // wrong type
+    assertCannotResolve(signature, {ARRAY(ROW({BOOLEAN(), BIGINT()}))});
+    assertCannotResolve(signature, {ARRAY(ROW({BIGINT()}))});
+  }
 }
 
 TEST(SignatureBinderTest, tryResolveTypeNullOutput) {

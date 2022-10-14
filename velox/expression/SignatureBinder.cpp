@@ -206,7 +206,11 @@ bool SignatureBinderBase::tryBind(
         integerParameters_.count(params[0].baseName()) != 0) {
       return tryBindIntegerParameters(params, actualType);
     }
+
     // Type Parameters can recurse.
+    if (params.size() != actualType->size()) {
+      return false;
+    }
     for (auto i = 0; i < params.size(); i++) {
       if (!tryBind(params[i], actualType->childAt(i))) {
         return false;

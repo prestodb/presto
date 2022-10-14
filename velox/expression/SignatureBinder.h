@@ -38,7 +38,8 @@ class SignatureBinderBase {
   }
 
   /// Return true if actualType can bind to typeSignature and update bindings_
-  /// accordingly.
+  /// accordingly. The number of parameters in typeSignature and actualType must
+  /// match. Return false otherwise.
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType);
