@@ -101,6 +101,13 @@ void SelectiveIntegerColumnReader::readHelper(
               *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
       break;
 
+    case 16:
+      reinterpret_cast<Reader*>(this)->Reader::readWithVisitor(
+          rows,
+          ColumnVisitor<int128_t, TFilter, ExtractValues, isDense>(
+              *reinterpret_cast<TFilter*>(filter), this, rows, extractValues));
+      break;
+
     default:
       VELOX_FAIL("Unsupported valueSize_ {}", valueSize_);
   }

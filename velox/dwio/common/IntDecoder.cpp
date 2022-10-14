@@ -2705,6 +2705,24 @@ template void IntDecoder<true>::decodeBitsLE(
     const char* FOLLY_NULLABLE bufferEnd,
     int64_t* FOLLY_NONNULL result);
 
+template void IntDecoder<true>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int128_t* FOLLY_NONNULL result);
+
+template void IntDecoder<false>::decodeBitsLE(
+    const uint64_t* FOLLY_NONNULL bits,
+    int32_t bitOffset,
+    RowSet rows,
+    int32_t rowBias,
+    uint8_t bitWidth,
+    const char* FOLLY_NULLABLE bufferEnd,
+    int128_t* FOLLY_NONNULL result);
+
 template void IntDecoder<false>::decodeBitsLE(
     const uint64_t* FOLLY_NONNULL bits,
     int32_t bitOffset,

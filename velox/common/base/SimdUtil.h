@@ -390,6 +390,9 @@ void memset(void* to, char data, int32_t bytes, const A& = {});
       case 8: {                                            \
         return TEMPLATE_FUNC<int64_t>(__VA_ARGS__);        \
       }                                                    \
+      case 16: {                                           \
+        return TEMPLATE_FUNC<int128_t>(__VA_ARGS__);       \
+      }                                                    \
       default:                                             \
         VELOX_FAIL("Bad data size {}", numBytes);          \
     }                                                      \

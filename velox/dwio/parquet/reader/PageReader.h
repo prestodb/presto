@@ -164,6 +164,7 @@ class PageReader {
       Visitor visitor) {
     if (nulls) {
       nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor) &&
+          (!this->type_->type->isLongDecimal()) &&
           (this->type_->type->isShortDecimal() ? isDictionary() : true);
 
       if (isDictionary()) {

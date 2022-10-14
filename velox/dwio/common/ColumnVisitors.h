@@ -561,6 +561,13 @@ struct LoadIndices<int64_t, A> {
 };
 
 template <typename A>
+struct LoadIndices<int128_t, A> {
+  static xsimd::batch<int32_t, A> apply(const int128_t* values, const A& arch) {
+    VELOX_UNREACHABLE();
+  }
+};
+
+template <typename A>
 struct LoadIndices<double, A> {
   static xsimd::batch<int32_t, A> apply(const double* values, const A& arch) {
     return simd::gather<int32_t, int32_t, 8>(

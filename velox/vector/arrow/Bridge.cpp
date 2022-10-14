@@ -429,6 +429,7 @@ void exportFlat(
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
     case TypeKind::SHORT_DECIMAL:
+    case TypeKind::LONG_DECIMAL:
       exportValues(vec, rows, out, pool, holder);
       break;
     case TypeKind::VARCHAR:

@@ -131,6 +131,10 @@ class Filter {
     VELOX_UNSUPPORTED("{}: testInt64() is not supported.", toString());
   }
 
+  virtual bool testInt128(__int128_t /* unused */) const {
+    VELOX_UNSUPPORTED("{}: testInt128() is not supported.", toString());
+  }
+
   virtual bool testDouble(double /* unused */) const {
     VELOX_UNSUPPORTED("{}: testDouble() is not supported.", toString());
   }
@@ -320,6 +324,10 @@ class AlwaysTrue final : public Filter {
   }
 
   bool testInt64(int64_t /* unused */) const final {
+    return true;
+  }
+
+  bool testInt128(__int128_t /* unused */) const final {
     return true;
   }
 
@@ -1667,7 +1675,9 @@ class MultiRange final : public Filter {
 // Helper for applying filters to different types
 template <typename TFilter, typename T>
 static inline bool applyFilter(TFilter& filter, T value) {
-  if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
+  if constexpr (std::is_same_v<T, __int128_t>) {
+    return filter.testInt128(value);
+  } else if constexpr (std::is_same_v<T, UnscaledShortDecimal>) {
     return filter.testInt64(value.unscaledValue());
   } else if constexpr (
       std::is_same_v<T, int8_t> || std::is_same_v<T, int16_t> ||

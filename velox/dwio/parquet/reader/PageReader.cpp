@@ -398,6 +398,30 @@ void PageReader::prepareDictionary(const PageHeader& pageHeader) {
               __builtin_bswap64(values[i].unscaledValue()));
         }
         break;
+      } else if (type_->type->isLongDecimal()) {
+        // Parquet decimal values have a fixed typeLength_ and are in big-endian
+        // layout.
+        if (numParquetBytes < numVeloxBytes) {
+          auto values = dictionary_.values->asMutable<int128_t>();
+          for (auto i = dictionary_.numValues - 1; i >= 0; --i) {
+            // Expand the Parquet type length values to Velox type length.
+            // We start from the end to allow in-place expansion.
+            auto sourceValue = data + (i * parquetTypeLength);
+            int128_t value = *sourceValue >= 0 ? 0 : -1;
+            memcpy(
+                reinterpret_cast<uint8_t*>(&value) + veloxTypeLength -
+                    parquetTypeLength,
+                sourceValue,
+                parquetTypeLength);
+            values[i] = value;
+          }
+        }
+        auto values = dictionary_.values->asMutable<UnscaledLongDecimal>();
+        for (auto i = 0; i < dictionary_.numValues; ++i) {
+          values[i] = UnscaledLongDecimal(
+              dwio::common::builtin_bswap128(values[i].unscaledValue()));
+        }
+        break;
       }
       VELOX_UNSUPPORTED(
           "Parquet type {} not supported for dictionary", parquetType);

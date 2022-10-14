@@ -470,11 +470,11 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
       case TypeKind::ROW:
         stats = makeStats<TypeKind::ROW>(vector->type(), rowType_);
         break;
+      // TODO:
+      // Add support for TypeKind::TIMESTAMP.
       case TypeKind::SHORT_DECIMAL:
         stats = makeStats<TypeKind::SHORT_DECIMAL>(vector->type(), rowType_);
         break;
-        // TODO:
-        // Add support for TTypeKind::IMESTAMP and TypeKind::ROW
       default:
         VELOX_CHECK(
             false,

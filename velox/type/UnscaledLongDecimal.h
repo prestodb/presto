@@ -73,6 +73,9 @@ struct UnscaledLongDecimal {
 
   constexpr explicit UnscaledLongDecimal(int value) : unscaledValue_(value) {}
 
+  constexpr explicit UnscaledLongDecimal(unsigned int value)
+      : unscaledValue_(value) {}
+
   explicit UnscaledLongDecimal(UnscaledShortDecimal value)
       : unscaledValue_(value.unscaledValue()) {}
 

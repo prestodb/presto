@@ -193,6 +193,25 @@ VectorPtr BatchMaker::createVector<TypeKind::SHORT_DECIMAL>(
       type);
 }
 
+template <>
+VectorPtr BatchMaker::createVector<TypeKind::LONG_DECIMAL>(
+    const std::shared_ptr<const Type>& type,
+    size_t size,
+    MemoryPool& pool,
+    std::mt19937& gen,
+    std::function<bool(vector_size_t /*index*/)> isNullAt) {
+  return createScalar<UnscaledLongDecimal>(
+      size,
+      gen,
+      [&gen]() {
+        return UnscaledLongDecimal(
+            buildInt128(Random::rand32(gen), Random::rand32(gen)));
+      },
+      pool,
+      isNullAt,
+      type);
+}
+
 VectorPtr createBinary(
     const TypePtr& type,
     size_t size,

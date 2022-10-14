@@ -262,6 +262,66 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
   }
 }
 
+TEST_F(E2EFilterTest, longDecimalDictionary) {
+  // decimal(30, 10) maps to 13 bytes FLBA in Parquet.
+  // decimal(37, 15) maps to 16 bytes FLBA in Parquet.
+  for (const auto& type : {
+           "longdecimal_val:long_decimal(30, 10)",
+           "longdecimal_val:long_decimal(37, 15)",
+       }) {
+    testWithTypes(
+        type,
+        [&]() {
+          makeIntDistribution<UnscaledLongDecimal>(
+              Subfield("longdecimal_val"),
+              UnscaledLongDecimal(10), // min
+              UnscaledLongDecimal(100), // max
+              22, // repeats
+              19, // rareFrequency
+              UnscaledLongDecimal(-999), // rareMin
+              UnscaledLongDecimal(30000), // rareMax
+              true);
+        },
+        false,
+        {},
+        20,
+        true,
+        false);
+  }
+}
+
+TEST_F(E2EFilterTest, longDecimalDirect) {
+  writerProperties_ = ::parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->data_pagesize(4 * 1024)
+                          ->build();
+  // decimal(30, 10) maps to 13 bytes FLBA in Parquet.
+  // decimal(37, 15) maps to 16 bytes FLBA in Parquet.
+  for (const auto& type : {
+           "longdecimal_val:long_decimal(30, 10)",
+           "longdecimal_val:long_decimal(37, 15)",
+       }) {
+    testWithTypes(
+        type,
+        [&]() {
+          makeIntDistribution<UnscaledLongDecimal>(
+              Subfield("longdecimal_val"),
+              UnscaledLongDecimal(10), // min
+              UnscaledLongDecimal(100), // max
+              22, // repeats
+              19, // rareFrequency
+              UnscaledLongDecimal(-999), // rareMin
+              UnscaledLongDecimal(30000), // rareMax
+              true);
+        },
+        false,
+        {},
+        20,
+        true,
+        false);
+  }
+}
+
 TEST_F(E2EFilterTest, stringDirect) {
   writerProperties_ = ::parquet::WriterProperties::Builder()
                           .disable_dictionary()

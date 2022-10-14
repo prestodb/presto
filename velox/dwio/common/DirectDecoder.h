@@ -62,9 +62,12 @@ class DirectDecoder : public IntDecoder<isSigned> {
       const uint64_t* FOLLY_NULLABLE nulls,
       Visitor visitor,
       bool useFastPath = true) {
-    if (useFastPath && dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
-      fastPath<hasNulls>(nulls, visitor);
-      return;
+    if constexpr (!std::is_same_v<typename Visitor::DataType, int128_t>) {
+      if (useFastPath &&
+          dwio::common::useFastPath<Visitor, hasNulls>(visitor)) {
+        fastPath<hasNulls>(nulls, visitor);
+        return;
+      }
     }
     int32_t current = visitor.start();
     skip<hasNulls>(current, 0, nulls);
@@ -88,10 +91,14 @@ class DirectDecoder : public IntDecoder<isSigned> {
           }
         }
       }
-      if (std::is_same_v<typename Visitor::DataType, float>) {
+      if constexpr (std::is_same_v<typename Visitor::DataType, float>) {
         toSkip = visitor.process(readFloat(), atEnd);
-      } else if (std::is_same_v<typename Visitor::DataType, double>) {
+      } else if constexpr (std::is_same_v<typename Visitor::DataType, double>) {
         toSkip = visitor.process(readDouble(), atEnd);
+      } else if constexpr (std::is_same_v<
+                               typename Visitor::DataType,
+                               int128_t>) {
+        toSkip = visitor.process(super::readInt128(), atEnd);
       } else {
         toSkip = visitor.process(super::readLong(), atEnd);
       }

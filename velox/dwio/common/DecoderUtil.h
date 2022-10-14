@@ -391,8 +391,9 @@ bool nonNullRowsFromSparse(
 // See SelectiveColumnReader::useBulkPath.
 template <typename Visitor, bool hasNulls>
 bool useFastPath(Visitor& visitor) {
-  return process::hasAvx2() && Visitor::FilterType::deterministic &&
-      Visitor::kHasBulkPath &&
+  return (!std::is_same_v<typename Visitor::DataType, int128_t>)&&process::
+             hasAvx2() &&
+      Visitor::FilterType::deterministic && Visitor::kHasBulkPath &&
       (std::
            is_same_v<typename Visitor::FilterType, velox::common::AlwaysTrue> ||
        !hasNulls || !visitor.allowNulls()) &&

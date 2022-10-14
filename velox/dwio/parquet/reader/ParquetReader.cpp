@@ -358,11 +358,7 @@ TypePtr ReaderBase::convertType(
         VELOX_CHECK(
             schemaElement.__isset.precision && schemaElement.__isset.scale,
             "DECIMAL requires a length and scale specifier!");
-        auto decimalType =
-            DECIMAL(schemaElement.precision, schemaElement.scale);
-        VELOX_CHECK(
-            decimalType->isShortDecimal(), "Only SHORT DECIMAL is supported");
-        return decimalType;
+        return DECIMAL(schemaElement.precision, schemaElement.scale);
       }
 
       case thrift::ConvertedType::UTF8:

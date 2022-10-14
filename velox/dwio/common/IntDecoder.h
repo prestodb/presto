@@ -187,6 +187,7 @@ class IntDecoder {
   uint64_t readVuLong();
   int64_t readVsLong();
   int64_t readLongLE();
+  int128_t readInt128();
 
   // Applies 'visitor to 'numRows' consecutive values.
   template <typename Visitor>
@@ -410,6 +411,39 @@ inline int64_t IntDecoder<isSigned>::readLong() {
   }
 }
 
+template <bool isSigned>
+inline int128_t IntDecoder<isSigned>::readInt128() {
+  int128_t result = 0;
+  if (!bigEndian) {
+    VELOX_NYI();
+  }
+  if (bufferStart && bufferStart + sizeof(int128_t) <= bufferEnd) {
+    bufferStart += numBytes;
+
+    auto valueOffset = bufferStart - numBytes;
+    result = *(valueOffset) >= 0 ? 0 : -1;
+    memcpy(
+        reinterpret_cast<char*>(&result) + (16 - numBytes),
+        reinterpret_cast<const char*>(valueOffset),
+        numBytes);
+    return dwio::common::builtin_bswap128(result);
+  }
+  char b;
+  int128_t offset = 0;
+  for (uint32_t i = 0; i < numBytes; ++i) {
+    b = readByte();
+    result |= (b & INT128_BASE_256_MASK) << offset;
+    offset += 8;
+  }
+
+  int128_t value = (result >= 0) ? 0 : -1;
+  memcpy(
+      reinterpret_cast<char*>(&value) + (16 - numBytes),
+      reinterpret_cast<const char*>(&result),
+      numBytes);
+  return dwio::common::builtin_bswap128(value);
+}
+
 template <>
 template <>
 inline void IntDecoder<false>::bulkRead(
@@ -474,6 +508,40 @@ template <>
 inline void IntDecoder<true>::bulkReadRows(
     RowSet /*rows*/,
     float* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<false>::bulkRead(
+    uint64_t /*size*/,
+    int128_t* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<false>::bulkReadRows(
+    RowSet /*rows*/,
+    int128_t* FOLLY_NONNULL /*result*/,
+    int32_t /*initialRow*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkRead(
+    uint64_t /*size*/,
+    int128_t* FOLLY_NONNULL /*result*/) {
+  VELOX_UNREACHABLE();
+}
+
+template <>
+template <>
+inline void IntDecoder<true>::bulkReadRows(
+    RowSet /*rows*/,
+    int128_t* FOLLY_NONNULL /*result*/,
     int32_t /*initialRow*/) {
   VELOX_UNREACHABLE();
 }
