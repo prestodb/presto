@@ -44,6 +44,9 @@ public class OrcWriterOptions
     public static final DwrfStripeCacheMode DEFAULT_DWRF_STRIPE_CACHE_MODE = INDEX_AND_FOOTER;
     public static final int DEFAULT_PRESERVE_DIRECT_ENCODING_STRIPE_COUNT = 0;
     public static final int DEFAULT_MAX_FLATTENED_MAP_KEY_COUNT = 20000;
+    public static final boolean DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED = false;
+    public static final boolean DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED = true;
+    public static final boolean DEFAULT_STRING_DICTIONARY_SORTING_ENABLED = true;
 
     private final OrcWriterFlushPolicy flushPolicy;
     private final int rowGroupMaxRowCount;
@@ -271,9 +274,9 @@ public class OrcWriterOptions
         private DataSize maxCompressionBufferSize = DEFAULT_MAX_COMPRESSION_BUFFER_SIZE;
         private OptionalInt compressionLevel = OptionalInt.empty();
         private StreamLayoutFactory streamLayoutFactory = new ColumnSizeLayoutFactory();
-        private boolean integerDictionaryEncodingEnabled;
-        private boolean stringDictionarySortingEnabled = true;
-        private boolean stringDictionaryEncodingEnabled = true;
+        private boolean integerDictionaryEncodingEnabled = DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED;
+        private boolean stringDictionarySortingEnabled = DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
+        private boolean stringDictionaryEncodingEnabled = DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
         private boolean dwrfStripeCacheEnabled;
         private DwrfStripeCacheMode dwrfStripeCacheMode = DEFAULT_DWRF_STRIPE_CACHE_MODE;
         private DataSize dwrfStripeCacheMaxSize = DEFAULT_DWRF_STRIPE_CACHE_MAX_SIZE;

@@ -69,6 +69,9 @@ public final class HiveSessionProperties
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_SIZE = "orc_optimized_writer_max_stripe_size";
     private static final String ORC_OPTIMIZED_WRITER_MAX_STRIPE_ROWS = "orc_optimized_writer_max_stripe_rows";
     private static final String ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY = "orc_optimized_writer_max_dictionary_memory";
+    private static final String ORC_OPTIMIZED_WRITER_INTEGER_DICTIONARY_ENCODING_ENABLED = "orc_optimized_writer_integer_dictionary_encoding_enabled";
+    private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_ENCODING_ENABLED = "orc_optimized_writer_string_dictionary_encoding_enabled";
+    private static final String ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED = "orc_optimized_writer_string_dictionary_sorting_enabled";
     private static final String ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL = "orc_optimized_writer_compression_level";
     private static final String PAGEFILE_WRITER_MAX_STRIPE_SIZE = "pagefile_writer_max_stripe_size";
     public static final String HIVE_STORAGE_FORMAT = "hive_storage_format";
@@ -271,6 +274,21 @@ public final class HiveSessionProperties
                         ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY,
                         "Experimental: ORC: Max dictionary memory",
                         orcFileWriterConfig.getDictionaryMaxMemory(),
+                        false),
+                booleanProperty(
+                        ORC_OPTIMIZED_WRITER_INTEGER_DICTIONARY_ENCODING_ENABLED,
+                        "ORC: Enable integer dictionary encoding",
+                        orcFileWriterConfig.isIntegerDictionaryEncodingEnabled(),
+                        false),
+                booleanProperty(
+                        ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_ENCODING_ENABLED,
+                        "ORC: Enable string dictionary encoding",
+                        orcFileWriterConfig.isStringDictionaryEncodingEnabled(),
+                        false),
+                booleanProperty(
+                        ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED,
+                        "ORC: Enable string dictionary sorting",
+                        orcFileWriterConfig.isStringDictionarySortingEnabled(),
                         false),
                 integerProperty(
                         ORC_OPTIMIZED_WRITER_COMPRESSION_LEVEL,
@@ -799,6 +817,21 @@ public final class HiveSessionProperties
     public static DataSize getOrcOptimizedWriterMaxDictionaryMemory(ConnectorSession session)
     {
         return session.getProperty(ORC_OPTIMIZED_WRITER_MAX_DICTIONARY_MEMORY, DataSize.class);
+    }
+
+    public static boolean isIntegerDictionaryEncodingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_INTEGER_DICTIONARY_ENCODING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStringDictionaryEncodingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_ENCODING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isStringDictionarySortingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(ORC_OPTIMIZED_WRITER_STRING_DICTIONARY_SORTING_ENABLED, Boolean.class);
     }
 
     public static OptionalInt getCompressionLevel(ConnectorSession session)
