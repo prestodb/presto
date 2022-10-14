@@ -15,6 +15,7 @@
  */
 
 #include <folly/Random.h>
+#include <folly/ScopeGuard.h>
 #include <glog/logging.h>
 #include <exception>
 
@@ -79,6 +80,11 @@ DEFINE_string(
     "",
     "Directory path for persistence of data and SQL when fuzzer fails for "
     "future reproduction. Empty string disables this feature.");
+
+DEFINE_int32(
+    velox_fuzzer_max_level_of_nesting,
+    10,
+    "Max levels of expression nesting. The default value is 10 and minimum is 1.");
 
 namespace facebook::velox::test {
 
@@ -310,7 +316,9 @@ std::optional<CallableSignature> processSignature(
 class ExpressionFuzzer {
  public:
   ExpressionFuzzer(FunctionSignatureMap signatureMap, size_t initialSeed)
-      : vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
+      : remainingLevelOfNesting_(
+            std::max(1, FLAGS_velox_fuzzer_max_level_of_nesting)),
+        vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
     seed(initialSeed);
 
     size_t totalFunctions = 0;
@@ -414,6 +422,8 @@ class ExpressionFuzzer {
   }
 
  private:
+  enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
+
   void seed(size_t seed) {
     currentSeed_ = seed;
     vectorFuzzer_.reSeed(seed);
@@ -479,15 +489,18 @@ class ExpressionFuzzer {
     // - IF/ELSE/SWITCH
     // - Lambdas
     // - Try
-    if (argClass == 0) {
-      return generateArgConstant(arg);
-    } else if (argClass == 1) {
-      return generateArgColumn(arg);
-    } else if (argClass == 2) {
-      return generateExpression(arg);
-    } else {
-      VELOX_UNREACHABLE();
+    if (argClass >= kArgExpression) {
+      if (remainingLevelOfNesting_ > 0) {
+        return generateExpression(arg);
+      }
+      argClass = folly::Random::rand32(2, rng_);
     }
+
+    if (argClass == kArgConstant) {
+      return generateArgConstant(arg);
+    }
+    // argClass == kArgColumn
+    return generateArgColumn(arg);
   }
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input) {
@@ -542,6 +555,11 @@ class ExpressionFuzzer {
   }
 
   core::TypedExprPtr generateExpression(const TypePtr& returnType) {
+    VELOX_CHECK_GT(remainingLevelOfNesting_, 0);
+    --remainingLevelOfNesting_;
+
+    auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
+
     // If no functions can return `returnType`, return a constant instead.
     auto it = signaturesMap_.find(returnType->kind());
     if (it == signaturesMap_.end()) {
@@ -818,6 +836,11 @@ class ExpressionFuzzer {
   // Maps a given type to the functions that return that type.
   std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
       signaturesMap_;
+
+  // The remaining levels of expression nesting. It's initialized by
+  // FLAGS_max_level_of_nesting and updated in generateExpression(). When its
+  // value decreases to 0, we don't generate subexpressions anymore.
+  int32_t remainingLevelOfNesting_;
 
   // We allow the arg generation routine to be specialized for particular
   // functions. This map stores the mapping between function name and the
