@@ -296,7 +296,11 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
     if (coinToss(opts_.nullRatio)) {
       return BaseVector::createNullConstant(type, size, pool_);
     }
-    return BaseVector::createConstant(randVariant(type), size, pool_);
+    if (type->isUnKnown()) {
+      return BaseVector::createNullConstant(type, size, pool_);
+    } else {
+      return BaseVector::createConstant(randVariant(type), size, pool_);
+    }
   }
 
   // Otherwise, create constant by wrapping around another vector. This will
@@ -353,16 +357,21 @@ VectorPtr VectorFuzzer::fuzzFlatPrimitive(
   VELOX_CHECK(type->isPrimitiveType());
   auto vector = BaseVector::create(type, size, pool_);
 
-  // First, fill it with random values.
-  // TODO: We should bias towards edge cases (min, max, Nan, etc).
-  auto kind = vector->typeKind();
-  VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      fuzzFlatPrimitiveImpl, kind, vector, rng_, opts_);
+  if (type->isUnKnown()) {
+    auto* rawNulls = vector->mutableRawNulls();
+    bits::fillBits(rawNulls, 0, size, bits::kNull);
+  } else {
+    // First, fill it with random values.
+    // TODO: We should bias towards edge cases (min, max, Nan, etc).
+    auto kind = vector->typeKind();
+    VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+        fuzzFlatPrimitiveImpl, kind, vector, rng_, opts_);
 
-  // Second, generate a random null vector.
-  for (size_t i = 0; i < vector->size(); ++i) {
-    if (coinToss(opts_.nullRatio)) {
-      vector->setNull(i, true);
+    // Second, generate a random null vector.
+    for (size_t i = 0; i < vector->size(); ++i) {
+      if (coinToss(opts_.nullRatio)) {
+        vector->setNull(i, true);
+      }
     }
   }
   return vector;

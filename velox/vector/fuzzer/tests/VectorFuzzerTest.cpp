@@ -67,6 +67,7 @@ TEST_F(VectorFuzzerTest, flatPrimitive) {
       DATE(),
       TIMESTAMP(),
       INTERVAL_DAY_TIME(),
+      UNKNOWN(),
   };
 
   for (const auto& type : types) {
@@ -194,6 +195,13 @@ TEST_F(VectorFuzzerTest, constants) {
   ASSERT_TRUE(vector->type()->kindEquals(ROW({ARRAY(BIGINT()), SMALLINT()})));
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
   ASSERT_FALSE(vector->mayHaveNulls());
+
+  // Fuzzer should produce null constant for UNKNOWN type even if nullRatio is
+  // 0.
+  vector = fuzzer.fuzzConstant(UNKNOWN());
+  ASSERT_TRUE(vector->type()->kindEquals(UNKNOWN()));
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
+  ASSERT_TRUE(vector->mayHaveNulls());
 }
 
 TEST_F(VectorFuzzerTest, constantsNull) {
@@ -204,6 +212,11 @@ TEST_F(VectorFuzzerTest, constantsNull) {
   // Null constants.
   auto vector = fuzzer.fuzzConstant(REAL());
   ASSERT_TRUE(vector->type()->kindEquals(REAL()));
+  ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  vector = fuzzer.fuzzConstant(UNKNOWN());
+  ASSERT_TRUE(vector->type()->kindEquals(UNKNOWN()));
   ASSERT_EQ(VectorEncoding::Simple::CONSTANT, vector->encoding());
   ASSERT_TRUE(vector->mayHaveNulls());
 
