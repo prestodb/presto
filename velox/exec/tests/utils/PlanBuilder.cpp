@@ -217,6 +217,14 @@ PlanBuilder& PlanBuilder::mergeExchange(
   return *this;
 }
 
+PlanBuilder& PlanBuilder::optionalProject(
+    const std::vector<std::string>& optionalProjections) {
+  if (optionalProjections.empty()) {
+    return *this;
+  }
+  return project(optionalProjections);
+}
+
 PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
   std::vector<core::TypedExprPtr> expressions;
   std::vector<std::string> projectNames;
@@ -239,6 +247,13 @@ PlanBuilder& PlanBuilder::project(const std::vector<std::string>& projections) {
       std::move(expressions),
       planNode_);
   return *this;
+}
+
+PlanBuilder& PlanBuilder::optionalFilter(const std::string& optionalFilter) {
+  if (optionalFilter.empty()) {
+    return *this;
+  }
+  return filter(optionalFilter);
 }
 
 PlanBuilder& PlanBuilder::filter(const std::string& filter) {

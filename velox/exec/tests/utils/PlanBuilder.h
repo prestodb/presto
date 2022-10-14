@@ -207,10 +207,19 @@ class PlanBuilder {
   /// will produce projected columns named sum_ab, c and p2.
   PlanBuilder& project(const std::vector<std::string>& projections);
 
+  /// Similar to project() except 'optionalProjections' could be empty and the
+  /// function will skip creating a ProjectNode in that case.
+  PlanBuilder& optionalProject(
+      const std::vector<std::string>& optionalProjections);
+
   /// Add a FilterNode using specified SQL expression.
   ///
   /// @param filter SQL expression of type boolean.
   PlanBuilder& filter(const std::string& filter);
+
+  /// Similar to filter() except 'optionalFilter' could be empty and the
+  /// function will skip creating a FilterNode in that case.
+  PlanBuilder& optionalFilter(const std::string& optionalFilter);
 
   /// Adds a TableWriteNode.
   ///
