@@ -38,6 +38,9 @@ OrderBy::OrderBy(
           "OrderBy"),
       mappedMemory_(operatorCtx_->mappedMemory()),
       numSortKeys_(orderByNode->sortingKeys().size()),
+      spillMemoryThreshold_(operatorCtx_->driverCtx()
+                                ->queryConfig()
+                                .orderBySpillMemoryThreshold()),
       spillConfig_(makeOperatorSpillConfig(
           *operatorCtx_->task()->queryCtx(),
           *operatorCtx_,
@@ -151,6 +154,21 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
+  auto tracker = mappedMemory_->tracker();
+  VELOX_CHECK_NOT_NULL(tracker);
+  const auto currentUsage = tracker->getCurrentUserBytes();
+  if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
+    const int64_t bytesToSpill =
+        currentUsage * spillConfig.spillableReservationGrowthPct / 100;
+    auto rowsToSpill = std::max<int64_t>(
+        1, bytesToSpill / (data_->fixedRowSize() + outOfLineBytesPerRow));
+    spill(
+        std::max<int64_t>(0, numRows - rowsToSpill),
+        std::max<int64_t>(
+            0, outOfLineBytes - (rowsToSpill * outOfLineBytesPerRow)));
+    return;
+  }
+
   if (freeRows > input->size() &&
       (outOfLineBytes == 0 || outOfLineFreeBytes >= flatInputBytes)) {
     // Enough free rows for input rows and enough variable length free
@@ -164,8 +182,6 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   const int64_t incrementBytes =
       data_->sizeIncrement(input->size(), outOfLineBytes ? flatInputBytes : 0);
 
-  auto tracker = mappedMemory_->tracker();
-  VELOX_CHECK_NOT_NULL(tracker);
   // There must be at least 2x the increment in reservation.
   if (tracker->getAvailableReservation() > 2 * incrementBytes) {
     return;
@@ -176,8 +192,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
   // the current reservation.
   const auto targetIncrementBytes = std::max<int64_t>(
       incrementBytes * 2,
-      tracker->getCurrentUserBytes() *
-          spillConfig.spillableReservationGrowthPct / 100);
+      currentUsage * spillConfig.spillableReservationGrowthPct / 100);
   if (tracker->maybeReserve(targetIncrementBytes)) {
     return;
   }

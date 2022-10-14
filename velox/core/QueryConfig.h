@@ -128,6 +128,11 @@ class QueryConfig {
   static constexpr const char* kAggregationSpillMemoryThreshold =
       "aggregation_spill_memory_threshold";
 
+  /// The max memory that an order by can use before spilling. If it 0, then
+  /// there is no limit.
+  static constexpr const char* kOrderBySpillMemoryThreshold =
+      "order_by_spill_memory_threshold";
+
   static constexpr const char* kTestingSpillPct = "testing.spill-pct";
 
   static constexpr const char* kSpillStartPartitionBit =
@@ -159,6 +164,11 @@ class QueryConfig {
   double partialAggregationGoodPct() const {
     static constexpr double kDefault = 0.5;
     return get<double>(kPartialAggregationGoodPct, kDefault);
+  }
+
+  uint64_t orderBySpillMemoryThreshold() const {
+    static constexpr uint64_t kDefault = 0;
+    return get<uint64_t>(kOrderBySpillMemoryThreshold, kDefault);
   }
 
   // Returns the target size for a Task's buffered output. The

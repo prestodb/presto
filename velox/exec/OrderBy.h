@@ -82,6 +82,10 @@ class OrderBy : public Operator {
 
   const int32_t numSortKeys_;
 
+  // The maximum memory usage that an order by can hold before spilling.
+  // If it is zero, then there is no such limit.
+  const uint64_t spillMemoryThreshold_;
+
   // Filesystem path for spill files, empty if spilling is disabled.
   // The disk spilling related configs if spilling is enabled, otherwise null.
   const std::optional<Spiller::Config> spillConfig_;

@@ -22,6 +22,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
@@ -445,4 +446,64 @@ TEST_F(OrderByTest, spill) {
   EXPECT_GT(kNumBatches * kNumRows, stats[0].operatorStats[1].spilledRows);
   EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
   EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
+}
+
+TEST_F(OrderByTest, spillWithMemoryLimit) {
+  constexpr int32_t kNumRows = 2000;
+  constexpr int64_t kMaxBytes = 1LL << 30; // 1GB
+  auto rowType = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
+  VectorFuzzer fuzzer({}, pool());
+  const int32_t numBatches = 5;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType));
+  }
+  struct {
+    uint64_t orderByMemLimit;
+    bool expectSpill;
+
+    std::string debugString() const {
+      return fmt::format(
+          "orderByMemLimit:{}, expectSpill:{}", orderByMemLimit, expectSpill);
+    }
+  } testSettings[] = {// Memory limit is disabled so spilling is not triggered.
+                      {0, false},
+                      // Memory limit is too small so always trigger spilling.
+                      {1, true},
+                      // Memory limit is too large so spilling is not triggered.
+                      {1'000'000'000, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto queryCtx = core::QueryCtx::createForTest();
+    queryCtx->pool()->setMemoryUsageTracker(
+        memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
+    auto results =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(batches)
+                .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                .planNode())
+            .queryCtx(queryCtx)
+            .copyResults(pool_.get());
+    auto task =
+        AssertQueryBuilder(
+            PlanBuilder()
+                .values(batches)
+                .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
+                .planNode())
+            .queryCtx(queryCtx)
+            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(core::QueryConfig::kSpillEnabled, "true")
+            .config(core::QueryConfig::kOrderBySpillEnabled, "true")
+            .config(
+                QueryConfig::kOrderBySpillMemoryThreshold,
+                std::to_string(testData.orderByMemLimit))
+            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .assertResults(results);
+
+    auto stats = task->taskStats().pipelineStats;
+    ASSERT_EQ(testData.expectSpill, stats[0].operatorStats[1].spilledBytes > 0);
+  }
 }
