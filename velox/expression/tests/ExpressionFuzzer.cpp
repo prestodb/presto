@@ -232,30 +232,6 @@ VectorFuzzer::Options getFuzzerOptions() {
   return opts;
 }
 
-// Represents one available function signature.
-struct CallableSignature {
-  // Function name.
-  std::string name;
-
-  // Input arguments and return type.
-  std::vector<TypePtr> args;
-  bool variableArity{false};
-  TypePtr returnType;
-
-  // Convenience print function.
-  std::string toString() const {
-    std::string buf = name;
-    buf.append("( ");
-    for (const auto& arg : args) {
-      buf.append(arg->toString());
-      buf.append(" ");
-    }
-    buf.append(") -> ");
-    buf.append(returnType->toString());
-    return buf;
-  }
-};
-
 std::optional<CallableSignature> processSignature(
     const std::string& functionName,
     const exec::FunctionSignature& signature) {
@@ -313,557 +289,529 @@ std::optional<CallableSignature> processSignature(
   return std::nullopt;
 }
 
-class ExpressionFuzzer {
- public:
-  ExpressionFuzzer(FunctionSignatureMap signatureMap, size_t initialSeed)
-      : remainingLevelOfNesting_(
-            std::max(1, FLAGS_velox_fuzzer_max_level_of_nesting)),
-        vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
-    seed(initialSeed);
+} // namespace
 
-    size_t totalFunctions = 0;
-    size_t totalFunctionSignatures = 0;
-    size_t supportedFunctions = 0;
-    size_t supportedFunctionSignatures = 0;
-    // Process each available signature for every function.
-    for (const auto& function : signatureMap) {
-      ++totalFunctions;
-      bool atLeastOneSupported = false;
-      for (const auto& signature : function.second) {
-        ++totalFunctionSignatures;
+std::string CallableSignature::toString() const {
+  std::string buf = name;
+  buf.append("( ");
+  for (const auto& arg : args) {
+    buf.append(arg->toString());
+    buf.append(" ");
+  }
+  buf.append(") -> ");
+  buf.append(returnType->toString());
+  return buf;
+}
 
-        if (auto callableFunction =
-                processSignature(function.first, *signature)) {
-          atLeastOneSupported = true;
-          ++supportedFunctionSignatures;
-          signatures_.emplace_back(*callableFunction);
-        }
-      }
+ExpressionFuzzer::ExpressionFuzzer(
+    FunctionSignatureMap signatureMap,
+    size_t initialSeed,
+    int32_t maxLevelOfNesting)
+    : remainingLevelOfNesting_(std::max(1, maxLevelOfNesting)),
+      vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
+  seed(initialSeed);
 
-      if (atLeastOneSupported) {
-        ++supportedFunctions;
+  size_t totalFunctions = 0;
+  size_t totalFunctionSignatures = 0;
+  size_t supportedFunctions = 0;
+  size_t supportedFunctionSignatures = 0;
+  // Process each available signature for every function.
+  for (const auto& function : signatureMap) {
+    ++totalFunctions;
+    bool atLeastOneSupported = false;
+    for (const auto& signature : function.second) {
+      ++totalFunctionSignatures;
+
+      if (auto callableFunction =
+              processSignature(function.first, *signature)) {
+        atLeastOneSupported = true;
+        ++supportedFunctionSignatures;
+        signatures_.emplace_back(*callableFunction);
       }
     }
 
-    auto unsupportedFunctions = totalFunctions - supportedFunctions;
-    auto unsupportedFunctionSignatures =
-        totalFunctionSignatures - supportedFunctionSignatures;
-    LOG(INFO) << fmt::format(
-        "Total candidate functions: {} ({} signatures)",
-        totalFunctions,
-        totalFunctionSignatures);
-    LOG(INFO) << fmt::format(
-        "Functions with at least one supported signature: {} ({:.2f}%)",
-        supportedFunctions,
-        (double)supportedFunctions / totalFunctions * 100);
-    LOG(INFO) << fmt::format(
-        "Functions with no supported signature: {} ({:.2f}%)",
-        unsupportedFunctions,
-        (double)unsupportedFunctions / totalFunctions * 100);
-    LOG(INFO) << fmt::format(
-        "Supported function signatures: {} ({:.2f}%)",
-        supportedFunctionSignatures,
-        (double)supportedFunctionSignatures / totalFunctionSignatures * 100);
-    LOG(INFO) << fmt::format(
-        "Unsupported function signatures: {} ({:.2f}%)",
-        unsupportedFunctionSignatures,
-        (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
+    if (atLeastOneSupported) {
+      ++supportedFunctions;
+    }
+  }
 
-    // Add additional signatures that are not in function registry.
-    appendConjunctSignatures();
+  auto unsupportedFunctions = totalFunctions - supportedFunctions;
+  auto unsupportedFunctionSignatures =
+      totalFunctionSignatures - supportedFunctionSignatures;
+  LOG(INFO) << fmt::format(
+      "Total candidate functions: {} ({} signatures)",
+      totalFunctions,
+      totalFunctionSignatures);
+  LOG(INFO) << fmt::format(
+      "Functions with at least one supported signature: {} ({:.2f}%)",
+      supportedFunctions,
+      (double)supportedFunctions / totalFunctions * 100);
+  LOG(INFO) << fmt::format(
+      "Functions with no supported signature: {} ({:.2f}%)",
+      unsupportedFunctions,
+      (double)unsupportedFunctions / totalFunctions * 100);
+  LOG(INFO) << fmt::format(
+      "Supported function signatures: {} ({:.2f}%)",
+      supportedFunctionSignatures,
+      (double)supportedFunctionSignatures / totalFunctionSignatures * 100);
+  LOG(INFO) << fmt::format(
+      "Unsupported function signatures: {} ({:.2f}%)",
+      unsupportedFunctionSignatures,
+      (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
 
-    // We sort the available signatures to ensure we can deterministically
-    // generate expressions across platforms. We just do this once and the
-    // vector is small, so it doesn't need to be very efficient.
-    std::sort(
-        signatures_.begin(),
-        signatures_.end(),
-        // Returns true if lhs is less (comes before).
-        [](const CallableSignature& lhs, const CallableSignature& rhs) {
-          // The comparison logic is the following:
-          //
-          // 1. Compare based on function name.
-          // 2. If names are the same, compare the number of args.
-          // 3. If number of args are the same, look for any different arg
-          // types.
-          // 4. If all arg types are the same, compare return type.
-          if (lhs.name == rhs.name) {
-            if (lhs.args.size() == rhs.args.size()) {
-              for (size_t i = 0; i < lhs.args.size(); ++i) {
-                if (!lhs.args[i]->kindEquals(rhs.args[i])) {
-                  return lhs.args[i]->toString() < rhs.args[i]->toString();
-                }
+  // Add additional signatures that are not in function registry.
+  appendConjunctSignatures();
+
+  // We sort the available signatures to ensure we can deterministically
+  // generate expressions across platforms. We just do this once and the
+  // vector is small, so it doesn't need to be very efficient.
+  std::sort(
+      signatures_.begin(),
+      signatures_.end(),
+      // Returns true if lhs is less (comes before).
+      [](const CallableSignature& lhs, const CallableSignature& rhs) {
+        // The comparison logic is the following:
+        //
+        // 1. Compare based on function name.
+        // 2. If names are the same, compare the number of args.
+        // 3. If number of args are the same, look for any different arg
+        // types.
+        // 4. If all arg types are the same, compare return type.
+        if (lhs.name == rhs.name) {
+          if (lhs.args.size() == rhs.args.size()) {
+            for (size_t i = 0; i < lhs.args.size(); ++i) {
+              if (!lhs.args[i]->kindEquals(rhs.args[i])) {
+                return lhs.args[i]->toString() < rhs.args[i]->toString();
               }
-              return lhs.returnType->toString() < rhs.returnType->toString();
             }
-            return lhs.args.size() < rhs.args.size();
+            return lhs.returnType->toString() < rhs.returnType->toString();
           }
-          return lhs.name < rhs.name;
-        });
+          return lhs.args.size() < rhs.args.size();
+        }
+        return lhs.name < rhs.name;
+      });
 
-    // Generates signaturesMap, which maps a given type to the function
-    // signature that returns it.
-    for (const auto& it : signatures_) {
-      signaturesMap_[it.returnType->kind()].push_back(&it);
-    }
-
-    // Register function override (for cases where we want to restrict the types
-    // or parameters we pass to functions).
-    registerFuncOverride(&ExpressionFuzzer::generateLikeArgs, "like");
-    registerFuncOverride(
-        &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
-    registerFuncOverride(
-        &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
+  // Generates signaturesMap, which maps a given type to the function
+  // signature that returns it.
+  for (const auto& it : signatures_) {
+    signaturesMap_[it.returnType->kind()].push_back(&it);
   }
 
-  template <typename TFunc>
-  void registerFuncOverride(TFunc func, const std::string& name) {
-    funcArgOverrides_[name] = std::bind(func, this, std::placeholders::_1);
+  // Register function override (for cases where we want to restrict the types
+  // or parameters we pass to functions).
+  registerFuncOverride(&ExpressionFuzzer::generateLikeArgs, "like");
+  registerFuncOverride(
+      &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
+  registerFuncOverride(
+      &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
+}
+
+template <typename TFunc>
+void ExpressionFuzzer::registerFuncOverride(
+    TFunc func,
+    const std::string& name) {
+  funcArgOverrides_[name] = std::bind(func, this, std::placeholders::_1);
+}
+
+void ExpressionFuzzer::seed(size_t seed) {
+  currentSeed_ = seed;
+  vectorFuzzer_.reSeed(seed);
+  rng_.seed(currentSeed_);
+}
+
+void ExpressionFuzzer::reSeed() {
+  seed(folly::Random::rand32(rng_));
+}
+
+void ExpressionFuzzer::printRowVector(const RowVectorPtr& rowVector) {
+  LOG(INFO) << "RowVector contents (" << rowVector->type()->toString() << "):";
+
+  for (vector_size_t i = 0; i < rowVector->size(); ++i) {
+    LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
   }
+}
 
- private:
-  enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
+void ExpressionFuzzer::appendConjunctSignatures() {
+  CallableSignature conjunctSignature;
+  conjunctSignature.name = "and";
+  conjunctSignature.returnType = BOOLEAN();
+  conjunctSignature.args = {BOOLEAN(), BOOLEAN()};
+  conjunctSignature.variableArity = true;
+  signatures_.emplace_back(conjunctSignature);
 
-  void seed(size_t seed) {
-    currentSeed_ = seed;
-    vectorFuzzer_.reSeed(seed);
-    rng_.seed(currentSeed_);
-  }
+  conjunctSignature.name = "or";
+  signatures_.emplace_back(conjunctSignature);
+}
 
-  void reSeed() {
-    seed(folly::Random::rand32(rng_));
-  }
+RowVectorPtr ExpressionFuzzer::generateRowVector() {
+  return vectorFuzzer_.fuzzRow(
+      ROW(std::move(inputRowNames_), std::move(inputRowTypes_)));
+}
 
-  void printRowVector(const RowVectorPtr& rowVector) {
-    LOG(INFO) << "RowVector contents (" << rowVector->type()->toString()
-              << "):";
-
-    for (vector_size_t i = 0; i < rowVector->size(); ++i) {
-      LOG(INFO) << "\tAt " << i << ": " << rowVector->toString(i);
-    }
-  }
-
-  void appendConjunctSignatures() {
-    CallableSignature conjunctSignature;
-    conjunctSignature.name = "and";
-    conjunctSignature.returnType = BOOLEAN();
-    conjunctSignature.args = {BOOLEAN(), BOOLEAN()};
-    conjunctSignature.variableArity = true;
-    signatures_.emplace_back(conjunctSignature);
-
-    conjunctSignature.name = "or";
-    signatures_.emplace_back(conjunctSignature);
-  }
-
-  RowVectorPtr generateRowVector() {
-    return vectorFuzzer_.fuzzRow(
-        ROW(std::move(inputRowNames_), std::move(inputRowTypes_)));
-  }
-
-  core::TypedExprPtr generateArgConstant(const TypePtr& arg) {
-    // 10% of times return a NULL constant.
-    if (vectorFuzzer_.coinToss(FLAGS_null_ratio)) {
-      return std::make_shared<core::ConstantTypedExpr>(
-          variant::null(arg->kind()));
-    }
+core::TypedExprPtr ExpressionFuzzer::generateArgConstant(const TypePtr& arg) {
+  // 10% of times return a NULL constant.
+  if (vectorFuzzer_.coinToss(FLAGS_null_ratio)) {
     return std::make_shared<core::ConstantTypedExpr>(
-        vectorFuzzer_.randVariant(arg));
+        variant::null(arg->kind()));
   }
+  return std::make_shared<core::ConstantTypedExpr>(
+      vectorFuzzer_.randVariant(arg));
+}
 
-  core::TypedExprPtr generateArgColumn(const TypePtr& arg) {
-    inputRowTypes_.emplace_back(arg);
-    inputRowNames_.emplace_back(fmt::format("c{}", inputRowTypes_.size() - 1));
+core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
+  inputRowTypes_.emplace_back(arg);
+  inputRowNames_.emplace_back(fmt::format("c{}", inputRowTypes_.size() - 1));
 
-    return std::make_shared<core::FieldAccessTypedExpr>(
-        arg, inputRowNames_.back());
-  }
+  return std::make_shared<core::FieldAccessTypedExpr>(
+      arg, inputRowNames_.back());
+}
 
-  core::TypedExprPtr generateArg(const TypePtr& arg) {
-    size_t argClass = folly::Random::rand32(3, rng_);
+core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
+  size_t argClass = folly::Random::rand32(3, rng_);
 
-    // Toss a coin and choose between a constant, a column reference, or another
-    // expression (function).
-    //
-    // TODO: Add more expression types:
-    // - Conjunctions
-    // - IF/ELSE/SWITCH
-    // - Lambdas
-    // - Try
-    if (argClass >= kArgExpression) {
-      if (remainingLevelOfNesting_ > 0) {
-        return generateExpression(arg);
-      }
-      argClass = folly::Random::rand32(2, rng_);
-    }
-
-    if (argClass == kArgConstant) {
-      return generateArgConstant(arg);
-    }
-    // argClass == kArgColumn
-    return generateArgColumn(arg);
-  }
-
-  std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input) {
-    std::vector<core::TypedExprPtr> inputExpressions;
-    auto numVarArgs = !input.variableArity
-        ? 0
-        : folly::Random::rand32(FLAGS_max_num_varargs + 1, rng_);
-    inputExpressions.reserve(input.args.size() + numVarArgs);
-
-    for (const auto& arg : input.args) {
-      inputExpressions.emplace_back(generateArg(arg));
-    }
-    // Append varargs to the argument list.
-    for (int i = 0; i < numVarArgs; i++) {
-      inputExpressions.emplace_back(generateArg(input.args.back()));
-    }
-    return inputExpressions;
-  }
-
-  // Specialization for the "like" function: second and third (optional)
-  // parameters always need to be constant.
-  std::vector<core::TypedExprPtr> generateLikeArgs(
-      const CallableSignature& input) {
-    std::vector<core::TypedExprPtr> inputExpressions = {
-        generateArg(input.args[0]), generateArgConstant(input.args[1])};
-    if (input.args.size() == 3) {
-      inputExpressions.emplace_back(generateArgConstant(input.args[2]));
-    }
-    return inputExpressions;
-  }
-
-  // Specialization for the "empty_approx_set" function: first optional
-  // parameter needs to be constant.
-  std::vector<core::TypedExprPtr> generateEmptyApproxSetArgs(
-      const CallableSignature& input) {
-    if (input.args.empty()) {
-      return {};
-    }
-    return {generateArgConstant(input.args[0])};
-  }
-
-  // Specialization for the "regexp_replace" function: second and third
-  // (optional) parameters always need to be constant.
-  std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
-      const CallableSignature& input) {
-    std::vector<core::TypedExprPtr> inputExpressions = {
-        generateArg(input.args[0]), generateArgConstant(input.args[1])};
-    if (input.args.size() == 3) {
-      inputExpressions.emplace_back(generateArgConstant(input.args[2]));
-    }
-    return inputExpressions;
-  }
-
-  core::TypedExprPtr generateExpression(const TypePtr& returnType) {
-    VELOX_CHECK_GT(remainingLevelOfNesting_, 0);
-    --remainingLevelOfNesting_;
-
-    auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
-
-    // If no functions can return `returnType`, return a constant instead.
-    auto it = signaturesMap_.find(returnType->kind());
-    if (it == signaturesMap_.end()) {
-      LOG(INFO) << "Couldn't find any function to return '"
-                << returnType->toString() << "'. Returning a constant instead.";
-      return generateArgConstant(returnType);
-    }
-
-    // Randomly pick a function that can return `returnType`.
-    const auto& eligible = it->second;
-    size_t idx = folly::Random::rand32(eligible.size(), rng_);
-    const auto& chosen = eligible[idx];
-
-    // Generate the function args recursively.
-    auto funcIt = funcArgOverrides_.find(chosen->name);
-
-    auto args = funcIt == funcArgOverrides_.end() ? generateArgs(*chosen)
-                                                  : funcIt->second(*chosen);
-
-    return std::make_shared<core::CallTypedExpr>(
-        chosen->returnType, args, chosen->name);
-  }
-
-  void persistReproInfo(
-      const VectorPtr& inputVector,
-      const VectorPtr& resultVector,
-      const std::string& sql) {
-    std::string inputPath;
-    std::string resultPath;
-    std::string sqlPath;
-
-    // Save input vector.
-    auto inputPathOpt =
-        generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
-    if (!inputPathOpt.has_value()) {
-      inputPath = "Failed to create file for saving input vector.";
-    } else {
-      inputPath = inputPathOpt.value();
-      try {
-        saveVectorToFile(inputVector.get(), inputPath.c_str());
-      } catch (std::exception& e) {
-        inputPath = e.what();
-      }
-    }
-
-    // Save result vector.
-    if (resultVector) {
-      auto resultPathOpt =
-          generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
-      if (!resultPathOpt.has_value()) {
-        resultPath = "Failed to create file for saving result vector.";
-      } else {
-        resultPath = resultPathOpt.value();
-        try {
-          saveVectorToFile(resultVector.get(), resultPath.c_str());
-        } catch (std::exception& e) {
-          resultPath = e.what();
-        }
-      }
-    }
-
-    // Save SQL.
-    auto sqlPathOpt = generateFilePath(FLAGS_repro_persist_path.c_str(), "sql");
-    if (!sqlPathOpt.has_value()) {
-      sqlPath = "Failed to create file for saving SQL.";
-    } else {
-      sqlPath = sqlPathOpt.value();
-      try {
-        saveStringToFile(sql, sqlPath.c_str());
-      } catch (std::exception& e) {
-        sqlPath = e.what();
-      }
-    }
-
-    std::stringstream ss;
-    ss << "Persisted input at '" << inputPath;
-    if (resultVector) {
-      ss << "' and result at '" << resultPath;
-    }
-    ss << "' and sql at '" << sqlPath << "'";
-    LOG(INFO) << ss.str();
-  }
-
-  // Executes an expression. Returns:
+  // Toss a coin and choose between a constant, a column reference, or another
+  // expression (function).
   //
-  //  - true if both succeeded and returned the exact same results.
-  //  - false if both failed with compatible exceptions.
-  //  - throws otherwise (incompatible exceptions or different results).
-  bool executeExpression(
-      const core::TypedExprPtr& plan,
-      const RowVectorPtr& rowVector,
-      VectorPtr&& resultVector,
-      bool canThrow) {
-    LOG(INFO) << "Executing expression: " << plan->toString();
-
-    if (rowVector) {
-      LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
-      for (const auto& child : rowVector->children()) {
-        LOG(INFO) << "\t" << child->toString(/*recursive=*/true);
-      }
-
-      if (VLOG_IS_ON(1)) {
-        printRowVector(rowVector);
-      }
+  // TODO: Add more expression types:
+  // - Conjunctions
+  // - IF/ELSE/SWITCH
+  // - Lambdas
+  // - Try
+  if (argClass >= kArgExpression) {
+    if (remainingLevelOfNesting_ > 0) {
+      return generateExpression(arg);
     }
+    argClass = folly::Random::rand32(2, rng_);
+  }
 
-    // Store data and expression for reproduction.
-    VectorPtr copiedResult;
-    std::string sql;
-    // Deep copy to preserve the initial state of result vector.
-    if (!FLAGS_repro_persist_path.empty()) {
-      if (resultVector) {
-        copiedResult = BaseVector::copy(*resultVector);
-      }
-      std::vector<core::TypedExprPtr> typedExprs = {plan};
-      // Disable constant folding in order to preserve the original expression
-      sql = exec::ExprSet(std::move(typedExprs), &execCtx_, false)
-                .expr(0)
-                ->toSql();
-    }
+  if (argClass == kArgConstant) {
+    return generateArgConstant(arg);
+  }
+  // argClass == kArgColumn
+  return generateArgColumn(arg);
+}
 
-    // Execute expression plan using both common and simplified evals.
-    std::vector<VectorPtr> commonEvalResult(1);
-    std::vector<VectorPtr> simplifiedEvalResult(1);
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
+    const CallableSignature& input) {
+  std::vector<core::TypedExprPtr> inputExpressions;
+  auto numVarArgs = !input.variableArity
+      ? 0
+      : folly::Random::rand32(FLAGS_max_num_varargs + 1, rng_);
+  inputExpressions.reserve(input.args.size() + numVarArgs);
 
-    commonEvalResult[0] = resultVector;
+  for (const auto& arg : input.args) {
+    inputExpressions.emplace_back(generateArg(arg));
+  }
+  // Append varargs to the argument list.
+  for (int i = 0; i < numVarArgs; i++) {
+    inputExpressions.emplace_back(generateArg(input.args.back()));
+  }
+  return inputExpressions;
+}
 
-    std::exception_ptr exceptionCommonPtr;
-    std::exception_ptr exceptionSimplifiedPtr;
+// Specialization for the "like" function: second and third (optional)
+// parameters always need to be constant.
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateLikeArgs(
+    const CallableSignature& input) {
+  std::vector<core::TypedExprPtr> inputExpressions = {
+      generateArg(input.args[0]), generateArgConstant(input.args[1])};
+  if (input.args.size() == 3) {
+    inputExpressions.emplace_back(generateArgConstant(input.args[2]));
+  }
+  return inputExpressions;
+}
 
-    VLOG(1) << "Starting common eval execution.";
-    SelectivityVector rows{rowVector ? rowVector->size() : 1};
+// Specialization for the "empty_approx_set" function: first optional
+// parameter needs to be constant.
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateEmptyApproxSetArgs(
+    const CallableSignature& input) {
+  if (input.args.empty()) {
+    return {};
+  }
+  return {generateArgConstant(input.args[0])};
+}
 
-    // Execute with common expression eval path.
+// Specialization for the "regexp_replace" function: second and third
+// (optional) parameters always need to be constant.
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateRegexpReplaceArgs(
+    const CallableSignature& input) {
+  std::vector<core::TypedExprPtr> inputExpressions = {
+      generateArg(input.args[0]), generateArgConstant(input.args[1])};
+  if (input.args.size() == 3) {
+    inputExpressions.emplace_back(generateArgConstant(input.args[2]));
+  }
+  return inputExpressions;
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateExpression(
+    const TypePtr& returnType) {
+  VELOX_CHECK_GT(remainingLevelOfNesting_, 0);
+  --remainingLevelOfNesting_;
+
+  auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
+
+  // If no functions can return `returnType`, return a constant instead.
+  auto it = signaturesMap_.find(returnType->kind());
+  if (it == signaturesMap_.end()) {
+    LOG(INFO) << "Couldn't find any function to return '"
+              << returnType->toString() << "'. Returning a constant instead.";
+    return generateArgConstant(returnType);
+  }
+
+  // Randomly pick a function that can return `returnType`.
+  const auto& eligible = it->second;
+  size_t idx = folly::Random::rand32(eligible.size(), rng_);
+  const auto& chosen = eligible[idx];
+
+  // Generate the function args recursively.
+  auto funcIt = funcArgOverrides_.find(chosen->name);
+
+  auto args = funcIt == funcArgOverrides_.end() ? generateArgs(*chosen)
+                                                : funcIt->second(*chosen);
+
+  return std::make_shared<core::CallTypedExpr>(
+      chosen->returnType, args, chosen->name);
+}
+
+void ExpressionFuzzer::persistReproInfo(
+    const VectorPtr& inputVector,
+    const VectorPtr& resultVector,
+    const std::string& sql) {
+  std::string inputPath;
+  std::string resultPath;
+  std::string sqlPath;
+
+  // Save input vector.
+  auto inputPathOpt =
+      generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
+  if (!inputPathOpt.has_value()) {
+    inputPath = "Failed to create file for saving input vector.";
+  } else {
+    inputPath = inputPathOpt.value();
     try {
-      exec::ExprSet exprSetCommon(
-          {plan}, &execCtx_, !FLAGS_disable_constant_folding);
-      exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
+      saveVectorToFile(inputVector.get(), inputPath.c_str());
+    } catch (std::exception& e) {
+      inputPath = e.what();
+    }
+  }
 
+  // Save result vector.
+  if (resultVector) {
+    auto resultPathOpt =
+        generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
+    if (!resultPathOpt.has_value()) {
+      resultPath = "Failed to create file for saving result vector.";
+    } else {
+      resultPath = resultPathOpt.value();
       try {
-        exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-      } catch (...) {
-        if (!canThrow) {
-          LOG(ERROR)
-              << "Common eval wasn't supposed to throw, but it did. Aborting.";
-          throw;
-        }
-        exceptionCommonPtr = std::current_exception();
+        saveVectorToFile(resultVector.get(), resultPath.c_str());
+      } catch (std::exception& e) {
+        resultPath = e.what();
       }
+    }
+  }
+
+  // Save SQL.
+  auto sqlPathOpt = generateFilePath(FLAGS_repro_persist_path.c_str(), "sql");
+  if (!sqlPathOpt.has_value()) {
+    sqlPath = "Failed to create file for saving SQL.";
+  } else {
+    sqlPath = sqlPathOpt.value();
+    try {
+      saveStringToFile(sql, sqlPath.c_str());
+    } catch (std::exception& e) {
+      sqlPath = e.what();
+    }
+  }
+
+  std::stringstream ss;
+  ss << "Persisted input at '" << inputPath;
+  if (resultVector) {
+    ss << "' and result at '" << resultPath;
+  }
+  ss << "' and sql at '" << sqlPath << "'";
+  LOG(INFO) << ss.str();
+}
+
+// Executes an expression. Returns:
+//
+//  - true if both succeeded and returned the exact same results.
+//  - false if both failed with compatible exceptions.
+//  - throws otherwise (incompatible exceptions or different results).
+bool ExpressionFuzzer::executeExpression(
+    const core::TypedExprPtr& plan,
+    const RowVectorPtr& rowVector,
+    VectorPtr&& resultVector,
+    bool canThrow) {
+  LOG(INFO) << "Executing expression: " << plan->toString();
+
+  if (rowVector) {
+    LOG(INFO) << rowVector->childrenSize() << " vectors as input:";
+    for (const auto& child : rowVector->children()) {
+      LOG(INFO) << "\t" << child->toString(/*recursive=*/true);
+    }
+
+    if (VLOG_IS_ON(1)) {
+      printRowVector(rowVector);
+    }
+  }
+
+  // Store data and expression for reproduction.
+  VectorPtr copiedResult;
+  std::string sql;
+  // Deep copy to preserve the initial state of result vector.
+  if (!FLAGS_repro_persist_path.empty()) {
+    if (resultVector) {
+      copiedResult = BaseVector::copy(*resultVector);
+    }
+    std::vector<core::TypedExprPtr> typedExprs = {plan};
+    // Disable constant folding in order to preserve the original expression
+    sql =
+        exec::ExprSet(std::move(typedExprs), &execCtx_, false).expr(0)->toSql();
+  }
+
+  // Execute expression plan using both common and simplified evals.
+  std::vector<VectorPtr> commonEvalResult(1);
+  std::vector<VectorPtr> simplifiedEvalResult(1);
+
+  commonEvalResult[0] = resultVector;
+
+  std::exception_ptr exceptionCommonPtr;
+  std::exception_ptr exceptionSimplifiedPtr;
+
+  VLOG(1) << "Starting common eval execution.";
+  SelectivityVector rows{rowVector ? rowVector->size() : 1};
+
+  // Execute with common expression eval path.
+  try {
+    exec::ExprSet exprSetCommon(
+        {plan}, &execCtx_, !FLAGS_disable_constant_folding);
+    exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
+
+    try {
+      exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
     } catch (...) {
+      if (!canThrow) {
+        LOG(ERROR)
+            << "Common eval wasn't supposed to throw, but it did. Aborting.";
+        throw;
+      }
       exceptionCommonPtr = std::current_exception();
     }
+  } catch (...) {
+    exceptionCommonPtr = std::current_exception();
+  }
 
-    VLOG(1) << "Starting simplified eval execution.";
+  VLOG(1) << "Starting simplified eval execution.";
 
-    // Execute with simplified expression eval path.
+  // Execute with simplified expression eval path.
+  try {
+    exec::ExprSetSimplified exprSetSimplified({plan}, &execCtx_);
+    exec::EvalCtx evalCtxSimplified(
+        &execCtx_, &exprSetSimplified, rowVector.get());
+
     try {
-      exec::ExprSetSimplified exprSetSimplified({plan}, &execCtx_);
-      exec::EvalCtx evalCtxSimplified(
-          &execCtx_, &exprSetSimplified, rowVector.get());
-
-      try {
-        exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
-      } catch (...) {
-        if (!canThrow) {
-          LOG(ERROR)
-              << "Simplified eval wasn't supposed to throw, but it did. Aborting.";
-          throw;
-        }
-        exceptionSimplifiedPtr = std::current_exception();
-      }
+      exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
     } catch (...) {
+      if (!canThrow) {
+        LOG(ERROR)
+            << "Simplified eval wasn't supposed to throw, but it did. Aborting.";
+        throw;
+      }
       exceptionSimplifiedPtr = std::current_exception();
     }
-
-    try {
-      // Compare results or exceptions (if any). Fail is anything is different.
-      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
-        // Throws in case exceptions are not compatible. If they are compatible,
-        // return false to signal that the expression failed.
-        compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
-        return false;
-      } else {
-        // Throws in case output is different.
-        compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
-      }
-    } catch (...) {
-      if (!FLAGS_repro_persist_path.empty()) {
-        persistReproInfo(rowVector, copiedResult, sql);
-      }
-      throw;
-    }
-    return true;
+  } catch (...) {
+    exceptionSimplifiedPtr = std::current_exception();
   }
 
-  // If --duration_sec > 0, check if we expired the time budget. Otherwise,
-  // check if we expired the number of iterations (--steps).
-  template <typename T>
-  bool isDone(size_t i, T startTime) const {
-    if (FLAGS_duration_sec > 0) {
-      std::chrono::duration<double> elapsed =
-          std::chrono::system_clock::now() - startTime;
-      return elapsed.count() >= FLAGS_duration_sec;
+  try {
+    // Compare results or exceptions (if any). Fail is anything is different.
+    if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+      // Throws in case exceptions are not compatible. If they are compatible,
+      // return false to signal that the expression failed.
+      compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+      return false;
+    } else {
+      // Throws in case output is different.
+      compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
     }
-    return i >= FLAGS_steps;
+  } catch (...) {
+    if (!FLAGS_repro_persist_path.empty()) {
+      persistReproInfo(rowVector, copiedResult, sql);
+    }
+    throw;
   }
+  return true;
+}
 
- public:
-  void go() {
-    VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
-    VELOX_CHECK(
-        FLAGS_steps > 0 || FLAGS_duration_sec > 0,
-        "Either --steps or --duration_sec needs to be greater than zero.")
+template <typename T>
+bool ExpressionFuzzer::isDone(size_t i, T startTime) const {
+  if (FLAGS_duration_sec > 0) {
+    std::chrono::duration<double> elapsed =
+        std::chrono::system_clock::now() - startTime;
+    return elapsed.count() >= FLAGS_duration_sec;
+  }
+  return i >= FLAGS_steps;
+}
 
-    auto startTime = std::chrono::system_clock::now();
-    size_t i = 0;
+void ExpressionFuzzer::go() {
+  VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
+  VELOX_CHECK(
+      FLAGS_steps > 0 || FLAGS_duration_sec > 0,
+      "Either --steps or --duration_sec needs to be greater than zero.")
 
-    while (!isDone(i, startTime)) {
-      LOG(INFO) << "==============================> Started iteration " << i
-                << " (seed: " << currentSeed_ << ")";
-      VELOX_CHECK(inputRowTypes_.empty());
-      VELOX_CHECK(inputRowNames_.empty());
+  auto startTime = std::chrono::system_clock::now();
+  size_t i = 0;
 
-      // Pick a random signature to chose the root return type.
-      size_t idx = folly::Random::rand32(signatures_.size(), rng_);
-      const auto& rootType = signatures_[idx].returnType;
+  while (!isDone(i, startTime)) {
+    LOG(INFO) << "==============================> Started iteration " << i
+              << " (seed: " << currentSeed_ << ")";
+    VELOX_CHECK(inputRowTypes_.empty());
+    VELOX_CHECK(inputRowNames_.empty());
 
-      // Generate expression tree and input data vectors.
-      auto plan = generateExpression(rootType);
-      auto rowVector = generateRowVector();
+    // Pick a random signature to chose the root return type.
+    size_t idx = folly::Random::rand32(signatures_.size(), rng_);
+    const auto& rootType = signatures_[idx].returnType;
 
-      // Randomize initial result vector data to test for correct null and data
-      // setting in functions.
-      VectorPtr resultVector;
-      if (vectorFuzzer_.coinToss(0.5)) {
-        resultVector = vectorFuzzer_.fuzzFlat(plan->type());
-      }
+    // Generate expression tree and input data vectors.
+    auto plan = generateExpression(rootType);
+    auto rowVector = generateRowVector();
 
-      // If both paths threw compatible exceptions, we add a try() function to
-      // the expression's root and execute it again. This time the expression
-      // cannot throw.
-      if (!executeExpression(
-              plan,
-              rowVector,
-              resultVector ? BaseVector::copy(*resultVector) : nullptr,
-              true) &&
-          FLAGS_retry_with_try) {
-        LOG(INFO)
-            << "Both paths failed with compatible exceptions. Retrying expression using try().";
+    // Randomize initial result vector data to test for correct null and data
+    // setting in functions.
+    VectorPtr resultVector;
+    if (vectorFuzzer_.coinToss(0.5)) {
+      resultVector = vectorFuzzer_.fuzzFlat(plan->type());
+    }
 
-        plan = std::make_shared<core::CallTypedExpr>(
-            plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
-
-        // At this point, the function throws if anything goes wrong.
-        executeExpression(
+    // If both paths threw compatible exceptions, we add a try() function to
+    // the expression's root and execute it again. This time the expression
+    // cannot throw.
+    if (!executeExpression(
             plan,
             rowVector,
             resultVector ? BaseVector::copy(*resultVector) : nullptr,
-            false);
-      }
+            true) &&
+        FLAGS_retry_with_try) {
+      LOG(INFO)
+          << "Both paths failed with compatible exceptions. Retrying expression using try().";
 
-      LOG(INFO) << "==============================> Done with iteration " << i;
-      reSeed();
-      ++i;
+      plan = std::make_shared<core::CallTypedExpr>(
+          plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
+
+      // At this point, the function throws if anything goes wrong.
+      executeExpression(
+          plan,
+          rowVector,
+          resultVector ? BaseVector::copy(*resultVector) : nullptr,
+          false);
     }
+
+    LOG(INFO) << "==============================> Done with iteration " << i;
+    reSeed();
+    ++i;
   }
-
- private:
-  FuzzerGenerator rng_;
-  size_t currentSeed_{0};
-
-  std::vector<CallableSignature> signatures_;
-
-  // Maps a given type to the functions that return that type.
-  std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
-      signaturesMap_;
-
-  // The remaining levels of expression nesting. It's initialized by
-  // FLAGS_max_level_of_nesting and updated in generateExpression(). When its
-  // value decreases to 0, we don't generate subexpressions anymore.
-  int32_t remainingLevelOfNesting_;
-
-  // We allow the arg generation routine to be specialized for particular
-  // functions. This map stores the mapping between function name and the
-  // overridden method.
-  using ArgsOverrideFunc = std::function<std::vector<core::TypedExprPtr>(
-      const CallableSignature& input)>;
-  std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
-
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
-  core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
-
-  test::VectorMaker vectorMaker_{execCtx_.pool()};
-  VectorFuzzer vectorFuzzer_;
-
-  // Contains the input column references that need to be generated for one
-  // particular iteration.
-  std::vector<TypePtr> inputRowTypes_;
-  std::vector<std::string> inputRowNames_;
-};
-
-} // namespace
+}
 
 void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed) {
   ExpressionFuzzer(std::move(signatureMap), seed).go();
