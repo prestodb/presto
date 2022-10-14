@@ -50,7 +50,7 @@ struct DictionaryValues {
 };
 
 struct RawDictionaryState {
-  const void* values{nullptr};
+  const void* FOLLY_NULLABLE values{nullptr};
   int32_t numValues{0};
 };
 
@@ -61,8 +61,8 @@ struct RawScanState {
 
   // See comment in  ScanState below.
   RawDictionaryState dictionary2;
-  const uint64_t* __restrict inDictionary{nullptr};
-  uint8_t* __restrict filterCache;
+  const uint64_t* __restrict FOLLY_NULLABLE inDictionary{nullptr};
+  uint8_t* __restrict FOLLY_NULLABLE filterCache;
 };
 
 // Maintains state for encoding between calls to readWithVisitor of
@@ -140,7 +140,7 @@ class SelectiveColumnReader {
   virtual void next(
       uint64_t /*numValues*/,
       VectorPtr& /*result*/,
-      const uint64_t* /*incomingNulls*/ = nullptr) {
+      const uint64_t* FOLLY_NULLABLE /*incomingNulls*/ = nullptr) {
     VELOX_UNSUPPORTED("next() is only defined in SelectiveStructColumnReader");
   }
 
@@ -154,8 +154,10 @@ class SelectiveColumnReader {
   // relative to 'offset', so that row 0 is the 'offset'th row from
   // start of stripe. 'rows' is expected to stay constant
   // between this and the next call to read.
-  virtual void
-  read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls) = 0;
+  virtual void read(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE incomingNulls) = 0;
 
   virtual uint64_t skip(uint64_t numValues) {
     return formatData_->skip(numValues);
@@ -164,7 +166,7 @@ class SelectiveColumnReader {
   // Extracts the values at 'rows' into '*result'. May rewrite or
   // reallocate '*result'. 'rows' must be the same set or a subset of
   // 'rows' passed to the last 'read().
-  virtual void getValues(RowSet rows, VectorPtr* result) = 0;
+  virtual void getValues(RowSet rows, VectorPtr* FOLLY_NONNULL result) = 0;
 
   // Returns the rows that were selected/visited by the last
   // read(). If 'this' has no filter, returns 'rows' passed to last
@@ -199,14 +201,14 @@ class SelectiveColumnReader {
   }
 
   // Returns a pointer to output rows  with at least 'size' elements available.
-  vector_size_t* mutableOutputRows(int32_t size) {
+  vector_size_t* FOLLY_NONNULL mutableOutputRows(int32_t size) {
     numOutConfirmed_ = outputRows_.size();
     outputRows_.resize(numOutConfirmed_ + size);
     return outputRows_.data() + numOutConfirmed_;
   }
 
   template <typename T>
-  T* mutableValues(int32_t size) {
+  T* FOLLY_NONNULL mutableValues(int32_t size) {
     DCHECK(values_->capacity() >= (numValues_ + size) * sizeof(T));
     return reinterpret_cast<T*>(rawValues_) + numValues_;
   }
@@ -215,7 +217,7 @@ class SelectiveColumnReader {
   // bitmap. Ensures that this has at least 'numValues_' + 'size'
   // capacity and is unique. If extending existing buffer, preserves
   // previous contents.
-  uint64_t* mutableNulls(int32_t size) {
+  uint64_t* FOLLY_NONNULL mutableNulls(int32_t size) {
     if (!resultNulls_->unique()) {
       resultNulls_ = AlignedBuffer::allocate<bool>(
           numValues_ + size, &memoryPool_, bits::kNotNull);
@@ -316,7 +318,7 @@ class SelectiveColumnReader {
     numValues_ -= count;
   }
 
-  velox::common::ScanSpec* scanSpec() const {
+  velox::common::ScanSpec* FOLLY_NONNULL scanSpec() const {
     return scanSpec_;
   }
 
@@ -443,8 +445,10 @@ class SelectiveColumnReader {
   void filterNulls(RowSet rows, bool isNull, bool extractValues);
 
   template <typename T>
-  void
-  prepareRead(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls);
+  void prepareRead(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE incomingNulls);
 
   void setOutputRows(RowSet rows) {
     outputRows_.resize(rows.size());
@@ -456,8 +460,10 @@ class SelectiveColumnReader {
 
   // Returns integer values for 'rows' cast to the width of
   // 'requestedType' in '*result'.
-  void
-  getIntValues(RowSet rows, const TypePtr& requestedType, VectorPtr* result);
+  void getIntValues(
+      RowSet rows,
+      const TypePtr& requestedType,
+      VectorPtr* FOLLY_NONNULL result);
 
   // Returns read values for 'rows' in 'vector'. This can be called
   // multiple times for consecutive subsets of 'rows'. If 'isFinal' is
@@ -466,7 +472,7 @@ class SelectiveColumnReader {
   template <typename T, typename TVector>
   void getFlatValues(
       RowSet rows,
-      VectorPtr* result,
+      VectorPtr* FOLLY_NONNULL result,
       const TypePtr& type = CppToType<TVector>::create(),
       bool isFinal = false);
 
@@ -492,7 +498,7 @@ class SelectiveColumnReader {
 
   // Copies 'value' to buffers owned by 'this' and returns the start of the
   // copy.
-  char* copyStringValue(folly::StringPiece value);
+  char* FOLLY_NONNULL copyStringValue(folly::StringPiece value);
 
   memory::MemoryPool& memoryPool_;
 
@@ -504,7 +510,7 @@ class SelectiveColumnReader {
   // Specification of filters, value extraction, pruning etc. The
   // spec is assigned at construction and the contents may change at
   // run time based on adaptation. Owned by caller.
-  velox::common::ScanSpec* const scanSpec_;
+  velox::common::ScanSpec* const FOLLY_NONNULL scanSpec_;
   TypePtr type_;
 
   // Row number after last read row, relative to stripe start.
@@ -538,11 +544,11 @@ class SelectiveColumnReader {
   // Nulls buffer for readWithVisitor. Not set if no nulls. 'numValues'
   // is the index of the first non-set bit.
   BufferPtr resultNulls_;
-  uint64_t* rawResultNulls_ = nullptr;
+  uint64_t* FOLLY_NULLABLE rawResultNulls_ = nullptr;
   // Buffer for gathering scalar values in readWithVisitor.
   BufferPtr values_;
   // Writable content in 'values'
-  void* rawValues_ = nullptr;
+  void* FOLLY_NULLABLE rawValues_ = nullptr;
   vector_size_t numValues_ = 0;
   // Size of fixed width value in 'rawValues'. For integers, values
   // are read at 64 bit width and can be compacted or extracted at a
@@ -568,7 +574,7 @@ class SelectiveColumnReader {
   // Buffers backing the StringViews in 'values' when reading strings.
   std::vector<BufferPtr> stringBuffers_;
   // Writable contents of 'stringBuffers_.back()'.
-  char* rawStringBuffer_ = nullptr;
+  char* FOLLY_NULLABLE rawStringBuffer_ = nullptr;
   // True if a vector can acquire a pin to a stream's buffer and refer
   // to that as its values.
   bool mayUseStreamBuffer_ = false;
@@ -616,7 +622,8 @@ namespace facebook::velox::dwio::common {
 // Template parameter to indicate no hook in fast scan path. This is
 // referenced in decoders, thus needs to be declared in a header.
 struct NoHook : public ValueHook {
-  void addValue(vector_size_t /*row*/, const void* /*value*/) override {}
+  void addValue(vector_size_t /*row*/, const void* FOLLY_NULLABLE /*value*/)
+      override {}
 };
 
 } // namespace facebook::velox::dwio::common
