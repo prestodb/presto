@@ -18,6 +18,7 @@
 #include "velox/common/base/SelectivityInfo.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/VectorHasher.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
@@ -41,6 +42,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     if (GetParam()) {
       executor_ = std::make_unique<folly::CPUThreadPoolExecutor>(16);
     }
+    aggregate::prestosql::registerAllAggregateFunctions();
   }
 
   void testCycle(

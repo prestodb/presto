@@ -21,7 +21,7 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -746,10 +746,11 @@ bool registerMinMaxByAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMinMaxByAggregate<MaxByAggregate>(kMaxBy);
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMinMaxByAggregate<MinByAggregate>(kMinBy);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerMinMaxByAggregates() {
+  registerMinMaxByAggregate<MaxByAggregate>(kMaxBy);
+  registerMinMaxByAggregate<MinByAggregate>(kMinBy);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

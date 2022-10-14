@@ -20,7 +20,7 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -368,7 +368,10 @@ bool registerAverageAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerAverageAggregate(kAvg);
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerAverageAggregate() {
+  registerAverageAggregate(kAvg);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

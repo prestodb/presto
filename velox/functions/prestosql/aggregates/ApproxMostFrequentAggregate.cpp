@@ -20,7 +20,8 @@
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
 namespace {
 
 template <typename T>
@@ -345,8 +346,10 @@ bool registerApproxMostFrequent(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerApproxMostFrequent(kApproxMostFrequent);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerApproxMostFrequentAggregate() {
+  registerApproxMostFrequent(kApproxMostFrequent);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

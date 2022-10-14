@@ -22,7 +22,8 @@
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
 namespace {
 
 template <typename T>
@@ -272,8 +273,10 @@ bool registerHistogramAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerHistogramAggregate(kHistogram);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerHistogramAggregate() {
+  registerHistogramAggregate(kHistogram);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

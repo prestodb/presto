@@ -19,7 +19,7 @@
 #include "velox/functions/prestosql/aggregates/ValueList.h"
 #include "velox/vector/ComplexVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 namespace {
 
 struct ArrayAccumulator {
@@ -198,8 +198,10 @@ bool registerArrayAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerArrayAggregate(kArrayAgg);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerArrayAggregate() {
+  registerArrayAggregate(kArrayAgg);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

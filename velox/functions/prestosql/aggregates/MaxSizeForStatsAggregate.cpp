@@ -21,7 +21,7 @@
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/DecodedVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 std::unique_ptr<VectorSerde>& getVectorSerde() {
@@ -29,9 +29,6 @@ std::unique_ptr<VectorSerde>& getVectorSerde() {
       std::make_unique<serializer::presto::PrestoVectorSerde>();
   return serde;
 }
-} // namespace
-
-namespace {
 
 class MaxSizeForStatsAggregate
     : public SimpleNumericAggregate<int64_t, int64_t, int64_t> {
@@ -236,8 +233,10 @@ bool registerMaxSizeForStatsAggregate(const std::string& name) {
       });
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMaxSizeForStatsAggregate(kMaxSizeForStats);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerMaxSizeForStatsAggregate() {
+  registerMaxSizeForStatsAggregate(kMaxSizeForStats);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

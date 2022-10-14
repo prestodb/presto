@@ -19,7 +19,7 @@
 #include "velox/functions/prestosql/aggregates/AggregateNames.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -188,10 +188,11 @@ bool registerBitwiseAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerBitwiseAggregate<BitwiseOrAggregate>(kBitwiseOr);
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerBitwiseAggregate<BitwiseAndAggregate>(kBitwiseAnd);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerBitwiseAggregates() {
+  registerBitwiseAggregate<BitwiseOrAggregate>(kBitwiseOr);
+  registerBitwiseAggregate<BitwiseAndAggregate>(kBitwiseAnd);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

@@ -21,7 +21,7 @@
 #include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
 #include "velox/vector/DecodedVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -298,8 +298,10 @@ bool registerArbitraryAggregate(const std::string& name) {
       });
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerArbitraryAggregate(kArbitrary);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerArbitraryAggregate() {
+  registerArbitraryAggregate(kArbitrary);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

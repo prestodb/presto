@@ -21,6 +21,7 @@
 #include "velox/exec/Exchange.h"
 #include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
@@ -68,6 +69,7 @@ void OperatorTestBase::SetUp() {
 
 void OperatorTestBase::SetUpTestCase() {
   functions::prestosql::registerAllScalarFunctions();
+  aggregate::prestosql::registerAllAggregateFunctions();
   TestValue::enable();
 }
 

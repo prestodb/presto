@@ -21,7 +21,9 @@
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/SimpleVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
+namespace {
 
 class CountIfAggregate : public exec::Aggregate {
  public:
@@ -201,7 +203,10 @@ bool registerCountIfAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerCountIfAggregate(kCountIf);
+} // namespace
 
-} // namespace facebook::velox::aggregate
+void registerCountIfAggregate() {
+  registerCountIfAggregate(kCountIf);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

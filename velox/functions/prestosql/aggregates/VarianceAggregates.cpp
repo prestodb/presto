@@ -20,7 +20,7 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -512,23 +512,15 @@ bool registerVarianceAggregate(const std::string& name) {
       });
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<StdDevSampAggregate>(kStdDev);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<StdDevPopAggregate>(kStdDevPop);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<StdDevSampAggregate>(kStdDevSamp);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<VarSampAggregate>(kVariance);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<VarPopAggregate>(kVarPop);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerVarianceAggregate<VarSampAggregate>(kVarSamp);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerVarianceAggregates() {
+  registerVarianceAggregate<StdDevSampAggregate>(kStdDev);
+  registerVarianceAggregate<StdDevPopAggregate>(kStdDevPop);
+  registerVarianceAggregate<StdDevSampAggregate>(kStdDevSamp);
+  registerVarianceAggregate<VarSampAggregate>(kVariance);
+  registerVarianceAggregate<VarPopAggregate>(kVarPop);
+  registerVarianceAggregate<VarSampAggregate>(kVarSamp);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

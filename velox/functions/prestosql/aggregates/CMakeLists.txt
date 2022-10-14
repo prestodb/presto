@@ -13,7 +13,7 @@
 # limitations under the License.
 
 add_library(
-  velox_aggregates OBJECT
+  velox_aggregates
   AggregateNames.h
   ApproxDistinctAggregate.cpp
   ApproxMostFrequentAggregate.cpp
@@ -40,10 +40,12 @@ add_library(
   SumAggregate.h
   ValueList.cpp
   VarianceAggregates.cpp
-  MaxSizeForStatsAggregate.cpp)
+  MaxSizeForStatsAggregate.cpp
+  RegisterAggregateFunctions.cpp)
 
-target_link_libraries(velox_aggregates velox_common_hyperloglog velox_exec
-                      velox_presto_serializer ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(
+  velox_aggregates velox_common_hyperloglog velox_exec velox_presto_serializer
+  velox_functions_lib ${FOLLY_WITH_DEPENDENCIES})
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)

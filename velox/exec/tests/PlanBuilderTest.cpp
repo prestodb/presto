@@ -16,6 +16,7 @@
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -27,6 +28,7 @@ class PlanBuilderTest : public testing::Test,
  public:
   PlanBuilderTest() {
     functions::prestosql::registerAllScalarFunctions();
+    aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
   }
 };

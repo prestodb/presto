@@ -23,7 +23,7 @@
 #include "velox/functions/prestosql/aggregates/PrestoHasher.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -238,7 +238,10 @@ bool registerChecksumAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_checksumAggregateFunction) =
-    registerChecksumAggregate(kChecksum);
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerChecksumAggregate() {
+  registerChecksumAggregate(kChecksum);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

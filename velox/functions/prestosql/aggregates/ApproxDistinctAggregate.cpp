@@ -29,7 +29,8 @@
 using facebook::velox::common::hll::DenseHll;
 using facebook::velox::common::hll::SparseHll;
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
 namespace {
 
 struct HllAccumulator {
@@ -452,13 +453,12 @@ bool registerApproxDistinct(
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerApproxDistinct(kApproxDistinct, false, false);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerApproxDistinct(kApproxSet, true, false);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerApproxDistinct(kMerge, true, true);
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerApproxDistinctAggregates() {
+  registerApproxDistinct(kApproxDistinct, false, false);
+  registerApproxDistinct(kApproxSet, true, false);
+  registerApproxDistinct(kMerge, true, true);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

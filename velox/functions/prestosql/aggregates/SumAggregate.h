@@ -19,7 +19,7 @@
 #include "velox/functions/prestosql/CheckedArithmeticImpl.h"
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 template <typename TInput, typename TAccumulator, typename ResultType>
 class SumAggregate
@@ -308,4 +308,4 @@ bool registerSumAggregate(const std::string& name) {
       });
 }
 
-} // namespace facebook::velox::aggregate
+} // namespace facebook::velox::aggregate::prestosql

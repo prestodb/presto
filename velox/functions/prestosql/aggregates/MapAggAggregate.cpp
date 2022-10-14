@@ -15,7 +15,8 @@
  */
 #include "velox/functions/prestosql/aggregates/MapAggregateBase.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
 namespace {
 // See documentation at
 // https://prestodb.io/docs/current/functions/aggregate.html
@@ -94,7 +95,10 @@ bool registerMapAggAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMapAggAggregate(kMapAgg);
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerMapAggAggregate() {
+  registerMapAggAggregate(kMapAgg);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

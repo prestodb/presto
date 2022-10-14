@@ -22,7 +22,7 @@
 #include "velox/functions/prestosql/aggregates/SimpleNumericAggregate.h"
 #include "velox/functions/prestosql/aggregates/SingleValueAccumulator.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
 
 namespace {
 
@@ -497,10 +497,11 @@ bool registerMinMaxAggregate(const std::string& name) {
       });
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMinMaxAggregate<MinAggregate, NonNumericMinAggregate>(kMin);
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerMinMaxAggregate<MaxAggregate, NonNumericMaxAggregate>(kMax);
-
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerMinMaxAggregates() {
+  registerMinMaxAggregate<MinAggregate, NonNumericMinAggregate>(kMin);
+  registerMinMaxAggregate<MaxAggregate, NonNumericMaxAggregate>(kMax);
+}
+
+} // namespace facebook::velox::aggregate::prestosql

@@ -19,7 +19,8 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::aggregate {
+namespace facebook::velox::aggregate::prestosql {
+
 namespace {
 // Indices into RowType representing intermediate results of covar_samp and
 // covar_pop. Columns appear in alphabetical order.
@@ -498,25 +499,24 @@ bool registerCovarianceAggregate(const std::string& name) {
       });
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerCovarianceAggregate<
-        CovarAccumulator,
-        CovarIntermediateInput,
-        CovarIntermediateResult,
-        CovarPopResultAccessor>(kCovarPop);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerCovarianceAggregate<
-        CovarAccumulator,
-        CovarIntermediateInput,
-        CovarIntermediateResult,
-        CovarSampResultAccessor>(kCovarSamp);
-
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerCovarianceAggregate<
-        CorrAccumulator,
-        CorrIntermediateInput,
-        CorrIntermediateResult,
-        CorrResultAccessor>(kCorr);
 } // namespace
-} // namespace facebook::velox::aggregate
+
+void registerCovarianceAggregates() {
+  registerCovarianceAggregate<
+      CovarAccumulator,
+      CovarIntermediateInput,
+      CovarIntermediateResult,
+      CovarPopResultAccessor>(kCovarPop);
+  registerCovarianceAggregate<
+      CovarAccumulator,
+      CovarIntermediateInput,
+      CovarIntermediateResult,
+      CovarSampResultAccessor>(kCovarSamp);
+  registerCovarianceAggregate<
+      CorrAccumulator,
+      CorrIntermediateInput,
+      CorrIntermediateResult,
+      CorrResultAccessor>(kCorr);
+}
+
+} // namespace facebook::velox::aggregate::prestosql
