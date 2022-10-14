@@ -34,12 +34,25 @@ TypePtr restoreType(std::istream& in);
 /// output stream. The serialiation preserved encoding.
 void saveVector(const BaseVector& vector, std::ostream& out);
 
+/// Serializes the vector into binary format and writes it to a new file in
+/// 'filePath'. The serialization preserved encoding. Exceptions will be thrown
+/// if any error occurs while writing.
+void saveVectorToFile(
+    const BaseVector* FOLLY_NONNULL vector,
+    const char* FOLLY_NONNULL filePath);
+
+/// Writes 'content' to a new file in 'filePath'. Exceptions will be thrown if
+/// any error occurs while writing.
+void saveStringToFile(
+    const std::string& content,
+    const char* FOLLY_NONNULL filePath);
+
 /// Deserializes a vector serialized by 'save' from the provided input stream.
 VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool);
 
 /// Generates a file path in specified directory. Returns std::nullopt on
 /// failure.
 std::optional<std::string> generateFilePath(
-    const char* basePath,
-    const char* prefix);
+    const char* FOLLY_NONNULL basePath,
+    const char* FOLLY_NONNULL prefix);
 } // namespace facebook::velox

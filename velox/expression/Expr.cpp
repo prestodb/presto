@@ -334,38 +334,33 @@ class ExprExceptionContext {
       return;
     }
 
-    auto dataPath = generateFilePath(basePath, "vector");
-    auto sqlPath = generateFilePath(basePath, "sql");
-    if (!dataPath.has_value()) {
-      dataPath_ = "Failed to create file for saving input vector.";
-      return;
-    }
-    if (!sqlPath.has_value()) {
-      sqlPath_ = "Failed to create file for saving expression SQL.";
-      return;
-    }
-
     // Persist vector to disk
     try {
-      std::ofstream outputFile(dataPath.value(), std::ofstream::binary);
-      saveVector(*vector_, outputFile);
-      outputFile.close();
-      dataPath_ = dataPath.value();
-    } catch (...) {
-      dataPath_ =
-          fmt::format("Failed to save input vector to {}.", dataPath.value());
+      auto dataPathOpt = generateFilePath(basePath, "vector");
+      if (!dataPathOpt.has_value()) {
+        dataPath_ = "Failed to create file for saving input vector.";
+        return;
+      }
+      dataPath_ = dataPathOpt.value();
+      saveVectorToFile(vector_, dataPath_.c_str());
+    } catch (std::exception& e) {
+      dataPath_ = e.what();
+      return;
     }
 
     // Persist sql to disk
+    auto sql = expr_->toSql();
     try {
-      auto sql = expr_->toSql();
-      std::ofstream outputFile(sqlPath.value(), std::ofstream::binary);
-      outputFile.write(sql.data(), sql.size());
-      outputFile.close();
-      sqlPath_ = sqlPath.value();
-    } catch (...) {
-      sqlPath_ =
-          fmt::format("Failed to save expression SQL to {}.", sqlPath.value());
+      auto sqlPathOpt = generateFilePath(basePath, "sql");
+      if (!sqlPathOpt.has_value()) {
+        sqlPath_ = "Failed to create file for saving SQL.";
+        return;
+      }
+      sqlPath_ = sqlPathOpt.value();
+      saveStringToFile(sql, sqlPath_.c_str());
+    } catch (std::exception& e) {
+      sqlPath_ = e.what();
+      return;
     }
   }
 

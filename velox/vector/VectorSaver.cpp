@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/vector/VectorSaver.h"
+#include <fstream>
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -620,6 +621,22 @@ void saveVector(const BaseVector& vector, std::ostream& out) {
       VELOX_UNSUPPORTED(
           "Unsupported encoding: {}", mapSimpleToName(vector.encoding()));
   }
+}
+
+void saveVectorToFile(
+    const BaseVector* FOLLY_NONNULL vector,
+    const char* FOLLY_NONNULL filePath) {
+  std::ofstream outputFile(filePath, std::ofstream::binary);
+  saveVector(*vector, outputFile);
+  outputFile.close();
+}
+
+void saveStringToFile(
+    const std::string& content,
+    const char* FOLLY_NONNULL filePath) {
+  std::ofstream outputFile(filePath, std::ofstream::binary);
+  outputFile.write(content.data(), content.size());
+  outputFile.close();
 }
 
 VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {

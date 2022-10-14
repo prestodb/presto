@@ -28,6 +28,7 @@
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
+#include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
@@ -72,6 +73,12 @@ DEFINE_bool(
     enable_variadic_signatures,
     false,
     "Enable testing of function signatures with variadic arguments.");
+
+DEFINE_string(
+    repro_persist_path,
+    "",
+    "Directory path for persistence of data and SQL when fuzzer fails for "
+    "future reproduction. Empty string disables this feature.");
 
 namespace facebook::velox::test {
 
@@ -558,6 +565,66 @@ class ExpressionFuzzer {
         chosen->returnType, args, chosen->name);
   }
 
+  void persistReproInfo(
+      const VectorPtr& inputVector,
+      const VectorPtr& resultVector,
+      const std::string& sql) {
+    std::string inputPath;
+    std::string resultPath;
+    std::string sqlPath;
+
+    // Save input vector.
+    auto inputPathOpt =
+        generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
+    if (!inputPathOpt.has_value()) {
+      inputPath = "Failed to create file for saving input vector.";
+    } else {
+      inputPath = inputPathOpt.value();
+      try {
+        saveVectorToFile(inputVector.get(), inputPath.c_str());
+      } catch (std::exception& e) {
+        inputPath = e.what();
+      }
+    }
+
+    // Save result vector.
+    if (resultVector) {
+      auto resultPathOpt =
+          generateFilePath(FLAGS_repro_persist_path.c_str(), "vector");
+      if (!resultPathOpt.has_value()) {
+        resultPath = "Failed to create file for saving result vector.";
+      } else {
+        resultPath = resultPathOpt.value();
+        try {
+          saveVectorToFile(resultVector.get(), resultPath.c_str());
+        } catch (std::exception& e) {
+          resultPath = e.what();
+        }
+      }
+    }
+
+    // Save SQL.
+    auto sqlPathOpt = generateFilePath(FLAGS_repro_persist_path.c_str(), "sql");
+    if (!sqlPathOpt.has_value()) {
+      sqlPath = "Failed to create file for saving SQL.";
+    } else {
+      sqlPath = sqlPathOpt.value();
+      try {
+        saveStringToFile(sql, sqlPath.c_str());
+      } catch (std::exception& e) {
+        sqlPath = e.what();
+      }
+    }
+
+    std::stringstream ss;
+    ss << "Persisted input at '" << inputPath;
+    if (resultVector) {
+      ss << "' and result at '" << resultPath;
+    }
+    ss << "' and sql at '" << sqlPath << "'";
+    LOG(INFO) << ss.str();
+  }
+
   // Executes an expression. Returns:
   //
   //  - true if both succeeded and returned the exact same results.
@@ -566,6 +633,7 @@ class ExpressionFuzzer {
   bool executeExpression(
       const core::TypedExprPtr& plan,
       const RowVectorPtr& rowVector,
+      VectorPtr&& resultVector,
       bool canThrow) {
     LOG(INFO) << "Executing expression: " << plan->toString();
 
@@ -580,21 +648,32 @@ class ExpressionFuzzer {
       }
     }
 
+    // Store data and expression for reproduction.
+    VectorPtr copiedResult;
+    std::string sql;
+    // Deep copy to preserve the initial state of result vector.
+    if (!FLAGS_repro_persist_path.empty()) {
+      if (resultVector) {
+        copiedResult = BaseVector::copy(*resultVector);
+      }
+      std::vector<core::TypedExprPtr> typedExprs = {plan};
+      // Disable constant folding in order to preserve the original expression
+      sql = exec::ExprSet(std::move(typedExprs), &execCtx_, false)
+                .expr(0)
+                ->toSql();
+    }
+
     // Execute expression plan using both common and simplified evals.
     std::vector<VectorPtr> commonEvalResult(1);
     std::vector<VectorPtr> simplifiedEvalResult(1);
+
+    commonEvalResult[0] = resultVector;
 
     std::exception_ptr exceptionCommonPtr;
     std::exception_ptr exceptionSimplifiedPtr;
 
     VLOG(1) << "Starting common eval execution.";
     SelectivityVector rows{rowVector ? rowVector->size() : 1};
-
-    // Randomize initial result vector data to test for correct null and data
-    // setting in functions.
-    if (vectorFuzzer_.coinToss(0.5)) {
-      commonEvalResult[0] = vectorFuzzer_.fuzzFlat(plan->type());
-    }
 
     // Execute with common expression eval path.
     try {
@@ -638,15 +717,22 @@ class ExpressionFuzzer {
       exceptionSimplifiedPtr = std::current_exception();
     }
 
-    // Compare results or exceptions (if any). Fail is anything is different.
-    if (exceptionCommonPtr || exceptionSimplifiedPtr) {
-      // Throws in case exceptions are not compatible. If they are compatible,
-      // return false to signal that the expression failed.
-      compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
-      return false;
-    } else {
-      // Throws in case output is different.
-      compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
+    try {
+      // Compare results or exceptions (if any). Fail is anything is different.
+      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+        // Throws in case exceptions are not compatible. If they are compatible,
+        // return false to signal that the expression failed.
+        compareExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+        return false;
+      } else {
+        // Throws in case output is different.
+        compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
+      }
+    } catch (...) {
+      if (!FLAGS_repro_persist_path.empty()) {
+        persistReproInfo(rowVector, copiedResult, sql);
+      }
+      throw;
     }
     return true;
   }
@@ -687,10 +773,22 @@ class ExpressionFuzzer {
       auto plan = generateExpression(rootType);
       auto rowVector = generateRowVector();
 
+      // Randomize initial result vector data to test for correct null and data
+      // setting in functions.
+      VectorPtr resultVector;
+      if (vectorFuzzer_.coinToss(0.5)) {
+        resultVector = vectorFuzzer_.fuzzFlat(plan->type());
+      }
+
       // If both paths threw compatible exceptions, we add a try() function to
       // the expression's root and execute it again. This time the expression
       // cannot throw.
-      if (!executeExpression(plan, rowVector, true) && FLAGS_retry_with_try) {
+      if (!executeExpression(
+              plan,
+              rowVector,
+              resultVector ? BaseVector::copy(*resultVector) : nullptr,
+              true) &&
+          FLAGS_retry_with_try) {
         LOG(INFO)
             << "Both paths failed with compatible exceptions. Retrying expression using try().";
 
@@ -698,7 +796,11 @@ class ExpressionFuzzer {
             plan->type(), std::vector<core::TypedExprPtr>{plan}, "try");
 
         // At this point, the function throws if anything goes wrong.
-        executeExpression(plan, rowVector, false);
+        executeExpression(
+            plan,
+            rowVector,
+            resultVector ? BaseVector::copy(*resultVector) : nullptr,
+            false);
       }
 
       LOG(INFO) << "==============================> Done with iteration " << i;
