@@ -121,6 +121,7 @@ std::string makeOperatorSpillPath(
 std::optional<Spiller::Config> makeOperatorSpillConfig(
     const core::QueryCtx& queryCtx,
     const OperatorCtx& operatorCtx,
+    const char* spillConfigPropertyName,
     int32_t operatorId);
 
 } // namespace facebook::velox::exec

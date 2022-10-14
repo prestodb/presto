@@ -305,7 +305,7 @@ TEST_F(SpillTest, spillTimestamp) {
   // read back.
   auto tempDirectory = exec::test::TempDirectoryPath::create();
   std::vector<CompareFlags> emptyCompareFlags;
-  const std::string kSpillPath = tempDirectory->path + "/test";
+  const std::string spillPath = tempDirectory->path + "/test";
   std::vector<Timestamp> timeValues = {
       Timestamp{0, 0},
       Timestamp{12, 0},
@@ -313,7 +313,7 @@ TEST_F(SpillTest, spillTimestamp) {
       Timestamp{1, 17'123'456},
       Timestamp{-1, 17'123'456}};
   SpillState state(
-      kSpillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
+      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
   int partitionIndex = 0;
   state.setPartitionSpilled(partitionIndex);
   EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));

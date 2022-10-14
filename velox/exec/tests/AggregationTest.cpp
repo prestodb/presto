@@ -874,11 +874,12 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                         .planNode())
                     .queryCtx(queryCtx)
+                    .config(QueryConfig::kSpillEnabled, "true")
+                    .config(QueryConfig::kAggregationSpillEnabled, "true")
                     .config(QueryConfig::kSpillPath, tempDirectory->path)
                     .config(
                         QueryConfig::kAggregationSpillMemoryThreshold,
                         std::to_string(testData.aggregationMemLimit))
-                    .config(QueryConfig::kSpillPath, tempDirectory->path)
                     .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;
@@ -981,6 +982,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
                                .singleAggregation({"c0"}, {"array_agg(c1)"})
                                .planNode())
             .queryCtx(queryCtx)
+            .config(QueryConfig::kSpillEnabled, "true")
+            .config(QueryConfig::kAggregationSpillEnabled, "true")
             .config(QueryConfig::kSpillPath, tempDirectory->path)
             .config(
                 QueryConfig::kSpillPartitionBits,
@@ -1089,6 +1092,8 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
                              .singleAggregation({"c0"}, {"array_agg(c1)"})
                              .planNode())
           .queryCtx(queryCtx)
+          .config(QueryConfig::kSpillEnabled, "true")
+          .config(QueryConfig::kAggregationSpillEnabled, "true")
           .config(QueryConfig::kSpillPath, tempDirectory->path)
           .config(
               QueryConfig::kSpillPartitionBits, std::to_string(kPartitionsBits))

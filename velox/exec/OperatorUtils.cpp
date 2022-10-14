@@ -347,8 +347,13 @@ std::string makeOperatorSpillPath(
 std::optional<Spiller::Config> makeOperatorSpillConfig(
     const core::QueryCtx& queryCtx,
     const OperatorCtx& operatorCtx,
+    const char* spillConfigPropertyName,
     int32_t operatorId) {
   const auto& queryConfig = queryCtx.config();
+  if (not queryConfig.spillEnabled() or
+      not queryConfig.get<bool>(spillConfigPropertyName, false)) {
+    return std::nullopt;
+  }
   if (!queryConfig.spillPath().has_value()) {
     return std::nullopt;
   }

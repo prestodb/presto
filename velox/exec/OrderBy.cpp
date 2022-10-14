@@ -41,6 +41,7 @@ OrderBy::OrderBy(
       spillConfig_(makeOperatorSpillConfig(
           *operatorCtx_->task()->queryCtx(),
           *operatorCtx_,
+          core::QueryConfig::kOrderBySpillEnabled,
           operatorId)) {
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;

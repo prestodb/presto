@@ -171,6 +171,8 @@ void AggregationTestBase::testAggregations(
 
     AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
     queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+        .config(core::QueryConfig::kSpillEnabled, "true")
+        .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .config(core::QueryConfig::kSpillPath, spillDirectory->path)
         .maxDrivers(4);
 

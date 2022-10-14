@@ -127,6 +127,8 @@ class HashJoinTest : public HiveConnectorTestBase {
       params.queryCtx = core::QueryCtx::createForTest();
       params.queryCtx->setConfigOverridesUnsafe({
           {core::QueryConfig::kTestingSpillPct, "100"},
+          {core::QueryConfig::kSpillEnabled, "true"},
+          {core::QueryConfig::kJoinSpillEnabled, "true"},
           {core::QueryConfig::kSpillPath, spillDirectory->path},
       });
     }

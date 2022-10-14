@@ -45,6 +45,7 @@ HashAggregation::HashAggregation(
       spillConfig_(makeOperatorSpillConfig(
           *operatorCtx_->task()->queryCtx(),
           *operatorCtx_,
+          core::QueryConfig::kAggregationSpillEnabled,
           operatorId)),
       maxPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()) {

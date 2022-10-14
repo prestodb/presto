@@ -54,6 +54,7 @@ HashBuild::HashBuild(
       spillConfig_(makeOperatorSpillConfig(
           *operatorCtx_->task()->queryCtx(),
           *operatorCtx_,
+          core::QueryConfig::kJoinSpillEnabled,
           operatorId)),
       spillGroup_(
           spillEnabled() ? operatorCtx_->task()->getSpillOperatorGroupLocked(

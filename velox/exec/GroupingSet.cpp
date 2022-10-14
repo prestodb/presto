@@ -35,19 +35,6 @@ bool areAllLazyNotLoaded(const std::vector<VectorPtr>& vectors) {
     return isLazyNotLoaded(*vector);
   });
 }
-
-std::optional<std::string> makeSpillPath(
-    bool isPartial,
-    const OperatorCtx& operatorCtx) {
-  if (isPartial) {
-    return std::nullopt;
-  }
-  auto path = operatorCtx.task()->queryCtx()->config().spillPath();
-  if (path.has_value()) {
-    return path.value() + "/" + operatorCtx.task()->taskId();
-  }
-  return std::nullopt;
-}
 } // namespace
 
 GroupingSet::GroupingSet(
