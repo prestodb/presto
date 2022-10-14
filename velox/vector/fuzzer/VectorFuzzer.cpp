@@ -539,40 +539,9 @@ BufferPtr VectorFuzzer::fuzzNulls(vector_size_t size) {
 }
 
 variant VectorFuzzer::randVariant(const TypePtr& arg) {
-  if (arg->isArray()) {
-    auto arrayType = arg->asArray();
-    std::vector<variant> variantArray;
-    auto length = genContainerLength(opts_, rng_);
-    variantArray.reserve(length);
-
-    for (size_t i = 0; i < length; ++i) {
-      variantArray.emplace_back(randVariant(arrayType.elementType()));
-    }
-    return variant::array(std::move(variantArray));
-  } else if (arg->isMap()) {
-    auto mapType = arg->asMap();
-    std::map<variant, variant> variantMap;
-    auto length = genContainerLength(opts_, rng_);
-
-    for (size_t i = 0; i < length; ++i) {
-      variantMap.emplace(
-          randVariant(mapType.keyType()), randVariant(mapType.valueType()));
-    }
-    return variant::map(std::move(variantMap));
-  } else if (arg->isRow()) {
-    auto rowType = arg->asRow();
-    std::vector<variant> variantArray;
-    auto length = genContainerLength(opts_, rng_);
-    variantArray.reserve(length);
-
-    for (size_t i = 0; i < length; ++i) {
-      variantArray.emplace_back(randVariant(rowType.childAt(i)));
-    }
-    return variant::row(std::move(variantArray));
-  } else {
-    return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        randVariantImpl, arg->kind(), rng_, opts_);
-  }
+  VELOX_CHECK(arg->isPrimitiveType());
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      randVariantImpl, arg->kind(), rng_, opts_);
 }
 
 TypePtr VectorFuzzer::randType(int maxDepth) {
