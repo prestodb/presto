@@ -185,6 +185,7 @@ public class TestQueryInfo
                 Optional.empty(),
                 true,
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(QueryType.SELECT),
                 Optional.of(ImmutableList.of(new TaskId("0", 1, 1, 1))),
                 Optional.of(ImmutableList.of(new StageId("0", 1))),

@@ -132,7 +132,7 @@ public class QueryMonitor
         eventListenerManager.queryCreated(
                 new QueryCreatedEvent(
                         queryInfo.getQueryStats().getCreateTime().toDate().toInstant(),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), Optional.empty()),
                         new QueryMetadata(
                                 queryInfo.getQueryId().toString(),
                                 queryInfo.getSession().getTransactionId().map(TransactionId::toString),
@@ -153,7 +153,7 @@ public class QueryMonitor
         eventListenerManager.queryUpdated(new QueryUpdatedEvent(createQueryMetadata(queryInfo)));
     }
 
-    public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure)
+    public void queryImmediateFailureEvent(BasicQueryInfo queryInfo, ExecutionFailureInfo failure, Optional<ResourceGroupId> resourceGroupQueuedOn)
     {
         eventListenerManager.queryCompleted(new QueryCompletedEvent(
                 new QueryMetadata(
@@ -201,7 +201,7 @@ public class QueryMonitor
                         0,
                         true,
                         new RuntimeStats()),
-                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), resourceGroupQueuedOn),
                 new QueryIOMetadata(ImmutableList.of(), Optional.empty()),
                 createQueryFailureInfo(failure, Optional.empty()),
                 ImmutableList.of(),
@@ -231,7 +231,7 @@ public class QueryMonitor
                 new QueryCompletedEvent(
                         createQueryMetadata(queryInfo),
                         createQueryStatistics(queryInfo),
-                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId()),
+                        createQueryContext(queryInfo.getSession(), queryInfo.getResourceGroupId(), queryInfo.getResourceGroupQueuedOn()),
                         getQueryIOMetadata(queryInfo),
                         createQueryFailureInfo(queryInfo.getFailureInfo(), queryInfo.getOutputStage()),
                         queryInfo.getWarnings(),
@@ -357,7 +357,7 @@ public class QueryMonitor
                 queryStats.getRuntimeStats());
     }
 
-    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup)
+    private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<ResourceGroupId> resourceGroupQueuedOn)
     {
         return new QueryContext(
                 session.getUser(),
@@ -370,6 +370,7 @@ public class QueryMonitor
                 session.getCatalog(),
                 session.getSchema(),
                 resourceGroup,
+                resourceGroupQueuedOn,
                 mergeSessionAndCatalogProperties(session),
                 session.getResourceEstimates(),
                 serverAddress,

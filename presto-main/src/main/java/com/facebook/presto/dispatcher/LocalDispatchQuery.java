@@ -29,6 +29,7 @@ import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisites;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesContext;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -77,6 +78,8 @@ public class LocalDispatchQuery
     private final QueryPrerequisites queryPrerequisites;
     private final WarningCollector warningCollector;
 
+    private Optional<ResourceGroupId> resourceGroupQueuedOn = Optional.empty();
+
     public LocalDispatchQuery(
             QueryStateMachine stateMachine,
             QueryMonitor queryMonitor,
@@ -100,7 +103,7 @@ public class LocalDispatchQuery
         this.warningCollector = requireNonNull(stateMachine.getWarningCollector(), "warningCollector is null");
         addExceptionCallback(queryExecutionFuture, throwable -> {
             if (stateMachine.transitionToFailed(throwable)) {
-                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+                queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable), Optional.empty());
             }
         });
         stateMachine.addStateChangeListener(state -> {
@@ -160,6 +163,7 @@ public class LocalDispatchQuery
         if (stateMachine.transitionToQueued()) {
             try {
                 queryQueuer.accept(this);
+                stateMachine.setResourceGroupQueuedOn(resourceGroupQueuedOn);
             }
             catch (Throwable t) {
                 fail(t);
@@ -320,7 +324,7 @@ public class LocalDispatchQuery
     public void fail(Throwable throwable)
     {
         if (stateMachine.transitionToFailed(throwable)) {
-            queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable));
+            queryMonitor.queryImmediateFailureEvent(stateMachine.getBasicQueryInfo(Optional.empty()), toFailure(throwable), resourceGroupQueuedOn);
         }
     }
 
@@ -331,7 +335,7 @@ public class LocalDispatchQuery
             BasicQueryInfo queryInfo = stateMachine.getBasicQueryInfo(Optional.empty());
             ExecutionFailureInfo failureInfo = queryInfo.getFailureInfo();
             failureInfo = failureInfo != null ? failureInfo : toFailure(new PrestoException(USER_CANCELED, "Query was canceled"));
-            queryMonitor.queryImmediateFailureEvent(queryInfo, failureInfo);
+            queryMonitor.queryImmediateFailureEvent(queryInfo, failureInfo, resourceGroupQueuedOn);
         }
     }
 
@@ -381,5 +385,11 @@ public class LocalDispatchQuery
         catch (Throwable ignored) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public void setResourceGroupQueuedOn(Optional<ResourceGroupId> resourceGroup)
+    {
+        resourceGroupQueuedOn = resourceGroup;
     }
 }
