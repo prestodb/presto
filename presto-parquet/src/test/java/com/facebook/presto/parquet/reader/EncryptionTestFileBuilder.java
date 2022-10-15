@@ -52,6 +52,7 @@ public class EncryptionTestFileBuilder
     private String[] encryptColumns = {};
     private ParquetCipher cipher = ParquetCipher.AES_GCM_V1;
     private Boolean footerEncryption = false;
+    private Boolean dataMaskingTest = false;
 
     public EncryptionTestFileBuilder(Configuration conf, MessageType schema)
     {
@@ -108,12 +109,18 @@ public class EncryptionTestFileBuilder
         return this;
     }
 
+    public EncryptionTestFileBuilder withDataMaskingTest()
+    {
+        this.dataMaskingTest = true;
+        return this;
+    }
+
     public EncryptionTestFile build()
             throws IOException
     {
         String fileName = createTempFile("test");
         SimpleGroup[] fileContent = createFileContent(schema);
-        FileEncryptionProperties encryptionProperties = EncryptDecryptUtil.getFileEncryptionProperties(Arrays.asList(encryptColumns), cipher, footerEncryption);
+        FileEncryptionProperties encryptionProperties = EncryptDecryptUtil.getFileEncryptionProperties(Arrays.asList(encryptColumns), cipher, footerEncryption, dataMaskingTest);
         ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(new Path(fileName))
                 .withConf(conf)
                 .withWriterVersion(writerVersion)

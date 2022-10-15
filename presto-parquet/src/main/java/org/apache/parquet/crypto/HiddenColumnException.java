@@ -21,9 +21,17 @@ public class HiddenColumnException
         extends ParquetRuntimeException
 {
     private static final long serialVersionUID = 1L;
+    private final String column;
 
     public HiddenColumnException(String[] columnPath, String filePath)
     {
         super(String.format("User does not have access to the encryption key for encrypted column = %s for file: %s", Arrays.toString(columnPath), filePath));
+        // We have to duplicate the toString() call because super() won't allow anything else before it
+        column = Arrays.toString(columnPath);
+    }
+
+    public String getColumn()
+    {
+        return column;
     }
 }
