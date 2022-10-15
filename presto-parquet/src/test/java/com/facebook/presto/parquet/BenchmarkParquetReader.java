@@ -273,7 +273,7 @@ public class BenchmarkParquetReader
                 throws IOException
         {
             FileParquetDataSource dataSource = new FileParquetDataSource(file);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length(), Optional.empty()).getParquetMetadata();
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, file.length(), Optional.empty(), false).getParquetMetadata();
             MessageType schema = parquetMetadata.getFileMetaData().getSchema();
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
