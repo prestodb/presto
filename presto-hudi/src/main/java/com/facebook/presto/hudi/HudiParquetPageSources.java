@@ -63,6 +63,7 @@ import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsPa
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
 import static com.facebook.presto.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static com.facebook.presto.hudi.HudiSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.hudi.HudiSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.hudi.HudiSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -97,7 +98,7 @@ class HudiParquetPageSources
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
         String user = session.getUser();
-
+        boolean readMaskedValue = getReadNullMaskedParquetEncryptedValue(session);
         ParquetDataSource dataSource = null;
         try {
             ExtendedFileSystem filesystem = hdfsEnvironment.getFileSystem(user, path, configuration);
@@ -118,7 +119,7 @@ class HudiParquetPageSources
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             dataSource = parquetDataSource;
             Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor, readMaskedValue).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
             List<Type> parquetFields = regularColumns.stream()

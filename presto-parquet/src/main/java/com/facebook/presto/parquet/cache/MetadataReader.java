@@ -79,6 +79,7 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.crypto.AesCipher.GCM_TAG_LENGTH;
 import static org.apache.parquet.crypto.AesCipher.NONCE_LENGTH;
+import static org.apache.parquet.crypto.ParquetCryptoMetaDataUtils.removeColumnsInSchema;
 import static org.apache.parquet.format.Util.readFileCryptoMetaData;
 import static org.apache.parquet.format.Util.readFileMetaData;
 import static org.apache.parquet.hadoop.ParquetFileWriter.EF_MAGIC_STR;
@@ -94,13 +95,13 @@ public final class MetadataReader
     private static final ParquetMetadataConverter PARQUET_METADATA_CONVERTER = new ParquetMetadataConverter();
     private static final long MODIFICATION_TIME_NOT_SET = 0L;
 
-    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, Optional<InternalFileDecryptor> fileDecryptor)
+    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, Optional<InternalFileDecryptor> fileDecryptor, boolean readMaskedValue)
             throws IOException
     {
-        return readFooter(parquetDataSource, fileSize, MODIFICATION_TIME_NOT_SET, fileDecryptor);
+        return readFooter(parquetDataSource, fileSize, MODIFICATION_TIME_NOT_SET, fileDecryptor, readMaskedValue);
     }
 
-    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor)
+    public static ParquetFileMetadata readFooter(ParquetDataSource parquetDataSource, long fileSize, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean readMaskedValue)
             throws IOException
     {
         // Parquet File Layout: https://github.com/apache/parquet-format/blob/master/Encryption.md
@@ -131,10 +132,10 @@ public final class MetadataReader
             tailSlice = wrappedBuffer(footerBuffer, 0, footerBuffer.length);
         }
 
-        return readParquetMetadata(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput(), metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, parquetDataSource.getId());
+        return readParquetMetadata(tailSlice.slice(tailSlice.length() - completeFooterSize, metadataLength).getInput(), metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, parquetDataSource.getId(), readMaskedValue);
     }
 
-    private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id)
+    private static ParquetFileMetadata readParquetMetadata(BasicSliceInput input, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooterMode, ParquetDataSourceId id, boolean readMaskedValue)
             throws IOException
     {
         checkArgument(!encryptedFooterMode || fileDecryptor.isPresent(), "fileDecryptionProperties cannot be null when encryptedFooterMode is true");
@@ -150,10 +151,10 @@ public final class MetadataReader
         }
 
         FileMetaData fileMetaData = readFileMetaData(input, footerDecryptor, additionalAuthenticationData);
-        return convertToParquetMetadata(input, fileMetaData, metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, id);
+        return convertToParquetMetadata(input, fileMetaData, metadataLength, modificationTime, fileDecryptor, encryptedFooterMode, id, readMaskedValue);
     }
 
-    private static ParquetFileMetadata convertToParquetMetadata(BasicSliceInput input, FileMetaData fileMetaData, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooter, ParquetDataSourceId id)
+    private static ParquetFileMetadata convertToParquetMetadata(BasicSliceInput input, FileMetaData fileMetaData, int metadataLength, long modificationTime, Optional<InternalFileDecryptor> fileDecryptor, boolean encryptedFooter, ParquetDataSourceId id, boolean readMaskedValue)
             throws IOException
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
@@ -181,6 +182,7 @@ public final class MetadataReader
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = fileMetaData.getRow_groups();
+        Set<ColumnPath> maskedColumns = new HashSet<>();
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
                 BlockMetaData blockMetaData = new BlockMetaData();
@@ -227,12 +229,20 @@ public final class MetadataReader
                             try {
                                 // TODO: We decrypted data before filter projection. This could send unnecessary traffic to KMS. This so far not seen a problem in production.
                                 // In parquet-mr, it uses lazy decryption but that required to change ColumnChunkMetadata. We will improve it later.
-                                metaData = decryptMetadata(rowGroup, cryptoMetaData, columnChunk, fileDecryptor.get(), columnOrdinal);
-                                columnPath = getPath(metaData);
+                                EncryptionWithColumnKey columnKeyStruct = cryptoMetaData.getENCRYPTION_WITH_COLUMN_KEY();
+                                List<String> pathList = columnKeyStruct.getPath_in_schema();
+                                byte[] columnKeyMetadata = columnKeyStruct.getKey_metadata();
+                                columnPath = ColumnPath.get(pathList.toArray(new String[pathList.size()]));
+                                metaData = decryptMetadata(rowGroup, columnKeyMetadata, columnChunk, fileDecryptor.get(), columnOrdinal, columnPath);
                             }
                             catch (KeyAccessDeniedException e) {
-                                ColumnChunkMetaData column = new HiddenColumnChunkMetaData(columnPath, filePath);
-                                blockMetaData.addColumn(column);
+                                if (readMaskedValue) {
+                                    maskedColumns.add(columnPath);
+                                }
+                                else {
+                                    ColumnChunkMetaData column = new HiddenColumnChunkMetaData(columnPath, filePath);
+                                    blockMetaData.addColumn(column);
+                                }
                                 continue;
                             }
                         }
@@ -254,16 +264,17 @@ public final class MetadataReader
                 keyValueMetaData.put(keyValue.key, keyValue.value);
             }
         }
+
+        if (readMaskedValue) {
+            messageType = removeColumnsInSchema(messageType, maskedColumns);
+        }
+
         ParquetMetadata parquetMetadata = new ParquetMetadata(new org.apache.parquet.hadoop.metadata.FileMetaData(messageType, keyValueMetaData, fileMetaData.getCreated_by()), blocks);
         return new ParquetFileMetadata(parquetMetadata, toIntExact(metadataLength), modificationTime);
     }
 
-    private static ColumnMetaData decryptMetadata(RowGroup rowGroup, ColumnCryptoMetaData cryptoMetaData, ColumnChunk columnChunk, InternalFileDecryptor fileDecryptor, int columnOrdinal)
+    private static ColumnMetaData decryptMetadata(RowGroup rowGroup, byte[] columnKeyMetadata, ColumnChunk columnChunk, InternalFileDecryptor fileDecryptor, int columnOrdinal, ColumnPath columnPath)
     {
-        EncryptionWithColumnKey columnKeyStruct = cryptoMetaData.getENCRYPTION_WITH_COLUMN_KEY();
-        List<String> pathList = columnKeyStruct.getPath_in_schema();
-        byte[] columnKeyMetadata = columnKeyStruct.getKey_metadata();
-        ColumnPath columnPath = ColumnPath.get(pathList.toArray(new String[pathList.size()]));
         byte[] encryptedMetadataBuffer = columnChunk.getEncrypted_column_metadata();
 
         // Decrypt the ColumnMetaData
@@ -470,10 +481,11 @@ public final class MetadataReader
             long fileSize,
             boolean cacheable,
             long modificationTime,
-            Optional<InternalFileDecryptor> fileDecryptor)
+            Optional<InternalFileDecryptor> fileDecryptor,
+            boolean readMaskedValue)
             throws IOException
     {
-        return readFooter(parquetDataSource, fileSize, modificationTime, fileDecryptor);
+        return readFooter(parquetDataSource, fileSize, modificationTime, fileDecryptor, readMaskedValue);
     }
 
     private static IndexReference toColumnIndexReference(ColumnChunk columnChunk)

@@ -112,6 +112,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcMaxRead
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStreamBufferSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.getReadNullMaskedParquetEncryptedValue;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isOrcZstdJniDecompressionEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
@@ -182,6 +183,7 @@ public class IcebergPageSourceProvider
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
         String user = session.getUser();
+        boolean readMaskedValue = getReadNullMaskedParquetEncryptedValue(session);
 
         ParquetDataSource dataSource = null;
         try {
@@ -203,7 +205,7 @@ public class IcebergPageSourceProvider
             final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, fileFormatDataSourceStats);
             dataSource = parquetDataSource;
             Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor, readMaskedValue).getParquetMetadata());
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

@@ -220,6 +220,7 @@ public class HiveClientConfig
     private boolean fileSplittable = true;
     private Protocol thriftProtocol = Protocol.BINARY;
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
+    private boolean isReadNullMaskedParquetEncryptedValueEnabled;
 
     private boolean copyOnFirstWriteConfigurationEnabled = true;
 
@@ -1884,5 +1885,18 @@ public class HiveClientConfig
     {
         this.partitionFilteringFromMetastoreEnabled = partitionFilteringFromMetastoreEnabled;
         return this;
+    }
+
+    @Config("hive.read-null-masked-parquet-encrypted-value-enabled")
+    @ConfigDescription("Read null masked value when access is denied for an encrypted parquet column")
+    public HiveClientConfig setReadNullMaskedParquetEncryptedValue(boolean isReadNullMaskedParquetEncryptedValueEnabled)
+    {
+        this.isReadNullMaskedParquetEncryptedValueEnabled = isReadNullMaskedParquetEncryptedValueEnabled;
+        return this;
+    }
+
+    public boolean getReadNullMaskedParquetEncryptedValue()
+    {
+        return this.isReadNullMaskedParquetEncryptedValueEnabled;
     }
 }
