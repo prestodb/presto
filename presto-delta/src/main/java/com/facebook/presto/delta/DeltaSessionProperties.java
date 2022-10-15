@@ -34,6 +34,7 @@ public final class DeltaSessionProperties
     private static final String PARQUET_BATCH_READ_OPTIMIZATION_ENABLED = "parquet_batch_read_optimization_enabled";
     private static final String PARQUET_BATCH_READER_VERIFICATION_ENABLED = "parquet_batch_reader_verification_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -68,6 +69,11 @@ public final class DeltaSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         deltaConfigConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        READ_MASKED_VALUE_ENABLED,
+                        "Return null when access is denied for an encrypted parquet column",
+                        hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
                         false));
     }
 
@@ -99,5 +105,10 @@ public final class DeltaSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
+    {
+        return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
     }
 }

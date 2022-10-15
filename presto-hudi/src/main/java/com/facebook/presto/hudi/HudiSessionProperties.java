@@ -46,6 +46,7 @@ public class HudiSessionProperties
     private static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     private static final String STANDARD_SPLIT_WEIGHT_SIZE = "standard_split_weight_size";
     private static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
+    public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
 
     @Inject
     public HudiSessionProperties(HiveClientConfig hiveClientConfig, HudiConfig hudiConfig)
@@ -101,7 +102,12 @@ public class HudiSessionProperties
                             }
                             return doubleValue;
                         },
-                        value -> value));
+                        value -> value),
+                booleanProperty(
+                        READ_MASKED_VALUE_ENABLED,
+                        "Return null when access is denied for an encrypted parquet column",
+                        hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -142,5 +148,10 @@ public class HudiSessionProperties
     public static double getMinimumAssignedSplitWeight(ConnectorSession session)
     {
         return session.getProperty(MINIMUM_ASSIGNED_SPLIT_WEIGHT, Double.class);
+    }
+
+    public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
+    {
+        return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
     }
 }
