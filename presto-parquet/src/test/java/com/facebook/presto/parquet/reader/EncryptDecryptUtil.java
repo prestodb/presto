@@ -16,6 +16,7 @@ import org.apache.parquet.crypto.ColumnEncryptionProperties;
 import org.apache.parquet.crypto.DecryptionKeyRetriever;
 import org.apache.parquet.crypto.FileDecryptionProperties;
 import org.apache.parquet.crypto.FileEncryptionProperties;
+import org.apache.parquet.crypto.KeyAccessDeniedException;
 import org.apache.parquet.crypto.ParquetCipher;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 
@@ -45,39 +46,49 @@ public class EncryptDecryptUtil
         public byte[] getKey(byte[] keyMetaData)
         {
             String keyId = new String(keyMetaData, StandardCharsets.UTF_8);
+            if (COL_KEY_MASKING_TEST_METADATA.equals(new String(keyMetaData))) {
+                throw new KeyAccessDeniedException();
+            }
             return keyMap.get(keyId);
         }
     }
 
     private static final String FOOTER_KEY_METADATA = "footkey";
     private static final String COL_KEY_METADATA = "col";
+    private static final String COL_KEY_MASKING_TEST_METADATA = "col_access_deny_for_decryption";
     private static final byte[] FOOTER_KEY = {0x01, 0x02, 0x03, 0x4, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
             0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10};
     private static final byte[] FOOTER_KEY_METADATA_BYTES = FOOTER_KEY_METADATA.getBytes(StandardCharsets.UTF_8);
     private static final byte[] COL_KEY = {0x02, 0x03, 0x4, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
             0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11};
+    private static final byte[] COL_KEY_ACCESS_DENY_FOR_DECRYPTION = {0x03, 0x4, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b,
+            0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12};
+
     private static final byte[] COL_KEY_METADATA_BYTES = COL_KEY_METADATA.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] COL_KEY_MASKING_TEST_METADATA_BYTES = COL_KEY_MASKING_TEST_METADATA.getBytes(StandardCharsets.UTF_8);
 
     public static FileDecryptionProperties getFileDecryptionProperties()
     {
         DecryptionKeyRetrieverMock keyRetriever = new DecryptionKeyRetrieverMock();
-        keyRetriever.putKey("footkey", FOOTER_KEY);
-        keyRetriever.putKey("col", COL_KEY);
+        keyRetriever.putKey(FOOTER_KEY_METADATA, FOOTER_KEY);
+        keyRetriever.putKey(COL_KEY_METADATA, COL_KEY);
+        keyRetriever.putKey(COL_KEY_MASKING_TEST_METADATA, COL_KEY_ACCESS_DENY_FOR_DECRYPTION);
         return FileDecryptionProperties.builder().withPlaintextFilesAllowed().withKeyRetriever(keyRetriever).build();
     }
 
-    public static FileEncryptionProperties getFileEncryptionProperties(List<String> encryptColumns, ParquetCipher cipher, Boolean encryptFooter)
+    public static FileEncryptionProperties getFileEncryptionProperties(List<String> encryptColumns, ParquetCipher cipher, Boolean encryptFooter, Boolean dataMaskingTest)
     {
         if (encryptColumns.size() == 0) {
             return null;
         }
 
         Map<ColumnPath, ColumnEncryptionProperties> columnPropertyMap = new HashMap<>();
+        byte[] keyMetaData = dataMaskingTest ? COL_KEY_MASKING_TEST_METADATA_BYTES : COL_KEY_METADATA_BYTES;
         for (String encryptColumn : encryptColumns) {
             ColumnPath columnPath = ColumnPath.fromDotString(encryptColumn);
             ColumnEncryptionProperties columnEncryptionProperties = ColumnEncryptionProperties.builder(columnPath)
                     .withKey(COL_KEY)
-                    .withKeyMetaData(COL_KEY_METADATA_BYTES)
+                    .withKeyMetaData(keyMetaData)
                     .build();
             columnPropertyMap.put(columnPath, columnEncryptionProperties);
         }
