@@ -147,25 +147,34 @@ void StringColumnReader::getValues(RowSet rows, VectorPtr* result) {
 }
 
 void StringColumnReader::dedictionarize() {
-  auto dict = formatData_->as<ParquetData>()
-                  .dictionaryValues()
-                  ->as<FlatVector<StringView>>();
-  auto indicesBuffer = std::move(values_);
-  auto indices = reinterpret_cast<const vector_size_t*>(rawValues_);
-  rawValues_ = nullptr;
-  auto numValues = numValues_;
-  numValues_ = 0;
-  scanState_.clear();
-  rawStringBuffer_ = nullptr;
-  rawStringSize_ = 0;
-  rawStringUsed_ = 0;
-  for (auto i = 0; i < numValues; ++i) {
-    if (anyNulls_ && bits::isBitNull(rawResultNulls_, i)) {
-      ++numValues_;
-      continue;
+  if (scanSpec_->keepValues()) {
+    auto dict = formatData_->as<ParquetData>()
+                    .dictionaryValues()
+                    ->as<FlatVector<StringView>>();
+    auto valuesCapacity = values_->capacity();
+    auto indices = values_->as<vector_size_t>();
+    // 'values_' is sized for the batch worth of StringViews. It is filled with
+    // 32 bit indices by dictionary scan.
+    VELOX_CHECK_GE(valuesCapacity, numValues_ * sizeof(StringView));
+    stringBuffers_.clear();
+    rawStringBuffer_ = nullptr;
+    rawStringSize_ = 0;
+    rawStringUsed_ = 0;
+    auto numValues = numValues_;
+    // Convert indices to values in place. Loop from end to beginning
+    // so as not to overwrite integer indices with longer StringViews.
+    for (auto i = numValues - 1; i >= 0; --i) {
+      if (anyNulls_ && bits::isBitNull(rawResultNulls_, i)) {
+        reinterpret_cast<StringView*>(rawValues_)[i] = StringView();
+        continue;
+      }
+      auto& view = dict->valueAt(indices[i]);
+      numValues_ = i;
+      addStringValue(folly::StringPiece(view.data(), view.size()));
     }
-    auto& view = dict->valueAt(indices[i]);
-    addStringValue(folly::StringPiece(view.data(), view.size()));
+    numValues_ = numValues;
   }
+  scanState_.clear();
+  formatData_->as<ParquetData>().clearDictionary();
 }
 } // namespace facebook::velox::parquet

@@ -602,6 +602,7 @@ void PageReader::startVisit(folly::Range<const vector_size_t*> rows) {
 bool PageReader::rowsForPage(
     dwio::common::SelectiveColumnReader& reader,
     bool hasFilter,
+    bool mayProduceNulls,
     folly::Range<const vector_size_t*>& rows,
     const uint64_t* FOLLY_NULLABLE& nulls) {
   if (currentVisitorRow_ == numVisitorRows_) {
@@ -625,7 +626,18 @@ bool PageReader::rowsForPage(
     }
   } else {
     if (scanState.dictionary.values) {
+      // If there are previous pages in the current read, nulls read
+      // from them are in 'nullConcatenation_' Put this into the
+      // reader for the time of dedictionarizing so we don't read
+      // undefined dictionary indices.
+      if (mayProduceNulls && reader.numValues()) {
+        reader.setNulls(nullConcatenation_.buffer());
+      }
       reader.dedictionarize();
+      // The nulls across all pages are in nullConcatenation_. Clear
+      // the nulls and let the prepareNulls below reserve nulls for
+      // the new page.
+      reader.setNulls(nullptr);
       scanState.dictionary.clear();
     }
   }

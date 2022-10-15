@@ -43,7 +43,7 @@ class E2EFilterTest : public E2EFilterTestBase {
     sinkPtr_ = sink.get();
 
     writer_ = std::make_unique<facebook::velox::parquet::Writer>(
-        std::move(sink), *pool_, 10000, writerProperties_);
+        std::move(sink), *pool_, rowGroupSize_, writerProperties_);
     for (auto& batch : batches) {
       writer_->write(batch);
     }
@@ -58,6 +58,7 @@ class E2EFilterTest : public E2EFilterTestBase {
 
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
   std::shared_ptr<::parquet::WriterProperties> writerProperties_;
+  int32_t rowGroupSize_{10000};
 };
 
 TEST_F(E2EFilterTest, writerMagic) {
@@ -351,6 +352,26 @@ TEST_F(E2EFilterTest, stringDictionary) {
       },
       false,
       {"string_val", "string_val_2"},
+      20,
+      true);
+}
+
+TEST_F(E2EFilterTest, dedictionarize) {
+  writerProperties_ = ::parquet::WriterProperties::Builder()
+                          .max_row_group_length(10000000)
+                          ->dictionary_pagesize_limit(20000)
+                          ->build();
+
+  testWithTypes(
+      "long_val: bigint,"
+      "string_val:string,"
+      "string_val_2:string",
+      [&]() {
+        makeStringDistribution(Subfield("string_val"), 10000000, true, false);
+        makeStringDistribution(Subfield("string_val_2"), 1700000, false, true);
+      },
+      false,
+      {"long_val", "string_val", "string_val_2"},
       20,
       true);
 }

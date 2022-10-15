@@ -122,6 +122,10 @@ class ParquetData : public dwio::common::FormatData {
     return reader_->dictionaryValues();
   }
 
+  void clearDictionary() {
+    reader_->clearDictionary();
+  }
+
   bool hasDictionary() const {
     return reader_->isDictionary();
   }

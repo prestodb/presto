@@ -76,6 +76,11 @@ class PageReader {
         encoding_ == thrift::Encoding::RLE_DICTIONARY;
   }
 
+  void clearDictionary() {
+    dictionary_.clear();
+    dictionaryValues_.reset();
+  }
+
  private:
   // If the current page has nulls, returns a nulls bitmap owned by 'this'. This
   // is filled for 'numRows' bits.
@@ -142,12 +147,17 @@ class PageReader {
   // current page. The numbers in rowsForPage are relative to the
   // first unprocessed value on the page, for a new page 0 means the
   // first value. Reads possible nulls and sets 'reader's
-  // nullsInReadRange_' to that or to nullptr if no null flags. Returns the data
-  // of nullsInReadRange in 'nulls'. Copies dictionary information into
-  // 'reader'. If 'hasFilter' is true, sets up dictionary hit cache.
+  // nullsInReadRange_' to that or to nullptr if no null
+  // flags. Returns the data of nullsInReadRange in 'nulls'. Copies
+  // dictionary information into 'reader'. If 'hasFilter' is true,
+  // sets up dictionary hit cache. If the new page is direct and
+  // previous pages are dictionary, converts any accumulated results
+  // into flat. 'mayProduceNulls' should be true if nulls may occur in
+  // the result if they occur in the data.
   bool rowsForPage(
       dwio::common::SelectiveColumnReader& reader,
       bool hasFilter,
+      bool mayProduceNulls,
       folly::Range<const vector_size_t*>& rows,
       const uint64_t* FOLLY_NULLABLE& nulls);
 
@@ -335,7 +345,7 @@ void PageReader::readWithVisitor(Visitor& visitor) {
   folly::Range<const vector_size_t*> pageRows;
   const uint64_t* nulls = nullptr;
   bool isMultiPage = false;
-  while (rowsForPage(reader, hasFilter, pageRows, nulls)) {
+  while (rowsForPage(reader, hasFilter, mayProduceNulls, pageRows, nulls)) {
     bool nullsFromFastPath = false;
     int32_t numValuesBeforePage = numRowsInReader<hasFilter>(reader);
     visitor.setNumValuesBias(numValuesBeforePage);
