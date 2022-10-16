@@ -14,6 +14,7 @@
 
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Utils;
@@ -22,17 +23,12 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.parquet.ParquetPageSource;
-import com.facebook.presto.memory.context.AggregatedMemoryContext;
 import com.facebook.presto.parquet.Field;
-import com.facebook.presto.parquet.ParquetCorruptionException;
-import com.facebook.presto.parquet.ParquetDataSource;
+import com.facebook.presto.parquet.ParquetPageSource;
+import com.facebook.presto.parquet.ParquetPageSourceProvider.PageSourceCommons;
 import com.facebook.presto.parquet.RichColumnDescriptor;
-import com.facebook.presto.parquet.cache.MetadataReader;
-import com.facebook.presto.parquet.predicate.Predicate;
 import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -42,21 +38,13 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
+import com.facebook.presto.spi.TableFormatColumnHandle;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.DataSize;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.security.AccessControlException;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.crypto.InternalFileDecryptor;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
-import org.apache.parquet.hadoop.metadata.FileMetaData;
-import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
@@ -64,9 +52,6 @@ import org.apache.parquet.schema.MessageType;
 
 import javax.inject.Inject;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,32 +62,19 @@ import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.SUBFIELD;
 import static com.facebook.presto.delta.DeltaColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaColumnHandle.isPushedDownSubfield;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
 import static com.facebook.presto.delta.DeltaSessionProperties.getParquetMaxReadBlockSize;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReaderVerificationEnabled;
 import static com.facebook.presto.delta.DeltaSessionProperties.isParquetBatchReadsEnabled;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
-import static com.facebook.presto.hive.parquet.HdfsParquetDataSource.buildHdfsParquetDataSource;
 import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.checkSchemaMatch;
-import static com.facebook.presto.hive.parquet.ParquetPageSourceFactory.createDecryptor;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static com.facebook.presto.parquet.ParquetPageSourceProvider.createCommonParquetPageSource;
 import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
-import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
-import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
-import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
-import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
-import static com.facebook.presto.parquet.reader.ColumnIndexFilterUtils.getColumnIndexStore;
-import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -155,14 +127,13 @@ public class DeltaPageSourceProvider
                 .filter(columnHandle -> columnHandle.getColumnType() != PARTITION)
                 .collect(Collectors.toList());
 
-        ConnectorPageSource dataPageSource = createParquetPageSource(
+        ConnectorPageSource dataPageSource = createCommonParquetPageSource(
                 hdfsEnvironment,
                 session.getUser(),
                 hdfsEnvironment.getConfiguration(hdfsContext, filePath),
                 filePath,
                 deltaSplit.getStart(),
                 deltaSplit.getLength(),
-                deltaSplit.getFileSize(),
                 regularColumnHandles,
                 deltaTableHandle.toSchemaTableName(),
                 getParquetMaxReadBlockSize(session),
@@ -171,7 +142,10 @@ public class DeltaPageSourceProvider
                 typeManager,
                 deltaTableLayoutHandle.getPredicate(),
                 fileFormatDataSourceStats,
-                false);
+                false,
+                new DeltaPageSourceCommons(),
+                false,
+                new RuntimeStats());
 
         return new DeltaPageSource(
                 deltaColumnHandles,
@@ -199,90 +173,37 @@ public class DeltaPageSourceProvider
                         }));
     }
 
-    private static ConnectorPageSource createParquetPageSource(
-            HdfsEnvironment hdfsEnvironment,
-            String user,
-            Configuration configuration,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
-            List<DeltaColumnHandle> columns,
-            SchemaTableName tableName,
-            DataSize maxReadBlockSize,
-            boolean batchReaderEnabled,
-            boolean verificationEnabled,
-            TypeManager typeManager,
-            TupleDomain<DeltaColumnHandle> effectivePredicate,
-            FileFormatDataSourceStats stats,
-            boolean columnIndexFilterEnabled)
+    static class DeltaPageSourceCommons
+            extends PageSourceCommons
     {
-        AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
+        public Optional<List<org.apache.parquet.schema.Type>> getParquetFields(
+                List<? extends TableFormatColumnHandle> columns,
+                TypeManager typeManager,
+                MessageType fileSchema,
+                SchemaTableName tableName,
+                Path path)
+        {
+            //Delta doesn't use columnID
+            return Optional.empty();
+        }
 
-        ParquetDataSource dataSource = null;
-        try {
-            FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).open(path);
-            // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
-            final ParquetDataSource parquetDataSource = buildHdfsParquetDataSource(inputStream, path, stats);
-            dataSource = parquetDataSource;
-            Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
-            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(parquetDataSource, fileSize, fileDecryptor).getParquetMetadata());
-            FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
-            MessageType fileSchema = fileMetaData.getSchema();
-
-            Optional<MessageType> message = columns.stream()
-                    .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))
-                    .map(column -> getColumnType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .map(type -> new MessageType(fileSchema.getName(), type))
-                    .reduce(MessageType::union);
-
-            MessageType requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
-
-            ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
-            for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
-                if (firstIndex.isPresent()) {
-                    long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
-                    if (firstDataPage >= start && firstDataPage < start + length) {
-                        footerBlocks.add(block);
-                    }
-                }
-            }
-
-            Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
-            final ParquetDataSource finalDataSource = dataSource;
-            ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
-            List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
-            for (BlockMetaData block : footerBlocks.build()) {
-                Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, columnIndexFilterEnabled);
-                if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, columnIndexFilterEnabled)) {
-                    blocks.add(block);
-                    blockIndexStores.add(columnIndexStore.orElse(null));
-                }
-            }
-            MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = new ParquetReader(
-                    messageColumnIO,
-                    blocks.build(),
-                    Optional.empty(),
-                    dataSource,
-                    systemMemoryContext,
-                    maxReadBlockSize,
-                    batchReaderEnabled,
-                    verificationEnabled,
-                    parquetPredicate,
-                    blockIndexStores,
-                    columnIndexFilterEnabled,
-                    fileDecryptor);
-
+        public ParquetPageSource getPageSource(
+                ParquetReader parquetReader,
+                List<? extends TableFormatColumnHandle> columns,
+                MessageColumnIO messageColumnIO,
+                MessageType fileSchema,
+                SchemaTableName tableName,
+                Path path,
+                TypeManager typeManager,
+                Optional<List<org.apache.parquet.schema.Type>> parquetFields,
+                boolean useParquetColumnNames,
+                RuntimeStats runtimeStats)
+        {
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
-            for (DeltaColumnHandle column : columns) {
+            for (ColumnHandle commonColumn : columns) {
+                DeltaColumnHandle column = (DeltaColumnHandle) commonColumn;
                 checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SUBFIELD,
                         "column type must be regular or subfield column");
 
@@ -310,62 +231,59 @@ public class DeltaPageSourceProvider
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), new RuntimeStats());
+            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), runtimeStats);
         }
-        catch (Exception exception) {
-            try {
-                if (dataSource != null) {
-                    dataSource.close();
+
+        public MessageType getRequestedSchema(
+                List<? extends TableFormatColumnHandle> columns,
+                TypeManager typeManager,
+                MessageType fileSchema,
+                SchemaTableName tableName,
+                Path path,
+                Optional<List<org.apache.parquet.schema.Type>> parquetFields,
+                boolean useParquetColumnNames)
+        {
+            Optional<MessageType> message = columns.stream()
+                    .filter(column -> ((DeltaColumnHandle) column).getColumnType() == REGULAR || isPushedDownSubfield(((DeltaColumnHandle) column)))
+                    .map(column -> getColumnType(typeManager.getType(((DeltaColumnHandle) column).getDataType()), fileSchema, ((DeltaColumnHandle) column), tableName, path))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(type -> new MessageType(fileSchema.getName(), type))
+                    .reduce(MessageType::union);
+
+            return message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
+        }
+
+        @Override
+        public TupleDomain<ColumnDescriptor> getParquetTupleDomain(
+                Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+                TupleDomain<? extends TableFormatColumnHandle> effectivePredicate)
+        {
+            if (effectivePredicate.isNone()) {
+                return TupleDomain.none();
+            }
+
+            ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
+            for (Map.Entry<? extends ColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
+                DeltaColumnHandle columnHandle = (DeltaColumnHandle) entry.getKey();
+
+                RichColumnDescriptor descriptor;
+
+                if (isPushedDownSubfield(columnHandle)) {
+                    Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
+                    List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
+                    descriptor = descriptorsByPath.get(subfieldPath);
+                }
+                else {
+                    descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
+                }
+
+                if (descriptor != null) {
+                    predicate.put(descriptor, entry.getValue());
                 }
             }
-            catch (IOException ignored) {
-            }
-            if (exception instanceof PrestoException) {
-                throw (PrestoException) exception;
-            }
-            if (exception instanceof ParquetCorruptionException) {
-                throw new PrestoException(DELTA_BAD_DATA, exception);
-            }
-            if (exception instanceof AccessControlException) {
-                throw new PrestoException(PERMISSION_DENIED, exception.getMessage(), exception);
-            }
-            if (nullToEmpty(exception.getMessage()).trim().equals("Filesystem closed") || exception instanceof FileNotFoundException) {
-                throw new PrestoException(DELTA_CANNOT_OPEN_SPLIT, exception);
-            }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, exception.getMessage());
-            if (exception.getClass().getSimpleName().equals("BlockMissingException")) {
-                throw new PrestoException(DELTA_MISSING_DATA, message, exception);
-            }
-            throw new PrestoException(DELTA_CANNOT_OPEN_SPLIT, message, exception);
+            return TupleDomain.withColumnDomains(predicate.build());
         }
-    }
-
-    public static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<DeltaColumnHandle> effectivePredicate)
-    {
-        if (effectivePredicate.isNone()) {
-            return TupleDomain.none();
-        }
-
-        ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
-        for (Map.Entry<DeltaColumnHandle, Domain> entry : effectivePredicate.getDomains().get().entrySet()) {
-            DeltaColumnHandle columnHandle = entry.getKey();
-
-            RichColumnDescriptor descriptor;
-
-            if (isPushedDownSubfield(columnHandle)) {
-                Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
-                List<String> subfieldPath = columnPathFromSubfield(pushedDownSubfield);
-                descriptor = descriptorsByPath.get(subfieldPath);
-            }
-            else {
-                descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
-            }
-
-            if (descriptor != null) {
-                predicate.put(descriptor, entry.getValue());
-            }
-        }
-        return TupleDomain.withColumnDomains(predicate.build());
     }
 
     public static Optional<org.apache.parquet.schema.Type> getParquetType(

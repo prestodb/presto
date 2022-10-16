@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
-import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.orc.OrcAggregatedMemoryContext;
 import com.facebook.presto.orc.OrcCorruptionException;
 import com.facebook.presto.orc.OrcDataSource;
