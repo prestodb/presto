@@ -15,9 +15,9 @@ package com.facebook.presto.server;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
-import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.QueryId;

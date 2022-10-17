@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.warnings;
 
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCode;
