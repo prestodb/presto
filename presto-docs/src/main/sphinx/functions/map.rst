@@ -67,6 +67,16 @@ Map Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
+.. function:: map_subset(map(K,V), array(k)) -> map(K,V)
+
+    Constructs a map from those entries of ``map`` for which the key is in the array given::
+
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[10]); -- {}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[1]); -- {1->'a'}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[1,3]); -- {1->'a'}
+        SELECT map_subset(MAP(ARRAY[1,2], ARRAY['a','b']), ARRAY[]); -- {}
+        SELECT map_subset(MAP(ARRAY[], ARRAY[]), ARRAY[1,2]); -- {}
+
 .. function:: map_keys(x(K,V)) -> array(K)
 
     Returns all the keys in the map ``x``.
