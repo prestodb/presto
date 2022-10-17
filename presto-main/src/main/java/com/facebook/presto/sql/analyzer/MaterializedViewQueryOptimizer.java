@@ -99,11 +99,11 @@ import static com.facebook.presto.sql.MaterializedViewUtils.ASSOCIATIVE_REWRITE_
 import static com.facebook.presto.sql.MaterializedViewUtils.COUNT;
 import static com.facebook.presto.sql.MaterializedViewUtils.NON_ASSOCIATIVE_REWRITE_FUNCTIONS;
 import static com.facebook.presto.sql.MaterializedViewUtils.SUM;
-import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.relational.Expressions.call;
+import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
