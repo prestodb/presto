@@ -248,6 +248,7 @@ public final class SystemSessionProperties
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
+    public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1409,6 +1410,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
                         "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
                         featuresConfig.isOptimizeConditionalAggregationEnabled(),
+                        false),
+                booleanProperty(
+                        REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED,
+                        "Enable removing distinct aggregation node if input is already distinct",
+                        featuresConfig.isRemoveRedundantDistinctAggregationEnabled(),
                         false));
     }
 
@@ -2358,5 +2364,10 @@ public final class SystemSessionProperties
     public static boolean isOptimizeConditionalAggregationEnabled(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRemoveRedundantDistinctAggregationEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED, Boolean.class);
     }
 }

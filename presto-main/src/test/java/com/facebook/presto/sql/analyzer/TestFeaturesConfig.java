@@ -211,7 +211,8 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(false)
                 .setNativeExecutionExecutablePath("./presto_server")
                 .setRandomizeOuterJoinNullKeyEnabled(false)
-                .setOptimizeConditionalAggregationEnabled(false));
+                .setOptimizeConditionalAggregationEnabled(false)
+                .setRemoveRedundantDistinctAggregationEnabled(true));
     }
 
     @Test
@@ -372,6 +373,7 @@ public class TestFeaturesConfig
                 .put("native-execution-executable-path", "/bin/echo")
                 .put("optimizer.randomize-outer-join-null-key", "true")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
+                .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -529,7 +531,8 @@ public class TestFeaturesConfig
                 .setNativeExecutionEnabled(true)
                 .setNativeExecutionExecutablePath("/bin/echo")
                 .setRandomizeOuterJoinNullKeyEnabled(true)
-                .setOptimizeConditionalAggregationEnabled(true);
+                .setOptimizeConditionalAggregationEnabled(true)
+                .setRemoveRedundantDistinctAggregationEnabled(false);
         assertFullMapping(properties, expected);
     }
 
