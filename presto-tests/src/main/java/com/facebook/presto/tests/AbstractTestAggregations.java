@@ -1364,6 +1364,17 @@ public abstract class AbstractTestAggregations
                 "SELECT 15000, 15000");
     }
 
+    @Test
+    public void testRemoveRedundantDistinctOverGroupBy()
+    {
+        String trigger = "SELECT DISTINCT suppkey, COUNT(*) FROM lineitem GROUP BY suppkey";
+        assertQuery(trigger, trigger);
+
+        String doNotTrigger = "SELECT DISTINCT suppkey, cnt FROM (SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey " +
+                "UNION ALL SELECT suppkey, COUNT(*) AS cnt FROM lineitem GROUP BY suppkey) order by 1, 2";
+        assertQuery(doNotTrigger, doNotTrigger);
+    }
+
     @DataProvider(name = "getType")
     protected Object[][] getDigests()
     {
