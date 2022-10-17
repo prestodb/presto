@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.276.2</version>
+        <version>0.276.3-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-spark-common</artifactId>
