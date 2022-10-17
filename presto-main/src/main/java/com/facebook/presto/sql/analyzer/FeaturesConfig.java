@@ -219,6 +219,7 @@ public class FeaturesConfig
     private boolean queryOptimizationWithMaterializedViewEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
+    private AnalyzerType analyzerType = AnalyzerType.BUILTIN;
     private boolean verboseRuntimeStatsEnabled;
     private boolean hashBasedDistinctLimitEnabled;
     private int hashBasedDistinctLimitThreshold = 10000;
@@ -320,6 +321,12 @@ public class FeaturesConfig
         FILTER_WITH_IF, // Rewrites AGG(IF(condition, expr)) to AGG(IF(condition, expr)) FILTER (WHERE condition).
         UNWRAP_IF_SAFE, // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition) if it is safe to do so.
         UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
+    }
+
+    public enum AnalyzerType
+    {
+        BUILTIN,
+        NATIVE
     }
 
     public double getCpuCostWeight()
@@ -2063,6 +2070,19 @@ public class FeaturesConfig
     public FeaturesConfig setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy strategy)
     {
         this.aggregationIfToFilterRewriteStrategy = strategy;
+        return this;
+    }
+
+    public AnalyzerType getAnalyzerType()
+    {
+        return analyzerType;
+    }
+
+    @Config("analyzer-type")
+    @ConfigDescription("Set the analyzer type for parsing and analyzing.")
+    public FeaturesConfig setAnalyzerType(AnalyzerType analyzerType)
+    {
+        this.analyzerType = analyzerType;
         return this;
     }
 
