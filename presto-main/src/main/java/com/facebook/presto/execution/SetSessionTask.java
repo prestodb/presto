@@ -32,9 +32,9 @@ import java.util.List;
 
 import static com.facebook.presto.metadata.SessionPropertyManager.evaluatePropertyValue;
 import static com.facebook.presto.metadata.SessionPropertyManager.serializeSessionProperty;
-import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.String.format;
 
