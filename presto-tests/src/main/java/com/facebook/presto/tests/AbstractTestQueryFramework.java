@@ -85,6 +85,16 @@ public abstract class AbstractTestQueryFramework
         sqlParser = new SqlParser();
     }
 
+    public void setQueryRunner(QueryRunner queryRunnerArg)
+    {
+        queryRunner = queryRunnerArg;
+    }
+
+    public void setExpectedQueryRunner(ExpectedQueryRunner expectedQueryRunnerArg)
+    {
+        expectedQueryRunner = expectedQueryRunnerArg;
+    }
+
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
 
@@ -482,6 +492,12 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
+    }
+
+    protected ExpectedQueryRunner getExpectedQueryRunner()
+    {
+        checkState(expectedQueryRunner != null, "expectedQueryRunner not set");
+        return expectedQueryRunner;
     }
 
     public interface QueryRunnerSupplier
