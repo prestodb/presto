@@ -53,9 +53,9 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUME
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_DEFINITION;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
-import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PROCEDURE_ARGUMENTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_CATALOG;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Throwables.throwIfInstanceOf;

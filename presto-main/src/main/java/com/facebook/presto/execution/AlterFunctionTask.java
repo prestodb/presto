@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.FunctionAndTypeManager.qualifyObjectName;
-import static com.facebook.presto.sql.ParameterUtils.parameterExtractor;
+import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.Objects.requireNonNull;
