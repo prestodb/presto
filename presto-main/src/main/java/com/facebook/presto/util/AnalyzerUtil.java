@@ -11,21 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql;
+package com.facebook.presto.util;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
+import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
+import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static com.facebook.presto.util.Failures.checkCondition;
 
-public class ParsingUtil
+public class AnalyzerUtil
 {
-    private ParsingUtil() {}
+    private AnalyzerUtil() {}
 
     public static ParsingOptions createParsingOptions(Session session)
     {
@@ -38,5 +43,28 @@ public class ParsingUtil
                 .setDecimalLiteralTreatment(isParseDecimalLiteralsAsDouble(session) ? AS_DOUBLE : AS_DECIMAL)
                 .setWarningConsumer(warning -> warningCollector.add(new PrestoWarning(PARSER_WARNING, warning.getMessage())))
                 .build();
+    }
+
+    public static AnalyzerOptions createAnalzerOptions(Session sesssion)
+    {
+        return createAnalzerOptions(sesssion, WarningCollector.NOOP);
+    }
+
+    public static AnalyzerOptions createAnalzerOptions(Session session, WarningCollector warningCollector)
+    {
+        ParsingOptions parsingOptions = createParsingOptions(session, warningCollector);
+        return AnalyzerOptions.builder()
+                .setParsingOptions(parsingOptions)
+                .setPreparedStatements(session.getPreparedStatements())
+                .setLogFormattedQueryEnabled(isLogFormattedQueryEnabled(session))
+                .setWarningHandlingLevel(getWarningHandlingLevel(session))
+                .build();
+    }
+
+    public String getPreparedStatement(AnalyzerOptions analyzerOptions, String preparedStatementName)
+    {
+        String query = analyzerOptions.getPreparedStatements().get(preparedStatementName);
+        checkCondition(query != null, NOT_FOUND, "Prepared statement not found: " + preparedStatementName);
+        return query;
     }
 }

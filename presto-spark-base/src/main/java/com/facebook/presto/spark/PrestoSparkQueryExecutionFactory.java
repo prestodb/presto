@@ -99,6 +99,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.storage.StorageCapabilities;
 import com.facebook.presto.spi.storage.TempDataOperationContext;
 import com.facebook.presto.spi.storage.TempStorage;
+import com.facebook.presto.sql.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
@@ -197,6 +198,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BRO
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textDistributedPlan;
+import static com.facebook.presto.util.AnalyzerUtil.createAnalzerOptions;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -437,7 +439,8 @@ public class PrestoSparkQueryExecutionFactory
 
             queryStateTimer.beginAnalyzing();
 
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, sql, warningCollector);
+            AnalyzerOptions analyzerOptions = createAnalzerOptions(session, warningCollector);
+            PreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, sql, warningCollector);
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
             if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION)) {
                 queryStateTimer.endAnalysis();
