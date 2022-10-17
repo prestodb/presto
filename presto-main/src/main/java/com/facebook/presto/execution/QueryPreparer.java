@@ -36,13 +36,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.WarningHandlingLevel.AS_ERROR;
-import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

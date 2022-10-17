@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql;
+package com.facebook.presto.sql.analyzer.utils;
 
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.NodeLocation;
@@ -25,7 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-import static com.facebook.presto.execution.ParameterExtractor.getParameters;
+import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameters;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class ParameterUtils
