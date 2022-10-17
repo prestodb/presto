@@ -73,21 +73,38 @@ SubstraitVeloxExprConverter::toVeloxExpr(
     case ::substrait::Expression_Literal::LiteralTypeCase::kBoolean:
       return std::make_shared<core::ConstantTypedExpr>(
           variant(substraitLit.boolean()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI8:
+      // SubstraitLit.i8() will return int32, so we need this type conversion.
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(static_cast<int8_t>(substraitLit.i8())));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kI16:
+      // SubstraitLit.i16() will return int32, so we need this type conversion.
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(static_cast<int16_t>(substraitLit.i16())));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI32:
       return std::make_shared<core::ConstantTypedExpr>(
           variant(substraitLit.i32()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kFp32:
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.fp32()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kI64:
       return std::make_shared<core::ConstantTypedExpr>(
           variant(substraitLit.i64()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kFp64:
       return std::make_shared<core::ConstantTypedExpr>(
           variant(substraitLit.fp64()));
+    case ::substrait::Expression_Literal::LiteralTypeCase::kString:
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.string()));
     case ::substrait::Expression_Literal::LiteralTypeCase::kNull: {
       auto veloxType =
           toVeloxType(substraitParser_.parseType(substraitLit.null())->type);
       return std::make_shared<core::ConstantTypedExpr>(
           veloxType, variant::null(veloxType->kind()));
     }
+    case ::substrait::Expression_Literal::LiteralTypeCase::kVarChar:
+      return std::make_shared<core::ConstantTypedExpr>(
+          variant(substraitLit.var_char().value()));
     default:
       VELOX_NYI(
           "Substrait conversion not supported for type case '{}'", typeCase);

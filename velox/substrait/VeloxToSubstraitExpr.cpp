@@ -235,20 +235,41 @@ VeloxToSubstraitExprConvertor::toSubstraitNotNullLiteral(
       google::protobuf::Arena::CreateMessage<::substrait::Expression_Literal>(
           &arena);
   switch (variantValue.kind()) {
-    case velox::TypeKind::DOUBLE: {
-      literalExpr->set_fp64(variantValue.value<TypeKind::DOUBLE>());
+    case velox::TypeKind::BOOLEAN: {
+      literalExpr->set_boolean(variantValue.value<TypeKind::BOOLEAN>());
       break;
     }
-    case velox::TypeKind::BIGINT: {
-      literalExpr->set_i64(variantValue.value<TypeKind::BIGINT>());
+    case velox::TypeKind::TINYINT: {
+      literalExpr->set_i8(variantValue.value<TypeKind::TINYINT>());
+      break;
+    }
+    case velox::TypeKind::SMALLINT: {
+      literalExpr->set_i16(variantValue.value<TypeKind::SMALLINT>());
       break;
     }
     case velox::TypeKind::INTEGER: {
       literalExpr->set_i32(variantValue.value<TypeKind::INTEGER>());
       break;
     }
-    case velox::TypeKind::BOOLEAN: {
-      literalExpr->set_boolean(variantValue.value<TypeKind::BOOLEAN>());
+    case velox::TypeKind::BIGINT: {
+      literalExpr->set_i64(variantValue.value<TypeKind::BIGINT>());
+      break;
+    }
+    case velox::TypeKind::REAL: {
+      literalExpr->set_fp32(variantValue.value<TypeKind::REAL>());
+      break;
+    }
+    case velox::TypeKind::DOUBLE: {
+      literalExpr->set_fp64(variantValue.value<TypeKind::DOUBLE>());
+      break;
+    }
+    case velox::TypeKind::VARCHAR: {
+      auto vCharValue = variantValue.value<StringView>();
+      ::substrait::Expression_Literal::VarChar* sVarChar =
+          new ::substrait::Expression_Literal::VarChar();
+      sVarChar->set_value(vCharValue.data());
+      sVarChar->set_length(vCharValue.size());
+      literalExpr->set_allocated_var_char(sVarChar);
       break;
     }
     default:
@@ -313,12 +334,12 @@ VeloxToSubstraitExprConvertor::toSubstraitNullLiteral(
       break;
     }
     case velox::TypeKind::VARCHAR: {
-      ::substrait::Type_VarChar* nullValue =
-          google::protobuf::Arena::CreateMessage<::substrait::Type_VarChar>(
+      ::substrait::Type_String* nullValue =
+          google::protobuf::Arena::CreateMessage<::substrait::Type_String>(
               &arena);
       nullValue->set_nullability(
           ::substrait::Type_Nullability_NULLABILITY_NULLABLE);
-      substraitField->mutable_null()->set_allocated_varchar(nullValue);
+      substraitField->mutable_null()->set_allocated_string(nullValue);
       break;
     }
     case velox::TypeKind::REAL: {
