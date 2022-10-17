@@ -21,6 +21,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 import static com.facebook.presto.SystemSessionProperties.AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
@@ -32,17 +34,18 @@ import static org.testng.Assert.assertFalse;
 public class TestFilteredAggregations
         extends BasePlanTest
 {
+    private static final Map<String, String> sessionProperties = ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if");
     private QueryAssertions assertions;
 
     public TestFilteredAggregations()
     {
-        super(ImmutableMap.of(AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY, "filter_with_if"));
+        super(sessionProperties);
     }
 
     @BeforeClass
     public void init()
     {
-        assertions = new QueryAssertions();
+        assertions = new QueryAssertions(sessionProperties);
     }
 
     @AfterClass(alwaysRun = true)
