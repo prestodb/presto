@@ -306,7 +306,7 @@ endif()
 include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 if(NOT ${VELOX_BUILD_MINIMAL})
-  find_package(Protobuf 3.0.0 REQUIRED)
+  find_package(Protobuf 3.21.4 REQUIRED)
 endif()
 
 # GCC needs to link a library to enable std::filesystem.

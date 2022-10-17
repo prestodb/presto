@@ -48,7 +48,9 @@ void saveStringToFile(
     const char* FOLLY_NONNULL filePath);
 
 /// Deserializes a vector serialized by 'save' from the provided input stream.
-VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool);
+VectorPtr restoreVector(
+    std::istream& in,
+    memory::MemoryPool* FOLLY_NULLABLE pool);
 
 /// Generates a file path in specified directory. Returns std::nullopt on
 /// failure.
