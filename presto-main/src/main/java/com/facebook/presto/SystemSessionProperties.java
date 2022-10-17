@@ -245,6 +245,7 @@ public final class SystemSessionProperties
     public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
     public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
+    public static final String USE_EXTERNAL_PLAN_STATISTICS = "use_external_plan_statistics";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1377,6 +1378,11 @@ public final class SystemSessionProperties
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "Randomize null join key for outer join",
                         featuresConfig.isRandomizeOuterJoinNullKeyEnabled(),
+                        false),
+                booleanProperty(
+                        USE_EXTERNAL_PLAN_STATISTICS,
+                        "Use plan statistics from external service in query optimizer",
+                        featuresConfig.isUseExternalPlanStatistics(),
                         false));
     }
 
@@ -2316,5 +2322,10 @@ public final class SystemSessionProperties
     public static boolean randomizeOuterJoinNullKeyEnabled(Session session)
     {
         return session.getSystemProperty(RANDOMIZE_OUTER_JOIN_NULL_KEY, Boolean.class);
+    }
+
+    public static boolean useExternalPlanStatisticsEnabled(Session session)
+    {
+        return session.getSystemProperty(USE_EXTERNAL_PLAN_STATISTICS, Boolean.class);
     }
 }

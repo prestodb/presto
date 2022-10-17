@@ -89,6 +89,7 @@ public class FeaturesConfig
     private int maxReorderedJoins = 9;
     private boolean useHistoryBasedPlanStatistics;
     private boolean trackHistoryBasedPlanStatistics;
+    private boolean useExternalPlanStatistics;
     private boolean redistributeWrites = true;
     private boolean scaleWriters;
     private DataSize writerMinSize = new DataSize(32, MEGABYTE);
@@ -758,6 +759,18 @@ public class FeaturesConfig
     public FeaturesConfig setTrackHistoryBasedPlanStatistics(boolean trackHistoryBasedPlanStatistics)
     {
         this.trackHistoryBasedPlanStatistics = trackHistoryBasedPlanStatistics;
+        return this;
+    }
+
+    public boolean isUseExternalPlanStatistics()
+    {
+        return useExternalPlanStatistics;
+    }
+
+    @Config("optimizer.use-external-plan-statistics")
+    public FeaturesConfig setUseExternalPlanStatistics(boolean useExternalPlanStatistics)
+    {
+        this.useExternalPlanStatistics = useExternalPlanStatistics;
         return this;
     }
 
