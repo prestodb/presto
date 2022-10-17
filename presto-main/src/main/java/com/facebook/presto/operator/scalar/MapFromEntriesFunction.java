@@ -59,21 +59,17 @@ public final class MapFromEntriesFunction
 
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {
-                mapBlockBuilder.closeEntry();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
             Block rowBlock = rowType.getObject(block, i);
 
             if (rowBlock.isNull(0)) {
-                mapBlockBuilder.closeEntry();
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (uniqueKeys.contains(rowBlock, 0)) {
-                mapBlockBuilder.closeEntry();
+            if (!uniqueKeys.add(rowBlock, 0)) {
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Duplicate keys (%s) are not allowed", keyType.getObjectValue(properties, rowBlock, 0)));
             }
-            uniqueKeys.add(rowBlock, 0);
 
             keyType.appendTo(rowBlock, 0, resultBuilder);
             valueType.appendTo(rowBlock, 1, resultBuilder);
