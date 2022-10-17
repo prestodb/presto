@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
@@ -33,6 +34,7 @@ import static com.facebook.presto.sql.QueryUtil.simpleQuery;
 import static com.facebook.presto.sql.QueryUtil.table;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.facebook.presto.util.AnalyzerUtil.createAnalzerOptions;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -44,7 +46,8 @@ public class TestQueryPreparer
     @Test
     public void testSelectStatement()
     {
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "SELECT * FROM foo", WarningCollector.NOOP);
+        AnalyzerOptions analyzerOptions = createAnalzerOptions(TEST_SESSION, WarningCollector.NOOP);
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(analyzerOptions, "SELECT * FROM foo", TEST_SESSION.getPreparedStatements(), WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -55,7 +58,8 @@ public class TestQueryPreparer
         Session session = testSessionBuilder()
                 .addPreparedStatement("my_query", "SELECT * FROM foo")
                 .build();
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query", WarningCollector.NOOP);
+        AnalyzerOptions analyzerOptions = createAnalzerOptions(session, WarningCollector.NOOP);
+        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(analyzerOptions, "EXECUTE my_query", session.getPreparedStatements(), WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -64,7 +68,8 @@ public class TestQueryPreparer
     public void testExecuteStatementDoesNotExist()
     {
         try {
-            QUERY_PREPARER.prepareQuery(TEST_SESSION, "execute my_query", WarningCollector.NOOP);
+            AnalyzerOptions analyzerOptions = createAnalzerOptions(TEST_SESSION, WarningCollector.NOOP);
+            QUERY_PREPARER.prepareQuery(analyzerOptions, "execute my_query", TEST_SESSION.getPreparedStatements(), WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (PrestoException e) {
@@ -79,7 +84,8 @@ public class TestQueryPreparer
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT * FROM foo where col1 = ?")
                     .build();
-            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1,2", WarningCollector.NOOP);
+            AnalyzerOptions analyzerOptions = createAnalzerOptions(session, WarningCollector.NOOP);
+            QUERY_PREPARER.prepareQuery(analyzerOptions, "EXECUTE my_query USING 1,2", session.getPreparedStatements(), WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (SemanticException e) {
@@ -94,7 +100,8 @@ public class TestQueryPreparer
             Session session = testSessionBuilder()
                     .addPreparedStatement("my_query", "SELECT ? FROM foo where col1 = ?")
                     .build();
-            QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1", WarningCollector.NOOP);
+            AnalyzerOptions analyzerOptions = createAnalzerOptions(session, WarningCollector.NOOP);
+            QUERY_PREPARER.prepareQuery(analyzerOptions, "EXECUTE my_query USING 1", session.getPreparedStatements(), WarningCollector.NOOP);
             fail("expected exception");
         }
         catch (SemanticException e) {
@@ -109,10 +116,11 @@ public class TestQueryPreparer
                 .setSystemProperty(LOG_FORMATTED_QUERY_ENABLED, "true")
                 .build();
 
+        AnalyzerOptions analyzerOptions = createAnalzerOptions(prepareSession, WarningCollector.NOOP);
         PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(
-                prepareSession,
+                analyzerOptions,
                 "PREPARE test FROM SELECT * FROM foo where col1 = ?",
-                WarningCollector.NOOP);
+                prepareSession.getPreparedStatements(), WarningCollector.NOOP);
         assertEquals(preparedQuery.getFormattedQuery(), Optional.of("-- Formatted Query:\n" +
                 "PREPARE test FROM\n" +
                 "   SELECT *\n" +
@@ -121,9 +129,9 @@ public class TestQueryPreparer
                 "   WHERE (col1 = ?)\n"));
 
         preparedQuery = QUERY_PREPARER.prepareQuery(
-                prepareSession,
+                analyzerOptions,
                 "PREPARE test FROM SELECT * FROM foo",
-                WarningCollector.NOOP);
+                prepareSession.getPreparedStatements(), WarningCollector.NOOP);
         assertEquals(preparedQuery.getFormattedQuery(), Optional.of("-- Formatted Query:\n" +
                 "PREPARE test FROM\n" +
                 "   SELECT *\n" +
