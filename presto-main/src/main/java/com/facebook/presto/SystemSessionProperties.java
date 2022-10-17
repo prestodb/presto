@@ -13,13 +13,13 @@
  */
 package com.facebook.presto;
 
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryManagerConfig.ExchangeMaterializationStrategy;
 import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig.ResourceAwareSchedulingStrategy;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
-import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.server.security.SecurityConfig;

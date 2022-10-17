@@ -36,8 +36,8 @@ import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;
 import static com.facebook.presto.SystemSessionProperties.isLogFormattedQueryEnabled;
+import static com.facebook.presto.common.WarningHandlingLevel.AS_ERROR;
 import static com.facebook.presto.execution.ParameterExtractor.getParameterCount;
-import static com.facebook.presto.execution.warnings.WarningHandlingLevel.AS_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.ParsingUtil.createParsingOptions;
