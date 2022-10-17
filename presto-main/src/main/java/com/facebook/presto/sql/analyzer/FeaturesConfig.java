@@ -239,6 +239,7 @@ public class FeaturesConfig
     private String nativeExecutionExecutablePath = "./presto_server";
     private boolean randomizeOuterJoinNullKey;
     private boolean isOptimizeConditionalAggregationEnabled;
+    private boolean isRemoveRedundantDistinctAggregationEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2264,6 +2265,19 @@ public class FeaturesConfig
     public FeaturesConfig setOptimizeConditionalAggregationEnabled(boolean isOptimizeConditionalAggregationEnabled)
     {
         this.isOptimizeConditionalAggregationEnabled = isOptimizeConditionalAggregationEnabled;
+        return this;
+    }
+
+    public boolean isRemoveRedundantDistinctAggregationEnabled()
+    {
+        return isRemoveRedundantDistinctAggregationEnabled;
+    }
+
+    @Config("optimizer.remove-redundant-distinct-aggregation-enabled")
+    @ConfigDescription("Enable removing distinct aggregation node if input is already distinct")
+    public FeaturesConfig setRemoveRedundantDistinctAggregationEnabled(boolean isRemoveRedundantDistinctAggregationEnabled)
+    {
+        this.isRemoveRedundantDistinctAggregationEnabled = isRemoveRedundantDistinctAggregationEnabled;
         return this;
     }
 }

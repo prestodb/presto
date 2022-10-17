@@ -145,6 +145,7 @@ import com.facebook.presto.sql.planner.optimizations.PredicatePushDown;
 import com.facebook.presto.sql.planner.optimizations.PruneUnreferencedOutputs;
 import com.facebook.presto.sql.planner.optimizations.PushdownSubfields;
 import com.facebook.presto.sql.planner.optimizations.RandomizeNullKeyInOuterJoin;
+import com.facebook.presto.sql.planner.optimizations.RemoveRedundantDistinctAggregation;
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
@@ -601,6 +602,8 @@ public class PlanOptimizers
                         .addAll(new ExtractSpatialJoins(metadata, splitManager, pageSourceManager).rules())
                         .add(new InlineProjections(metadata.getFunctionAndTypeManager()))
                         .build()));
+
+        builder.add(new RemoveRedundantDistinctAggregation());
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges
