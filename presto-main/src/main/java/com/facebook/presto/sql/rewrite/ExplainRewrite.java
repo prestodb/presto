@@ -14,13 +14,13 @@
 package com.facebook.presto.sql.rewrite;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryPreparer;
-import com.facebook.presto.execution.QueryPreparer.PreparedQuery;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.QueryPreparer;
+import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;

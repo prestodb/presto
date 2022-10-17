@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -43,7 +41,6 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
-import static com.facebook.presto.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -77,8 +74,10 @@ public class QueryPreparer
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
         if (statement instanceof Execute) {
-            prepareSql = getPrepareSql(analyzerOptions, (Execute) statement, preparedStatements);
-            statement = sqlParser.createStatement(prepareSql.get(), analyzerOptions.getParsingOptions());
+            String preparedStatementName = ((Execute) statement).getName().getValue();
+            prepareSql = Optional.ofNullable(preparedStatements.get(preparedStatementName));
+            String query = prepareSql.orElseThrow(() -> new PrestoException(NOT_FOUND, "Prepared statement not found: " + preparedStatementName));
+            statement = sqlParser.createStatement(query, analyzerOptions.getParsingOptions());
         }
 
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
@@ -98,14 +97,6 @@ public class QueryPreparer
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
         }
         return new PreparedQuery(wrappedStatement, statement, parameters, formattedQuery, prepareSql);
-    }
-
-    private Optional<String> getPrepareSql(AnalyzerOptions analyzerOptions, Execute statement, Map<String, String> preparedStatements)
-    {
-        String preparedStatementName = statement.getName().getValue();
-        String query = preparedStatements.get(preparedStatementName);
-        checkCondition(query != null, NOT_FOUND, "Prepared statement not found: " + preparedStatementName);
-        return Optional.of(query);
     }
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)

@@ -49,7 +49,6 @@ import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.QueryManagerConfig;
-import com.facebook.presto.execution.QueryPreparer;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskManager;
@@ -149,6 +148,7 @@ import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializ
 import com.facebook.presto.sql.SqlEnvironmentConfig;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
+import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
