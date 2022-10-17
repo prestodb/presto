@@ -29,6 +29,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.iterative.properties.Key.getNormalizedKey;
+import static com.facebook.presto.sql.planner.iterative.properties.KeyProperty.combineKey;
+import static com.facebook.presto.sql.planner.iterative.properties.KeyProperty.combineKeys;
+import static com.facebook.presto.sql.planner.iterative.properties.KeyProperty.concatKeyProperty;
+import static com.facebook.presto.sql.planner.iterative.properties.KeyProperty.getNormalizedKeyProperty;
+import static com.facebook.presto.sql.planner.iterative.properties.MaxCardProperty.multiplyMaxCard;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.FULL;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.INNER;
 import static com.facebook.presto.sql.planner.plan.JoinNode.Type.LEFT;
@@ -55,6 +61,8 @@ import static java.util.Objects.requireNonNull;
 public class LogicalPropertiesImpl
         implements LogicalProperties
 {
+    public static final LogicalPropertiesImpl DEFAULT_LOGICAL_PROPERTIES = new LogicalPropertiesImpl(new EquivalenceClassProperty(), new MaxCardProperty(), new KeyProperty());
+
     private final MaxCardProperty maxCardProperty;
     private final KeyProperty keyProperty;
     private final EquivalenceClassProperty equivalenceClassProperty;
@@ -77,7 +85,6 @@ public class LogicalPropertiesImpl
      */
     private boolean isMoreGeneralThan(LogicalPropertiesImpl otherLogicalProperties)
     {
-        requireNonNull(otherLogicalProperties, "otherLogicalProperties is null");
         return (maxCardProperty.moreGeneral(otherLogicalProperties.maxCardProperty) &&
                 keyProperty.moreGeneral(otherLogicalProperties.keyProperty) &&
                 equivalenceClassProperty.isMoreGeneralThan(otherLogicalProperties.equivalenceClassProperty));
@@ -92,7 +99,6 @@ public class LogicalPropertiesImpl
      */
     public boolean equals(LogicalPropertiesImpl otherLogicalProperties)
     {
-        requireNonNull(otherLogicalProperties, "otherLogicalProperties is null");
         return ((isMoreGeneralThan(otherLogicalProperties)) && otherLogicalProperties.isMoreGeneralThan(this));
     }
 
@@ -105,7 +111,6 @@ public class LogicalPropertiesImpl
     private static Map<VariableReferenceExpression, VariableReferenceExpression> inverseVariableAssignments(Assignments assignments)
     {
         //TODO perhaps put this in AssignmentsUtils or ProjectUtils
-        requireNonNull(assignments, "assignments is null");
         Map<VariableReferenceExpression, VariableReferenceExpression> inverseVariableAssignments = new HashMap<>();
         for (Map.Entry<VariableReferenceExpression, RowExpression> e : assignments.entrySet()) {
             if (e.getValue() instanceof VariableReferenceExpression) {
@@ -120,26 +125,29 @@ public class LogicalPropertiesImpl
      * and possible setting of max card property if a one record condition is detected.
      * The key property is modified. Maxcard will be modified if a one record condition is detected.
      */
-    private static void normalizeKeyPropertyAndSetMaxCard(KeyProperty keyProperty, MaxCardProperty maxCardProperty, EquivalenceClassProperty equivalenceClassProperty)
+    private static LogicalPropertiesImpl normalizeKeyPropertyAndSetMaxCard(KeyProperty keyProperty, MaxCardProperty maxCardProperty, EquivalenceClassProperty equivalenceClassProperty)
     {
         if (maxCardProperty.isAtMostOne()) {
-            keyProperty.empty();
-            return;
+            return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, new KeyProperty());
         }
-        Optional<KeyProperty> normalizedKeyProperty = keyProperty.normalize(equivalenceClassProperty);
-        keyProperty.empty(); //add in normalized keys or set maxcard
+        Optional<KeyProperty> normalizedKeyProperty = getNormalizedKeyProperty(keyProperty, equivalenceClassProperty);
+        MaxCardProperty newMaxCardProperty;
+        KeyProperty newKeyProperty;
         if (normalizedKeyProperty.isPresent()) {
-            keyProperty.addKeys(normalizedKeyProperty.get());
+            newKeyProperty = new KeyProperty(normalizedKeyProperty.get().getKeys());
+            newMaxCardProperty = maxCardProperty;
+            return new LogicalPropertiesImpl(equivalenceClassProperty, newMaxCardProperty, newKeyProperty);
         }
-        else {
-            maxCardProperty.update(1);
-        }
+
+        newMaxCardProperty = new MaxCardProperty(1L);
+        newKeyProperty = new KeyProperty();
+
+        return new LogicalPropertiesImpl(equivalenceClassProperty, newMaxCardProperty, newKeyProperty);
     }
 
     @Override
     public boolean isDistinct(Set<VariableReferenceExpression> keyVars)
     {
-        requireNonNull(keyVars, "keyVars is null");
         checkArgument(!keyVars.isEmpty(), "keyVars is empty");
         return keyRequirementSatisfied(new Key(keyVars));
     }
@@ -158,11 +166,10 @@ public class LogicalPropertiesImpl
 
     private boolean keyRequirementSatisfied(Key keyRequirement)
     {
-        requireNonNull(keyRequirement, "keyRequirement is null");
         if (maxCardProperty.isAtMostOne()) {
             return true;
         }
-        Optional<Key> normalizedKeyRequirement = keyRequirement.normalize(equivalenceClassProperty);
+        Optional<Key> normalizedKeyRequirement = getNormalizedKey(keyRequirement, equivalenceClassProperty);
         if (normalizedKeyRequirement.isPresent()) {
             return keyProperty.satisfiesKeyRequirement(keyRequirement);
         }
@@ -182,31 +189,17 @@ public class LogicalPropertiesImpl
     }
 
     /**
-     * This logical properties' builder should be used by PlanNode that do not
-     * (yet perhaps) propagate or add logical properties. For example, a GroupIdNode does
-     * not propagate or add logical properties. This is the PlanNode default.
-     */
-    public static LogicalPropertiesImpl emptyProperties(FunctionResolution functionResolution)
-    {
-        return new LogicalPropertiesImpl(new EquivalenceClassProperty(functionResolution), new MaxCardProperty(), new KeyProperty());
-    }
-
-    /**
      * This logical properties builder should be used by PlanNode's that simply
      * propagate source properties without changes. For example, a SemiJoin node
      * propagates the inputs of its non-filtering source without adding new properties.
      * A SortNode also propagates the logical properties of its source without change.
      */
 
-    public static LogicalPropertiesImpl propagateProperties(LogicalPropertiesImpl sourceProperties, FunctionResolution functionResolution)
+    public static LogicalPropertiesImpl propagateProperties(LogicalPropertiesImpl sourceProperties)
     {
-        KeyProperty keyProperty = new KeyProperty();
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
-
-        keyProperty.addKeys(sourceProperties.keyProperty);
-        maxCardProperty.update(sourceProperties.maxCardProperty);
-        equivalenceClassProperty.update(sourceProperties.equivalenceClassProperty);
+        KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
+        MaxCardProperty maxCardProperty = new MaxCardProperty(sourceProperties.maxCardProperty);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(sourceProperties.equivalenceClassProperty);
 
         return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
     }
@@ -215,12 +208,10 @@ public class LogicalPropertiesImpl
      * This logical properties builder is used by a TableScanNode to initialize logical properties from catalog constraints.
      */
 
-    public static LogicalPropertiesImpl tableScanProperties(List<Set<VariableReferenceExpression>> keys, FunctionResolution functionResolution)
+    public static LogicalPropertiesImpl tableScanProperties(List<Set<VariableReferenceExpression>> keys)
     {
-        KeyProperty keyProperty = new KeyProperty();
-        keyProperty.addKeys(keys.stream().map(Key::new).collect(Collectors.toSet()));
-
-        return new LogicalPropertiesImpl(new EquivalenceClassProperty(functionResolution), new MaxCardProperty(), keyProperty);
+        KeyProperty keyProperty = new KeyProperty(keys.stream().map(Key::new).collect(Collectors.toSet()));
+        return new LogicalPropertiesImpl(new EquivalenceClassProperty(), new MaxCardProperty(), keyProperty);
     }
 
     /**
@@ -232,15 +223,13 @@ public class LogicalPropertiesImpl
 
     public static LogicalPropertiesImpl filterProperties(LogicalPropertiesImpl sourceProperties, RowExpression predicate, FunctionResolution functionResolution)
     {
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
-        KeyProperty keyProperty = new KeyProperty();
+        MaxCardProperty maxCardProperty = new MaxCardProperty(sourceProperties.maxCardProperty);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(sourceProperties.equivalenceClassProperty);
+        KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
 
-        keyProperty.addKeys(sourceProperties.keyProperty);
-        maxCardProperty.update(sourceProperties.maxCardProperty);
-        equivalenceClassProperty.update(sourceProperties.equivalenceClassProperty);
-        if (equivalenceClassProperty.update(predicate)) {
-            normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
+        EquivalenceClassProperty newEquivalenceClassProperty = equivalenceClassProperty.addPredicate(predicate, functionResolution);
+        if (newEquivalenceClassProperty != equivalenceClassProperty) {
+            return normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, newEquivalenceClassProperty);
         }
 
         return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
@@ -252,23 +241,17 @@ public class LogicalPropertiesImpl
      * source properties. The former might also reassign property variable references.
      */
 
-    public static LogicalPropertiesImpl projectProperties(LogicalPropertiesImpl sourceProperties, Assignments assignments, FunctionResolution functionResolution)
+    public static LogicalPropertiesImpl projectProperties(LogicalPropertiesImpl sourceProperties, Assignments assignments)
     {
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        KeyProperty keyProperty = new KeyProperty();
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
-
-        keyProperty.addKeys(sourceProperties.keyProperty);
-        maxCardProperty.update(sourceProperties.maxCardProperty);
-        equivalenceClassProperty.update(sourceProperties.equivalenceClassProperty);
+        MaxCardProperty maxCardProperty = new MaxCardProperty(sourceProperties.maxCardProperty);
+        KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(sourceProperties.equivalenceClassProperty);
 
         //project both equivalence classes and key property
         Map<VariableReferenceExpression, VariableReferenceExpression> inverseVariableAssignments = inverseVariableAssignments(assignments);
         keyProperty = keyProperty.project(new InverseVariableMappingsWithEquivalence(equivalenceClassProperty, inverseVariableAssignments));
         equivalenceClassProperty = equivalenceClassProperty.project(inverseVariableAssignments);
-        normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
-
-        return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
+        return normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
     }
 
     /**
@@ -277,20 +260,12 @@ public class LogicalPropertiesImpl
      */
 
     public static LogicalPropertiesImpl propagateAndLimitProperties(LogicalPropertiesImpl sourceProperties,
-                                                                    long limit,
-                                                                    FunctionResolution functionResolution)
+                                                                    long limit)
     {
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
-        KeyProperty keyProperty = new KeyProperty();
+        MaxCardProperty maxCardProperty = sourceProperties.maxCardProperty.getMinMaxCardProperty(limit);
+        KeyProperty keyProperty = maxCardProperty.isAtMostOne() ? new KeyProperty() : new KeyProperty(sourceProperties.keyProperty);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(sourceProperties.equivalenceClassProperty);
 
-        keyProperty.addKeys(sourceProperties.keyProperty);
-        maxCardProperty.update(sourceProperties.maxCardProperty);
-        maxCardProperty.update(limit);
-        equivalenceClassProperty.update(sourceProperties.equivalenceClassProperty);
-        if (maxCardProperty.isAtMostOne()) {
-            keyProperty.empty();
-        }
         return new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
     }
 
@@ -301,36 +276,35 @@ public class LogicalPropertiesImpl
      * The resulting properties are projected by the provided output variables.
      */
 
-    public static LogicalPropertiesImpl aggregationProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, List<VariableReferenceExpression> outputVariables, FunctionResolution functionResolution)
+    public static LogicalPropertiesImpl aggregationProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, List<VariableReferenceExpression> outputVariables)
     {
         checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
 
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
-        KeyProperty keyProperty = new KeyProperty();
-        MaxCardProperty maxCardProperty = new MaxCardProperty();
-
-        keyProperty.addKeys(sourceProperties.keyProperty);
-        maxCardProperty.update(sourceProperties.maxCardProperty);
-        equivalenceClassProperty.update(sourceProperties.equivalenceClassProperty);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(sourceProperties.equivalenceClassProperty);
+        MaxCardProperty maxCardProperty = new MaxCardProperty(sourceProperties.maxCardProperty);
+        LogicalPropertiesImpl resultProperties;
         //add the new key and normalize the key property unless there is a single row in the input
         if (!maxCardProperty.isAtMostOne()) {
-            keyProperty.addKey(new Key(keyVariables));
-            normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
+            KeyProperty keyProperty = new KeyProperty(combineKey(sourceProperties.keyProperty.getKeys(), new Key(keyVariables)));
+            resultProperties = normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
+        }
+        else {
+            KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
+            resultProperties = new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
         }
         //project the properties using the output variables to ensure only the interesting constraints propagate
-        return projectProperties(new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty),
-                AssignmentUtils.identityAssignments(outputVariables), functionResolution);
+        return projectProperties(resultProperties, AssignmentUtils.identityAssignments(outputVariables));
     }
 
     /**
      * This logical properties builder should be used by PlanNode's that propagate their source
      * properties, add a unique key, and also limit the result. For example, a DistinctLimitNode.
      */
-    public static LogicalPropertiesImpl distinctLimitProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, Long limit, List<VariableReferenceExpression> outputVariables, FunctionResolution functionResolution)
+    public static LogicalPropertiesImpl distinctLimitProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, Long limit, List<VariableReferenceExpression> outputVariables)
     {
         checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
-        LogicalPropertiesImpl aggregationProperties = aggregationProperties(sourceProperties, keyVariables, outputVariables, functionResolution);
-        return propagateAndLimitProperties(aggregationProperties, limit, functionResolution);
+        LogicalPropertiesImpl aggregationProperties = aggregationProperties(sourceProperties, keyVariables, outputVariables);
+        return propagateAndLimitProperties(aggregationProperties, limit);
     }
 
     /**
@@ -380,7 +354,7 @@ public class LogicalPropertiesImpl
                                                        FunctionResolution functionResolution)
     {
         MaxCardProperty maxCardProperty = new MaxCardProperty();
-        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
+        EquivalenceClassProperty equivalenceClassProperty = new EquivalenceClassProperty();
         KeyProperty keyProperty = new KeyProperty();
 
         // first determine if the join is n to 1 and/or 1 to n
@@ -393,52 +367,55 @@ public class LogicalPropertiesImpl
         if ((rightProperties.maxCardProperty.isAtMostOne() || (!rightJoinVariables.isEmpty() && rightProperties.isDistinct(rightJoinVariables))) &&
                 ((joinType == INNER || joinType == LEFT) || (joinType == FULL && leftProperties.maxCardProperty.isAtMost(1)))) {
             nToOne = true;
-            keyProperty.addKeys(leftProperties.keyProperty);
-            maxCardProperty.update(leftProperties.maxCardProperty);
+            keyProperty = combineKeys(keyProperty, leftProperties.keyProperty);
+            maxCardProperty = maxCardProperty.getMinMaxCardProperty(leftProperties.maxCardProperty);
         }
 
         //if 1-to-n inner or right join then propagate right source keys and maxcard
         if ((leftProperties.maxCardProperty.isAtMostOne() || (!leftJoinVariables.isEmpty() && leftProperties.isDistinct(leftJoinVariables))) &&
                 ((joinType == INNER || joinType == RIGHT) || (joinType == FULL && rightProperties.maxCardProperty.isAtMost(1)))) {
             oneToN = true;
-            keyProperty.addKeys(rightProperties.keyProperty);
-            maxCardProperty.update(rightProperties.maxCardProperty);
+            keyProperty = combineKeys(keyProperty, rightProperties.keyProperty);
+            maxCardProperty = maxCardProperty.getMinMaxCardProperty(rightProperties.maxCardProperty);
         }
 
         //if an n-to-m then multiply maxcards and, if inner join, concatenate keys
         if (!(nToOne || oneToN)) {
-            maxCardProperty.update(leftProperties.maxCardProperty);
-            maxCardProperty.multiply(rightProperties.maxCardProperty);
+            maxCardProperty = maxCardProperty.getMinMaxCardProperty(leftProperties.maxCardProperty);
+            maxCardProperty = multiplyMaxCard(maxCardProperty, rightProperties.maxCardProperty);
             if (joinType == INNER) {
-                keyProperty.addKeys(leftProperties.keyProperty);
-                keyProperty = keyProperty.concat(rightProperties.keyProperty);
+                keyProperty = combineKeys(keyProperty, leftProperties.keyProperty);
+                keyProperty = concatKeyProperty(keyProperty, rightProperties.keyProperty);
             }
         }
 
         //propagate left source equivalence classes if nulls cannot be injected
         if (joinType == INNER || joinType == LEFT) {
-            equivalenceClassProperty.update(leftProperties.equivalenceClassProperty);
+            equivalenceClassProperty = equivalenceClassProperty.combineWith(leftProperties.equivalenceClassProperty);
         }
 
         //propagate right source equivalence classes if nulls cannot be injected
         if (joinType == INNER || joinType == RIGHT) {
-            equivalenceClassProperty.update(rightProperties.equivalenceClassProperty);
+            equivalenceClassProperty = equivalenceClassProperty.combineWith(rightProperties.equivalenceClassProperty);
         }
 
         //update equivalence classes with equijoin predicates, note that if nulls are injected, equivalence does not hold propagate
         if (joinType == INNER) {
-            equijoinPredicates.forEach(joinVariables -> equivalenceClassProperty.update(joinVariables.getLeft(), joinVariables.getRight()));
+            for (JoinNode.EquiJoinClause equiJoinClause : equijoinPredicates) {
+                equivalenceClassProperty = equivalenceClassProperty.combineWith(equiJoinClause.getLeft(), equiJoinClause.getRight());
+            }
 
             //update equivalence classes with any residual filter predicate
-            filterPredicate.ifPresent(equivalenceClassProperty::update);
+            if (filterPredicate.isPresent()) {
+                equivalenceClassProperty = equivalenceClassProperty.addPredicate(filterPredicate.get(), functionResolution);
+            }
         }
 
         //since we likely merged equivalence class from left and right source we will normalize the key property
-        normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
+        LogicalPropertiesImpl resultProperties = normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
 
         //project the resulting properties by the output variables
-        return projectProperties(new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty),
-                AssignmentUtils.identityAssignments(outputVariables), functionResolution);
+        return projectProperties(resultProperties, AssignmentUtils.identityAssignments(outputVariables));
     }
 
     /**
@@ -487,7 +464,6 @@ public class LogicalPropertiesImpl
          */
         public Optional<VariableReferenceExpression> get(VariableReferenceExpression variable)
         {
-            requireNonNull(variable, "variable is null");
             if (containsKey(variable)) {
                 return Optional.of(inverseMappings.get(variable));
             }

@@ -13,9 +13,8 @@
  */
 package com.facebook.presto.sql.planner.iterative.properties;
 
-import com.facebook.presto.spi.relation.ConstantExpression;
-import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -24,6 +23,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  * It can also be used to represent a key requirement that must be
  * satisfied by a PlanNode (e.g. distinct requirement)
  */
-public class Key
+public final class Key
 {
     private final Set<VariableReferenceExpression> variables;
 
@@ -45,7 +45,7 @@ public class Key
     {
         requireNonNull(variables, "Variables is null.");
         checkArgument(!variables.isEmpty(), "Variables is empty");
-        this.variables = variables;
+        this.variables = ImmutableSet.copyOf(variables);
     }
 
     /**
@@ -59,8 +59,6 @@ public class Key
      */
     public boolean keySatisifiesRequirement(Key keyRequirement)
     {
-        requireNonNull(keyRequirement, "Key requirement must be provided.");
-
         //ideally this would be a simple subset operation but the "canonicalize" operation in UnliasSymbols inexplicably
         //clones VariableReferenceExpression's so two references to the same outputs might be made via different objects
         return variables.stream().allMatch(vk -> keyRequirement.variables.stream().anyMatch(vk::equals));
@@ -76,22 +74,15 @@ public class Key
      * @param equivalenceClassProperty
      * @return A normalized version of this key or empty if all variables are bound to constants.
      */
-    public Optional<Key> normalize(EquivalenceClassProperty equivalenceClassProperty)
+    public static Optional<Key> getNormalizedKey(Key key, EquivalenceClassProperty equivalenceClassProperty)
     {
-        requireNonNull(equivalenceClassProperty, "Equivalence class property must be provided.");
-        Set<VariableReferenceExpression> unBoundVariables = new HashSet<>();
-        variables.forEach(v -> {
-            RowExpression eqHead = equivalenceClassProperty.getEquivalenceClassHead(v);
-            if (!(eqHead instanceof ConstantExpression)) {
-                unBoundVariables.add((VariableReferenceExpression) eqHead);
-            }
-        });
-        if (unBoundVariables.isEmpty()) {
-            return Optional.empty();
-        }
-        else {
-            return Optional.of(new Key(unBoundVariables));
-        }
+        Set<VariableReferenceExpression> unboundVariables = key.variables.stream()
+                .map(v -> equivalenceClassProperty.getEquivalenceClassHead(v))
+                .filter(equivalenceHead -> (equivalenceHead instanceof VariableReferenceExpression))
+                .map(eqHead -> ((VariableReferenceExpression) eqHead))
+                .collect(toImmutableSet());
+
+        return unboundVariables.isEmpty() ? Optional.empty() : Optional.of(new Key(unboundVariables));
     }
 
     /**
@@ -108,7 +99,6 @@ public class Key
      */
     public Optional<Key> project(LogicalPropertiesImpl.InverseVariableMappingsWithEquivalence inverseVariableMappings)
     {
-        requireNonNull(inverseVariableMappings, "Inverse variable mappings must be provided.");
         Set<VariableReferenceExpression> mappedVariables = new HashSet<>();
         Optional<VariableReferenceExpression> mappedVariable;
         for (VariableReferenceExpression v : variables) {
@@ -124,20 +114,21 @@ public class Key
     }
 
     /**
-     * Returns a version of this key concatenated with the provided key.
+     * Returns a version of thisKey concatenated with the otherKey.
      * A concatenated key results from a join operation where concatenated keys of the left and
      * right join inputs form unique constraints on the join result.
      *
-     * @param toConcatKey
-     * @return a version of this key concatenated with the provided key.
+     * @param thisKey
+     * @param otherKey
+     * @return a version of thisKey concatenated with the otherKey.
      */
-    public Key concat(Key toConcatKey)
+    public static Key concatKeys(Key thisKey, Key otherKey)
     {
-        requireNonNull(toConcatKey, "Key must be provided.");
-        Set<VariableReferenceExpression> concatenatedVariables = new HashSet<>();
-        concatenatedVariables.addAll(this.variables);
-        concatenatedVariables.addAll(toConcatKey.variables);
-        return new Key(concatenatedVariables);
+        ImmutableSet.Builder<VariableReferenceExpression> concatenatedVariables = ImmutableSet.builder();
+        concatenatedVariables
+                .addAll(thisKey.variables)
+                .addAll(otherKey.variables);
+        return new Key(concatenatedVariables.build());
     }
 
     @Override
