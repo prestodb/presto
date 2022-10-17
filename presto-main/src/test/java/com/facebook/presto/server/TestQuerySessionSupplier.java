@@ -14,9 +14,9 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.common.type.TimeZoneNotSupportedException;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
-import com.facebook.presto.execution.warnings.WarningHandlingLevel;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.QueryId;
