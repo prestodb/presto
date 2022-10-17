@@ -122,8 +122,8 @@ import static com.facebook.presto.execution.DDLDefinitionExecution.DDLDefinition
 import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory;
 import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
-import static com.facebook.presto.util.StatementUtils.getAllQueryTypes;
-import static com.facebook.presto.util.StatementUtils.isSessionTransactionControlStatement;
+import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getAllQueryTypes;
+import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isSessionTransactionControlStatement;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;

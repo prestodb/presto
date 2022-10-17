@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
+import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
 public class LocalDispatchQueryFactory
