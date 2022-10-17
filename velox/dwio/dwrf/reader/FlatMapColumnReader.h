@@ -21,40 +21,10 @@
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/ConstantColumnReader.h"
+#include "velox/dwio/dwrf/reader/FlatMapHelper.h"
 #include "velox/dwio/dwrf/utils/BitIterator.h"
 
 namespace facebook::velox::dwrf {
-// represent key value based on type
-template <typename T>
-class KeyValue {
-  // simple types to support as key
- private:
-  T value_;
-  size_t h_;
-
- public:
-  explicit KeyValue(T value) : value_{value}, h_{std::hash<T>()(value)} {}
-  KeyValue(const KeyValue&) = default;
-
- public:
-  const T& get() const {
-    return value_;
-  }
-  std::size_t hash() const {
-    return h_;
-  }
-
-  bool operator==(const KeyValue<T>& other) const {
-    return value_ == other.value_;
-  }
-};
-
-template <typename T>
-struct KeyValueHash {
-  std::size_t operator()(const KeyValue<T>& kv) const {
-    return kv.hash();
-  }
-};
 
 class StringKeyBuffer;
 
@@ -66,7 +36,7 @@ class KeyNode {
   std::unique_ptr<ColumnReader> reader_;
   std::unique_ptr<ByteRleDecoder> inMap_;
   dwio::common::DataBuffer<char> inMapData_;
-  KeyValue<T> key_;
+  flatmap_helper::KeyValue<T> key_;
   uint32_t sequence_;
   VectorPtr vector_;
   memory::MemoryPool& memoryPool_;
@@ -78,7 +48,7 @@ class KeyNode {
   KeyNode(
       std::unique_ptr<ColumnReader> valueReader,
       std::unique_ptr<ByteRleDecoder> inMapDecoder,
-      const KeyValue<T>& keyValue,
+      const flatmap_helper::KeyValue<T>& keyValue,
       uint32_t sequence,
       memory::MemoryPool& pool)
       : reader_(std::move(valueReader)),
@@ -89,7 +59,7 @@ class KeyNode {
         memoryPool_{pool} {}
   ~KeyNode() = default;
 
-  const KeyValue<T>& getKey() const {
+  const flatmap_helper::KeyValue<T>& getKey() const {
     return key_;
   }
 
@@ -166,36 +136,6 @@ class StringKeyBuffer {
  private:
   BufferPtr buffer_;
   dwio::common::DataBuffer<char*> data_;
-};
-
-enum class KeyProjectionMode { ALLOW, REJECT };
-
-template <typename T>
-class KeyPredicate {
- public:
-  using Lookup = std::unordered_set<KeyValue<T>, KeyValueHash<T>>;
-
-  KeyPredicate(KeyProjectionMode mode, Lookup keyLookup)
-      : keyLookup_{std::move(keyLookup)},
-        predicate_{
-            mode == KeyProjectionMode::ALLOW ? &KeyPredicate::allowFilter
-                                             : &KeyPredicate::rejectFilter} {}
-
-  bool operator()(const KeyValue<T>& key) const {
-    return predicate_(key, keyLookup_);
-  }
-
- private:
-  static bool allowFilter(const KeyValue<T>& key, const Lookup& lookup) {
-    return lookup.size() == 0 || lookup.count(key) > 0;
-  }
-
-  static bool rejectFilter(const KeyValue<T>& key, const Lookup& lookup) {
-    return lookup.size() == 0 || lookup.count(key) == 0;
-  }
-
-  Lookup keyLookup_;
-  std::function<bool(const KeyValue<T>&, const Lookup&)> predicate_;
 };
 
 template <typename T>
