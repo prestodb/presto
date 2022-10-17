@@ -16,6 +16,8 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
+import static com.facebook.presto.common.WarningHandlingLevel.NORMAL;
+
 /**
  * Various options required at different stage of query analysis.
  */
@@ -57,9 +59,9 @@ public class AnalyzerOptions
 
     public static class Builder
     {
-        private ParsingOptions parsingOptions;
+        private ParsingOptions parsingOptions = ParsingOptions.builder().build();
         private boolean isLogFormattedQueryEnabled;
-        private WarningHandlingLevel warningHandlingLevel;
+        private WarningHandlingLevel warningHandlingLevel = NORMAL;
 
         private Builder() {}
 
