@@ -31,7 +31,6 @@ import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.session.SessionPropertyConfigurationManager.SystemSessionPropertyConfiguration;
 import com.facebook.presto.spi.tracing.Tracer;
-import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableMap;
@@ -280,11 +279,6 @@ public final class Session
     public Map<String, String> getPreparedStatements()
     {
         return preparedStatements;
-    }
-
-    public String getPreparedStatementFromExecute(Execute execute)
-    {
-        return getPreparedStatement(execute.getName().getValue());
     }
 
     public String getPreparedStatement(String name)

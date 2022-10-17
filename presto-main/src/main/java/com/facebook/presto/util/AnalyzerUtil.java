@@ -30,6 +30,11 @@ public class AnalyzerUtil
 {
     private AnalyzerUtil() {}
 
+    public static ParsingOptions createParsingOptions()
+    {
+        return ParsingOptions.builder().build();
+    }
+
     public static ParsingOptions createParsingOptions(Session session)
     {
         return createParsingOptions(session, WarningCollector.NOOP);
