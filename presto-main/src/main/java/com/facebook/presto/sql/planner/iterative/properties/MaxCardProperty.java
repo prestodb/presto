@@ -23,18 +23,33 @@ import static com.google.common.base.MoreObjects.toStringHelper;
  * can be set to one. A limit or top operation might set maxcard to the value of their count argument.
  * The value is unknown until determined and set.
  */
-public class MaxCardProperty
+public final class MaxCardProperty
 {
-    private Optional<Long> value;
+    private final Optional<Long> value;
 
     public MaxCardProperty()
     {
         this.value = Optional.empty();
     }
 
+    public MaxCardProperty(Optional<Long> value)
+    {
+        this.value = value;
+    }
+
     public MaxCardProperty(Long value)
     {
-        this.value = Optional.of(value);
+        this(Optional.of(value));
+    }
+
+    public MaxCardProperty(MaxCardProperty maxCardProperty)
+    {
+        this(maxCardProperty.getValue());
+    }
+
+    public Optional<Long> getValue()
+    {
+        return value;
     }
 
     /**
@@ -52,34 +67,31 @@ public class MaxCardProperty
     }
 
     /**
-     * Updates this maxcard with the provided value. Will change the current value only if the current value is unknown
-     * or the provided value is known and smaller than the current setting.
+     * Returns a maxCardProperty with a value that's the min of this maxcardproperty value and the new proposed value.
      *
      * @param value
      */
-    public void update(long value)
+    public MaxCardProperty getMinMaxCardProperty(long value)
     {
         if (!this.value.isPresent() || this.value.get().compareTo(value) > 0) {
-            this.value = Optional.of(value);
+            return new MaxCardProperty(Optional.of(value));
         }
+
+        return this;
     }
 
     /**
-     * Updates this maxcard with the provided maxcard property. Will change the current value only if the current value is unknown
-     * or the provided value is known and smaller than the current setting.
+     * Returns the minimum of this and provided maxcard property values.
      *
-     * @param sourceMaxCardProperty
+     * @param maxCardProperty
      */
-    public void update(MaxCardProperty sourceMaxCardProperty)
+    public MaxCardProperty getMinMaxCardProperty(MaxCardProperty maxCardProperty)
     {
-        if (sourceMaxCardProperty.value.isPresent()) {
-            if (this.value.isPresent()) {
-                this.value = Optional.of(Long.min(this.value.get(), sourceMaxCardProperty.value.get()));
-            }
-            else {
-                this.value = Optional.of(sourceMaxCardProperty.value.get());
-            }
+        if (!maxCardProperty.value.isPresent()) {
+            return this;
         }
+
+        return getMinMaxCardProperty(maxCardProperty.value.get());
     }
 
     /**
@@ -109,22 +121,21 @@ public class MaxCardProperty
     }
 
     /**
-     * Performs the product of this maxcard and a provided maxcard if both have known values.
+     * Performs the product of both input maxcard if both have known values
      * Used to compute the maxcard of a join.
      *
-     * @param maxCardProperty
+     * @param thisMaxCardProperty
+     * @param otherMaxCardProperty
      */
-    public void multiply(MaxCardProperty maxCardProperty)
+    public static MaxCardProperty multiplyMaxCard(MaxCardProperty thisMaxCardProperty, MaxCardProperty otherMaxCardProperty)
     {
         //the product of empty and anything else is empty
-        if (!maxCardProperty.value.isPresent()) {
-            this.value = Optional.empty();
-            return;
+        if (!thisMaxCardProperty.value.isPresent() || !otherMaxCardProperty.value.isPresent()) {
+            return new MaxCardProperty();
         }
+
         //new value is present and so multiply the current value if it is present
-        if (this.value.isPresent()) {
-            this.value = Optional.of(Long.valueOf(this.value.get() * maxCardProperty.value.get()));
-        }
+        return new MaxCardProperty(Optional.of(Long.valueOf(thisMaxCardProperty.value.get() * otherMaxCardProperty.value.get())));
     }
 
     @Override

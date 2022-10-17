@@ -19,6 +19,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.ArrayList;
@@ -31,8 +32,11 @@ import java.util.Set;
 import static com.facebook.presto.expressions.LogicalRowExpressions.extractConjuncts;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toMap;
 
 /**
  * Represents classes of equivalent variable and constants references that
@@ -47,17 +51,35 @@ import static java.util.Objects.requireNonNull;
  * considered to be in their own virtual equivalence class until combined
  * into stored larger classes by predicate application.
  */
-public class EquivalenceClassProperty
+public final class EquivalenceClassProperty
 {
-    private final Map<RowExpression, RowExpression> equivalenceClassHeads = new HashMap<>();
-    private final Map<RowExpression, List<RowExpression>> equivalenceClasses = new HashMap<>();
-    private final FunctionResolution functionResolution;
+    private final Map<RowExpression, RowExpression> equivalenceClassHeads;
+    private final Map<RowExpression, List<RowExpression>> equivalenceClasses;
 
-    private boolean updated;
-
-    public EquivalenceClassProperty(FunctionResolution functionResolution)
+    public EquivalenceClassProperty()
     {
-        this.functionResolution = functionResolution;
+        this(ImmutableMap.of(), ImmutableMap.of());
+    }
+
+    public EquivalenceClassProperty(EquivalenceClassProperty equivalenceClassProperty)
+    {
+        this(equivalenceClassProperty.getEquivalenceClassHeads(), equivalenceClassProperty.getEquivalenceClasses());
+    }
+
+    public EquivalenceClassProperty(Map<RowExpression, RowExpression> equivalenceClassHeads, Map<RowExpression, List<RowExpression>> equivalenceClasses)
+    {
+        this.equivalenceClassHeads = ImmutableMap.copyOf(requireNonNull(equivalenceClassHeads, "equivalenceClassHeads is null"));
+        this.equivalenceClasses = ImmutableMap.copyOf(requireNonNull(equivalenceClasses, "equivalenceClasses is null"));
+    }
+
+    public Map<RowExpression, List<RowExpression>> getEquivalenceClasses()
+    {
+        return equivalenceClasses;
+    }
+
+    public Map<RowExpression, RowExpression> getEquivalenceClassHeads()
+    {
+        return equivalenceClassHeads;
     }
 
     /**
@@ -69,7 +91,6 @@ public class EquivalenceClassProperty
      */
     public boolean isMoreGeneralThan(EquivalenceClassProperty otherEquivalenceClassProperty)
     {
-        requireNonNull(otherEquivalenceClassProperty, "otherEquivalenceClassProperty is null");
         if (equivalenceClasses.isEmpty() && otherEquivalenceClassProperty.equivalenceClasses.isEmpty()) {
             return true;
         }
@@ -104,7 +125,6 @@ public class EquivalenceClassProperty
      */
     public RowExpression getEquivalenceClassHead(RowExpression expression)
     {
-        requireNonNull(expression, "expression is null");
         checkArgument((expression instanceof VariableReferenceExpression || expression instanceof ConstantExpression),
                 "Row expression is of type " + expression.getClass().getSimpleName() + ", must be a VariableReferenceExpression or a ConstantExpression.");
         //all variables start out by default in their own virtual singleton class
@@ -122,7 +142,6 @@ public class EquivalenceClassProperty
      */
     public List<RowExpression> getEquivalenceClasses(RowExpression head)
     {
-        requireNonNull(head, "head is null");
         checkArgument((head instanceof VariableReferenceExpression || head instanceof ConstantExpression),
                 "Row expression is of type " + head.getClass().getSimpleName() + ", must be a VariableReferenceExpression or a ConstantExpression.");
 
@@ -130,15 +149,21 @@ public class EquivalenceClassProperty
     }
 
     /**
-     * Updates this equivalence class property with the equivalences of another equivalence class property.
+     * Updates thisEquivalenceClassProperty with the equivalences of otherEquivalenceClassProperty.
      *
      * @param equivalenceClassProperty
      */
-    public void update(EquivalenceClassProperty equivalenceClassProperty)
+    public EquivalenceClassProperty combineWith(EquivalenceClassProperty equivalenceClassProperty)
     {
-        requireNonNull(equivalenceClassProperty, "equivalenceClassProperty is null");
+        EquivalenceClassProperty newEquivalenceClassProperty = new EquivalenceClassProperty(equivalenceClassHeads, equivalenceClasses);
 
-        equivalenceClassProperty.equivalenceClasses.forEach((head, members) -> members.forEach(member -> updateInternal(head, member)));
+        for (Map.Entry<RowExpression, List<RowExpression>> equivalenceClass : equivalenceClassProperty.equivalenceClasses.entrySet()) {
+            for (RowExpression member : equivalenceClass.getValue()) {
+                newEquivalenceClassProperty = newEquivalenceClassProperty.combineWith(equivalenceClass.getKey(), member);
+            }
+        }
+
+        return newEquivalenceClassProperty;
     }
 
     /**
@@ -149,20 +174,26 @@ public class EquivalenceClassProperty
      * @param predicate
      * @return
      */
-    public boolean update(RowExpression predicate)
+    public EquivalenceClassProperty addPredicate(RowExpression predicate, FunctionResolution functionResolution)
     {
-        requireNonNull(predicate, "predicate is null");
-        updated = false;
         //TODO tunnel through CAST functions?
-        extractConjuncts(predicate).stream()
+        EquivalenceClassProperty newEquivalenceClassProperty = this;
+        Set<CallExpression> callExprs = extractConjuncts(predicate)
+                .stream()
                 .filter(CallExpression.class::isInstance)
                 .map(CallExpression.class::cast)
-                .filter(this::isVariableEqualVariableOrConstant)
-                .forEach(e -> updateInternal(e.getArguments().get(0), e.getArguments().get(1)));
-        return updated;
+                .filter(e -> isVariableEqualVariableOrConstant(functionResolution, e))
+                .collect(toImmutableSet());
+
+        for (CallExpression callExpr : callExprs) {
+            checkState(callExpr.getArguments().size() == 2, "callExpr must have 2 arguments");
+            newEquivalenceClassProperty = newEquivalenceClassProperty.combineWith(callExpr.getArguments().get(0), callExpr.getArguments().get(1));
+        }
+
+        return newEquivalenceClassProperty;
     }
 
-    private boolean isVariableEqualVariableOrConstant(RowExpression expression)
+    private static boolean isVariableEqualVariableOrConstant(FunctionResolution functionResolution, RowExpression expression)
     {
         if (expression instanceof CallExpression
                 && functionResolution.isEqualFunction(((CallExpression) expression).getFunctionHandle())
@@ -175,11 +206,6 @@ public class EquivalenceClassProperty
         return false;
     }
 
-    public void update(RowExpression firstExpression, RowExpression secondExpression)
-    {
-        updateInternal(firstExpression, secondExpression);
-    }
-
     /**
      * Updates this equivalence class property with pairs of variable or column references deemed
      * equivalent via the application of predicates.
@@ -189,7 +215,7 @@ public class EquivalenceClassProperty
      * @param firstExpression
      * @param secondExpression
      */
-    private void updateInternal(RowExpression firstExpression, RowExpression secondExpression)
+    public EquivalenceClassProperty combineWith(RowExpression firstExpression, RowExpression secondExpression)
     {
         RowExpression head1 = getEquivalenceClassHead(firstExpression);
         RowExpression head2 = getEquivalenceClassHead(secondExpression);
@@ -198,29 +224,40 @@ public class EquivalenceClassProperty
         //note that we do not check head1.equal(head2) so that two different variable reference objects
         //referencing the same reference are both added to the equivalence class
         if (head1 == head2) {
-            return;
+            return this;
         }
 
-        updated = true;
         List<RowExpression> head1Class = getEquivalenceClasses(head1);
         List<RowExpression> head2Class = getEquivalenceClasses(head2);
 
         //pick new head and merge other class into head class
         RowExpression newHead = pickNewHead(head1, head2);
+        ImmutableList.Builder<RowExpression> mergedEquivalenceClasses = ImmutableList.builder();
+        mergedEquivalenceClasses
+                .addAll(head1Class)
+                .addAll(head2Class);
+
         if (newHead == head1) {
             //merge other eq class into head class
-            head1Class.addAll(head2Class);
-            head1Class.add(head2);
-            combineClasses(head1, head1Class, head2, head2Class);
+            return combineClasses(
+                    head1,
+                    mergedEquivalenceClasses
+                            .add(head2)
+                            .build(),
+                    head2,
+                    head2Class);
         }
-        else {
-            head2Class.addAll(head1Class);
-            head2Class.add(head1);
-            combineClasses(head2, head2Class, head1, head1Class);
-        }
+
+        return combineClasses(
+                head2,
+                mergedEquivalenceClasses
+                        .add(head1)
+                        .build(),
+                head1,
+                head1Class);
     }
 
-    private RowExpression pickNewHead(RowExpression head1, RowExpression head2)
+    private static RowExpression pickNewHead(RowExpression head1, RowExpression head2)
     {
         //always use constant as the head
         if (head2 instanceof ConstantExpression) {
@@ -230,15 +267,38 @@ public class EquivalenceClassProperty
     }
 
     //combine an equivalence class with head class
-    private void combineClasses(RowExpression head, List<RowExpression> headClass, RowExpression headOfOtherEqClass, List<RowExpression> otherEqClass)
+    private EquivalenceClassProperty combineClasses(RowExpression head, List<RowExpression> headClass, RowExpression headOfOtherEqClass, List<RowExpression> otherEqClass)
     {
-        //update the head of the other class members
-        equivalenceClassHeads.put(headOfOtherEqClass, head);
-        for (RowExpression expression : otherEqClass) {
-            equivalenceClassHeads.put(expression, head);
+        Map<RowExpression, RowExpression> newEquivalenceClassHeads = new HashMap();
+        newEquivalenceClassHeads.putAll(getEquivalenceClassHeads());
+        newEquivalenceClassHeads.put(headOfOtherEqClass, head);
+
+        otherEqClass.stream()
+                .forEach(expression -> newEquivalenceClassHeads.put(expression, head));
+
+        Map<RowExpression, List<RowExpression>> newEquivalenceClasses = equivalenceClasses
+                .entrySet()
+                .stream()
+                .filter(e -> e.getKey() != headOfOtherEqClass)
+                .collect(toMap(e -> e.getKey(), e -> e.getValue()));
+
+        if (!equivalenceClasses.containsKey(head)) {
+            newEquivalenceClasses.put(head, headClass);
         }
-        equivalenceClasses.putIfAbsent(head, headClass);
-        equivalenceClasses.remove(headOfOtherEqClass);
+        else {
+            // Merge the equivalence class lists
+            List<RowExpression> currExprs = equivalenceClasses.get(head);
+            ImmutableList.Builder<RowExpression> newExprs = ImmutableList.builder();
+            newExprs.addAll(currExprs);
+            for (RowExpression rowExpr : headClass) {
+                if (!currExprs.contains(rowExpr)) {
+                    newExprs.add(rowExpr);
+                }
+            }
+            newEquivalenceClasses.put(head, newExprs.build());
+        }
+
+        return new EquivalenceClassProperty(newEquivalenceClassHeads, newEquivalenceClasses);
     }
 
     /**
@@ -251,7 +311,7 @@ public class EquivalenceClassProperty
      */
     public EquivalenceClassProperty project(Map<VariableReferenceExpression, VariableReferenceExpression> inverseVariableMappings)
     {
-        EquivalenceClassProperty projectedEquivalenceClassProperty = new EquivalenceClassProperty(functionResolution);
+        EquivalenceClassProperty projectedEquivalenceClassProperty = new EquivalenceClassProperty();
         for (Map.Entry<RowExpression, List<RowExpression>> entry : equivalenceClasses.entrySet()) {
             //first project the members of the current class
             List<RowExpression> projectedMembers = new ArrayList<>();
@@ -284,7 +344,10 @@ public class EquivalenceClassProperty
                 }
 
                 RowExpression finalProjectedHead = projectedHead;
-                projectedMembers.forEach(m -> projectedEquivalenceClassProperty.update(finalProjectedHead, m));
+
+                for (RowExpression rowExpr : projectedMembers) {
+                    projectedEquivalenceClassProperty = projectedEquivalenceClassProperty.combineWith(finalProjectedHead, rowExpr);
+                }
             }
         }
         return projectedEquivalenceClassProperty;

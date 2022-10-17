@@ -42,9 +42,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.DEFAULT_LOGICAL_PROPERTIES;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.aggregationProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.distinctLimitProperties;
-import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.emptyProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.filterProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.joinProperties;
 import static com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl.projectProperties;
@@ -83,8 +83,7 @@ public class LogicalPropertiesProviderImpl
     @Override
     public LogicalProperties getValuesProperties(ValuesNode valuesNode)
     {
-        LogicalPropertiesImpl sourceProperties = emptyProperties(functionResolution);
-        return propagateAndLimitProperties(sourceProperties, valuesNode.getRows().size(), functionResolution);
+        return propagateAndLimitProperties(DEFAULT_LOGICAL_PROPERTIES, valuesNode.getRows().size());
     }
 
     /**
@@ -105,7 +104,7 @@ public class LogicalPropertiesProviderImpl
             Map<ColumnHandle, VariableReferenceExpression> inverseAssignments = assignments.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
             uniqueConstraints.stream().filter(uniqueConstraint -> uniqueConstraint.getColumns().stream().allMatch(col -> inverseAssignments.containsKey(col))).forEach(uniqueConstraint -> keys.add(uniqueConstraint.getColumns().stream().map(col -> inverseAssignments.get(col)).collect(Collectors.toSet())));
         }
-        return tableScanProperties(keys, functionResolution);
+        return tableScanProperties(keys);
     }
 
     /**
@@ -138,7 +137,7 @@ public class LogicalPropertiesProviderImpl
             throw new IllegalStateException("Expected source PlanNode to be a GroupReference with LogicalProperties");
         }
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) projectNode.getSource()).getLogicalProperties().get();
-        return projectProperties(sourceProperties, projectNode.getAssignments(), functionResolution);
+        return projectProperties(sourceProperties, projectNode.getAssignments());
     }
 
     /**
@@ -187,7 +186,7 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) semiJoinNode.getSource()).getLogicalProperties().get();
-        return propagateProperties(sourceProperties, functionResolution);
+        return propagateProperties(sourceProperties);
     }
 
     /**
@@ -211,13 +210,12 @@ public class LogicalPropertiesProviderImpl
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) aggregationNode.getSource()).getLogicalProperties().get();
         if (!aggregationNode.getAggregations().isEmpty() && aggregationNode.getGroupingKeys().isEmpty()) {
             //aggregation with no grouping variables, single row output
-            return propagateAndLimitProperties(sourceProperties, Long.valueOf(1), functionResolution);
+            return propagateAndLimitProperties(sourceProperties, Long.valueOf(1));
         }
         else {
             return aggregationProperties(sourceProperties,
                     aggregationNode.getGroupingKeys().stream().collect(Collectors.toSet()),
-                    aggregationNode.getOutputVariables(),
-                    functionResolution);
+                    aggregationNode.getOutputVariables());
         }
     }
 
@@ -246,7 +244,7 @@ public class LogicalPropertiesProviderImpl
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) assignUniqueIdNode.getSource()).getLogicalProperties().get();
         Set<VariableReferenceExpression> key = new HashSet<>();
         key.add(assignUniqueIdNode.getIdVariable());
-        return aggregationProperties(sourceProperties, key, assignUniqueIdNode.getOutputVariables(), functionResolution);
+        return aggregationProperties(sourceProperties, key, assignUniqueIdNode.getOutputVariables());
     }
 
     /**
@@ -267,8 +265,7 @@ public class LogicalPropertiesProviderImpl
         return distinctLimitProperties(sourceProperties,
                 distinctLimitNode.getDistinctVariables().stream().collect(Collectors.toSet()),
                 distinctLimitNode.getLimit(),
-                distinctLimitNode.getOutputVariables(),
-                functionResolution);
+                distinctLimitNode.getOutputVariables());
     }
 
     /**
@@ -285,7 +282,7 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) limitNode.getSource()).getLogicalProperties().get();
-        return propagateAndLimitProperties(sourceProperties, limitNode.getCount(), functionResolution);
+        return propagateAndLimitProperties(sourceProperties, limitNode.getCount());
     }
 
     /**
@@ -302,7 +299,7 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) topNNode.getSource()).getLogicalProperties().get();
-        return propagateAndLimitProperties(sourceProperties, topNNode.getCount(), functionResolution);
+        return propagateAndLimitProperties(sourceProperties, topNNode.getCount());
     }
 
     /**
@@ -324,7 +321,7 @@ public class LogicalPropertiesProviderImpl
         }
 
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) sortNode.getSource()).getLogicalProperties().get();
-        return propagateProperties(sourceProperties, functionResolution);
+        return propagateProperties(sourceProperties);
     }
 
     /**
@@ -335,6 +332,6 @@ public class LogicalPropertiesProviderImpl
     @Override
     public LogicalProperties getDefaultProperties()
     {
-        return emptyProperties(functionResolution);
+        return DEFAULT_LOGICAL_PROPERTIES;
     }
 }
