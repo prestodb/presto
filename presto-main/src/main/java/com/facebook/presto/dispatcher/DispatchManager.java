@@ -55,8 +55,8 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
-import static com.facebook.presto.util.StatementUtils.getQueryType;
-import static com.facebook.presto.util.StatementUtils.isTransactionControlStatement;
+import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getQueryType;
+import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isTransactionControlStatement;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
