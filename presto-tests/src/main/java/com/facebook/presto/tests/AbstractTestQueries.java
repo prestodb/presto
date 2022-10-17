@@ -6212,4 +6212,12 @@ public abstract class AbstractTestQueries
         String multipleJoin = "SELECT o.orderkey, l.partkey, p.name FROM orders o LEFT JOIN lineitem l ON o.orderkey = l.orderkey LEFT JOIN part p ON l.partkey=p.partkey";
         assertQuery(enableRandomize, multipleJoin, getSession(), multipleJoin);
     }
+
+    @Test
+    public void testMapSubset()
+    {
+        assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
+        assertQuery("select cardinality(map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[10,20]))", "select 0");
+        assertQuery("select cardinality(map_subset(map(), array[10,20]))", "select 0");
+    }
 }
