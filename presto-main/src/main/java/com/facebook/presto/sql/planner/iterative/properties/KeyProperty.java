@@ -13,11 +13,15 @@
  */
 package com.facebook.presto.sql.planner.iterative.properties;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.sql.planner.iterative.properties.Key.concatKeys;
+import static com.facebook.presto.sql.planner.iterative.properties.Key.getNormalizedKey;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
@@ -25,18 +29,28 @@ import static java.util.Objects.requireNonNull;
  * Represents a collection of primary or unique key constraints that hold for a final or
  * intermediate result set produced by a PlanNode.
  */
-public class KeyProperty
+public final class KeyProperty
 {
     private final Set<Key> keys;
 
     public KeyProperty()
     {
-        this.keys = new HashSet<>();
+        this.keys = ImmutableSet.of();
     }
 
     public KeyProperty(Set<Key> keys)
     {
-        this.keys = keys;
+        this.keys = ImmutableSet.copyOf(requireNonNull(keys, "keys is null"));
+    }
+
+    public KeyProperty(KeyProperty keyProperty)
+    {
+        this.keys = keyProperty.getKeys();
+    }
+
+    public Set<Key> getKeys()
+    {
+        return keys;
     }
 
     /**
@@ -48,7 +62,6 @@ public class KeyProperty
      */
     public boolean moreGeneral(KeyProperty otherKeyProperty)
     {
-        requireNonNull(otherKeyProperty, "otherKeyProperty is null");
         return ((keys.isEmpty() && otherKeyProperty.keys.isEmpty()) ||
                 (otherKeyProperty.keys.stream().allMatch(this::satisfiesKeyRequirement)));
     }
@@ -62,70 +75,61 @@ public class KeyProperty
      */
     public boolean satisfiesKeyRequirement(Key keyRequirement)
     {
-        requireNonNull(keyRequirement, "keyRequirement is null");
         return keys.stream().anyMatch(k -> k.keySatisifiesRequirement(keyRequirement));
-    }
-
-    /**
-     * Adds a set of keys to this key property.
-     *
-     * @param keys
-     */
-    public void addKeys(Set<Key> keys)
-    {
-        requireNonNull(keys, "keys is null");
-        keys.forEach(this::addKey);
     }
 
     /**
      * Adds the keys from the provided key property to this key property.
      *
-     * @param keyProperty
+     * @param thisKeyProperty
+     * @param otherKeyProperty
      */
-    public void addKeys(KeyProperty keyProperty)
+    public static KeyProperty combineKeys(KeyProperty thisKeyProperty, KeyProperty otherKeyProperty)
     {
-        requireNonNull(keyProperty, "keyProperty is null");
-        addKeys(keyProperty.keys);
+        return combineKeys(thisKeyProperty.keys, otherKeyProperty.keys);
     }
 
     /**
-     * Adds a new key to this key property.
+     * Adds otherKeys to thisKeys.
      *
-     * @param key
+     * @param thisKeys
+     * @param otherKeys
      */
-    public void addKey(Key key)
+    public static KeyProperty combineKeys(Set<Key> thisKeys, Set<Key> otherKeys)
     {
-        requireNonNull(key, "key is null");
-        addNonRedundantKey(key);
+        Set<Key> newKeys = new HashSet(thisKeys);
+        for (Key key : otherKeys) {
+            newKeys = combineKey(newKeys, key);
+        }
+        return new KeyProperty(newKeys);
     }
 
     /**
-     * Adds a key to this key property while enforcing the constraint that no
+     * Adds a newKey to keys while enforcing the constraint that no
      * key is redundant with respect to another.
      * E.g. if {orderkey} was an existing key then the key {orderkey, orderpriority}
      * would represent a redundant key. The inverse is true, an existing key
-     * can be removed by a new key it if is redundant with respect to the new key.
+     * can be removed by a new key it if it is redundant with respect to the newKey.
      *
+     * @param keys
      * @param newKey
      */
-    private void addNonRedundantKey(Key newKey)
+    public static Set<Key> combineKey(Set<Key> keys, Key newKey)
     {
-        Set<Key> removedKeys = new HashSet<>();
+        Set<Key> combinedKeys = new HashSet<>(keys);
         for (Key key : keys) {
             //if the new key >= key don't add it
             if (key.keySatisifiesRequirement(newKey)) {
-                return;
+                return keys;
             }
-
             //if the new key <= key1 remove existing key. note that if this is true the new key will be added as it
             //cannot be a superset of another key2 otherwise key2 <= key1 which violates the key property invariant
             if (newKey.keySatisifiesRequirement(key)) {
-                removedKeys.add(key);
+                combinedKeys.remove(key);
             }
         }
-        //new key not >= existing key
-        keys.add(newKey);
-        keys.removeAll(removedKeys);
+        combinedKeys.add(newKey);
+        return combinedKeys;
     }
 
     /**
@@ -140,20 +144,19 @@ public class KeyProperty
      * @param equivalenceClassProperty
      * @return A normalized version of this key property or empty if any key is fully bound to constants.
      */
-    public Optional<KeyProperty> normalize(EquivalenceClassProperty equivalenceClassProperty)
+    public static Optional<KeyProperty> getNormalizedKeyProperty(KeyProperty keyProperty, EquivalenceClassProperty equivalenceClassProperty)
     {
-        requireNonNull(equivalenceClassProperty, "equivalenceClassProperty is null");
-        KeyProperty result = new KeyProperty();
-        for (Key key : this.keys) {
-            Optional<Key> normalizedKey = key.normalize(equivalenceClassProperty);
+        Set<Key> newKeys = new HashSet<>();
+        for (Key key : keyProperty.keys) {
+            Optional<Key> normalizedKey = getNormalizedKey(key, equivalenceClassProperty);
             if (!normalizedKey.isPresent()) {
                 return Optional.empty();
             }
             else {
-                result.addKey(normalizedKey.get());
+                newKeys = combineKey(newKeys, normalizedKey.get());
             }
         }
-        return Optional.of(result);
+        return Optional.of(new KeyProperty(newKeys));
     }
 
     /**
@@ -166,21 +169,15 @@ public class KeyProperty
      */
     public KeyProperty project(LogicalPropertiesImpl.InverseVariableMappingsWithEquivalence inverseVariableMappings)
     {
-        requireNonNull(inverseVariableMappings, "inverseVariableMappings is null");
-        KeyProperty result = new KeyProperty();
-        keys.forEach(key -> {
-            Optional<Key> projectedKey = key.project(inverseVariableMappings);
-            projectedKey.ifPresent(result::addKey);
-        });
-        return result;
-    }
+        Set<Key> newKeys = new HashSet<>();
 
-    /**
-     * Empties all keys from the key property.
-     */
-    public void empty()
-    {
-        keys.clear();
+        for (Key key : keys) {
+            Optional<Key> projectedKey = key.project(inverseVariableMappings);
+            if (projectedKey.isPresent()) {
+                newKeys = combineKey(newKeys, projectedKey.get());
+            }
+        }
+        return new KeyProperty(newKeys);
     }
 
     /**
@@ -191,16 +188,16 @@ public class KeyProperty
      * @param toConcatKeyProp
      * @return a version of this key concatenated with the provided key.
      */
-    public KeyProperty concat(KeyProperty toConcatKeyProp)
+    public static KeyProperty concatKeyProperty(KeyProperty thisKeyProperty, KeyProperty toConcatKeyProp)
     {
-        requireNonNull(toConcatKeyProp, "toConcatKeyProp is null");
-        KeyProperty result = new KeyProperty();
-        for (Key thisKey : this.keys) {
+        Set<Key> newKeys = new HashSet<>();
+
+        for (Key thisKey : thisKeyProperty.keys) {
             for (Key toConcatKey : toConcatKeyProp.keys) {
-                result.addKey(thisKey.concat(toConcatKey));
+                newKeys = combineKey(newKeys, concatKeys(thisKey, toConcatKey));
             }
         }
-        return result;
+        return new KeyProperty(newKeys);
     }
 
     @Override
