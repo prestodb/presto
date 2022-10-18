@@ -118,12 +118,12 @@ public final class AggregationTestUtils
     {
         // This assertAggregation does not try to split up the page to test the correctness of combine function.
         // Do not use this directly. Always use the other assertAggregation.
-        assertFunctionEquals(isEqual, testDescription, aggregation(function, pages), expectedValue);
-        assertFunctionEquals(isEqual, testDescription, partialAggregation(function, pages), expectedValue);
+        assertFunctionEquals(isEqual, testDescription, aggregation(isEqual, function, pages), expectedValue);
+        assertFunctionEquals(isEqual, testDescription, partialAggregation(isEqual, function, pages), expectedValue);
         if (pages.length > 0) {
             assertFunctionEquals(isEqual, testDescription, groupedAggregation(isEqual, function, pages), expectedValue);
             assertFunctionEquals(isEqual, testDescription, groupedPartialAggregation(isEqual, function, pages), expectedValue);
-            assertFunctionEquals(isEqual, testDescription, distinctAggregation(function, pages), expectedValue);
+            assertFunctionEquals(isEqual, testDescription, distinctAggregation(isEqual, function, pages), expectedValue);
         }
     }
 
@@ -163,6 +163,29 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
+    public static Object distinctAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
+    {
+        Optional<Integer> maskChannel = Optional.of(pages[0].getChannelCount());
+        // Execute normally
+        Object aggregation = aggregation(function, createArgs(function), maskChannel, maskPages(true, pages));
+        Page[] dupedPages = new Page[pages.length * 2];
+        // Create two copies of each page with one of them masked off
+        System.arraycopy(maskPages(true, pages), 0, dupedPages, 0, pages.length);
+        System.arraycopy(maskPages(false, pages), 0, dupedPages, pages.length, pages.length);
+        // Execute with masked pages and assure equal to normal execution
+        Object aggregationWithDupes = aggregation(function, createArgs(function), maskChannel, dupedPages);
+        assertFunctionEquals(isEqual, "Inconsistent results with mask", aggregationWithDupes, aggregation);
+
+        // Re-run the duplicated inputs with RLE masks
+        System.arraycopy(maskPagesWithRle(true, pages), 0, dupedPages, 0, pages.length);
+        System.arraycopy(maskPagesWithRle(false, pages), 0, dupedPages, pages.length, pages.length);
+        Object aggregationWithRleMasks = aggregation(function, createArgs(function), maskChannel, dupedPages);
+
+        assertFunctionEquals(isEqual, "Inconsistent results with RLE mask", aggregationWithRleMasks, aggregation);
+
+        return aggregation;
+    }
+
     // Adds the mask as the last channel
     private static Page[] maskPagesWithRle(boolean maskValue, Page... pages)
     {
@@ -193,6 +216,23 @@ public final class AggregationTestUtils
     public static Object aggregation(JavaAggregationFunctionImplementation function, Block... blocks)
     {
         return aggregation(function, new Page(blocks));
+    }
+
+    public static Object aggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
+    {
+        // execute with args in positions: arg0, arg1, arg2
+        Object aggregation = aggregation(function, createArgs(function), Optional.empty(), pages);
+
+        // execute with args in reverse order: arg2, arg1, arg0
+        if (function.getParameterTypes().size() > 1) {
+            Object aggregationWithOffset = aggregation(function, reverseArgs(function), Optional.empty(), reverseColumns(pages));
+            assertFunctionEquals(isEqual, "Inconsistent results with reversed channels", aggregationWithOffset, aggregation);
+        }
+
+        // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
+        Object aggregationWithOffset = aggregation(function, offsetArgs(function, 3), Optional.empty(), offsetColumns(pages, 3));
+        assertFunctionEquals(isEqual, "Inconsistent results with channel offset", aggregationWithOffset, aggregation);
+        return aggregation;
     }
 
     public static Object aggregation(JavaAggregationFunctionImplementation function, Page... pages)
@@ -244,6 +284,23 @@ public final class AggregationTestUtils
         return aggregation;
     }
 
+    public static Object partialAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
+    {
+        // execute with args in positions: arg0, arg1, arg2
+        Object aggregation = partialAggregation(function, createArgs(function), pages);
+
+        // execute with args in reverse order: arg2, arg1, arg0
+        if (function.getParameterTypes().size() > 1) {
+            Object aggregationWithOffset = partialAggregation(function, reverseArgs(function), reverseColumns(pages));
+            assertFunctionEquals(isEqual, "Inconsistent results with reversed channels", aggregationWithOffset, aggregation);
+        }
+
+        // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
+        Object aggregationWithOffset = partialAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
+        assertFunctionEquals(isEqual, "Inconsistent results with channel offset", aggregationWithOffset, aggregation);
+        return aggregation;
+    }
+
     public static Object partialAggregation(JavaAggregationFunctionImplementation function, int[] args, Page... pages)
     {
         AccumulatorFactory factory = generateAccumulatorFactory(function, Ints.asList(args), Optional.empty());
@@ -278,16 +335,16 @@ public final class AggregationTestUtils
     public static Object groupedAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, Page... pages)
     {
         // execute with args in positions: arg0, arg1, arg2
-        Object aggregation = groupedAggregation(function, createArgs(function), pages);
+        Object aggregation = groupedAggregation(isEqual, function, createArgs(function), pages);
 
         // execute with args in reverse order: arg2, arg1, arg0
         if (function.getParameterTypes().size() > 1) {
-            Object aggregationWithOffset = groupedAggregation(function, reverseArgs(function), reverseColumns(pages));
+            Object aggregationWithOffset = groupedAggregation(isEqual, function, reverseArgs(function), reverseColumns(pages));
             assertFunctionEquals(isEqual, "Inconsistent results with reversed channels", aggregationWithOffset, aggregation);
         }
 
         // execute with args at an offset (and possibly reversed): null, null, null, arg2, arg1, arg0
-        Object aggregationWithOffset = groupedAggregation(function, offsetArgs(function, 3), offsetColumns(pages, 3));
+        Object aggregationWithOffset = groupedAggregation(isEqual, function, offsetArgs(function, 3), offsetColumns(pages, 3));
         assertFunctionEquals(isEqual, "Consistent results with channel offset", aggregationWithOffset, aggregation);
 
         return aggregation;
@@ -306,6 +363,23 @@ public final class AggregationTestUtils
         }
         Object largeGroupValue = getGroupValue(groupedAggregation, 4000);
         assertEquals(largeGroupValue, groupValue, "Inconsistent results with large group id");
+
+        return groupValue;
+    }
+
+    public static Object groupedAggregation(BiFunction<Object, Object, Boolean> isEqual, JavaAggregationFunctionImplementation function, int[] args, Page... pages)
+    {
+        GroupedAccumulator groupedAggregation = generateAccumulatorFactory(function, Ints.asList(args), Optional.empty()).createGroupedAccumulator(UpdateMemory.NOOP);
+        for (Page page : pages) {
+            groupedAggregation.addInput(createGroupByIdBlock(0, page.getPositionCount()), page);
+        }
+        Object groupValue = getGroupValue(groupedAggregation, 0);
+
+        for (Page page : pages) {
+            groupedAggregation.addInput(createGroupByIdBlock(4000, page.getPositionCount()), page);
+        }
+        Object largeGroupValue = getGroupValue(groupedAggregation, 4000);
+        assertFunctionEquals(isEqual, "Inconsistent results with large group id", largeGroupValue, groupValue);
 
         return groupValue;
     }
