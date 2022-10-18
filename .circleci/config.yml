@@ -74,7 +74,7 @@ commands:
             # Calculate ccache key.
             git show -s --format=%cd --date="format:%Y%m%d" $(git merge-base origin/main HEAD) | tee merge-base-date
 
-            # Set up xml gtest output. 
+            # Set up xml gtest output.
             mkdir -p /tmp/test_xml_output/
             echo "export XML_OUTPUT_FILE=\"/tmp/test_xml_output/\"" >> $BASH_ENV
 
@@ -236,7 +236,7 @@ jobs:
             # upgrade python to 3.8 for this job
             yum install -y python38
             pip3.8 install conbench
-            pip3.8 install git+https://github.com/conbench/benchalerts.git@0.2.1
+            pip3.8 install git+https://github.com/conbench/benchalerts.git@0.3.1
             pip3.8 install scripts/veloxbench
       - run:
           name: "Run Benchmarks"

@@ -16,21 +16,23 @@
 import argparse
 import os
 
-from benchalerts import update_github_status_based_on_regressions
+from benchalerts import update_github_check_based_on_regressions
 
 
 description = """
-Analyze benchmark runs and post a GitHub Status whether there was a regression or not.
+Analyze benchmark runs and post a GitHub Check whether there was a regression or not.
 
 Required environment variables:
-    GITHUB_API_TOKEN - a GitHub PAT with "repo:status" permission
+    GITHUB_APP_ID - the ID of a GitHub App installed to this repo
+    GITHUB_APP_PRIVATE_KEY - the private key file contents of the GitHub App
     CONBENCH_URL - the URL to the Conbench server where benchmark results are stored
 
-(see https://circleci.com/docs/env-vars#built-in-environment-variables for these)
+(see https://circleci.com/docs/built-in-environment-variables for these)
     CIRCLE_SHA1
     CIRCLE_PROJECT_USERNAME
     CIRCLE_PROJECT_REPONAME
     CIRCLE_BUILD_URL
+    CIRCLE_PULL_REQUEST (optional)
 """
 parser = argparse.ArgumentParser(
     description=description, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -49,10 +51,12 @@ contender_sha = os.environ["CIRCLE_SHA1"]
 org = os.environ["CIRCLE_PROJECT_USERNAME"]
 repo = os.environ["CIRCLE_PROJECT_REPONAME"]
 os.environ["BUILD_URL"] = os.environ["CIRCLE_BUILD_URL"]
+is_pull_request = bool(os.getenv("CIRCLE_PULL_REQUEST"))
 
-res = update_github_status_based_on_regressions(
+res = update_github_check_based_on_regressions(
     contender_sha=contender_sha,
     z_score_threshold=args.z_score_threshold,
+    warn_if_baseline_isnt_parent=not is_pull_request,
     repo=f"{org}/{repo}",
 )
 print(res)
