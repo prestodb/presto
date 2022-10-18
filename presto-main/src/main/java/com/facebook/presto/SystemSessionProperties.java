@@ -1381,7 +1381,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED,
-                        "Enable rewrite from IF(predicate, AGG(x)) to AGG(IF(predicate), x)",
+                        "Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask",
                         featuresConfig.isOptimizeConditionalAggregationEnabled(),
                         false));
     }
