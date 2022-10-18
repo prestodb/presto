@@ -16,9 +16,8 @@
 
 #include "velox/substrait/SubstraitToVeloxPlan.h"
 #include "velox/substrait/TypeUtils.h"
+#include "velox/substrait/VariantToVectorConverter.h"
 #include "velox/type/Type.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::substrait {
 namespace {
@@ -44,58 +43,6 @@ core::AggregationNode::Step toAggregationStep(
     default:
       VELOX_FAIL("Aggregate phase is not supported.");
   }
-}
-} // namespace
-namespace {
-template <TypeKind KIND>
-VectorPtr setVectorFromVariantsByKind(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  using T = typename TypeTraits<KIND>::NativeType;
-
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(
-      BaseVector::create(CppToType<T>::create(), value.size(), pool));
-
-  for (vector_size_t i = 0; i < value.size(); i++) {
-    if (value[i].isNull()) {
-      flatVector->setNull(i, true);
-    } else {
-      flatVector->set(i, value[i].value<T>());
-    }
-  }
-  return flatVector;
-}
-
-template <>
-VectorPtr setVectorFromVariantsByKind<TypeKind::VARBINARY>(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  throw std::invalid_argument("Return of VARBINARY data is not supported");
-}
-
-template <>
-VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
-    const std::vector<velox::variant>& value,
-    memory::MemoryPool* pool) {
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
-      BaseVector::create(VARCHAR(), value.size(), pool));
-
-  for (vector_size_t i = 0; i < value.size(); i++) {
-    if (value[i].isNull()) {
-      flatVector->setNull(i, true);
-    } else {
-      flatVector->set(i, StringView(value[i].value<Varchar>()));
-    }
-  }
-  return flatVector;
-}
-
-VectorPtr setVectorFromVariants(
-    const TypePtr& type,
-    const std::vector<velox::variant>& value,
-    velox::memory::MemoryPool* pool) {
-  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-      setVectorFromVariantsByKind, type->kind(), value, pool);
 }
 } // namespace
 
