@@ -122,7 +122,7 @@ public class PinotBrokerPageSource
         if (blockBuilder == null) {
             return;
         }
-        if (value == null) {
+        if (value == null || value.isNull()) {
             blockBuilder.appendNull();
             return;
         }

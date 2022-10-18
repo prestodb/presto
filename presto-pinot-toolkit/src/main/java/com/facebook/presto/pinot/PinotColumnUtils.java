@@ -52,12 +52,17 @@ public class PinotColumnUtils
 
     public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema, boolean inferDateType, boolean inferTimestampType)
     {
+        return getPinotColumnsForPinotSchema(pinotTableSchema, inferDateType, inferTimestampType, false);
+    }
+
+    public static List<PinotColumn> getPinotColumnsForPinotSchema(Schema pinotTableSchema, boolean inferDateType, boolean inferTimestampType, boolean nullHandlingEnabled)
+    {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in SQL
                 .map(columnName -> new PinotColumn(
                         columnName,
                         getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), inferDateType, inferTimestampType),
-                        isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName)),
+                        isNullableColumnFromPinotType(pinotTableSchema.getFieldSpecFor(columnName), nullHandlingEnabled),
                         getCommentFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
     }
@@ -67,9 +72,9 @@ public class PinotColumnUtils
         return field.getFieldType().name();
     }
 
-    private static boolean isNullableColumnFromPinotType(FieldSpec field)
+    private static boolean isNullableColumnFromPinotType(FieldSpec field, boolean nullHandlingEnabled)
     {
-        return false;
+        return nullHandlingEnabled;
     }
 
     public static Type getPrestoTypeFromPinotType(FieldSpec field, boolean inferDateType, boolean inferTimestampType)

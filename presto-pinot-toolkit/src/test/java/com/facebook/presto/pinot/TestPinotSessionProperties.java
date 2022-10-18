@@ -36,4 +36,30 @@ public class TestPinotSessionProperties
         ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
         assertEquals(PinotSessionProperties.getOverrideDistinctCountFunction(session), "distinctCountBitmap");
     }
+
+    @Test
+    public void testQueryOptionsParsedProperly()
+    {
+        PinotConfig pinotConfig = new PinotConfig().setQueryOptions(",,enableNullHandling:true,skipUpsert:true,");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
+        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        assertEquals(queryOptionsProperty, ",,enableNullHandling:true,skipUpsert:true,");
+        assertEquals(
+                PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty),
+                " option(enableNullHandling=true,skipUpsert=true) ");
+    }
+
+    @Test
+    public void testQuotedQueryOptionsParsedProperly()
+    {
+        PinotConfig pinotConfig = new PinotConfig().setQueryOptions(",,`enableNullHandling`:true,\"skipUpsert\":true,");
+        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(pinotConfig);
+        ConnectorSession session = new TestingConnectorSession(pinotSessionProperties.getSessionProperties());
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        assertEquals(queryOptionsProperty, ",,`enableNullHandling`:true,\"skipUpsert\":true,");
+        assertEquals(
+                PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty),
+                " option(enableNullHandling=true,skipUpsert=true) ");
+    }
 }

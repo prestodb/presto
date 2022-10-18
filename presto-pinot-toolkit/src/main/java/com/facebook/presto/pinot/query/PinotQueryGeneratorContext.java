@@ -17,6 +17,7 @@ import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.pinot.PinotColumnHandle;
 import com.facebook.presto.pinot.PinotConfig;
 import com.facebook.presto.pinot.PinotException;
+import com.facebook.presto.pinot.PinotQueryOptionsUtils;
 import com.facebook.presto.pinot.PinotSessionProperties;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -303,7 +304,7 @@ public class PinotQueryGeneratorContext
     // Generate Pinot query:
     // - takes arguments of expressions/table name/limit clause;
     // - handles the common logic to generate where/groupBy/orderBy clauses.
-    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause)
+    private String generatePinotQueryHelper(boolean forBroker, String expressions, String tableName, String limitClause, String queryOptions)
     {
         String query = "SELECT " + expressions + " FROM " + tableName + (forBroker ? "" : TABLE_NAME_SUFFIX_TEMPLATE);
         if (filter.isPresent()) {
@@ -326,6 +327,7 @@ public class PinotQueryGeneratorContext
             query = query + " ORDER BY " + orderByExpressions;
         }
         query = query + limitClause;
+        query = query + queryOptions;
         return query;
     }
 
@@ -383,7 +385,9 @@ public class PinotQueryGeneratorContext
         if (queryLimit > 0) {
             limitClause = " LIMIT " + queryLimit;
         }
-        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause);
+        String queryOptionsProperty = PinotSessionProperties.getQueryOptions(session);
+        String queryOptions = PinotQueryOptionsUtils.getQueryOptionsAsString(queryOptionsProperty);
+        String query = generatePinotQueryHelper(forBroker, expressions, tableName, limitClause, queryOptions);
         LinkedHashMap<VariableReferenceExpression, PinotColumnHandle> assignments = getAssignments();
         List<Integer> indices = getIndicesMappingFromPinotSchemaToPrestoSchema(query, assignments);
         return new PinotQueryGenerator.GeneratedPinotQuery(tableName, query, indices, filter.isPresent(), forBroker);

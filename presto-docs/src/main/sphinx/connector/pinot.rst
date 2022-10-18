@@ -83,6 +83,7 @@ Property Name                                               Description
 ``pinot.broker-authentication-type``                        Pinot authentication method for broker requests. Allowed values are ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
 ``pinot.broker-authentication-user``                        Broker username for basic authentication method.
 ``pinot.broker-authentication-password``                    Broker password for basic authentication method.
+``pinot.query-options``                                     Pinot query-related case-sensitive options. E.g. skipUpsert:true,enableNullHandling:true
 ==========================================================  =============================================================================================================
 
 If ``pinot.controller-authentication-type`` is set to ``PASSWORD`` then both ``pinot.controller-authentication-user`` and
@@ -114,6 +115,7 @@ Property Name                                             Description
 ``pinot.controller_authentication_password``              Controller password for basic authentication method.
 ``pinot.broker_authentication_user``                      Broker username for basic authentication method.
 ``pinot.broker_authentication_password``                  Broker password for basic authentication method.
+``pinot.query_options``                                   Pinot query-related case-sensitive options. E.g. skipUpsert:true,enableNullHandling:true
 ========================================================  ==================================================================
 
 Map Pinot Schema to Presto Schema

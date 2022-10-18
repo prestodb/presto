@@ -114,6 +114,8 @@ public class PinotConfig
     private String brokerAuthenticationUser;
     private String brokerAuthenticationPassword;
 
+    private String queryOptions;
+
     @NotNull
     public Map<String, String> getExtraHttpHeaders()
     {
@@ -650,5 +652,18 @@ public class PinotConfig
             throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
         }
         return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
+    }
+
+    @NotNull
+    public String getQueryOptions()
+    {
+        return queryOptions;
+    }
+
+    @Config("pinot.query-options")
+    public PinotConfig setQueryOptions(String options)
+    {
+        queryOptions = options;
+        return this;
     }
 }
