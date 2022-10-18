@@ -61,9 +61,6 @@ class HashProbe : public Operator {
       const RowTypePtr& probeType,
       const RowTypePtr& tableType);
 
-  // Setup the column mapping and build side table for filter evaluation.
-  void prepareForNullAwareAntiJoinWithFilter();
-
   // Check if output_ can be re-used and if not make a new one.
   void prepareOutput(vector_size_t size);
 
@@ -83,25 +80,31 @@ class HashProbe : public Operator {
   /// for right join and full join.
   RowVectorPtr getBuildSideOutput();
 
+  // Applies 'filter_' to 'outputTableRows_' and updates 'outputRowMapping_'.
+  // Returns the number of passing rows.
+  vector_size_t evalFilter(vector_size_t numRows);
+
   // Populate filter input columns.
   void fillFilterInput(vector_size_t size);
 
-  // Prepare filter row selectivity.
+  // Prepare filter row selectivity for null-aware anti join. 'numRows'
+  // specifies the number of rows in 'filterInputRows_' to process. If
+  // 'filterPropagateNulls' is true, the probe input row which has null in any
+  // probe filter column can't pass the filter.
   void prepareFilterRowsForNullAwareAntiJoin(
-      const Expr& filter,
-      vector_size_t numRows);
-
-  // Test the filter on rows on build side joined with selected rows from probe
-  // side.  Only keep the rows not passing the filter.
-  void testFilterOnBuildSide(SelectivityVector& rows, bool nullKeyRowsOnly);
-
-  // Applies 'filter_' to 'outputRows_' and updates 'outputRows_' and
-  // 'rowNumberMapping_'. Returns the number of passing rows.
-  vector_size_t evalFilter(vector_size_t numRows);
-
-  vector_size_t evalFilterInNullAwareAntiJoin(
       vector_size_t numRows,
-      const Expr& filter);
+      bool filterPropagateNulls);
+
+  vector_size_t evalFilterForNullAwareAntiJoin(
+      vector_size_t numRows,
+      bool filterPropagateNulls);
+
+  // Apply the filter on table rows joined with selected 'rows' from probe
+  // input for null-aware anti-join processing. Only keep the rows not passing
+  // the filter in 'rows'.
+  void applyFilterOnTableRowsForNullAwareAntiJoin(
+      SelectivityVector& rows,
+      bool nullKeyRowsOnly);
 
   void ensureLoadedIfNotAtEnd(column_index_t channel);
 
@@ -129,43 +132,57 @@ class HashProbe : public Operator {
 
   VectorHasher::ScratchMemory scratchMemory_;
 
-  // Rows to apply 'filter_' to.
-  SelectivityVector filterRows_;
-  SelectivityVector filterRowsBuildSide_;
+  // Rows in 'filterInput_' to apply 'filter_' to.
+  SelectivityVector filterInputRows_;
 
   // Join filter.
   std::unique_ptr<ExprSet> filter_;
+
   std::vector<VectorPtr> filterResult_;
   DecodedVector decodedFilterResult_;
-
-  // These 2 are used in null-aware anti join in addition to 'filterResult_'.
-  std::vector<VectorPtr> filterResultBuildSide_;
-  DecodedVector decodedVectorPerRow_;
 
   // Type of the RowVector for filter inputs.
   RowTypePtr filterInputType_;
 
   // Maps input channels to channels in 'filterInputType_'.
-  std::vector<IdentityProjection> filterProbeInputs_;
+  std::vector<IdentityProjection> filterInputProjections_;
 
   // Maps from column index in hash table to channel in 'filterInputType_'.
-  std::vector<IdentityProjection> filterBuildInputs_;
-  folly::F14FastMap<column_index_t, column_index_t> filterBuildInputsMap_;
+  std::vector<IdentityProjection> filterTableProjections_;
+  folly::F14FastMap<column_index_t, column_index_t> filterTableProjectionMap_;
 
   // Temporary projection from probe and build for evaluating
   // 'filter_'. This can always be reused since this does not escape
   // this operator.
   RowVectorPtr filterInput_;
-  RowVectorPtr filterInputBuildSide_;
 
-  // Row number in 'input_' for each row of output.
-  BufferPtr rowNumberMapping_;
+  // The following six fields are used in null-aware anti join filter
+  // processing.
+
+  // Used to decode a probe side filter input column to check nulls.
+  DecodedVector filterInputColumnDecodedVector_;
+
+  // Rows that have null value in any probe side filter columns to skip the
+  // null-propagating filter evaluation. The corresponding probe input rows can
+  // be added to the output result directly as they won't pass the filter.
+  SelectivityVector nullFilterInputRows_;
+
+  // Used to store the null-key joined rows for filter processing.
+  RowVectorPtr filterTableInput_;
+  SelectivityVector filterTableInputRows_;
+
+  // Used to store the filter result for null-key joined rows.
+  std::vector<VectorPtr> filterTableResult_;
+  DecodedVector decodedFilterTableResult_;
+
+  // Row number in 'input_' for each output row.
+  BufferPtr outputRowMapping_;
 
   // maps from column index in 'table_' to channel in 'output_'.
-  std::vector<IdentityProjection> tableResultProjections_;
+  std::vector<IdentityProjection> tableOutputProjections_;
 
   // Rows of table found by join probe, later filtered by 'filter_'.
-  std::vector<char*> outputRows_;
+  std::vector<char*> outputTableRows_;
 
   // Tracks probe side rows which had one or more matches on the build side, but
   // didn't pass the filter.
@@ -261,7 +278,7 @@ class HashProbe : public Operator {
   RowVectorPtr output_;
 
   // Input rows with no nulls in the join keys.
-  SelectivityVector nonNullRows_;
+  SelectivityVector nonNullInputRows_;
 
   // Input rows with a hash match. This is a subset of rows with no nulls in the
   // join keys and a superset of rows that have a match on the build side.
@@ -277,10 +294,6 @@ class HashProbe : public Operator {
   // cases where there is more than one batch of output or join filter
   // input.
   SelectivityVector passingInputRows_;
-
-  // Rows that have null value in any probe side filter columns.  This is used
-  // in null-aware anti join with null-propagating filter.
-  SelectivityVector nullFilterProbeInputRows_;
 };
 
 } // namespace facebook::velox::exec

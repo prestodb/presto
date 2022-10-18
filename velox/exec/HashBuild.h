@@ -210,17 +210,22 @@ class HashBuild final : public Operator {
   // Invoked to process data from spill input reader on restoring.
   void processSpillInput();
 
+  // Set up for null-aware anti-join with filter processing.
+  void setupFilterForNullAwareAntiJoin(
+      const folly::F14FastMap<column_index_t, column_index_t>& keyChannelMap);
+
+  // Invoked when preparing for null-aware anti join with null-propagating
+  // filter. The function deselects the input rows which have any null in the
+  // filter input columns. This is an optimization for null-aware anti join
+  // processing at the probe side as any probe matches with the deselected rows
+  // can't pass the null-propagating filter and will be added to the joined
+  // output.
+  void removeInputRowsForNullAwareAntiJoinFilter();
+
   void addRuntimeStats();
 
   // Invoked to check if it needs to trigger spilling for test purpose only.
   bool testingTriggerSpill();
-
-  // Check and store properties of the filter.
-  void setupFilter(const folly::F14FastMap<column_index_t, column_index_t>&);
-
-  // When prepare for null-aware anti join with null-propagating filter,
-  // deselect the rows when there is null in filter input columns.
-  void removeFilterInputNullRows();
 
   const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
@@ -292,11 +297,12 @@ class HashBuild final : public Operator {
   std::vector<vector_size_t*> rawSpillInputIndicesBuffers_;
   std::vector<VectorPtr> spillChildVectors_;
 
-  // Whether the filter is null-propagating.
+  // Indicates whether the filter is null-propagating.
   bool filterPropagatesNulls_{false};
 
-  // Indices of columns used by filter in build side table.
+  // Indices of key columns used by the filter in build side table.
   std::vector<column_index_t> keyFilterChannels_;
+  // Indices of dependent columns used by the filter in 'decoders_'.
   std::vector<column_index_t> dependentFilterChannels_;
 };
 

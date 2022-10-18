@@ -68,7 +68,7 @@ HashBuild::HashBuild(
 
   auto numKeys = joinNode_->rightKeys().size();
   keyChannels_.reserve(numKeys);
-  folly::F14FastMap<column_index_t, column_index_t> keyChannelPosition(numKeys);
+  folly::F14FastMap<column_index_t, column_index_t> keyChannelMap(numKeys);
   std::vector<std::string> names;
   names.reserve(outputType->size());
   std::vector<TypePtr> types;
@@ -77,7 +77,7 @@ HashBuild::HashBuild(
   for (int i = 0; i < joinNode_->rightKeys().size(); ++i) {
     auto& key = joinNode_->rightKeys()[i];
     auto channel = exprToChannel(key.get(), outputType);
-    keyChannelPosition[channel] = i;
+    keyChannelMap[channel] = i;
     keyChannels_.emplace_back(channel);
     names.emplace_back(outputType->nameOf(channel));
     types.emplace_back(outputType->childAt(channel));
@@ -88,7 +88,7 @@ HashBuild::HashBuild(
   dependentChannels_.reserve(numDependents);
   decoders_.reserve(numDependents);
   for (auto i = 0; i < outputType->size(); ++i) {
-    if (keyChannelPosition.find(i) == keyChannelPosition.end()) {
+    if (keyChannelMap.find(i) == keyChannelMap.end()) {
       dependentChannels_.emplace_back(i);
       decoders_.emplace_back(std::make_unique<DecodedVector>());
       names.emplace_back(outputType->nameOf(i));
@@ -101,7 +101,7 @@ HashBuild::HashBuild(
   setupSpiller();
 
   if (isNullAwareAntiJoin(joinType_) && joinNode_->filter()) {
-    setupFilter(keyChannelPosition);
+    setupFilterForNullAwareAntiJoin(keyChannelMap);
   }
 }
 
@@ -138,7 +138,8 @@ void HashBuild::setupTable() {
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiJoin();
     if (joinNode_->isNullAwareAntiJoin() && joinNode_->filter()) {
-      // We need to check null key rows in build side in this case.
+      // We need to check null key rows in build side in case of null-aware anti
+      // join with filter set.
       table_ = HashTable<false>::createForJoin(
           std::move(keyHashers),
           dependentTypes,
@@ -215,50 +216,54 @@ RowTypePtr HashBuild::inputType() const {
                             : joinNode_->sources()[1]->outputType();
 }
 
-void HashBuild::setupFilter(
-    const folly::F14FastMap<column_index_t, column_index_t>&
-        keyChannelPosition) {
+void HashBuild::setupFilterForNullAwareAntiJoin(
+    const folly::F14FastMap<column_index_t, column_index_t>& keyChannelMap) {
   VELOX_DCHECK(
       std::is_sorted(dependentChannels_.begin(), dependentChannels_.end()));
+
   ExprSet exprs({joinNode_->filter()}, operatorCtx_->execCtx());
   VELOX_DCHECK_EQ(exprs.exprs().size(), 1);
-  auto& expr = exprs.expr(0);
+  const auto& expr = exprs.expr(0);
   filterPropagatesNulls_ = expr->propagatesNulls();
   if (filterPropagatesNulls_) {
-    auto outputType = joinNode_->sources()[1]->outputType();
-    for (auto& field : expr->distinctFields()) {
-      if (auto index = outputType->getChildIdxIfExists(field->field());
-          index.has_value()) {
-        auto it = keyChannelPosition.find(*index);
-        if (it != keyChannelPosition.end()) {
-          auto j = it->second;
-          keyFilterChannels_.push_back(j);
-        } else {
-          auto it2 = std::lower_bound(
-              dependentChannels_.begin(), dependentChannels_.end(), *index);
-          VELOX_DCHECK(it2 != dependentChannels_.end() && *it2 == *index);
-          auto j = it2 - dependentChannels_.begin();
-          dependentFilterChannels_.push_back(j);
-        }
+    const auto outputType = joinNode_->sources()[1]->outputType();
+    for (const auto& field : expr->distinctFields()) {
+      const auto index = outputType->getChildIdxIfExists(field->field());
+      if (!index.has_value()) {
+        continue;
+      }
+      auto keyIter = keyChannelMap.find(*index);
+      if (keyIter != keyChannelMap.end()) {
+        keyFilterChannels_.push_back(keyIter->second);
+      } else {
+        auto dependentIter = std::lower_bound(
+            dependentChannels_.begin(), dependentChannels_.end(), *index);
+        VELOX_DCHECK(
+            dependentIter != dependentChannels_.end() &&
+            *dependentIter == *index);
+        dependentFilterChannels_.push_back(
+            dependentIter - dependentChannels_.begin());
       }
     }
   }
 }
 
-void HashBuild::removeFilterInputNullRows() {
+void HashBuild::removeInputRowsForNullAwareAntiJoinFilter() {
   bool changed = false;
-  auto rawActiveRows = activeRows_.asMutableRange().bits();
+  auto* rawActiveRows = activeRows_.asMutableRange().bits();
   auto removeNulls = [&](DecodedVector& decoded) {
     if (decoded.mayHaveNulls()) {
       changed = true;
+      // NOTE: the true value of a raw null bit indicates non-null so we AND
+      // 'rawActiveRows' with the raw bit.
       bits::andBits(rawActiveRows, decoded.nulls(), 0, activeRows_.end());
     }
   };
-  for (auto i : keyFilterChannels_) {
-    removeNulls(table_->hashers()[i]->decodedVector());
+  for (auto channel : keyFilterChannels_) {
+    removeNulls(table_->hashers()[channel]->decodedVector());
   }
-  for (auto i : dependentFilterChannels_) {
-    removeNulls(*decoders_[i]);
+  for (auto channel : dependentFilterChannels_) {
+    removeNulls(*decoders_[channel]);
   }
   if (changed) {
     activeRows_.updateBounds();
@@ -297,7 +302,7 @@ void HashBuild::addInput(RowVectorPtr input) {
   if (joinType_ == core::JoinType::kNullAwareAnti) {
     if (joinNode_->filter()) {
       if (filterPropagatesNulls_) {
-        removeFilterInputNullRows();
+        removeInputRowsForNullAwareAntiJoinFilter();
       }
     } else if (activeRows_.countSelected() < input->size()) {
       // Null-aware anti join with no extra filter returns no rows if build side
