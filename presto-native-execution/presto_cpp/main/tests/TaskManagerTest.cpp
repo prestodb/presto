@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <gtest/gtest.h>
-#include "velox/common/base/tests/Fs.h"
-
-#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskManager.h"
+#include <gtest/gtest.h>
+#include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
-#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
+#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
