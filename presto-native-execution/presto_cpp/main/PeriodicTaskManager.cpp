@@ -18,6 +18,7 @@
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -31,6 +32,8 @@ static constexpr size_t kTaskPeriodGlobalCounters{2'000'000}; // 2 seconds.
 static constexpr size_t kMemoryPeriodGlobalCounters{2'000'000}; // 2 seconds.
 // Every 1 minute we clean old tasks.
 static constexpr size_t kTaskPeriodCleanOldTasks{60'000'000}; // 60 seconds.
+// Every 1 minute we export cache counters.
+static constexpr size_t kCachePeriodGlobalCounters{60'000'000}; // 60 seconds.
 
 PeriodicTaskManager::PeriodicTaskManager(
     folly::CPUThreadPoolExecutor* driverCPUExecutor,
@@ -148,6 +151,94 @@ void PeriodicTaskManager::start() {
         },
         std::chrono::microseconds{kMemoryPeriodGlobalCounters},
         "mmap_memory_counters");
+  }
+
+  if (auto* asyncDataCache = dynamic_cast<velox::cache::AsyncDataCache*>(
+      velox::memory::MappedMemory::getInstance())) {
+    scheduler_.addFunction(
+        [asyncDataCache]() {
+          velox::cache::CacheStats memoryCacheStats =
+              asyncDataCache->refreshStats();
+
+          // Snapshots.
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumEntries, memoryCacheStats.numEntries);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumEmptyEntries,
+              memoryCacheStats.numEmptyEntries);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumSharedEntries, memoryCacheStats.numShared);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumExclusiveEntries,
+              memoryCacheStats.numExclusive);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumPrefetchedEntries,
+              memoryCacheStats.numPrefetch);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheTotalTinyBytes, memoryCacheStats.tinySize);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheTotalLargeBytes, memoryCacheStats.largeSize);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheTotalTinyPaddingBytes,
+              memoryCacheStats.tinyPadding);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheTotalLargePaddingBytes,
+              memoryCacheStats.largePadding);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheTotalPrefetchBytes,
+              memoryCacheStats.prefetchBytes);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheSumEvictScore, memoryCacheStats.sumEvictScore);
+
+          // Interval cumulatives.
+          static int64_t numHitOld{0};
+          static int64_t numNewOld{0};
+          static int64_t numEvictOld{0};
+          static int64_t numEvictChecksOld{0};
+          static int64_t numWaitExclusiveOld{0};
+          static int64_t numAllocClocksOld{0};
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumHit, memoryCacheStats.numHit - numHitOld);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumNew, memoryCacheStats.numNew - numNewOld);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumEvict,
+              memoryCacheStats.numEvict - numEvictOld);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumEvictChecks,
+              memoryCacheStats.numEvictChecks - numEvictChecksOld);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumWaitExclusive,
+              memoryCacheStats.numWaitExclusive - numWaitExclusiveOld);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumAllocClocks,
+              memoryCacheStats.allocClocks - numAllocClocksOld);
+          numHitOld = memoryCacheStats.numHit;
+          numNewOld = memoryCacheStats.numNew;
+          numEvictOld = memoryCacheStats.numEvict;
+          numEvictChecksOld = memoryCacheStats.numEvictChecks;
+          numWaitExclusiveOld = memoryCacheStats.numWaitExclusive;
+          numAllocClocksOld = memoryCacheStats.allocClocks;
+
+          // All time cumulatives.
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeHit, memoryCacheStats.numHit);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeNew, memoryCacheStats.numNew);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeEvict, memoryCacheStats.numEvict);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeEvictChecks,
+              memoryCacheStats.numEvictChecks);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeWaitExclusive,
+              memoryCacheStats.numWaitExclusive);
+          REPORT_ADD_STAT_VALUE(
+              kCounterMemoryCacheNumCumulativeAllocClocks,
+              memoryCacheStats.allocClocks);
+        },
+        std::chrono::microseconds{kCachePeriodGlobalCounters},
+        "cache_counters");
   }
 
   // This should be the last call in this method.
