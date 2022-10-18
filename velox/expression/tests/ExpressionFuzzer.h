@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -66,8 +67,6 @@ class ExpressionFuzzer {
 
   void reSeed();
 
-  void printRowVector(const RowVectorPtr& rowVector);
-
   void appendConjunctSignatures();
 
   RowVectorPtr generateRowVector();
@@ -94,22 +93,6 @@ class ExpressionFuzzer {
   // (optional) parameters always need to be constant.
   std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
       const CallableSignature& input);
-
-  void persistReproInfo(
-      const VectorPtr& inputVector,
-      const VectorPtr& resultVector,
-      const std::string& sql);
-
-  // Executes an expression. Returns:
-  //
-  //  - true if both succeeded and returned the exact same results.
-  //  - false if both failed with compatible exceptions.
-  //  - throws otherwise (incompatible exceptions or different results).
-  bool executeExpression(
-      const core::TypedExprPtr& plan,
-      const RowVectorPtr& rowVector,
-      VectorPtr&& resultVector,
-      bool canThrow);
 
   // If --duration_sec > 0, check if we expired the time budget. Otherwise,
   // check if we expired the number of iterations (--steps).
@@ -141,6 +124,7 @@ class ExpressionFuzzer {
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
+  test::ExpressionVerifier verifier_;
 
   test::VectorMaker vectorMaker_{execCtx_.pool()};
   VectorFuzzer vectorFuzzer_;
