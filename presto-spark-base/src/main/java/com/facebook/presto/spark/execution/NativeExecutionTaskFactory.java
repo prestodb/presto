@@ -15,10 +15,13 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
+import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 import javax.annotation.PreDestroy;
@@ -41,21 +44,26 @@ public class NativeExecutionTaskFactory
     private final ExecutorService coreExecutor;
     private final Executor executor;
     private final ScheduledExecutorService updateScheduledExecutor;
+    private final JsonCodec<TaskInfo> taskInfoCodec;
+    private final JsonCodec<PlanFragment> planFragmentCodec;
+    private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
 
     @Inject
     public NativeExecutionTaskFactory(
             @ForNativeExecutionTask HttpClient httpClient,
             ExecutorService coreExecutor,
-            ScheduledExecutorService updateScheduledExecutor)
+            ScheduledExecutorService updateScheduledExecutor,
+            JsonCodec<TaskInfo> taskInfoCodec,
+            JsonCodec<PlanFragment> planFragmentCodec,
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
-        requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(coreExecutor, "coreExecutor is null");
-        requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
-
-        this.httpClient = httpClient;
-        this.coreExecutor = coreExecutor;
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.executor = new BoundedExecutor(coreExecutor, MAX_THREADS);
-        this.updateScheduledExecutor = updateScheduledExecutor;
+        this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
+        this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
+        this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
     }
 
     public NativeExecutionTask createNativeExecutionTask(
@@ -75,7 +83,10 @@ public class NativeExecutionTaskFactory
                 httpClient,
                 tableWriteInfo,
                 executor,
-                updateScheduledExecutor);
+                updateScheduledExecutor,
+                taskInfoCodec,
+                planFragmentCodec,
+                taskUpdateRequestCodec);
     }
 
     @PreDestroy

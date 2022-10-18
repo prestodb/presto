@@ -70,14 +70,20 @@ public class PrestoSparkHttpWorkerClient
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
 
-    public PrestoSparkHttpWorkerClient(HttpClient httpClient, TaskId taskId, URI location)
+    public PrestoSparkHttpWorkerClient(
+            HttpClient httpClient,
+            TaskId taskId,
+            URI location,
+            JsonCodec<TaskInfo> taskInfoCodec,
+            JsonCodec<PlanFragment> planFragmentCodec,
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.location = requireNonNull(location, "location is null");
-        this.taskInfoCodec = JsonCodec.jsonCodec(TaskInfo.class);
-        this.planFragmentCodec = JsonCodec.jsonCodec(PlanFragment.class);
-        this.taskUpdateRequestCodec = JsonCodec.jsonCodec(TaskUpdateRequest.class);
+        this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
+        this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
+        this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
         this.taskUri = uriBuilderFrom(location)
                 .appendPath(taskId.toString())
                 .build();
