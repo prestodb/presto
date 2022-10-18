@@ -2240,7 +2240,7 @@ public class FeaturesConfig
     }
 
     @Config("optimizer.optimize-conditional-aggregation-enabled")
-    @ConfigDescription("Enable rewriting from IF(predicate, AGG(x)) to AGG(IF(predicate), x)")
+    @ConfigDescription("Enable rewriting IF(condition, AGG(x)) to AGG(x) with condition included in mask")
     public FeaturesConfig setOptimizeConditionalAggregationEnabled(boolean isOptimizeConditionalAggregationEnabled)
     {
         this.isOptimizeConditionalAggregationEnabled = isOptimizeConditionalAggregationEnabled;
