@@ -22,7 +22,6 @@ void registerPrestoCppCounters() {
       kCounterDriverCPUExecutorQueueSize, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterDriverCPUExecutorLatencyMs, facebook::velox::StatType::AVG);
-
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterHTTPExecutorLatencyMs, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
@@ -31,10 +30,8 @@ void registerPrestoCppCounters() {
       kCounterNumHTTPRequestError, facebook::velox::StatType::COUNT);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterHTTPRequestLatencyMs, facebook::velox::StatType::AVG);
-
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumQueryContexts, facebook::velox::StatType::AVG);
-
   REPORT_ADD_STAT_EXPORT_TYPE(kCounterNumTasks, facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterNumTasksRunning, facebook::velox::StatType::AVG);
@@ -67,6 +64,58 @@ void registerPrestoCppCounters() {
       facebook::velox::StatType::AVG);
   REPORT_ADD_STAT_EXPORT_TYPE(
       kCounterMappedMemoryRawAllocBytesLarge, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumEntries, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumEmptyEntries, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumSharedEntries, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumExclusiveEntries, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumPrefetchedEntries, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalTinyBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalLargeBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalLargePaddingBytes,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalPrefetchBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheTotalTinyPaddingBytes, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheSumEvictScore, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeHit, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumHit, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeNew, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumNew, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeEvict, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumEvict, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeEvictChecks,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumEvictChecks, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeWaitExclusive,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumWaitExclusive, facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumCumulativeAllocClocks,
+      facebook::velox::StatType::AVG);
+  REPORT_ADD_STAT_EXPORT_TYPE(
+      kCounterMemoryCacheNumAllocClocks, facebook::velox::StatType::AVG);
 }
 
 } // namespace facebook::presto
