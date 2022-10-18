@@ -100,7 +100,7 @@ jobs:
 
   native-specific-linux:
     runs-on: ubuntu-latest
-    container: prestocpp/prestocpp-avx-circleci:mikesh-20220804
+    container: prestocpp/prestocpp-avx-centos:kpai-20221018
 
     env:
       CC: /opt/rh/gcc-toolset-9/root/bin/gcc
