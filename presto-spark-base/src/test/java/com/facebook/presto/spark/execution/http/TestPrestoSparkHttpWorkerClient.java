@@ -28,6 +28,7 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.HttpNativeExecutionTaskResultFetcher;
@@ -36,6 +37,7 @@ import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
@@ -95,6 +97,9 @@ public class TestPrestoSparkHttpWorkerClient
             .port(8080)
             .build();
     private static final Duration NO_DURATION = new Duration(0, TimeUnit.MILLISECONDS);
+    private static final JsonCodec<TaskInfo> TASK_INFO_JSON_CODEC = JsonCodec.jsonCodec(TaskInfo.class);
+    private static final JsonCodec<PlanFragment> PLAN_FRAGMENT_JSON_CODEC = JsonCodec.jsonCodec(PlanFragment.class);
+    private static final JsonCodec<TaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(TaskUpdateRequest.class);
 
     @Test
     public void testResultGet()
@@ -105,7 +110,13 @@ public class TestPrestoSparkHttpWorkerClient
                 0,
                 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         ListenableFuture<PageBufferClient.PagesResponse> future = workerClient.getResults(
                 0,
                 new DataSize(32, DataSize.Unit.MEGABYTE));
@@ -126,7 +137,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         workerClient.acknowledgeResultsAsync(1);
     }
 
@@ -135,7 +152,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         ListenableFuture<?> future = workerClient.abortResults();
         try {
             future.get();
@@ -151,7 +174,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         ListenableFuture<BaseResponse<TaskInfo>> future = workerClient.getTaskInfo();
         try {
             TaskInfo taskInfo = future.get().getValue();
@@ -168,7 +197,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
 
         Set<ScheduledSplit> splits = new HashSet<>();
         splits.add(SPLIT);
@@ -195,7 +230,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -228,7 +269,10 @@ public class TestPrestoSparkHttpWorkerClient
         PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
                 new TestingHttpClient(new Duration(500, TimeUnit.MILLISECONDS)),
                 taskId,
-                uri);
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         HttpNativeExecutionTaskResultFetcher taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -242,7 +286,13 @@ public class TestPrestoSparkHttpWorkerClient
     {
         TaskId taskId = new TaskId("testid", 0, 0, 0);
         URI uri = uriBuilderFrom(BASE_URI).appendPath(TASK_ROOT_PATH).build();
-        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(new TestingHttpClient(NO_DURATION), taskId, uri);
+        PrestoSparkHttpWorkerClient workerClient = new PrestoSparkHttpWorkerClient(
+                new TestingHttpClient(NO_DURATION),
+                taskId,
+                uri,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         HttpNativeExecutionTaskInfoFetcher taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 newScheduledThreadPool(1),
                 workerClient,
@@ -270,7 +320,10 @@ public class TestPrestoSparkHttpWorkerClient
         NativeExecutionTaskFactory factory = new NativeExecutionTaskFactory(
                 new TestingHttpClient(NO_DURATION),
                 newSingleThreadExecutor(),
-                scheduler);
+                scheduler,
+                TASK_INFO_JSON_CODEC,
+                PLAN_FRAGMENT_JSON_CODEC,
+                TASK_UPDATE_REQUEST_JSON_CODEC);
         List<TaskSource> sources = new ArrayList<>();
         NativeExecutionTask task = factory.createNativeExecutionTask(
                 testSessionBuilder().build(),
