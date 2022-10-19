@@ -685,6 +685,15 @@ public class TestPrestoSparkQueryRunner
     }
 
     @Test
+    public void test()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("hash_partition_count", "200")
+                .build();
+        assertQuery(session, "SELECT orderkey, count(1) FROM orders group by orderkey");
+    }
+
+    @Test
     public void testBucketedUnionAll()
     {
         // all tables bucketed
