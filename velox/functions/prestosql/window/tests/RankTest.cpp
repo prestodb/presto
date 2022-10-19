@@ -27,8 +27,8 @@ class RankTest : public WindowTestBase {
   explicit RankTest(const std::string& rankFunction)
       : rankFunction_(rankFunction) {}
 
-  void testTwoColumnInput(const RowVectorPtr& vectors) {
-    WindowTestBase::testTwoColumnInput({vectors}, rankFunction_);
+  void testTwoColumnOverClauses(const RowVectorPtr& vectors) {
+    WindowTestBase::testTwoColumnOverClauses({vectors}, rankFunction_);
   }
 
   void testWindowFunction(
@@ -54,7 +54,7 @@ TEST_P(MultiRankTest, basic) {
       makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
   });
 
-  testTwoColumnInput({vectors});
+  testTwoColumnOverClauses({vectors});
 }
 
 TEST_P(MultiRankTest, singlePartition) {
@@ -67,7 +67,7 @@ TEST_P(MultiRankTest, singlePartition) {
           size, [](auto row) { return row % 50; }, nullEvery(7)),
   });
 
-  testTwoColumnInput({vectors});
+  testTwoColumnOverClauses({vectors});
 }
 
 TEST_P(MultiRankTest, singleRowPartitions) {
@@ -77,7 +77,7 @@ TEST_P(MultiRankTest, singleRowPartitions) {
       makeFlatVector<int32_t>(size, [](auto row) { return row; }),
   });
 
-  testTwoColumnInput({vectors});
+  testTwoColumnOverClauses({vectors});
 }
 
 TEST_P(MultiRankTest, randomInput) {

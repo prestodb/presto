@@ -294,6 +294,20 @@ void Window::callResetPartition(vector_size_t partitionNumber) {
   }
 }
 
+std::pair<vector_size_t, vector_size_t> Window::findFrameEndPoints(
+    vector_size_t /*i*/,
+    vector_size_t partitionStartRow,
+    vector_size_t /*partitionEndRow*/,
+    vector_size_t /*peerStartRow*/,
+    vector_size_t peerEndRow,
+    vector_size_t /*currentRow*/) {
+  // TODO : We handle only the default window frame in this code. Add support
+  // for all window frames subsequently.
+
+  // Default window frame is Range UNBOUNDED PRECEDING CURRENT ROW.
+  return std::make_pair(partitionStartRow, peerEndRow);
+}
+
 void Window::callApplyForPartitionRows(
     vector_size_t startRow,
     vector_size_t endRow,
@@ -361,7 +375,17 @@ void Window::callApplyForPartitionRows(
     rawPeerStarts[j] = peerStartRow_ - firstPartitionRow;
     rawPeerEnds[j] = peerEndRow_ - 1 - firstPartitionRow;
 
-    // TODO: Calculate frame buffer values.
+    for (auto w = 0; w < numFuncs; w++) {
+      auto frameEndPoints = findFrameEndPoints(
+          w,
+          firstPartitionRow,
+          lastPartitionRow,
+          peerStartRow_,
+          peerEndRow_ - 1,
+          i);
+      rawFrameStartBuffers[w][j] = frameEndPoints.first - firstPartitionRow;
+      rawFrameEndBuffers[w][j] = frameEndPoints.second - firstPartitionRow;
+    }
   }
   // Invoke the apply method for the WindowFunctions.
   for (auto w = 0; w < numFuncs; w++) {

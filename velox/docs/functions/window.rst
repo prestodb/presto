@@ -105,3 +105,13 @@ The ranking is performed for each window partition.
 
 Returns a unique, sequential number for each row, starting with one, according to the ordering of rows
 within the window partition.
+
+=================
+Value functions
+=================
+
+.. function:: nth_value(x, offset) -> [same as input]
+
+Returns the value at the specified offset from the beginning of the window. Offsets start at 1. The offset
+can be any scalar expression. If the offset is null or greater than the number of values in the window, null is
+returned. It is an error for the offset to be zero or negative.

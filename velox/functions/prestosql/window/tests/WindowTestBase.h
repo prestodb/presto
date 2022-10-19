@@ -40,13 +40,22 @@ class WindowTestBase : public exec::test::OperatorTestBase {
       const std::string& function,
       const std::vector<std::string>& overClauses);
 
-  // This function operates on input RowVectors that have 2 columns.
+  // This function tests the SQL query for the window function and overClause
+  // combination with the input RowVectors. It is expected that query execution
+  // will throw an exception with the errorMessage specified.
+  void assertWindowFunctionError(
+      const std::vector<RowVectorPtr>& input,
+      const std::string& function,
+      const std::string& overClause,
+      const std::string& errorMessage);
+
+  // This function operates on input RowVectors that have at least 2 columns.
   // It verifies (for the windowFunction) SQL queries with varying over
   // clauses. The over clauses covers all combinations of partition by
-  // and order by of the two input columns.
+  // and order by of the first two input columns.
   // Note : 'windowFunction' should be a full window function invocation string
   // including input parameters and open/close braces. e.g. rank(), ntile(5)
-  void testTwoColumnInput(
+  void testTwoColumnOverClauses(
       const std::vector<RowVectorPtr>& input,
       const std::string& windowFunction);
 

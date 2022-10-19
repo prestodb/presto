@@ -780,7 +780,7 @@ class RowContainer {
       const char* row;
       if constexpr (useRowNumbers) {
         auto rowNumber = rowNumbers[i];
-        row = (rowNumber >= 0) ? rows[rowNumber] : nullptr;
+        row = rowNumber >= 0 ? rows[rowNumber] : nullptr;
       } else {
         row = rows[i];
       }
@@ -964,7 +964,7 @@ class RowContainer {
       const char* row;
       if constexpr (useRowNumbers) {
         auto rowNumber = rowNumbers[i];
-        row = rowNumber >= 0 ? rows[rowNumbers[i]] : nullptr;
+        row = rowNumber >= 0 ? rows[rowNumber] : nullptr;
       } else {
         row = rows[i];
       }

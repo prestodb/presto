@@ -26,4 +26,31 @@ void WindowPartition::resetPartition(const folly::Range<char**>& rows) {
   partition_ = rows;
 }
 
+void WindowPartition::extractColumn(
+    int32_t columnIndex,
+    folly::Range<const vector_size_t*> rowNumbers,
+    vector_size_t resultOffset,
+    const VectorPtr& result) const {
+  RowContainer::extractColumn(
+      partition_.data(),
+      rowNumbers,
+      columns_[columnIndex],
+      resultOffset,
+      result);
+}
+
+void WindowPartition::extractColumn(
+    int32_t columnIndex,
+    vector_size_t partitionOffset,
+    vector_size_t numRows,
+    vector_size_t resultOffset,
+    const VectorPtr& result) const {
+  RowContainer::extractColumn(
+      partition_.data() + partitionOffset,
+      numRows,
+      columns_[columnIndex],
+      resultOffset,
+      result);
+}
+
 } // namespace facebook::velox::exec

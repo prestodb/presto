@@ -95,6 +95,16 @@ class Window : public Operator {
   // ORDER BY clause.
   void sortPartitions();
 
+  // Helper function to find window frame start and end values for
+  // currentRow of ith window function (in windowFunctions_ list).
+  std::pair<vector_size_t, vector_size_t> findFrameEndPoints(
+      vector_size_t i,
+      vector_size_t partitionStartRow,
+      vector_size_t partitionEndRow,
+      vector_size_t peerStartRow,
+      vector_size_t peerEndRow,
+      vector_size_t currentRow);
+
   // Helper function to call WindowFunction::resetPartition() for
   // all WindowFunctions.
   void callResetPartition(vector_size_t partitionNumber);

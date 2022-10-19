@@ -15,6 +15,7 @@
  */
 #include "velox/functions/prestosql/window/tests/WindowTestBase.h"
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -22,6 +23,30 @@
 using namespace facebook::velox::exec::test;
 
 namespace facebook::velox::window::test {
+
+namespace {
+struct QueryInfo {
+  const core::PlanNodePtr planNode;
+  const std::string functionSql;
+  const std::string querySql;
+};
+
+QueryInfo buildWindowQuery(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::string& overClause) {
+  auto functionSql = fmt::format("{} over ({})", function, overClause);
+
+  auto op = PlanBuilder().values(input).window({functionSql}).planNode();
+
+  auto rowType = asRowType(input[0]->type());
+  std::string columnsString = folly::join(", ", rowType->names());
+  std::string querySql =
+      fmt::format("SELECT {}, {} FROM tmp", columnsString, functionSql);
+
+  return {op, functionSql, querySql};
+}
+}; // namespace
 
 std::vector<RowVectorPtr> WindowTestBase::makeVectors(
     const RowTypePtr& rowType,
@@ -32,6 +57,7 @@ std::vector<RowVectorPtr> WindowTestBase::makeVectors(
   VectorFuzzer::Options options;
   options.vectorSize = size;
   options.nullRatio = nullRatio;
+  options.useMicrosecondPrecisionTimestamp = true;
   VectorFuzzer fuzzer(options, pool_.get(), 0);
   for (int32_t i = 0; i < numVectors; ++i) {
     auto vector = std::dynamic_pointer_cast<RowVector>(fuzzer.fuzzRow(rowType));
@@ -44,16 +70,9 @@ void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
     const std::string& overClause) {
-  auto functionSql = fmt::format("{} over ({})", function, overClause);
-
-  SCOPED_TRACE(functionSql);
-  auto op = PlanBuilder().values(input).window({functionSql}).planNode();
-
-  auto rowType = asRowType(input[0]->type());
-  std::string columnsString = folly::join(", ", rowType->names());
-
-  assertQuery(
-      op, fmt::format("SELECT {}, {} FROM tmp", columnsString, functionSql));
+  auto queryInfo = buildWindowQuery(input, function, overClause);
+  SCOPED_TRACE(queryInfo.functionSql);
+  assertQuery(queryInfo.planNode, queryInfo.querySql);
 }
 
 void WindowTestBase::testWindowFunction(
@@ -65,10 +84,22 @@ void WindowTestBase::testWindowFunction(
   }
 }
 
-void WindowTestBase::testTwoColumnInput(
+void WindowTestBase::assertWindowFunctionError(
+    const std::vector<RowVectorPtr>& input,
+    const std::string& function,
+    const std::string& overClause,
+    const std::string& errorMessage) {
+  auto queryInfo = buildWindowQuery(input, function, overClause);
+  SCOPED_TRACE(queryInfo.functionSql);
+
+  VELOX_ASSERT_THROW(
+      assertQuery(queryInfo.planNode, queryInfo.querySql), errorMessage);
+}
+
+void WindowTestBase::testTwoColumnOverClauses(
     const std::vector<RowVectorPtr>& input,
     const std::string& windowFunction) {
-  VELOX_CHECK_EQ(input[0]->childrenSize(), 2);
+  VELOX_CHECK_GE(input[0]->childrenSize(), 2);
 
   std::vector<std::string> overClauses = {
       "partition by c0 order by c1",

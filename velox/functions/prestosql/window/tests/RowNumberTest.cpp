@@ -32,7 +32,7 @@ TEST_F(RowNumberTest, basic) {
           size, [](auto row) { return row % 7; }, nullEvery(15)),
   });
 
-  testTwoColumnInput({vectors}, "row_number()");
+  testTwoColumnOverClauses({vectors}, "row_number()");
 }
 
 TEST_F(RowNumberTest, singlePartition) {
@@ -45,7 +45,7 @@ TEST_F(RowNumberTest, singlePartition) {
           size, [](auto row) { return row; }, nullEvery(7)),
   });
 
-  testTwoColumnInput({vectors}, "row_number()");
+  testTwoColumnOverClauses({vectors}, "row_number()");
 }
 
 TEST_F(RowNumberTest, randomInput) {

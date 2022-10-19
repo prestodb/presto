@@ -36,6 +36,25 @@ class WindowPartition {
 
   void resetPartition(const folly::Range<char**>& rows);
 
+  /// Copies the values at 'columnIndex' into 'result' (starting at
+  /// 'resultOffset') for the rows at positions in the 'rowNumbers'
+  /// array from the partition input data.
+  void extractColumn(
+      int32_t columnIndex,
+      folly::Range<const vector_size_t*> rowNumbers,
+      vector_size_t resultOffset,
+      const VectorPtr& result) const;
+
+  /// Copies the values at 'columnIndex' into 'result' (starting at
+  /// 'resultOffset') for 'numRows' starting at positions 'partitionOffset'
+  /// in the partition input data.
+  void extractColumn(
+      int32_t columnIndex,
+      vector_size_t partitionOffset,
+      vector_size_t numRows,
+      vector_size_t resultOffset,
+      const VectorPtr& result) const;
+
  private:
   // This is a copy of the input RowColumn objects that are used for
   // accessing the partition row columns. These RowColumn objects
