@@ -15,6 +15,7 @@
  */
 #include "velox/functions/sparksql/Register.h"
 
+#include "velox/functions/lib/IsNull.h"
 #include "velox/functions/lib/Re2Functions.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/prestosql/DateTimeFunctions.h"
@@ -59,9 +60,9 @@ static void workAroundRegistrationMacro(const std::string& prefix) {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_replace, prefix + "replace");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_upper, prefix + "upper");
   // Logical.
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_null, prefix + "isnull");
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_not_null, prefix + "isnotnull");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_not, prefix + "not");
+  registerIsNullFunction(prefix + "isnull");
+  registerIsNotNullFunction(prefix + "isnotnull");
 }
 
 namespace sparksql {

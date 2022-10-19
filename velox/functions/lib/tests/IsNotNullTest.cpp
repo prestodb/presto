@@ -15,6 +15,7 @@
  */
 
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/lib/IsNull.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/parse/TypeResolver.h"
 
@@ -22,7 +23,7 @@ namespace facebook::velox::functions {
 
 void registerIsNotNull() {
   parse::registerTypeResolver();
-  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_not_null, "isnotnull");
+  registerIsNotNullFunction("isnotnull");
 }
 
 }; // namespace facebook::velox::functions

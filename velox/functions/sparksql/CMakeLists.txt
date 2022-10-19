@@ -28,8 +28,9 @@ add_library(
   String.cpp
   Subscript.cpp)
 
-target_link_libraries(velox_functions_spark velox_functions_lib
-                      velox_functions_prestosql_impl ${FOLLY_WITH_DEPENDENCIES})
+target_link_libraries(
+  velox_functions_spark velox_functions_lib velox_functions_prestosql_impl
+  velox_is_null_functions ${FOLLY_WITH_DEPENDENCIES})
 
 set_property(TARGET velox_functions_spark PROPERTY JOB_POOL_COMPILE
                                                    high_memory_pool)

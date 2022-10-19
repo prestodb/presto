@@ -28,7 +28,8 @@ add_library(
   URLFunctionsRegistration.cpp
   RegistrationFunctions.cpp)
 
-target_link_libraries(velox_functions_prestosql velox_functions_prestosql_impl)
+target_link_libraries(velox_functions_prestosql velox_functions_prestosql_impl
+                      velox_is_null_functions)
 
 set_property(TARGET velox_functions_prestosql PROPERTY JOB_POOL_COMPILE
                                                        high_memory_pool)

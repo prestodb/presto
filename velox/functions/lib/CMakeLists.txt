@@ -13,11 +13,14 @@
 # limitations under the License.
 find_library(RE2 re2 REQUIRED)
 
+add_library(velox_is_null_functions IsNull.cpp)
+
+target_link_libraries(velox_is_null_functions velox_expression)
+
 add_library(
   velox_functions_lib
   DateTimeFormatter.cpp
   DateTimeFormatterBuilder.cpp
-  IsNull.cpp
   JodaDateTime.cpp
   KllSketch.cpp
   LambdaFunctionUtil.cpp

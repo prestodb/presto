@@ -98,8 +98,17 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     IsNullFunction<false>::signatures(),
     std::make_unique<IsNullFunction</*IsNotNUll=*/false>>());
 
+void registerIsNullFunction(const std::string& name) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_null, name);
+}
+
 VELOX_DECLARE_VECTOR_FUNCTION(
     udf_is_not_null,
     IsNullFunction<true>::signatures(),
     std::make_unique<IsNullFunction</*IsNotNUll=*/true>>());
+
+void registerIsNotNullFunction(const std::string& name) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_is_not_null, name);
+}
+
 } // namespace facebook::velox::functions
