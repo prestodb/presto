@@ -239,7 +239,7 @@ public class JoinNode
         public boolean mustPartition()
         {
             // With REPLICATED, the unmatched rows from right-side would be duplicated.
-            return this == RIGHT || this == FULL;
+            return this == FULL;
         }
 
         public boolean mustReplicate(List<JoinNode.EquiJoinClause> criteria)
