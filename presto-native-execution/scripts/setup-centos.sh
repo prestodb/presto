@@ -67,28 +67,21 @@ function cmake_install {
   git clone https://github.com/facebook/folly &&
   cd folly &&
   git checkout $FB_OS_VERSION &&
-  cmake_install folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DFOLLY_CXX_FLAGS=" -Wno-unused -Wno-unused-parameter -Wno-overloaded-virtual -Wno-deprecated-declarations "
+  cmake_install folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
   git clone https://github.com/facebookincubator/fizz &&
   cd fizz &&
   git checkout $FB_OS_VERSION &&
-  mkdir _build && cd _build &&
-  cmake -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" -DBUILD_TESTS=OFF ../fizz &&
-  make "-j$(nproc)" &&
-  make install
+  cmake_install fizz -DBUILD_TESTS=OFF fizz
 )
 
 (
   git clone https://github.com/facebook/wangle &&
   cd wangle &&
   git checkout $FB_OS_VERSION &&
-  cd wangle &&
-  mkdir _build && cd _build &&
-  cmake -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" -DBUILD_TESTS=OFF ../ &&
-  make "-j$(nproc)" &&
-  make install
+  cmake_install wangle -DBUILD_TESTS=OFF wangle
 )
 
 (
@@ -110,8 +103,7 @@ function cmake_install {
 (
   git clone https://github.com/google/re2 &&
   cd re2 &&
-  make "-j$(nproc)" &&
-  make install
+  cmake_install re2 -DBUILD_TESTS=OFF
 )
 
 (
@@ -131,10 +123,7 @@ function cmake_install {
   git clone https://github.com/facebook/fbthrift &&
   cd fbthrift &&
   git checkout $FB_OS_VERSION &&
-  cd build &&
-  cmake -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS" -DBUILD_TESTS=OFF .. &&
-  make "-j$(nproc)" &&
-  make install
+  cmake_install fbthrift -DBUILD_TESTS=OFF
 )
 
 dnf clean all
