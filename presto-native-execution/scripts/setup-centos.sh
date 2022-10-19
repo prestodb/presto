@@ -36,6 +36,14 @@ CPU_TARGET="${CPU_TARGET:-avx}"
 SOURCE_FILE="$(dirname "${BASH_SOURCE}")/setup-helper-functions.sh"
 export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
 
+function cmake_install {
+  local name=$1
+  shift
+  cmake -B "$name-build" -GNinja -DCMAKE_CXX_STANDARD=17 -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DCMAKE_CXX_FLAGS="${COMPILER_FLAGS}" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Wno-dev "$@"
+  ninja -C "$name-build" install
+}
+
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
   tar -xzvf LATEST.tar.gz &&
@@ -53,6 +61,13 @@ export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TA
   make "-j$(nproc)" &&
   make install &&
   ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
+)
+
+(
+  git clone https://github.com/facebook/folly &&
+  cd folly &&
+  git checkout $FB_OS_VERSION &&
+  cmake_install folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON -DFOLLY_CXX_FLAGS=" -Wno-unused -Wno-unused-parameter -Wno-overloaded-virtual -Wno-deprecated-declarations "
 )
 
 (
