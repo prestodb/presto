@@ -4209,6 +4209,25 @@
     "hinc": "namespace facebook::presto::protocol {\n\nusing HostAddress = std::string;\n\n} // namespace facebook::presto::protocol"
   },
   {
+    "class_name": "ErrorCause",
+    "enum": true,
+    "elements": [
+      {
+        "element": "UNKNOWN",
+        "_N": 1
+      },
+      {
+        "element": "LOW_PARTITION_COUNT",
+        "_N": 2
+      },
+      {
+        "element": "EXCEEDS_BROADCAST_MEMORY_LIMIT",
+        "_N": 3,
+        "_last": true
+      }
+    ]
+  },
+  {
     "class_name": "ErrorType",
     "enum": true,
     "elements": [
@@ -4344,6 +4363,13 @@
         "field_name": "remoteHost",
         "field_text": "HostAddress",
         "_N": 8,
+        "field_local": true
+      },
+      {
+        "field_type": "ErrorCause",
+        "field_name": "errorCause",
+        "field_text": "ErrorCause",
+        "_N": 9,
         "field_local": true
       }
     ]

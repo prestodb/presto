@@ -23,6 +23,7 @@
 namespace facebook::presto {
 
 void toThrift(protocol::TaskState& proto, thrift::TaskState& thrift);
+void toThrift(protocol::ErrorCause& proto, thrift::ErrorCause& thrift);
 void toThrift(protocol::ErrorType& proto, thrift::ErrorType& thrift);
 void toThrift(const protocol::Lifespan& proto, thrift::Lifespan& thrift);
 void toThrift(

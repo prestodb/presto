@@ -6620,6 +6620,44 @@ void from_json(const json& j, ProjectNode& p) {
   from_json_key(
       j, "locality", p.locality, "ProjectNode", "Locality", "locality");
 }
+
+namespace facebook::presto::protocol {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<ErrorCause, json> ErrorCause_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {ErrorCause::UNKNOWN, "UNKNOWN"},
+        {ErrorCause::LOW_PARTITION_COUNT, "LOW_PARTITION_COUNT"},
+        {ErrorCause::EXCEEDS_BROADCAST_MEMORY_LIMIT, "EXCEEDS_BROADCAST_MEMORY_LIMIT"}};
+void to_json(json& j, const ErrorCause& e) {
+  static_assert(std::is_enum<ErrorCause>::value, "ErrorCause must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ErrorCause_enum_table),
+      std::end(ErrorCause_enum_table),
+      [e](const std::pair<ErrorCause, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(ErrorCause_enum_table))
+           ? it
+           : std::begin(ErrorCause_enum_table))
+          ->second;
+}
+void from_json(const json& j, ErrorCause& e) {
+  static_assert(std::is_enum<ErrorCause>::value, "ErrorCause must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(ErrorCause_enum_table),
+      std::end(ErrorCause_enum_table),
+      [&j](const std::pair<ErrorCause, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(ErrorCause_enum_table))
+           ? it
+           : std::begin(ErrorCause_enum_table))
+          ->first;
+}
+}
+
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
@@ -6746,6 +6784,13 @@ void to_json(json& j, const ExecutionFailureInfo& p) {
       "ExecutionFailureInfo",
       "HostAddress",
       "remoteHost");
+  to_json_key(
+      j,
+      "errorCause",
+      p.errorCause,
+      "ExecutionFailureInfo",
+      "ErrorCause",
+      "errorCause");
 }
 
 void from_json(const json& j, ExecutionFailureInfo& p) {
@@ -6789,6 +6834,13 @@ void from_json(const json& j, ExecutionFailureInfo& p) {
       "ExecutionFailureInfo",
       "HostAddress",
       "remoteHost");
+  from_json_key(
+      j,
+      "errorCause",
+      p.errorCause,
+      "ExecutionFailureInfo",
+      "ErrorCause",
+      "errorCause");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

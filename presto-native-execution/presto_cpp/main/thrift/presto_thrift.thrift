@@ -30,6 +30,12 @@ enum ErrorType {
   EXTERNAL = 3,
 }
 
+enum ErrorCause {
+  UNKNOWN = 0,
+  LOW_PARTITION_COUNT = 1,
+  EXCEEDS_BROADCAST_MEMORY_LIMIT = 2,
+}
+
 struct Lifespan {
   1: bool grouped;
   2: i32 groupId;
@@ -80,6 +86,7 @@ struct ExecutionFailureInfo {
   6: ErrorLocation errorLocation;
   7: ErrorCode errorCode;
   8: HostAddress remoteHost;
+  9: ErrorCause errorCause;
 }
 
 service PrestoThrift {

@@ -37,6 +37,24 @@
   },
   {
     "enum": true,
+    "class_name": "ErrorCause",
+    "elements": [
+      {
+        "name": "UNKNOWN",
+        "tag": 0
+      },
+      {
+        "name": "LOW_PARTITION_COUNT",
+        "tag": 1
+      },
+      {
+        "name": "EXCEEDS_BROADCAST_MEMORY_LIMIT",
+        "tag": 2
+      }
+    ]
+  },
+  {
+    "enum": true,
     "class_name": "ErrorType",
     "elements": [
       {
@@ -393,6 +411,15 @@
         "required": false,
         "tag": 8,
         "proto_name": "remoteHost",
+        "convert": true
+      },
+      {
+        "field_name": "errorCause",
+        "field_type": "ErrorCause",
+        "optional": true,
+        "required": false,
+        "tag": 9,
+        "proto_name": "errorCause",
         "convert": true
       }
     ]

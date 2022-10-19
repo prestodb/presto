@@ -67,6 +67,9 @@ void toThrift(const std::vector<P>& p, std::vector<T>& t) {
 void toThrift(const protocol::TaskState& proto, thrift::TaskState& thrift) {
   thrift = (thrift::TaskState)((int)proto);
 }
+void toThrift(const protocol::ErrorCause& proto, thrift::ErrorCause& thrift) {
+  thrift = (thrift::ErrorCause)((int)proto);
+}
 void toThrift(const protocol::ErrorType& proto, thrift::ErrorType& thrift) {
   thrift = (thrift::ErrorType)((int)proto);
 }
@@ -138,6 +141,7 @@ void toThrift(
   toThrift(proto.errorLocation, *thrift.errorLocation_ref());
   toThrift(proto.errorCode, *thrift.errorCode_ref());
   toThrift(proto.remoteHost, *thrift.remoteHost_ref());
+  toThrift(proto.errorCause, *thrift.errorCause_ref());
 }
 
 } // namespace facebook::presto
