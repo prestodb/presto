@@ -45,7 +45,9 @@ class EvalSimplifiedTest : public FunctionBaseTest {
     }
   }
 
-  // Generate random (but deterministic) input row vectors.
+  // Generate random (but deterministic) input row vectors that can be re-used
+  // between expression evaluation runs (by making sure, none of the children
+  // are lazy vectors)
   RowVectorPtr genRowVector(
       const RowTypePtr& types,
       const VectorFuzzer::Options& fuzzerOpts,

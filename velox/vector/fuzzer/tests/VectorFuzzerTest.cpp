@@ -350,6 +350,7 @@ TEST_F(VectorFuzzerTest, assorted) {
 
 TEST_F(VectorFuzzerTest, randomized) {
   VectorFuzzer::Options opts;
+  opts.allowLazyVector = true;
   VectorFuzzer fuzzer(opts, pool());
 
   for (size_t i = 0; i < 50; ++i) {
@@ -357,6 +358,129 @@ TEST_F(VectorFuzzerTest, randomized) {
     auto vector = fuzzer.fuzz(type);
     ASSERT_TRUE(vector->type()->kindEquals(type));
   }
+}
+
+void assertEqualVectors(
+    SelectivityVector* rowsToCompare,
+    const VectorPtr& expected,
+    const VectorPtr& actual) {
+  ASSERT_EQ(expected->size(), actual->size());
+  ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
+      << "Expected " << expected->type()->toString() << ", but got "
+      << actual->type()->toString();
+  rowsToCompare->applyToSelected([&](vector_size_t i) {
+    ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+        << "at " << i << ": expected " << expected->toString(i) << ", but got "
+        << actual->toString(i);
+  });
+}
+
+TEST_F(VectorFuzzerTest, lazyOverFlat) {
+  // Verify that lazy vectors generated from flat vectors are loaded properly.
+  VectorFuzzer::Options opts;
+  SelectivityVector partialRows(opts.vectorSize);
+  // non-nullable
+  {
+    VectorFuzzer fuzzer(opts, pool());
+    // Start with 1 to ensure at least one row is selected.
+    for (int i = 1; i < opts.vectorSize; ++i) {
+      if (fuzzer.coinToss(0.6)) {
+        partialRows.setValid(i, false);
+      }
+    }
+    partialRows.updateBounds();
+    auto vector = fuzzer.fuzzConstant(INTEGER());
+    auto lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(BIGINT());
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(ARRAY(BIGINT()));
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(MAP(BIGINT(), INTEGER()));
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+  }
+  // nullable
+  {
+    opts.nullRatio = 0.5;
+    VectorFuzzer fuzzer(opts, pool());
+
+    auto vector = fuzzer.fuzzConstant(INTEGER());
+    auto lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(BIGINT());
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(ARRAY(BIGINT()));
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+
+    vector = fuzzer.fuzzFlat(MAP(BIGINT(), INTEGER()));
+    lazy = VectorFuzzer::wrapInLazyVector(vector);
+    LazyVector::ensureLoadedRows(lazy, partialRows);
+    assertEqualVectors(&partialRows, lazy, vector);
+  }
+}
+
+TEST_F(VectorFuzzerTest, lazyOverDictionary) {
+  // Verify that when lazy vectors generated over dictionary vectors are loaded,
+  // the resulting loaded vector retains dictionary wrapping.
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.3;
+  SelectivityVector partialRows(opts.vectorSize);
+  VectorFuzzer fuzzer(opts, pool());
+  // Starting from 1 to ensure at least one row is selected.
+  for (int i = 1; i < opts.vectorSize; ++i) {
+    if (fuzzer.coinToss(0.7)) {
+      partialRows.setValid(i, false);
+    }
+  }
+  partialRows.updateBounds();
+
+  // Case 1: Applying a single dictionary layer.
+  auto vector = fuzzer.fuzzFlat(BIGINT());
+  auto dict = fuzzer.fuzzDictionary(vector);
+  auto lazy = VectorFuzzer::wrapInLazyVector(dict);
+  LazyVector::ensureLoadedRows(lazy, partialRows);
+  ASSERT_TRUE(VectorEncoding::isDictionary(lazy->loadedVector()->encoding()));
+  assertEqualVectors(&partialRows, dict, lazy);
+
+  partialRows.applyToSelected([&](vector_size_t row) {
+    ASSERT_EQ(dict->isNullAt(row), lazy->isNullAt(row));
+    if (!lazy->isNullAt(row)) {
+      ASSERT_EQ(dict->wrappedIndex(row), lazy->wrappedIndex(row));
+    }
+  });
+
+  // Case 2: Applying a multiple dictionary layers.
+  dict = fuzzer.fuzzDictionary(vector);
+  dict = fuzzer.fuzzDictionary(dict);
+  lazy = VectorFuzzer::wrapInLazyVector(dict);
+
+  LazyVector::ensureLoadedRows(lazy, partialRows);
+  ASSERT_TRUE(VectorEncoding::isDictionary(lazy->loadedVector()->encoding()));
+  assertEqualVectors(&partialRows, dict, lazy);
+
+  partialRows.applyToSelected([&](vector_size_t row) {
+    ASSERT_EQ(dict->isNullAt(row), lazy->isNullAt(row));
+    if (!lazy->isNullAt(row)) {
+      ASSERT_EQ(dict->wrappedIndex(row), lazy->wrappedIndex(row));
+    }
+  });
 }
 
 } // namespace
