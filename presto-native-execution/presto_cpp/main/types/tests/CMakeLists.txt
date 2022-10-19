@@ -52,7 +52,7 @@ target_link_libraries(
   gtest_main
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
-  $<TARGET_OBJECTS:presto_types>
+  presto_types
   velox_core
   velox_dwio_common_exception
   velox_encode

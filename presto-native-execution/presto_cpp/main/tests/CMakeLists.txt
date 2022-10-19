@@ -20,7 +20,7 @@ target_link_libraries(
   presto_server_test
   presto_server_lib
   $<TARGET_OBJECTS:presto_type_converter>
-  $<TARGET_OBJECTS:presto_types>
+  presto_types
   velox_exec_test_lib
   velox_dwio_common_test_utils
   velox_hive_connector

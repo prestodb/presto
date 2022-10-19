@@ -16,12 +16,12 @@ add_library(
 
 target_link_libraries(presto_type_converter velox_type)
 
-add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
-                                PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp)
+add_library(presto_types PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp
+                         PrestoToVeloxSplit.cpp)
 add_dependencies(presto_types presto_type_converter velox_type
-                 velox_dwio_dwrf_proto)
+                 velox_hive_connector velox_dwio_dwrf_proto)
 
-target_link_libraries(presto_types presto_type_converter
+target_link_libraries(presto_types presto_type_converter velox_hive_connector
                       velox_hive_partition_function velox_tpch_gen)
 
 if(PRESTO_ENABLE_TESTING)
