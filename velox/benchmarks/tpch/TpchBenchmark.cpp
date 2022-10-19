@@ -28,6 +28,7 @@
 #include "velox/exec/Split.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/TpchQueryBuilder.h"
+#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
 
@@ -97,6 +98,7 @@ class TpchBenchmark {
  public:
   void initialize() {
     functions::prestosql::registerAllScalarFunctions();
+    aggregate::prestosql::registerAllAggregateFunctions();
     parse::registerTypeResolver();
     filesystems::registerLocalFileSystem();
     if (FLAGS_use_native_parquet_reader) {
