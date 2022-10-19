@@ -24,6 +24,7 @@
 #include <folly/dynamic.h>
 
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox {
 
@@ -51,11 +52,12 @@ struct StringView {
   }
 
   explicit StringView(uint32_t size) : size_(size) {
+    VELOX_DCHECK(isInline(size));
     memset(prefix_, 0, kPrefixSize);
     value_.data = nullptr;
   }
   StringView(const char* data, size_t len) : size_(len) {
-    assert(data || size_ == 0);
+    VELOX_DCHECK(data || size_ == 0);
     if (isInline()) {
       // Zero the inline part.
       // this makes sure that inline strings can be compared for equality with 2
