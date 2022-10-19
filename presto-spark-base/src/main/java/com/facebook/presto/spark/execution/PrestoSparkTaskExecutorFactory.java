@@ -58,6 +58,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkMutableRow;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSerializedPage;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkShuffleStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkStorageHandle;
+import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskBootstrapStats;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskInputs;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskOutput;
 import com.facebook.presto.spark.classloader_interface.SerializedPrestoSparkTaskDescriptor;
@@ -318,6 +319,7 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
+            PrestoSparkTaskBootstrapStats prestoSparkTaskBootstrapStats,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType)
@@ -329,6 +331,7 @@ public class PrestoSparkTaskExecutorFactory
                     serializedTaskDescriptor,
                     serializedTaskSources,
                     inputs,
+                    prestoSparkTaskBootstrapStats,
                     taskInfoCollector,
                     shuffleStatsCollector,
                     outputType);
@@ -344,6 +347,7 @@ public class PrestoSparkTaskExecutorFactory
             SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor,
             Iterator<SerializedPrestoSparkTaskSource> serializedTaskSources,
             PrestoSparkTaskInputs inputs,
+            PrestoSparkTaskBootstrapStats prestoSparkTaskBootstrapStats,
             CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
             CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
             Class<T> outputType)
@@ -613,6 +617,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskInfoCodec,
                 taskInfoCollector,
                 shuffleStatsCollector,
+                prestoSparkTaskBootstrapStats,
                 executionExceptionFactory,
                 output.getOutputBufferType(),
                 outputBuffer,
@@ -720,7 +725,7 @@ public class PrestoSparkTaskExecutorFactory
         private final PrestoSparkOutputBuffer<?> outputBuffer;
         private final TempStorage tempStorage;
         private final TempDataOperationContext tempDataOperationContext;
-
+        private final PrestoSparkTaskBootstrapStats prestoSparkTaskBootstrapStats;
         private final UUID taskInstanceId = randomUUID();
 
         private Tuple2<MutablePartitionId, T> next;
@@ -737,6 +742,7 @@ public class PrestoSparkTaskExecutorFactory
                 Codec<TaskInfo> taskInfoCodec,
                 CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
                 CollectionAccumulator<PrestoSparkShuffleStats> shuffleStatsCollector,
+                PrestoSparkTaskBootstrapStats prestoSparkTaskBootstrapStats,
                 PrestoSparkExecutionExceptionFactory executionExceptionFactory,
                 OutputBufferType outputBufferType,
                 PrestoSparkOutputBuffer<?> outputBuffer,
@@ -754,6 +760,7 @@ public class PrestoSparkTaskExecutorFactory
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
             this.tempStorage = requireNonNull(tempStorage, "tempStorage is null");
             this.tempDataOperationContext = requireNonNull(tempDataOperationContext, "tempDataOperationContext is null");
+            this.prestoSparkTaskBootstrapStats = prestoSparkTaskBootstrapStats;
         }
 
         @Override
@@ -824,7 +831,7 @@ public class PrestoSparkTaskExecutorFactory
                     end - start - outputSupplier.getTimeSpentWaitingForOutputInMillis());
             shuffleStatsCollector.add(shuffleStats);
 
-            TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer);
+            TaskInfo taskInfo = createTaskInfo(taskContext, taskStateMachine, taskInstanceId, outputBufferType, outputBuffer, prestoSparkTaskBootstrapStats);
             SerializedTaskInfo serializedTaskInfo = new SerializedTaskInfo(serializeZstdCompressed(taskInfoCodec, taskInfo));
             taskInfoCollector.add(serializedTaskInfo);
 
@@ -861,12 +868,12 @@ public class PrestoSparkTaskExecutorFactory
                 TaskStateMachine taskStateMachine,
                 UUID taskInstanceId,
                 OutputBufferType outputBufferType,
-                PrestoSparkOutputBuffer<?> outputBuffer)
+                PrestoSparkOutputBuffer<?> outputBuffer,
+                PrestoSparkTaskBootstrapStats prestoSparkTaskBootstrapStats)
         {
             TaskId taskId = taskContext.getTaskId();
             TaskState taskState = taskContext.getState();
-            TaskStats taskStats = taskContext.getTaskStats().summarizeFinal();
-
+            TaskStats taskStats = taskContext.getTaskStats().summarizeFinal(prestoSparkTaskBootstrapStats.getTaskBootstrapTimeMillis());
             List<ExecutionFailureInfo> failures = ImmutableList.of();
             if (taskState == FAILED) {
                 failures = toFailures(taskStateMachine.getFailureCauses());

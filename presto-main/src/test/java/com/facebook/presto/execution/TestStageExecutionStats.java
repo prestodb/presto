@@ -62,6 +62,7 @@ public class TestStageExecutionStats
             new Duration(18, NANOSECONDS),
             false,
             ImmutableSet.of(),
+            888L,
 
             new DataSize(123, BYTE),
 
@@ -131,6 +132,7 @@ public class TestStageExecutionStats
         assertEquals(actual.getRetriedCpuTime(), new Duration(17, NANOSECONDS));
         assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
 
+        assertEquals(actual.getTotalBootstrapTimeInMillis(), 888L);
         assertEquals(actual.getTotalAllocation(), new DataSize(123, BYTE));
 
         assertEquals(actual.getRawInputDataSize(), new DataSize(19, BYTE));
