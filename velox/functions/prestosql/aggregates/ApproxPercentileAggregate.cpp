@@ -561,7 +561,9 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     auto items = rowVec->childAt(kItems)->asUnchecked<ArrayVector>();
     auto levels = rowVec->childAt(kLevels)->asUnchecked<ArrayVector>();
 
-    auto rawItems = items->elements()->asFlatVector<T>()->rawValues();
+    auto itemsElements = items->elements()->asFlatVector<T>();
+    VELOX_CHECK(itemsElements);
+    auto rawItems = itemsElements->rawValues();
     auto rawLevels =
         levels->elements()->asFlatVector<int32_t>()->rawValues<uint32_t>();
     KllSketchAccumulator<T>* accumulator = nullptr;
