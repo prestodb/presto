@@ -429,7 +429,7 @@ public class TestNodeScheduler
         nodeTtlFetcherManager.refreshTtlInfo();
 
         TestingQueryManager queryManager = new TestingQueryManager();
-        NodeScheduler nodeScheduler = new NodeScheduler(
+        NodeScheduler fallbackEnabledNodeScheduler = new NodeScheduler(
                 new LegacyNetworkTopology(),
                 nodeManager,
                 new NodeSelectionStats(),
@@ -439,24 +439,42 @@ public class TestNodeScheduler
                 queryManager,
                 new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(true));
 
+        NodeScheduler fallbackDisabledNodeScheduler = new NodeScheduler(
+                new LegacyNetworkTopology(),
+                nodeManager,
+                new NodeSelectionStats(),
+                nodeSchedulerConfig,
+                nodeTaskMap,
+                nodeTtlFetcherManager,
+                queryManager,
+                new SimpleTtlNodeSelectorConfig().setFallbackToSimpleNodeSelection(false));
+
         // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 mins left
         // So only node2 and node3 have enough TTL to run additional work
         Session session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(20, TimeUnit.MINUTES));
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        NodeSelector nodeSelector = fallbackEnabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(3, TimeUnit.MINUTES));
         assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3)), ImmutableSet.of(node2, node3));
 
         // Query is estimated to take 5 hours and has been executing for 1 hour, i.e, 4 hours left
         // No nodes will have enough TTL, so we fall back to simple node selection as per the config above
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(5, TimeUnit.HOURS));
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        nodeSelector = fallbackEnabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(1, TimeUnit.HOURS));
         assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3)), ImmutableSet.of(node1, node2, node3));
+
+        // Query is estimated to take 20 mins and has been executing for 3 mins, i.e, 17 minutes left
+        // So only node2 and node3 have enough TTL to run additional work, however, they are also in the excluded nodes list
+        // So no nodes are selected
+        session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(5, TimeUnit.HOURS));
+        nodeSelector = fallbackDisabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        queryManager.setExecutionTime(new Duration(1, TimeUnit.HOURS));
+        assertEquals(ImmutableSet.copyOf(nodeSelector.selectRandomNodes(3, ImmutableSet.of(node2, node3))), ImmutableSet.of());
 
         // Query is estimated to take 1 hour and has been executing for 45 mins, i.e, 15 mins left
         // So only node2 and node3 have enough TTL to work on new splits
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(1, TimeUnit.HOURS));
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        nodeSelector = fallbackEnabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(45, TimeUnit.MINUTES));
         Set<Split> splits = new HashSet<>();
         for (int i = 0; i < 2; i++) {
@@ -470,7 +488,7 @@ public class TestNodeScheduler
         // Query is estimated to take 5 hours and has been executing for 1 hour, i.e, 4 hours left
         // No nodes will have enough TTL, so we fall back to simple node selection as per the config above
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(5, TimeUnit.HOURS));
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        nodeSelector = fallbackEnabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(1, TimeUnit.HOURS));
         splits.clear();
         for (int i = 0; i < 3; i++) {
@@ -487,7 +505,7 @@ public class TestNodeScheduler
         // Query is estimated to take 1 hour and has been executing for 20 mins, i.e, 40 mins left
         // So only node3 has enough TTL to work on new splits
         session = sessionWithTtlAwareSchedulingStrategyAndEstimatedExecutionTime(new Duration(1, TimeUnit.HOURS));
-        nodeSelector = nodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+        nodeSelector = fallbackEnabledNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
         queryManager.setExecutionTime(new Duration(20, TimeUnit.MINUTES));
         splits.clear();
         for (int i = 0; i < 2; i++) {

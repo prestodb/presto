@@ -162,14 +162,9 @@ public class SimpleTtlNodeSelector
         List<InternalNode> eligibleNodes = filterNodesByTtl(activeNodes, excludedNodes, ttlInfo, estimatedExecutionTimeRemaining);
         List<InternalNode> selectedNodes = selectNodes(limit, new ResettableRandomizedIterator<>(eligibleNodes));
 
-        if (selectedNodes.isEmpty()) {
-            if (fallbackToSimpleNodeSelection) {
-                log.warn("No nodes available with enough TTL (%s), falling back to simple node selection.", estimatedExecutionTimeRemaining);
-                return simpleNodeSelector.selectRandomNodes(limit, excludedNodes);
-            }
-
-            log.warn("No nodes available with enough TTL (%s). Active nodes: %s", estimatedExecutionTimeRemaining, activeNodes);
-            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+        if (selectedNodes.isEmpty() && fallbackToSimpleNodeSelection) {
+            log.warn("No nodes available with enough TTL (%s), falling back to simple node selection.", estimatedExecutionTimeRemaining);
+            return simpleNodeSelector.selectRandomNodes(limit, excludedNodes);
         }
 
         return selectedNodes;
