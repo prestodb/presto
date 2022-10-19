@@ -630,5 +630,17 @@ TEST_F(ArithmeticTest, clamp) {
   EXPECT_EQ(clamp(123456, 1, -1), -1);
 }
 
+TEST_F(ArithmeticTest, truncate) {
+  const auto truncate = [&](std::optional<double> a) {
+    return evaluateOnce<double>("truncate(c0)", a);
+  };
+
+  EXPECT_EQ(truncate(0), 0);
+  EXPECT_EQ(truncate(1.5), 1);
+  EXPECT_EQ(truncate(-1.5), -1);
+  EXPECT_EQ(truncate(std::nullopt), std::nullopt);
+  EXPECT_THAT(truncate(kNan), IsNan());
+}
+
 } // namespace
 } // namespace facebook::velox

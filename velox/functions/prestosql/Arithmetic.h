@@ -483,5 +483,14 @@ struct EulerConstantFunction {
     result = M_E;
   }
 };
+
+template <typename T>
+struct TruncateFunction {
+  template <typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+    result = std::trunc(a);
+  }
+};
+
 } // namespace
 } // namespace facebook::velox::functions

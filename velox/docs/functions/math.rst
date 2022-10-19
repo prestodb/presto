@@ -130,6 +130,10 @@ Mathematical Functions
 
     Returns the base-``radix`` representation of ``x``. ``radix`` must be between 2 and 36.
 
+.. function:: truncate(x) -> double
+
+    Returns x rounded to integer by dropping digits after decimal point.
+
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
     Returns the bin number of ``x`` in an equi-width histogram with the

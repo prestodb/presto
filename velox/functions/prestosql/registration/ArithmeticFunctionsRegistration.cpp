@@ -86,6 +86,7 @@ void registerSimpleFunctions() {
   registerFunction<ToBaseFunction, Varchar, int64_t, int64_t>({"to_base"});
   registerFunction<PiFunction, double>({"pi"});
   registerFunction<EulerConstantFunction, double>({"e"});
+  registerUnaryNumeric<TruncateFunction>({"truncate"});
 }
 
 } // namespace
