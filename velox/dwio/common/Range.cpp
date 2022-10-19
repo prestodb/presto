@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/common/Range.h"
+#include "velox/dwio/common/Range.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::common {
 
 Ranges Ranges::filter(std::function<bool(size_t)> func) const {
   Ranges ret;
@@ -43,4 +43,4 @@ Ranges Ranges::filter(std::function<bool(size_t)> func) const {
   return ret;
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::common

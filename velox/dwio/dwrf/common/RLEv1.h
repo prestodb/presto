@@ -44,31 +44,37 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
   // For 64 bit Integers, only signed type is supported. writeVuLong only
   // supports int64_t and it needs to support uint64_t before this method
   // can support uint64_t overload.
-  uint64_t add(const int64_t* data, const Ranges& ranges, const uint64_t* nulls)
-      override {
+  uint64_t add(
+      const int64_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) override {
     return addImpl(data, ranges, nulls);
   }
 
-  uint64_t add(const int32_t* data, const Ranges& ranges, const uint64_t* nulls)
-      override {
+  uint64_t add(
+      const int32_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) override {
     return addImpl(data, ranges, nulls);
   }
 
   uint64_t add(
       const uint32_t* data,
-      const Ranges& ranges,
+      const common::Ranges& ranges,
       const uint64_t* nulls) override {
     return addImpl(data, ranges, nulls);
   }
 
-  uint64_t add(const int16_t* data, const Ranges& ranges, const uint64_t* nulls)
-      override {
+  uint64_t add(
+      const int16_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) override {
     return addImpl(data, ranges, nulls);
   }
 
   uint64_t add(
       const uint16_t* data,
-      const Ranges& ranges,
+      const common::Ranges& ranges,
       const uint64_t* nulls) override {
     return addImpl(data, ranges, nulls);
   }
@@ -152,7 +158,8 @@ class RleEncoderV1 : public IntEncoder<isSigned> {
   void writeValues();
 
   template <typename T>
-  uint64_t addImpl(const T* data, const Ranges& ranges, const uint64_t* nulls);
+  uint64_t
+  addImpl(const T* data, const common::Ranges& ranges, const uint64_t* nulls);
 
   template <typename Integer>
   FOLLY_ALWAYS_INLINE bool isRunRepeating(const Integer& value) {
@@ -206,7 +213,7 @@ template <bool isSigned>
 template <typename T>
 uint64_t RleEncoderV1<isSigned>::addImpl(
     const T* data,
-    const Ranges& ranges,
+    const common::Ranges& ranges,
     const uint64_t* nulls) {
   uint64_t count = 0;
   if (nulls) {

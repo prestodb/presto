@@ -19,7 +19,7 @@
 #include "velox/common/base/GTestMacros.h"
 #include "velox/dwio/common/exception/Exception.h"
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::common {
 
 /** Utility class to represent ranges of input used by DWRF writer.
 This class does not dedepe overlapping ranges because for encoded input, the
@@ -124,4 +124,4 @@ class Ranges {
   VELOX_FRIEND_TEST(RangeTests, Filter);
 };
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::common

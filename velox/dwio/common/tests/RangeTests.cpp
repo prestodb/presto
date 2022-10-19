@@ -16,12 +16,12 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "velox/dwio/dwrf/common/Range.h"
+#include "velox/dwio/common/Range.h"
 
 using namespace ::testing;
 using namespace facebook::velox::dwio::common;
 
-namespace facebook::velox::dwrf {
+namespace facebook::velox::common {
 
 TEST(RangeTests, Add) {
   Ranges ranges;
@@ -92,4 +92,4 @@ TEST(RangeTests, Filter) {
           std::tuple<size_t, size_t>{26, 30}));
 }
 
-} // namespace facebook::velox::dwrf
+} // namespace facebook::velox::common

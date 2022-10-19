@@ -22,9 +22,9 @@
 #include "velox/common/base/Nulls.h"
 #include "velox/common/encode/Coding.h"
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/Range.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/OutputStream.h"
-#include "velox/dwio/dwrf/common/Range.h"
 
 namespace facebook::velox::dwrf {
 
@@ -51,8 +51,10 @@ class IntEncoder {
    * @param nulls If the pointer is null, all values are read. If the
    *    pointer is not null, positions that are true are skipped.
    */
-  virtual uint64_t
-  add(const int64_t* data, const Ranges& ranges, const uint64_t* nulls) {
+  virtual uint64_t add(
+      const int64_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) {
     return addImpl(data, ranges, nulls);
   }
 
@@ -61,23 +63,31 @@ class IntEncoder {
   // but may contain both unsigned (for dictionary offsets) and signed (for
   // original values), having both interfaces allows us to avoid casting signed
   // to unsigned then to int64_t.
-  virtual uint64_t
-  add(const int32_t* data, const Ranges& ranges, const uint64_t* nulls) {
+  virtual uint64_t add(
+      const int32_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) {
     return addImpl(data, ranges, nulls);
   }
 
-  virtual uint64_t
-  add(const uint32_t* data, const Ranges& ranges, const uint64_t* nulls) {
+  virtual uint64_t add(
+      const uint32_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) {
     return addImpl(data, ranges, nulls);
   }
 
-  virtual uint64_t
-  add(const int16_t* data, const Ranges& ranges, const uint64_t* nulls) {
+  virtual uint64_t add(
+      const int16_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) {
     return addImpl(data, ranges, nulls);
   }
 
-  virtual uint64_t
-  add(const uint16_t* data, const Ranges& ranges, const uint64_t* nulls) {
+  virtual uint64_t add(
+      const uint16_t* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) {
     return addImpl(data, ranges, nulls);
   }
 
@@ -169,7 +179,8 @@ class IntEncoder {
 
  private:
   template <typename T>
-  uint64_t addImpl(const T* data, const Ranges& ranges, const uint64_t* nulls);
+  uint64_t
+  addImpl(const T* data, const common::Ranges& ranges, const uint64_t* nulls);
 
   FOLLY_ALWAYS_INLINE void writeBuffer(char* start, char* end) {
     int32_t valsToWrite = end - start;
@@ -238,7 +249,7 @@ template <bool isSigned>
 template <typename T>
 uint64_t IntEncoder<isSigned>::addImpl(
     const T* data,
-    const Ranges& ranges,
+    const common::Ranges& ranges,
     const uint64_t* nulls) {
   if (!useVInts_) {
     WRITE_INTS(writeLongLE);

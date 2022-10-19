@@ -81,7 +81,7 @@ void FloatColumnWriterBenchmarkbase() {
     WriterContext context{config, memory::getDefaultScopedMemoryPool()};
     auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     braces.dismiss();
-    writer->write(vector, Ranges::of(0, size));
+    writer->write(vector, common::Ranges::of(0, size));
   }
 }
 

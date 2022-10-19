@@ -22,6 +22,7 @@ add_executable(
   DataBufferTests.cpp
   DecoderUtilTest.cpp
   LoggedExceptionTest.cpp
+  RangeTests.cpp
   RetryTests.cpp
   TestBufferedInput.cpp
   TestColumnSelector.cpp

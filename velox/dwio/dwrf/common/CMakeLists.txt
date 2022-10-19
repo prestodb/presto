@@ -29,7 +29,6 @@ add_library(
   PagedOutputStream.cpp
   RLEv1.cpp
   RLEv2.cpp
-  Range.cpp
   Statistics.cpp
   wrap/dwrf-proto-wrapper.cpp
   wrap/orc-proto-wrapper.cpp)

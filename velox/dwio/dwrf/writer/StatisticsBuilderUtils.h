@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/dwrf/common/Range.h"
+#include "velox/dwio/common/Range.h"
 #include "velox/dwio/dwrf/writer/StatisticsBuilder.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/FlatVector.h"
@@ -28,52 +28,52 @@ class StatisticsBuilderUtils {
   static void addValues(
       StatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   static void addValues(
       BooleanStatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   static void addValues(
       BooleanStatisticsBuilder& builder,
       const DecodedVector& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   template <typename INT>
   static void addValues(
       IntegerStatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   template <typename INT>
   static void addValues(
       IntegerStatisticsBuilder& builder,
       const DecodedVector& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   template <typename FLOAT>
   static void addValues(
       DoubleStatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   static void addValues(
       StringStatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   static void addValues(
       BinaryStatisticsBuilder& builder,
       const VectorPtr& vector,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 };
 
 template <typename INT>
 void StatisticsBuilderUtils::addValues(
     IntegerStatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   auto vals = vector->asFlatVector<INT>()->rawValues();
   if (vector->mayHaveNulls()) {
@@ -95,7 +95,7 @@ template <typename INT>
 void StatisticsBuilderUtils::addValues(
     IntegerStatisticsBuilder& builder,
     const DecodedVector& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   if (vector.mayHaveNulls()) {
     for (auto& pos : ranges) {
       if (vector.isNullAt(pos)) {
@@ -115,7 +115,7 @@ template <typename FLOAT>
 void StatisticsBuilderUtils::addValues(
     DoubleStatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   auto vals = vector->asFlatVector<FLOAT>()->rawValues();
   if (vector->mayHaveNulls()) {

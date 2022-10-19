@@ -203,12 +203,6 @@ target_link_libraries(
   velox_dwio_dwrf_data_buffer_holder_test ${VELOX_LINK_LIBS}
   ${DOUBLE_CONVERSION} ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
 
-add_executable(velox_dwio_dwrf_range_test RangeTests.cpp)
-add_test(velox_dwio_dwrf_range_test velox_dwio_dwrf_range_test)
-
-target_link_libraries(velox_dwio_dwrf_range_test ${VELOX_LINK_LIBS}
-                      ${FOLLY_WITH_DEPENDENCIES} ${TEST_LINK_LIBS})
-
 add_executable(velox_dwio_dwrf_layout_planner_test LayoutPlannerTests.cpp)
 add_test(velox_dwio_dwrf_layout_planner_test
          velox_dwio_dwrf_layout_planner_test)

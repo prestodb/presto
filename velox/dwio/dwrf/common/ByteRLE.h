@@ -20,10 +20,10 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/dwio/common/IntCodecCommon.h"
+#include "velox/dwio/common/Range.h"
 #include "velox/dwio/common/SeekableInputStream.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/common/OutputStream.h"
-#include "velox/dwio/dwrf/common/Range.h"
 #include "velox/dwio/dwrf/common/wrap/dwrf-proto-wrapper.h"
 #include "velox/vector/TypeAliases.h"
 
@@ -40,12 +40,14 @@ class ByteRleEncoder {
    * @param nulls If the pointer is null, all values are added. If the
    *    pointer is not null, positions that are true are skipped.
    */
-  virtual uint64_t
-  add(const char* data, const Ranges& ranges, const uint64_t* nulls) = 0;
+  virtual uint64_t add(
+      const char* data,
+      const common::Ranges& ranges,
+      const uint64_t* nulls) = 0;
 
   virtual uint64_t add(
       const std::function<char(vector_size_t)>& valueAt,
-      const Ranges& ranges,
+      const common::Ranges& ranges,
       const std::function<bool(vector_size_t)>& isNullAt) = 0;
 
   /**
@@ -58,13 +60,13 @@ class ByteRleEncoder {
    */
   virtual uint64_t addBits(
       const uint64_t* data,
-      const Ranges& ranges,
+      const common::Ranges& ranges,
       const uint64_t* nulls,
       bool invert) = 0;
 
   virtual uint64_t addBits(
       const std::function<bool(vector_size_t)>& valueAt,
-      const Ranges& ranges,
+      const common::Ranges& ranges,
       const std::function<bool(vector_size_t)>& isNullAt,
       bool invert) = 0;
 

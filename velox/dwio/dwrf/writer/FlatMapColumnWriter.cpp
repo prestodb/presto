@@ -302,7 +302,8 @@ class Decoded {
 };
 
 template <typename Map, typename MapOp>
-uint64_t iterateMaps(const Ranges& ranges, const Map& map, const MapOp& mapOp) {
+uint64_t
+iterateMaps(const common::Ranges& ranges, const Map& map, const MapOp& mapOp) {
   uint64_t nullCount = 0;
   if (map.hasNulls()) {
     for (auto& index : ranges) {
@@ -325,7 +326,7 @@ uint64_t iterateMaps(const Ranges& ranges, const Map& map, const MapOp& mapOp) {
 template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::write(
     const VectorPtr& slice,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   switch (slice->typeKind()) {
     case TypeKind::MAP:
       return writeMap(slice, ranges);
@@ -344,13 +345,13 @@ uint64_t FlatMapColumnWriter<K>::write(
 template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::writeMap(
     const VectorPtr& slice,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   // Define variables captured and used by below lambdas.
   const vector_size_t* offsets;
   const vector_size_t* lengths;
   uint64_t rawSize = 0;
   uint64_t mapCount = 0;
-  Ranges keyRanges;
+  common::Ranges keyRanges;
 
   // Lambda that iterates keys of a map and records the offsets to write to
   // particular value node.
@@ -443,8 +444,8 @@ uint64_t FlatMapColumnWriter<K>::writeMap(
 }
 
 template <typename Row>
-Ranges getNonNullRanges(const Ranges& ranges, const Row& row) {
-  Ranges nonNullRanges;
+common::Ranges getNonNullRanges(const common::Ranges& ranges, const Row& row) {
+  common::Ranges nonNullRanges;
   if (row.hasNulls()) {
     for (auto& index : ranges) {
       if (!row.isNullAt(index)) {
@@ -460,9 +461,9 @@ Ranges getNonNullRanges(const Ranges& ranges, const Row& row) {
 template <TypeKind K>
 uint64_t FlatMapColumnWriter<K>::writeRow(
     const VectorPtr& slice,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   uint64_t rawSize = 0;
-  Ranges nonNullRanges;
+  common::Ranges nonNullRanges;
 
   const RowVector* rowSlice = slice->as<RowVector>();
   if (rowSlice) {

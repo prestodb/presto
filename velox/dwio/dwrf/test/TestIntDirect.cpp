@@ -48,7 +48,7 @@ void testInts(std::function<T()> generator) {
   auto encoder =
       createDirectEncoder<isSigned>(std::move(output), vInt, sizeof(T));
 
-  encoder->add(buffer.data(), Ranges::of(0, count), nulls.data());
+  encoder->add(buffer.data(), common::Ranges::of(0, count), nulls.data());
 
   TestPositionRecorder recorder;
   recorder.addEntry();

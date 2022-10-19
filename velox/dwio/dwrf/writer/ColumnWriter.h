@@ -36,7 +36,9 @@ class ColumnWriter {
  public:
   virtual ~ColumnWriter() = default;
 
-  virtual uint64_t write(const VectorPtr& slice, const Ranges& ranges) = 0;
+  virtual uint64_t write(
+      const VectorPtr& slice,
+      const common::Ranges& ranges) = 0;
 
   virtual void createIndexEntry() = 0;
 
@@ -169,7 +171,7 @@ class BaseColumnWriter : public ColumnWriter {
     fileStatsBuilder_ = StatisticsBuilder::create(*type.type, options);
   }
 
-  uint64_t writeNulls(const VectorPtr& slice, const Ranges& ranges) {
+  uint64_t writeNulls(const VectorPtr& slice, const common::Ranges& ranges) {
     if (UNLIKELY(ranges.size() == 0)) {
       return 0;
     }
@@ -183,7 +185,9 @@ class BaseColumnWriter : public ColumnWriter {
   }
 
   // Function used only for the cases dealing with Dictionary vectors
-  uint64_t writeNulls(const DecodedVector& decoded, const Ranges& ranges) {
+  uint64_t writeNulls(
+      const DecodedVector& decoded,
+      const common::Ranges& ranges) {
     if (UNLIKELY(ranges.size() == 0)) {
       return 0;
     }
@@ -248,7 +252,7 @@ class BaseColumnWriter : public ColumnWriter {
 
   WriterContext::LocalDecodedVector decode(
       const VectorPtr& slice,
-      const Ranges& ranges);
+      const common::Ranges& ranges);
 
   const dwio::common::TypeWithId& type_;
   std::vector<std::unique_ptr<BaseColumnWriter>> children_;

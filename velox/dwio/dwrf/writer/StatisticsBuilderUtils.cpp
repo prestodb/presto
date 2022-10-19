@@ -21,7 +21,7 @@ namespace facebook::velox::dwrf {
 void StatisticsBuilderUtils::addValues(
     StatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   if (vector->mayHaveNulls()) {
     for (auto& pos : ranges) {
@@ -39,7 +39,7 @@ void StatisticsBuilderUtils::addValues(
 void StatisticsBuilderUtils::addValues(
     BooleanStatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   auto vals = vector->as<FlatVector<bool>>()->asRange();
   if (vector->mayHaveNulls()) {
@@ -60,7 +60,7 @@ void StatisticsBuilderUtils::addValues(
 void StatisticsBuilderUtils::addValues(
     BooleanStatisticsBuilder& builder,
     const DecodedVector& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   if (vector.mayHaveNulls()) {
     for (auto& pos : ranges) {
       if (vector.isNullAt(pos)) {
@@ -79,7 +79,7 @@ void StatisticsBuilderUtils::addValues(
 void StatisticsBuilderUtils::addValues(
     StringStatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   auto data = vector->asFlatVector<StringView>()->rawValues();
   if (vector->mayHaveNulls()) {
@@ -100,7 +100,7 @@ void StatisticsBuilderUtils::addValues(
 void StatisticsBuilderUtils::addValues(
     BinaryStatisticsBuilder& builder,
     const VectorPtr& vector,
-    const Ranges& ranges) {
+    const common::Ranges& ranges) {
   auto nulls = vector->rawNulls();
   auto data = vector->asFlatVector<StringView>()->rawValues();
   if (vector->mayHaveNulls()) {

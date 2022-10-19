@@ -39,6 +39,7 @@ add_library(
   IoStatistics.cpp
   MemoryInputStream.cpp
   Options.cpp
+  Range.cpp
   ReaderFactory.cpp
   ScanSpec.cpp
   ColumnLoader.cpp

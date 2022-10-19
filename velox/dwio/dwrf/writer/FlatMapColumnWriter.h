@@ -126,7 +126,8 @@ class ValueWriter {
 
   uint64_t writeBuffers(const VectorPtr& values, uint32_t mapCount) {
     if (mapCount) {
-      inMap_->add(inMapBuffer_.data(), Ranges::of(0, mapCount), nullptr);
+      inMap_->add(
+          inMapBuffer_.data(), common::Ranges::of(0, mapCount), nullptr);
     }
 
     if (values) {
@@ -138,12 +139,12 @@ class ValueWriter {
   // used for struct encoding writer
   uint64_t writeBuffers(
       const VectorPtr& values,
-      const Ranges& nonNullRanges,
+      const common::Ranges& nonNullRanges,
       const BufferPtr& inMapBuffer /* all 1 */) {
     if (nonNullRanges.size()) {
       inMap_->add(
           inMapBuffer->as<char>(),
-          Ranges::of(0, nonNullRanges.size()),
+          common::Ranges::of(0, nonNullRanges.size()),
           nullptr);
     }
 
@@ -160,7 +161,7 @@ class ValueWriter {
 
     inMapBuffer_.reserve(count);
     std::memset(inMapBuffer_.data(), 0, count);
-    inMap_->add(inMapBuffer_.data(), Ranges::of(0, count), nullptr);
+    inMap_->add(inMapBuffer_.data(), common::Ranges::of(0, count), nullptr);
   }
 
   uint32_t getSequence() const {
@@ -200,7 +201,7 @@ class ValueWriter {
   std::unique_ptr<ByteRleEncoder> inMap_;
   std::unique_ptr<BaseColumnWriter> columnWriter_;
   dwio::common::DataBuffer<char> inMapBuffer_;
-  Ranges ranges_;
+  common::Ranges ranges_;
   const bool collectMapStats_;
 };
 
@@ -249,7 +250,7 @@ class FlatMapColumnWriter : public BaseColumnWriter {
       const dwio::common::TypeWithId& type,
       const uint32_t sequence);
 
-  uint64_t write(const VectorPtr& slice, const Ranges& ranges) override;
+  uint64_t write(const VectorPtr& slice, const common::Ranges& ranges) override;
 
   void flush(
       std::function<proto::ColumnEncoding&(uint32_t)> encodingFactory,
@@ -270,8 +271,8 @@ class FlatMapColumnWriter : public BaseColumnWriter {
   ValueWriter& getValueWriter(KeyType key, uint32_t inMapSize);
 
   // write() calls writeMap() or writeRow() depending on input type
-  uint64_t writeMap(const VectorPtr& slice, const Ranges& ranges);
-  uint64_t writeRow(const VectorPtr& slice, const Ranges& ranges);
+  uint64_t writeMap(const VectorPtr& slice, const common::Ranges& ranges);
+  uint64_t writeRow(const VectorPtr& slice, const common::Ranges& ranges);
 
   void clearNodes();
 

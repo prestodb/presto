@@ -100,10 +100,10 @@ TEST(RleEncoderV1Test, encodeMinAndMax) {
       std::make_unique<BufferedOutputStream>(holder), true, 8);
 
   auto data = folly::make_array(INT64_MIN, INT64_MAX, INT64_MIN);
-  encoder.add(data.data(), Ranges::of(0, 2), nullptr);
+  encoder.add(data.data(), common::Ranges::of(0, 2), nullptr);
   EXPECT_TRUE(encoder.isOverflow);
 
-  encoder.add(data.data(), Ranges::of(2, 3), nullptr);
+  encoder.add(data.data(), common::Ranges::of(2, 3), nullptr);
   EXPECT_TRUE(encoder.isOverflow);
   encoder.flush();
 
@@ -122,10 +122,10 @@ TEST(RleEncoderV1Test, encodeMinAndMaxint32) {
       std::make_unique<BufferedOutputStream>(holder), true, 8);
 
   auto data = folly::make_array(INT32_MIN, INT32_MAX, INT32_MIN);
-  encoder.add(data.data(), Ranges::of(0, 2), nullptr);
+  encoder.add(data.data(), common::Ranges::of(0, 2), nullptr);
   EXPECT_FALSE(encoder.isOverflow);
 
-  encoder.add(data.data(), Ranges::of(2, 3), nullptr);
+  encoder.add(data.data(), common::Ranges::of(2, 3), nullptr);
   EXPECT_FALSE(encoder.isOverflow);
 
   encoder.flush();
@@ -146,7 +146,7 @@ TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsigned) {
 
   int64_t* data = new int64_t[1024];
   generateData(1024, 0, 1, false, data);
-  encoder.add(data, Ranges::of(0, 1024), nullptr);
+  encoder.add(data, common::Ranges::of(0, 1024), nullptr);
   encoder.flush();
 
   decodeAndVerify<false>(memSink, data, 1024, nullptr);
@@ -167,7 +167,7 @@ TEST(RleEncoderV1Test, deltaIncreasingSequanceUnsignedNull) {
   uint64_t* nulls = new uint64_t[256];
   int64_t* data = new int64_t[1024];
   generateData(1024, 0, 1, false, data, 100, nulls);
-  encoder.add(data, Ranges::of(0, 1024), nulls);
+  encoder.add(data, common::Ranges::of(0, 1024), nulls);
   encoder.flush();
 
   decodeAndVerify<false>(memSink, data, 1024, nulls);
@@ -188,7 +188,7 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceUnsigned) {
 
   int64_t* data = new int64_t[1024];
   generateData(1024, 5000, -3, false, data);
-  encoder.add(data, Ranges::of(0, 1024), nullptr);
+  encoder.add(data, common::Ranges::of(0, 1024), nullptr);
   encoder.flush();
 
   decodeAndVerify<false>(memSink, data, 1024, nullptr);
@@ -208,7 +208,7 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceSigned) {
 
   int64_t* data = new int64_t[1024];
   generateData(1024, 100, -3, false, data);
-  encoder.add(data, Ranges::of(0, 1024), nullptr);
+  encoder.add(data, common::Ranges::of(0, 1024), nullptr);
   encoder.flush();
 
   decodeAndVerify<true>(memSink, data, 1024, nullptr);
@@ -229,7 +229,7 @@ TEST(RleEncoderV1Test, deltaDecreasingSequanceSignedNull) {
   uint64_t* nulls = new uint64_t[256];
   int64_t* data = new int64_t[1024];
   generateData(1024, 100, -3, false, data, 500, nulls);
-  encoder.add(data, Ranges::of(0, 1024), nulls);
+  encoder.add(data, common::Ranges::of(0, 1024), nulls);
   encoder.flush();
 
   decodeAndVerify<true>(memSink, data, 1024, nulls);
@@ -250,7 +250,7 @@ TEST(RleEncoderV1Test, randomSequanceSigned) {
 
   int64_t* data = new int64_t[1024];
   generateData(1024, 0, 0, true, data);
-  encoder.add(data, Ranges::of(0, 1024), nullptr);
+  encoder.add(data, common::Ranges::of(0, 1024), nullptr);
   encoder.flush();
 
   decodeAndVerify<true>(memSink, data, 1024, nullptr);
@@ -271,7 +271,7 @@ TEST(RleEncoderV1Test, allNull) {
   uint64_t* nulls = new uint64_t[256];
   int64_t* data = new int64_t[1024];
   generateData(1024, 100, -3, false, data, 1024, nulls);
-  encoder.add(data, Ranges::of(0, 1024), nulls);
+  encoder.add(data, common::Ranges::of(0, 1024), nulls);
   encoder.flush();
 
   decodeAndVerify<true>(memSink, data, 1024, nulls);
@@ -293,7 +293,7 @@ TEST(RleEncoderV1Test, recordPosition) {
   constexpr size_t size = 256;
   std::array<int64_t, size> data;
   generateData(size, 100, 1, false, data.data());
-  encoder.add(data.data(), Ranges::of(0, size), nullptr);
+  encoder.add(data.data(), common::Ranges::of(0, size), nullptr);
 
   TestPositionRecorder recorder;
   encoder.recordPosition(recorder);
@@ -316,7 +316,7 @@ TEST(RleEncoderV1Test, backfillPosition) {
   constexpr size_t size = 256;
   std::array<int64_t, size> data;
   generateData(size, 100, 1, false, data.data());
-  encoder.add(data.data(), Ranges::of(0, size), nullptr);
+  encoder.add(data.data(), common::Ranges::of(0, size), nullptr);
 
   TestPositionRecorder recorder;
   encoder.recordPosition(recorder);
@@ -334,7 +334,7 @@ TEST(RleEncoderV1Test, backfillPosition) {
   }
   std::array<int64_t, size * 2> moreData;
   generateData(size * 2, 200, 1, false, moreData.data());
-  encoder.add(moreData.data(), Ranges::of(0, size * 2), nullptr);
+  encoder.add(moreData.data(), common::Ranges::of(0, size * 2), nullptr);
   recorder.addEntry();
   encoder.recordPosition(recorder, 2);
   {

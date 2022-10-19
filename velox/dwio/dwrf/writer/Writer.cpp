@@ -240,7 +240,8 @@ void Writer::write(const VectorPtr& slice) {
       }
     }
 
-    auto rawSize = writer_->write(slice, Ranges::of(offset, offset + length));
+    auto rawSize =
+        writer_->write(slice, common::Ranges::of(offset, offset + length));
     offset += length;
     getContext().incRawSize(rawSize);
 
