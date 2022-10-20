@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.SqlQueryManager;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
@@ -35,6 +35,7 @@ import static com.facebook.presto.SystemSessionProperties.TRACK_HISTORY_BASED_PL
 import static com.facebook.presto.SystemSessionProperties.USE_HISTORY_BASED_PLAN_STATISTICS;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.any;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static io.airlift.tpch.TpchTable.ORDERS;
@@ -72,14 +73,14 @@ public class TestHiveHistoryBasedStatsTracking
 
             // CBO Statistics
             assertPlan(
-                    "SELECT * FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'",
-                    anyTree(node(TableScanNode.class)).withOutputRowCount(229.5));
+                    "SELECT *, 1 FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'",
+                    anyTree(node(ProjectNode.class, any())).withOutputRowCount(229.5));
 
             // HBO Statistics
-            executeAndTrackHistory("SELECT * FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'");
+            executeAndTrackHistory("SELECT *, 1 FROM test_orders where ds = '2020-09-01' and substr(orderpriority, 1, 1) = '1'");
             assertPlan(
-                    "SELECT * FROM test_orders where ds = '2020-09-02' and substr(orderpriority, 1, 1) = '1'",
-                    anyTree(node(TableScanNode.class).withOutputRowCount(48)));
+                    "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and substr(orderpriority, 1, 1) = '1'",
+                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");
