@@ -14,6 +14,7 @@
 package com.facebook.presto.spark.execution;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
@@ -21,6 +22,7 @@ import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.server.TaskUpdateRequest;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -74,7 +76,10 @@ public class NativeExecutionTask
             HttpClient httpClient,
             TableWriteInfo tableWriteInfo,
             Executor executor,
-            ScheduledExecutorService updateScheduledExecutor)
+            ScheduledExecutorService updateScheduledExecutor,
+            JsonCodec<TaskInfo> taskInfoCodec,
+            JsonCodec<PlanFragment> planFragmentCodec,
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
     {
         this.session = requireNonNull(session, "session is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
@@ -82,7 +87,13 @@ public class NativeExecutionTask
         this.sources = requireNonNull(sources, "sources is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
-        this.workerClient = new PrestoSparkHttpWorkerClient(requireNonNull(httpClient, "httpClient is null"), taskId, location);
+        this.workerClient = new PrestoSparkHttpWorkerClient(
+                requireNonNull(httpClient, "httpClient is null"),
+                taskId,
+                location,
+                taskInfoCodec,
+                planFragmentCodec,
+                taskUpdateRequestCodec);
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 updateScheduledExecutor,

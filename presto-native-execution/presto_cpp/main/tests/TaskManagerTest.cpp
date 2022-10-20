@@ -783,7 +783,7 @@ TEST_F(TaskManagerTest, timeoutOutOfOrderRequests) {
           .getVia(eventBase));
 }
 
-TEST_F(TaskManagerTest, aggregationSpilll) {
+TEST_F(TaskManagerTest, aggregationSpill) {
   // NOTE: we need to write more than one batches to each file (source split) to
   // trigger spill.
   const int numBatchesPerFile = 5;
@@ -811,9 +811,11 @@ TEST_F(TaskManagerTest, aggregationSpilll) {
     if (doSpill) {
       queryConfigs.emplace(core::QueryConfig::kSpillPath, tempDirectory->path);
       queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
+      queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
+      queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
     }
     testCountAggregation(
-        fmt::format("aggregationSpilll:{}", queryId++),
+        fmt::format("aggregationSpill:{}", queryId++),
         filePaths,
         queryConfigs,
         false,
