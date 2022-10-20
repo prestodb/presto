@@ -15,6 +15,7 @@
  */
 
 #include "velox/expression/EvalCtx.h"
+#include <exception>
 #include "velox/common/base/RawVector.h"
 #include "velox/expression/Expr.h"
 
@@ -188,15 +189,34 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
 void EvalCtx::setError(
     vector_size_t index,
     const std::exception_ptr& exceptionPtr) {
-  if (throwOnError_) {
+  // If exceptionPtr represents an std::exception, convert it to VeloxUserError
+  // to add useful context for debugging.
+  try {
     std::rethrow_exception(exceptionPtr);
+  } catch (const VeloxException& e) {
+    if (throwOnError_) {
+      std::rethrow_exception(exceptionPtr);
+    } else {
+      addError(index, exceptionPtr, errors_);
+    }
+  } catch (const std::exception& e) {
+    if (throwOnError_) {
+      throw VeloxUserError(std::current_exception(), e.what(), false);
+    } else {
+      addError(
+          index,
+          std::make_exception_ptr(
+              VeloxUserError(std::current_exception(), e.what(), false)),
+          errors_);
+    }
   }
-  addError(index, exceptionPtr, errors_);
 }
 
 void EvalCtx::setErrors(
     const SelectivityVector& rows,
     const std::exception_ptr& exceptionPtr) {
+  // TODO Refactor to avoid converting exceptionPtr to VeloxException in
+  // setError repeatedly.
   rows.applyToSelected([&](auto row) { setError(row, exceptionPtr); });
 }
 

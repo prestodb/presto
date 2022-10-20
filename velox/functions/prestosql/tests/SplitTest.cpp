@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/Udf.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -300,5 +301,5 @@ TEST_F(SplitTest, splitError) {
       VectorEncoding::Simple::CONSTANT)
 
   // Limit should be positive.
-  EXPECT_THROW(RUN("split(C0, C1, C2)", 0), std::invalid_argument);
+  VELOX_ASSERT_THROW(RUN("split(C0, C1, C2)", 0), "Limit must be positive");
 }

@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <exception>
 #include <fstream>
+#include <stdexcept>
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
@@ -228,6 +230,25 @@ class ExprTest : public testing::Test, public VectorTestBase {
       ASSERT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
       ASSERT_EQ(message, e.message());
     }
+  }
+
+  std::exception_ptr assertWrappedException(
+      const std::string& expression,
+      const VectorPtr& input,
+      const std::string& context,
+      const std::string& topLevelContext,
+      const std::string& message) {
+    try {
+      evaluate(expression, makeRowVector({input}));
+      EXPECT_TRUE(false) << "Expected an error";
+    } catch (VeloxException& e) {
+      EXPECT_EQ(context, trimInputPath(e.context()));
+      EXPECT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
+      EXPECT_EQ(message, e.message());
+      return e.wrappedException();
+    }
+
+    return nullptr;
   }
 
   void testToSql(const std::string& expression, const RowTypePtr& rowType) {
@@ -2222,6 +2243,41 @@ TEST_F(ExprTest, exceptionContext) {
         trimInputPath(e.topLevelContext()));
     verifyDataAndSqlPaths(e, data);
   }
+}
+
+namespace {
+
+template <typename T>
+struct AlwaysThrowsStdExceptionFunction {
+  template <typename TResult, typename TInput>
+  FOLLY_ALWAYS_INLINE void call(TResult&, const TInput&) {
+    throw std::invalid_argument("This is a test");
+  }
+};
+} // namespace
+
+/// Verify exception context for the case when function throws std::exception.
+TEST_F(ExprTest, stdExceptionContext) {
+  auto data = makeFlatVector<int64_t>({1, 2, 3});
+
+  registerFunction<AlwaysThrowsStdExceptionFunction, int64_t, int64_t>(
+      {"throw_invalid_argument"});
+
+  auto wrappedEx = assertWrappedException(
+      "throw_invalid_argument(c0) + 5",
+      data,
+      "throw_invalid_argument(c0)",
+      "plus(throw_invalid_argument(c0), 5:BIGINT)",
+      "This is a test");
+  ASSERT_THROW(std::rethrow_exception(wrappedEx), std::invalid_argument);
+
+  wrappedEx = assertWrappedException(
+      "throw_invalid_argument(c0 + 5)",
+      data,
+      "throw_invalid_argument(plus(c0, 5:BIGINT))",
+      "Same as context.",
+      "This is a test");
+  ASSERT_THROW(std::rethrow_exception(wrappedEx), std::invalid_argument);
 }
 
 /// Verify the output of ConstantExpr::toString().
