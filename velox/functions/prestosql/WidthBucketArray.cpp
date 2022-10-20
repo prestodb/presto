@@ -79,15 +79,11 @@ class WidthBucketArrayFunction : public exec::VectorFunction {
         context, *elementsVector, elementsRows);
 
     auto indices = bins->indices();
-    rows.applyToSelected([&](auto row) {
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
       auto size = rawSizes[indices[row]];
       auto offset = rawOffsets[indices[row]];
-      try {
-        flatResult[row] = widthBucket<T>(
-            operand->valueAt<double>(row), *elementsHolder.get(), offset, size);
-      } catch (const std::exception& e) {
-        context.setError(row, std::current_exception());
-      }
+      flatResult[row] = widthBucket<T>(
+          operand->valueAt<double>(row), *elementsHolder.get(), offset, size);
     });
   }
 };
@@ -109,12 +105,8 @@ class WidthBucketArrayFunctionConstantBins : public exec::VectorFunction {
     exec::DecodedArgs decodedArgs(rows, args, context);
     auto operand = decodedArgs.at(0);
 
-    rows.applyToSelected([&](auto row) {
-      try {
-        flatResult[row] = widthBucket(operand->valueAt<double>(row), bins_);
-      } catch (const std::exception& e) {
-        context.setError(row, std::current_exception());
-      }
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      flatResult[row] = widthBucket(operand->valueAt<double>(row), bins_);
     });
   }
 

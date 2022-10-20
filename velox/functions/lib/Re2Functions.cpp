@@ -484,7 +484,7 @@ class LikeWithRe2 final : public VectorFunction {
     if (!validPattern_) {
       auto error = std::make_exception_ptr(std::invalid_argument(
           "Escape character must be followed by '%%', '_' or the escape character itself\""));
-      rows.applyToSelected([&](auto row) { context.setError(row, error); });
+      context.setErrors(rows, error);
       return;
     }
 

@@ -130,8 +130,7 @@ class SplitFunction : public exec::VectorFunction {
         } else {
           auto pex = std::make_exception_ptr(
               std::invalid_argument("Limit must be positive"));
-          rows.applyToSelected(
-              [&](vector_size_t row) { context.setError(row, pex); });
+          context.setErrors(rows, pex);
         }
       }
 

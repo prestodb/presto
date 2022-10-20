@@ -181,8 +181,7 @@ class SubscriptImpl : public exec::VectorFunction {
       try {
         adjustedIndex = adjustIndex(decodedIndices->valueAt<I>(0));
       } catch (const std::exception& e) {
-        rows.applyToSelected(
-            [&](auto row) { context.setError(row, std::current_exception()); });
+        context.setErrors(rows, std::current_exception());
         allFailed = true;
       }
 
