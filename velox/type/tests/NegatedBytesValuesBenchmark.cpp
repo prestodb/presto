@@ -121,6 +121,7 @@ DEFINE_BENCHMARKS(100, 1000)
 DEFINE_BENCHMARKS(100, 10000)
 
 int32_t main(int32_t argc, char* argv[]) {
+  folly::init(&argc, &argv);
   constexpr int32_t k_num_values = 1000000;
   constexpr int32_t k_string_pool_size = 20000;
   const std::vector<int32_t> string_lengths = {1, 2, 5, 10, 100};

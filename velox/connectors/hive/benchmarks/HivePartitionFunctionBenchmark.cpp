@@ -285,6 +285,7 @@ BENCHMARK_RELATIVE(dateManyRowsManyBuckets) {
 } // namespace
 
 int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   benchmarkFew = std::make_unique<HivePartitionFunctionBenchmark>(1'000);

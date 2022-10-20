@@ -157,6 +157,7 @@ BENCHMARK_MULTI(sumSelectivity1PerCent) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   benchmark = std::make_unique<SelectivityVectorBenchmark>(10'000'000);

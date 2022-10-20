@@ -112,6 +112,7 @@ BENCHMARK_MULTI(normalizeConstant, n) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   benchmark = std::make_unique<FeatureNormailzationBenchmark>();

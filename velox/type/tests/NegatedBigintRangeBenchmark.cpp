@@ -118,6 +118,7 @@ DEFINE_RANGE_BENCHMARKS(9000)
 DEFINE_RANGE_BENCHMARKS(9900)
 
 int32_t main(int32_t argc, char* argv[]) {
+  folly::init(&argc, &argv);
   constexpr int32_t kNumValues = 1000000;
   constexpr int64_t distinctVals = 20001; // -10000 to 10000
   const std::vector<int64_t> pctZeros = {0, 1, 5, 10, 50, 90, 95, 99, 100};

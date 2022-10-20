@@ -188,6 +188,7 @@ BENCHMARK_RELATIVE_NAMED_PARAM(mergeKllSketch, 1e6x80, 1e6, 80);
 } // namespace facebook::velox::functions::kll::test
 
 int main(int argc, char* argv[]) {
+  folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   folly::runBenchmarks();
   return 0;
