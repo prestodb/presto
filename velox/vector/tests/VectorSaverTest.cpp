@@ -94,7 +94,9 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     testRoundTrip(fuzzer.fuzzFlat(type));
   }
 
-  void testRoundTrip(const VectorPtr& vector) {
+  // Writes the passed vector to file and reads it back, returns the read
+  // vector.
+  VectorPtr takeRoundTrip(const VectorPtr& vector) {
     auto path = exec::test::TempFilePath::create();
 
     std::ofstream outputFile(path->path, std::ofstream::binary);
@@ -104,7 +106,11 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     std::ifstream inputFile(path->path, std::ifstream::binary);
     auto copy = restoreVector(inputFile, pool());
     inputFile.close();
+    return copy;
+  }
 
+  void testRoundTrip(const VectorPtr& vector) {
+    auto copy = takeRoundTrip(vector);
     // Verify encodings and data recursively.
     assertEqualEncodings(vector, copy);
   }
@@ -142,6 +148,46 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     // Long vector with nulls.
     testRoundTrip(makeFlatVector<T>(
         10'000, [](auto row) { return row; }, nullEvery(17)));
+  }
+
+  // Verifies that the lazy vectors have the right internal state and loaded
+  // vector (if already loaded).
+  void assertEqualLazyVectors(
+      const VectorPtr& expected,
+      const VectorPtr& actual) {
+    // Verify encoding of Lazy.
+    ASSERT_EQ(expected->encoding(), actual->encoding());
+    ASSERT_EQ(*expected->type(), *actual->type());
+    ASSERT_EQ(expected->size(), actual->size());
+
+    auto lazy = expected->as<LazyVector>();
+    auto lazyCopy = actual->as<LazyVector>();
+    // Verify the loaded vector is present.
+    ASSERT_EQ(lazy->isLoaded(), lazyCopy->isLoaded());
+    if (lazy->isLoaded()) {
+      assertEqualEncodings(
+          lazy->loadedVectorShared(), lazyCopy->loadedVectorShared());
+    }
+  }
+
+  // Test round trip of lazy vector both with and without loading. The vector
+  // gets loaded with a randomly generated selectivity vector.
+  void testRoundTripOfLazy(VectorPtr vector, VectorFuzzer& fuzzer) {
+    auto copy = takeRoundTrip(vector);
+    assertEqualLazyVectors(vector, copy);
+
+    // Verify loaded lazy vector makes the round trip
+    SelectivityVector rows(vector->size());
+    for (int i = 0; i < vector->size(); ++i) {
+      if (fuzzer.coinToss(0.3)) {
+        rows.setValid(i, false);
+      }
+    }
+    rows.updateBounds();
+    LazyVector::ensureLoadedRows(vector, rows);
+    copy = takeRoundTrip(vector);
+    LazyVector::ensureLoadedRows(copy, rows);
+    assertEqualLazyVectors(vector, copy);
   }
 
   const uint32_t seed_{folly::Random::rand32()};
@@ -452,6 +498,29 @@ TEST_F(VectorSaverTest, dictionaryRow) {
 
   // 2 levels of dictionary.
   testRoundTrip(fuzzer.fuzzDictionary(fuzzer.fuzzDictionary(flatVector)));
+}
+
+TEST_F(VectorSaverTest, LazyVector) {
+  auto opts = fuzzerOptions();
+  opts.nullRatio = 0.5;
+  SCOPED_TRACE(fmt::format("seed: {}", seed_));
+
+  VectorFuzzer fuzzer(opts, pool(), seed_);
+  auto flatVector =
+      fuzzer.fuzzFlat(ROW({"a", "b", "c"}, {INTEGER(), REAL(), BOOLEAN()}));
+
+  testRoundTripOfLazy(
+      fuzzer.wrapInLazyVector(fuzzer.fuzzDictionary(flatVector)), fuzzer);
+  testRoundTripOfLazy(
+      fuzzer.wrapInLazyVector(fuzzer.fuzzDictionary(flatVector, 64)), fuzzer);
+  testRoundTripOfLazy(
+      fuzzer.wrapInLazyVector(fuzzer.fuzzDictionary(flatVector, 512)), fuzzer);
+
+  // 2 levels of dictionary.
+  testRoundTripOfLazy(
+      fuzzer.wrapInLazyVector(
+          fuzzer.fuzzDictionary(fuzzer.fuzzDictionary(flatVector))),
+      fuzzer);
 }
 
 namespace {

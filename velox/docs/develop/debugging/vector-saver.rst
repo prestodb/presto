@@ -75,7 +75,7 @@ Header
 Vector serialization starts with a header:
 
 * Encoding. 4 bytes
-    * 0 - FLAT, 1 - CONSTANT, 2 - DICTIONARY
+    * 0 - FLAT, 1 - CONSTANT, 2 - DICTIONARY, 3 - LAZY
 * Type. Variable number of bytes.
 * Size. 4 bytes.
 
@@ -176,3 +176,21 @@ Dictionary Vector
 * Nulls buffer (if present).
 * Indices buffer.
 * Base vector.
+
+Lazy Vector
+~~~~~~~~~~~~~~~~~
+
+* Header
+* Boolean indicating the presence of the loaded vector. 1 byte.
+* Loaded vector (if present).
+
+The objective behind serializing lazy vectors is only to recreate the state of
+these vectors when they were serialized. This would help in quickly reproducing
+the error (that initiated its serialization) as the lazy vector would end up
+in the same state if the same steps are executed that resulted in an error
+in the first place.
+This also means that when the deserialized lazy vector is loaded, it will load the exact
+loaded vector that was serialized regardless of which rows it was asked to load.
+Moreover, if the vector was not loaded when it was serialized then the deserialized
+instance will throw if an attempt is made to load it. Therefore, it should only
+be used to reproduce the error and not in any other context like testing a fix.

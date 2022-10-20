@@ -26,6 +26,7 @@ enum class Encoding : int8_t {
   kFlat = 0,
   kConstant = 1,
   kDictionary = 2,
+  kLazy = 3,
 };
 
 template <typename T>
@@ -80,6 +81,9 @@ void writeEncoding(VectorEncoding::Simple encoding, std::ostream& out) {
     case VectorEncoding::Simple::DICTIONARY:
       write<int32_t>((int8_t)Encoding::kDictionary, out);
       return;
+    case VectorEncoding::Simple::LAZY:
+      write<int32_t>((int8_t)Encoding::kLazy, out);
+      return;
     default:
       VELOX_UNSUPPORTED("Unsupported encoding: {}", mapSimpleToName(encoding));
   }
@@ -91,6 +95,7 @@ Encoding readEncoding(std::istream& in) {
     case Encoding::kFlat:
     case Encoding::kConstant:
     case Encoding::kDictionary:
+    case Encoding::kLazy:
       return encoding;
     default:
       VELOX_UNSUPPORTED("Unsupported encoding: {}", encoding);
@@ -508,6 +513,56 @@ VectorPtr readMapVector(
   return std::make_shared<MapVector>(
       pool, type, nulls, size, offsets, sizes, keys, values);
 }
+
+void writeLazyVector(const BaseVector& vector, std::ostream& out) {
+  auto lazyVector = dynamic_cast<const LazyVector*>(&vector);
+  // check if the vector was loaded.
+  bool isLoaded = lazyVector->isLoaded();
+  write<bool>(isLoaded, out);
+
+  // loaded vector.
+  if (isLoaded) {
+    saveVector(*vector.loadedVector(), out);
+  }
+}
+
+// A thin layer over the loaded vector. Returns the loaded vector as-is but
+// throws an error attempting to load when there was no original loaded vector.
+// NOTE: since this loads the vector as-is, the user needs to be mindful that
+// this will not interact with the rowSet passed and hence should only be used
+// to reproduce failure and not to test out changes.
+class LoadedVectorShim : public VectorLoader {
+ public:
+  explicit LoadedVectorShim(VectorPtr vector) : vector_(vector) {}
+
+  void loadInternal(RowSet /*rowSet*/, ValueHook* /*hook*/, VectorPtr* result)
+      override {
+    VELOX_CHECK(
+        vector_ != nullptr, "This lazy vector should not have been loaded.");
+    *result = vector_;
+  }
+
+ private:
+  // Is nullptr if there was no loaded vector to load.
+  VectorPtr vector_;
+};
+
+VectorPtr readLazyVector(
+    const TypePtr& type,
+    vector_size_t size,
+    std::istream& in,
+    memory::MemoryPool* pool) {
+  // check if the vector was loaded.
+  bool isLoaded = read<bool>(in);
+  VectorPtr loadedVector;
+  // loaded vector.
+  if (isLoaded) {
+    loadedVector = restoreVector(in, pool);
+  }
+  return std::make_shared<LazyVector>(
+      pool, type, size, std::make_unique<LoadedVectorShim>(loadedVector));
+}
+
 } // namespace
 
 void saveType(const TypePtr& type, std::ostream& out) {
@@ -617,6 +672,9 @@ void saveVector(const BaseVector& vector, std::ostream& out) {
     case VectorEncoding::Simple::MAP:
       writeMapVector(vector, out);
       return;
+    case VectorEncoding::Simple::LAZY:
+      writeLazyVector(vector, out);
+      return;
     default:
       VELOX_UNSUPPORTED(
           "Unsupported encoding: {}", mapSimpleToName(vector.encoding()));
@@ -663,6 +721,8 @@ VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {
       return readConstantVector(type, size, in, pool);
     case Encoding::kDictionary:
       return readDictionaryVector(type, size, in, pool);
+    case Encoding::kLazy:
+      return readLazyVector(type, size, in, pool);
     default:
       VELOX_UNREACHABLE();
   }
