@@ -16,6 +16,7 @@
 #include "velox/expression/SignatureBinder.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 
@@ -516,4 +517,52 @@ TEST(SignatureBinderTest, lambda) {
     auto lambdaType = signature->argumentTypes()[3];
     ASSERT_EQ(binder.tryResolveType(lambdaType.parameters()[0]), DOUBLE());
   }
+}
+
+TEST(SignatureBinderTest, customType) {
+  registerType(
+      "timestamp with time zone",
+      std::make_unique<const TimestampWithTimeZoneTypeFactories>());
+
+  // Custom type as an argument type.
+  {
+    // timestamp with time zone -> bigint
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("bigint")
+                         .argumentType("timestamp with time zone")
+                         .build();
+
+    testSignatureBinder(signature, {TIMESTAMP_WITH_TIME_ZONE()}, BIGINT());
+  }
+
+  {
+    // timestamp with time zone -> bigint
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("array(integer)")
+                         .argumentType("timestamp with time zone")
+                         .argumentType("varchar")
+                         .build();
+
+    testSignatureBinder(
+        signature, {TIMESTAMP_WITH_TIME_ZONE(), VARCHAR()}, ARRAY(INTEGER()));
+  }
+
+  // Custom type as a return type.
+  {
+    // timestamp with time zone -> bigint
+    auto signature = exec::FunctionSignatureBuilder()
+                         .returnType("timestamp with time zone")
+                         .argumentType("integer")
+                         .build();
+
+    testSignatureBinder(signature, {INTEGER()}, TIMESTAMP_WITH_TIME_ZONE());
+  }
+
+  // Unknown custom type.
+  VELOX_ASSERT_THROW(
+      exec::FunctionSignatureBuilder()
+          .returnType("bigint")
+          .argumentType("fancy_type")
+          .build(),
+      "not found : FANCY_TYPE");
 }

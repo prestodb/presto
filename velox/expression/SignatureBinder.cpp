@@ -188,9 +188,18 @@ bool SignatureBinderBase::tryBind(
   if (isAny(typeSignature)) {
     return true;
   }
+
   const auto baseName = typeSignature.baseName();
   if (isConcreteType(typeParameters_, integerParameters_, baseName)) {
     auto typeName = boost::algorithm::to_upper_copy(baseName);
+
+    if (auto customType = getType(baseName, {})) {
+      VELOX_CHECK_EQ(
+          typeSignature.parameters().size(),
+          0,
+          "Custom types with parameters are not supported yet");
+      return customType->equivalent(*actualType);
+    }
 
     if (typeName != actualType->kindName()) {
       if (!(isCommonDecimalName(typeName) &&

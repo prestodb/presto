@@ -20,6 +20,7 @@ target_link_libraries(velox_expression_test_utility velox_type
 add_executable(
   velox_expression_test
   ArgumentTypeFuzzerTest.cpp
+  CustomTypeTest.cpp
   ExprEncodingsTest.cpp
   ExprTest.cpp
   ExprCompilerTest.cpp
