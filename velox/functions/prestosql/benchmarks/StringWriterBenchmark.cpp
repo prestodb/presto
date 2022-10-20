@@ -177,7 +177,9 @@ BENCHMARK_MULTI(array_of_string) {
 } // namespace
 } // namespace facebook::velox::exec
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   facebook::velox::exec::StringWriterBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();

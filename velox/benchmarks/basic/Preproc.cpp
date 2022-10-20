@@ -399,7 +399,9 @@ BENCHMARK_MULTI(allFused, n) {
 
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   // Verify that benchmark calculations are correct.
   {
     PreprocBenchmark benchmark;

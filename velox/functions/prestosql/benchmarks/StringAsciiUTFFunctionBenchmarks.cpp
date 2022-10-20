@@ -184,7 +184,9 @@ BENCHMARK_RELATIVE(aciiRPad) {
 // utfUpper                                                    67.75ms    14.76
 // asciiUpper                                        98.22%    68.98ms    14.50
 //============================================================================
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }

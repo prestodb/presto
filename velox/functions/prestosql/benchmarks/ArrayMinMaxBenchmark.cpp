@@ -130,7 +130,9 @@ BENCHMARK_MULTI(prestoSQLArrayMin) {
 } // namespace
 } // namespace facebook::velox::functions
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }

@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <memory>
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -230,7 +232,9 @@ BENCHMARK(vectorConditional) {
   benchmark.runConditional(kIterationCount, "cardinality_v");
 }
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   LOG(ERROR) << "Seed: " << seed;
   {
     CardinalityBenchmark benchmark(seed);

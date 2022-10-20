@@ -15,6 +15,8 @@
  */
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/RegistrationHelpers.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -106,7 +108,9 @@ BENCHMARK_RELATIVE(simd_tinyint_eq) {
 
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }

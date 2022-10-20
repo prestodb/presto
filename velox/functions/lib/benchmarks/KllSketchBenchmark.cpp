@@ -17,6 +17,8 @@
 #include <random>
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <folly/Random.h>
 #include <folly/portability/GFlags.h>
 #include <folly/stats/TDigest.h>

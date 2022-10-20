@@ -15,6 +15,8 @@
  */
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include "folly/init/Init.h"
 #include "velox/dwio/common/ChainedBuffer.h"
 

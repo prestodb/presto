@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
 
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -222,7 +223,9 @@ BENCHMARK_RELATIVE(vectorBasicIntegerWithInstance) {
 
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }

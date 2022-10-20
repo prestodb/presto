@@ -254,7 +254,9 @@ BENCHMARK(simple_general, n) {
 } // namespace
 } // namespace facebook::velox::exec
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   facebook::velox::exec::MapWriterBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();

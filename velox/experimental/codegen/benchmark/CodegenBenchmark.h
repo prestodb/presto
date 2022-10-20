@@ -17,6 +17,8 @@
 #pragma once
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <algorithm>
 #include "velox/common/base/Exceptions.h"
 #include "velox/exec/OperatorUtils.h"

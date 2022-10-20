@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include "velox/functions/Registerer.h"
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
@@ -133,7 +135,9 @@ BENCHMARK_MULTI(fast, n) {
 
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   LOG(ERROR) << "Seed: " << seed;
   {
     ZipWithBenchmark benchmark(seed);

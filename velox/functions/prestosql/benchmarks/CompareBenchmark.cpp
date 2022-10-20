@@ -179,7 +179,9 @@ BENCHMARK_MULTI(Gt_Velox) {
 } // namespace
 } // namespace facebook::velox::functions::test
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }

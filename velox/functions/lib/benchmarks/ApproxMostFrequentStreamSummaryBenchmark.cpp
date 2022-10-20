@@ -15,6 +15,8 @@
  */
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <folly/Random.h>
 
 #include "velox/functions/lib/ApproxMostFrequentStreamSummary.h"

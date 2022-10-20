@@ -433,7 +433,9 @@ BENCHMARK_RELATIVE(nestedMapSumVectorFunctionMapView) {
 }
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   MapInputBenchmark benchmark;
   if (benchmark.testMapSum() && benchmark.testNestedMapSum()) {
     folly::runBenchmarks();

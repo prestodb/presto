@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 
 #include <folly/Benchmark.h>
+#include <folly/init/Init.h>
+
 #include <optional>
 #include "velox/core/PlanNode.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"

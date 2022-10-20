@@ -219,7 +219,9 @@ BENCHMARK_MULTI(complex_row) {
 } // namespace
 } // namespace facebook::velox::exec
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   facebook::velox::exec::RowWriterBenchmark benchmark;
   benchmark.test();
   folly::runBenchmarks();

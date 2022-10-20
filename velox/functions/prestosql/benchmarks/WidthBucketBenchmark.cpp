@@ -110,7 +110,9 @@ BENCHMARK_RELATIVE(widthBucket) {
 
 } // namespace
 
-int main(int /*argc*/, char** /*argv*/) {
+int main(int argc, char** argv) {
+  folly::init(&argc, &argv);
+
   folly::runBenchmarks();
   return 0;
 }
