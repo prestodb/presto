@@ -186,38 +186,45 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
   finalSelection_ = saver.finalSelection;
 }
 
-void EvalCtx::setError(
-    vector_size_t index,
-    const std::exception_ptr& exceptionPtr) {
-  // If exceptionPtr represents an std::exception, convert it to VeloxUserError
-  // to add useful context for debugging.
+namespace {
+/// If exceptionPtr represents an std::exception, convert it to VeloxUserError
+/// to add useful context for debugging.
+std::exception_ptr toVeloxException(const std::exception_ptr& exceptionPtr) {
   try {
     std::rethrow_exception(exceptionPtr);
   } catch (const VeloxException& e) {
-    if (throwOnError_) {
-      std::rethrow_exception(exceptionPtr);
-    } else {
-      addError(index, exceptionPtr, errors_);
-    }
+    return exceptionPtr;
   } catch (const std::exception& e) {
-    if (throwOnError_) {
-      throw VeloxUserError(std::current_exception(), e.what(), false);
-    } else {
-      addError(
-          index,
-          std::make_exception_ptr(
-              VeloxUserError(std::current_exception(), e.what(), false)),
-          errors_);
-    }
+    return std::make_exception_ptr(
+        VeloxUserError(std::current_exception(), e.what(), false));
   }
+}
+
+auto throwError(const std::exception_ptr& exceptionPtr) {
+  std::rethrow_exception(toVeloxException(exceptionPtr));
+}
+} // namespace
+
+void EvalCtx::setError(
+    vector_size_t index,
+    const std::exception_ptr& exceptionPtr) {
+  if (throwOnError_) {
+    throwError(exceptionPtr);
+  }
+
+  addError(index, toVeloxException(exceptionPtr), errors_);
 }
 
 void EvalCtx::setErrors(
     const SelectivityVector& rows,
     const std::exception_ptr& exceptionPtr) {
-  // TODO Refactor to avoid converting exceptionPtr to VeloxException in
-  // setError repeatedly.
-  rows.applyToSelected([&](auto row) { setError(row, exceptionPtr); });
+  if (throwOnError_) {
+    throwError(exceptionPtr);
+  }
+
+  auto veloxException = toVeloxException(exceptionPtr);
+  rows.applyToSelected(
+      [&](auto row) { addError(row, veloxException, errors_); });
 }
 
 const VectorPtr& EvalCtx::getField(int32_t index) const {

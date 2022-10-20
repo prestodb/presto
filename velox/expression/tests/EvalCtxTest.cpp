@@ -17,6 +17,7 @@
 #include <exception>
 #include "gtest/gtest.h"
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/EvalCtx.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -118,4 +119,32 @@ TEST_F(EvalCtxTest, ensureErrorsVectorSize) {
 
   ASSERT_GE(context.errors()->size(), 20);
   ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 20), 19);
+}
+
+TEST_F(EvalCtxTest, setErrors) {
+  EvalCtx context(&execCtx_);
+  *context.mutableThrowOnError() = false;
+
+  ASSERT_TRUE(context.errors() == nullptr);
+
+  SelectivityVector rows(5);
+  context.setErrors(
+      rows, std::make_exception_ptr(std::invalid_argument("This is a test.")));
+
+  auto errors = context.errors();
+  ASSERT_TRUE(errors != nullptr);
+  ASSERT_EQ(errors->size(), rows.size());
+  std::exception_ptr firstEx;
+  for (auto i = 0; i < rows.size(); ++i) {
+    auto ex = std::static_pointer_cast<std::exception_ptr>(errors->valueAt(i));
+    VELOX_ASSERT_THROW(std::rethrow_exception(*ex), "This is a test.");
+
+    // Verify that a single exception is re-used for all rows vs. each row
+    // storing a copy.
+    if (i == 0) {
+      firstEx = *ex;
+    } else {
+      ASSERT_EQ(*ex, firstEx);
+    }
+  }
 }
