@@ -167,7 +167,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   }
 
   auto tracker = task->pool()->getMemoryUsageTracker();
-  prestoTaskStats.userMemoryReservation = tracker->getCurrentUserBytes();
+  prestoTaskStats.userMemoryReservationInBytes = tracker->getCurrentUserBytes();
   prestoTaskStats.systemMemoryReservationInBytes =
       tracker->getCurrentSystemBytes();
   prestoTaskStats.peakUserMemoryInBytes = tracker->getPeakUserBytes();
@@ -177,7 +177,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   prestoTaskStats.revocableMemoryReservationInBytes = {};
   prestoTaskStats.cumulativeUserMemory = {};
 
-  prestoTaskStats.peakNodeTotalMemoryInbytes =
+  prestoTaskStats.peakNodeTotalMemoryInBytes =
       task->queryCtx()->pool()->getMemoryUsageTracker()->getPeakTotalBytes();
 
   prestoTaskStats.rawInputPositions = 0;

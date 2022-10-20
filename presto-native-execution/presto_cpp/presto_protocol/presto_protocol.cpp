@@ -3880,11 +3880,11 @@ void to_json(json& j, const TaskStats& p) {
       "cumulativeTotalMemory");
   to_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "TaskStats",
       "int64_t",
-      "userMemoryReservation");
+      "userMemoryReservationInBytes");
   to_json_key(
       j,
       "revocableMemoryReservationInBytes",
@@ -3915,11 +3915,11 @@ void to_json(json& j, const TaskStats& p) {
       "peakUserMemoryInBytes");
   to_json_key(
       j,
-      "peakNodeTotalMemoryInbytes",
-      p.peakNodeTotalMemoryInbytes,
+      "peakNodeTotalMemoryInBytes",
+      p.peakNodeTotalMemoryInBytes,
       "TaskStats",
       "int64_t",
-      "peakNodeTotalMemoryInbytes");
+      "peakNodeTotalMemoryInBytes");
   to_json_key(
       j,
       "totalScheduledTimeInNanos",
@@ -4134,11 +4134,11 @@ void from_json(const json& j, TaskStats& p) {
       "cumulativeTotalMemory");
   from_json_key(
       j,
-      "userMemoryReservation",
-      p.userMemoryReservation,
+      "userMemoryReservationInBytes",
+      p.userMemoryReservationInBytes,
       "TaskStats",
       "int64_t",
-      "userMemoryReservation");
+      "userMemoryReservationInBytes");
   from_json_key(
       j,
       "revocableMemoryReservationInBytes",
@@ -4169,11 +4169,11 @@ void from_json(const json& j, TaskStats& p) {
       "peakUserMemoryInBytes");
   from_json_key(
       j,
-      "peakNodeTotalMemoryInbytes",
-      p.peakNodeTotalMemoryInbytes,
+      "peakNodeTotalMemoryInBytes",
+      p.peakNodeTotalMemoryInBytes,
       "TaskStats",
       "int64_t",
-      "peakNodeTotalMemoryInbytes");
+      "peakNodeTotalMemoryInBytes");
   from_json_key(
       j,
       "totalScheduledTimeInNanos",

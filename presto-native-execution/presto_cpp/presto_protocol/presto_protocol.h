@@ -1076,12 +1076,12 @@ struct TaskStats {
   int completedDrivers = {};
   double cumulativeUserMemory = {};
   double cumulativeTotalMemory = {};
-  int64_t userMemoryReservation = {};
+  int64_t userMemoryReservationInBytes = {};
   int64_t revocableMemoryReservationInBytes = {};
   int64_t systemMemoryReservationInBytes = {};
   int64_t peakTotalMemoryInBytes = {};
   int64_t peakUserMemoryInBytes = {};
-  int64_t peakNodeTotalMemoryInbytes = {};
+  int64_t peakNodeTotalMemoryInBytes = {};
   int64_t totalScheduledTimeInNanos = {};
   int64_t totalCpuTimeInNanos = {};
   int64_t totalBlockedTimeInNanos = {};

@@ -2498,7 +2498,7 @@
       },
       {
         "field_type": "long",
-        "field_name": "userMemoryReservation",
+        "field_name": "userMemoryReservationInBytes",
         "field_text": "int64_t",
         "_N": 19,
         "field_local": true
@@ -2533,7 +2533,7 @@
       },
       {
         "field_type": "long",
-        "field_name": "peakNodeTotalMemoryInbytes",
+        "field_name": "peakNodeTotalMemoryInBytes",
         "field_text": "int64_t",
         "_N": 24,
         "field_local": true
