@@ -77,8 +77,7 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.SubPlan;
@@ -150,7 +149,7 @@ public class PrestoSparkQueryExecutionFactory
 
     private final QueryIdGenerator queryIdGenerator;
     private final QuerySessionSupplier sessionSupplier;
-    private final QueryPreparer queryPreparer;
+    private final BuiltInQueryPreparer queryPreparer;
     private final PrestoSparkQueryPlanner queryPlanner;
     private final PrestoSparkPlanFragmenter planFragmenter;
     private final PrestoSparkRddFactory rddFactory;
@@ -184,7 +183,7 @@ public class PrestoSparkQueryExecutionFactory
     public PrestoSparkQueryExecutionFactory(
             QueryIdGenerator queryIdGenerator,
             QuerySessionSupplier sessionSupplier,
-            QueryPreparer queryPreparer,
+            BuiltInQueryPreparer queryPreparer,
             PrestoSparkQueryPlanner queryPlanner,
             PrestoSparkPlanFragmenter planFragmenter,
             PrestoSparkRddFactory rddFactory,
@@ -615,7 +614,7 @@ public class PrestoSparkQueryExecutionFactory
             queryStateTimer.beginAnalyzing();
 
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+            BuiltInQueryPreparer.BuiltInPreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
             if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION)) {
                 queryStateTimer.endAnalysis();

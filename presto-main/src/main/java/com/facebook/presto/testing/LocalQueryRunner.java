@@ -150,10 +150,10 @@ import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -989,9 +989,9 @@ public class LocalQueryRunner
     public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        BuiltInPreparedQuery builtInPreparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
 
-        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
+        assertFormattedSql(sqlParser, createParsingOptions(session), builtInPreparedQuery.getStatement());
 
         return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
     }
@@ -1025,8 +1025,8 @@ public class LocalQueryRunner
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
     {
         AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-        PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
-        assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
+        BuiltInQueryPreparer.BuiltInPreparedQuery builtInPreparedQuery = new BuiltInQueryPreparer(sqlParser).prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
+        assertFormattedSql(sqlParser, createParsingOptions(session), builtInPreparedQuery.getStatement());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -1040,11 +1040,11 @@ public class LocalQueryRunner
                 costCalculator,
                 dataDefinitionTask,
                 distributedPlanChecker);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), builtInPreparedQuery.getParameters(), parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(preparedQuery.getWrappedStatement() instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(builtInPreparedQuery.getWrappedStatement() instanceof Explain, session, optimizers, singleNodePlanChecker, idAllocator, metadata, sqlParser, statsCalculator, costCalculator, warningCollector);
 
-        Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
+        Analysis analysis = analyzer.analyze(builtInPreparedQuery.getStatement());
         return logicalPlanner.plan(analysis, stage);
     }
 

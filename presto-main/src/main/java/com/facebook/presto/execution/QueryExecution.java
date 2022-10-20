@@ -21,7 +21,7 @@ import com.facebook.presto.memory.VersionedMemoryPoolId;
 import com.facebook.presto.server.BasicQueryInfo;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupQueryLimits;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.planner.Plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -98,7 +98,7 @@ public interface QueryExecution
     interface QueryExecutionFactory<T extends QueryExecution>
     {
         T createQueryExecution(
-                PreparedQuery preparedQuery,
+                BuiltInPreparedQuery builtInPreparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,

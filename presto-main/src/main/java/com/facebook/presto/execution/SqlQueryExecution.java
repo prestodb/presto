@@ -44,8 +44,8 @@ import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -136,7 +136,7 @@ public class SqlQueryExecution
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
 
     private SqlQueryExecution(
-            PreparedQuery preparedQuery,
+            BuiltInPreparedQuery builtInPreparedQuery,
             QueryStateMachine stateMachine,
             String slug,
             int retryCount,
@@ -186,7 +186,7 @@ public class SqlQueryExecution
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
 
             // analyze query
-            requireNonNull(preparedQuery, "preparedQuery is null");
+            requireNonNull(builtInPreparedQuery, "preparedQuery is null");
 
             stateMachine.beginSemanticAnalyzing();
             Analyzer analyzer = new Analyzer(
@@ -195,15 +195,15 @@ public class SqlQueryExecution
                     sqlParser,
                     accessControl,
                     Optional.of(queryExplainer),
-                    preparedQuery.getParameters(),
-                    parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()),
+                    builtInPreparedQuery.getParameters(),
+                    parameterExtractor(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters()),
                     warningCollector);
 
             try (TimeoutThread unused = new TimeoutThread(
                     Thread.currentThread(),
                     timeoutThreadExecutor,
                     getQueryAnalyzerTimeout(getSession()))) {
-                this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
+                this.analysis = analyzer.analyzeSemantic(builtInPreparedQuery.getStatement(), false);
             }
             stateMachine.setUpdateType(analysis.getUpdateType());
             stateMachine.setExpandedQuery(analysis.getExpandedQuery());
@@ -831,7 +831,7 @@ public class SqlQueryExecution
 
         @Override
         public QueryExecution createQueryExecution(
-                PreparedQuery preparedQuery,
+                BuiltInPreparedQuery builtInPreparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,
@@ -843,7 +843,7 @@ public class SqlQueryExecution
             checkArgument(executionPolicy != null, "No execution policy %s", executionPolicy);
 
             SqlQueryExecution execution = new SqlQueryExecution(
-                    preparedQuery,
+                    builtInPreparedQuery,
                     stateMachine,
                     slug,
                     retryCount,

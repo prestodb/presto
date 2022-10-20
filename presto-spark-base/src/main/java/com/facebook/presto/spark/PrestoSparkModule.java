@@ -146,9 +146,9 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializer;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.facebook.presto.sql.gen.ExpressionCompiler;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.sql.gen.JoinFilterFunctionCompiler;
@@ -398,7 +398,7 @@ public class PrestoSparkModule
         binder.bind(FragmentCacheStats.class).in(Scopes.SINGLETON);
         binder.bind(IndexJoinLookupStats.class).in(Scopes.SINGLETON);
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
-        binder.bind(QueryPreparer.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionSerializer.class);
         jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(VariableReferenceExpressionDeserializer.class);
 

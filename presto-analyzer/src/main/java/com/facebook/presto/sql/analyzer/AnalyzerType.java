@@ -13,14 +13,8 @@
  */
 package com.facebook.presto.sql.analyzer;
 
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.parser.ParsingException;
-
-import java.util.Map;
-
-public interface QueryPreparer
+public enum AnalyzerType
 {
-    PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
-            throws ParsingException, PrestoException, SemanticException;
+    BUILTIN,
+    NATIVE
 }

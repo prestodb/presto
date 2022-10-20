@@ -29,7 +29,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.util.PeriodicTaskExecutor;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -144,7 +143,7 @@ public final class InternalResourceGroupManager<C>
     }
 
     @Override
-    public void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
+    public void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor)
     {
         checkState(configurationManager.get() != null, "configurationManager not set");
         createGroupIfNecessary(selectionContext, executor);

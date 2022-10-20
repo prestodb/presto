@@ -18,7 +18,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.TransactionManager;
@@ -82,14 +82,14 @@ public class DDLDefinitionExecution<T extends Statement>
 
         @Override
         public DDLDefinitionExecution<?> createQueryExecution(
-                QueryPreparer.PreparedQuery preparedQuery,
+                BuiltInQueryPreparer.BuiltInPreparedQuery builtInPreparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
-            return createDDLDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, retryCount);
+            return createDDLDefinitionExecution(builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters(), stateMachine, slug, retryCount);
         }
 
         private <T extends Statement> DDLDefinitionExecution<T> createDDLDefinitionExecution(

@@ -18,9 +18,15 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.parser.ParsingException;
 
 import java.util.Map;
+import java.util.Optional;
 
-public interface QueryPreparer
+public class NativeQueryPreparer
+        implements QueryPreparer
 {
-    PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
-            throws ParsingException, PrestoException, SemanticException;
+    @Override
+    public PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
+            throws ParsingException, PrestoException, SemanticException
+    {
+        return new NativePreparedQuery(Optional.of(query), Optional.of(query));
+    }
 }

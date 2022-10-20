@@ -18,9 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -69,7 +69,7 @@ final class ExplainRewrite
             extends AstVisitor<Node, Void>
     {
         private final Session session;
-        private final QueryPreparer queryPreparer;
+        private final BuiltInQueryPreparer builtInQueryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
 
@@ -80,7 +80,7 @@ final class ExplainRewrite
                 WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
-            this.queryPreparer = new QueryPreparer(requireNonNull(parser, "queryPreparer is null"));
+            this.builtInQueryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -123,22 +123,22 @@ final class ExplainRewrite
                 throws IllegalArgumentException
         {
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
+            BuiltInPreparedQuery builtInPreparedQuery = builtInQueryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
             if (planType == VALIDATE) {
-                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+                queryExplainer.get().analyze(session, builtInPreparedQuery.getStatement(), builtInPreparedQuery.getParameters(), warningCollector);
                 return singleValueQuery("Valid", true);
             }
 
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getGraphvizPlan(session, builtInPreparedQuery.getStatement(), planType, builtInPreparedQuery.getParameters(), warningCollector);
                     break;
                 case JSON:
-                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getJsonPlan(session, builtInPreparedQuery.getStatement(), planType, builtInPreparedQuery.getParameters(), warningCollector);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), node.isVerbose(), warningCollector);
+                    plan = queryExplainer.get().getPlan(session, builtInPreparedQuery.getStatement(), planType, builtInPreparedQuery.getParameters(), node.isVerbose(), warningCollector);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());
