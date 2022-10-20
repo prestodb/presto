@@ -112,6 +112,15 @@ class VeloxException : public std::exception {
       Type exceptionType = Type::kSystem,
       std::string_view exceptionName = "VeloxException");
 
+  /// Wrap an std::exception.
+  VeloxException(
+      const std::exception_ptr& e,
+      std::string_view message,
+      std::string_view errorSource,
+      bool isRetriable,
+      Type exceptionType = Type::kSystem,
+      std::string_view exceptionName = "VeloxException");
+
   // Inherited
   const char* what() const noexcept override {
     return state_->what();
@@ -169,6 +178,10 @@ class VeloxException : public std::exception {
     return state_->topLevelContext;
   }
 
+  const std::exception_ptr& wrappedException() const {
+    return state_->wrappedException;
+  }
+
  private:
   struct State {
     std::unique_ptr<process::StackTrace> stackTrace;
@@ -186,12 +199,22 @@ class VeloxException : public std::exception {
     // The top-level ancestor of the current exception context.
     std::string topLevelContext;
     bool isRetriable;
+    // The original std::exception.
+    std::exception_ptr wrappedException;
 
     mutable folly::once_flag once;
     mutable std::string elaborateMessage;
 
     template <typename F>
     static std::shared_ptr<const State> make(Type exceptionType, F);
+
+    template <typename F>
+    static std::shared_ptr<const State> make(F f) {
+      auto state = std::make_shared<VeloxException::State>();
+      f(*state);
+      return state;
+    }
+
     void finalize() const;
 
     const char* what() const noexcept;
@@ -226,6 +249,20 @@ class VeloxUserError : public VeloxException {
             isRetriable,
             Type::kUser,
             exceptionName) {}
+
+  /// Wrap an std::exception.
+  VeloxUserError(
+      const std::exception_ptr& e,
+      std::string_view message,
+      bool isRetriable,
+      std::string_view exceptionName = "VeloxUserError")
+      : VeloxException(
+            e,
+            message,
+            error_source::kErrorSourceUser,
+            isRetriable,
+            Type::kUser,
+            exceptionName) {}
 };
 
 class VeloxRuntimeError final : public VeloxException {
@@ -248,6 +285,20 @@ class VeloxRuntimeError final : public VeloxException {
             message,
             error_source::kErrorSourceRuntime,
             errorCode,
+            isRetriable,
+            Type::kSystem,
+            exceptionName) {}
+
+  /// Wrap an std::exception.
+  VeloxRuntimeError(
+      const std::exception_ptr& e,
+      std::string_view message,
+      bool isRetriable,
+      std::string_view exceptionName = "VeloxRuntimeError")
+      : VeloxException(
+            e,
+            message,
+            error_source::kErrorSourceRuntime,
             isRetriable,
             Type::kSystem,
             exceptionName) {}

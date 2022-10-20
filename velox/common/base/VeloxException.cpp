@@ -17,6 +17,7 @@
 #include "velox/common/base/VeloxException.h"
 
 #include <folly/synchronization/AtomicStruct.h>
+#include <exception>
 
 namespace facebook {
 namespace velox {
@@ -76,6 +77,30 @@ VeloxException::VeloxException(
         state.topLevelContext =
             getTopLevelExceptionContextString(exceptionType, state.context);
         state.isRetriable = isRetriable;
+      })) {}
+
+VeloxException::VeloxException(
+    const std::exception_ptr& e,
+    std::string_view message,
+    std::string_view errorSource,
+    bool isRetriable,
+    Type exceptionType,
+    std::string_view exceptionName)
+    : VeloxException(State::make([&](auto& state) {
+        state.exceptionType = exceptionType;
+        state.exceptionName = exceptionName;
+        state.file = "UNKNOWN";
+        state.line = 0;
+        state.function = "";
+        state.failingExpression = "";
+        state.message = message;
+        state.errorSource = errorSource;
+        state.errorCode = "";
+        state.context = getExceptionContext().message(exceptionType);
+        state.topLevelContext =
+            getTopLevelExceptionContextString(exceptionType, state.context);
+        state.isRetriable = isRetriable;
+        state.wrappedException = e;
       })) {}
 
 namespace {

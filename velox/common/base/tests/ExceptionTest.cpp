@@ -734,3 +734,107 @@ TEST(ExceptionTest, traceCollectionRateControl) {
     }
   }
 }
+
+TEST(ExceptionTest, wrappedException) {
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxUserError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_TRUE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "");
+    ASSERT_EQ(ve.topLevelContext(), "");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxRuntimeError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_FALSE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "");
+    ASSERT_EQ(ve.topLevelContext(), "");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+
+  try {
+    VELOX_FAIL("This is a test.");
+  } catch (const VeloxException& e) {
+    ASSERT_EQ(e.message(), "This is a test.");
+    ASSERT_TRUE(e.wrappedException() == nullptr);
+  }
+}
+
+TEST(ExceptionTest, wrappedExceptionWithContext) {
+  auto messageFunction = [](facebook::velox::VeloxException::Type exceptionType,
+                            void* untypedArg) {
+    auto data = static_cast<char*>(untypedArg);
+    switch (exceptionType) {
+      case facebook::velox::VeloxException::Type::kUser:
+        return fmt::format("User error: {}", data);
+      case facebook::velox::VeloxException::Type::kSystem:
+        return fmt::format("System error: {}", data);
+      default:
+        return fmt::format("Unexpected error type: {}", data);
+    }
+  };
+
+  std::string data = "lakes";
+  facebook::velox::ExceptionContextSetter context(
+      {messageFunction, data.data()});
+
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxUserError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_TRUE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "User error: lakes");
+    ASSERT_EQ(ve.topLevelContext(), "Same as context.");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxRuntimeError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_FALSE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "System error: lakes");
+    ASSERT_EQ(ve.topLevelContext(), "Same as context.");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+
+  std::string innerData = "mountains";
+  facebook::velox::ExceptionContextSetter innerContext(
+      {messageFunction, innerData.data()});
+
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxUserError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_TRUE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "User error: mountains");
+    ASSERT_EQ(ve.topLevelContext(), "User error: lakes");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+
+  try {
+    throw std::invalid_argument("This is a test.");
+  } catch (const std::exception& e) {
+    VeloxRuntimeError ve(std::current_exception(), e.what(), false);
+    ASSERT_EQ(ve.message(), "This is a test.");
+    ASSERT_FALSE(ve.isUserError());
+    ASSERT_EQ(ve.context(), "System error: mountains");
+    ASSERT_EQ(ve.topLevelContext(), "System error: lakes");
+    ASSERT_THROW(
+        std::rethrow_exception(ve.wrappedException()), std::invalid_argument);
+  }
+}
