@@ -79,21 +79,6 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
-    public void testStrategyTracking()
-    {
-        // CBO Statistics
-        assertPlan(
-                "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
-                anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
-
-        // HBO Statistics
-        executeAndTrackHistory("SELECT *, 1 FROM nation where substr(name, 1, 1) = 'A'");
-        assertPlan(
-                "SELECT *, 2 FROM nation where substr(name, 1, 1) = 'A'",
-                anyTree(node(ProjectNode.class, anyTree(any())).withOutputRowCount(2)));
-    }
-
-    @Test
     public void testHistoryBasedStatsCalculator()
     {
         // CBO Statistics
@@ -176,7 +161,12 @@ public class TestHistoryBasedStatsTracking
                 "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
                 anyTree(node(FilterNode.class, any()).withOutputRowCount(Double.NaN)));
 
-        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A' LIMIT 1");
+        // Limit nodes may cause workers to break early and not log statistics.
+        // This happens in some runs, so running it a few times should make it likely that some run succeeded in storing
+        // stats.
+        for (int i = 0; i < 10; ++i) {
+            executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A' LIMIT 1");
+        }
         // Don't track stats of filter node when limit is not present
         assertPlan(
                 "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
