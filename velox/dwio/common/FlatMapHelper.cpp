@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/dwrf/reader/FlatMapHelper.h"
+#include "velox/dwio/common/FlatMapHelper.h"
 #include "velox/dwio/common/exception/Exceptions.h"
 
-namespace facebook::velox::dwrf::flatmap_helper {
+namespace facebook::velox::dwio::common::flatmap {
 namespace detail {
 
 void reset(VectorPtr& vector, vector_size_t size, bool hasNulls) {
@@ -73,7 +73,12 @@ void initializeFlatVector(
   vector_size_t size = 0;
   bool hasNulls = false;
   for (auto vec : vectors) {
-    auto& flatVector = dynamic_cast<const FlatVector<NativeType>&>(*vec);
+    if (!dynamic_cast<const FlatVector<NativeType>*>(vec)) {
+      DWIO_ENSURE(
+          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
+              vec->mayHaveNulls(),
+          "Unsupported encoding");
+    }
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
   }
@@ -129,8 +134,14 @@ void initializeVectorImpl<TypeKind::ARRAY>(
   for (auto vec : vectors) {
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
-    auto& array = dynamic_cast<const ArrayVector&>(*vec);
-    addVector(elements, array.elements().get());
+    if (auto array = dynamic_cast<const ArrayVector*>(vec)) {
+      addVector(elements, array->elements().get());
+    } else {
+      DWIO_ENSURE(
+          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
+              vec->mayHaveNulls(),
+          "Unsupported encoding");
+    }
   }
 
   detail::reset(vector, size, hasNulls);
@@ -183,9 +194,15 @@ void initializeMapVector(
     VELOX_CHECK_NOT_NULL(vec);
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
-    auto& map = dynamic_cast<const MapVector&>(*vec);
-    addVector(keys, map.mapKeys().get());
-    addVector(values, map.mapValues().get());
+    if (auto map = dynamic_cast<const MapVector*>(vec)) {
+      addVector(keys, map->mapKeys().get());
+      addVector(values, map->mapValues().get());
+    } else {
+      DWIO_ENSURE(
+          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
+              vec->mayHaveNulls(),
+          "Unsupported encoding");
+    }
   }
 
   if (sizeOverride.has_value()) {
@@ -329,8 +346,12 @@ vector_size_t copyNulls(
   target.resize(targetIndex + count, false);
   if (target.mayHaveNulls()) {
     auto tgtNulls = const_cast<uint64_t*>(target.rawNulls());
-    auto srcNulls = source.rawNulls();
-    if (srcNulls) {
+    if (source.encoding() == VectorEncoding::Simple::CONSTANT) {
+      for (vector_size_t i = 0; i < count; ++i) {
+        bits::setNull(tgtNulls, targetIndex + i);
+      }
+      nulls += count;
+    } else if (auto srcNulls = source.rawNulls()) {
       for (vector_size_t i = 0; i < count; ++i) {
         if (bits::isBitNull(srcNulls, sourceIndex + i)) {
           ++nulls;
@@ -585,17 +606,20 @@ bool copyNull(
     vector_size_t targetIndex,
     const BaseVector& source,
     vector_size_t sourceIndex) {
-  bool srcIsNull =
-      source.mayHaveNulls() && bits::isBitNull(source.rawNulls(), sourceIndex);
   // it's assumed that initVector is called before calling this method to
   // properly allocate/clear nulls buffer. So we only need to check against
   // target vector here.
   target.resize(targetIndex + 1, false);
   if (target.mayHaveNulls()) {
+    bool srcIsNull =
+        (source.encoding() == VectorEncoding::Simple::CONSTANT ||
+         (source.mayHaveNulls() &&
+          bits::isBitNull(source.rawNulls(), sourceIndex)));
     bits::setNull(
         const_cast<uint64_t*>(target.rawNulls()), targetIndex, srcIsNull);
+    return srcIsNull;
   }
-  return srcIsNull;
+  return false;
 }
 
 template <TypeKind K>
@@ -788,4 +812,4 @@ void copyOne(
       sourceIndex);
 }
 
-} // namespace facebook::velox::dwrf::flatmap_helper
+} // namespace facebook::velox::dwio::common::flatmap

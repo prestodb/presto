@@ -22,6 +22,7 @@ namespace facebook::velox::dwrf {
 
 using dwio::common::TypeWithId;
 using memory::MemoryPool;
+using namespace dwio::common::flatmap;
 
 StringKeyBuffer::StringKeyBuffer(
     MemoryPool& pool,
@@ -49,8 +50,27 @@ StringKeyBuffer::StringKeyBuffer(
 namespace {
 
 template <typename T>
+KeyValue<T> extractKey(const proto::KeyInfo& info) {
+  return KeyValue<T>(info.intkey());
+}
+
+template <>
+inline KeyValue<StringView> extractKey<StringView>(const proto::KeyInfo& info) {
+  return KeyValue<StringView>(StringView(info.byteskey()));
+}
+
+template <typename T>
+KeyPredicate<T> prepareKeyPredicate(
+    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+    StripeStreams& stripe) {
+  auto& cs = stripe.getColumnSelector();
+  const auto expr = cs.getNode(requestedType->id)->getNode().expression;
+  return dwio::common::flatmap::prepareKeyPredicate<T>(expr);
+}
+
+template <typename T>
 std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
-    const std::function<bool(const flatmap_helper::KeyValue<T>&)>& keyPredicate,
+    const std::function<bool(const KeyValue<T>&)>& keyPredicate,
     const std::shared_ptr<const TypeWithId>& requestedType,
     const std::shared_ptr<const TypeWithId>& dataType,
     StripeStreams& stripe,
@@ -74,7 +94,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesFiltered(
         if (processed.count(sequence) == 0) {
           EncodingKey seqEk(dataValueType->id, sequence);
           const auto& keyInfo = stripe.getEncoding(seqEk).key();
-          auto key = flatmap_helper::extractKey<T>(keyInfo);
+          auto key = extractKey<T>(keyInfo);
           // check if we have key filter passed through read schema
           if (keyPredicate(key)) {
             // fetch reader, in map bitmap and key object.
@@ -113,7 +133,6 @@ template <typename T>
 std::vector<std::unique_ptr<KeyNode<T>>> rearrangeKeyNodesAsProjectedOrder(
     std::vector<std::unique_ptr<KeyNode<T>>>& availableKeyNodes,
     const std::vector<std::string>& keys) {
-  using namespace flatmap_helper;
   std::vector<std::unique_ptr<KeyNode<T>>> keyNodes(keys.size());
 
   std::unordered_map<KeyValue<T>, size_t, KeyValueHash<T>> keyLookup;
@@ -144,8 +163,7 @@ FlatMapColumnReader<T>::FlatMapColumnReader(
       returnFlatVector_{stripe.getRowReaderOptions().getReturnFlatVector()} {
   DWIO_ENSURE_EQ(nodeType_->id, dataType->id);
 
-  const auto keyPredicate =
-      flatmap_helper::prepareKeyPredicate<T>(requestedType, stripe);
+  const auto keyPredicate = prepareKeyPredicate<T>(requestedType, stripe);
 
   keyNodes_ = getKeyNodesFiltered<T>(
       [&keyPredicate](const auto& keyValue) { return keyPredicate(keyValue); },
@@ -179,7 +197,7 @@ template <typename T>
 void FlatMapColumnReader<T>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  flatmap_helper::initializeFlatVector<T>(vector, memoryPool_, size, false);
+  initializeFlatVector<T>(vector, memoryPool_, size, false);
   vector->resize(size, false);
 }
 
@@ -187,7 +205,7 @@ template <>
 void FlatMapColumnReader<StringView>::initKeysVector(
     VectorPtr& vector,
     vector_size_t size) {
-  flatmap_helper::initializeFlatVector<StringView>(
+  initializeFlatVector<StringView>(
       vector,
       memoryPool_,
       size,
@@ -266,8 +284,7 @@ void FlatMapColumnReader<T>::next(
     }
 
     initKeysVector(keysVector, totalChildren);
-    flatmap_helper::initializeVector(
-        valuesVector, mapValueType, memoryPool_, nodeBatches);
+    initializeVector(valuesVector, mapValueType, memoryPool_, nodeBatches);
 
     if (!returnFlatVector_) {
       for (auto batch : nodeBatches) {
@@ -297,7 +314,7 @@ void FlatMapColumnReader<T>::next(
         if (bulkInMapIter.hasValueAt(j)) {
           nodes[j]->fillKeysVector(keysVector, offset, stringKeyBuffer_.get());
           if (returnFlatVector_) {
-            flatmap_helper::copyOne(
+            copyOne(
                 mapValueType,
                 *valuesVector,
                 offset,
@@ -469,8 +486,7 @@ std::vector<std::unique_ptr<KeyNode<T>>> getKeyNodesForStructEncoding(
   // projected, the vector of key node will be created [3, 2, 1].
   // If the key is not found in the stripe, the key node will be nullptr.
 
-  auto keyPredicate =
-      flatmap_helper::prepareKeyPredicate<T>(requestedType, stripe);
+  auto keyPredicate = prepareKeyPredicate<T>(requestedType, stripe);
 
   auto availableKeyNodes = getKeyNodesFiltered<T>(
       [&keyPredicate](const auto& keyValue) { return keyPredicate(keyValue); },

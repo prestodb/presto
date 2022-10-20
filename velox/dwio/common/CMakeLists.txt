@@ -34,6 +34,7 @@ add_library(
   DecoderUtil.cpp
   DirectDecoder.cpp
   DwioMetricsLog.cpp
+  FlatMapHelper.cpp
   InputStream.cpp
   IntDecoder.cpp
   IoStatistics.cpp

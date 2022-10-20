@@ -18,10 +18,10 @@
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/dwio/common/DataBuffer.h"
+#include "velox/dwio/common/FlatMapHelper.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/dwrf/reader/ColumnReader.h"
 #include "velox/dwio/dwrf/reader/ConstantColumnReader.h"
-#include "velox/dwio/dwrf/reader/FlatMapHelper.h"
 #include "velox/dwio/dwrf/utils/BitIterator.h"
 
 namespace facebook::velox::dwrf {
@@ -36,7 +36,7 @@ class KeyNode {
   std::unique_ptr<ColumnReader> reader_;
   std::unique_ptr<ByteRleDecoder> inMap_;
   dwio::common::DataBuffer<char> inMapData_;
-  flatmap_helper::KeyValue<T> key_;
+  dwio::common::flatmap::KeyValue<T> key_;
   uint32_t sequence_;
   VectorPtr vector_;
   memory::MemoryPool& memoryPool_;
@@ -48,7 +48,7 @@ class KeyNode {
   KeyNode(
       std::unique_ptr<ColumnReader> valueReader,
       std::unique_ptr<ByteRleDecoder> inMapDecoder,
-      const flatmap_helper::KeyValue<T>& keyValue,
+      const dwio::common::flatmap::KeyValue<T>& keyValue,
       uint32_t sequence,
       memory::MemoryPool& pool)
       : reader_(std::move(valueReader)),
@@ -59,7 +59,7 @@ class KeyNode {
         memoryPool_{pool} {}
   ~KeyNode() = default;
 
-  const flatmap_helper::KeyValue<T>& getKey() const {
+  const dwio::common::flatmap::KeyValue<T>& getKey() const {
     return key_;
   }
 

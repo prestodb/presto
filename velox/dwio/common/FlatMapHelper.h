@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include "velox/dwio/common/TypeWithId.h"
-#include "velox/dwio/dwrf/common/Common.h"
-#include "velox/dwio/dwrf/reader/StripeStream.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::dwrf::flatmap_helper {
+namespace facebook::velox::dwio::common::flatmap {
 namespace detail {
 
 // Reset vector with the desired size/hasNulls properties
@@ -137,16 +134,6 @@ struct KeyValueHash {
 };
 
 template <typename T>
-KeyValue<T> extractKey(const proto::KeyInfo& info) {
-  return KeyValue<T>(info.intkey());
-}
-
-template <>
-inline KeyValue<StringView> extractKey<StringView>(const proto::KeyInfo& info) {
-  return KeyValue<StringView>(StringView(info.byteskey()));
-}
-
-template <typename T>
 KeyValue<T> parseKeyValue(std::string_view str) {
   return KeyValue<T>(folly::to<T>(str));
 }
@@ -211,17 +198,13 @@ class KeyPredicate {
 };
 
 template <typename T>
-KeyPredicate<T> prepareKeyPredicate(
-    const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-    StripeStreams& stripe) {
+KeyPredicate<T> prepareKeyPredicate(std::string_view expression) {
   std::vector<KeyProjectionMode> modes;
   std::vector<KeyValue<T>> keys;
 
-  auto& cs = stripe.getColumnSelector();
-  const auto expr = cs.getNode(requestedType->id)->getNode().expression;
-  if (!expr.empty()) {
+  if (!expression.empty()) {
     // JSON parse option?
-    auto array = folly::parseJson(expr);
+    auto array = folly::parseJson(expression);
     for (auto v : array) {
       VELOX_CHECK(!v.isNull(), "map key filter should not be null");
       auto converted = convertDynamic<T>(v);
@@ -245,4 +228,4 @@ KeyPredicate<T> prepareKeyPredicate(
       mode, typename KeyPredicate<T>::Lookup(keys.begin(), keys.end()));
 }
 
-} // namespace facebook::velox::dwrf::flatmap_helper
+} // namespace facebook::velox::dwio::common::flatmap
