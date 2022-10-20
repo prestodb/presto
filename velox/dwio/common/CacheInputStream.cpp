@@ -149,7 +149,7 @@ void CacheInputStream::loadSync(Region region) {
   // rawBytesRead is the number of bytes touched. Whether they come
   // from disk, ssd or memory is itemized in different counters. A
   process::TraceContext trace("loadSync");
-  // coalesced read ofrom InputStream removes itself from this count
+  // coalesced read from InputStream removes itself from this count
   // so as not to double count when the individual parts are
   // hit.
   ioStats_->incRawBytesRead(region.length);
@@ -171,6 +171,8 @@ void CacheInputStream::loadSync(Region region) {
     }
     auto entry = pin_.checkedEntry();
     if (entry->isExclusive()) {
+      // Missed memory cache. Trying to load from ssd cache, and if again
+      // missed, fall back to remote fetching.
       entry->setGroupId(groupId_);
       entry->setTrackingId(trackingId_);
       if (loadFromSsd(region, *entry)) {
@@ -186,6 +188,7 @@ void CacheInputStream::loadSync(Region region) {
       ioStats_->queryThreadIoLatency().increment(usec);
       entry->setExclusiveToShared();
     } else {
+      // Hit memory cache.
       if (!entry->getAndClearFirstUseFlag()) {
         ioStats_->ramHit().increment(entry->size());
       }

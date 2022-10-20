@@ -86,7 +86,7 @@ class CacheInputStream : public SeekableInputStream {
   // Synchronously sets 'pin_' to cover 'region'.
   void loadSync(Region region);
 
-  // Returns true if there is an SSD ache and 'entry' is present there and
+  // Returns true if there is an SSD cache and 'entry' is present there and
   // successfully loaded.
   bool loadFromSsd(Region region, cache::AsyncDataCacheEntry& entry);
 

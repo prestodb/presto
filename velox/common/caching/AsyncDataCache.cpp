@@ -504,14 +504,14 @@ bool AsyncDataCache::makeSpace(
     MachinePageCount numPages,
     std::function<bool()> allocate) {
   // Try to allocate and if failed, evict the desired amount and
-  // retry. This is without symchronization, so that other threads may
+  // retry. This is without synchronization, so that other threads may
   // get what one thread evicted but this will usually work in a
-  // couple of iterations. If this does not settle withing 8 tries, we
-  // start counting the contending threads nd doing random backoff to
+  // couple of iterations. If this does not settle within 8 tries, we
+  // start counting the contending threads and doing random backoff to
   // serialize the evicts and allocates. If a new thread enters when
-  // thread counting and backoff are in ffect, it gets a rank at the
+  // thread counting and backoff are in effect, it gets a rank at the
   // end of the queue. The larger the rank, the larger the backoff, so
-  // that first come is likelier to get the memory. We cannot
+  // that first comer is likelier to get the memory. We cannot
   // serialize with a mutex because memory arbitration must not be
   // called from inside a global mutex.
 

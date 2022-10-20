@@ -396,8 +396,9 @@ class CoalescedLoad {
 
   // Makes entries for the keys that are not yet loaded and does a coalesced
   // load of the entries that are not yet present. If another thread is in the
-  // process of doing this, returns immediately if 'wait' is false and waits for
-  // the other thread to be done if 'wait' is true.
+  // process of doing this and 'wait' is null, returns immediately. If another
+  // thread is in the process of doing this and 'wait' is not null, waits for
+  // the other thread to be done.
   bool loadOrFuture(folly::SemiFuture<bool>* FOLLY_NULLABLE wait);
 
   LoadState state() const {
@@ -414,7 +415,7 @@ class CoalescedLoad {
 
  protected:
   // Makes entries for 'keys_' and loads their content. Elements of
-  // 'keys' that are already loaded or loading are expected to be left
+  // 'keys_' that are already loaded or loading are expected to be left
   // out. The returned pins are expected to be exclusive with data
   // loaded. The caller will set them to shared state on success. If
   // loadData() throws, the pins it may have made will be destructed in
@@ -440,7 +441,7 @@ class CoalescedLoad {
 // Struct for CacheShard stats. Stats from all shards are added into
 // this struct to provide a snapshot of state.
 struct CacheStats {
-  // Total size in 'tynyData_'
+  // Total size in 'tinyData_'
   int64_t tinySize{};
   // Total size in 'data_'
   int64_t largeSize{};
@@ -473,7 +474,7 @@ struct CacheStats {
   // Number of times a user waited for an entry to transit from exclusive to
   // shared mode.
   int64_t numWaitExclusive{};
-  // Cumulative clocks spent in allocating or freeing memory  for backing cache
+  // Cumulative clocks spent in allocating or freeing memory for backing cache
   // entries.
   uint64_t allocClocks{};
   // Sum of scores of evicted entries. This serves to infer an average
