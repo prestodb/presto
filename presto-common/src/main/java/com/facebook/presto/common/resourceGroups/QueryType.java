@@ -26,6 +26,7 @@ public enum QueryType
     ANALYZE(5),
     INSERT(6),
     SELECT(7),
+    CONTROL(8),
     /**/;
 
     private final int value;

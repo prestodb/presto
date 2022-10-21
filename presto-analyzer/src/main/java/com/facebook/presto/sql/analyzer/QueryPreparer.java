@@ -83,7 +83,7 @@ public class QueryPreparer
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
             Statement innerStatement = ((Explain) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
-            if (!innerQueryType.isPresent() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
+            if (!innerQueryType.isPresent() || innerQueryType.get() == QueryType.DATA_DEFINITION || innerQueryType.get() == QueryType.CONTROL) {
                 throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
