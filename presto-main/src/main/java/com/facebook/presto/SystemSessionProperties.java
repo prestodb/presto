@@ -252,6 +252,8 @@ public final class SystemSessionProperties
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
     public static final String NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD = "aggregation_spill_memory_threshold";
+    public static final String NATIVE_JOIN_SPILL_MEMORY_THRESHOLD = "join_spill_memory_threshold";
+    public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
 
@@ -1376,6 +1378,16 @@ public final class SystemSessionProperties
                 integerProperty(
                         NATIVE_AGGREGATION_SPILL_MEMORY_THRESHOLD,
                         "Native Execution only. The max memory that a final aggregation can use before spilling. If it is 0, then there is no limit",
+                        0,
+                        false),
+                integerProperty(
+                        NATIVE_JOIN_SPILL_MEMORY_THRESHOLD,
+                        "Native Execution only. The max memory that hash join can use before spilling. If it is 0, then there is no limit",
+                        0,
+                        false),
+                integerProperty(
+                        NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD,
+                        "Native Execution only. The max memory that order by can use before spilling. If it is 0, then there is no limit",
                         0,
                         false),
                 booleanProperty(
