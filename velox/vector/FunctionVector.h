@@ -30,23 +30,30 @@ class Callable {
 
   virtual bool hasCapture() const = 0;
 
-  // Applies 'this' to 'args' for 'rows' and returns the result in
-  // '*result'.  'wrapCapture' translates row numbers in 'rows' to the
-  // corresponding numbers for captured variables, i.e. is an indices
-  // vector that is used for wrapping captured variables in a
-  // dictionary before passing these to the function. The typical use
-  // case of lambdas applies a function to elements of repeated types,
-  // so that the values of the arguments and captures are not
-  // aligned. This serves to align these. If nullptr, the captures are
-  // passed as is.
-  // 'finalSelection' can be empty when context->isFinalSelection() is true
-  // and must be a valid selectivity vector otherwise.
+  /// Applies 'this' to 'args' for 'rows' and returns the result in
+  /// '*result'.
+  /// @param rows The rows that this callable applies to. It is the element rows
+  /// of the complex-typed input of the lambda function.
+  /// @param wrapCapture A mapping that translates row numbers in 'rows' to the
+  /// corresponding numbers for captured variables, i.e. is an indices vector
+  /// that is used for wrapping captured variables in a dictionary before
+  /// passing these to the function. The typical use case of lambdas applies a
+  /// function to elements of repeated types, so that the values of the
+  /// arguments and captures are not aligned. This serves to align these. If
+  /// nullptr, the captures are passed as is.
+  /// @param finalSelection It can be empty when context->isFinalSelection() is
+  /// true and must be a valid selectivity vector otherwise.
+  /// @param elementToTopLevelRows A mapping from element rows (i.e., the rows
+  /// argument) to top-level rows of the complex-typed input of the lambda
+  /// function. elementToTopLevelRows could be a nullptr, meaning the element
+  /// rows are identical to top-level rows.
   virtual void apply(
       const SelectivityVector& rows,
       const SelectivityVector& finalSelection,
-      BufferPtr wrapCapture,
+      const BufferPtr& wrapCapture,
       exec::EvalCtx* context,
       const std::vector<VectorPtr>& args,
+      const BufferPtr& elementToTopLevelRows,
       VectorPtr* result) = 0;
 };
 

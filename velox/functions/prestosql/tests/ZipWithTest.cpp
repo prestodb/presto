@@ -380,4 +380,23 @@ TEST_F(ZipWithTest, fuzzVariableLengthWithNulls) {
     assertEqualVectors(expectedResult, result);
   }
 }
+
+TEST_F(ZipWithTest, try) {
+  auto data = makeRowVector(
+      {makeArrayVector<int64_t>({{1, 2, 3}, {0, 5}, {6, 7, 0}, {}}),
+       makeArrayVector<int64_t>(
+           {{10, 20, 30}, {40, 50, 60}, {60, 70}, {100, 110}})});
+
+  ASSERT_THROW(
+      evaluate("zip_with(c0, c1, (x, y) -> y / x)", data), std::exception);
+
+  auto result = evaluate("try(zip_with(c0, c1, (x, y) -> y / x))", data);
+
+  auto expected = vectorMaker_.arrayVectorNullable<int64_t>(
+      {{{10, 10, 10}},
+       std::nullopt,
+       {{10, 10, std::nullopt}},
+       {{std::nullopt, std::nullopt}}});
+  assertEqualVectors(expected, result);
+}
 } // namespace

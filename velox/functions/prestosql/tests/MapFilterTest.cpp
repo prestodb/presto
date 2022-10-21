@@ -249,3 +249,24 @@ TEST_F(MapFilterTest, lambdaSelectivityVector) {
   auto expected = makeMapVector({0}, expectedKeys, expectedValues);
   assertEqualVectors(expected, result[0]);
 }
+
+TEST_F(MapFilterTest, try) {
+  auto data = makeRowVector({
+      makeMapVector<int64_t, int64_t>({
+          {{1, 2}, {2, 3}},
+          {{3, 4}, {0, 1}, {5, 6}},
+          {{6, 5}, {7, 8}},
+          {{8, 7}},
+      }),
+  });
+
+  ASSERT_THROW(
+      evaluate<BaseVector>("map_filter(c0, (k, v) -> (v / k > 0))", data),
+      std::exception);
+
+  auto result =
+      evaluate<BaseVector>("try(map_filter(c0, (k, v) -> (v / k > 0)))", data);
+  auto expected = makeNullableMapVector<int64_t, int64_t>(
+      {{{{1, 2}, {2, 3}}}, std::nullopt, {{{7, 8}}}, {{}}});
+  assertEqualVectors(expected, result);
+}

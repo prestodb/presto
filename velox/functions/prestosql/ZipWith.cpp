@@ -16,6 +16,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/FunctionVector.h"
 
 namespace facebook::velox::functions {
@@ -95,6 +96,9 @@ class ZipWithFunction : public exec::VectorFunction {
 
     VectorPtr newElements;
 
+    auto elementToTopLevelRows = getElementToTopLevelRows(
+        numResultElements, rows, rawOffsets, rawSizes, nullptr, context.pool());
+
     // Loop over lambda functions and apply these to (leftElements,
     // rightElements). In most cases there will be only one function and the
     // loop will run once.
@@ -135,6 +139,7 @@ class ZipWithFunction : public exec::VectorFunction {
           wrapCapture,
           &context,
           lambdaArgs,
+          elementToTopLevelRows,
           &newElements);
     }
 

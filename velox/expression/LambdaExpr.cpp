@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 #include "velox/expression/LambdaExpr.h"
+
 #include "velox/expression/FieldReference.h"
+#include "velox/expression/ScopedVarSetter.h"
 #include "velox/vector/FunctionVector.h"
 
 namespace facebook::velox::exec {
@@ -42,9 +44,10 @@ class ExprCallable : public Callable {
   void apply(
       const SelectivityVector& rows,
       const SelectivityVector& finalSelection,
-      BufferPtr wrapCapture,
+      const BufferPtr& wrapCapture,
       EvalCtx* context,
       const std::vector<VectorPtr>& args,
+      const BufferPtr& elementToTopLevelRows,
       VectorPtr* result) override {
     std::vector<VectorPtr> allVectors = args;
     for (auto index = args.size(); index < capture_->childrenSize(); ++index) {
@@ -62,11 +65,21 @@ class ExprCallable : public Callable {
         rows.end(),
         std::move(allVectors));
     EvalCtx lambdaCtx(context->execCtx(), context->exprSet(), row.get());
+    ScopedVarSetter throwOnError(
+        lambdaCtx.mutableThrowOnError(), context->throwOnError());
     if (!context->isFinalSelection()) {
       *lambdaCtx.mutableIsFinalSelection() = false;
       *lambdaCtx.mutableFinalSelection() = &finalSelection;
     }
     body_->eval(rows, lambdaCtx, *result);
+
+    // Transform error vector to map element rows back to top-level rows.
+    if (elementToTopLevelRows) {
+      lambdaCtx.addElementErrorsToTopLevel(
+          rows, elementToTopLevelRows, *context->errorsPtr());
+    } else {
+      lambdaCtx.addErrors(rows, *lambdaCtx.errorsPtr(), *context->errorsPtr());
+    }
   }
 
  private:

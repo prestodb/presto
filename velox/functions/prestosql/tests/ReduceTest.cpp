@@ -152,3 +152,31 @@ TEST_F(ReduceTest, elementIndicesOverwrite) {
       evaluate("reduce(array[c0, c1], 100, (s, x) -> s + x, s -> s)", data);
   assertEqualVectors(makeFlatVector<int64_t>({104, 106}), result);
 }
+
+TEST_F(ReduceTest, try) {
+  auto input = makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2},
+          {3, 4},
+          {5, 6},
+      }),
+  });
+
+  ASSERT_THROW(
+      evaluate<SimpleVector<int64_t>>(
+          "reduce(c0, 0, (s, x) -> s + x / (x - 3), s -> s)", input),
+      std::exception);
+
+  auto result = evaluate<SimpleVector<int64_t>>(
+      "try(reduce(c0, 0, (s, x) -> s + x / (x - 3), s -> s))", input);
+
+  auto expectedResult = makeNullableFlatVector<int64_t>({-2, std::nullopt, 4});
+  assertEqualVectors(expectedResult, result);
+
+  result = evaluate<SimpleVector<int64_t>>(
+      "try(reduce(c0, 0, (s, x) -> s + x / (x - 3), s -> s / (s + 2)))", input);
+
+  expectedResult =
+      makeNullableFlatVector<int64_t>({std::nullopt, std::nullopt, 0});
+  assertEqualVectors(expectedResult, result);
+}

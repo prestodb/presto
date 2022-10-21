@@ -293,4 +293,29 @@ TEST_F(MapZipWithTest, fuzz) {
     assertEqualVectors(expected, result);
   }
 }
+
+TEST_F(MapZipWithTest, try) {
+  auto data = makeRowVector(
+      {makeMapVector<int64_t, int64_t>(
+           {{{1, 10}, {3, 30}, {2, 20}}, {{3, 30}, {4, 40}}, {{5, 50}}, {}}),
+       makeMapVector<int64_t, int64_t>(
+           {{{1, 1}, {2, 2}, {3, 0}},
+            {{3, 30}, {4, 40}, {0, 0}},
+            {},
+            {{2, 2}}})});
+
+  ASSERT_THROW(
+      evaluate("map_zip_with(c0, c1, (k, v1, v2) -> v1 / v2)", data),
+      std::exception);
+
+  auto result =
+      evaluate("try(map_zip_with(c0, c1, (k, v1, v2) -> v1 / v2))", data);
+
+  auto expected = makeNullableMapVector<int64_t, int64_t>(
+      {std::nullopt,
+       {{{0, std::nullopt}, {3, 1}, {4, 1}}},
+       {{{5, std::nullopt}}},
+       {{{2, std::nullopt}}}});
+  assertEqualVectors(expected, result);
+}
 } // namespace

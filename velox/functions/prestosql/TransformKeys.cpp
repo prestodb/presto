@@ -59,6 +59,9 @@ class TransformKeysFunction : public exec::VectorFunction {
 
     VectorPtr transformedKeys;
 
+    auto elementToTopLevelRows =
+        getElementToTopLevelRows(numKeys, rows, flatMap.get(), context.pool());
+
     // Loop over lambda functions and apply these to keys of the map.
     // In most cases there will be only one function and the loop will run once.
     auto it = args[1]->asUnchecked<FunctionVector>()->iterator(&rows);
@@ -74,6 +77,7 @@ class TransformKeysFunction : public exec::VectorFunction {
           wrapCapture,
           &context,
           lambdaArgs,
+          elementToTopLevelRows,
           &transformedKeys);
     }
 

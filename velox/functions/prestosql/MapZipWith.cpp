@@ -17,6 +17,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/FunctionVector.h"
 
 namespace facebook::velox::functions {
@@ -150,6 +151,14 @@ class MapZipWithFunction : public exec::VectorFunction {
 
     VectorPtr mergedValues;
 
+    auto elementToTopLevelRows = getElementToTopLevelRows(
+        index,
+        rows,
+        mergeResults.rawNewOffsets,
+        mergeResults.rawNewSizes,
+        nullptr,
+        context.pool());
+
     // Loop over lambda functions and apply these to (mergedKeys,
     // mergedLeftValues, mergedRightValues). In most cases there will be only
     // one function and the loop will run once.
@@ -180,6 +189,7 @@ class MapZipWithFunction : public exec::VectorFunction {
           wrapCapture,
           &context,
           lambdaArgs,
+          elementToTopLevelRows,
           &mergedValues);
     }
 

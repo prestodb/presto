@@ -147,6 +147,7 @@ class ReduceFunction : public exec::VectorFunction {
             nullptr,
             &context,
             lambdaArgs,
+            nullptr,
             &partialResult);
         state = partialResult;
         n++;
@@ -163,6 +164,7 @@ class ReduceFunction : public exec::VectorFunction {
           nullptr,
           &context,
           lambdaArgs,
+          nullptr,
           &result);
     }
   }

@@ -135,3 +135,27 @@ TEST_F(TransformTest, dictionaryWithDuplicates) {
 
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(TransformTest, try) {
+  auto input = makeRowVector({
+      makeArrayVector<int64_t>({
+          {6, 4},
+          {2, 0},
+          {-2, -4},
+      }),
+  });
+
+  ASSERT_THROW(
+      evaluate<ArrayVector>("transform(c0, x -> x / (x - 2))", input),
+      std::exception);
+
+  auto result =
+      evaluate<ArrayVector>("try(transform(c0, x -> x / (x - 2)))", input);
+
+  auto expectedResult = vectorMaker_.arrayVectorNullable<int64_t>({
+      {{1, 2}},
+      std::nullopt,
+      {{0, 0}},
+  });
+  assertEqualVectors(expectedResult, result);
+}

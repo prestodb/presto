@@ -184,3 +184,21 @@ TEST_F(TransformValuesTest, dictionaryWithDuplicates) {
 
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(TransformValuesTest, try) {
+  auto input = makeRowVector({
+      makeMapVector<int64_t, int64_t>(
+          {{{1, 2}, {3, 9}}, {{4, 16}, {5, 25}}, {{6, 36}, {0, 10}}}),
+  });
+
+  ASSERT_THROW(
+      evaluate<MapVector>("transform_values(c0, (k, v) -> v / k)", input),
+      std::exception);
+
+  auto result =
+      evaluate<MapVector>("try(transform_values(c0, (k, v) -> v / k))", input);
+
+  auto expectedResult = makeNullableMapVector<int64_t, int64_t>(
+      {{{{1, 2}, {3, 3}}}, {{{4, 4}, {5, 5}}}, std::nullopt});
+  assertEqualVectors(expectedResult, result);
+}

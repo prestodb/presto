@@ -59,6 +59,9 @@ class TransformFunction : public exec::VectorFunction {
     // transformed elements
     VectorPtr newElements;
 
+    auto elementToTopLevelRows = getElementToTopLevelRows(
+        newNumElements, rows, flatArray.get(), context.pool());
+
     // loop over lambda functions and apply these to elements of the base array;
     // in most cases there will be only one function and the loop will run once
     auto it = args[1]->asUnchecked<FunctionVector>()->iterator(&rows);
@@ -74,6 +77,7 @@ class TransformFunction : public exec::VectorFunction {
           wrapCapture,
           &context,
           lambdaArgs,
+          elementToTopLevelRows,
           &newElements);
     }
 
