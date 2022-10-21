@@ -617,7 +617,7 @@ public class PrestoSparkQueryExecutionFactory
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, sql, session.getPreparedStatements(), warningCollector);
             Optional<QueryType> queryType = StatementUtils.getQueryType(preparedQuery.getStatement().getClass());
-            if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION)) {
+            if (queryType.isPresent() && (queryType.get() == QueryType.DATA_DEFINITION || queryType.get() == QueryType.CONTROL)) {
                 queryStateTimer.endAnalysis();
                 DDLDefinitionTask<?> task = (DDLDefinitionTask<?>) ddlTasks.get(preparedQuery.getStatement().getClass());
                 return new PrestoSparkDataDefinitionExecution(task, preparedQuery.getStatement(), transactionManager, accessControl, metadata, session, queryStateTimer, warningCollector);
