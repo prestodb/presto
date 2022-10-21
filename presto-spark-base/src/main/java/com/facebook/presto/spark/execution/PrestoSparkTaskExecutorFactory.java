@@ -105,6 +105,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.CollectionAccumulator;
 import org.joda.time.DateTime;
@@ -1007,7 +1008,7 @@ public class PrestoSparkTaskExecutorFactory
                     taskState,
                     URI.create("http://fake.invalid/task/" + taskId),
                     taskContext.getCompletedDriverGroups(),
-                    failures,
+                    LongSet.of(), failures,
                     taskStats.getQueuedPartitionedDrivers(),
                     taskStats.getRunningPartitionedDrivers(),
                     0,

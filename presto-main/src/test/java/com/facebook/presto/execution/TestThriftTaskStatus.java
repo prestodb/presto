@@ -32,6 +32,7 @@ import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -195,7 +196,7 @@ public class TestThriftTaskStatus
                 RUNNING,
                 SELF_URI,
                 LIFESPANS,
-                executionFailureInfos,
+                LongSet.of(), executionFailureInfos,
                 QUEUED_PARTITIONED_DRIVERS,
                 RUNNING_PARTITIONED_DRIVERS,
                 OUTPUT_BUFFER_UTILIZATION,
