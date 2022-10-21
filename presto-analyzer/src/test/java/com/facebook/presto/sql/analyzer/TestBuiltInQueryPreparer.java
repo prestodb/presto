@@ -15,7 +15,7 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.QualifiedName;
@@ -33,17 +33,17 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMET
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestQueryPreparer
+public class TestBuiltInQueryPreparer
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final QueryPreparer QUERY_PREPARER = new QueryPreparer(SQL_PARSER);
+    private static final BuiltInQueryPreparer QUERY_PREPARER = new BuiltInQueryPreparer(SQL_PARSER);
     private static final Map<String, String> emptyPreparedStatements = ImmutableMap.of();
     private static final AnalyzerOptions testAnalyzerOptions = AnalyzerOptions.builder().build();
 
     @Test
     public void testSelectStatement()
     {
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(testAnalyzerOptions, "SELECT * FROM foo", emptyPreparedStatements, WarningCollector.NOOP);
+        BuiltInPreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(testAnalyzerOptions, "SELECT * FROM foo", emptyPreparedStatements, WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -52,7 +52,7 @@ public class TestQueryPreparer
     public void testExecuteStatement()
     {
         Map<String, String> preparedStatements = ImmutableMap.of("my_query", "SELECT * FROM foo");
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(testAnalyzerOptions, "EXECUTE my_query", preparedStatements, WarningCollector.NOOP);
+        BuiltInPreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(testAnalyzerOptions, "EXECUTE my_query", preparedStatements, WarningCollector.NOOP);
         assertEquals(preparedQuery.getStatement(),
                 simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
@@ -99,7 +99,7 @@ public class TestQueryPreparer
     public void testFormattedQuery()
     {
         AnalyzerOptions analyzerOptions = AnalyzerOptions.builder().setLogFormattedQueryEnabled(true).build();
-        PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(
+        BuiltInPreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(
                 analyzerOptions,
                 "PREPARE test FROM SELECT * FROM foo where col1 = ?",
                 emptyPreparedStatements,
