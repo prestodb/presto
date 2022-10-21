@@ -45,7 +45,11 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
+/**
+ * This query preparer provides builtin functionality. It leverages builtin parser and analyzer.
+ */
 public class BuiltInQueryPreparer
+        implements QueryPreparer
 {
     private final SqlParser sqlParser;
 
@@ -55,6 +59,7 @@ public class BuiltInQueryPreparer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
+    @Override
     public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
@@ -119,20 +124,18 @@ public class BuiltInQueryPreparer
     }
 
     public static class BuiltInPreparedQuery
+            extends PreparedQuery
     {
         private final Statement statement;
         private final Statement wrappedStatement;
         private final List<Expression> parameters;
-        private final Optional<String> formattedQuery;
-        private final Optional<String> prepareSql;
 
         public BuiltInPreparedQuery(Statement wrappedStatement, Statement statement, List<Expression> parameters, Optional<String> formattedQuery, Optional<String> prepareSql)
         {
+            super(formattedQuery, prepareSql);
             this.wrappedStatement = requireNonNull(wrappedStatement, "wrappedStatement is null");
             this.statement = requireNonNull(statement, "statement is null");
             this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
-            this.formattedQuery = requireNonNull(formattedQuery, "formattedQuery is null");
-            this.prepareSql = requireNonNull(prepareSql, "prepareSql is null");
         }
 
         public Statement getStatement()
@@ -150,14 +153,14 @@ public class BuiltInQueryPreparer
             return parameters;
         }
 
-        public Optional<String> getFormattedQuery()
+        public Optional<QueryType> getQueryType()
         {
-            return formattedQuery;
+            return StatementUtils.getQueryType(statement.getClass());
         }
 
-        public Optional<String> getPrepareSql()
+        public boolean isTransactionControlStatement()
         {
-            return prepareSql;
+            return StatementUtils.isTransactionControlStatement(getStatement());
         }
     }
 }
