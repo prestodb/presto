@@ -49,6 +49,8 @@ public class OracleClientModule
             throws SQLException
     {
         Properties connectionProperties = new Properties();
+        connectionProperties.setProperty("user",config.getConnectionUser());
+        connectionProperties.setProperty("password",config.getConnectionPassword());
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
