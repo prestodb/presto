@@ -53,7 +53,7 @@ public class PrioritizedSplitRunner
 
     private final Ticker ticker;
 
-    private final SettableFuture<?> finishedFuture = SettableFuture.create();
+    private final SettableFuture<Long> finishedFuture = SettableFuture.create();
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
@@ -101,7 +101,7 @@ public class PrioritizedSplitRunner
         return taskHandle;
     }
 
-    public ListenableFuture<?> getFinishedFuture()
+    public ListenableFuture<Long> getFinishedFuture()
     {
         return finishedFuture;
     }
@@ -131,7 +131,7 @@ public class PrioritizedSplitRunner
     {
         boolean finished = split.isFinished();
         if (finished) {
-            finishedFuture.set(null);
+            finishedFuture.set(split.getScheduledSplit().getSequenceId());
         }
         return finished || destroyed.get() || taskHandle.isDestroyed();
     }

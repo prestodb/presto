@@ -19,6 +19,7 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionState;
@@ -29,7 +30,9 @@ import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
 import com.facebook.presto.failureDetector.FailureDetector;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.operator.ForScheduler;
+import com.facebook.presto.server.remotetask.HttpRemoteTask;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -43,8 +46,11 @@ import com.facebook.presto.sql.planner.SplitSourceFactory;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -52,7 +58,9 @@ import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -83,6 +91,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -91,6 +100,7 @@ import static java.util.stream.Collectors.toSet;
 
 public class SectionExecutionFactory
 {
+    public static final int SPLIT_RETRY_BATCH_SIZE = 100;
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
     private final NodeTaskMap nodeTaskMap;
@@ -285,6 +295,40 @@ public class SectionExecutionFactory
 
             NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, connectorId, maxTasksPerStage);
             SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeSelector, stageExecution::getAllTasks);
+
+            if (plan.getFragment().isLeaf()) {
+                stageExecution.registerStageTaskRecoveryCallback(taskId -> {
+                    HttpRemoteTask remoteTask = stageExecution.getAllTasks().stream()
+                            .filter(task -> task.getTaskId().equals(taskId))
+                            .filter(task -> task instanceof HttpRemoteTask)
+                            .map(task -> (HttpRemoteTask) task)
+                            .collect(onlyElement());
+
+                    List<HttpRemoteTask> httpRemoteTasks = stageExecution.getAllTasks().stream()
+                            .filter(task -> !task.getTaskId().equals(taskId))
+                            .filter(task -> task instanceof HttpRemoteTask)
+                            .map(task -> (HttpRemoteTask) task)
+                            .collect(toList());
+                    Collections.shuffle(httpRemoteTasks);
+
+                    checkState(remoteTask.getUnprocessedSplits().keySet().size() == 1
+                                    && remoteTask.getUnprocessedSplits().keySet().iterator().next().equals(planNodeId),
+                            "Unexpected plan node id");
+                    Iterator<List<Split>> splits = Iterables.partition(
+                            Iterables.transform(remoteTask.getUnprocessedSplits().get(planNodeId).values(), ScheduledSplit::getSplit),
+                            SPLIT_RETRY_BATCH_SIZE).iterator();
+
+                    while (splits.hasNext()) {
+                        for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
+                            HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
+                            List<Split> scheduledSplit = splits.next();
+                            Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
+                            splitsToAdd.putAll(planNodeId, scheduledSplit);
+                            httpRemoteTask.addSplits(splitsToAdd);
+                        }
+                    }
+                });
+            }
 
             checkArgument(!plan.getFragment().getStageExecutionDescriptor().isStageGroupedExecution());
             return newSourcePartitionedSchedulerAsStageScheduler(stageExecution, planNodeId, splitSource, placementPolicy, splitBatchSize);

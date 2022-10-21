@@ -59,6 +59,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -281,7 +282,7 @@ public class MockRemoteTaskFactory
                             state,
                             location,
                             ImmutableSet.of(),
-                            failures,
+                            LongSet.of(), failures,
                             0,
                             0,
                             0.0,
@@ -324,7 +325,7 @@ public class MockRemoteTaskFactory
                     taskStateMachine.getState(),
                     location,
                     ImmutableSet.of(),
-                    ImmutableList.of(),
+                    LongSet.of(), ImmutableList.of(),
                     queuedSplitsInfo.getCount(),
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     0.0,

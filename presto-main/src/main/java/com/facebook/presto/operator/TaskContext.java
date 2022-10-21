@@ -41,6 +41,8 @@ import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -51,8 +53,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -135,6 +139,8 @@ public class TaskContext
     // Only contains metrics exposed in this task. Doesn't contain the metrics exposed in the operators.
     // This is merged with the operator metrics when generating the TaskStats in {@link #getTaskStats}.
     private final RuntimeStats runtimeStats = new RuntimeStats();
+
+    private final BlockingDeque<Long> completedSplitSequenceIds = new LinkedBlockingDeque<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -756,5 +762,17 @@ public class TaskContext
         return searchFrom(taskPlan.get())
                 .where(node -> node.getId().equals(planNodeId) && nodeType.isInstance(node))
                 .findSingle();
+    }
+
+    public LongSet getCompletedSplitSequenceIds()
+    {
+        LongSet list = LongArraySet.of();
+        completedSplitSequenceIds.drainTo(list);
+        return list;
+    }
+
+    public void addCompletedSplit(Long splitSequenceId)
+    {
+        completedSplitSequenceIds.add(splitSequenceId);
     }
 }

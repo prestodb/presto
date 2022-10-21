@@ -216,6 +216,7 @@ import com.google.inject.TypeLiteral;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Singleton;
@@ -403,7 +404,9 @@ public class ServerMainModule
         newOptionalBinder(binder, ClusterMemoryManagerService.class);
         install(installModuleIf(
                 ServerConfig.class,
-                ServerConfig::isResourceManagerEnabled,
+                serverConfig1 -> {
+                    return serverConfig1.isResourceManagerEnabled() && serverConfig1.isResourceManager();
+                },
                 new Module()
                 {
                     @Override
@@ -636,6 +639,8 @@ public class ServerMainModule
         jsonBinder(binder).addSerializerBinding(Expression.class).to(ExpressionSerializer.class);
         jsonBinder(binder).addDeserializerBinding(Expression.class).to(ExpressionDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(FunctionCallDeserializer.class);
+        jsonBinder(binder).addSerializerBinding(LongSet.class).to(LongSetSerializer.class);
+        jsonBinder(binder).addDeserializerBinding(LongSet.class).to(LongSetDeserializer.class);
 
         // metadata updates
         jsonCodecBinder(binder).bindJsonCodec(MetadataUpdates.class);

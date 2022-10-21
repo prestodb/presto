@@ -401,10 +401,10 @@ public class TaskExecutor
         log.debug("Task finished or failed " + taskHandle.getTaskId());
     }
 
-    public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
+    public List<ListenableFuture<Long>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
     {
         List<PrioritizedSplitRunner> splitsToDestroy = new ArrayList<>();
-        List<ListenableFuture<?>> finishedFutures = new ArrayList<>(taskSplits.size());
+        List<ListenableFuture<Long>> finishedFutures = new ArrayList<>(taskSplits.size());
         synchronized (this) {
             for (SplitRunner taskSplit : taskSplits) {
                 PrioritizedSplitRunner prioritizedSplitRunner = new PrioritizedSplitRunner(

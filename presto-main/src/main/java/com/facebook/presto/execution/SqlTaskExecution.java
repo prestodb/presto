@@ -548,27 +548,29 @@ public class SqlTaskExecution
     private synchronized void enqueueDriverSplitRunner(boolean forceRunSplit, List<DriverSplitRunner> runners)
     {
         // schedule driver to be executed
-        List<ListenableFuture<?>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
+        List<ListenableFuture<Long>> finishedFutures = taskExecutor.enqueueSplits(taskHandle, forceRunSplit, runners);
         checkState(finishedFutures.size() == runners.size(), "Expected %s futures but got %s", runners.size(), finishedFutures.size());
 
         // when driver completes, update state and fire events
         for (int i = 0; i < finishedFutures.size(); i++) {
-            ListenableFuture<?> finishedFuture = finishedFutures.get(i);
+            ListenableFuture<Long> finishedFuture = finishedFutures.get(i);
             final DriverSplitRunner splitRunner = runners.get(i);
 
             // record new driver
             status.incrementRemainingDriver(splitRunner.getLifespan());
 
-            Futures.addCallback(finishedFuture, new FutureCallback<Object>()
+            Futures.addCallback(finishedFuture, new FutureCallback<Long>()
             {
                 @Override
-                public void onSuccess(Object result)
+                public void onSuccess(Long result)
                 {
                     try (SetThreadName ignored = new SetThreadName("Task-%s", taskId)) {
                         // record driver is finished
                         status.decrementRemainingDriver(splitRunner.getLifespan());
 
                         checkTaskCompletion();
+
+                        taskContext.addCompletedSplit(result);
 
                         splitMonitor.splitCompletedEvent(taskId, getDriverStats());
                     }
@@ -1097,6 +1099,12 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        @Override
+        public ScheduledSplit getScheduledSplit()
+        {
+            return partitionedSplit;
         }
     }
 
