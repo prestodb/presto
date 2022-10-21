@@ -249,6 +249,7 @@ public class TaskResourceUtils
                 operatorStats.getBlockedReason(),
                 operatorStats.getRuntimeStats(),
                 convertToOperatorInfoUnion(operatorStats.getInfo()),
+                operatorStats.getPoolType(),
                 operatorStats.getNullJoinBuildKeyCount(),
                 operatorStats.getJoinBuildKeyCount());
     }
@@ -481,6 +482,7 @@ public class TaskResourceUtils
                 thriftOperatorStats.getBlockedReason(),
                 convertToOperatorInfo(thriftOperatorStats.getInfoUnion()),
                 thriftOperatorStats.getRuntimeStats(),
+                thriftOperatorStats.getPoolType(),
                 thriftOperatorStats.getNullJoinBuildKeyCount(),
                 thriftOperatorStats.getJoinBuildKeyCount());
     }

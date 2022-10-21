@@ -94,6 +94,8 @@ public class OperatorStats
     private final OperatorInfoUnion infoUnion;
 
     private final RuntimeStats runtimeStats;
+    @Nullable
+    private final String poolType;
 
     private final long nullJoinBuildKeyCount;
     private final long joinBuildKeyCount;
@@ -150,6 +152,8 @@ public class OperatorStats
             @Nullable
             @JsonProperty("info") OperatorInfo info,
             @JsonProperty("runtimeStats") RuntimeStats runtimeStats,
+            @Nullable
+            @JsonProperty("poolType") String poolType)
             @JsonProperty("nullJoinBuildKeyCount") long nullJoinBuildKeyCount,
             @JsonProperty("joinBuildKeyCount") long joinBuildKeyCount)
     {
@@ -161,6 +165,7 @@ public class OperatorStats
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
+        this.poolType = poolType;
 
         this.totalDrivers = totalDrivers;
 
@@ -264,7 +269,9 @@ public class OperatorStats
 
             RuntimeStats runtimeStats,
             @Nullable
-            OperatorInfoUnion infoUnion,
+                    OperatorInfoUnion infoUnion,
+            @Nullable
+            String poolType,
             long nullJoinBuildKeyCount,
             long joinBuildKeyCount)
     {
@@ -324,6 +331,7 @@ public class OperatorStats
 
         this.infoUnion = infoUnion;
         this.info = null;
+        this.poolType = poolType;
         this.nullJoinBuildKeyCount = nullJoinBuildKeyCount;
         this.joinBuildKeyCount = joinBuildKeyCount;
     }
@@ -609,6 +617,14 @@ public class OperatorStats
         return infoUnion;
     }
 
+    @Nullable
+    @JsonProperty
+    @ThriftField(40)
+    public String getPoolType()
+    {
+        return poolType;
+    }
+
     @JsonProperty
     @ThriftField(40)
     public long getNullJoinBuildKeyCount()
@@ -783,6 +799,7 @@ public class OperatorStats
 
                 (OperatorInfo) base,
                 runtimeStats,
+                poolType,
                 nullJoinBuildKeyCount,
                 joinBuildKeyCount);
     }
@@ -849,6 +866,7 @@ public class OperatorStats
                 blockedReason,
                 info,
                 runtimeStats,
+                poolType,
                 nullJoinBuildKeyCount,
                 joinBuildKeyCount);
     }

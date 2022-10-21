@@ -40,6 +40,7 @@ import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -148,7 +149,8 @@ public class SqlTaskManager
             OrderingCompiler orderingCompiler,
             FragmentResultCacheManager fragmentResultCacheManager,
             ObjectMapper objectMapper,
-            SpoolingOutputBufferFactory spoolingOutputBufferFactory)
+            SpoolingOutputBufferFactory spoolingOutputBufferFactory,
+            ServerConfig serverConfig)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -200,7 +202,8 @@ public class SqlTaskManager
                         },
                         maxBufferSize,
                         failedTasks,
-                        spoolingOutputBufferFactory)));
+                        spoolingOutputBufferFactory,
+                        serverConfig.getPoolType())));
     }
 
     private QueryContext createQueryContext(

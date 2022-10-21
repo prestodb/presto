@@ -88,6 +88,7 @@ public class TestOperatorStats
             Optional.empty(),
             NON_MERGEABLE_INFO,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+            "",
             0,
             0);
 
@@ -138,6 +139,7 @@ public class TestOperatorStats
             Optional.empty(),
             MERGEABLE_INFO,
             new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
+            "",
             0,
             0);
 

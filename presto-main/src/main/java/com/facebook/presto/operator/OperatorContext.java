@@ -561,6 +561,7 @@ public class OperatorContext
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
                 runtimeStats,
+                driverContext.getPipelineContext().getTaskContext().getPoolType());
                 nullJoinBuildKeyCount.get(),
                 joinBuildKeyCount.get());
     }
