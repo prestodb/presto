@@ -19,7 +19,6 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerF
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
-import com.facebook.presto.sql.tree.Statement;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -33,7 +32,7 @@ import java.util.concurrent.Executor;
 @ThreadSafe
 public interface ResourceGroupManager<C>
 {
-    void submit(Statement statement, ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
+    void submit(ManagedQueryExecution queryExecution, SelectionContext<C> selectionContext, Executor executor);
 
     SelectionContext<C> selectGroup(SelectionCriteria criteria);
 

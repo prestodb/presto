@@ -324,12 +324,6 @@ public class FeaturesConfig
         UNWRAP_IF // Rewrites AGG(IF(condition, expr)) to AGG(expr) FILTER (WHERE condition).
     }
 
-    public enum AnalyzerType
-    {
-        BUILTIN,
-        NATIVE
-    }
-
     public double getCpuCostWeight()
     {
         return cpuCostWeight;
