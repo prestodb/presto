@@ -113,7 +113,7 @@ public class PrestoSparkQueryPlanner
         Plan plan = logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED);
         List<Input> inputs = new InputExtractor(metadata, session).extractInputs(plan.getRoot());
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
-        Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
+        Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass().getSimpleName());
         List<String> columnNames = ((OutputNode) plan.getRoot()).getColumnNames();
         PhysicalResourceSettings physicalResourceSettings = new PrestoSparkPhysicalResourceCalculator().calculate(plan.getRoot(), metadata, session);
         return new PlanAndMore(

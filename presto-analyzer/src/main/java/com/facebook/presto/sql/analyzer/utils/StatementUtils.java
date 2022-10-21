@@ -81,94 +81,94 @@ public final class StatementUtils
 {
     private StatementUtils() {}
 
-    private static final Map<Class<? extends Statement>, QueryType> STATEMENT_QUERY_TYPES;
-    private static final List<Class<? extends Statement>> SESSION_TRANSACTION_CONTROL_TYPES;
+    private static final Map<String, QueryType> STATEMENT_QUERY_TYPES;
+    private static final List<String> SESSION_TRANSACTION_CONTROL_TYPES;
 
     static {
-        ImmutableMap.Builder<Class<? extends Statement>, QueryType> builder = ImmutableMap.builder();
-        ImmutableList.Builder<Class<? extends Statement>> sessionTransactionBuilder = ImmutableList.builder();
+        ImmutableMap.Builder<String, QueryType> builder = ImmutableMap.builder();
+        ImmutableList.Builder<String> sessionTransactionBuilder = ImmutableList.builder();
 
-        builder.put(Query.class, QueryType.SELECT);
+        builder.put(Query.class.getSimpleName(), QueryType.SELECT);
 
-        builder.put(Explain.class, QueryType.EXPLAIN);
-        builder.put(Analyze.class, QueryType.ANALYZE);
+        builder.put(Explain.class.getSimpleName(), QueryType.EXPLAIN);
+        builder.put(Analyze.class.getSimpleName(), QueryType.ANALYZE);
 
-        builder.put(CreateTableAsSelect.class, QueryType.INSERT);
-        builder.put(Insert.class, QueryType.INSERT);
-        builder.put(RefreshMaterializedView.class, QueryType.INSERT);
+        builder.put(CreateTableAsSelect.class.getSimpleName(), QueryType.INSERT);
+        builder.put(Insert.class.getSimpleName(), QueryType.INSERT);
+        builder.put(RefreshMaterializedView.class.getSimpleName(), QueryType.INSERT);
 
-        builder.put(Delete.class, QueryType.DELETE);
+        builder.put(Delete.class.getSimpleName(), QueryType.DELETE);
 
-        builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
-        builder.put(ShowCreate.class, QueryType.DESCRIBE);
-        builder.put(ShowCreateFunction.class, QueryType.DESCRIBE);
-        builder.put(ShowFunctions.class, QueryType.DESCRIBE);
-        builder.put(ShowGrants.class, QueryType.DESCRIBE);
-        builder.put(ShowRoles.class, QueryType.DESCRIBE);
-        builder.put(ShowRoleGrants.class, QueryType.DESCRIBE);
-        builder.put(ShowSchemas.class, QueryType.DESCRIBE);
-        builder.put(ShowSession.class, QueryType.DESCRIBE);
-        builder.put(ShowStats.class, QueryType.DESCRIBE);
-        builder.put(ShowTables.class, QueryType.DESCRIBE);
-        builder.put(ShowColumns.class, QueryType.DESCRIBE);
-        builder.put(DescribeInput.class, QueryType.DESCRIBE);
-        builder.put(DescribeOutput.class, QueryType.DESCRIBE);
+        builder.put(ShowCatalogs.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowCreate.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowCreateFunction.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowFunctions.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowGrants.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowRoles.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowRoleGrants.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowSchemas.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowSession.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowStats.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowTables.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(ShowColumns.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(DescribeInput.class.getSimpleName(), QueryType.DESCRIBE);
+        builder.put(DescribeOutput.class.getSimpleName(), QueryType.DESCRIBE);
 
-        builder.put(CreateSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(DropSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameSchema.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateType.class, QueryType.DATA_DEFINITION);
-        builder.put(AddColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateTable.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameTable.class, QueryType.DATA_DEFINITION);
-        builder.put(RenameColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(DropColumn.class, QueryType.DATA_DEFINITION);
-        builder.put(DropTable.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateView.class, QueryType.DATA_DEFINITION);
-        builder.put(TruncateTable.class, QueryType.DATA_DEFINITION);
-        builder.put(DropView.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(DropMaterializedView.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(Use.class, QueryType.DATA_DEFINITION);
-        builder.put(SetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(ResetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(StartTransaction.class, QueryType.DATA_DEFINITION);
-        builder.put(Commit.class, QueryType.DATA_DEFINITION);
-        builder.put(Rollback.class, QueryType.DATA_DEFINITION);
-        builder.put(Call.class, QueryType.DATA_DEFINITION);
-        builder.put(CreateRole.class, QueryType.DATA_DEFINITION);
-        builder.put(DropRole.class, QueryType.DATA_DEFINITION);
-        builder.put(GrantRoles.class, QueryType.DATA_DEFINITION);
-        builder.put(RevokeRoles.class, QueryType.DATA_DEFINITION);
-        builder.put(SetRole.class, QueryType.DATA_DEFINITION);
-        builder.put(Grant.class, QueryType.DATA_DEFINITION);
-        builder.put(Revoke.class, QueryType.DATA_DEFINITION);
-        builder.put(Prepare.class, QueryType.DATA_DEFINITION);
-        builder.put(Deallocate.class, QueryType.DATA_DEFINITION);
+        builder.put(CreateSchema.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropSchema.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(RenameSchema.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateType.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(AddColumn.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateTable.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(RenameTable.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(RenameColumn.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropColumn.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropTable.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateView.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(TruncateTable.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropView.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateMaterializedView.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropMaterializedView.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateFunction.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(AlterFunction.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropFunction.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Use.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(SetSession.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(ResetSession.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(StartTransaction.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Commit.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Rollback.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Call.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(CreateRole.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(DropRole.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(GrantRoles.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(RevokeRoles.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(SetRole.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Grant.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Revoke.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Prepare.class.getSimpleName(), QueryType.DATA_DEFINITION);
+        builder.put(Deallocate.class.getSimpleName(), QueryType.DATA_DEFINITION);
 
-        sessionTransactionBuilder.add(Use.class);
-        sessionTransactionBuilder.add(SetSession.class);
-        sessionTransactionBuilder.add(ResetSession.class);
-        sessionTransactionBuilder.add(SetRole.class);
-        sessionTransactionBuilder.add(StartTransaction.class);
-        sessionTransactionBuilder.add(Commit.class);
-        sessionTransactionBuilder.add(Rollback.class);
-        sessionTransactionBuilder.add(Prepare.class);
-        sessionTransactionBuilder.add(Deallocate.class);
+        sessionTransactionBuilder.add(Use.class.getSimpleName());
+        sessionTransactionBuilder.add(SetSession.class.getSimpleName());
+        sessionTransactionBuilder.add(ResetSession.class.getSimpleName());
+        sessionTransactionBuilder.add(SetRole.class.getSimpleName());
+        sessionTransactionBuilder.add(StartTransaction.class.getSimpleName());
+        sessionTransactionBuilder.add(Commit.class.getSimpleName());
+        sessionTransactionBuilder.add(Rollback.class.getSimpleName());
+        sessionTransactionBuilder.add(Prepare.class.getSimpleName());
+        sessionTransactionBuilder.add(Deallocate.class.getSimpleName());
 
         STATEMENT_QUERY_TYPES = builder.build();
         SESSION_TRANSACTION_CONTROL_TYPES = sessionTransactionBuilder.build();
     }
 
-    public static Map<Class<? extends Statement>, QueryType> getAllQueryTypes()
+    public static Map<String, QueryType> getAllQueryTypes()
     {
         return STATEMENT_QUERY_TYPES;
     }
 
-    public static Optional<QueryType> getQueryType(Class<? extends Statement> statement)
+    public static Optional<QueryType> getQueryType(String statement)
     {
         return Optional.ofNullable(STATEMENT_QUERY_TYPES.get(statement));
     }
@@ -178,7 +178,7 @@ public final class StatementUtils
         return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
     }
 
-    public static boolean isSessionTransactionControlStatement(Class<? extends Statement> statement)
+    public static boolean isSessionTransactionControlStatement(String statement)
     {
         return SESSION_TRANSACTION_CONTROL_TYPES.contains(statement);
     }

@@ -84,7 +84,6 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -267,15 +266,15 @@ public class CoordinatorModule
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
-        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
+        MapBinder<String, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
+                new TypeLiteral<String>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
 
-        Set<Map.Entry<Class<? extends Statement>, QueryType>> queryTypes = getAllQueryTypes().entrySet();
+        Set<Map.Entry<String, QueryType>> queryTypes = getAllQueryTypes().entrySet();
 
         // bind sql query statements to SqlQueryExecutionFactory
         queryTypes.stream().filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)

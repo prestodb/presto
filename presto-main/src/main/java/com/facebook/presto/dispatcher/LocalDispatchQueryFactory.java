@@ -28,7 +28,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -57,7 +56,7 @@ public class LocalDispatchQueryFactory
 
     private final ClusterSizeMonitor clusterSizeMonitor;
 
-    private final Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories;
+    private final Map<String, QueryExecutionFactory<?>> executionFactories;
     private final ListeningExecutorService executor;
 
     private final QueryPrerequisitesManager queryPrerequisitesManager;
@@ -70,7 +69,7 @@ public class LocalDispatchQueryFactory
             Metadata metadata,
             QueryMonitor queryMonitor,
             LocationFactory locationFactory,
-            Map<Class<? extends Statement>, QueryExecutionFactory<?>> executionFactories,
+            Map<String, QueryExecutionFactory<?>> executionFactories,
             ClusterSizeMonitor clusterSizeMonitor,
             DispatchExecutor dispatchExecutor,
             QueryPrerequisitesManager queryPrerequisitesManager)
@@ -119,7 +118,7 @@ public class LocalDispatchQueryFactory
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass());
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass().getSimpleName());
             if (queryExecutionFactory == null) {
                 throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
             }

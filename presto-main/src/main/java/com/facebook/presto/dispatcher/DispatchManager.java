@@ -205,7 +205,7 @@ public class DispatchManager
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
-            Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
+            Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass().getSimpleName());
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
