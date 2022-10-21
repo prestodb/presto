@@ -75,7 +75,7 @@ LocalReadFile::LocalReadFile(std::string_view path) {
       "open failure in LocalReadFile constructor, {} {} {}.",
       fd_,
       path,
-      strerror(errno));
+      folly::errnoStr(errno));
   const off_t rc = lseek(fd_, 0, SEEK_END);
   VELOX_CHECK_GE(
       rc,
@@ -83,11 +83,19 @@ LocalReadFile::LocalReadFile(std::string_view path) {
       "fseek failure in LocalReadFile constructor, {} {} {}.",
       rc,
       path,
-      strerror(errno));
+      folly::errnoStr(errno));
   size_ = rc;
 }
 
 LocalReadFile::LocalReadFile(int32_t fd) : fd_(fd) {}
+
+LocalReadFile::~LocalReadFile() {
+  const int ret = close(fd_);
+  if (ret < 0) {
+    LOG(WARNING) << "close failure in LocalReadFile destructor: " << ret << ", "
+                 << folly::errnoStr(errno);
+  }
+}
 
 void LocalReadFile::preadInternal(uint64_t offset, uint64_t length, char* pos)
     const {
@@ -163,7 +171,7 @@ LocalWriteFile::LocalWriteFile(std::string_view path) {
       file,
       "fopen failure in LocalWriteFile constructor, {} {}.",
       path,
-      strerror(errno));
+      folly::errnoStr(errno));
   file_ = file;
 }
 
@@ -192,7 +200,10 @@ void LocalWriteFile::flush() {
   VELOX_CHECK(!closed_, "file is closed");
   auto ret = fflush(file_);
   VELOX_CHECK_EQ(
-      ret, 0, "fflush failed in LocalWriteFile::flush: {}.", strerror(errno));
+      ret,
+      0,
+      "fflush failed in LocalWriteFile::flush: {}.",
+      folly::errnoStr(errno));
 }
 
 void LocalWriteFile::close() {
@@ -202,7 +213,7 @@ void LocalWriteFile::close() {
         ret,
         0,
         "fwrite failure in LocalWriteFile::close: {}.",
-        strerror(errno));
+        folly::errnoStr(errno));
     closed_ = true;
   }
 }

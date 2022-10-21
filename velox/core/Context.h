@@ -265,7 +265,6 @@ class BaseConfigManager {
     return SubscriptionHandle{typeid(T), subscription};
   }
 
-  //  std::atomic<shared_ptr<const Config>> config_;
   std::shared_ptr<const Config> config_;
 
   mutable folly::SharedMutex mutex_;

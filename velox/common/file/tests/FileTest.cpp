@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <fcntl.h>
+
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -33,15 +35,19 @@ void writeData(WriteFile* writeFile) {
   ASSERT_EQ(writeFile->size(), 15 + kOneMB);
 }
 
-void readData(ReadFile* readFile) {
-  ASSERT_EQ(readFile->size(), 15 + kOneMB);
+void readData(ReadFile* readFile, bool checkFileSize = true) {
+  if (checkFileSize) {
+    ASSERT_EQ(readFile->size(), 15 + kOneMB);
+  }
   char buffer1[5];
   ASSERT_EQ(readFile->pread(10 + kOneMB, 5, &buffer1), "ddddd");
   char buffer2[10];
   ASSERT_EQ(readFile->pread(0, 10, &buffer2), "aaaaabbbbb");
   char buffer3[kOneMB];
   ASSERT_EQ(readFile->pread(10, kOneMB, &buffer3), std::string(kOneMB, 'c'));
-  ASSERT_EQ(readFile->size(), 15 + kOneMB);
+  if (checkFileSize) {
+    ASSERT_EQ(readFile->size(), 15 + kOneMB);
+  }
   char buffer4[10];
   const std::string_view arf = readFile->pread(5, 10, &buffer4);
   const std::string zarf = readFile->pread(kOneMB, 15);
@@ -148,4 +154,36 @@ TEST(LocalFile, list) {
       std::vector<std::string>({b}));
   localFs->remove(b);
   ASSERT_TRUE(localFs->list(std::string_view(tempFolder->path)).empty());
+}
+
+TEST(LocalFile, readFileDestructor) {
+  auto tempFile = ::exec::test::TempFilePath::create();
+  const auto& filename = tempFile->path.c_str();
+  remove(filename);
+  {
+    LocalWriteFile writeFile(filename);
+    writeData(&writeFile);
+  }
+
+  {
+    LocalReadFile readFile(filename);
+    readData(&readFile);
+  }
+
+  int32_t readFd;
+  {
+    std::unique_ptr<char[]> buf(new char[tempFile->path.size() + 1]);
+    buf[tempFile->path.size()] = 0;
+    memcpy(buf.get(), tempFile->path.data(), tempFile->path.size());
+    readFd = open(buf.get(), O_RDONLY);
+  }
+  {
+    LocalReadFile readFile(readFd);
+    readData(&readFile, false);
+  }
+  {
+    // Can't read again from a closed file descriptor.
+    LocalReadFile readFile(readFd);
+    ASSERT_ANY_THROW(readData(&readFile, false));
+  }
 }
