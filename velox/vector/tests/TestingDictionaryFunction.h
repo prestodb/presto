@@ -20,9 +20,14 @@
 
 namespace facebook::velox::test {
 
-/// Wraps input in a dictionary that reverses the order of rows.
+/// Wraps input in a dictionary that reverses the order of rows and add nulls at
+/// the end of the encoding if trailingNulls_ is not 0. By default, no trailing
+/// null is added.
 class TestingDictionaryFunction : public exec::VectorFunction {
  public:
+  TestingDictionaryFunction(vector_size_t trailingNulls = 0)
+      : trailingNulls_(trailingNulls) {}
+
   bool isDefaultNullBehavior() const override {
     return false;
   }
@@ -33,11 +38,19 @@ class TestingDictionaryFunction : public exec::VectorFunction {
       const TypePtr& /*outputType*/,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    VELOX_CHECK(rows.isAllSelected());
     const auto size = rows.size();
     auto indices = makeIndicesInReverse(size, context.pool());
-    result = BaseVector::wrapInDictionary(
-        BufferPtr(nullptr), indices, size, args[0]);
+
+    auto nulls = allocateNulls(size, context.pool());
+    if (trailingNulls_) {
+      VELOX_CHECK_GT(size, trailingNulls_);
+      auto rawNulls = nulls->asMutable<uint64_t>();
+      for (auto i = 1; i <= trailingNulls_; ++i) {
+        bits::setNull(rawNulls, size - i);
+      }
+    }
+
+    result = BaseVector::wrapInDictionary(nulls, indices, size, args[0]);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -48,6 +61,9 @@ class TestingDictionaryFunction : public exec::VectorFunction {
                 .argumentType("T")
                 .build()};
   }
+
+ private:
+  const vector_size_t trailingNulls_;
 };
 
 } // namespace facebook::velox::test

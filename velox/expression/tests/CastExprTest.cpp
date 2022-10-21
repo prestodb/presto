@@ -774,3 +774,44 @@ TEST_F(CastExprTest, primitiveNullConstant) {
   result = evaluate(outerCast, makeRowVector(ROW({}, {}), 1));
   assertEqualVectors(expectedResult, result);
 }
+
+TEST_F(CastExprTest, primitiveWithDictionaryIntroducedNulls) {
+  exec::registerVectorFunction(
+      "add_dict",
+      TestingDictionaryFunction::signatures(),
+      std::make_unique<TestingDictionaryFunction>(2));
+
+  {
+    auto data = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6, 7, 8, 9});
+    auto result = evaluate(
+        "cast(add_dict(add_dict(c0)) as smallint)", makeRowVector({data}));
+    auto expected = makeNullableFlatVector<int16_t>(
+        {std::nullopt,
+         std::nullopt,
+         3,
+         4,
+         5,
+         6,
+         7,
+         std::nullopt,
+         std::nullopt});
+    assertEqualVectors(expected, result);
+  }
+
+  {
+    auto data = makeNullableFlatVector<int64_t>(
+        {1,
+         2,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         std::nullopt,
+         8,
+         9});
+    auto result = evaluate(
+        "cast(add_dict(add_dict(c0)) as varchar)", makeRowVector({data}));
+    auto expected = makeNullConstant(TypeKind::VARCHAR, 9);
+    assertEqualVectors(expected, result);
+  }
+}

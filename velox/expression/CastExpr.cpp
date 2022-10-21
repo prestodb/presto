@@ -646,7 +646,8 @@ void CastExpr::apply(
         toType,
         localResult);
 
-    localResult = context.applyWrapToPeeledResult(toType, localResult, rows);
+    localResult =
+        context.applyWrapToPeeledResult(toType, localResult, *nonNullRows);
   }
   context.moveOrCopyResult(localResult, rows, result);
   context.releaseVector(localResult);
@@ -654,9 +655,8 @@ void CastExpr::apply(
   // If we have a mix of null and non-null in input, add nulls to the result.
   VELOX_CHECK_NOT_NULL(result);
   if (nullRows->hasSelections() && nonNullRows->hasSelections()) {
-    auto targetNulls = result->mutableRawNulls();
-    nullRows->applyToSelected(
-        [&](auto row) { bits::setNull(targetNulls, row, true); });
+    Expr::addNulls(
+        rows, nonNullRows->asRange().bits(), context, toType, result);
   }
 }
 
