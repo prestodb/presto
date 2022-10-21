@@ -29,7 +29,7 @@ public final class OpenTelemetryBuilder
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated.");
     }
 
-    public static OpenTelemetry build(boolean tracing)
+    public static OpenTelemetry build()
     {
         Resource resource = Resource.getDefault()
                 .merge(Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "presto")));
@@ -40,18 +40,11 @@ public final class OpenTelemetryBuilder
 
 //                .addSpanProcessor(BatchSpanProcessor.builder(OtlpGrpcSpanExporter.builder().build()).build())
 
-        OpenTelemetry openTelemetry;
-        if (tracing) {
-            openTelemetry = OpenTelemetrySdk.builder()
-                    .setTracerProvider(sdkTracerProvider)
-                    .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-                    .buildAndRegisterGlobal();
-        }
-        else {
-            openTelemetry = OpenTelemetrySdk.builder()
-                    .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
-                    .buildAndRegisterGlobal();
-        }
+        OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
+                .setTracerProvider(sdkTracerProvider)
+                .setPropagators(ContextPropagators.create(W3CTraceContextPropagator.getInstance()))
+                .buildAndRegisterGlobal();
+
         return openTelemetry;
     }
 }

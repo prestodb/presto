@@ -27,7 +27,7 @@ import static com.facebook.presto.spi.StandardErrorCode.DISTRIBUTED_TRACING_ERRO
 public class OpenTelemetryTracer
         implements Tracer
 {
-    public static final OpenTelemetry OPEN_TELEMETRY = OpenTelemetryBuilder.build(true);
+    public static final OpenTelemetry OPEN_TELEMETRY = OpenTelemetryBuilder.build();
     public static final io.opentelemetry.api.trace.Tracer openTelemetryTracer = OPEN_TELEMETRY.getTracer("presto", "1.0.0");
 
     public final Map<String, Span> spanMap = new ConcurrentHashMap<String, Span>();
@@ -35,17 +35,26 @@ public class OpenTelemetryTracer
 
     public OpenTelemetryTracer()
     {
-//        openTelemetryTracer = OPEN_TELEMETRY.getTracer("presto", "1.0.0");
         addPoint("Start tracing");
     }
 
+    /**
+     * Add short span representing single point
+     * @param annotation represents name of span
+     */
     @Override
     public void addPoint(String annotation)
     {
-        startBlock(annotation, String.valueOf(System.nanoTime()));
-        endBlock(annotation, String.valueOf(System.nanoTime()));
+        String blockName = annotation;
+        startBlock(blockName, "");
+        endBlock(blockName, "");
     }
 
+    /**
+     * Create new span with Open Telemetry tracer
+     * @param blockName name of span
+     * @param annotation unused because annotation not supported by Open Telemetry spans
+     */
     @Override
     public void startBlock(String blockName, String annotation)
     {
@@ -59,6 +68,11 @@ public class OpenTelemetryTracer
         }
     }
 
+    /**
+     * Add event to Open Telemetry span
+     * @param blockName name of span
+     * @param annotation name of event
+     */
     @Override
     public void addPointToBlock(String blockName, String annotation)
     {
@@ -68,6 +82,11 @@ public class OpenTelemetryTracer
         spanMap.get(blockName).addEvent(annotation);
     }
 
+    /**
+     * End Open Telemetry span
+     * @param blockName name of span
+     * @param annotation unused because annotation not supported by Open Telemetry spans
+     */
     @Override
     public void endBlock(String blockName, String annotation)
     {
