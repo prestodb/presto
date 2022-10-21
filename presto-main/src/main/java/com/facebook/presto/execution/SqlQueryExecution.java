@@ -44,8 +44,8 @@ import com.facebook.presto.split.CloseableSplitSourceProvider;
 import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -136,7 +136,7 @@ public class SqlQueryExecution
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
 
     private SqlQueryExecution(
-            PreparedQuery preparedQuery,
+            BuiltInPreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             String slug,
             int retryCount,
@@ -831,7 +831,7 @@ public class SqlQueryExecution
 
         @Override
         public QueryExecution createQueryExecution(
-                PreparedQuery preparedQuery,
+                BuiltInPreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
                 int retryCount,

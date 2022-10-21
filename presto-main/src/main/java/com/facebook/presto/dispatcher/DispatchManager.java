@@ -39,8 +39,8 @@ import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -68,7 +68,7 @@ import static java.util.Objects.requireNonNull;
 public class DispatchManager
 {
     private final QueryIdGenerator queryIdGenerator;
-    private final QueryPreparer queryPreparer;
+    private final BuiltInQueryPreparer queryPreparer;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final WarningCollectorFactory warningCollectorFactory;
     private final DispatchQueryFactory dispatchQueryFactory;
@@ -94,7 +94,7 @@ public class DispatchManager
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
-            QueryPreparer queryPreparer,
+            BuiltInQueryPreparer queryPreparer,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             WarningCollectorFactory warningCollectorFactory,
             DispatchQueryFactory dispatchQueryFactory,
@@ -182,7 +182,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
-        PreparedQuery preparedQuery;
+        BuiltInPreparedQuery preparedQuery;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
