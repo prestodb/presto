@@ -57,6 +57,15 @@ inline NestedVector<T> reverseNested(NestedVector<T> data) {
 }
 
 template <typename T>
+inline std::vector<std::optional<std::vector<T>>> reverseNested(
+    std::vector<std::optional<std::vector<T>>> data) {
+  for (auto& v : data) {
+    std::reverse(v->begin(), v->end());
+  }
+  return data;
+}
+
+template <typename T>
 inline NestedVector<std::optional<T>> intInput() {
   return NestedVector<std::optional<T>>{
       {},
@@ -227,44 +236,47 @@ inline NestedVector<std::optional<bool>> boolAscNullLargest() {
   };
 }
 
-inline NestedVector<std::optional<std::vector<std::optional<int32_t>>>>
+inline std::vector<std::optional<
+    std::vector<std::optional<std::vector<std::optional<int32_t>>>>>>
 arrayInput() {
   using A = std::vector<std::optional<int32_t>>;
-  return NestedVector<std::optional<A>>{
+  return std::vector<std::optional<std::vector<std::optional<A>>>>{
       // Empty.
-      {},
+      {{}},
       // All nulls.
-      {std::nullopt, std::nullopt},
+      {{std::nullopt, std::nullopt}},
       // Same prefix.
-      {A({1, 3}), A({2, 1}), A({1, 3, 5})},
+      {{A({1, 3}), A({2, 1}), A({1, 3, 5})}},
       // Top level null elements.
-      {A({1, 3}), std::nullopt, A({2, 1})},
+      {{A({1, 3}), std::nullopt, A({2, 1})}},
       // Array with null values.
-      {A({std::nullopt, 6}), A({3, std::nullopt}), A({std::nullopt, 8})},
+      {{A({std::nullopt, 6}), A({3, std::nullopt}), A({std::nullopt, 8})}},
   };
 }
 
-inline NestedVector<std::optional<std::vector<std::optional<int32_t>>>>
+inline std::vector<std::optional<
+    std::vector<std::optional<std::vector<std::optional<int32_t>>>>>>
 arrayAscNullSmallest() {
   using A = std::vector<std::optional<int32_t>>;
-  return NestedVector<std::optional<A>>{
-      {},
-      {std::nullopt, std::nullopt},
-      {A({1, 3}), A({1, 3, 5}), A({2, 1})},
-      {std::nullopt, A({1, 3}), A({2, 1})},
-      {A({std::nullopt, 6}), A({std::nullopt, 8}), A({3, std::nullopt})},
+  return std::vector<std::optional<std::vector<std::optional<A>>>>{
+      {{}},
+      {{std::nullopt, std::nullopt}},
+      {{A({1, 3}), A({1, 3, 5}), A({2, 1})}},
+      {{std::nullopt, A({1, 3}), A({2, 1})}},
+      {{A({std::nullopt, 6}), A({std::nullopt, 8}), A({3, std::nullopt})}},
   };
 }
 
-inline NestedVector<std::optional<std::vector<std::optional<int32_t>>>>
+inline std::vector<std::optional<
+    std::vector<std::optional<std::vector<std::optional<int32_t>>>>>>
 arrayAscNullLargest() {
   using A = std::vector<std::optional<int32_t>>;
-  return NestedVector<std::optional<A>>{
-      {},
-      {std::nullopt, std::nullopt},
-      {A({1, 3}), A({1, 3, 5}), A({2, 1})},
-      {A({1, 3}), A({2, 1}), std::nullopt},
-      {A({3, std::nullopt}), A({std::nullopt, 6}), A({std::nullopt, 8})},
+  return std::vector<std::optional<std::vector<std::optional<A>>>>{
+      {{}},
+      {{std::nullopt, std::nullopt}},
+      {{A({1, 3}), A({1, 3, 5}), A({2, 1})}},
+      {{A({1, 3}), A({2, 1}), std::nullopt}},
+      {{A({3, std::nullopt}), A({std::nullopt, 6}), A({std::nullopt, 8})}},
   };
 }
 

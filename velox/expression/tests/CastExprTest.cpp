@@ -780,6 +780,14 @@ TEST_F(CastExprTest, castInTry) {
       ARRAY(BIGINT()),
       makeRowVector({BaseVector::wrapInConstant(3, 0, array)}),
       arrayExpected);
+
+  auto nested = makeRowVector({makeNullableNestedArrayVector<StringView>(
+      {{{{{"1"_sv, "2"_sv}}, {{"3"_sv}}, {{"4a"_sv, "5"_sv}}}},
+       {{{{"6"_sv, "7"_sv}}}}})});
+  auto nestedExpected =
+      makeNullableNestedArrayVector<int64_t>({std::nullopt, {{{{6, 7}}}}});
+  evaluateAndVerifyCastInTryDictEncoding(
+      ARRAY(ARRAY(VARCHAR())), ARRAY(ARRAY(BIGINT())), nested, nestedExpected);
 }
 
 TEST_F(CastExprTest, primitiveNullConstant) {

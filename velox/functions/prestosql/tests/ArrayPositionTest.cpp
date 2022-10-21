@@ -385,22 +385,18 @@ TEST_F(ArrayPositionTest, row) {
 }
 
 TEST_F(ArrayPositionTest, array) {
-  auto O = [](const std::vector<std::optional<int64_t>>& data) {
-    return std::make_optional(data);
-  };
-
   std::vector<std::optional<int64_t>> a{1, 2, 3};
   std::vector<std::optional<int64_t>> b{4, 5};
   std::vector<std::optional<int64_t>> c{6, 7, 8};
   std::vector<std::optional<int64_t>> d{1, 2};
   std::vector<std::optional<int64_t>> e{4, 3};
-  auto arrayVector = makeNestedArrayVector<int64_t>(
-      {{O(a), O(b), O(c)},
-       {O(d), O(e)},
-       {O(d), O(a), O(b)},
-       {O(c), O(e)},
-       {O({})},
-       {O({std::nullopt})}});
+  auto arrayVector = makeNullableNestedArrayVector<int64_t>(
+      {{{{a}, {b}, {c}}},
+       {{{d}, {e}}},
+       {{{d}, {a}, {b}}},
+       {{{c}, {e}}},
+       {{{{}}}},
+       {{{std::vector<std::optional<int64_t>>{std::nullopt}}}}});
 
   auto testPositionOfArray =
       [&](const TwoDimVector<int64_t>& search,
@@ -683,22 +679,18 @@ TEST_F(ArrayPositionTest, rowWithInstance) {
 }
 
 TEST_F(ArrayPositionTest, arrayWithInstance) {
-  auto O = [](const std::vector<std::optional<int64_t>>& data) {
-    return std::make_optional(data);
-  };
-
   std::vector<std::optional<int64_t>> a{1, 2, 3};
   std::vector<std::optional<int64_t>> b{4, 5};
   std::vector<std::optional<int64_t>> c{6, 7, 8};
   std::vector<std::optional<int64_t>> d{1, 2};
   std::vector<std::optional<int64_t>> e{4, 3};
-  auto arrayVector = makeNestedArrayVector<int64_t>(
-      {{O(a), O(b), O(a)},
-       {O(d), O(e)},
-       {O(d), O(a), O(a)},
-       {O(c), O(c)},
-       {O({})},
-       {O({std::nullopt})}});
+  auto arrayVector = makeNullableNestedArrayVector<int64_t>(
+      {{{{a}, {b}, {a}}},
+       {{{d}, {e}}},
+       {{{d}, {a}, {a}}},
+       {{{c}, {c}}},
+       {{{{}}}},
+       {{{std::vector<std::optional<int64_t>>{std::nullopt}}}}});
 
   auto testPositionOfArray =
       [&](const TwoDimVector<int64_t>& search,

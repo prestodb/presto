@@ -238,46 +238,50 @@ class VectorTestBase {
 
   // Create an ArrayVector<ArrayVector<T>> from nested std::vectors of values.
   // Example:
-  //   std::vector<std::optional<int64_t>> a {1, 2, 3};
-  //   std::vector<std::optional<int64_t>> b {4, 5};
-  //   std::vector<std::optional<int64_t>> c {6, 7, 8};
-  //   auto arrayVector = makeNestedArrayVector<int64_t>({
-  //    {
-  //        {a}, {b}
-  //    },
-  //    {
-  //        {a}, {c}
-  //    },
-  //    {
-  //        {{}}
-  //    },
-  //    {
-  //        {{std::nullopt}}
-  //    }
-  //   });
+  //   using innerArrayType = std::vector<std::optional<int64_t>>;
+  //   using outerArrayType =
+  //       std::vector<std::optional<std::vector<std::optional<int64_t>>>>;
   //
-  //   EXPECT_EQ(4, arrayVector->size());
+  //   innerArrayType a{1, 2, 3};
+  //   innerArrayType b{4, 5};
+  //   innerArrayType c{6, 7, 8};
+  //   outerArrayType row1{{a}, {b}};
+  //   outerArrayType row2{{a}, {c}};
+  //   outerArrayType row3{{{}}};
+  //   outerArrayType row4{{{std::nullopt}}};
+  //   auto arrayVector = makeNullableNestedArrayVector<int64_t>(
+  //       {{row1}, {row2}, {row3}, {row4}, std::nullopt});
+  //
+  //   EXPECT_EQ(5, arrayVector->size());
   template <typename T>
-  ArrayVectorPtr makeNestedArrayVector(
-      const std::vector<
-          std::vector<std::optional<std::vector<std::optional<T>>>>>& data) {
+  ArrayVectorPtr makeNullableNestedArrayVector(
+      const std::vector<std::optional<
+          std::vector<std::optional<std::vector<std::optional<T>>>>>>& data) {
     vector_size_t size = data.size();
-    BufferPtr offsets = AlignedBuffer::allocate<vector_size_t>(size, pool());
-    BufferPtr sizes = AlignedBuffer::allocate<vector_size_t>(size, pool());
+    BufferPtr offsets = allocateOffsets(size, pool());
+    BufferPtr sizes = allocateSizes(size, pool());
+    BufferPtr nulls = allocateNulls(size, pool());
 
     auto rawOffsets = offsets->asMutable<vector_size_t>();
     auto rawSizes = sizes->asMutable<vector_size_t>();
+    auto rawNulls = nulls->asMutable<uint64_t>();
 
     // Flatten the outermost layer of std::vector of the input, and populate
     // the sizes and offsets for the top-level array vector.
     std::vector<std::optional<std::vector<std::optional<T>>>> flattenedData;
     vector_size_t i = 0;
     for (const auto& vector : data) {
-      flattenedData.insert(flattenedData.end(), vector.begin(), vector.end());
+      if (!vector.has_value()) {
+        bits::setNull(rawNulls, i, true);
+        rawSizes[i] = 0;
+        rawOffsets[i] = 0;
+      } else {
+        flattenedData.insert(
+            flattenedData.end(), vector->begin(), vector->end());
 
-      rawSizes[i] = vector.size();
-      rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
-
+        rawSizes[i] = vector->size();
+        rawOffsets[i] = (i == 0) ? 0 : rawOffsets[i - 1] + rawSizes[i - 1];
+      }
       ++i;
     }
 
@@ -288,7 +292,7 @@ class VectorTestBase {
     return std::make_shared<ArrayVector>(
         pool(),
         ARRAY(ARRAY(CppToType<T>::create())),
-        BufferPtr(nullptr),
+        nulls,
         size,
         offsets,
         sizes,

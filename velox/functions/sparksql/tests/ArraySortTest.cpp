@@ -100,8 +100,8 @@ TEST_F(ArraySortTest, bool) {
 }
 
 TEST_F(ArraySortTest, array) {
-  auto input = makeNestedArrayVector(arrayInput());
-  auto expected = makeNestedArrayVector(arrayAscNullLargest());
+  auto input = makeNullableNestedArrayVector(arrayInput());
+  auto expected = makeNullableNestedArrayVector(arrayAscNullLargest());
   testArraySort(input, expected);
 }
 

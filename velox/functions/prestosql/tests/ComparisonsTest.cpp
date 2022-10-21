@@ -367,7 +367,8 @@ TEST_F(ComparisonsTest, eqNestedComplex) {
   array_type array2 = {{}};
   array_type array3 = {{1, 100, 2}};
 
-  auto vector1 = makeNestedArrayVector<int64_t>({{array1, array2, array3}});
+  auto vector1 =
+      makeNullableNestedArrayVector<int64_t>({{{array1, array2, array3}}});
   auto vector2 = makeFlatVector<int64_t>({1, 2, 3, 4, 5, 6});
   auto vector3 = makeMapVector<int64_t, int64_t>({{{1, 2}, {3, 4}}});
   auto row1 = makeRowVector({vector1, vector2, vector3});

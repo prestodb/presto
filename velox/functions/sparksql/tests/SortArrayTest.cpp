@@ -145,12 +145,12 @@ TEST_F(SortArrayTest, bool) {
 }
 
 TEST_F(SortArrayTest, array) {
-  auto input = makeNestedArrayVector(arrayInput());
+  auto input = makeNullableNestedArrayVector(arrayInput());
   auto expected = arrayAscNullSmallest();
   testSortArray(
       input,
-      makeNestedArrayVector(expected),
-      makeNestedArrayVector(reverseNested(expected)));
+      makeNullableNestedArrayVector(expected),
+      makeNullableNestedArrayVector(reverseNested(expected)));
 }
 
 TEST_F(SortArrayTest, map) {
