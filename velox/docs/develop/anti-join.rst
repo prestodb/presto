@@ -8,9 +8,8 @@ in the presence of NULLs in the outer query or subquery. NOT IN semantics are
 implemented by the null aware anti join. NOT EXISTS semantics are implemented
 by the regular anti join.
 
-Currently, Velox provides only null aware anti join via the JoinType::kAnti.
-Regular anti join is not available. We will rename kAnti to kNullAwareAnti for
-clarity and introduce a new kAnti join type for the regular anti join.
+Velox provides regular anti join via ``JoinType::kAnti`` and null-aware anti
+join via ``JoinType::kNullAwareAnti``.
 
 This article explains the differences in semantics between NOT IN and NOT EXISTS
 queries and discusses the implementation of these in the null aware and regular
@@ -566,16 +565,3 @@ For the left-side row with no nulls in the join key, the join needs to collect
 the matches from the right side. If there are no matches, the row is included
 in the results. If there are matches, the extra filter needs to be evaluated.
 If the filter comes out empty, the row is included in the results.
-
-Summary
--------
-
-Velox currently provides null aware anti join via the JoinType::kAnti. Regular
-anti join is not available. There is also a bug in filter processing where the
-join always returns empty results if there is a build side row with null in the
-join key.
-
-To provide full support for efficient execution of NOT IN and NOT EXISTS
-queries, we will rename kAnti to kNullAwareAnti and introduce a new kAnti join
-type for the regular anti join. We will also fix the bug in null aware anti
-join with filter.

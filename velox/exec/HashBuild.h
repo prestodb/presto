@@ -210,17 +210,17 @@ class HashBuild final : public Operator {
   // Invoked to process data from spill input reader on restoring.
   void processSpillInput();
 
-  // Set up for null-aware anti-join with filter processing.
-  void setupFilterForNullAwareAntiJoin(
+  // Set up for null-aware and regular anti-join with filter processing.
+  void setupFilterForAntiJoins(
       const folly::F14FastMap<column_index_t, column_index_t>& keyChannelMap);
 
-  // Invoked when preparing for null-aware anti join with null-propagating
-  // filter. The function deselects the input rows which have any null in the
-  // filter input columns. This is an optimization for null-aware anti join
-  // processing at the probe side as any probe matches with the deselected rows
-  // can't pass the null-propagating filter and will be added to the joined
-  // output.
-  void removeInputRowsForNullAwareAntiJoinFilter();
+  // Invoked when preparing for null-aware and regular anti join with
+  // null-propagating filter. The function deselects the input rows which have
+  // any null in the filter input columns. This is an optimization for
+  // null-aware and regular anti join processing at the probe side as any probe
+  // matches with the deselected rows can't pass the null-propagating filter and
+  // will be added to the joined output.
+  void removeInputRowsForAntiJoinFilter();
 
   void addRuntimeStats();
 

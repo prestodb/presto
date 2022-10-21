@@ -1525,6 +1525,52 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
   }
 }
 
+TEST_P(MultiThreadedHashJoinTest, antiJoin) {
+  auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {"t0", "t1"},
+        {
+            makeNullableFlatVector<int32_t>({std::nullopt, 1, 2}),
+            makeFlatVector<int32_t>({0, 1, 2}),
+        });
+  });
+  auto buildVectors = makeBatches(4, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {"u0", "u1"},
+        {
+            makeNullableFlatVector<int32_t>({std::nullopt, 2, 3}),
+            makeFlatVector<int32_t>({0, 2, 3}),
+        });
+  });
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .numDrivers(numDrivers_)
+      .probeKeys({"t0"})
+      .probeVectors(std::vector<RowVectorPtr>(probeVectors))
+      .buildKeys({"u0"})
+      .buildVectors(std::vector<RowVectorPtr>(buildVectors))
+      .joinType(core::JoinType::kAnti)
+      .joinOutputLayout({"t0", "t1"})
+      .referenceQuery(
+          "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u.u0 = t.t0)")
+      .run();
+  std::vector<std::string> filters({"u1 > t1", "u1 * t1 > 0"});
+  for (const std::string& filter : filters) {
+    HashJoinBuilder(*pool_, duckDbQueryRunner_)
+        .numDrivers(numDrivers_)
+        .probeKeys({"t0"})
+        .probeVectors(std::vector<RowVectorPtr>(probeVectors))
+        .buildKeys({"u0"})
+        .buildVectors(std::vector<RowVectorPtr>(buildVectors))
+        .joinType(core::JoinType::kAnti)
+        .joinFilter(filter)
+        .joinOutputLayout({"t0", "t1"})
+        .referenceQuery(fmt::format(
+            "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u.u0 = t.t0 AND {})",
+            filter))
+        .run();
+  }
+}
+
 TEST_P(MultiThreadedHashJoinTest, leftJoin) {
   // Left side keys are [0, 1, 2,..10].
   // Use 3-rd column as row number to allow for asserting the order of results.

@@ -929,6 +929,7 @@ enum class JoinType {
   kLeftSemi,
   kRightSemi,
   kNullAwareAnti,
+  kAnti,
 };
 
 inline const char* joinTypeName(JoinType joinType) {
@@ -947,6 +948,8 @@ inline const char* joinTypeName(JoinType joinType) {
       return "RIGHT SEMI";
     case JoinType::kNullAwareAnti:
       return "NULL-AWARE ANTI";
+    case JoinType::kAnti:
+      return "ANTI";
   }
   VELOX_UNREACHABLE();
 }
@@ -977,6 +980,14 @@ inline bool isRightSemiJoin(JoinType joinType) {
 
 inline bool isNullAwareAntiJoin(JoinType joinType) {
   return joinType == JoinType::kNullAwareAnti;
+}
+
+inline bool isAntiJoin(JoinType joinType) {
+  return joinType == JoinType::kAnti;
+}
+
+inline bool isAntiJoins(JoinType joinType) {
+  return isAntiJoin(joinType) || isNullAwareAntiJoin(joinType);
 }
 
 /// Abstract class representing inner/outer/semi/anti joins. Used as a base
@@ -1031,6 +1042,10 @@ class AbstractJoinNode : public PlanNode {
 
   bool isNullAwareAntiJoin() const {
     return joinType_ == JoinType::kNullAwareAnti;
+  }
+
+  bool isAntiJoin() const {
+    return joinType_ == JoinType::kAnti;
   }
 
   const std::vector<FieldAccessTypedExprPtr>& leftKeys() const {

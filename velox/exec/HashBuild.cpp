@@ -100,8 +100,8 @@ HashBuild::HashBuild(
   setupTable();
   setupSpiller();
 
-  if (isNullAwareAntiJoin(joinType_) && joinNode_->filter()) {
-    setupFilterForNullAwareAntiJoin(keyChannelMap);
+  if (isAntiJoins(joinType_) && joinNode_->filter()) {
+    setupFilterForAntiJoins(keyChannelMap);
   }
 }
 
@@ -134,7 +134,7 @@ void HashBuild::setupTable() {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
     const bool dropDuplicates = !joinNode_->filter() &&
-        (joinNode_->isLeftSemiJoin() || joinNode_->isNullAwareAntiJoin());
+        (joinNode_->isLeftSemiJoin() || isAntiJoins(joinType_));
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiJoin();
     if (joinNode_->isNullAwareAntiJoin() && joinNode_->filter()) {
@@ -216,7 +216,7 @@ RowTypePtr HashBuild::inputType() const {
                             : joinNode_->sources()[1]->outputType();
 }
 
-void HashBuild::setupFilterForNullAwareAntiJoin(
+void HashBuild::setupFilterForAntiJoins(
     const folly::F14FastMap<column_index_t, column_index_t>& keyChannelMap) {
   VELOX_DCHECK(
       std::is_sorted(dependentChannels_.begin(), dependentChannels_.end()));
@@ -248,7 +248,7 @@ void HashBuild::setupFilterForNullAwareAntiJoin(
   }
 }
 
-void HashBuild::removeInputRowsForNullAwareAntiJoinFilter() {
+void HashBuild::removeInputRowsForAntiJoinFilter() {
   bool changed = false;
   auto* rawActiveRows = activeRows_.asMutableRange().bits();
   auto removeNulls = [&](DecodedVector& decoded) {
@@ -299,18 +299,18 @@ void HashBuild::addInput(RowVectorPtr input) {
         *input->childAt(dependentChannels_[i])->loadedVector(), activeRows_);
   }
 
-  if (joinType_ == core::JoinType::kNullAwareAnti) {
-    if (joinNode_->filter()) {
-      if (filterPropagatesNulls_) {
-        removeInputRowsForNullAwareAntiJoinFilter();
-      }
-    } else if (activeRows_.countSelected() < input->size()) {
-      // Null-aware anti join with no extra filter returns no rows if build side
-      // has nulls in join keys. Hence, we can stop processing on first null.
-      antiJoinHasNullKeys_ = true;
-      noMoreInput();
-      return;
+  if (isAntiJoins(joinType_) && joinNode_->filter()) {
+    if (filterPropagatesNulls_) {
+      removeInputRowsForAntiJoinFilter();
     }
+  } else if (
+      isNullAwareAntiJoin(joinType_) &&
+      activeRows_.countSelected() < input->size()) {
+    // Null-aware anti join with no extra filter returns no rows if build side
+    // has nulls in join keys. Hence, we can stop processing on first null.
+    antiJoinHasNullKeys_ = true;
+    noMoreInput();
+    return;
   }
 
   spillInput(input);

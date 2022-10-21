@@ -265,7 +265,7 @@ void HashProbe::addInput(RowVectorPtr input) {
     // Build side is empty. This state is valid only for anti, left and full
     // joins.
     VELOX_CHECK(
-        isNullAwareAntiJoin(joinType_) || isLeftJoin(joinType_) ||
+        isAntiJoins(joinType_) || isLeftJoin(joinType_) ||
         isFullJoin(joinType_));
     return;
   }
@@ -307,7 +307,7 @@ void HashProbe::addInput(RowVectorPtr input) {
 
   passingInputRowsInitialized_ = false;
   if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-      isNullAwareAntiJoin(joinType_)) {
+      isAntiJoins(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -448,8 +448,8 @@ RowVectorPtr HashProbe::getOutput() {
     return output;
   }
 
-  const bool isLeftSemiOrAntiJoinNoFilter = !filter_ &&
-      (core::isLeftSemiJoin(joinType_) || core::isNullAwareAntiJoin(joinType_));
+  const bool isLeftSemiOrAntiJoinNoFilter =
+      !filter_ && (isLeftSemiJoin(joinType_) || isAntiJoins(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
@@ -481,11 +481,19 @@ RowVectorPtr HashProbe::getOutput() {
           ++numOut;
         }
       }
+    } else if (isAntiJoin(joinType_) && !filter_) {
+      for (auto i = 0; i < inputSize; ++i) {
+        if (!nonNullInputRows_.isValid(i) ||
+            (!activeRows_.isValid(i) || !lookup_->hits[i])) {
+          mapping[numOut] = i;
+          ++numOut;
+        }
+      }
     } else {
       numOut = table_->listJoinResults(
           results_,
           isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-              isNullAwareAntiJoin(joinType_),
+              isAntiJoins(joinType_),
           mapping,
           folly::Range(outputTableRows_.data(), outputTableRows_.size()));
     }
@@ -799,6 +807,21 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     }
   } else if (isNullAwareAntiJoin(joinType_)) {
     numPassed = evalFilterForNullAwareAntiJoin(numRows, filterPropagateNulls);
+  } else if (isAntiJoin(joinType_)) {
+    auto addMiss = [&](auto row) {
+      outputTableRows_[numPassed] = nullptr;
+      rawOutputProbeRowMapping[numPassed++] = row;
+    };
+    for (auto i = 0; i < numRows; ++i) {
+      auto probeRow = rawOutputProbeRowMapping[i];
+      bool passed = nonNullInputRows_.isValid(probeRow) &&
+          !decodedFilterResult_.isNullAt(i) &&
+          decodedFilterResult_.valueAt<bool>(i);
+      noMatchDetector_.advance(probeRow, passed, addMiss);
+    }
+    if (results_.atEnd()) {
+      noMatchDetector_.finish(addMiss);
+    }
   } else {
     for (auto i = 0; i < numRows; ++i) {
       if (!decodedFilterResult_.isNullAt(i) &&
@@ -812,8 +835,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 }
 
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
-  if (core::isLeftSemiJoin(joinType_) || core::isNullAwareAntiJoin(joinType_) ||
-      results_.atEnd()) {
+  if (isLeftSemiJoin(joinType_) || isAntiJoins(joinType_) || results_.atEnd()) {
     return;
   }
 
