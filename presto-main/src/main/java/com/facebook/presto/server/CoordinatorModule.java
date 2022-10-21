@@ -84,7 +84,6 @@ import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
-import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.ForTransactionManager;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -103,7 +102,6 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -123,7 +121,6 @@ import static com.facebook.presto.execution.QueryExecution.QueryExecutionFactory
 import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getAllQueryTypes;
-import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isSessionTransactionControlStatement;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -267,29 +264,29 @@ public class CoordinatorModule
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class).as(generatedNameOf(QueryExecution.class));
 
-        MapBinder<Class<? extends Statement>, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
-                new TypeLiteral<Class<? extends Statement>>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
+        MapBinder<QueryType, QueryExecutionFactory<?>> executionBinder = newMapBinder(binder,
+                new TypeLiteral<QueryType>() {}, new TypeLiteral<QueryExecution.QueryExecutionFactory<?>>() {});
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
 
-        Set<Map.Entry<Class<? extends Statement>, QueryType>> queryTypes = getAllQueryTypes().entrySet();
+        Set<QueryType> queryTypes = getAllQueryTypes();
 
-        // bind sql query statements to SqlQueryExecutionFactory
-        queryTypes.stream().filter(entry -> entry.getValue() != QueryType.DATA_DEFINITION)
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
+        // bind sql query type to SqlQueryExecutionFactory
+        queryTypes.stream().filter(queryType -> queryType != QueryType.DATA_DEFINITION && queryType != QueryType.CONTROL)
+                .forEach(queryType -> executionBinder.addBinding(queryType).to(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(PartialResultQueryManager.class).in(Scopes.SINGLETON);
 
-        // bind data definition statements to DataDefinitionExecutionFactory
-        queryTypes.stream().filter(entry -> entry.getValue() == QueryType.DATA_DEFINITION && !isSessionTransactionControlStatement(entry.getKey()))
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
+        // bind data definition type to DataDefinitionExecutionFactory
+        queryTypes.stream().filter(queryType -> queryType == QueryType.DATA_DEFINITION)
+                .forEach(queryType -> executionBinder.addBinding(queryType).to(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(DDLDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
 
-        // bind session Control statements to SessionTransactionExecutionFactory
-        queryTypes.stream().filter(entry -> (entry.getValue() == QueryType.DATA_DEFINITION && isSessionTransactionControlStatement(entry.getKey())))
-                .forEach(entry -> executionBinder.addBinding(entry.getKey()).to(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
+        // bind session Control types to SessionTransactionExecutionFactory
+        queryTypes.stream().filter(queryType -> queryType == QueryType.CONTROL)
+                .forEach(queryType -> executionBinder.addBinding(queryType).to(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON));
         binder.bind(SessionDefinitionExecutionFactory.class).in(Scopes.SINGLETON);
 
         // helper class binding data definition tasks and statements

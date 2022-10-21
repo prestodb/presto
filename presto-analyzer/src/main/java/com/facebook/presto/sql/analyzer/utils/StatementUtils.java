@@ -70,23 +70,23 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Use;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+
+import static java.util.Collections.unmodifiableSet;
 
 public final class StatementUtils
 {
     private StatementUtils() {}
 
     private static final Map<Class<? extends Statement>, QueryType> STATEMENT_QUERY_TYPES;
-    private static final List<Class<? extends Statement>> SESSION_TRANSACTION_CONTROL_TYPES;
 
     static {
         ImmutableMap.Builder<Class<? extends Statement>, QueryType> builder = ImmutableMap.builder();
-        ImmutableList.Builder<Class<? extends Statement>> sessionTransactionBuilder = ImmutableList.builder();
 
         builder.put(Query.class, QueryType.SELECT);
 
@@ -132,40 +132,29 @@ public final class StatementUtils
         builder.put(CreateFunction.class, QueryType.DATA_DEFINITION);
         builder.put(AlterFunction.class, QueryType.DATA_DEFINITION);
         builder.put(DropFunction.class, QueryType.DATA_DEFINITION);
-        builder.put(Use.class, QueryType.DATA_DEFINITION);
-        builder.put(SetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(ResetSession.class, QueryType.DATA_DEFINITION);
-        builder.put(StartTransaction.class, QueryType.DATA_DEFINITION);
-        builder.put(Commit.class, QueryType.DATA_DEFINITION);
-        builder.put(Rollback.class, QueryType.DATA_DEFINITION);
+        builder.put(Use.class, QueryType.CONTROL);
+        builder.put(SetSession.class, QueryType.CONTROL);
+        builder.put(ResetSession.class, QueryType.CONTROL);
+        builder.put(StartTransaction.class, QueryType.CONTROL);
+        builder.put(Commit.class, QueryType.CONTROL);
+        builder.put(Rollback.class, QueryType.CONTROL);
         builder.put(Call.class, QueryType.DATA_DEFINITION);
         builder.put(CreateRole.class, QueryType.DATA_DEFINITION);
         builder.put(DropRole.class, QueryType.DATA_DEFINITION);
         builder.put(GrantRoles.class, QueryType.DATA_DEFINITION);
         builder.put(RevokeRoles.class, QueryType.DATA_DEFINITION);
-        builder.put(SetRole.class, QueryType.DATA_DEFINITION);
+        builder.put(SetRole.class, QueryType.CONTROL);
         builder.put(Grant.class, QueryType.DATA_DEFINITION);
         builder.put(Revoke.class, QueryType.DATA_DEFINITION);
-        builder.put(Prepare.class, QueryType.DATA_DEFINITION);
-        builder.put(Deallocate.class, QueryType.DATA_DEFINITION);
-
-        sessionTransactionBuilder.add(Use.class);
-        sessionTransactionBuilder.add(SetSession.class);
-        sessionTransactionBuilder.add(ResetSession.class);
-        sessionTransactionBuilder.add(SetRole.class);
-        sessionTransactionBuilder.add(StartTransaction.class);
-        sessionTransactionBuilder.add(Commit.class);
-        sessionTransactionBuilder.add(Rollback.class);
-        sessionTransactionBuilder.add(Prepare.class);
-        sessionTransactionBuilder.add(Deallocate.class);
+        builder.put(Prepare.class, QueryType.CONTROL);
+        builder.put(Deallocate.class, QueryType.CONTROL);
 
         STATEMENT_QUERY_TYPES = builder.build();
-        SESSION_TRANSACTION_CONTROL_TYPES = sessionTransactionBuilder.build();
     }
 
-    public static Map<Class<? extends Statement>, QueryType> getAllQueryTypes()
+    public static Set<QueryType> getAllQueryTypes()
     {
-        return STATEMENT_QUERY_TYPES;
+        return unmodifiableSet(new HashSet<>(STATEMENT_QUERY_TYPES.values()));
     }
 
     public static Optional<QueryType> getQueryType(Class<? extends Statement> statement)
@@ -176,10 +165,5 @@ public final class StatementUtils
     public static boolean isTransactionControlStatement(Statement statement)
     {
         return statement instanceof StartTransaction || statement instanceof Commit || statement instanceof Rollback;
-    }
-
-    public static boolean isSessionTransactionControlStatement(Class<? extends Statement> statement)
-    {
-        return SESSION_TRANSACTION_CONTROL_TYPES.contains(statement);
     }
 }
