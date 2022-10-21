@@ -85,7 +85,8 @@ public class TestQueryStats
                     succinctBytes(130L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1)))),
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_1))),
+                    ""),
             new OperatorStats(
                     20,
                     201,
@@ -125,7 +126,8 @@ public class TestQueryStats
                     succinctBytes(230L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2)))),
+                    new RuntimeStats(ImmutableMap.of(TEST_METRIC_NAME, RuntimeMetric.copyOf(TEST_RUNTIME_METRIC_2))),
+                    ""),
             new OperatorStats(
                     30,
                     301,
@@ -165,7 +167,8 @@ public class TestQueryStats
                     succinctBytes(330L),
                     Optional.empty(),
                     null,
-                    new RuntimeStats()));
+                    new RuntimeStats(),
+                    ""));
 
     static final QueryStats EXPECTED = new QueryStats(
             new DateTime(1),

@@ -14,6 +14,7 @@
 package com.facebook.presto.spi;
 
 import java.net.URI;
+import java.util.Optional;
 
 public interface Node
 {
@@ -36,4 +37,6 @@ public interface Node
     boolean isResourceManager();
 
     boolean isCatalogServer();
+
+    Optional<String> getPoolType();
 }

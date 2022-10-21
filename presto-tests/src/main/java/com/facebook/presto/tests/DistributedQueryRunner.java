@@ -209,6 +209,9 @@ public class DistributedQueryRunner
                 externalWorkers = ImmutableList.of();
 
                 for (int i = (coordinatorCount + (resourceManagerEnabled ? resourceManagerCount : 0)); i < nodeCount; i++) {
+                    String workerPool = i % 2 == 0 ? "leaf" : "intermediate";
+                    Map<String, String> workerProperties = new HashMap<>(extraProperties);
+                    workerProperties.put("pool_type", workerPool);
                     TestingPrestoServer worker = closer.register(createTestingPrestoServer(
                                     discoveryUrl,
                                     false,
@@ -216,7 +219,7 @@ public class DistributedQueryRunner
                                     false,
                                     catalogServerEnabled,
                                     false,
-                                    extraProperties,
+                                    workerProperties,
                                     parserOptions,
                                     environment,
                                     dataDirectory,

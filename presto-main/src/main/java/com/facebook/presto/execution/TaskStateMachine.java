@@ -20,6 +20,7 @@ import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -39,6 +40,7 @@ public class TaskStateMachine
     private final TaskId taskId;
     private final StateMachine<TaskState> taskState;
     private final LinkedBlockingQueue<Throwable> failureCauses = new LinkedBlockingQueue<>();
+    private Optional<String> poolType = Optional.empty();
 
     public TaskStateMachine(TaskId taskId, Executor executor)
     {
@@ -52,6 +54,16 @@ public class TaskStateMachine
                 log.debug("Task %s is %s", taskId, newState);
             }
         });
+    }
+
+    public Optional<String> getPoolType()
+    {
+        return poolType;
+    }
+
+    public void setPoolType(Optional<String> poolType)
+    {
+        this.poolType = poolType;
     }
 
     public DateTime getCreatedTime()

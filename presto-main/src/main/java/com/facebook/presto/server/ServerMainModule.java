@@ -665,6 +665,7 @@ public class ServerMainModule
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()))
                 .addProperty("resource_manager", String.valueOf(serverConfig.isResourceManager()))
                 .addProperty("catalog_server", String.valueOf(serverConfig.isCatalogServer()))
+                .addProperty("pool_type", serverConfig.getPoolType().orElse(""))
                 .addProperty("connectorIds", nullToEmpty(serverConfig.getDataSources()));
 
         RaftConfig raftConfig = buildConfigObject(RaftConfig.class);

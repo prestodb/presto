@@ -545,7 +545,8 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info,
-                runtimeStats);
+                runtimeStats,
+                driverContext.getPipelineContext().getTaskContext().getPoolType());
     }
 
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)

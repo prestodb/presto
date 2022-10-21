@@ -30,6 +30,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -78,7 +79,8 @@ public class TestResourceManagerClusterStatusSender
                         "1",
                         false,
                         true,
-                        false));
+                        false,
+                        Optional.empty()));
 
         sender = new ResourceManagerClusterStatusSender(
                 (addressSelectionContext, headers) -> resourceManagerClient,

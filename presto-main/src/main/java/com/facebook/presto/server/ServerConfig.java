@@ -18,10 +18,16 @@ import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.Optional;
+
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class ServerConfig
 {
+    public static final String WORKER_POOL_TYPE_LEAF = "Leaf";
+    public static final String WORKER_POOL_TYPE_INTERMEDIATE = "Intermediate";
+    public static final String COORDINATOR_POOL_TYPE = "Coord";
+    public static final String RM_POOL_TYPE = "RM";
     private boolean resourceManager;
     private boolean resourceManagerEnabled;
     private boolean catalogServer;
@@ -33,6 +39,7 @@ public class ServerConfig
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean enhancedErrorReporting = true;
     private boolean queryResultsCompressionEnabled = true;
+    private Optional<String> poolType = Optional.empty();
 
     public boolean isResourceManager()
     {
@@ -169,6 +176,24 @@ public class ServerConfig
     public ServerConfig setQueryResultsCompressionEnabled(boolean queryResultsCompressionEnabled)
     {
         this.queryResultsCompressionEnabled = queryResultsCompressionEnabled;
+        return this;
+    }
+
+    public Optional<String> getPoolType()
+    {
+        if (isCoordinator()) {
+            return Optional.of(COORDINATOR_POOL_TYPE);
+        }
+        else if (isResourceManager()) {
+            return Optional.of(RM_POOL_TYPE);
+        }
+        return poolType;
+    }
+
+    @Config("pool-type")
+    public ServerConfig setPoolType(String poolType)
+    {
+        this.poolType = Optional.ofNullable(poolType);
         return this;
     }
 }

@@ -33,6 +33,7 @@ import com.facebook.presto.operator.ExchangeClient;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.NoOpFragmentResultCacheManager;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spiller.LocalSpillManager;
 import com.facebook.presto.spiller.NodeSpillConfig;
@@ -302,7 +303,8 @@ public class TestSqlTaskManager
                 new OrderingCompiler(),
                 new NoOpFragmentResultCacheManager(),
                 new ObjectMapper(),
-                new SpoolingOutputBufferFactory(new FeaturesConfig()));
+                new SpoolingOutputBufferFactory(new FeaturesConfig()),
+                new ServerConfig());
     }
 
     private TaskInfo createTask(SqlTaskManager sqlTaskManager, TaskId taskId, ImmutableSet<ScheduledSplit> splits, OutputBuffers outputBuffers)
