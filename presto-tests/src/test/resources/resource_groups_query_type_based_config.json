@@ -45,7 +45,7 @@
           "maxQueued": 4
         },
         {
-          "name": "transaction",
+          "name": "control",
           "softMemoryLimit": "2MB",
           "hardConcurrencyLimit": 3,
           "maxQueued": 4
@@ -85,8 +85,8 @@
       "group": "global.data_definition"
     },
     {
-      "queryType" : "transaction",
-      "group": "global.transaction"
+      "queryType" : "control",
+      "group": "global.control"
     },
     {
       "group": "global.other"
