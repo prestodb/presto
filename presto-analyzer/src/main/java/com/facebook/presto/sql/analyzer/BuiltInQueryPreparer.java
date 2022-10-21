@@ -45,17 +45,17 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
-public class QueryPreparer
+public class BuiltInQueryPreparer
 {
     private final SqlParser sqlParser;
 
     @Inject
-    public QueryPreparer(SqlParser sqlParser)
+    public BuiltInQueryPreparer(SqlParser sqlParser)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
     }
 
-    public PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
+    public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
         Statement wrappedStatement = sqlParser.createStatement(query, analyzerOptions.getParsingOptions());
@@ -68,7 +68,7 @@ public class QueryPreparer
         return prepareQuery(analyzerOptions, wrappedStatement, preparedStatements);
     }
 
-    public PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, Statement wrappedStatement, Map<String, String> preparedStatements)
+    public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, Statement wrappedStatement, Map<String, String> preparedStatements)
             throws ParsingException, PrestoException, SemanticException
     {
         Statement statement = wrappedStatement;
@@ -96,7 +96,7 @@ public class QueryPreparer
         if (analyzerOptions.isLogFormattedQueryEnabled()) {
             formattedQuery = Optional.of(getFormattedQuery(statement, parameters));
         }
-        return new PreparedQuery(wrappedStatement, statement, parameters, formattedQuery, prepareSql);
+        return new BuiltInPreparedQuery(wrappedStatement, statement, parameters, formattedQuery, prepareSql);
     }
 
     private static String getFormattedQuery(Statement statement, List<Expression> parameters)
@@ -118,7 +118,7 @@ public class QueryPreparer
         }
     }
 
-    public static class PreparedQuery
+    public static class BuiltInPreparedQuery
     {
         private final Statement statement;
         private final Statement wrappedStatement;
@@ -126,7 +126,7 @@ public class QueryPreparer
         private final Optional<String> formattedQuery;
         private final Optional<String> prepareSql;
 
-        public PreparedQuery(Statement wrappedStatement, Statement statement, List<Expression> parameters, Optional<String> formattedQuery, Optional<String> prepareSql)
+        public BuiltInPreparedQuery(Statement wrappedStatement, Statement statement, List<Expression> parameters, Optional<String> formattedQuery, Optional<String> prepareSql)
         {
             this.wrappedStatement = requireNonNull(wrappedStatement, "wrappedStatement is null");
             this.statement = requireNonNull(statement, "statement is null");

@@ -27,8 +27,8 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
@@ -83,7 +83,7 @@ public class PrestoSparkQueryPlanner
         this.planChecker = requireNonNull(planChecker, "planChecker is null");
     }
 
-    public PlanAndMore createQueryPlan(Session session, PreparedQuery preparedQuery, WarningCollector warningCollector)
+    public PlanAndMore createQueryPlan(Session session, BuiltInPreparedQuery preparedQuery, WarningCollector warningCollector)
     {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 

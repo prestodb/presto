@@ -18,9 +18,9 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
-import com.facebook.presto.sql.analyzer.QueryPreparer.PreparedQuery;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -69,7 +69,7 @@ final class ExplainRewrite
             extends AstVisitor<Node, Void>
     {
         private final Session session;
-        private final QueryPreparer queryPreparer;
+        private final BuiltInQueryPreparer queryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
         private final WarningCollector warningCollector;
 
@@ -80,7 +80,7 @@ final class ExplainRewrite
                 WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
-            this.queryPreparer = new QueryPreparer(requireNonNull(parser, "queryPreparer is null"));
+            this.queryPreparer = new BuiltInQueryPreparer(requireNonNull(parser, "queryPreparer is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         }
@@ -123,7 +123,7 @@ final class ExplainRewrite
                 throws IllegalArgumentException
         {
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, warningCollector);
-            PreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
+            BuiltInPreparedQuery preparedQuery = queryPreparer.prepareQuery(analyzerOptions, node.getStatement(), session.getPreparedStatements());
             if (planType == VALIDATE) {
                 queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
                 return singleValueQuery("Valid", true);
