@@ -41,7 +41,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of(), 1)) {
+        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT, ImmutableMap.of(), 1, false)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
@@ -55,7 +55,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2, ImmutableMap.of(), 1)) {
+        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2, ImmutableMap.of(), 1, false)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
