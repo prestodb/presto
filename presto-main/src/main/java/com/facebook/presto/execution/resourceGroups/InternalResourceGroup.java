@@ -317,6 +317,18 @@ public class InternalResourceGroup
         }
     }
 
+    private int getAggregatedRunningQueries()
+    {
+        synchronized (root) {
+            int aggregatedRunningQueries = runningQueries.size() + descendantRunningQueries;
+            Optional<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo = getAdditionalRuntimeInfo();
+            if (resourceGroupRuntimeInfo.isPresent()) {
+                aggregatedRunningQueries += resourceGroupRuntimeInfo.get().getRunningQueries() + resourceGroupRuntimeInfo.get().getDescendantRunningQueries();
+            }
+            return aggregatedRunningQueries;
+        }
+    }
+
     @Managed
     public int getQueuedQueries()
     {
@@ -896,7 +908,7 @@ public class InternalResourceGroup
     private void addOrUpdateSubGroup(Queue<InternalResourceGroup> queue, InternalResourceGroup group)
     {
         if (schedulingPolicy == WEIGHTED_FAIR) {
-            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getRunningQueries()));
+            ((WeightedFairQueue<InternalResourceGroup>) queue).addOrUpdate(group, new Usage(group.getSchedulingWeight(), group.getAggregatedRunningQueries()));
         }
         else {
             ((UpdateablePriorityQueue<InternalResourceGroup>) queue).addOrUpdate(group, getSubGroupSchedulingPriority(schedulingPolicy, group));
