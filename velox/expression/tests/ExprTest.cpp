@@ -20,6 +20,8 @@
 #include "glog/logging.h"
 #include "gtest/gtest.h"
 
+#include "velox/expression/Expr.h"
+
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
@@ -2837,4 +2839,91 @@ TEST_F(ExprTest, peelWithDefaultNull) {
   auto expected =
       makeNullableFlatVector<bool>({true, true, true, true, true, true});
   assertEqualVectors(expected, result);
+}
+
+TEST_F(ExprTest, addNulls) {
+  const vector_size_t kSize = 6;
+  SelectivityVector rows{kSize + 1};
+  rows.setValid(kSize, false);
+  rows.updateBounds();
+
+  auto nulls = allocateNulls(kSize, pool());
+  auto* rawNulls = nulls->asMutable<uint64_t>();
+  bits::setNull(rawNulls, kSize - 1);
+
+  exec::EvalCtx context(execCtx_.get());
+
+  auto checkConstantResult = [&](const VectorPtr& vector) {
+    ASSERT_TRUE(vector->isConstantEncoding());
+    ASSERT_EQ(vector->size(), kSize);
+    ASSERT_TRUE(vector->isNullAt(0));
+  };
+
+  // Test vector that is nullptr.
+  {
+    VectorPtr vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_NE(vector, nullptr);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is already a constant null vector and is uniquely
+  // referenced.
+  {
+    auto vector = makeNullConstant(TypeKind::BIGINT, kSize - 1);
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is already a constant null vector and is not uniquely
+  // referenced.
+  {
+    auto vector = makeNullConstant(TypeKind::BIGINT, kSize - 1);
+    auto another = vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_EQ(another->size(), kSize - 1);
+    checkConstantResult(vector);
+  }
+
+  // Test vector that is a non-null constant vector.
+  {
+    auto vector = makeConstant<int64_t>(100, kSize - 1);
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+    ASSERT_TRUE(vector->isFlatEncoding());
+    ASSERT_EQ(vector->size(), kSize);
+    for (auto i = 0; i < kSize - 1; ++i) {
+      ASSERT_FALSE(vector->isNullAt(i));
+      ASSERT_EQ(vector->asFlatVector<int64_t>()->valueAt(i), 100);
+    }
+    ASSERT_TRUE(vector->isNullAt(kSize - 1));
+  }
+
+  auto checkResult = [&](const VectorPtr& vector) {
+    ASSERT_EQ(vector->size(), kSize);
+    for (auto i = 0; i < kSize - 1; ++i) {
+      ASSERT_FALSE(vector->isNullAt(i));
+      ASSERT_EQ(vector->asFlatVector<int64_t>()->valueAt(i), i);
+    }
+    ASSERT_TRUE(vector->isNullAt(kSize - 1));
+  };
+
+  // Test vector that is not uniquely referenced.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize - 1, [](auto row) { return row; });
+    auto another = vector;
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+
+    ASSERT_EQ(another->size(), kSize - 1);
+    checkResult(vector);
+  }
+
+  // Test vector that is uniquely referenced.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize - 1, [](auto row) { return row; });
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), vector);
+
+    checkResult(vector);
+  }
 }
