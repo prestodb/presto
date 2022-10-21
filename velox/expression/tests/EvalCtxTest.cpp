@@ -148,3 +148,45 @@ TEST_F(EvalCtxTest, setErrors) {
     }
   }
 }
+
+TEST_F(EvalCtxTest, addErrorsPreserveOldErrors) {
+  // Add two invalid_argument to context.errors().
+  EvalCtx context(&execCtx_);
+  std::invalid_argument argumentError{"invalid argument"};
+  *context.mutableThrowOnError() = false;
+  context.addError(
+      0, std::make_exception_ptr(argumentError), *context.errorsPtr());
+  context.addError(
+      3, std::make_exception_ptr(argumentError), *context.errorsPtr());
+  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 4), 2);
+
+  // Add two out_of_range to anotherErrors.
+  EvalCtx::ErrorVectorPtr anotherErrors;
+  std::out_of_range rangeError{"out of range"};
+  context.addError(0, std::make_exception_ptr(rangeError), anotherErrors);
+  context.addError(4, std::make_exception_ptr(rangeError), anotherErrors);
+  ASSERT_EQ(BaseVector::countNulls(anotherErrors->nulls(), 5), 3);
+
+  // Add errors in anotherErrors to context.errors() and check that the original
+  // error at index 0 is preserved.
+  SelectivityVector rows{5};
+  context.addErrors(rows, anotherErrors, *context.errorsPtr());
+  ASSERT_EQ(context.errors()->size(), 5);
+  ASSERT_EQ(BaseVector::countNulls(context.errors()->nulls(), 5), 2);
+
+  auto checkErrors = [&](vector_size_t index, const char* message) {
+    ASSERT_GT(context.errors()->size(), index);
+    try {
+      std::static_pointer_cast<std::exception_ptr>(
+          context.errors()->valueAt(index));
+    } catch (const std::exception& e) {
+      ASSERT_NE(std::strstr(e.what(), message), nullptr);
+    }
+  };
+
+  checkErrors(0, "invalid argument");
+  checkErrors(3, "invalid argument");
+  checkErrors(4, "out of range");
+  ASSERT_TRUE(context.errors()->isNullAt(1));
+  ASSERT_TRUE(context.errors()->isNullAt(2));
+}
