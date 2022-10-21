@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 
 import java.net.URI;
 import java.util.List;
@@ -57,6 +58,7 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final Set<Lifespan> completedDriverGroups;
+    private final LongSet completedSplitSequenceIds;
 
     private final int queuedPartitionedDrivers;
     private final long queuedPartitionedSplitsWeight;
@@ -88,6 +90,7 @@ public class TaskStatus
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("completedDriverGroups") Set<Lifespan> completedDriverGroups,
+            @JsonProperty("completedSplitSequenceIds") LongSet completedSplitSequenceIds,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
@@ -111,6 +114,7 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.completedDriverGroups = requireNonNull(completedDriverGroups, "completedDriverGroups is null");
+        this.completedSplitSequenceIds = requireNonNull(completedSplitSequenceIds, "completedSplitSequenceIds is null");
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
@@ -179,6 +183,13 @@ public class TaskStatus
     public Set<Lifespan> getCompletedDriverGroups()
     {
         return completedDriverGroups;
+    }
+
+    @JsonProperty
+    @ThriftField(22)
+    public LongSet getCompletedSplitSequenceIds()
+    {
+        return completedSplitSequenceIds;
     }
 
     @JsonProperty
@@ -303,7 +314,7 @@ public class TaskStatus
                 PLANNED,
                 location,
                 ImmutableSet.of(),
-                ImmutableList.of(),
+                LongSet.of(), ImmutableList.of(),
                 0,
                 0,
                 0.0,
@@ -329,7 +340,7 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getCompletedDriverGroups(),
-                exceptions,
+                LongSet.of(), exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
                 taskStatus.getOutputBufferUtilization(),

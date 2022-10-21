@@ -38,7 +38,9 @@ import com.facebook.presto.memory.QueryContext;
 import com.facebook.presto.metadata.MetadataUpdates;
 import com.facebook.presto.operator.ExchangeClientSupplier;
 import com.facebook.presto.operator.FragmentResultCacheManager;
+import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskMemoryReservationSummary;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.connector.ConnectorMetadataUpdater;
@@ -494,6 +496,11 @@ public class SqlTaskManager
         requireNonNull(taskId, "taskId is null");
 
         return tasks.getUnchecked(taskId).abort();
+    }
+
+    public void failTask(TaskId taskId)
+    {
+        tasks.getUnchecked(taskId).failed(new PageTransportErrorException(new HostAddress("localhost", 9999), "Testing"));
     }
 
     public void removeOldTasks()
