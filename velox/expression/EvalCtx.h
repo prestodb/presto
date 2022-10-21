@@ -116,6 +116,13 @@ class EvalCtx {
       const std::exception_ptr& exceptionPtr,
       ErrorVectorPtr& errorsPtr) const;
 
+  // Given a mapping from element rows to top-level rows, add element-level
+  // errors in errors_ to topLevelErrors.
+  void addElementErrorsToTopLevel(
+      const SelectivityVector& elementRows,
+      const BufferPtr& elementToTopLevelRows,
+      ErrorVectorPtr& topLevelErrors);
+
   // Returns the vector of errors or nullptr if no errors. This is
   // intentionally a raw pointer to signify that the caller may not
   // retain references to this.

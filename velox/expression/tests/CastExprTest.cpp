@@ -754,6 +754,32 @@ TEST_F(CastExprTest, castInTry) {
 
   evaluateAndVerifyCastInTryDictEncoding(
       ARRAY(VARCHAR()), ARRAY(BIGINT()), input, expected);
+
+  // Test try(cast(map(varchar, bigint) as map(bigint, bigint))) where "3a"
+  // should trigger an error at the first row.
+  auto map = makeRowVector({makeMapVector<StringView, int64_t>(
+      {{{"1", 2}, {"3a", 4}}, {{"5", 6}, {"7", 8}}})});
+  auto mapExpected = makeNullableMapVector<int64_t, int64_t>(
+      {std::nullopt, {{{5, 6}, {7, 8}}}});
+  evaluateAndVerifyCastInTryDictEncoding(
+      MAP(VARCHAR(), BIGINT()), MAP(BIGINT(), BIGINT()), map, mapExpected);
+
+  // Test try(cast(array(varchar) as array(bigint))) where "2a" should trigger
+  // an error at the first row.
+  auto array =
+      makeArrayVector<StringView>({{"1"_sv, "2a"_sv}, {"3"_sv, "4"_sv}});
+  auto arrayExpected =
+      vectorMaker_.arrayVectorNullable<int64_t>({std::nullopt, {{3, 4}}});
+  evaluateAndVerifyCastInTryDictEncoding(
+      ARRAY(VARCHAR()), ARRAY(BIGINT()), makeRowVector({array}), arrayExpected);
+
+  arrayExpected = vectorMaker_.arrayVectorNullable<int64_t>(
+      {std::nullopt, std::nullopt, std::nullopt});
+  evaluateAndVerifyCastInTryDictEncoding(
+      ARRAY(VARCHAR()),
+      ARRAY(BIGINT()),
+      makeRowVector({BaseVector::wrapInConstant(3, 0, array)}),
+      arrayExpected);
 }
 
 TEST_F(CastExprTest, primitiveNullConstant) {

@@ -37,8 +37,9 @@ add_library(
   SwitchExpr.cpp
   TryExpr.cpp)
 
-target_link_libraries(velox_expression velox_core velox_vector
-                      velox_common_base velox_expression_functions)
+target_link_libraries(
+  velox_expression velox_core velox_vector velox_common_base
+  velox_expression_functions velox_functions_util)
 
 add_subdirectory(type_calculation)
 

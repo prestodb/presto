@@ -25,6 +25,7 @@
 #include "velox/core/CoreTypeSystem.h"
 #include "velox/expression/StringWriter.h"
 #include "velox/external/date/tz.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FunctionVector.h"
 #include "velox/vector/SelectivityVector.h"
@@ -74,19 +75,6 @@ void applyCastKernel(
       resultFlatVector->set(row, result);
     }
   }
-}
-
-void populateNestedRows(
-    const SelectivityVector& rows,
-    const vector_size_t* rawSizes,
-    const vector_size_t* rawOffsets,
-    SelectivityVector& nestedRows) {
-  nestedRows.clearAll();
-  rows.applyToSelected([&](auto row) {
-    nestedRows.setValidRange(
-        rawOffsets[row], rawOffsets[row] + rawSizes[row], true);
-  });
-  nestedRows.updateBounds();
 }
 
 std::string makeErrorMessage(
@@ -317,12 +305,17 @@ VectorPtr CastExpr::applyMap(
   auto mapKeys = input->mapKeys();
   auto mapValues = input->mapValues();
 
-  LocalSelectivityVector nestedRows(context);
+  SelectivityVector nestedRows;
+  BufferPtr elementToTopLevelRows;
   if (fromType.keyType() != toType.keyType() ||
       fromType.valueType() != toType.valueType()) {
-    nestedRows.allocate(mapKeys->size());
-    populateNestedRows(rows, rawSizes, rawOffsets, *nestedRows);
+    nestedRows = functions::toElementRows(mapKeys->size(), rows, input);
+    elementToTopLevelRows = functions::getElementToTopLevelRows(
+        mapKeys->size(), rows, input, context.pool());
   }
+
+  EvalCtx::ErrorVectorPtr oldErrors;
+  context.swapErrors(oldErrors);
 
   // Cast keys
   VectorPtr newMapKeys;
@@ -330,7 +323,7 @@ VectorPtr CastExpr::applyMap(
     newMapKeys = input->mapKeys();
   } else {
     apply(
-        *nestedRows,
+        nestedRows,
         mapKeys,
         context,
         fromType.keyType(),
@@ -344,13 +337,17 @@ VectorPtr CastExpr::applyMap(
     newMapValues = mapValues;
   } else {
     apply(
-        *nestedRows,
+        nestedRows,
         mapValues,
         context,
         fromType.valueType(),
         toType.valueType(),
         newMapValues);
   }
+
+  context.addElementErrorsToTopLevel(
+      nestedRows, elementToTopLevelRows, oldErrors);
+  context.swapErrors(oldErrors);
 
   // Assemble the output map
   return std::make_shared<MapVector>(
@@ -377,17 +374,28 @@ VectorPtr CastExpr::applyArray(
   // using their linear selectivity vector
   auto arrayElements = input->elements();
 
-  LocalSelectivityVector nestedRows(*context.execCtx(), arrayElements->size());
-  populateNestedRows(rows, inputRawSizes, inputOffsets, *nestedRows);
+  auto nestedRows =
+      functions::toElementRows(arrayElements->size(), rows, input);
+  auto elementToTopLevelRows = functions::getElementToTopLevelRows(
+      arrayElements->size(), rows, input, context.pool());
+
+  EvalCtx::ErrorVectorPtr oldErrors;
+  context.swapErrors(oldErrors);
 
   VectorPtr newElements;
   apply(
-      *nestedRows,
+      nestedRows,
       arrayElements,
       context,
       fromType.elementType(),
       toType.elementType(),
       newElements);
+
+  if (context.errors()) {
+    context.addElementErrorsToTopLevel(
+        nestedRows, elementToTopLevelRows, oldErrors);
+  }
+  context.swapErrors(oldErrors);
 
   // Assemble the output array
   return std::make_shared<ArrayVector>(

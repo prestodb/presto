@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/Nulls.h"
+#include "velox/vector/BaseVector.h"
 #include "velox/vector/SelectivityVector.h"
 
 namespace facebook::velox::functions {
@@ -43,6 +45,36 @@ SelectivityVector toElementRows(
   });
   elementRows.updateBounds();
   return elementRows;
+}
+
+/// Returns a buffer of vector_size_t that represents the mapping from
+/// topLevelRows's element rows to its top-level rows. For example, suppose
+/// `result` is the returned buffer, result[i] == j means the value at index i
+/// in topLevelVector's element vector belongs to row j of topLevelVector.
+/// topLevelRows must be non-null rows.
+template <typename T>
+BufferPtr getElementToTopLevelRows(
+    vector_size_t numElements,
+    const SelectivityVector& topLevelRows,
+    const T* topLevelVector,
+    memory::MemoryPool* pool) {
+  auto rawNulls = topLevelVector->rawNulls();
+  auto rawSizes = topLevelVector->rawSizes();
+  auto rawOffsets = topLevelVector->rawOffsets();
+
+  auto toTopLevelRows = allocateIndices(numElements, pool);
+  auto rawToTopLevelRows = toTopLevelRows->asMutable<vector_size_t>();
+  topLevelRows.applyToSelected([&](vector_size_t row) {
+    if (rawNulls && bits::isBitNull(rawNulls, row)) {
+      return;
+    }
+    auto size = rawSizes[row];
+    auto offset = rawOffsets[row];
+    for (int i = 0; i < size; ++i) {
+      rawToTopLevelRows[offset + i] = row;
+    }
+  });
+  return toTopLevelRows;
 }
 
 } // namespace facebook::velox::functions
