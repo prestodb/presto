@@ -27,7 +27,8 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
+import com.facebook.presto.sql.analyzer.PreparedQuery;
 import com.facebook.presto.tracing.NoopTracerProvider;
 import com.facebook.presto.tracing.QueryStateTracingListener;
 import com.facebook.presto.transaction.TransactionManager;
@@ -41,7 +42,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
-import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isTransactionControlStatement;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class LocalDispatchQueryFactory
@@ -92,7 +93,7 @@ public class LocalDispatchQueryFactory
     public DispatchQuery createDispatchQuery(
             Session session,
             String query,
-            BuiltInPreparedQuery preparedQuery,
+            PreparedQuery preparedQuery,
             String slug,
             int retryCount,
             ResourceGroupId resourceGroup,
@@ -107,7 +108,7 @@ public class LocalDispatchQueryFactory
                 locationFactory.createQueryLocation(session.getQueryId()),
                 resourceGroup,
                 queryType,
-                isTransactionControlStatement(preparedQuery.getStatement()),
+                preparedQuery.isTransactionControlStatement(),
                 transactionManager,
                 accessControl,
                 executor,
@@ -118,12 +119,13 @@ public class LocalDispatchQueryFactory
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
         ListenableFuture<QueryExecution> queryExecutionFuture = executor.submit(() -> {
-            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatement().getClass().getSimpleName());
+            QueryExecutionFactory<?> queryExecutionFactory = executionFactories.get(preparedQuery.getStatementClass().getSimpleName());
             if (queryExecutionFactory == null) {
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatement().getClass().getSimpleName());
+                throw new PrestoException(NOT_SUPPORTED, "Unsupported statement type: " + preparedQuery.getStatementClass().getSimpleName());
             }
 
-            return queryExecutionFactory.createQueryExecution(preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
+            checkState(preparedQuery instanceof BuiltInQueryPreparer.BuiltInPreparedQuery);
+            return queryExecutionFactory.createQueryExecution((BuiltInQueryPreparer.BuiltInPreparedQuery) preparedQuery, stateMachine, slug, retryCount, warningCollector, queryType);
         });
 
         return new LocalDispatchQuery(

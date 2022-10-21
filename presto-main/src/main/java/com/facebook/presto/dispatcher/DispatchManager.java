@@ -38,9 +38,9 @@ import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.sql.analyzer.AnalyzerClient;
 import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
+import com.facebook.presto.sql.analyzer.PreparedQuery;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,9 +55,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Executor;
 
+import static com.facebook.presto.SystemSessionProperties.getAnalyzerType;
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_TEXT_TOO_LARGE;
-import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getQueryType;
-import static com.facebook.presto.sql.analyzer.utils.StatementUtils.isTransactionControlStatement;
 import static com.facebook.presto.util.AnalyzerUtil.createAnalyzerOptions;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 public class DispatchManager
 {
     private final QueryIdGenerator queryIdGenerator;
-    private final BuiltInQueryPreparer queryPreparer;
+    private final AnalyzerClient analyzerClient;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final WarningCollectorFactory warningCollectorFactory;
     private final DispatchQueryFactory dispatchQueryFactory;
@@ -94,7 +93,7 @@ public class DispatchManager
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
-            BuiltInQueryPreparer queryPreparer,
+            AnalyzerClient analyzerClient,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             WarningCollectorFactory warningCollectorFactory,
             DispatchQueryFactory dispatchQueryFactory,
@@ -109,7 +108,7 @@ public class DispatchManager
             SecurityConfig securityConfig)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
-        this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
+        this.analyzerClient = requireNonNull(analyzerClient, "analyzerClient is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
@@ -182,7 +181,7 @@ public class DispatchManager
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {
         Session session = null;
-        BuiltInPreparedQuery preparedQuery;
+        PreparedQuery preparedQuery;
         try {
             if (query.length() > maxQueryLength) {
                 int queryLength = query.length();
@@ -201,11 +200,11 @@ public class DispatchManager
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
-            preparedQuery = queryPreparer.prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            preparedQuery = analyzerClient.getQueryPreparer(getAnalyzerType(session)).prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group
-            Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass().getSimpleName());
+            Optional<QueryType> queryType = preparedQuery.getQueryType();
             SelectionContext<C> selectionContext = resourceGroupManager.selectGroup(new SelectionCriteria(
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
@@ -219,7 +218,7 @@ public class DispatchManager
             session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, queryType.map(Enum::name), Optional.of(selectionContext.getResourceGroupId()));
 
             // mark existing transaction as active
-            transactionManager.activateTransaction(session, isTransactionControlStatement(preparedQuery.getStatement()), accessControl);
+            transactionManager.activateTransaction(session, preparedQuery.isTransactionControlStatement(), accessControl);
 
             DispatchQuery dispatchQuery = dispatchQueryFactory.createDispatchQuery(
                     session,
@@ -230,7 +229,7 @@ public class DispatchManager
                     selectionContext.getResourceGroupId(),
                     queryType,
                     session.getWarningCollector(),
-                    (dq) -> resourceGroupManager.submit(preparedQuery.getStatement(), dq, selectionContext, queryExecutor));
+                    (dq) -> resourceGroupManager.submit(dq, selectionContext, queryExecutor));
 
             boolean queryAdded = queryCreated(dispatchQuery);
             if (queryAdded && !dispatchQuery.isDone()) {
