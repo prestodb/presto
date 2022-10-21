@@ -85,7 +85,7 @@ public class PlanFragmenterUtils
             subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
         }
 
-        checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
+        checkState(subPlan.getFragment().getId().getId() != ROOT_FRAGMENT_ID || !isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
 
         // TODO: Remove query_max_stage_count session property and use queryManagerConfig.getMaxStageCount() here
         sanityCheckFragmentedPlan(
