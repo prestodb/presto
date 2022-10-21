@@ -18,7 +18,7 @@
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
-#include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 namespace facebook::velox::aggregate {

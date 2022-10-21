@@ -27,7 +27,7 @@
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/StringWriter.h"
 #include "velox/expression/VectorWriters.h"
-#include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {

@@ -38,34 +38,6 @@ vector_size_t countElements(
   return count;
 }
 
-// Returns SelectivityVector for the nested vector with all rows corresponding
-// to specified top-level rows selected. The optional topLevelRowMapping is
-// used to pass the dictionary indices if the topLevelVector is dictionary
-// encoded.
-template <typename T>
-SelectivityVector toElementRows(
-    vector_size_t size,
-    const SelectivityVector& topLevelRows,
-    const T* topLevelVector,
-    const vector_size_t* topLevelRowMapping = nullptr) {
-  auto rawNulls = topLevelVector->rawNulls();
-  auto rawSizes = topLevelVector->rawSizes();
-  auto rawOffsets = topLevelVector->rawOffsets();
-
-  SelectivityVector elementRows(size, false);
-  topLevelRows.applyToSelected([&](vector_size_t row) {
-    auto index = topLevelRowMapping ? topLevelRowMapping[row] : row;
-    if (rawNulls && bits::isBitNull(rawNulls, index)) {
-      return;
-    }
-    auto size = rawSizes[index];
-    auto offset = rawOffsets[index];
-    elementRows.setValidRange(offset, offset + size, true);
-  });
-  elementRows.updateBounds();
-  return elementRows;
-}
-
 // Returns an array of indices that allows aligning captures with the nested
 // elements of an array or vector. For each top-level row, the index equal to
 // the row number is repeated for each of the nested rows.

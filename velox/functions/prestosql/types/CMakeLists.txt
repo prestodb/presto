@@ -13,4 +13,5 @@
 # limitations under the License.
 add_library(velox_presto_types JsonType.cpp)
 
-target_link_libraries(velox_presto_types velox_memory velox_expression)
+target_link_libraries(velox_presto_types velox_memory velox_expression
+                      velox_functions_util)

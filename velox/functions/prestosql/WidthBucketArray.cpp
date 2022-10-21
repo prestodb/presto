@@ -16,7 +16,7 @@
 #include "velox/functions/prestosql/WidthBucketArray.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
-#include "velox/functions/lib/LambdaFunctionUtil.h"
+#include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox::functions {

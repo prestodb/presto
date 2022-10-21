@@ -44,8 +44,13 @@ add_library(
   RegisterAggregateFunctions.cpp)
 
 target_link_libraries(
-  velox_aggregates velox_common_hyperloglog velox_exec velox_presto_serializer
-  velox_functions_lib ${FOLLY_WITH_DEPENDENCIES})
+  velox_aggregates
+  velox_common_hyperloglog
+  velox_exec
+  velox_presto_serializer
+  velox_functions_lib
+  velox_functions_util
+  ${FOLLY_WITH_DEPENDENCIES})
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
