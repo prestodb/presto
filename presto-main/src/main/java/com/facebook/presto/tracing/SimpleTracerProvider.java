@@ -26,8 +26,8 @@ public class SimpleTracerProvider
     }
 
     @Override
-    public Tracer getNewTracer()
+    public Tracer getNewTracer(String tracerName, String traceToken)
     {
-        return new SimpleTracer();
+        return new SimpleTracer(tracerName, traceToken);
     }
 }

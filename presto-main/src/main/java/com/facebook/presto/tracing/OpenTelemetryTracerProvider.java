@@ -27,8 +27,8 @@ public class OpenTelemetryTracerProvider
     public OpenTelemetryTracerProvider() {}
 
     @Override
-    public Tracer getNewTracer()
+    public Tracer getNewTracer(String tracerName, String traceToken)
     {
-        return new OpenTelemetryTracer();
+        return new OpenTelemetryTracer(tracerName, traceToken);
     }
 }

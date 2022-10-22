@@ -28,13 +28,18 @@ public class OpenTelemetryTracer
         implements Tracer
 {
     public static final OpenTelemetry OPEN_TELEMETRY = OpenTelemetryBuilder.build();
-    public static final io.opentelemetry.api.trace.Tracer openTelemetryTracer = OPEN_TELEMETRY.getTracer("presto", "1.0.0");
+    public final io.opentelemetry.api.trace.Tracer openTelemetryTracer;
+    public final String tracerName;
+    public final String traceToken;
 
     public final Map<String, Span> spanMap = new ConcurrentHashMap<String, Span>();
     public final Map<String, Span> recorderSpanMap = new LinkedHashMap<String, Span>();
 
-    public OpenTelemetryTracer()
+    public OpenTelemetryTracer(String tracerName, String traceToken)
     {
+        this.tracerName = tracerName;
+        this.traceToken = traceToken;
+        openTelemetryTracer = OPEN_TELEMETRY.getTracer(tracerName);
         addPoint("Start tracing");
     }
 

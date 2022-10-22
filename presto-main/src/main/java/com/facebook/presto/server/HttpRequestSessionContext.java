@@ -213,7 +213,7 @@ public final class HttpRequestSessionContext
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
         if (isTracingEnabled()) {
-            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(), "tracer is null"));
+            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer("com.facebook.presto"), "tracer is null"));
 
             // If tunnel trace token is null, we expose the Presto tracing id.
             // Otherwise we preserve the ability of trace token tunneling but

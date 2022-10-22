@@ -31,9 +31,13 @@ public class SimpleTracer
     public final Map<String, SimpleTracerBlock> blockMap = new ConcurrentHashMap<>();
     public final Map<String, SimpleTracerBlock> recorderBlockMap = new LinkedHashMap<>();
     public final List<SimpleTracerPoint> pointList = new CopyOnWriteArrayList<>();
+    public final String tracerName;
+    public final String traceToken;
 
-    public SimpleTracer()
+    public SimpleTracer(String tracerName, String traceToken)
     {
+        this.tracerName = tracerName;
+        this.traceToken = traceToken;
         addPoint("Start tracing");
     }
 

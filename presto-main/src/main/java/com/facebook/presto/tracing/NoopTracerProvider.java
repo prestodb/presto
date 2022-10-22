@@ -27,7 +27,7 @@ public class NoopTracerProvider
     public NoopTracerProvider() {}
 
     @Override
-    public Tracer getNewTracer()
+    public Tracer getNewTracer(String tracerName, String traceToken)
     {
         return NOOP_TRACER;
     }
