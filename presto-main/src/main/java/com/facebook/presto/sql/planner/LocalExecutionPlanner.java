@@ -74,7 +74,6 @@ import com.facebook.presto.operator.LookupOuterOperator.LookupOuterOperatorFacto
 import com.facebook.presto.operator.LookupSourceFactory;
 import com.facebook.presto.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import com.facebook.presto.operator.MetadataDeleteOperator.MetadataDeleteOperatorFactory;
-import com.facebook.presto.operator.NativeExecutionOperator;
 import com.facebook.presto.operator.NestedLoopJoinBridge;
 import com.facebook.presto.operator.NestedLoopJoinPagesSupplier;
 import com.facebook.presto.operator.OperatorFactory;
@@ -189,7 +188,6 @@ import com.facebook.presto.sql.planner.plan.IndexSourceNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.MetadataDeleteNode;
-import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
@@ -455,7 +453,26 @@ public class LocalExecutionPlanner
                 createOutputFactory(taskContext, planFragment.getPartitioningScheme(), outputBuffer),
                 remoteSourceFactory,
                 tableWriteInfo,
-                false);
+                false,
+                ImmutableList.of());
+    }
+
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
+            PlanFragment planFragment,
+            OutputBuffer outputBuffer,
+            RemoteSourceFactory remoteSourceFactory,
+            TableWriteInfo tableWriteInfo,
+            List<CustomPlanTranslator> customPlanTranslators)
+    {
+        return plan(
+                taskContext,
+                planFragment,
+                createOutputFactory(taskContext, planFragment.getPartitioningScheme(), outputBuffer),
+                remoteSourceFactory,
+                tableWriteInfo,
+                false,
+                customPlanTranslators);
     }
 
     public LocalExecutionPlan plan(
@@ -473,7 +490,28 @@ public class LocalExecutionPlanner
                 createOutputPartitioning(taskContext, planFragment.getPartitioningScheme()),
                 remoteSourceFactory,
                 tableWriteInfo,
-                pageSinkCommitRequired);
+                pageSinkCommitRequired,
+                ImmutableList.of());
+    }
+
+    public LocalExecutionPlan plan(
+            TaskContext taskContext,
+            PlanFragment planFragment,
+            OutputFactory outputFactory,
+            RemoteSourceFactory remoteSourceFactory,
+            TableWriteInfo tableWriteInfo,
+            boolean pageSinkCommitRequired,
+            List<CustomPlanTranslator> customPlanTranslators)
+    {
+        return plan(
+                taskContext,
+                planFragment,
+                outputFactory,
+                createOutputPartitioning(taskContext, planFragment.getPartitioningScheme()),
+                remoteSourceFactory,
+                tableWriteInfo,
+                pageSinkCommitRequired,
+                customPlanTranslators);
     }
 
     private OutputFactory createOutputFactory(TaskContext taskContext, PartitioningScheme partitioningScheme, OutputBuffer outputBuffer)
@@ -561,14 +599,15 @@ public class LocalExecutionPlanner
             Optional<OutputPartitioning> outputPartitioning,
             RemoteSourceFactory remoteSourceFactory,
             TableWriteInfo tableWriteInfo,
-            boolean pageSinkCommitRequired)
+            boolean pageSinkCommitRequired,
+            List<CustomPlanTranslator> customPlanTranslators)
     {
         PartitioningScheme partitioningScheme = planFragment.getPartitioningScheme();
         List<VariableReferenceExpression> outputLayout = partitioningScheme.getOutputLayout();
         Session session = taskContext.getSession();
         LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, tableWriteInfo);
         PlanNode plan = planFragment.getRoot();
-        PhysicalOperation physicalOperation = plan.accept(new Visitor(session, planFragment, remoteSourceFactory, pageSinkCommitRequired), context);
+        PhysicalOperation physicalOperation = plan.accept(new Visitor(session, planFragment, remoteSourceFactory, pageSinkCommitRequired, customPlanTranslators), context);
 
         Function<Page, Page> pagePreprocessor = enforceLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
@@ -636,7 +675,7 @@ public class LocalExecutionPlanner
         }
     }
 
-    private static class LocalExecutionPlanContext
+    public static class LocalExecutionPlanContext
     {
         private final TaskContext taskContext;
         private final List<DriverFactory> driverFactories;
@@ -725,7 +764,7 @@ public class LocalExecutionPlanner
             return nextPipelineId.getAndIncrement();
         }
 
-        private int getNextOperatorId()
+        public int getNextOperatorId()
         {
             return nextOperatorId++;
         }
@@ -820,6 +859,35 @@ public class LocalExecutionPlanner
         }
     }
 
+    public abstract static class CustomPlanTranslator
+    {
+        protected ImmutableMap<VariableReferenceExpression, Integer> makeLayout(PlanNode node)
+        {
+            return makeLayoutFromOutputVariables(node.getOutputVariables());
+        }
+
+        private ImmutableMap<VariableReferenceExpression, Integer> makeLayoutFromOutputVariables(List<VariableReferenceExpression> outputVariables)
+        {
+            ImmutableMap.Builder<VariableReferenceExpression, Integer> outputMappings = ImmutableMap.builder();
+            int channel = 0;
+            for (VariableReferenceExpression variable : outputVariables) {
+                outputMappings.put(variable, channel);
+                channel++;
+            }
+            return outputMappings.build();
+        }
+
+        /**
+         * The implementer of this method needs to return either a PhysicalOperator if the given PlanNode is recognizable by current customTranslator or an Optional.empty()
+         * to indicate the translation failure. Inside the method, after the translation of the given node, the implementer can use the passed in default visitor to
+         * do future node translation.
+         */
+        public abstract Optional<PhysicalOperation> translate(
+                PlanNode node,
+                LocalExecutionPlanContext context,
+                InternalPlanVisitor<PhysicalOperation, LocalExecutionPlanContext> visitor);
+    }
+
     private class Visitor
             extends InternalPlanVisitor<PhysicalOperation, LocalExecutionPlanContext>
     {
@@ -828,18 +896,21 @@ public class LocalExecutionPlanner
         private final RemoteSourceFactory remoteSourceFactory;
         private final boolean pageSinkCommitRequired;
         private final PlanFragment fragment;
+        private final List<CustomPlanTranslator> customPlanTranslators;
 
         private Visitor(
                 Session session,
                 PlanFragment fragment,
                 RemoteSourceFactory remoteSourceFactory,
-                boolean pageSinkCommitRequired)
+                boolean pageSinkCommitRequired,
+                List<CustomPlanTranslator> customPlanTranslators)
         {
             this.session = requireNonNull(session, "session is null");
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.stageExecutionDescriptor = requireNonNull(fragment.getStageExecutionDescriptor(), "stageExecutionDescriptor is null");
             this.remoteSourceFactory = requireNonNull(remoteSourceFactory, "remoteSourceFactory is null");
             this.pageSinkCommitRequired = pageSinkCommitRequired;
+            this.customPlanTranslators = requireNonNull(customPlanTranslators, "customPlanTranslators is null");
         }
 
         @Override
@@ -2946,20 +3017,14 @@ public class LocalExecutionPlanner
         }
 
         @Override
-        public PhysicalOperation visitNativeExecution(NativeExecutionNode node, LocalExecutionPlanContext context)
-        {
-            OperatorFactory operatorFactory = new NativeExecutionOperator.NativeExecutionOperatorFactory(
-                    context.getNextOperatorId(),
-                    node.getId(),
-                    fragment.withSubPlan(node.getSubPlan()),
-                    context.getTableWriteInfo(),
-                    new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)));
-            return new PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION);
-        }
-
-        @Override
         public PhysicalOperation visitPlan(PlanNode node, LocalExecutionPlanContext context)
         {
+            for (CustomPlanTranslator translator : customPlanTranslators) {
+                Optional<PhysicalOperation> physicalOperation = translator.translate(node, context, this);
+                if (physicalOperation.isPresent()) {
+                    return physicalOperation.get();
+                }
+            }
             throw new UnsupportedOperationException("not yet implemented");
         }
 
@@ -3303,7 +3368,7 @@ public class LocalExecutionPlanner
     /**
      * Encapsulates an physical operator plus the mapping of logical variables to channel/field
      */
-    private static class PhysicalOperation
+    public static class PhysicalOperation
     {
         private final List<OperatorFactory> operatorFactories;
         private final Map<VariableReferenceExpression, Integer> layout;
