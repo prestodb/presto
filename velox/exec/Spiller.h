@@ -45,13 +45,24 @@ class Spiller {
         folly::Executor* FOLLY_NULLABLE _executor,
         int32_t _spillableReservationGrowthPct,
         const HashBitRange& _hashBitRange,
+        int32_t _maxSpillLevel,
         int32_t _testSpillPct)
         : filePath(_filePath),
           fileSizeFactor(_fileSizeFactor),
           executor(_executor),
           spillableReservationGrowthPct(_spillableReservationGrowthPct),
           hashBitRange(_hashBitRange),
+          maxSpillLevel(_maxSpillLevel),
           testSpillPct(_testSpillPct) {}
+
+    // Returns the spilling level with given 'startBitOffset'.
+    //
+    // NOTE: we advance (or right shift) the partition bit offset when goes to
+    // the next level of recursive spilling.
+    int32_t spillLevel(uint8_t startBitOffset) const;
+
+    // Checks if the given 'startBitOffset' has exceeded the max spill limit.
+    bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
 
     // Filesystem path for spill files.
     std::string filePath;
@@ -69,6 +80,13 @@ class Spiller {
 
     // Used to calculate the spill hash partition number.
     HashBitRange hashBitRange;
+
+    // The max allowed spilling level with zero being the initial spilling
+    // level. This only applies for hash build spilling which needs recursive
+    // spilling when the build table is too big. If it is set to -1, then there
+    // is no limit and then some extreme large query might run out of spilling
+    // partition bits at the end.
+    int32_t maxSpillLevel;
 
     // Percentage of input batches to be spilled for testing. 0 means no
     // spilling for test.
@@ -297,6 +315,14 @@ class Spiller {
       rows.clear();
       numBytes = 0;
       sorted = false;
+    }
+
+    std::string toString() const {
+      return fmt::format(
+          "[{} ROWS {} BYTES {}]",
+          rows.size(),
+          numBytes,
+          sorted ? "SORTED" : "UNSORTED");
     }
   };
 

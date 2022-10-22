@@ -15,9 +15,12 @@
  */
 
 #include "velox/exec/HashBuild.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
 #include "velox/expression/FieldReference.h"
+
+using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
 namespace {
@@ -166,15 +169,27 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
   if (!spillEnabled()) {
     return;
   }
-
   const auto& spillConfig = spillConfig_.value();
   HashBitRange hashBits = spillConfig.hashBitRange;
-  if (spillPartition != nullptr) {
+
+  if (spillPartition == nullptr) {
+    spillGroup_->addOperator(
+        *this,
+        [&](const std::vector<Operator*>& operators) { runSpill(operators); });
+  } else {
+    spillInputReader_ = spillPartition->createReader();
+
     const auto startBit = spillPartition->id().partitionBitOffset() +
         spillConfig.hashBitRange.numBits();
+    // Disable spilling if exceeding the max spill level and the query might run
+    // out of memory if the restored partition still can't fit in memory.
+    if (spillConfig.exceedSpillLevelLimit(startBit)) {
+      return;
+    }
     hashBits =
         HashBitRange(startBit, startBit + spillConfig.hashBitRange.numBits());
   }
+
   spiller_ = std::make_unique<Spiller>(
       Spiller::Type::kHashJoinBuild,
       table_->rows(),
@@ -193,13 +208,6 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       Spiller::spillPool(),
       spillConfig.executor);
 
-  if (spillPartition == nullptr) {
-    spillGroup_->addOperator(
-        *this,
-        [&](const std::vector<Operator*>& operators) { runSpill(operators); });
-  } else {
-    spillInputReader_ = spillPartition->createReader();
-  }
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
   spillInputIndicesBuffers_.resize(numPartitions);
   rawSpillInputIndicesBuffers_.resize(numPartitions);
@@ -357,7 +365,7 @@ void HashBuild::addInput(RowVectorPtr input) {
 bool HashBuild::ensureInputFits(RowVectorPtr& input) {
   // NOTE: we don't need memory reservation if all the partitions are spilling
   // as we spill all the input rows to disk directly.
-  if (!spillEnabled() || spiller_->isAllSpilled()) {
+  if (!spillEnabled() || spiller_ == nullptr || spiller_->isAllSpilled()) {
     return true;
   }
 
@@ -444,7 +452,7 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
 void HashBuild::spillInput(const RowVectorPtr& input) {
   VELOX_CHECK_EQ(input->size(), activeRows_.size());
 
-  if (!spillEnabled() || !spiller_->isAnySpilled() ||
+  if (!spillEnabled() || spiller_ == nullptr || !spiller_->isAnySpilled() ||
       !activeRows_.hasSelections()) {
     return;
   }
@@ -501,9 +509,11 @@ void HashBuild::maybeSetupSpillChildVectors(const RowVectorPtr& input) {
 void HashBuild::prepareInputIndicesBuffers(
     vector_size_t numInput,
     const SpillPartitionNumSet& spillPartitions) {
+  const auto maxIndicesBufferBytes = numInput * sizeof(vector_size_t);
   for (const auto& partition : spillPartitions) {
     if (spillInputIndicesBuffers_[partition] == nullptr ||
-        (spillInputIndicesBuffers_[partition]->size() < numInput)) {
+        (spillInputIndicesBuffers_[partition]->size() <
+         maxIndicesBufferBytes)) {
       spillInputIndicesBuffers_[partition] = allocateIndices(numInput, pool());
       rawSpillInputIndicesBuffers_[partition] =
           spillInputIndicesBuffers_[partition]->asMutable<vector_size_t>();
@@ -700,9 +710,9 @@ bool HashBuild::finishHashBuild() {
     if (spiller_ != nullptr) {
       spillStats += spiller_->stats();
 
-      stats_.spilledBytes = spillStats.spilledBytes;
-      stats_.spilledRows = spillStats.spilledRows;
-      stats_.spilledPartitions = spillStats.spilledPartitions;
+      stats_.spilledBytes += spillStats.spilledBytes;
+      stats_.spilledRows += spillStats.spilledRows;
+      stats_.spilledPartitions += spillStats.spilledPartitions;
 
       spiller_->finishSpill(spillPartitions);
 
@@ -811,6 +821,13 @@ void HashBuild::addRuntimeStats() {
       stats_.addRuntimeStat(
           fmt::format("distinctKey{}", i), RuntimeCounter(asDistinct));
     }
+  }
+  // Add max spilling level stats if spilling has been triggered.
+  if (spiller_ != nullptr && spiller_->isAnySpilled()) {
+    stats_.addRuntimeStat(
+        "maxSpillLevel",
+        RuntimeCounter(
+            spillConfig()->spillLevel(spiller_->hashBits().begin())));
   }
 }
 

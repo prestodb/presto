@@ -371,6 +371,7 @@ std::optional<Spiller::Config> makeOperatorSpillConfig(
           queryConfig.spillStartPartitionBit(),
           queryConfig.spillStartPartitionBit() +
               queryConfig.spillPartitionBits()),
+      queryConfig.maxSpillLevel(),
       queryConfig.testingSpillPct());
 }
 

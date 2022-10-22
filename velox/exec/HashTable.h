@@ -89,6 +89,10 @@ class BaseHashTable {
   struct RowsIterator {
     int32_t hashTableIndex_{-1};
     RowContainerIterator rowContainerIterator_;
+
+    void reset() {
+      *this = {};
+    }
   };
 
   /// Takes ownership of 'hashers'. These are used to keep key-level

@@ -268,6 +268,9 @@ down.
 * dynamicFiltersProduced - number of dynamic filters generated (at most one per
   join key)
 
+* maxSpillLevel - the max spill level that has been triggered with zero for the
+initial spill.
+
 TableScan operator reports the number of dynamic filters it received and passed
 to HiveConnector.
 

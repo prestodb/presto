@@ -569,6 +569,35 @@ std::string Spiller::toString() const {
       spillFinalized_);
 }
 
+int32_t Spiller::Config::spillLevel(uint8_t startBitOffset) const {
+  const auto numPartitionBits = hashBitRange.numBits();
+  VELOX_CHECK_LE(
+      startBitOffset + numPartitionBits,
+      64,
+      "startBitOffset:{} numPartitionsBits:{}",
+      startBitOffset,
+      numPartitionBits);
+  const int32_t deltaBits = startBitOffset - hashBitRange.begin();
+  VELOX_CHECK_GE(deltaBits, 0, "deltaBits:{}", deltaBits);
+  VELOX_CHECK_EQ(
+      deltaBits % numPartitionBits,
+      0,
+      "deltaBits:{} numPartitionsBits{}",
+      deltaBits,
+      numPartitionBits);
+  return deltaBits / numPartitionBits;
+}
+
+bool Spiller::Config::exceedSpillLevelLimit(uint8_t startBitOffset) const {
+  if (startBitOffset + hashBitRange.numBits() > 64) {
+    return true;
+  }
+  if (maxSpillLevel == -1) {
+    return false;
+  }
+  return spillLevel(startBitOffset) > maxSpillLevel;
+}
+
 // static
 std::string Spiller::typeName(Type type) {
   switch (type) {

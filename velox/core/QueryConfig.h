@@ -140,6 +140,15 @@ class QueryConfig {
 
   static constexpr const char* kTestingSpillPct = "testing.spill-pct";
 
+  /// The max allowed spilling level with zero being the initial spilling level.
+  /// This only applies for hash build spilling which might trigger recursive
+  /// spilling when the build table is too big. If it is set to -1, then there
+  /// is no limit and then some extreme large query might run out of spilling
+  /// partition bits (see kSpillPartitionBits) at the end. The max spill level
+  /// is used in production to prevent some bad user queries from using too much
+  /// io and cpu resources.
+  static constexpr const char* kMaxSpillLevel = "max_spill_level";
+
   static constexpr const char* kSpillStartPartitionBit =
       "spiller-start-partition-bit";
 
@@ -290,6 +299,10 @@ class QueryConfig {
   // will be forced to spill for testing. 0 means no extra spilling.
   int32_t testingSpillPct() const {
     return get<int32_t>(kTestingSpillPct, 0);
+  }
+
+  int32_t maxSpillLevel() const {
+    return get<int32_t>(kMaxSpillLevel, 4);
   }
 
   /// Returns the start partition bit which is used with 'kSpillPartitionBits'
