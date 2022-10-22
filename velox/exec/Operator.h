@@ -19,6 +19,7 @@
 #include "velox/core/PlanNode.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/JoinBridge.h"
+#include "velox/exec/Spiller.h"
 #include "velox/type/Filter.h"
 
 namespace facebook::velox::exec {
@@ -164,8 +165,9 @@ struct OperatorStats {
 
 class OperatorCtx {
  public:
-  explicit OperatorCtx(
+  OperatorCtx(
       DriverCtx* driverCtx,
+      int32_t operatorId,
       const std::string& operatorType = "");
 
   const std::shared_ptr<Task>& task() const {
@@ -190,19 +192,24 @@ class OperatorCtx {
 
   core::ExecCtx* execCtx() const;
 
-  // Makes an extract of QueryCtx for use in a connector. 'planNodeId'
-  // is the id of the calling TableScan. This and the task id identify
-  // the scan for column access tracking.
+  /// Makes an extract of QueryCtx for use in a connector. 'planNodeId'
+  /// is the id of the calling TableScan. This and the task id identify
+  /// the scan for column access tracking.
   std::shared_ptr<connector::ConnectorQueryCtx> createConnectorQueryCtx(
       const std::string& connectorId,
       const std::string& planNodeId) const;
 
+  /// Generates the spiller config for a given spiller 'type' if the disk
+  /// spilling is enabled, otherwise returns null.
+  std::optional<Spiller::Config> makeSpillConfig(Spiller::Type type) const;
+
  private:
-  DriverCtx* driverCtx_;
-  velox::memory::MemoryPool* pool_;
+  DriverCtx* const FOLLY_NONNULL driverCtx_;
+  const int32_t operatorId_;
+  velox::memory::MemoryPool* const FOLLY_NONNULL pool_;
 
   // These members are created on demand.
-  mutable memory::MappedMemory* mappedMemory_{nullptr};
+  mutable memory::MappedMemory* FOLLY_NULLABLE mappedMemory_{nullptr};
   mutable std::unique_ptr<core::ExecCtx> execCtx_;
   mutable std::unique_ptr<connector::ExpressionEvaluator> expressionEvaluator_;
 };
@@ -482,7 +489,8 @@ class SourceOperator : public Operator {
 // Used for reporting IO wall time from lazy vectors, for example.
 class OperatorRuntimeStatWriter : public BaseRuntimeStatWriter {
  public:
-  explicit OperatorRuntimeStatWriter(Operator* op) : operator_{op} {}
+  explicit OperatorRuntimeStatWriter(Operator* FOLLY_NULLABLE op)
+      : operator_{op} {}
 
   void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
       override {
@@ -492,7 +500,7 @@ class OperatorRuntimeStatWriter : public BaseRuntimeStatWriter {
   }
 
  private:
-  Operator* operator_;
+  Operator* FOLLY_NULLABLE operator_;
 };
 
 } // namespace facebook::velox::exec

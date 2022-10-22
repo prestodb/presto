@@ -16,8 +16,9 @@
 
 #pragma once
 
+#include <folly/container/F14Set.h>
+
 #include "velox/common/file/File.h"
-#include "velox/exec/Operator.h"
 #include "velox/exec/TreeOfLosers.h"
 #include "velox/exec/UnorderedStreamReader.h"
 #include "velox/vector/ComplexVector.h"

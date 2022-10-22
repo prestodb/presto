@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <velox/exec/VectorHasher.h>
 #include "velox/core/PlanNode.h"
 
 namespace facebook::velox::exec {

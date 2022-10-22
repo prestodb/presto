@@ -54,8 +54,13 @@ class SimpleExpressionEvaluator : public connector::ExpressionEvaluator {
 };
 } // namespace
 
-OperatorCtx::OperatorCtx(DriverCtx* driverCtx, const std::string& operatorType)
-    : driverCtx_(driverCtx), pool_(driverCtx_->addOperatorPool(operatorType)) {}
+OperatorCtx::OperatorCtx(
+    DriverCtx* driverCtx,
+    int32_t operatorId,
+    const std::string& operatorType)
+    : driverCtx_(driverCtx),
+      operatorId_(operatorId),
+      pool_(driverCtx_->addOperatorPool(operatorType)) {}
 
 core::ExecCtx* OperatorCtx::execCtx() const {
   if (!execCtx_) {
@@ -81,13 +86,63 @@ OperatorCtx::createConnectorQueryCtx(
       fmt::format("{}.{}", driverCtx_->task->taskId(), planNodeId));
 }
 
+std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
+    Spiller::Type type) const {
+  const auto& queryConfig = driverCtx_->task->queryCtx()->config();
+  if (!queryConfig.spillEnabled()) {
+    return std::nullopt;
+  }
+  if (!queryConfig.spillPath().has_value()) {
+    return std::nullopt;
+  }
+  switch (type) {
+    case Spiller::Type::kOrderBy:
+      if (!queryConfig.orderBySpillEnabled()) {
+        return std::nullopt;
+      }
+      break;
+    case Spiller::Type::kAggregate:
+      if (!queryConfig.aggregationSpillEnabled()) {
+        return std::nullopt;
+      }
+      break;
+    case Spiller::Type::kHashJoinBuild:
+      FOLLY_FALLTHROUGH;
+    case Spiller::Type::kHashJoinProbe:
+      if (!queryConfig.joinSpillEnabled()) {
+        return std::nullopt;
+      }
+      break;
+    default:
+      LOG(ERROR) << "Unknown spiller type: " << Spiller::typeName(type);
+      return std::nullopt;
+  }
+
+  return Spiller::Config(
+      makeOperatorSpillPath(
+          queryConfig.spillPath().value(),
+          taskId(),
+          driverCtx()->driverId,
+          operatorId_),
+      queryConfig.spillFileSizeFactor(),
+      driverCtx_->task->queryCtx()->spillExecutor(),
+      queryConfig.spillableReservationGrowthPct(),
+      HashBitRange(
+          queryConfig.spillStartPartitionBit(),
+          queryConfig.spillStartPartitionBit() +
+              queryConfig.spillPartitionBits()),
+      queryConfig.maxSpillLevel(),
+      queryConfig.testingSpillPct());
+}
+
 Operator::Operator(
     DriverCtx* driverCtx,
     RowTypePtr outputType,
     int32_t operatorId,
     std::string planNodeId,
     std::string operatorType)
-    : operatorCtx_(std::make_unique<OperatorCtx>(driverCtx, operatorType)),
+    : operatorCtx_(
+          std::make_unique<OperatorCtx>(driverCtx, operatorId, operatorType)),
       stats_(
           operatorId,
           driverCtx->pipelineId,

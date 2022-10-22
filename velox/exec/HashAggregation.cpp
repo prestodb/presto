@@ -42,11 +42,7 @@ HashAggregation::HashAggregation(
           driverCtx->queryConfig().partialAggregationGoodPct()),
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
-      spillConfig_(makeOperatorSpillConfig(
-          *operatorCtx_->task()->queryCtx(),
-          *operatorCtx_,
-          core::QueryConfig::kAggregationSpillEnabled,
-          operatorId)),
+      spillConfig_(operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)),
       maxPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxPartialAggregationMemoryUsage()) {
   VELOX_CHECK_NOT_NULL(memoryTracker_, "Memory usage tracker is not set");

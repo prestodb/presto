@@ -41,11 +41,7 @@ OrderBy::OrderBy(
       spillMemoryThreshold_(operatorCtx_->driverCtx()
                                 ->queryConfig()
                                 .orderBySpillMemoryThreshold()),
-      spillConfig_(makeOperatorSpillConfig(
-          *operatorCtx_->task()->queryCtx(),
-          *operatorCtx_,
-          core::QueryConfig::kOrderBySpillEnabled,
-          operatorId)) {
+      spillConfig_(operatorCtx_->makeSpillConfig(Spiller::Type::kOrderBy)) {
   std::vector<TypePtr> keyTypes;
   std::vector<TypePtr> dependentTypes;
   std::vector<TypePtr> types;

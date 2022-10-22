@@ -115,13 +115,4 @@ std::string makeOperatorSpillPath(
     const std::string& taskId,
     int driverId,
     int32_t operatorId);
-
-/// Generates the spiller config for a given operator if the disk spilling is
-/// enabled, otherwise returns null.
-std::optional<Spiller::Config> makeOperatorSpillConfig(
-    const core::QueryCtx& queryCtx,
-    const OperatorCtx& operatorCtx,
-    const char* FOLLY_NONNULL spillConfigPropertyName,
-    int32_t operatorId);
-
 } // namespace facebook::velox::exec

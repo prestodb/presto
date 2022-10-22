@@ -54,11 +54,8 @@ HashBuild::HashBuild(
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
-      spillConfig_(makeOperatorSpillConfig(
-          *operatorCtx_->task()->queryCtx(),
-          *operatorCtx_,
-          core::QueryConfig::kJoinSpillEnabled,
-          operatorId)),
+      spillConfig_(
+          operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinBuild)),
       spillGroup_(
           spillEnabled() ? operatorCtx_->task()->getSpillOperatorGroupLocked(
                                operatorCtx_->driverCtx()->splitGroupId,
