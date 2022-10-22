@@ -40,6 +40,7 @@ public class OpenTelemetryTracer
         this.tracerName = tracerName;
         this.traceToken = traceToken;
         openTelemetryTracer = OPEN_TELEMETRY.getTracer(tracerName);
+        // update span's traceId to be traceToken somehow
         addPoint("Start tracing");
     }
 
@@ -113,6 +114,8 @@ public class OpenTelemetryTracer
     @Override
     public String getTracerId()
     {
-        return "open_telemetry_tracer_id";
+        // get unique trace id
+        // will be non-null
+        return traceToken;
     }
 }

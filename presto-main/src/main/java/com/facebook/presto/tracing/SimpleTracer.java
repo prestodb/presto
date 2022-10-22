@@ -90,7 +90,10 @@ public class SimpleTracer
     @Override
     public String getTracerId()
     {
-        return "simple_dummy_id";
+        if (traceToken != null) {
+            return traceToken;
+        }
+        return tracerName;
     }
 
     public String toString()
