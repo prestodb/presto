@@ -11,18 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.operator;
+package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.PagesSerdeFactory;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.memory.context.LocalMemoryContext;
+import com.facebook.presto.operator.DriverContext;
+import com.facebook.presto.operator.OperatorContext;
+import com.facebook.presto.operator.OperatorFactory;
+import com.facebook.presto.operator.SourceOperator;
+import com.facebook.presto.operator.SourceOperatorFactory;
+import com.facebook.presto.operator.SplitOperatorInfo;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.NativeExecutionNode;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
@@ -30,6 +42,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.isExchangeChecksumEnabled;
+import static com.facebook.presto.SystemSessionProperties.isExchangeCompressionEnabled;
+import static com.facebook.presto.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -219,6 +234,40 @@ public class NativeExecutionOperator
         public PlanFragment getPlanFragment()
         {
             return planFragment;
+        }
+    }
+
+    public static class NativeExecutionOperatorTranslator
+            extends LocalExecutionPlanner.CustomPlanTranslator
+    {
+        private final PlanFragment fragment;
+        private final Session session;
+        private final BlockEncodingSerde blockEncodingSerde;
+
+        public NativeExecutionOperatorTranslator(Session session, PlanFragment fragment, BlockEncodingSerde blockEncodingSerde)
+        {
+            this.fragment = requireNonNull(fragment, "fragment is null");
+            this.session = requireNonNull(session, "session is null");
+            this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
+        }
+
+        @Override
+        public Optional<LocalExecutionPlanner.PhysicalOperation> translate(
+                PlanNode node,
+                LocalExecutionPlanner.LocalExecutionPlanContext context,
+                InternalPlanVisitor<LocalExecutionPlanner.PhysicalOperation, LocalExecutionPlanner.LocalExecutionPlanContext> visitor)
+        {
+            if (node instanceof NativeExecutionNode) {
+                OperatorFactory operatorFactory = new NativeExecutionOperator.NativeExecutionOperatorFactory(
+                        context.getNextOperatorId(),
+                        node.getId(),
+                        fragment.withSubPlan(((NativeExecutionNode) node).getSubPlan()),
+                        context.getTableWriteInfo(),
+                        new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session), isExchangeChecksumEnabled(session)));
+                return Optional.of(
+                        new LocalExecutionPlanner.PhysicalOperation(operatorFactory, makeLayout(node), context, UNGROUPED_EXECUTION));
+            }
+            return Optional.empty();
         }
     }
 }
