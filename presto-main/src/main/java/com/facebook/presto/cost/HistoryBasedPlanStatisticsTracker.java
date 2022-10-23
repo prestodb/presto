@@ -168,7 +168,7 @@ public class HistoryBasedPlanStatisticsTracker
         return ImmutableMap.copyOf(planStatistics);
     }
 
-    private void updateStatistics(QueryInfo queryInfo)
+    public void updateStatistics(QueryInfo queryInfo)
     {
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
         Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =

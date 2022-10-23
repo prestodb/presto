@@ -17,6 +17,7 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.TaskInfo;
@@ -117,7 +118,8 @@ public class PrestoSparkStaticQueryExecution
             Optional<ErrorClassifier> errorClassifier,
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
     {
         super(
                 sparkContext,
@@ -151,7 +153,8 @@ public class PrestoSparkStaticQueryExecution
                 errorClassifier,
                 planFragmenter,
                 metadata,
-                partitioningProviderManager);
+                partitioningProviderManager,
+                historyBasedPlanStatisticsTracker);
     }
 
     @Override

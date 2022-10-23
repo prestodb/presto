@@ -185,6 +185,7 @@ public class PrestoSparkPageOutputOperator
                 .collect(toImmutableList());
 
         serializedPages.forEach(outputBuffer::enqueue);
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
     }
 
     @Override

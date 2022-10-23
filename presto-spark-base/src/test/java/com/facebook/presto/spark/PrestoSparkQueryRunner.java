@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logging;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
@@ -142,6 +143,7 @@ public class PrestoSparkQueryRunner
     private final PluginManager pluginManager;
     private final ConnectorManager connectorManager;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
+    private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
 
     private final LifeCycleManager lifeCycleManager;
 
@@ -273,6 +275,7 @@ public class PrestoSparkQueryRunner
         pluginManager = injector.getInstance(PluginManager.class);
         connectorManager = injector.getInstance(ConnectorManager.class);
         waitTimeMetrics = injector.getInstance(new Key<Set<PrestoSparkServiceWaitTimeMetrics>>() {});
+        historyBasedPlanStatisticsManager = injector.getInstance(HistoryBasedPlanStatisticsManager.class);
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
@@ -414,6 +417,11 @@ public class PrestoSparkQueryRunner
     public TestingAccessControlManager getAccessControl()
     {
         return testingAccessControlManager;
+    }
+
+    public HistoryBasedPlanStatisticsManager getHistoryBasedPlanStatisticsManager()
+    {
+        return historyBasedPlanStatisticsManager;
     }
 
     @Override
