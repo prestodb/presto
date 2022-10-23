@@ -321,6 +321,7 @@ public class PrestoSparkRowOutputOperator
                 rowBatchBuilder.closeEntryForNonReplicatedRow(partition);
             }
         }
+        operatorContext.recordOutput(page.getSizeInBytes(), page.getPositionCount());
         updateMemoryContext();
     }
 
