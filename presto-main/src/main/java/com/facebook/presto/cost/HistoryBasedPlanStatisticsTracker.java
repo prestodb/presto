@@ -181,7 +181,7 @@ public class HistoryBasedPlanStatisticsTracker
         return outputBytes;
     }
 
-    private void updateStatistics(QueryInfo queryInfo)
+    public void updateStatistics(QueryInfo queryInfo)
     {
         Map<PlanNodeWithHash, PlanStatisticsWithSourceInfo> planStatistics = getQueryStats(queryInfo);
         Map<PlanNodeWithHash, HistoricalPlanStatistics> historicalPlanStatisticsMap =

@@ -25,6 +25,8 @@ import com.facebook.presto.common.ErrorCode;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.DDLDefinitionTask;
@@ -81,6 +83,7 @@ import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer.BuiltInPreparedQuery;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.facebook.presto.sql.tree.Statement;
@@ -180,6 +183,7 @@ public class PrestoSparkQueryExecutionFactory
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks;
     private final Optional<ErrorClassifier> errorClassifier;
+    private final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -212,7 +216,8 @@ public class PrestoSparkQueryExecutionFactory
             NodeMemoryConfig nodeMemoryConfig,
             Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics,
             Map<Class<? extends Statement>, DataDefinitionTask<?>> ddlTasks,
-            Optional<ErrorClassifier> errorClassifier)
+            Optional<ErrorClassifier> errorClassifier,
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -244,6 +249,7 @@ public class PrestoSparkQueryExecutionFactory
         this.waitTimeMetrics = ImmutableSet.copyOf(requireNonNull(waitTimeMetrics, "waitTimeMetrics is null"));
         this.ddlTasks = ImmutableMap.copyOf(requireNonNull(ddlTasks, "ddlTasks is null"));
         this.errorClassifier = requireNonNull(errorClassifier, "errorClassifier is null");
+        this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null").getHistoryBasedPlanStatisticsTracker();
     }
 
     private void checkPermissions(QueryId queryId, SessionContext sessionContext)
@@ -344,9 +350,9 @@ public class PrestoSparkQueryExecutionFactory
                 Optional.empty(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
-                StatsAndCosts.empty(),
+                planAndMore.map(PlanAndMore::getPlan).map(Plan::getStatsAndCosts).orElseGet(StatsAndCosts::empty),
                 ImmutableList.of(),
-                ImmutableList.of());
+                planAndMore.map(PlanAndMore::getPlanCanonicalInfo).orElseGet(ImmutableList::of));
     }
 
     public static StageInfo createStageInfo(QueryId queryId, SubPlan plan, List<TaskInfo> taskInfos)
@@ -671,7 +677,8 @@ public class PrestoSparkQueryExecutionFactory
                         errorClassifier,
                         planFragmenter,
                         metadata,
-                        partitioningProviderManager);
+                        partitioningProviderManager,
+                        historyBasedPlanStatisticsTracker);
             }
         }
         catch (Throwable executionFailure) {

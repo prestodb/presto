@@ -20,6 +20,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryInfo;
@@ -183,6 +184,7 @@ public abstract class AbstractPrestoSparkQueryExecution
     protected final JavaSparkContext sparkContext;
     protected final PrestoSparkPlanFragmenter planFragmenter;
     protected final PartitioningProviderManager partitioningProviderManager;
+    protected final HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker;
     private AtomicReference<SubPlan> finalFragmentedPlan = new AtomicReference<>();
 
     public AbstractPrestoSparkQueryExecution(
@@ -217,7 +219,8 @@ public abstract class AbstractPrestoSparkQueryExecution
             Optional<ErrorClassifier> errorClassifier,
             PrestoSparkPlanFragmenter planFragmenter,
             Metadata metadata,
-            PartitioningProviderManager partitioningProviderManager)
+            PartitioningProviderManager partitioningProviderManager,
+            HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
@@ -252,6 +255,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
+        this.historyBasedPlanStatisticsTracker = requireNonNull(historyBasedPlanStatisticsTracker, "historyBasedPlanStatisticsTracker is null");
     }
 
     protected static JavaPairRDD<MutablePartitionId, PrestoSparkMutableRow> partitionBy(
@@ -523,6 +527,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 warningCollector);
 
         queryMonitor.queryCompletedEvent(queryInfo);
+        historyBasedPlanStatisticsTracker.updateStatistics(queryInfo);
         if (queryStatusInfoOutputLocation.isPresent()) {
             PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = PrestoSparkQueryExecutionFactory.createPrestoSparkQueryInfo(
                     queryInfo,
