@@ -352,6 +352,8 @@ velox::variant variantAt<TypeKind::LONG_DECIMAL>(
       vector->type());
 }
 
+variant variantAt(const VectorPtr& vector, vector_size_t row);
+
 velox::variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   auto arrayVector = vector->wrappedVector()->as<ArrayVector>();
   auto& elements = arrayVector->elements();
@@ -364,14 +366,7 @@ velox::variant arrayVariantAt(const VectorPtr& vector, vector_size_t row) {
   array.reserve(size);
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
-    if (elements->isNullAt(innerRow)) {
-      array.emplace_back(elements->typeKind());
-    } else if (elements->typeKind() == TypeKind::ARRAY) {
-      array.push_back(arrayVariantAt(elements, innerRow));
-    } else {
-      array.emplace_back(VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, elements->typeKind(), elements, innerRow));
-    }
+    array.push_back(variantAt(elements, innerRow));
   }
   return velox::variant::array(array);
 }
@@ -388,15 +383,8 @@ velox::variant mapVariantAt(const VectorPtr& vector, vector_size_t row) {
   std::map<variant, variant> map;
   for (auto i = 0; i < size; i++) {
     auto innerRow = offset + i;
-    auto key = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-        variantAt, mapKeys->typeKind(), mapKeys, innerRow);
-    velox::variant value;
-    if (mapValues->isNullAt(innerRow)) {
-      value = velox::variant(mapValues->typeKind());
-    } else {
-      value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, mapValues->typeKind(), mapValues, innerRow);
-    }
+    auto key = variantAt(mapKeys, innerRow);
+    auto value = variantAt(mapValues, innerRow);
     map.insert({key, value});
   }
   return velox::variant::map(map);
@@ -408,21 +396,38 @@ velox::variant rowVariantAt(const VectorPtr& vector, vector_size_t row) {
 
   std::vector<velox::variant> values;
   for (auto& child : rowValues->children()) {
-    if (child->isNullAt(wrappedRow)) {
-      values.push_back(variant(child->typeKind()));
-    } else if (child->typeKind() == TypeKind::ROW) {
-      values.push_back(rowVariantAt(child, wrappedRow));
-    } else if (child->typeKind() == TypeKind::ARRAY) {
-      values.push_back(arrayVariantAt(child, wrappedRow));
-    } else if (child->typeKind() == TypeKind::MAP) {
-      values.push_back(mapVariantAt(child, wrappedRow));
-    } else {
-      auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-          variantAt, child->typeKind(), child, wrappedRow);
-      values.push_back(value);
-    }
+    values.push_back(variantAt(child, wrappedRow));
   }
   return velox::variant::row(std::move(values));
+}
+
+variant variantAt(const VectorPtr& vector, vector_size_t row) {
+  auto typeKind = vector->typeKind();
+  if (vector->isNullAt(row)) {
+    return variant(typeKind);
+  }
+
+  if (typeKind == TypeKind::ROW) {
+    return rowVariantAt(vector, row);
+  }
+
+  if (typeKind == TypeKind::ARRAY) {
+    return arrayVariantAt(vector, row);
+  }
+
+  if (typeKind == TypeKind::MAP) {
+    return mapVariantAt(vector, row);
+  }
+
+  if (typeKind == TypeKind::SHORT_DECIMAL) {
+    return variantAt<TypeKind::SHORT_DECIMAL>(vector, row);
+  }
+
+  if (typeKind == TypeKind::LONG_DECIMAL) {
+    return variantAt<TypeKind::LONG_DECIMAL>(vector, row);
+  }
+
+  return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(variantAt, typeKind, vector, row);
 }
 
 std::vector<MaterializedRow> materialize(const RowVectorPtr& vector) {
@@ -437,25 +442,7 @@ std::vector<MaterializedRow> materialize(const RowVectorPtr& vector) {
     MaterializedRow row;
     row.reserve(numColumns);
     for (size_t j = 0; j < numColumns; ++j) {
-      auto typeKind = rowType.childAt(j)->kind();
-      if (vector->childAt(j)->isNullAt(i)) {
-        row.push_back(variant(typeKind));
-      } else if (typeKind == TypeKind::ROW) {
-        row.push_back(rowVariantAt(vector->childAt(j), i));
-      } else if (typeKind == TypeKind::ARRAY) {
-        row.push_back(arrayVariantAt(vector->childAt(j), i));
-      } else if (typeKind == TypeKind::MAP) {
-        row.push_back(mapVariantAt(vector->childAt(j), i));
-      } else if (typeKind == TypeKind::SHORT_DECIMAL) {
-        row.push_back(
-            variantAt<TypeKind::SHORT_DECIMAL>(vector->childAt(j), i));
-      } else if (typeKind == TypeKind::LONG_DECIMAL) {
-        row.push_back(variantAt<TypeKind::LONG_DECIMAL>(vector->childAt(j), i));
-      } else {
-        auto value = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
-            variantAt, typeKind, vector->childAt(j), i);
-        row.push_back(value);
-      }
+      row.push_back(variantAt(vector->childAt(j), i));
     }
     rows.push_back(row);
   }

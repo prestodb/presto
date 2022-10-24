@@ -170,4 +170,32 @@ TEST_F(AssertQueryBuilderTest, encodedResults) {
   flatInput = flatten<RowVector>(input);
   assertEqualResults({flatInput}, {input});
 }
+
+TEST_F(AssertQueryBuilderTest, nestedArrayMapResults) {
+  VectorFuzzer::Options opts;
+  opts.vectorSize = 1000;
+  opts.nullRatio = 0.1;
+
+  VectorFuzzer fuzzer(opts, pool_.get());
+
+  // Array(Array).
+  auto input = makeRowVector({fuzzer.fuzzFlat(ARRAY(ARRAY(BIGINT())))});
+  assertEqualResults({input}, {input});
+
+  // Map(Map).
+  input = makeRowVector({fuzzer.fuzzDictionary(
+      fuzzer.fuzzFlat(MAP(INTEGER(), MAP(INTEGER(), VARCHAR()))))});
+  assertEqualResults({input}, {input});
+
+  // Map(Array).
+  input = makeRowVector({fuzzer.fuzzDictionary(
+      fuzzer.fuzzFlat(MAP(INTEGER(), ARRAY(VARCHAR()))))});
+  assertEqualResults({input}, {input});
+
+  // Array(Map).
+  input = makeRowVector({fuzzer.fuzzDictionary(
+      fuzzer.fuzzFlat(ARRAY(MAP(INTEGER(), VARCHAR()))))});
+  assertEqualResults({input}, {input});
+}
+
 } // namespace facebook::velox::exec::test
