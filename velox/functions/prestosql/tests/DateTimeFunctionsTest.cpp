@@ -275,6 +275,8 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeRountTrip) {
 }
 
 TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
+  static const double kNan = std::numeric_limits<double>::quiet_NaN();
+
   vector_size_t size = 37;
 
   auto unixtimeAt = [](vector_size_t row) -> double {
@@ -293,6 +295,17 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
         makeFlatVector<int64_t>(
             size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
         makeConstant((int16_t)900, size),
+    });
+    assertEqualVectors(expected, result);
+
+    // NaN timestamp.
+    result = evaluate<RowVector>(
+        "from_unixtime(c0, '+01:00')",
+        makeRowVector({makeFlatVector<double>({kNan, kNan})}));
+    ASSERT_TRUE(isTimestampWithTimeZoneType(result->type()));
+    expected = makeRowVector({
+        makeFlatVector<int64_t>({0, 0}),
+        makeFlatVector<int16_t>({900, 900}),
     });
     assertEqualVectors(expected, result);
   }
@@ -315,6 +328,20 @@ TEST_F(DateTimeFunctionsTest, fromUnixtimeWithTimeZone) {
             size, [&](auto row) { return unixtimeAt(row) * 1'000; }),
         makeFlatVector<int16_t>(
             size, [&](auto row) { return timezoneIds[row % 5]; }),
+    });
+    assertEqualVectors(expected, result);
+
+    // NaN timestamp.
+    result = evaluate<RowVector>(
+        "from_unixtime(c0, c1)",
+        makeRowVector({
+            makeFlatVector<double>({kNan, kNan}),
+            makeNullableFlatVector<StringView>({"+01:00", "+02:00"}),
+        }));
+    ASSERT_TRUE(isTimestampWithTimeZoneType(result->type()));
+    expected = makeRowVector({
+        makeFlatVector<int64_t>({0, 0}),
+        makeFlatVector<int16_t>({900, 960}),
     });
     assertEqualVectors(expected, result);
   }

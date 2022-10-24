@@ -21,6 +21,9 @@ namespace facebook::velox::functions {
 namespace {
 
 inline int64_t toMillis(double unixtime) {
+  if (UNLIKELY(std::isnan(unixtime))) {
+    return 0;
+  }
   return std::floor(unixtime * 1'000);
 }
 
