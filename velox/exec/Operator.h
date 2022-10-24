@@ -166,7 +166,7 @@ struct OperatorStats {
 class OperatorCtx {
  public:
   OperatorCtx(
-      DriverCtx* driverCtx,
+      DriverCtx* FOLLY_NONNULL driverCtx,
       int32_t operatorId,
       const std::string& operatorType = "");
 
@@ -176,21 +176,21 @@ class OperatorCtx {
 
   const std::string& taskId() const;
 
-  Driver* driver() const {
+  Driver* FOLLY_NONNULL driver() const {
     return driverCtx_->driver;
   }
 
-  DriverCtx* driverCtx() const {
+  DriverCtx* FOLLY_NONNULL driverCtx() const {
     return driverCtx_;
   }
 
-  velox::memory::MemoryPool* pool() const {
+  velox::memory::MemoryPool* FOLLY_NONNULL pool() const {
     return pool_;
   }
 
-  memory::MappedMemory* mappedMemory() const;
+  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const;
 
-  core::ExecCtx* execCtx() const;
+  core::ExecCtx* FOLLY_NONNULL execCtx() const;
 
   /// Makes an extract of QueryCtx for use in a connector. 'planNodeId'
   /// is the id of the calling TableScan. This and the task id identify
@@ -225,8 +225,10 @@ class Operator {
 
     // Translates plan node to operator. Returns nullptr if the plan node cannot
     // be handled by this factory.
-    virtual std::unique_ptr<Operator>
-    toOperator(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& node) = 0;
+    virtual std::unique_ptr<Operator> toOperator(
+        DriverCtx* FOLLY_NONNULL ctx,
+        int32_t id,
+        const core::PlanNodePtr& node) = 0;
 
     // Translates plan node to join bridge. Returns nullptr if the plan node
     // cannot be handled by this factory.
@@ -256,7 +258,7 @@ class Operator {
   // identifier of the PlanNode to which 'this'
   // corresponds. 'operatorType' is a label for use in stats.
   Operator(
-      DriverCtx* driverCtx,
+      DriverCtx* FOLLY_NONNULL driverCtx,
       RowTypePtr outputType,
       int32_t operatorId,
       std::string planNodeId,
@@ -301,7 +303,7 @@ class Operator {
   // future that will be realized when the reason is no longer present.
   // The caller must wait for the `future` to complete before making
   // another call.
-  virtual BlockingReason isBlocked(ContinueFuture* future) = 0;
+  virtual BlockingReason isBlocked(ContinueFuture* FOLLY_NONNULL future) = 0;
 
   // Returns true if completely finished processing and no more output will be
   // produced. Some operators may finish early before receiving all input and
@@ -374,7 +376,7 @@ class Operator {
 
   virtual std::string toString() const;
 
-  velox::memory::MemoryPool* pool() {
+  velox::memory::MemoryPool* FOLLY_NONNULL pool() {
     return operatorCtx_->pool();
   }
 
@@ -389,8 +391,10 @@ class Operator {
   // Calls all the registered PlanNodeTranslators on 'planNode' and
   // returns the result of the first one that returns non-nullptr
   // or nullptr if all return nullptr.
-  static std::unique_ptr<Operator>
-  fromPlanNode(DriverCtx* ctx, int32_t id, const core::PlanNodePtr& planNode);
+  static std::unique_ptr<Operator> fromPlanNode(
+      DriverCtx* FOLLY_NONNULL ctx,
+      int32_t id,
+      const core::PlanNodePtr& planNode);
 
   // Calls all the registered PlanNodeTranslators on 'planNode' and
   // returns the result of the first one that returns non-nullptr
@@ -444,7 +448,9 @@ std::vector<column_index_t> toChannels(
     const RowTypePtr& rowType,
     const std::vector<core::TypedExprPtr>& exprs);
 
-column_index_t exprToChannel(const core::ITypedExpr* expr, const TypePtr& type);
+column_index_t exprToChannel(
+    const core::ITypedExpr* FOLLY_NONNULL expr,
+    const TypePtr& type);
 
 /// Given a source output type and target input type we return the indices of
 /// the target input columns in the source output type.
@@ -459,7 +465,7 @@ std::vector<column_index_t> calculateOutputChannels(
 class SourceOperator : public Operator {
  public:
   SourceOperator(
-      DriverCtx* driverCtx,
+      DriverCtx* FOLLY_NONNULL driverCtx,
       RowTypePtr outputType,
       int32_t operatorId,
       const std::string& planNodeId,
