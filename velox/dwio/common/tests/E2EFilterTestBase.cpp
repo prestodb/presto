@@ -388,6 +388,23 @@ void E2EFilterTestBase::testRowGroupSkip(
   EXPECT_LT(0, runtimeStats_.skippedStrides);
 }
 
+void E2EFilterTestBase::testWithInputData(
+    const std::string& columns,
+    size_t size,
+    std::function<void()> addInputData) {
+  makeRowType(columns, false);
+  batches_.clear();
+  batches_.push_back(std::static_pointer_cast<RowVector>(
+      BatchMaker::createBatch(rowType_, size, *pool_, nullptr, 0)));
+  addInputData();
+  // Write data to Parquet format in memory.
+  writeToMemory(rowType_, batches_, false);
+  auto spec = filterGenerator->makeScanSpec(SubfieldFilters{});
+  uint64_t timeWithNoFilter = 0;
+  // Read Parquet data and verify against input data.
+  readWithoutFilter(spec, batches_, timeWithNoFilter);
+}
+
 void E2EFilterTestBase::testWithTypes(
     const std::string& columns,
     std::function<void()> customize,

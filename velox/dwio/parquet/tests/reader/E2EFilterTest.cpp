@@ -261,6 +261,12 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
         true,
         false);
   }
+
+  testWithInputData("shortdecimal_val:short_decimal(10, 5)", 2, [&]() {
+    makeIntData<UnscaledShortDecimal>(
+        Subfield("shortdecimal_val"),
+        {UnscaledShortDecimal(-479), UnscaledShortDecimal(40000000)});
+  });
 }
 
 TEST_F(E2EFilterTest, longDecimalDictionary) {
@@ -321,6 +327,13 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
         true,
         false);
   }
+
+  testWithInputData("longdecimal_val:long_decimal(30, 10)", 2, [&]() {
+    makeIntData<UnscaledLongDecimal>(
+        Subfield("longdecimal_val"),
+        {UnscaledLongDecimal(-479),
+         UnscaledLongDecimal(buildInt128(1546093991, 4054979645))});
+  });
 }
 
 TEST_F(E2EFilterTest, stringDirect) {

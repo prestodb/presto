@@ -188,6 +188,8 @@ class IntDecoder {
   int64_t readVsLong();
   int64_t readLongLE();
   int128_t readInt128();
+  template <typename cppType>
+  cppType readLittleEndianFromBigEndian();
 
   // Applies 'visitor to 'numRows' consecutive values.
   template <typename Visitor>
@@ -344,16 +346,6 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
   int64_t result = 0;
   if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
     bufferStart += numBytes;
-    if (bigEndian) {
-      auto valueOffset = bufferStart - numBytes;
-      result = *(valueOffset) >= 0 ? 0 : -1;
-      memcpy(
-          reinterpret_cast<char*>(&result) + (8 - numBytes),
-          reinterpret_cast<const char*>(valueOffset),
-          numBytes);
-      result = __builtin_bswap64(result);
-      return result;
-    }
     if (numBytes == 8) {
       return *reinterpret_cast<const int64_t*>(bufferStart - 8);
     }
@@ -376,16 +368,6 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
     offset += 8;
   }
 
-  if (bigEndian) {
-    int64_t value = (result >= 0) ? 0 : -1;
-    memcpy(
-        reinterpret_cast<char*>(&value) + (8 - numBytes),
-        reinterpret_cast<const char*>(&result),
-        numBytes);
-    result = __builtin_bswap64(value);
-    return result;
-  }
-
   if (isSigned && numBytes < 8) {
     if (numBytes == 2) {
       return static_cast<int16_t>(result);
@@ -399,6 +381,58 @@ inline int64_t IntDecoder<isSigned>::readLongLE() {
 }
 
 template <bool isSigned>
+template <typename cppType>
+inline cppType IntDecoder<isSigned>::readLittleEndianFromBigEndian() {
+  cppType bigEndianValue = 0;
+  // Input is in Big Endian layout of size numBytes.
+  if (bufferStart && bufferStart + sizeof(int64_t) <= bufferEnd) {
+    bufferStart += numBytes;
+    auto valueOffset = bufferStart - numBytes;
+    // Use first byte to initialize bigEndianValue.
+    bigEndianValue =
+        *(reinterpret_cast<const int8_t*>(valueOffset)) >= 0 ? 0 : -1;
+    // Copy numBytes input to the bigEndianValue.
+    memcpy(
+        reinterpret_cast<char*>(&bigEndianValue) + (sizeof(cppType) - numBytes),
+        reinterpret_cast<const char*>(valueOffset),
+        numBytes);
+    // Convert bigEndianValue to little endian value and return.
+    if constexpr (sizeof(cppType) == 16) {
+      return dwio::common::builtin_bswap128(bigEndianValue);
+    } else {
+      return __builtin_bswap64(bigEndianValue);
+    }
+  }
+  char b;
+  cppType offset = 0;
+  cppType numBytesBigEndian = 0;
+  // Read numBytes input into numBytesBigEndian.
+  for (uint32_t i = 0; i < numBytes; ++i) {
+    b = readByte();
+    if constexpr (sizeof(cppType) == 16) {
+      numBytesBigEndian |= (b & INT128_BASE_256_MASK) << offset;
+    } else {
+      numBytesBigEndian |= (b & BASE_256_MASK) << offset;
+    }
+    offset += 8;
+  }
+  // Use first byte to initialize bigEndianValue.
+  bigEndianValue =
+      (reinterpret_cast<const int8_t*>(&numBytesBigEndian)[0]) >= 0 ? 0 : -1;
+  // Copy numBytes input to the bigEndianValue.
+  memcpy(
+      reinterpret_cast<char*>(&bigEndianValue) + (sizeof(cppType) - numBytes),
+      reinterpret_cast<const char*>(&numBytesBigEndian),
+      numBytes);
+  // Convert bigEndianValue to little endian value and return.
+  if constexpr (sizeof(cppType) == 16) {
+    return dwio::common::builtin_bswap128(bigEndianValue);
+  } else {
+    return __builtin_bswap64(bigEndianValue);
+  }
+}
+
+template <bool isSigned>
 inline int64_t IntDecoder<isSigned>::readLong() {
   if (useVInts) {
     if constexpr (isSigned) {
@@ -406,6 +440,8 @@ inline int64_t IntDecoder<isSigned>::readLong() {
     } else {
       return static_cast<int64_t>(readVuLong());
     }
+  } else if (bigEndian) {
+    return readLittleEndianFromBigEndian<int64_t>();
   } else {
     return readLongLE();
   }
@@ -413,37 +449,11 @@ inline int64_t IntDecoder<isSigned>::readLong() {
 
 template <bool isSigned>
 inline int128_t IntDecoder<isSigned>::readInt128() {
-  int128_t result = 0;
   if (!bigEndian) {
     VELOX_NYI();
   }
-  if (bufferStart && bufferStart + sizeof(int128_t) <= bufferEnd) {
-    bufferStart += numBytes;
-
-    auto valueOffset = bufferStart - numBytes;
-    result = *(valueOffset) >= 0 ? 0 : -1;
-    memcpy(
-        reinterpret_cast<char*>(&result) + (16 - numBytes),
-        reinterpret_cast<const char*>(valueOffset),
-        numBytes);
-    return dwio::common::builtin_bswap128(result);
-  }
-  char b;
-  int128_t offset = 0;
-  for (uint32_t i = 0; i < numBytes; ++i) {
-    b = readByte();
-    result |= (b & INT128_BASE_256_MASK) << offset;
-    offset += 8;
-  }
-
-  int128_t value = (result >= 0) ? 0 : -1;
-  memcpy(
-      reinterpret_cast<char*>(&value) + (16 - numBytes),
-      reinterpret_cast<const char*>(&result),
-      numBytes);
-  return dwio::common::builtin_bswap128(value);
+  return readLittleEndianFromBigEndian<int128_t>();
 }
-
 template <>
 template <>
 inline void IntDecoder<false>::bulkRead(

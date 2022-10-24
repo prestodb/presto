@@ -129,6 +129,19 @@ class E2EFilterTestBase : public testing::Test {
   void makeAllNulls(const std::string& name);
 
   template <typename T>
+  void makeIntData(
+      const common::Subfield& field,
+      const std::vector<T>& values) {
+    VELOX_CHECK_EQ(batches_.size(), 1);
+    auto numbers = common::getChildBySubfield(batches_[0].get(), field)
+                       ->as<FlatVector<T>>();
+    VELOX_CHECK_EQ(numbers->size(), values.size());
+    for (auto row = 0; row < numbers->size(); ++row) {
+      numbers->set(row, values[row]);
+    }
+  }
+
+  template <typename T>
   void makeIntDistribution(
       const common::Subfield& field,
       T min,
@@ -282,6 +295,13 @@ class E2EFilterTestBase : public testing::Test {
   void testFilterSpecs(const std::vector<common::FilterSpec>& filterSpecs);
 
   void testRowGroupSkip(const std::vector<std::string>& filterable);
+
+  /// Writes input data to in-memory Arrow Parquet format.
+  /// Reads the in-memory Parquet format and verifies against the input data.
+  void testWithInputData(
+      const std::string& columns,
+      size_t size,
+      std::function<void()> addInputData);
 
   void testWithTypes(
       const std::string& columns,
