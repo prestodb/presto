@@ -30,9 +30,24 @@ class ArraySumTest : public FunctionBaseTest {
   void testExpr(
       const VectorPtr& expected,
       const std::string& expression,
-      const std::vector<VectorPtr>& input) {
-    auto result = evaluate<FlatVector<T>>(expression, makeRowVector(input));
+      const VectorPtr& input) {
+    auto result = evaluate(expression, makeRowVector({input}));
     assertEqualVectors(expected, result);
+
+    // Test constant input.
+    vector_size_t constantRow = 0;
+    result = evaluate(
+        expression,
+        makeRowVector({BaseVector::wrapInConstant(10, constantRow, input)}));
+    assertEqualVectors(
+        BaseVector::wrapInConstant(10, constantRow, expected), result);
+
+    constantRow = input->size() - 1;
+    result = evaluate(
+        expression,
+        makeRowVector({BaseVector::wrapInConstant(10, constantRow, input)}));
+    assertEqualVectors(
+        BaseVector::wrapInConstant(10, constantRow, expected), result);
   }
 };
 
@@ -43,28 +58,28 @@ TEST_F(ArraySumTest, int64Input) {
   auto input = makeNullableArrayVector<int64_t>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<int64_t>({3, 3, 0});
-  testExpr<int64_t>(expected, "array_sum(C0)", {input});
+  testExpr<int64_t>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, int32Input) {
   auto input = makeNullableArrayVector<int32_t>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<int64_t>({3, 3, 0});
-  testExpr<int64_t>(expected, "array_sum(C0)", {input});
+  testExpr<int64_t>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, int16Input) {
   auto input = makeNullableArrayVector<int16_t>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<int64_t>({3, 3, 0});
-  testExpr<int64_t>(expected, "array_sum(C0)", {input});
+  testExpr<int64_t>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, int8Input) {
   auto input = makeNullableArrayVector<int8_t>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<int64_t>({3, 3, 0});
-  testExpr<int64_t>(expected, "array_sum(C0)", {input});
+  testExpr<int64_t>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, int64InputLimitsOverflow) {
@@ -73,7 +88,7 @@ TEST_F(ArraySumTest, int64InputLimitsOverflow) {
   auto expected = makeNullableFlatVector<int64_t>(
       {std::numeric_limits<int64_t>::min() + 1});
   EXPECT_THROW(
-      testExpr<int64_t>(expected, "array_sum(C0)", {input}),
+      testExpr<int64_t>(expected, "array_sum(C0)", input),
       facebook::velox::VeloxUserError);
 }
 
@@ -82,14 +97,14 @@ TEST_F(ArraySumTest, realInput) {
   auto input = makeNullableArrayVector<float>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<double>({3, 3, 0});
-  testExpr<double>(expected, "array_sum(C0)", {input});
+  testExpr<double>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, doubleInput) {
   auto input = makeNullableArrayVector<double>(
       {{0, 1, 2}, {std::nullopt, 1, 2}, {std::nullopt}});
   auto expected = makeNullableFlatVector<double>({3, 3, 0});
-  testExpr<double>(expected, "array_sum(C0)", {input});
+  testExpr<double>(expected, "array_sum(C0)", input);
 }
 
 TEST_F(ArraySumTest, doubleInputLimits) {
@@ -103,5 +118,5 @@ TEST_F(ArraySumTest, doubleInputLimits) {
        std::numeric_limits<double>::quiet_NaN(),
        std::numeric_limits<double>::lowest(),
        std::numeric_limits<double>::max()});
-  testExpr<double>(expected, "array_sum(C0)", {input});
+  testExpr<double>(expected, "array_sum(C0)", input);
 }

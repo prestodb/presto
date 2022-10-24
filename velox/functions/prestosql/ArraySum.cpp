@@ -34,36 +34,47 @@ template <typename TInput, typename TOutput>
 class ArraySumFunction : public exec::VectorFunction {
  public:
   template <bool mayHaveNulls, typename DataAtFunc, typename IsNullFunc>
+  TOutput applyCore(
+      vector_size_t row,
+      const ArrayVector* arrayVector,
+      DataAtFunc&& dataAtFunc,
+      IsNullFunc&& isNullFunc) const {
+    auto start = arrayVector->offsetAt(row);
+    auto end = start + arrayVector->sizeAt(row);
+    TOutput sum = 0;
+
+    auto addElement = [](TOutput& sum, TInput value) {
+      if constexpr (std::is_same_v<TOutput, int64_t>) {
+        sum = checkedPlus<TOutput>(sum, value);
+      } else {
+        sum += value;
+      }
+    };
+
+    for (auto i = start; i < end; i++) {
+      if constexpr (mayHaveNulls) {
+        bool isNull = isNullFunc(i);
+        if (!isNull) {
+          addElement(sum, dataAtFunc(i));
+        }
+      } else {
+        addElement(sum, dataAtFunc(i));
+      }
+    }
+    return sum;
+  }
+
+  template <bool mayHaveNulls, typename DataAtFunc, typename IsNullFunc>
   void applyCore(
       const SelectivityVector& rows,
-      ArrayVector* arrayVector,
+      const ArrayVector* arrayVector,
       FlatVector<TOutput>* resultValues,
       DataAtFunc&& dataAtFunc,
       IsNullFunc&& isNullFunc) const {
     rows.template applyToSelected([&](vector_size_t row) {
-      auto start = arrayVector->offsetAt(row);
-      auto end = start + arrayVector->sizeAt(row);
-      TOutput sum = 0;
-
-      auto addElement = [](TOutput& sum, TInput value) {
-        if constexpr (std::is_same_v<TOutput, int64_t>) {
-          sum = checkedPlus<TOutput>(sum, value);
-        } else {
-          sum += value;
-        }
-      };
-
-      for (auto i = start; i < end; i++) {
-        if constexpr (mayHaveNulls) {
-          bool isNull = isNullFunc(i);
-          if (!isNull) {
-            addElement(sum, dataAtFunc(i));
-          }
-        } else {
-          addElement(sum, dataAtFunc(i));
-        }
-      }
-      resultValues->set(row, sum);
+      resultValues->set(
+          row,
+          applyCore<mayHaveNulls>(row, arrayVector, dataAtFunc, isNullFunc));
     });
   }
 
@@ -104,16 +115,53 @@ class ArraySumFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
+    // Input is either flat or constant.
+
+    if (args[0]->isConstantEncoding()) {
+      auto arrayVector = args[0]->wrappedVector()->as<ArrayVector>();
+      auto arrayRow = args[0]->wrappedIndex(rows.begin());
+      VELOX_CHECK(arrayVector);
+      auto elementsVector = arrayVector->elements();
+
+      SelectivityVector elementsRows(elementsVector->size());
+      exec::LocalDecodedVector elements(context, *elementsVector, elementsRows);
+
+      TOutput sum;
+      if (elementsVector->mayHaveNulls()) {
+        sum = applyCore<true>(
+            arrayRow,
+            arrayVector,
+            [&](auto index) { return elements->valueAt<TInput>(index); },
+            [&](auto index) { return elements->isNullAt(index); });
+      } else {
+        sum = applyCore<false>(
+            arrayRow,
+            arrayVector,
+            [&](auto index) { return elements->valueAt<TInput>(index); },
+            [&](auto index) { return elements->isNullAt(index); });
+      }
+
+      context.moveOrCopyResult(
+          BaseVector::createConstant(sum, rows.end(), context.pool()),
+          rows,
+          result);
+      return;
+    }
+
+    VELOX_CHECK_EQ(
+        args[0]->encoding(),
+        VectorEncoding::Simple::ARRAY,
+        "Expected flat or constant encoding");
+
     // Prepare result vector for writing
     BaseVector::ensureWritable(rows, outputType, context.pool(), result);
     auto resultValues = result->template asFlatVector<TOutput>();
 
-    // Acquire the array elements vector.
     auto arrayVector = args[0]->as<ArrayVector>();
     VELOX_CHECK(arrayVector);
     auto elementsVector = arrayVector->elements();
 
-    if (elementsVector->encoding() == VectorEncoding::Simple::FLAT) {
+    if (elementsVector->isFlatEncoding()) {
       const TInput* __restrict rawElements =
           elementsVector->as<FlatVector<TInput>>()->rawValues();
       const uint64_t* __restrict rawNulls = elementsVector->rawNulls();
