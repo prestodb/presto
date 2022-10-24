@@ -1592,6 +1592,19 @@ public class TestArrayOperators
     }
 
     @Test
+    public void testRemoveNulls()
+    {
+        assertFunction("REMOVE_NULLS(ARRAY ['foo', 'bar'])", new ArrayType(createVarcharType(3)), asList("foo", "bar"));
+        assertFunction("REMOVE_NULLS(ARRAY ['foo', NULL, 'bar'])", new ArrayType(createVarcharType(3)), asList("foo", "bar"));
+        assertFunction("REMOVE_NULLS(ARRAY [1, NULL, NULL, 3])", new ArrayType(INTEGER), asList(1, 3));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY ['foo'], NULL, ARRAY['bar']])", new ArrayType(new ArrayType(createVarcharType(3))), asList(singletonList("foo"), singletonList("bar")));
+        assertFunction("REMOVE_NULLS(ARRAY [TRUE, FALSE, TRUE])", new ArrayType(BOOLEAN), asList(true, false, true));
+        assertFunction("REMOVE_NULLS(ARRAY [TRUE, FALSE, NULL])", new ArrayType(BOOLEAN), asList(true, false));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY[NULL]])", new ArrayType(new ArrayType(UNKNOWN)), ImmutableList.of(singletonList(null)));
+        assertFunction("REMOVE_NULLS(ARRAY [ARRAY[NULL], NULL])", new ArrayType(new ArrayType(UNKNOWN)), ImmutableList.of(singletonList(null)));
+    }
+
+    @Test
     public void testRepeat()
     {
         // concrete values
