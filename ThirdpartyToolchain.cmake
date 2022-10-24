@@ -124,6 +124,7 @@ macro(build_protobuf)
     include_directories("${protobuf_SOURCE_DIR}/src/")
     add_subdirectory(${protobuf_SOURCE_DIR} ${protobuf_BINARY_DIR})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BKP}")
+    set(Protobuf_LIBRARIES protobuf)
   endif()
 endmacro()
 # ================================ END PROTOBUF ================================
