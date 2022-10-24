@@ -16,6 +16,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 namespace facebook::velox::exec::test {
 
@@ -124,5 +125,49 @@ TEST_F(AssertQueryBuilderTest, hiveSplits) {
       .split(probeScanId, makeHiveConnectorSplit(file->path))
       .split(buildScanId, makeHiveConnectorSplit(buildFile->path))
       .assertResults("SELECT 2");
+}
+
+TEST_F(AssertQueryBuilderTest, encodedResults) {
+  VectorFuzzer::Options opts;
+  opts.vectorSize = 1000;
+  opts.nullRatio = 0.1;
+
+  VectorFuzzer fuzzer(opts, pool_.get());
+
+  // Dict(Array).
+  auto input =
+      makeRowVector({fuzzer.fuzzDictionary(fuzzer.fuzzFlat(ARRAY(INTEGER())))});
+  auto flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
+
+  // Const(Array).
+  input = makeRowVector({fuzzer.fuzzConstant(ARRAY(INTEGER()))});
+  flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
+
+  // Dict(Map).
+  input = makeRowVector(
+      {fuzzer.fuzzDictionary(fuzzer.fuzzFlat(MAP(INTEGER(), VARCHAR())))});
+  flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
+
+  // Const(Map).
+  input = makeRowVector({fuzzer.fuzzConstant(MAP(INTEGER(), VARCHAR()))});
+  flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
+
+  // Dict(Row).
+  input = makeRowVector({fuzzer.fuzzDictionary(fuzzer.fuzzFlat(
+      ROW({"c0", "c1", "c2", "c3"},
+          {INTEGER(), VARCHAR(), BOOLEAN(), ARRAY(INTEGER())})))});
+  flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
+
+  // Const(Row).
+  input = makeRowVector({fuzzer.fuzzConstant(
+      ROW({"c0", "c1", "c2", "c3"},
+          {INTEGER(), VARCHAR(), BOOLEAN(), ARRAY(INTEGER())}))});
+  flatInput = flatten<RowVector>(input);
+  assertEqualResults({flatInput}, {input});
 }
 } // namespace facebook::velox::exec::test
