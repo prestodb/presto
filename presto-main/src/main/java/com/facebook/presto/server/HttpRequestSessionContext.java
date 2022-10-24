@@ -218,7 +218,7 @@ public final class HttpRequestSessionContext
             // If tunnel trace token is null, we expose the Presto tracing id.
             // Otherwise we preserve the ability of trace token tunneling but
             // still trace Presto internally for aggregation purposes.
-            traceToken = Optional.ofNullable(tunnelTraceId == null ? this.tracer.get().getTracerId() : tunnelTraceId);
+            traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
         }
         else {
             this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);

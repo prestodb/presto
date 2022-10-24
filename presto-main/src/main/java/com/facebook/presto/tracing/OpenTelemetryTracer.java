@@ -17,6 +17,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.tracing.Tracer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -31,35 +32,39 @@ public class OpenTelemetryTracer
     public final io.opentelemetry.api.trace.Tracer openTelemetryTracer;
     public final String tracerName;
     public final String traceToken;
+    public final Span parentSpan;
 
     public final Map<String, Span> spanMap = new ConcurrentHashMap<String, Span>();
     public final Map<String, Span> recorderSpanMap = new LinkedHashMap<String, Span>();
 
     public OpenTelemetryTracer(String tracerName, String traceToken)
     {
+        openTelemetryTracer = OPEN_TELEMETRY.getTracer(tracerName);
         this.tracerName = tracerName;
         this.traceToken = traceToken;
-        openTelemetryTracer = OPEN_TELEMETRY.getTracer(tracerName);
-        // update span's traceId to be traceToken somehow
-        addPoint("Start tracing");
+
+        parentSpan = openTelemetryTracer.spanBuilder("Trace start").startSpan();
+        parentSpan.setAttribute("trace_token", traceToken);
+
+        synchronized (recorderSpanMap) {
+            recorderSpanMap.put("Trace start", parentSpan);
+        }
     }
 
     /**
-     * Add short span representing single point
-     * @param annotation represents name of span
+     * Add annotation as event to parent span
+     * @param annotation event to add
      */
     @Override
     public void addPoint(String annotation)
     {
-        String blockName = annotation;
-        startBlock(blockName, "");
-        endBlock(blockName, "");
+        parentSpan.addEvent(annotation);
     }
 
     /**
      * Create new span with Open Telemetry tracer
      * @param blockName name of span
-     * @param annotation unused because annotation not supported by Open Telemetry spans
+     * @param annotation event to add to span
      */
     @Override
     public void startBlock(String blockName, String annotation)
@@ -67,7 +72,10 @@ public class OpenTelemetryTracer
         if (spanMap.containsKey(blockName)) {
             throw new PrestoException(DISTRIBUTED_TRACING_ERROR, "Duplicated block inserted: " + blockName);
         }
-        Span span = openTelemetryTracer.spanBuilder(blockName).startSpan();
+        Span span = openTelemetryTracer.spanBuilder(blockName)
+                .setParent(Context.current().with(parentSpan))
+                .startSpan();
+        span.addEvent(annotation);
         spanMap.put(blockName, span);
         synchronized (recorderSpanMap) {
             recorderSpanMap.put(blockName, span);
@@ -91,7 +99,7 @@ public class OpenTelemetryTracer
     /**
      * End Open Telemetry span
      * @param blockName name of span
-     * @param annotation unused because annotation not supported by Open Telemetry spans
+     * @param annotation event to add to span
      */
     @Override
     public void endBlock(String blockName, String annotation)
@@ -101,21 +109,25 @@ public class OpenTelemetryTracer
         }
         spanMap.remove(blockName);
         synchronized (recorderSpanMap) {
-            recorderSpanMap.get(blockName).end();
+            Span span = recorderSpanMap.get(blockName);
+            span.addEvent(annotation);
+            span.end();
         }
     }
 
     @Override
     public void endTrace(String annotation)
     {
-        addPoint(annotation);
+        parentSpan.addEvent(annotation);
+        parentSpan.end();
     }
 
     @Override
     public String getTracerId()
     {
-        // get unique trace id
-        // will be non-null
-        return traceToken;
+        if (traceToken != null) {
+            return traceToken;
+        }
+        return tracerName;
     }
 }

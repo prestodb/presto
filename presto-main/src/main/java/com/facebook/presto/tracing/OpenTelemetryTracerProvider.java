@@ -20,9 +20,6 @@ import com.google.inject.Inject;
 public class OpenTelemetryTracerProvider
         implements TracerProvider
 {
-//    public static OpenTelemetry OPEN_TELEMETRY = OpenTelemetryBuilder.build(true);
-//    public static final OpenTelemetryTracer OPEN_TELEMETRY_TRACER = new OpenTelemetryTracer(OPEN_TELEMETRY);
-
     @Inject
     public OpenTelemetryTracerProvider() {}
 
