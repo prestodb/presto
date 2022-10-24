@@ -259,6 +259,10 @@ Array Functions
                       (s, x) -> CAST(ROW(x + s.sum, s.count + 1) AS ROW(sum DOUBLE, count INTEGER)),
                       s -> IF(s.count = 0, NULL, s.sum / s.count));
 
+.. function:: remove_nulls(array(T)) -> array
+
+    Remove all null elements in the array.
+
 .. function:: repeat(element, count) -> array
 
     Repeat ``element`` for ``count`` times.
