@@ -18,13 +18,16 @@
 #include <folly/ScopeGuard.h>
 #include <glog/logging.h>
 #include <exception>
+#include <unordered_set>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
+#include "velox/expression/ReverseSignatureBinder.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/expression/tests/ArgumentTypeFuzzer.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 #include "velox/type/Type.h"
 #include "velox/vector/BaseVector.h"
@@ -82,6 +85,11 @@ DEFINE_int32(
     velox_fuzzer_max_level_of_nesting,
     10,
     "Max levels of expression nesting. The default value is 10 and minimum is 1.");
+
+DEFINE_bool(
+    velox_fuzzer_enable_complex_types,
+    false,
+    "Enable testing of function signatures with complex argument or return types.");
 
 namespace facebook::velox::test {
 
@@ -163,8 +171,6 @@ std::optional<CallableSignature> processSignature(
           SignatureBinder::tryResolveType(signature.returnType(), {})};
   VELOX_CHECK_NOT_NULL(callable.returnType);
 
-  // For now, ensure that this function only takes (and returns) primitives
-  // types.
   bool onlyPrimitiveTypes = callable.returnType->isPrimitiveType();
 
   // Process each argument and figure out its type.
@@ -183,18 +189,48 @@ std::optional<CallableSignature> processSignature(
     callable.args.emplace_back(resolvedType);
   }
 
-  if (onlyPrimitiveTypes) {
+  if (onlyPrimitiveTypes || FLAGS_velox_fuzzer_enable_complex_types) {
     if (isDeterministic(callable.name, callable.args).value()) {
       return callable;
-    } else {
-      LOG(WARNING) << "Skipping non-deterministic function: "
-                   << callable.toString();
     }
-  } else {
-    LOG(WARNING) << "Skipping '" << callable.toString()
-                 << "' because it contains non-primitive types.";
+    LOG(WARNING) << "Skipping non-deterministic function: "
+                 << callable.toString();
   }
+  LOG(WARNING) << "Skipping '" << callable.toString()
+               << "' because it contains non-primitive types.";
+
   return std::nullopt;
+}
+
+// Determine whether type is or contains typeName.
+bool containTypeName(
+    const exec::TypeSignature& type,
+    const std::string& typeName) {
+  if (type.baseName() == typeName) {
+    return true;
+  }
+  for (const auto& parameter : type.parameters()) {
+    if (containTypeName(parameter, typeName)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Determine whether the signature has an argument or return type that contains
+// typeName.
+bool useTypeName(
+    const exec::FunctionSignature& signature,
+    const std::string& typeName) {
+  if (containTypeName(signature.returnType(), typeName)) {
+    return true;
+  }
+  for (const auto& argument : signature.argumentTypes()) {
+    if (containTypeName(argument, typeName)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 } // namespace
@@ -233,7 +269,30 @@ ExpressionFuzzer::ExpressionFuzzer(
     for (const auto& signature : function.second) {
       ++totalFunctionSignatures;
 
-      if (auto callableFunction =
+      // Not supporting lambda functions or decimal functions for now.
+      if (useTypeName(*signature, "function") ||
+          useTypeName(*signature, "long_decimal") ||
+          useTypeName(*signature, "short_decimal") ||
+          useTypeName(*signature, "decimal")) {
+        continue;
+      }
+
+      if (!signature->typeVariableConstraints().empty()) {
+        // Avoid building signatureTemplates_ if the feature is not enabled.
+        if (!FLAGS_velox_fuzzer_enable_complex_types) {
+          continue;
+        }
+
+        std::unordered_set<std::string> typeVariables;
+        for (const auto& variable : signature->typeVariableConstraints()) {
+          typeVariables.insert(variable.name());
+        }
+        atLeastOneSupported = true;
+        ++supportedFunctionSignatures;
+        signatureTemplates_.emplace_back(
+            function.first, signature, std::move(typeVariables));
+      } else if (
+          auto callableFunction =
               processSignature(function.first, *signature)) {
         atLeastOneSupported = true;
         ++supportedFunctionSignatures;
@@ -273,39 +332,34 @@ ExpressionFuzzer::ExpressionFuzzer(
   // Add additional signatures that are not in function registry.
   appendConjunctSignatures();
 
-  // We sort the available signatures to ensure we can deterministically
-  // generate expressions across platforms. We just do this once and the
-  // vector is small, so it doesn't need to be very efficient.
-  std::sort(
-      signatures_.begin(),
-      signatures_.end(),
-      // Returns true if lhs is less (comes before).
-      [](const CallableSignature& lhs, const CallableSignature& rhs) {
-        // The comparison logic is the following:
-        //
-        // 1. Compare based on function name.
-        // 2. If names are the same, compare the number of args.
-        // 3. If number of args are the same, look for any different arg
-        // types.
-        // 4. If all arg types are the same, compare return type.
-        if (lhs.name == rhs.name) {
-          if (lhs.args.size() == rhs.args.size()) {
-            for (size_t i = 0; i < lhs.args.size(); ++i) {
-              if (!lhs.args[i]->kindEquals(rhs.args[i])) {
-                return lhs.args[i]->toString() < rhs.args[i]->toString();
-              }
-            }
-            return lhs.returnType->toString() < rhs.returnType->toString();
-          }
-          return lhs.args.size() < rhs.args.size();
-        }
-        return lhs.name < rhs.name;
-      });
+  // We sort the available signatures before inserting them into
+  // signaturesMap_. The purpose of this step is to ensure the vector of
+  // function signatures associated with each key in signaturesMap_ has a
+  // deterministic order, so that we can deterministically generate
+  // expressions across platforms. We just do this once and the vector is
+  // small, so it doesn't need to be very efficient.
+  sortConcreteSignatures();
 
   // Generates signaturesMap, which maps a given type to the function
   // signature that returns it.
   for (const auto& it : signatures_) {
     signaturesMap_[it.returnType->kind()].push_back(&it);
+  }
+
+  // Similarly, sort all template signatures.
+  sortSignatureTemplates();
+
+  // Insert signature templates into signatureTemplateMap_ grouped by their
+  // return type base name. If the return type is a type variable, insert the
+  // signature template into the list of key kTypeParameterName.
+  for (const auto& it : signatureTemplates_) {
+    auto& returnType = it.signature->returnType().baseName();
+    if (it.typeVariables.find(returnType) == it.typeVariables.end()) {
+      signatureTemplateMap_[it.signature->returnType().baseName()].push_back(
+          &it);
+    } else {
+      signatureTemplateMap_[kTypeParameterName].push_back(&it);
+    }
   }
 
   // Register function override (for cases where we want to restrict the types
@@ -334,6 +388,65 @@ void ExpressionFuzzer::reSeed() {
   seed(folly::Random::rand32(rng_));
 }
 
+void ExpressionFuzzer::sortConcreteSignatures() {
+  std::sort(
+      signatures_.begin(),
+      signatures_.end(),
+      // Returns true if lhs is less (comes before).
+      [](const CallableSignature& lhs, const CallableSignature& rhs) {
+        // The comparison logic is the following:
+        //
+        // 1. Compare based on function name.
+        // 2. If names are the same, compare the number of args.
+        // 3. If number of args are the same, look for any different arg
+        // types.
+        // 4. If all arg types are the same, compare return type.
+        if (lhs.name == rhs.name) {
+          if (lhs.args.size() == rhs.args.size()) {
+            for (size_t i = 0; i < lhs.args.size(); ++i) {
+              if (!lhs.args[i]->kindEquals(rhs.args[i])) {
+                return lhs.args[i]->toString() < rhs.args[i]->toString();
+              }
+            }
+            return lhs.returnType->toString() < rhs.returnType->toString();
+          }
+          return lhs.args.size() < rhs.args.size();
+        }
+        return lhs.name < rhs.name;
+      });
+}
+
+void ExpressionFuzzer::sortSignatureTemplates() {
+  std::sort(
+      signatureTemplates_.begin(),
+      signatureTemplates_.end(),
+      // Returns true if lhs is less (comes before).
+      [](const SignatureTemplate& lhs, const SignatureTemplate& rhs) {
+        // The comparison logic is the following:
+        //
+        // 1. Compare based on function name.
+        // 2. If names are the same, compare the number of args.
+        // 3. If number of args are the same, look for any different arg
+        // types.
+        // 4. If all arg types are the same, compare return type.
+        if (lhs.functionName == rhs.functionName) {
+          auto& leftArgs = lhs.signature->argumentTypes();
+          auto& rightArgs = rhs.signature->argumentTypes();
+          if (leftArgs.size() == rightArgs.size()) {
+            for (size_t i = 0; i < leftArgs.size(); ++i) {
+              if (!(leftArgs[i] == rightArgs[i])) {
+                return leftArgs[i].toString() < rightArgs[i].toString();
+              }
+            }
+            return lhs.signature->returnType().toString() <
+                rhs.signature->returnType().toString();
+          }
+          return leftArgs.size() < rightArgs.size();
+        }
+        return lhs.functionName < rhs.functionName;
+      });
+}
+
 void ExpressionFuzzer::appendConjunctSignatures() {
   CallableSignature conjunctSignature;
   conjunctSignature.name = "and";
@@ -352,13 +465,16 @@ RowVectorPtr ExpressionFuzzer::generateRowVector() {
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArgConstant(const TypePtr& arg) {
-  // 10% of times return a NULL constant.
   if (vectorFuzzer_.coinToss(FLAGS_null_ratio)) {
     return std::make_shared<core::ConstantTypedExpr>(
-        variant::null(arg->kind()));
+        arg, variant::null(arg->kind()));
+  }
+  if (arg->isPrimitiveType()) {
+    return std::make_shared<core::ConstantTypedExpr>(
+        vectorFuzzer_.randVariant(arg));
   }
   return std::make_shared<core::ConstantTypedExpr>(
-      vectorFuzzer_.randVariant(arg));
+      vectorFuzzer_.fuzzConstant(arg, 1));
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
@@ -370,7 +486,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
-  size_t argClass = folly::Random::rand32(3, rng_);
+  size_t argClass = folly::Random::rand32(4, rng_);
 
   // Toss a coin and choose between a constant, a column reference, or another
   // expression (function).
@@ -453,27 +569,116 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
 
   auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
 
-  // If no functions can return `returnType`, return a constant instead.
+  auto firstAttempt =
+      &ExpressionFuzzer::generateExpressionFromConcreteSignatures;
+  auto secondAttempt =
+      &ExpressionFuzzer::generateExpressionFromSignatureTemplate;
+
+  size_t useSignatureTemplate = folly::Random::rand32(2, rng_);
+  if (FLAGS_velox_fuzzer_enable_complex_types && useSignatureTemplate) {
+    std::swap(firstAttempt, secondAttempt);
+  }
+
+  core::TypedExprPtr expression = (this->*firstAttempt)(returnType);
+  if (!expression) {
+    if (FLAGS_velox_fuzzer_enable_complex_types) {
+      expression = (this->*secondAttempt)(returnType);
+    }
+    if (!expression) {
+      LOG(INFO) << "Couldn't find any function to return '"
+                << returnType->toString() << "'. Returning a constant instead.";
+      expression = generateArgConstant(returnType);
+    }
+  }
+  return expression;
+}
+
+core::TypedExprPtr ExpressionFuzzer::getCallExprFromCallable(
+    const CallableSignature& callable) {
+  auto funcIt = funcArgOverrides_.find(callable.name);
+  auto args = funcIt == funcArgOverrides_.end() ? generateArgs(callable)
+                                                : funcIt->second(callable);
+
+  return std::make_shared<core::CallTypedExpr>(
+      callable.returnType, args, callable.name);
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateExpressionFromConcreteSignatures(
+    const TypePtr& returnType) {
   auto it = signaturesMap_.find(returnType->kind());
   if (it == signaturesMap_.end()) {
-    LOG(INFO) << "Couldn't find any function to return '"
-              << returnType->toString() << "'. Returning a constant instead.";
-    return generateArgConstant(returnType);
+    return nullptr;
+  }
+
+  // Only function signatures whose return type equals to returnType are
+  // eligible. There may be ineligible signatures in signaturesMap_ because
+  // the map keys only differentiate top-level type kinds.
+  std::vector<const CallableSignature*> eligible;
+  const auto& signatures = it->second;
+  for (const auto* signature : signatures) {
+    if (signature->returnType->equivalent(*returnType)) {
+      eligible.push_back(signature);
+    }
+  }
+  if (eligible.empty()) {
+    return nullptr;
   }
 
   // Randomly pick a function that can return `returnType`.
-  const auto& eligible = it->second;
   size_t idx = folly::Random::rand32(eligible.size(), rng_);
   const auto& chosen = eligible[idx];
 
-  // Generate the function args recursively.
-  auto funcIt = funcArgOverrides_.find(chosen->name);
+  return getCallExprFromCallable(*chosen);
+}
 
-  auto args = funcIt == funcArgOverrides_.end() ? generateArgs(*chosen)
-                                                : funcIt->second(*chosen);
+const ExpressionFuzzer::SignatureTemplate*
+ExpressionFuzzer::chooseRandomSignatureTemplate(
+    const TypePtr& returnType,
+    const std::string& typeName) {
+  std::vector<const SignatureTemplate*> eligible;
+  auto it = signatureTemplateMap_.find(typeName);
+  if (it == signatureTemplateMap_.end()) {
+    return nullptr;
+  }
+  // Only function signatures whose return type can match returnType are
+  // eligible. There may be ineligible signatures in signaturesMap_ because
+  // the map keys only differentiate the top-level type names.
+  auto& signatureTemplates = it->second;
+  for (auto* signatureTemplate : signatureTemplates) {
+    exec::ReverseSignatureBinder binder{
+        *signatureTemplate->signature, returnType};
+    if (binder.tryBind()) {
+      eligible.push_back(signatureTemplate);
+    }
+  }
+  if (eligible.empty()) {
+    return nullptr;
+  }
 
-  return std::make_shared<core::CallTypedExpr>(
-      chosen->returnType, args, chosen->name);
+  auto idx = folly::Random::rand32(eligible.size(), rng_);
+  return eligible[idx];
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
+    const TypePtr& returnType) {
+  auto typeName = typeToBaseName(returnType);
+
+  auto* chosen = chooseRandomSignatureTemplate(returnType, typeName);
+  if (!chosen) {
+    chosen = chooseRandomSignatureTemplate(returnType, kTypeParameterName);
+    if (!chosen) {
+      return nullptr;
+    }
+  }
+
+  ArgumentTypeFuzzer fuzzer{*chosen->signature, returnType, rng_};
+  VELOX_CHECK_EQ(fuzzer.fuzzArgumentTypes(FLAGS_max_num_varargs), true);
+  auto& argumentTypes = fuzzer.argumentTypes();
+
+  CallableSignature callable{
+      chosen->functionName, argumentTypes, false, returnType};
+
+  return getCallExprFromCallable(callable);
 }
 
 template <typename T>

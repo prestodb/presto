@@ -30,6 +30,7 @@ namespace {
 // TODO: Extend this function to return arbitrary random types including nested
 // complex types.
 TypePtr randomType(std::mt19937& seed) {
+  // Decimal types are not supported because VectorFuzzer doesn't support them.
   static std::vector<TypePtr> kSupportedTypes{
       BOOLEAN(),
       TINYINT(),
@@ -40,23 +41,21 @@ TypePtr randomType(std::mt19937& seed) {
       DOUBLE(),
       TIMESTAMP(),
       DATE(),
-      INTERVAL_DAY_TIME(),
-      SHORT_DECIMAL(10, 5),
-      LONG_DECIMAL(20, 10)};
+      INTERVAL_DAY_TIME()};
   auto index = folly::Random::rand32(kSupportedTypes.size(), seed);
   return kSupportedTypes[index];
 }
 
-std::string fromTypeToBaseName(const TypePtr& type) {
+} // namespace
+
+std::string typeToBaseName(const TypePtr& type) {
   return boost::algorithm::to_lower_copy(std::string{type->kindName()});
 }
 
-std::optional<TypeKind> fromBaseNameToTypeKind(std::string& typeName) {
+std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName) {
   auto kindName = boost::algorithm::to_upper_copy(typeName);
   return tryMapNameToTypeKind(kindName);
 }
-
-} // namespace
 
 void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
   for (auto& binding : bindings_) {

@@ -65,4 +65,11 @@ class ArgumentTypeFuzzer {
   std::mt19937& seed_;
 };
 
+/// Return the kind name of type in lower case. This is expected to match the
+/// TypeSignature::baseName_ corresponding to type.
+std::string typeToBaseName(const TypePtr& type);
+
+/// Return the TypeKind that corresponds to typeName.
+std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName);
+
 } // namespace facebook::velox::test

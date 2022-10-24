@@ -284,7 +284,11 @@ void Expr::evalSimplifiedImpl(
     inputs_[i]->evalSimplified(remainingRows, context, inputValue);
 
     BaseVector::flattenVector(inputValue, rows.end());
-    VELOX_CHECK_EQ(VectorEncoding::Simple::FLAT, inputValue->encoding());
+    VELOX_CHECK(
+        inputValue->encoding() == VectorEncoding::Simple::FLAT ||
+        inputValue->encoding() == VectorEncoding::Simple::ARRAY ||
+        inputValue->encoding() == VectorEncoding::Simple::MAP ||
+        inputValue->encoding() == VectorEncoding::Simple::ROW);
 
     // If the resulting vector has nulls, merge them into our current remaining
     // rows bitmap.

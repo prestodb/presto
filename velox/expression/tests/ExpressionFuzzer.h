@@ -61,11 +61,33 @@ class ExpressionFuzzer {
   core::TypedExprPtr generateExpression(const TypePtr& returnType);
 
  private:
+  const std::string kTypeParameterName = "T";
+
   enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
+
+  struct SignatureTemplate {
+    std::string functionName;
+    const exec::FunctionSignature* signature;
+    std::unordered_set<std::string> typeVariables;
+
+    SignatureTemplate(
+        std::string functionName,
+        const exec::FunctionSignature* signature,
+        std::unordered_set<std::string> typeVariables)
+        : functionName{functionName},
+          signature{signature},
+          typeVariables{typeVariables} {}
+  };
 
   void seed(size_t seed);
 
   void reSeed();
+
+  /// Sort concrete function signatures in signatures_.
+  void sortConcreteSignatures();
+
+  /// Sort function signature templates in signatureTemplates_.
+  void sortSignatureTemplates();
 
   void appendConjunctSignatures();
 
@@ -79,23 +101,42 @@ class ExpressionFuzzer {
 
   std::vector<core::TypedExprPtr> generateArgs(const CallableSignature& input);
 
-  // Specialization for the "like" function: second and third (optional)
-  // parameters always need to be constant.
+  /// Specialization for the "like" function: second and third (optional)
+  /// parameters always need to be constant.
   std::vector<core::TypedExprPtr> generateLikeArgs(
       const CallableSignature& input);
 
-  // Specialization for the "empty_approx_set" function: first optional
-  // parameter needs to be constant.
+  /// Specialization for the "empty_approx_set" function: first optional
+  /// parameter needs to be constant.
   std::vector<core::TypedExprPtr> generateEmptyApproxSetArgs(
       const CallableSignature& input);
 
-  // Specialization for the "regexp_replace" function: second and third
-  // (optional) parameters always need to be constant.
+  /// Specialization for the "regexp_replace" function: second and third
+  /// (optional) parameters always need to be constant.
   std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
       const CallableSignature& input);
 
-  // If --duration_sec > 0, check if we expired the time budget. Otherwise,
-  // check if we expired the number of iterations (--steps).
+  core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
+
+  /// Generate an expression with a random concrete function signature that
+  /// returns returnType.
+  core::TypedExprPtr generateExpressionFromConcreteSignatures(
+      const TypePtr& returnType);
+
+  /// Return a random signature template mapped to typeName in
+  /// signatureTemplateMap_ whose return type can match returnType. Return
+  /// nullptr if no such signature template exists.
+  const SignatureTemplate* chooseRandomSignatureTemplate(
+      const TypePtr& returnType,
+      const std::string& typeName);
+
+  /// Generate an expression with a random function signature template that
+  /// returns returnType.
+  core::TypedExprPtr generateExpressionFromSignatureTemplate(
+      const TypePtr& returnType);
+
+  /// If --duration_sec > 0, check if we expired the time budget. Otherwise,
+  /// check if we expired the number of iterations (--steps).
   template <typename T>
   bool isDone(size_t i, T startTime) const;
 
@@ -104,18 +145,26 @@ class ExpressionFuzzer {
 
   std::vector<CallableSignature> signatures_;
 
-  // Maps a given type to the functions that return that type.
+  /// Maps a given type to the functions that return that type.
   std::unordered_map<TypeKind, std::vector<const CallableSignature*>>
       signaturesMap_;
 
-  // The remaining levels of expression nesting. It's initialized by
-  // FLAGS_max_level_of_nesting and updated in generateExpression(). When its
-  // value decreases to 0, we don't generate subexpressions anymore.
+  std::vector<SignatureTemplate> signatureTemplates_;
+
+  /// Maps the base name of the return type signature to the functions that
+  /// return this type. Base name could be "T" if the return type is a type
+  /// variable.
+  std::unordered_map<std::string, std::vector<const SignatureTemplate*>>
+      signatureTemplateMap_;
+
+  /// The remaining levels of expression nesting. It's initialized by
+  /// FLAGS_max_level_of_nesting and updated in generateExpression(). When its
+  /// value decreases to 0, we don't generate subexpressions anymore.
   int32_t remainingLevelOfNesting_;
 
-  // We allow the arg generation routine to be specialized for particular
-  // functions. This map stores the mapping between function name and the
-  // overridden method.
+  /// We allow the arg generation routine to be specialized for particular
+  /// functions. This map stores the mapping between function name and the
+  /// overridden method.
   using ArgsOverrideFunc = std::function<std::vector<core::TypedExprPtr>(
       const CallableSignature& input)>;
   std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
@@ -129,8 +178,8 @@ class ExpressionFuzzer {
   test::VectorMaker vectorMaker_{execCtx_.pool()};
   VectorFuzzer vectorFuzzer_;
 
-  // Contains the input column references that need to be generated for one
-  // particular iteration.
+  /// Contains the input column references that need to be generated for one
+  /// particular iteration.
   std::vector<TypePtr> inputRowTypes_;
   std::vector<std::string> inputRowNames_;
 };
