@@ -267,7 +267,12 @@ void HashProbe::addInput(RowVectorPtr input) {
     VELOX_CHECK(
         isAntiJoins(joinType_) || isLeftJoin(joinType_) ||
         isFullJoin(joinType_));
-    return;
+    if (!isAntiJoins(joinType_) || (filter_ == nullptr)) {
+      return;
+    }
+    // For anti join types we need to decode the join keys columns to initialize
+    // 'nonNullInputRows_' if the filter is also present. The filter evaluation
+    // will access 'nonNullInputRows_' later.
   }
 
   nonNullInputRows_.resize(input_->size());
@@ -279,6 +284,12 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
 
   deselectRowsWithNulls(hashers_, nonNullInputRows_);
+
+  if (table_->numDistinct() == 0) {
+    VELOX_CHECK(isAntiJoins(joinType_));
+    VELOX_CHECK_NOT_NULL(filter_);
+    return;
+  }
 
   activeRows_ = nonNullInputRows_;
   lookup_->hashes.resize(input_->size());
