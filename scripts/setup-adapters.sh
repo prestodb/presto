@@ -46,16 +46,6 @@ function install_libhdfs3 {
   cmake_install
 }
 
-function install_protobuf {
-  wget https://github.com/protocolbuffers/protobuf/releases/download/v21.4/protobuf-all-21.4.tar.gz
-  tar -xzf protobuf-all-21.4.tar.gz --no-same-owner
-  cd protobuf-21.4
-  ./configure --prefix=/usr
-  make "-j$(nproc)"
-  make install
-  ldconfig
-}
-
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 cd "${DEPENDENCY_DIR}" || exit
 # aws-sdk-cpp missing dependencies
@@ -74,7 +64,6 @@ fi
 if [[ "$OSTYPE" == darwin* ]]; then
    brew install libxml2 gsasl
 fi
-install_protobuf
 install_aws-sdk-cpp
 install_libhdfs3
 

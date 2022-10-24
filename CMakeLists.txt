@@ -278,6 +278,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
   link_directories("${ICU_INCLUDE_DIRS}/../lib")
 endif()
 
+# Locate or build folly.
 set(folly_SOURCE AUTO)
 resolve_dependency(folly)
 
@@ -306,6 +307,10 @@ endif()
 include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 
 if(NOT ${VELOX_BUILD_MINIMAL})
+  # Locate or build protobuf.
+  set(protobuf_SOURCE AUTO)
+  resolve_dependency(protobuf)
+
   find_package(Protobuf 3.21.4 REQUIRED)
 endif()
 

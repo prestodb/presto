@@ -27,12 +27,12 @@
 # EXAMPLE USAGE: # Download and setup or use already installed dependency.
 # include(ThirdpartyToolchain) resolve_dependency(folly)
 #
-# ========================================================================================
+# ==============================================================================
 
 include(FetchContent)
 include(CheckCXXCompilerFlag)
 
-# =====================================FOLLY==============================================
+# ================================ FOLLY =======================================
 
 if(DEFINED ENV{VELOX_FOLLY_URL})
   set(FOLLY_SOURCE_URL "$ENV{VELOX_FOLLY_URL}")
@@ -81,11 +81,58 @@ macro(build_folly)
       ${folly_BINARY_DIR}/folly/libfollybenchmark${CMAKE_STATIC_LIBRARY_SUFFIX})
   set(FOLLY_LIBRARIES folly)
 endmacro()
-# ===============================END FOLLY================================
+# ================================= END FOLLY ==================================
+
+# ================================== PROTOBUF ==================================
+
+if(DEFINED ENV{VELOX_PROTOBUF_URL})
+  set(PROTOBUF_SOURCE_URL "$ENV{VELOX_PROTOBUF_URL}")
+else()
+  set(VELOX_PROTOBUF_BUILD_VERSION 21.4)
+  string(
+    CONCAT
+      PROTOBUF_SOURCE_URL
+      "https://github.com/protocolbuffers/protobuf/releases/download/"
+      "v${VELOX_PROTOBUF_BUILD_VERSION}/protobuf-all-${VELOX_PROTOBUF_BUILD_VERSION}.tar.gz"
+  )
+  set(VELOX_PROTOBUF_BUILD_SHA256_CHECKSUM
+      6c5e1b0788afba4569aeebb2cfe205cb154aa01deacaba0cd26442f3b761a836)
+endif()
+
+macro(build_protobuf)
+  message(STATUS "Building Protobuf from source")
+
+  FetchContent_Declare(
+    protobuf
+    URL ${PROTOBUF_SOURCE_URL}
+    URL_HASH SHA256=${VELOX_PROTOBUF_BUILD_SHA256_CHECKSUM})
+
+  if(NOT protobuf_POPULATED)
+    # We don't want to build tests.
+    set(protobuf_BUILD_TESTS
+        OFF
+        CACHE BOOL "Disable protobuf tests" FORCE)
+    set(CMAKE_CXX_FLAGS_BKP "${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS
+        "-Wno-stringop-overflow -Wno-missing-field-initializers")
+
+    # Fetch the content using previously declared details
+    FetchContent_Populate(protobuf)
+
+    # Set right path to libprotobuf-dev include files.
+    set(Protobuf_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src/")
+    include_directories("${protobuf_SOURCE_DIR}/src/")
+    add_subdirectory(${protobuf_SOURCE_DIR} ${protobuf_BINARY_DIR})
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BKP}")
+  endif()
+endmacro()
+# ================================ END PROTOBUF ================================
 
 macro(build_dependency DEPENDENCY_NAME)
   if("${DEPENDENCY_NAME}" STREQUAL "folly")
     build_folly()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "protobuf")
+    build_protobuf()
   else()
     message(
       FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
