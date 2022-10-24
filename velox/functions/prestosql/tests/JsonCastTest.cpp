@@ -1077,6 +1077,20 @@ TEST_F(JsonCastTest, castInTry) {
 
   evaluateAndVerifyCastInTryDictEncoding(JSON(), BIGINT(), input, expected);
 
+  // Cast map whose elements are wrapped in a dictionary to Json. The map vector
+  // contains four rows: {g -> null, null -> -6}, {e -> null, d -> -4}, {null ->
+  // 3, b -> -2}, {null -> 1}.
+  std::vector<std::optional<StringView>> keys{
+      std::nullopt, "b"_sv, std::nullopt, "d"_sv, "e"_sv, std::nullopt, "g"_sv};
+  std::vector<std::optional<int64_t>> values{1, -2, 3, -4, std::nullopt, -6, 7};
+  auto map = makeMapWithDictionaryElements(keys, values, 2);
+
+  auto jsonExpected = makeNullableFlatVector<Json>(
+      {std::nullopt, R"({"d":-4,"e":null})", std::nullopt, std::nullopt},
+      JSON());
+  evaluateAndVerifyCastInTryDictEncoding(
+      MAP(VARCHAR(), BIGINT()), JSON(), makeRowVector({map}), jsonExpected);
+
   // Cast map vector that has null keys. The map vector contains three rows:
   // {blue -> 1, red -> 2}, {null -> 3, yellow -> 4}, {purple -> 5, null -> 6}.
   auto keyVector = makeNullableFlatVector<StringView>(
@@ -1104,13 +1118,32 @@ TEST_F(JsonCastTest, castInTry) {
       0);
   auto rowVector = makeRowVector({mapVector});
 
-  auto jsonExpected = makeNullableFlatVector<Json>(
+  jsonExpected = makeNullableFlatVector<Json>(
       {"[{blue:1,red:2}]"_sv, std::nullopt, std::nullopt});
   evaluateAndVerifyCastInTryDictEncoding(
       ROW({MAP(JSON(), BIGINT())}),
       JSON(),
       makeRowVector({rowVector}),
       jsonExpected);
+
+  // Cast map whose elements are wrapped in constant encodings to Json.
+  auto constantKey = BaseVector::wrapInConstant(6, 2, keyVector);
+  auto constantValue = BaseVector::wrapInConstant(6, 3, valueVector);
+  mapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(JSON(), BIGINT()),
+      nullptr,
+      3,
+      mapOffsets,
+      mapSizes,
+      constantKey,
+      constantValue,
+      0);
+
+  jsonExpected =
+      makeNullableFlatVector<Json>({std::nullopt, std::nullopt, std::nullopt});
+  evaluateAndVerifyCastInTryDictEncoding(
+      MAP(JSON(), BIGINT()), JSON(), makeRowVector({mapVector}), jsonExpected);
 
   // Cast array of map vector that has null keys. The array vector contains two
   // rows: [{blue -> 1, red -> 2}, {null -> 3, yellow -> 4}], [{purple -> 5,
