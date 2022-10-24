@@ -728,6 +728,40 @@ VectorPtr restoreVector(std::istream& in, memory::MemoryPool* pool) {
   }
 }
 
+VectorPtr restoreVectorFromFile(
+    const char* FOLLY_NONNULL filePath,
+    memory::MemoryPool* FOLLY_NONNULL pool) {
+  std::ifstream inputFile(filePath, std::ifstream::binary);
+  VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", filePath);
+
+  auto result = restoreVector(inputFile, pool);
+  inputFile.close();
+  return result;
+}
+
+std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath) {
+  std::ifstream inputFile(filePath, std::ifstream::binary);
+
+  // Find out file size.
+  auto begin = inputFile.tellg();
+  inputFile.seekg(0, std::ios::end);
+  auto end = inputFile.tellg();
+
+  auto fileSize = end - begin;
+  if (fileSize == 0) {
+    return "";
+  }
+
+  // Read the file.
+  std::string result;
+  result.resize(fileSize);
+
+  inputFile.seekg(begin);
+  inputFile.read(result.data(), fileSize);
+  inputFile.close();
+  return result;
+}
+
 std::optional<std::string> generateFilePath(
     const char* basePath,
     const char* prefix) {
