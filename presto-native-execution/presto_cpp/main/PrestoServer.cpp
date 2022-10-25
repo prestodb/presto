@@ -143,7 +143,7 @@ void PrestoServer::run() {
   }
 
   registerPrestoCppCounters();
-  velox::filesystems::registerLocalFileSystem();
+  registerFileSystems();
   registerOptionalHiveStorageAdapters();
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
@@ -463,6 +463,10 @@ std::vector<std::string> PrestoServer::registerConnectors(
     }
   }
   return catalogNames;
+}
+
+void PrestoServer::registerFileSystems() {
+  velox::filesystems::registerLocalFileSystem();
 }
 
 std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
