@@ -226,7 +226,7 @@ void E2EFilterTestBase::readWithoutFilter(
 void E2EFilterTestBase::readWithFilter(
     std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
-    const std::vector<uint32_t>& hitRows,
+    const std::vector<uint64_t>& hitRows,
     uint64_t& time,
     bool useValueHook,
     bool skipCheck) {
@@ -283,7 +283,7 @@ void E2EFilterTestBase::readWithFilter(
     }
     // Outside of timed section.
     for (int32_t i = 0; i < batch->size(); ++i) {
-      uint32_t hit = hitRows[rowIndex++];
+      uint64_t hit = hitRows[rowIndex++];
       auto expectedBatch = batches[batchNumber(hit)].get();
       auto expectedRow = batchRow(hit);
       // We compare column by column, skipping over filter-only columns.
@@ -314,7 +314,7 @@ bool E2EFilterTestBase::loadWithHook(
     RowVector* batch,
     int32_t columnIndex,
     VectorPtr child,
-    const std::vector<uint32_t>& hitRows,
+    const std::vector<uint64_t>& hitRows,
     int32_t rowIndex) {
   auto kind = child->typeKind();
   if (kind == TypeKind::ROW || kind == TypeKind::ARRAY ||
@@ -327,7 +327,7 @@ bool E2EFilterTestBase::loadWithHook(
 
 void E2EFilterTestBase::testFilterSpecs(
     const std::vector<FilterSpec>& filterSpecs) {
-  std::vector<uint32_t> hitRows;
+  std::vector<uint64_t> hitRows;
   auto filters =
       filterGenerator->makeSubfieldFilters(filterSpecs, batches_, hitRows);
   auto spec = filterGenerator->makeScanSpec(std::move(filters));

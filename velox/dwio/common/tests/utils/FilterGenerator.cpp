@@ -28,16 +28,16 @@ using namespace facebook::velox;
 using namespace facebook::velox::common;
 
 // Encodes a batch number and an index into the batch into an int32_t
-uint32_t batchPosition(uint32_t batchNumber, vector_size_t batchRow) {
-  return batchNumber << 16 | batchRow;
+uint64_t batchPosition(uint32_t batchNumber, vector_size_t batchRow) {
+  return (uint64_t)batchNumber << 32 | (uint64_t)batchRow;
 }
 
-uint32_t batchNumber(uint32_t position) {
-  return position >> 16;
+uint32_t batchNumber(uint64_t position) {
+  return position >> 32;
 }
 
-vector_size_t batchRow(uint32_t position) {
-  return position & 0xffff;
+vector_size_t batchRow(uint64_t position) {
+  return position & 0xffffffff;
 }
 
 VectorPtr getChildBySubfield(
@@ -422,7 +422,7 @@ std::shared_ptr<ScanSpec> FilterGenerator::makeScanSpec(
 SubfieldFilters FilterGenerator::makeSubfieldFilters(
     const std::vector<FilterSpec>& filterSpecs,
     const std::vector<RowVectorPtr>& batches,
-    std::vector<uint32_t>& hitRows) {
+    std::vector<uint64_t>& hitRows) {
   vector_size_t totalSize = 0;
   for (auto& batch : batches) {
     totalSize += batch->size();

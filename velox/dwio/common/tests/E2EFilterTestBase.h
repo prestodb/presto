@@ -240,7 +240,7 @@ class E2EFilterTestBase : public testing::Test {
   void readWithFilter(
       std::shared_ptr<common::ScanSpec> spec,
       const std::vector<RowVectorPtr>& batches,
-      const std::vector<uint32_t>& hitRows,
+      const std::vector<uint64_t>& hitRows,
       uint64_t& time,
       bool useValueHook,
       bool skipCheck = false);
@@ -254,7 +254,7 @@ class E2EFilterTestBase : public testing::Test {
       RowVector* batch,
       int32_t columnIndex,
       VectorPtr child,
-      const std::vector<uint32_t>& hitRows,
+      const std::vector<uint64_t>& hitRows,
       int32_t rowIndex) {
     using T = typename TypeTraits<Kind>::NativeType;
     std::vector<vector_size_t> rows;
@@ -289,7 +289,7 @@ class E2EFilterTestBase : public testing::Test {
       RowVector* batch,
       int32_t columnIndex,
       VectorPtr child,
-      const std::vector<uint32_t>& hitRows,
+      const std::vector<uint64_t>& hitRows,
       int32_t rowIndex);
 
   void testFilterSpecs(const std::vector<common::FilterSpec>& filterSpecs);
