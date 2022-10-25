@@ -35,7 +35,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!:presto-docs,!:presto-server,!:presto-server-rpm,!presto-test-coverage'
       - name: Maven Tests
         run: |
           ./mvnw test ${MAVEN_TEST} -pl '
@@ -58,4 +58,5 @@ jobs:
             !presto-elasticsearch,
             !presto-orc,
             !presto-thrift-connector,
-            !presto-native-execution'
+            !presto-native-execution,
+            !presto-test-coverage'
