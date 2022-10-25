@@ -126,7 +126,7 @@ class DecodeBitsTest : public testing::Test {
 };
 
 TEST_F(DecodeBitsTest, allWidths) {
-  for (auto width = 1; width < bitPackedData_.size(); ++width) {
+  for (auto width = 0; width < bitPackedData_.size(); ++width) {
     testDecodeRows<int32_t>(width, allRows_);
     testDecodeRows<int64_t>(width, allRows_);
     testDecodeRows<int32_t>(width, oddRows_);

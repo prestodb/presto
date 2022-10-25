@@ -358,10 +358,12 @@ TEST_F(E2EFilterTest, stringDirect) {
 TEST_F(E2EFilterTest, stringDictionary) {
   testWithTypes(
       "string_val:string,"
-      "string_val_2:string",
+      "string_val_2:string,"
+      "string_const: string",
       [&]() {
         makeStringDistribution(Subfield("string_val"), 100, true, false);
         makeStringDistribution(Subfield("string_val_2"), 170, false, true);
+        makeStringDistribution(Subfield("string_const"), 1, true, false);
       },
       false,
       {"string_val", "string_val_2"},

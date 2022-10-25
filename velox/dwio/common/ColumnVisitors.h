@@ -1347,8 +1347,8 @@ class ExtractStringDictionaryToGenericHook {
       hook_->addValue(rowIndex, &view);
     } else {
       VELOX_DCHECK(state_.inDictionary);
-      auto view = folly::StringPiece(
-          reinterpret_cast<const StringView*>(state_.dictionary.values)[value]);
+      auto view = folly::StringPiece(reinterpret_cast<const StringView*>(
+          state_.dictionary2.values)[value - dictionarySize()]);
       hook_->addValue(rowIndex, &view);
     }
   }
