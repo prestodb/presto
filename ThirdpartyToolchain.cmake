@@ -113,8 +113,15 @@ macro(build_protobuf)
         OFF
         CACHE BOOL "Disable protobuf tests" FORCE)
     set(CMAKE_CXX_FLAGS_BKP "${CMAKE_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS
-        "-Wno-stringop-overflow -Wno-missing-field-initializers")
+
+    # Disable warnings that would fail protobuf compilation.
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-missing-field-initializers")
+
+    check_cxx_compiler_flag("-Wstringop-overflow"
+                            COMPILER_HAS_W_STRINGOP_OVERFLOW)
+    if(COMPILER_HAS_W_STRINGOP_OVERFLOW)
+      string(APPEND CMAKE_CXX_FLAGS " -Wno-stringop-overflow")
+    endif()
 
     # Fetch the content using previously declared details
     FetchContent_Populate(protobuf)
@@ -132,7 +139,7 @@ endmacro()
 macro(build_dependency DEPENDENCY_NAME)
   if("${DEPENDENCY_NAME}" STREQUAL "folly")
     build_folly()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "protobuf")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
   else()
     message(
