@@ -111,12 +111,42 @@ void appendSqlString(const std::string& value, std::ostream& out) {
   return;
 }
 
+std::string toSqlType(const TypePtr& type) {
+  switch (type->kind()) {
+    case TypeKind::ARRAY:
+      return fmt::format("{}[]", toSqlType(type->childAt(0)));
+    case TypeKind::MAP:
+      return fmt::format(
+          "MAP({}, {})",
+          toSqlType(type->childAt(0)),
+          toSqlType(type->childAt(1)));
+    case TypeKind::ROW: {
+      std::ostringstream out;
+      out << "STRUCT(";
+      for (auto i = 0; i < type->size(); ++i) {
+        if (i > 0) {
+          out << ", ";
+        }
+        out << type->asRow().nameOf(i) << " " << type->childAt(i)->toString();
+      }
+      out << ")";
+      return out.str();
+    }
+    default:
+      return type->toString();
+  }
+}
+
 void appendSqlLiteral(
     const BaseVector& vector,
     vector_size_t row,
     std::ostream& out) {
   if (vector.isNullAt(row)) {
-    out << "NULL";
+    if (vector.type()->containsUnknown()) {
+      out << "NULL";
+    } else {
+      out << "NULL::" << toSqlType(vector.type());
+    }
     return;
   }
 
@@ -133,14 +163,13 @@ void appendSqlLiteral(
     case TypeKind::DATE:
     case TypeKind::REAL:
     case TypeKind::DOUBLE:
-      out << vector.wrappedVector()->toString(vector.wrappedIndex(row))
-          << "::" << vector.type()->toString();
+      out << "'" << vector.wrappedVector()->toString(vector.wrappedIndex(row))
+          << "'::" << vector.type()->toString();
       break;
-    case TypeKind::VARCHAR: {
+    case TypeKind::VARCHAR:
       appendSqlString(
           vector.wrappedVector()->toString(vector.wrappedIndex(row)), out);
       break;
-    }
     case TypeKind::ARRAY: {
       out << "ARRAY[";
       auto arrayVector = vector.wrappedVector()->as<ArrayVector>();

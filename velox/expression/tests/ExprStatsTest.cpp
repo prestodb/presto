@@ -233,10 +233,10 @@ TEST_F(ExprStatsTest, listener) {
 
   ASSERT_EQ(2, sqls.size());
   ASSERT_EQ(
-      "\"multiply\"(\"plus\"(cast((\"c0\") as BIGINT), 3::BIGINT), cast((\"c1\") as BIGINT))",
+      "\"multiply\"(\"plus\"(cast((\"c0\") as BIGINT), '3'::BIGINT), cast((\"c1\") as BIGINT))",
       sqls.front());
   ASSERT_EQ(
-      "\"eq\"(\"mod\"(cast((\"plus\"(\"c0\", \"c1\")) as BIGINT), 2::BIGINT), 0::BIGINT)",
+      "\"eq\"(\"mod\"(cast((\"plus\"(\"c0\", \"c1\")) as BIGINT), '2'::BIGINT), '0'::BIGINT)",
       sqls.back());
 
   ASSERT_EQ(2, stats.at("plus").numProcessedVectors);

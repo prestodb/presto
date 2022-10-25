@@ -2304,58 +2304,84 @@ TEST_F(ExprTest, constantToString) {
 TEST_F(ExprTest, constantToSql) {
   auto toSql = [&](const variant& value) {
     exec::ExprSet exprSet({makeConstantExpr(value)}, execCtx_.get());
-    return exprSet.expr(0)->toSql();
+    auto sql = exprSet.expr(0)->toSql();
+
+    auto input = makeRowVector(ROW({}), 1);
+    auto a = evaluate(&exprSet, input);
+    auto b = evaluate(sql, input);
+
+    if (a->type()->containsUnknown()) {
+      EXPECT_TRUE(a->isNullAt(0));
+      EXPECT_TRUE(b->isNullAt(0));
+    } else {
+      assertEqualVectors(a, b);
+    }
+
+    return sql;
   };
 
   ASSERT_EQ(toSql(true), "TRUE");
   ASSERT_EQ(toSql(false), "FALSE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::BOOLEAN)), "NULL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::BOOLEAN)), "NULL::BOOLEAN");
 
-  ASSERT_EQ(toSql((int8_t)23), "23::TINYINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::TINYINT)), "NULL");
+  ASSERT_EQ(toSql((int8_t)23), "'23'::TINYINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::TINYINT)), "NULL::TINYINT");
 
-  ASSERT_EQ(toSql((int16_t)23), "23::SMALLINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::SMALLINT)), "NULL");
+  ASSERT_EQ(toSql((int16_t)23), "'23'::SMALLINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::SMALLINT)), "NULL::SMALLINT");
 
-  ASSERT_EQ(toSql(23), "23::INTEGER");
-  ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER)), "NULL");
+  ASSERT_EQ(toSql(23), "'23'::INTEGER");
+  ASSERT_EQ(toSql(variant::null(TypeKind::INTEGER)), "NULL::INTEGER");
 
-  ASSERT_EQ(toSql(2134456LL), "2134456::BIGINT");
-  ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL");
+  ASSERT_EQ(toSql(2134456LL), "'2134456'::BIGINT");
+  ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL::BIGINT");
 
-  ASSERT_EQ(toSql(Date(18'506)), "2020-09-01::DATE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL");
+  ASSERT_EQ(toSql(Date(18'506)), "'2020-09-01'::DATE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL::DATE");
 
-  ASSERT_EQ(toSql(1.5f), "1.5::REAL");
-  ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL");
+  ASSERT_EQ(toSql(1.5f), "'1.5'::REAL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL::REAL");
 
-  ASSERT_EQ(toSql(-78.456), "-78.456::DOUBLE");
-  ASSERT_EQ(toSql(variant::null(TypeKind::DOUBLE)), "NULL");
+  ASSERT_EQ(toSql(-78.456), "'-78.456'::DOUBLE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::DOUBLE)), "NULL::DOUBLE");
 
   ASSERT_EQ(toSql("This is a test."), "'This is a test.'");
   ASSERT_EQ(
       toSql("This is a \'test\' with single quotes."),
       "'This is a \'\'test\'\' with single quotes.'");
-  ASSERT_EQ(toSql(variant::null(TypeKind::VARCHAR)), "NULL");
+  ASSERT_EQ(toSql(variant::null(TypeKind::VARCHAR)), "NULL::VARCHAR");
 
   auto toSqlComplex = [&](const VectorPtr& vector, vector_size_t index = 0) {
     exec::ExprSet exprSet({makeConstantExpr(vector, index)}, execCtx_.get());
-    return exprSet.expr(0)->toSql();
+    auto sql = exprSet.expr(0)->toSql();
+
+    auto input = makeRowVector(ROW({}), 1);
+    auto a = evaluate(&exprSet, input);
+    auto b = evaluate(sql, input);
+
+    if (a->type()->containsUnknown()) {
+      EXPECT_TRUE(a->isNullAt(0));
+      EXPECT_TRUE(b->isNullAt(0));
+    } else {
+      assertEqualVectors(a, b);
+    }
+
+    return sql;
   };
 
   ASSERT_EQ(
       toSqlComplex(makeArrayVector<int32_t>({{1, 2, 3}})),
-      "ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER]");
+      "ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER]");
   ASSERT_EQ(
       toSqlComplex(makeArrayVector<int32_t>({{1, 2, 3}, {4, 5, 6}}), 1),
-      "ARRAY[4::INTEGER, 5::INTEGER, 6::INTEGER]");
+      "ARRAY['4'::INTEGER, '5'::INTEGER, '6'::INTEGER]");
   ASSERT_EQ(toSql(variant::null(TypeKind::ARRAY)), "NULL");
 
   ASSERT_EQ(
       toSqlComplex(makeMapVector<int32_t, int32_t>({
           {{1, 10}, {2, 20}, {3, 30}},
       })),
-      "map(ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER], ARRAY[10::INTEGER, 20::INTEGER, 30::INTEGER])");
+      "map(ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER], ARRAY['10'::INTEGER, '20'::INTEGER, '30'::INTEGER])");
   ASSERT_EQ(
       toSqlComplex(
           makeMapVector<int32_t, int32_t>({
@@ -2363,22 +2389,22 @@ TEST_F(ExprTest, constantToSql) {
               {{1, 10}, {2, 20}, {3, 30}},
           }),
           1),
-      "map(ARRAY[1::INTEGER, 2::INTEGER, 3::INTEGER], ARRAY[10::INTEGER, 20::INTEGER, 30::INTEGER])");
+      "map(ARRAY['1'::INTEGER, '2'::INTEGER, '3'::INTEGER], ARRAY['10'::INTEGER, '20'::INTEGER, '30'::INTEGER])");
   ASSERT_EQ(
       toSqlComplex(BaseVector::createNullConstant(
           MAP(INTEGER(), VARCHAR()), 10, pool())),
-      "NULL");
+      "NULL::MAP(INTEGER, VARCHAR)");
 
   ASSERT_EQ(
       toSqlComplex(makeRowVector({
           makeFlatVector<int32_t>({1, 2, 3}),
           makeFlatVector<bool>({true, false, true}),
       })),
-      "row_constructor(1::INTEGER, TRUE)");
+      "row_constructor('1'::INTEGER, TRUE)");
   ASSERT_EQ(
       toSqlComplex(BaseVector::createNullConstant(
           ROW({"a", "b"}, {BOOLEAN(), DOUBLE()}), 10, pool())),
-      "NULL");
+      "NULL::STRUCT(a BOOLEAN, b DOUBLE)");
 }
 
 TEST_F(ExprTest, toSql) {
