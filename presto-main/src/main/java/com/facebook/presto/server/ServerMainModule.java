@@ -404,9 +404,7 @@ public class ServerMainModule
         newOptionalBinder(binder, ClusterMemoryManagerService.class);
         install(installModuleIf(
                 ServerConfig.class,
-                serverConfig1 -> {
-                    return serverConfig1.isResourceManagerEnabled() && serverConfig1.isResourceManager();
-                },
+                ServerConfig::isResourceManagerEnabled,
                 new Module()
                 {
                     @Override
