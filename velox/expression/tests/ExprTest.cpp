@@ -2323,6 +2323,9 @@ TEST_F(ExprTest, constantToSql) {
   ASSERT_EQ(toSql(2134456LL), "2134456::BIGINT");
   ASSERT_EQ(toSql(variant::null(TypeKind::BIGINT)), "NULL");
 
+  ASSERT_EQ(toSql(Date(18'506)), "2020-09-01::DATE");
+  ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL");
+
   ASSERT_EQ(toSql(1.5f), "1.5::REAL");
   ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL");
 
