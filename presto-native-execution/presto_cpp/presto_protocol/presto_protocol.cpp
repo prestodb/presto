@@ -6412,7 +6412,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
   }
   String type = p->_type;
 
-  if (type == "hive") {
+  if (getConnectorKey(type) == "hive") {
     j = *std::static_pointer_cast<HiveInsertTableHandle>(p);
     return;
   }
@@ -6430,7 +6430,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p) {
         " ConnectorInsertTableHandle  ConnectorInsertTableHandle");
   }
 
-  if (type == "hive") {
+  if (getConnectorKey(type) == "hive") {
     std::shared_ptr<HiveInsertTableHandle> k =
         std::make_shared<HiveInsertTableHandle>();
     j.get_to(*k);
