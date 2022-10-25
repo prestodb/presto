@@ -414,9 +414,7 @@ public class ServerMainModule
         newOptionalBinder(binder, ClusterQueryTrackerService.class);
         install(installModuleIf(
                 ServerConfig.class,
-                serverConfig1 -> {
-                    return serverConfig1.isResourceManagerEnabled() && serverConfig1.isResourceManager();
-                },
+                ServerConfig::isResourceManagerEnabled,
                 new Module()
                 {
                     @Override
