@@ -34,6 +34,6 @@ jobs:
       - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-test-coverage'
       - name: Run Product Tests Basic Environment
         run: presto-product-tests/bin/run_on_docker.sh multinode -x quarantine,big_query,storage_formats,profile_specific_tests,tpcds,cassandra,mysql_connector,postgresql_connector,mysql,kafka,avro
