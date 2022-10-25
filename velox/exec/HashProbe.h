@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/exec/HashBuild.h"
+#include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/HashTable.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/VectorHasher.h"
@@ -30,13 +31,43 @@ class HashProbe : public Operator {
       DriverCtx* driverCtx,
       const std::shared_ptr<const core::HashJoinNode>& hashJoinNode);
 
+  /// Define the internal execution state for hash probe. The valid state
+  /// transition is depicted as follows:
+  ///
+  ///                           +--------------------------------+
+  ///                           ^                                |
+  ///                           |                                V
+  ///   kWaitForBuild -->  kRunning  -->  kWaitForPeers --> kFinish
+  ///         ^                                |
+  ///         |                                v
+  ///         +--------------------------------+
+  ///
+  enum class State {
+    /// Wait for hash build operators to build the next hash table to join.
+    kWaitForBuild = 0,
+    /// The running state that join the probe input with the build table.
+    kRunning = 1,
+    /// Wait for all the peer hash probe operators to finish processing inputs.
+    /// This state only applies when disk spilling is enabled. The last finished
+    /// operator will notify the build operators to build the next hash table
+    /// from the spilled data. Then all the peer probe operators will wait for
+    /// the next hash table to build.
+    kWaitForPeers = 2,
+    /// The finishing state.
+    kFinish = 3,
+  };
+  static std::string stateName(State state);
+
   bool needsInput() const override {
-    if (finished_ || noMoreInput_ || input_) {
+    if (state_ == State::kFinish || noMoreInput_ || noMoreSpillInput_ ||
+        input_ != nullptr) {
       return false;
     }
     if (table_) {
       return true;
     }
+    // NOTE: if we can't apply dynamic filtering, then we can start early to
+    // read input even before the hash table has been built.
     auto channels = operatorCtx_->driverCtx()->driver->canPushdownFilters(
         this, keyChannels_);
     return channels.empty();
@@ -55,7 +86,28 @@ class HashProbe : public Operator {
   void clearDynamicFilters() override;
 
  private:
-  // Sets up 'filter_' and related members.
+  void setState(State state);
+  void checkStateTransition(State state);
+
+  void setRunning();
+  void checkRunning() const;
+  bool isRunning() const;
+
+  // Invoked to wait for the hash table to be built by the hash build operators
+  // asynchronously.
+  void asyncWaitForHashTable();
+
+  // Invoked to set up spilling related input processing. The function sets up a
+  // reader to read probe inputs from spilled data on disk if
+  // 'restoredSpillPartitionId' is not null. If 'spillPartitionIds' is not
+  // empty, then spilling has been triggered at the build side and the function
+  // will set up a spiller and the associated data structures to spill probe
+  // inputs.
+  void maybeSetupSpillInput(
+      const std::optional<SpillPartitionId>& restoredSpillPartitionId,
+      const SpillPartitionIdSet& spillPartitionIds);
+
+  // Sets up 'filter_' and related members.p
   void initializeFilter(
       const core::TypedExprPtr& filter,
       const RowTypePtr& probeType,
@@ -75,9 +127,9 @@ class HashProbe : public Operator {
   // producer.
   void clearIdentityProjectedOutput();
 
-  /// Populate output columns with matching build-side rows
-  /// for the right semi join and non-matching build-side rows
-  /// for right join and full join.
+  // Populate output columns with matching build-side rows
+  // for the right semi join and non-matching build-side rows
+  // for right join and full join.
   RowVectorPtr getBuildSideOutput();
 
   // Applies 'filter_' to 'outputTableRows_' and updates 'outputRowMapping_'.
@@ -108,10 +160,103 @@ class HashProbe : public Operator {
 
   void ensureLoadedIfNotAtEnd(column_index_t channel);
 
+  // Indicates if the operator has more probe inputs from either the upstream
+  // operator or the spill input reader.
+  bool hasMoreInput() const;
+
+  // Indicates if the join type such as right, right semi and full joins,
+  // require to produce the output results from the join results after all the
+  // probe operators have finished processing the probe inputs.
+  bool needLastProbe() const;
+
+  // Indicates if the join type can skip processing probe inputs with empty
+  // build table such as inner, right and semi joins.
+  //
+  // NOTE: if spilling is triggered at the build side, then we still need to
+  // process probe inputs to spill the probe rows if the corresponding
+  // partitions have been spilled at the build side.
+  bool skipProbeOnEmptyBuild() const;
+
+  bool spillEnabled() const;
+
+  // Indicates if the probe input is read from spilled data or not.
+  bool isSpillInput() const;
+
+  // Indicates if there is more spill data to restore after finishes processing
+  // the current probe inputs.
+  bool hasMoreSpillData() const;
+
+  // Indicates if the operator needs to spill probe inputs. It is true if parts
+  // of the build-side rows have been spilled. Hence, the probe operator needs
+  // to spill the corresponding probe-side rows as well.
+  bool needSpillInput() const;
+
+  // Invoked after finishes processing the probe inputs and there is spill data
+  // remaining to restore. The function will reset the internal states which
+  // are relevant to the last finished probe run. The last finished probe
+  // operator will also notify the hash build operators to build the next hash
+  // table from spilled data.
+  void prepareForSpillRestore();
+
+  // Invoked to read next batch of spilled probe inputs from disk to process.
+  void addSpillInput();
+
+  // Invoked to spill rows in 'input' to disk directly if the corresponding
+  // partitions have been spilled at the build side.
+  //
+  // NOTE: this method keeps 'input' as is if no row needs spilling; resets it
+  // to null if all rows have been spilled; wraps in a dictionary using rows
+  // number that do not need spilling otherwise.
+  void spillInput(RowVectorPtr& input);
+
+  // Invoked to prepare indices buffers for input spill processing.
+  void prepareInputIndicesBuffers(
+      vector_size_t numInput,
+      const folly::F14FastSet<uint32_t>& spillPartitions);
+
+  // Invoked when there is no more input from either upstream task or spill
+  // input. If there is remaining spilled data, then the last finished probe
+  // operator is responsible for notifying the hash build operators to build the
+  // next hash table from the spilled data.
+  void noMoreInputInternal();
+
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
 
   const core::JoinType joinType_;
+
+  const std::shared_ptr<HashJoinBridge> joinBridge_;
+
+  const std::optional<Spiller::Config> spillConfig_;
+
+  const RowTypePtr probeType_;
+
+  State state_{State::kWaitForBuild};
+
+  // Used for synchronization with the hash probe operators of the same pipeline
+  // to handle the last probe processing for certain types of join and notify
+  // the hash build operators to build the next hash table from spilled data if
+  // disk spilling has been triggered.
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
+
+  // Used with 'future_' for the same purpose. 'promises_' will be fulfilled
+  // after finishes the last probe processing and hash build operator
+  // notification.
+  //
+  // NOTE: for a given probe operator, it has either 'future_' or 'promises_'
+  // set, but not both. All but last probe operators get futures that are
+  // fulfilled when the last probe operator finishes. The last probe operator
+  // doesn't get a future, but collects the promises from the Task and uses
+  // those to wake up peers.
+  std::vector<ContinuePromise> promises_;
+
+  // True if this is the last hash probe operator in the pipeline that finishes
+  // probe input processing. It is responsible for producing matching build-side
+  // rows for the right semi join and non-matching build-side rows for right
+  // join and full join. If the disk spilling is enabled, the last operator is
+  // also responsible to notify the hash build operators to build the next hash
+  // table from the previously spilled data.
+  bool lastProber_{false};
 
   std::unique_ptr<HashLookup> lookup_;
 
@@ -256,11 +401,6 @@ class HashProbe : public Operator {
     vector_size_t currentRow{-1};
   };
 
-  /// True if this is the last HashProbe operator in the pipeline. It is
-  /// responsible for producing matching build-side rows for the right semi
-  /// join and non-matching build-side rows for right join and full join.
-  bool lastProbe_{false};
-
   BaseHashTable::RowsIterator lastProbeIterator_;
 
   /// For left and anti join with filter, tracks the probe side rows which had
@@ -284,8 +424,6 @@ class HashProbe : public Operator {
   // join keys and a superset of rows that have a match on the build side.
   SelectivityVector activeRows_;
 
-  bool finished_{false};
-
   // True if passingInputRows is up to date.
   bool passingInputRowsInitialized_;
 
@@ -294,6 +432,49 @@ class HashProbe : public Operator {
   // cases where there is more than one batch of output or join filter
   // input.
   SelectivityVector passingInputRows_;
+
+  // 'spiller_' is only created if some part of build-side rows have been
+  // spilled. It is used to spill probe-side rows if the corresponding
+  // build-side rows have been spilled.
+  std::unique_ptr<Spiller> spiller_;
+
+  // If not empty, the probe inputs with partition id set in
+  // 'spillInputPartitionIds_' needs to spill. It is set along with 'spiller_'
+  // to the partition ids that have been spilled at build side when built
+  // 'table_'.
+  SpillPartitionIdSet spillInputPartitionIds_;
+
+  // Used to calculate the spill partition numbers of the probe inputs.
+  std::unique_ptr<HashPartitionFunction> spillHashFunction_;
+
+  // Reusable memory for spill hash partition calculation.
+  std::vector<uint32_t> spillPartitions_;
+
+  // Reusable memory for probe input spilling processing.
+  std::vector<vector_size_t> numSpillInputs_;
+  std::vector<BufferPtr> spillInputIndicesBuffers_;
+  std::vector<vector_size_t*> rawSpillInputIndicesBuffers_;
+  BufferPtr nonSpillInputIndicesBuffer_;
+  vector_size_t* rawNonSpillInputIndicesBuffer_;
+
+  // 'spillInputReader_' is only created if 'table_' is built from the
+  // previously spilled data. It is used to read the probe inputs from the
+  // corresponding spilled data on disk.
+  std::unique_ptr<UnorderedStreamReader<BatchStream>> spillInputReader_;
+
+  // Used to read the probe inputs from 'spillInputReader_'.
+  RowVectorPtr spillInput_;
+
+  // Sets to true after read all the probe inputs from 'spillInputReader_'.
+  bool noMoreSpillInput_{false};
+
+  // The spilled probe partitions remaining to restore.
+  SpillPartitionSet spillPartitionSet_;
 };
+
+inline std::ostream& operator<<(std::ostream& os, HashProbe::State state) {
+  os << HashProbe::stateName(state);
+  return os;
+}
 
 } // namespace facebook::velox::exec

@@ -81,7 +81,7 @@ class HashBuild final : public Operator {
 
  private:
   void setState(State state);
-  void stateTransitionCheck(State state);
+  void checkStateTransition(State state);
 
   void setRunning();
   bool isRunning() const;

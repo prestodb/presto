@@ -38,7 +38,7 @@ class SpillOperatorGroup {
  public:
   /// Define the internal execution state of a spill group. The valid state
   /// transition is depicted as below:
-
+  ///
   ///       kInit --->  kRunning  --->  kStopped
   ///                      ^               |
   ///                      |               v

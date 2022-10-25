@@ -880,11 +880,11 @@ void HashBuild::setRunning() {
 }
 
 void HashBuild::setState(State state) {
-  stateTransitionCheck(state);
+  checkStateTransition(state);
   state_ = state;
 }
 
-void HashBuild::stateTransitionCheck(State state) {
+void HashBuild::checkStateTransition(State state) {
   VELOX_CHECK_NE(state_, state);
   switch (state) {
     case State::kRunning:
