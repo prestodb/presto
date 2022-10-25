@@ -82,10 +82,12 @@ class PrestoServer {
 
   virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
 
-  void initializeAsyncCache();
-
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
+
+  virtual void registerFileSystems();
+
+  void initializeAsyncCache();
 
  protected:
   virtual std::shared_ptr<velox::connector::Connector> connectorWithCache(
