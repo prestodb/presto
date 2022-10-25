@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/exec/HashJoinBridge.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/Cursor.h"
@@ -183,6 +184,27 @@ int32_t maxHashBuildSpillLevel(const exec::Task& task) {
     }
   }
   return maxSpillLevel;
+}
+
+const std::shared_ptr<const core::HashJoinNode> findJoinNode(
+    const core::PlanNodePtr& root,
+    const core::PlanNodeId& joinNodeId) {
+  std::vector<core::PlanNodePtr> nodes;
+  nodes.push_back(root);
+  while (!nodes.empty()) {
+    std::vector<core::PlanNodePtr> nextNodes;
+    for (const auto& node : nodes) {
+      if (node->id() == joinNodeId) {
+        return std::dynamic_pointer_cast<const core::HashJoinNode>(node);
+      }
+      const auto childNodes = node->sources();
+      std::copy(
+          childNodes.begin(), childNodes.end(), std::back_inserter(nextNodes));
+    }
+    nodes.swap(nextNodes);
+  }
+  VELOX_UNREACHABLE("Plan node {} is not found", joinNodeId);
+  return nullptr;
 }
 
 using JoinResultsVerifier =
@@ -432,6 +454,7 @@ class HashJoinBuilder {
       SCOPED_TRACE(fmt::format(
           "{} numDrivers: {}", testData.debugString(), numDrivers_));
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+      core::PlanNodeId joinNodeId;
       core::PlanNodePtr planNode =
           PlanBuilder(planNodeIdGenerator)
               .values(
@@ -453,8 +476,16 @@ class HashJoinBuilder {
                   joinFilter_,
                   joinOutputLayout_,
                   joinType_)
+              .capturePlanNodeId(joinNodeId)
               .optionalProject(outputProjections_)
               .planNode();
+      const auto& joinNode = findJoinNode(planNode, joinNodeId);
+      if (isNullAwareAntiJoin(joinNode->joinType()) &&
+          (joinNode->filter() != nullptr)) {
+        ASSERT_TRUE(isNullAwareAntiJoinWithFilter(joinNode));
+      } else {
+        ASSERT_FALSE(isNullAwareAntiJoinWithFilter(joinNode));
+      }
       runTest(planNode);
     }
   }
@@ -1462,7 +1493,16 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilter) {
       .joinOutputLayout({"t0", "t1"})
       .referenceQuery(
           "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 <> u1)")
-      .injectSpill(false)
+      .checkSpillStats(false)
+      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        // Verify spilling is not triggered in case of null-aware anti-join with
+        // filter.
+        const auto spillStats = taskSpilledStats(*task);
+        ASSERT_EQ(spillStats.spilledRows, 0);
+        ASSERT_EQ(spillStats.spilledBytes, 0);
+        ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+      })
       .run();
 }
 
@@ -1495,7 +1535,16 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndEmptyBuild) {
       .joinOutputLayout({"t0", "t1"})
       .referenceQuery(
           "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u0 < 0 AND u.u0 = t.t0)")
-      .injectSpill(false)
+      .checkSpillStats(false)
+      .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+        // Verify spilling is not triggered in case of null-aware anti-join with
+        // filter.
+        const auto spillStats = taskSpilledStats(*task);
+        ASSERT_EQ(spillStats.spilledRows, 0);
+        ASSERT_EQ(spillStats.spilledBytes, 0);
+        ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+      })
       .run();
 }
 
@@ -1535,7 +1584,16 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
         .joinFilter(filter)
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
-        .injectSpill(false)
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          // Verify spilling is not triggered in case of null-aware anti-join
+          // with filter.
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+        })
         .run();
   }
 }
@@ -1572,7 +1630,16 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
         .joinFilter(joinFilter)
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
-        .injectSpill(false)
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          // Verify spilling is not triggered in case of null-aware anti-join
+          // with filter.
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+        })
         .run();
   }
 
@@ -1606,7 +1673,16 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
         .joinFilter(joinFilter)
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(referenceSql)
-        .injectSpill(false)
+        .checkSpillStats(false)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          // Verify spilling is not triggered in case of null-aware anti-join
+          // with filter.
+          const auto spillStats = taskSpilledStats(*task);
+          ASSERT_EQ(spillStats.spilledRows, 0);
+          ASSERT_EQ(spillStats.spilledBytes, 0);
+          ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
+        })
         .run();
   }
 }

@@ -123,31 +123,34 @@ HashProbe::HashProbe(
           joinNode->id(),
           "HashProbe"),
       outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
-      joinType_{joinNode->joinType()},
+      joinNode_(std::move(joinNode)),
+      joinType_{joinNode_->joinType()},
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillConfig_(
-          operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)),
-      probeType_(joinNode->sources()[0]->outputType()),
+          isSpillAllowed()
+              ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)
+              : std::nullopt),
+      probeType_(joinNode_->sources()[0]->outputType()),
       filterResult_(1),
       outputTableRows_(outputBatchSize_) {
   VELOX_CHECK_NOT_NULL(joinBridge_);
 
-  auto numKeys = joinNode->leftKeys().size();
+  auto numKeys = joinNode_->leftKeys().size();
   keyChannels_.reserve(numKeys);
   hashers_.reserve(numKeys);
-  for (auto& key : joinNode->leftKeys()) {
+  for (auto& key : joinNode_->leftKeys()) {
     auto channel = exprToChannel(key.get(), probeType_);
     keyChannels_.emplace_back(channel);
     hashers_.push_back(
         std::make_unique<VectorHasher>(probeType_->childAt(channel), channel));
   }
   lookup_ = std::make_unique<HashLookup>(hashers_);
-  auto buildType = joinNode->sources()[1]->outputType();
-  auto tableType = makeTableType(buildType.get(), joinNode->rightKeys());
-  if (joinNode->filter()) {
-    initializeFilter(joinNode->filter(), probeType_, tableType);
+  auto buildType = joinNode_->sources()[1]->outputType();
+  auto tableType = makeTableType(buildType.get(), joinNode_->rightKeys());
+  if (joinNode_->filter()) {
+    initializeFilter(joinNode_->filter(), probeType_, tableType);
   }
 
   size_t numIdentityProjections = 0;

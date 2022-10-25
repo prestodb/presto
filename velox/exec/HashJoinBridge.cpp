@@ -162,4 +162,9 @@ std::optional<HashJoinBridge::SpillInput> HashJoinBridge::spillInputOrFuture(
   return SpillInput(std::move(spillShard));
 }
 
+bool isNullAwareAntiJoinWithFilter(
+    const std::shared_ptr<const core::HashJoinNode>& joinNode) {
+  return isNullAwareAntiJoin(joinNode->joinType()) &&
+      (joinNode->filter() != nullptr);
+}
 } // namespace facebook::velox::exec

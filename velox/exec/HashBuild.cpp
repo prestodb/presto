@@ -55,7 +55,9 @@ HashBuild::HashBuild(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillConfig_(
-          operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinBuild)),
+          isSpillAllowed()
+              ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinBuild)
+              : std::nullopt),
       spillGroup_(
           spillEnabled() ? operatorCtx_->task()->getSpillOperatorGroupLocked(
                                operatorCtx_->driverCtx()->splitGroupId,
@@ -137,7 +139,7 @@ void HashBuild::setupTable() {
         (joinNode_->isLeftSemiJoin() || isAntiJoins(joinType_));
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiJoin();
-    if (joinNode_->isNullAwareAntiJoin() && joinNode_->filter()) {
+    if (isNullAwareAntiJoinWithFilter(joinNode_)) {
       // We need to check null key rows in build side in case of null-aware anti
       // join with filter set.
       table_ = HashTable<false>::createForJoin(
@@ -295,7 +297,7 @@ void HashBuild::addInput(RowVectorPtr input) {
   }
 
   if (!isRightJoin(joinType_) && !isFullJoin(joinType_) &&
-      !(isNullAwareAntiJoin(joinType_) && joinNode_->filter())) {
+      !isNullAwareAntiJoinWithFilter(joinNode_)) {
     deselectRowsWithNulls(hashers, activeRows_);
   }
 
@@ -713,14 +715,10 @@ bool HashBuild::finishHashBuild() {
 
       spiller_->finishSpill(spillPartitions);
 
-      // Remove empty partitions.
-      auto iter = spillPartitions.begin();
-      while (iter != spillPartitions.end()) {
-        if (iter->second->numFiles() == 0) {
-          iter = spillPartitions.erase(iter);
-        } else {
-          ++iter;
-        }
+      // Verify all the spilled partitions are not empty as we won't spill on
+      // an empty one.
+      for (const auto& spillPartitionEntry : spillPartitions) {
+        VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
       }
     }
     table_->prepareJoinTable(std::move(otherTables));

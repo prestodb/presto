@@ -127,4 +127,8 @@ class HashJoinBridge : public JoinBridge {
   // memory and engages in recursive spilling.
   SpillPartitionSet spillPartitionSets_;
 };
+
+// Indicates if 'joinNode' is null-aware anti-join type and has filter set.
+bool isNullAwareAntiJoinWithFilter(
+    const std::shared_ptr<const core::HashJoinNode>& joinNode);
 } // namespace facebook::velox::exec

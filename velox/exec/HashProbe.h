@@ -177,6 +177,14 @@ class HashProbe : public Operator {
   // partitions have been spilled at the build side.
   bool skipProbeOnEmptyBuild() const;
 
+  // Checks if the spilling is allowed for this hash join. As for now, we don't
+  // allow spilling for null-aware anti-join with filter set. It requires to
+  // cross join the null-key probe rows with all the build-side rows for filter
+  // evaluation which is not supported under spilling.
+  bool isSpillAllowed() const {
+    return !isNullAwareAntiJoinWithFilter(joinNode_);
+  }
+
   bool spillEnabled() const;
 
   // Indicates if the probe input is read from spilled data or not.
@@ -222,6 +230,8 @@ class HashProbe : public Operator {
 
   // TODO: Define batch size as bytes based on RowContainer row sizes.
   const uint32_t outputBatchSize_;
+
+  const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
   const core::JoinType joinType_;
 
