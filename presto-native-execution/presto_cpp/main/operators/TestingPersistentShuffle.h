@@ -49,10 +49,8 @@ class TestingPersistentShuffle : public ShuffleInterface {
   /// current rootPath is not an empty string, the method also cleans up the
   /// its previous root path folder (does not delete the folder itself).
   void initialize(
-      velox::memory::MemoryPool* pool,
       uint32_t numPartitions,
       std::string rootPath) {
-    pool_ = pool;
     numPartitions_ = numPartitions;
     // Use resize/assign instead of resize(size, val).
     inProgressPartitions_.resize(numPartitions_);
@@ -68,6 +66,11 @@ class TestingPersistentShuffle : public ShuffleInterface {
     }
     rootPath_ = std::move(rootPath);
     fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
+  }
+
+  bool initializeMemoryManager(velox::memory::MemoryPool* pool) override {
+    pool_ = pool;
+    return true;
   }
 
   void collect(int32_t partition, std::string_view data) override;

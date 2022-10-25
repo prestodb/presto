@@ -19,6 +19,10 @@ namespace facebook::presto::operators {
 
 class ShuffleInterface {
  public:
+  /// Setup the memory pool to be used by the shuffle client.
+  /// This must be the very first call into the shuffle service.
+  virtual bool initializeMemoryManager(velox::memory::MemoryPool* pool) = 0;
+
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
@@ -33,6 +37,7 @@ class ShuffleInterface {
   /// Read the next block of data for this partition.
   /// @param success set to false indicate aborted client.
   virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+
   /// Return true if all the data is finished writing and is ready to
   /// to be read while noMoreData signals the shuffle service that there
   /// is no more data to be writen.
