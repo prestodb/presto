@@ -34,7 +34,7 @@ jobs:
       - name: Mave install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-test-coverage'
       - name: Product Tests Specific 1.1
         run: presto-product-tests/bin/run_on_docker.sh singlenode -g hdfs_no_impersonation,avro
       - name: Product Tests Specific 1.2
@@ -70,7 +70,7 @@ jobs:
       - name: Maven install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing'
+          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl '!presto-docs,!presto-server-rpm,!presto-spark-package,!presto-spark-launcher,!presto-spark-testing,!presto-test-coverage'
       - name: Product Tests Specific 2.1
         run: presto-product-tests/bin/run_on_docker.sh singlenode-ldap -g ldap -x simba_jdbc
       # SQL server image sporadically hangs during the startup

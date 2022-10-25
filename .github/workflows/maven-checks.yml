@@ -38,10 +38,10 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm'
+          ./mvnw install -B -V -T C1 -DskipTests -P ci -pl '!:presto-server-rpm,!presto-test-coverage'
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./mvnw verify -B -P ci -pl :presto-server-rpm
       - name: Clean Maven Output
-        run: ./mvnw clean -pl '!:presto-server,!:presto-cli'
+        run: ./mvnw clean -pl '!:presto-server,!:presto-cli,!presto-test-coverage'
