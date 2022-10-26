@@ -29,11 +29,9 @@
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/SelectivityVector.h"
 
-namespace {
-
 using namespace facebook::velox;
 using namespace facebook::velox::test;
-
+namespace {
 class SimpleFunctionTest : public functions::test::FunctionBaseTest {
  protected:
   VectorPtr arraySum(const std::vector<std::vector<int64_t>>& data) {
@@ -1036,4 +1034,34 @@ TEST_F(SimpleFunctionTest, variadicReuseNoArgsDifferentType) {
   ASSERT_NE(resultPtr.get(), capturedArg1);
 }
 
+// Test isAsciiArgs in the simple function adapter.
+template <typename T>
+struct StringInputFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  void call(int32_t& out, const arg_type<Varchar>& input) {
+    out = input.size();
+  }
+};
+
+TEST_F(SimpleFunctionTest, isAsciiArgs) {
+  VectorPtr input = vectorMaker_.flatVector<StringView>({"ab"_sv, "cd"_sv});
+  SelectivityVector rows(2);
+  // Create instance of the function.
+  using holder_class_t = core::UDFHolder<
+      StringInputFunction<exec::VectorExec>,
+      exec::VectorExec,
+      int32_t,
+      Varchar>;
+  using function_t = exec::SimpleFunctionAdapter<holder_class_t>;
+
+  ASSERT_FALSE(function_t::isAsciiArgs(rows, {input}));
+
+  input->as<SimpleVector<StringView>>()->computeAndSetIsAscii(
+      SelectivityVector(1));
+  ASSERT_FALSE(function_t::isAsciiArgs(rows, {input}));
+
+  input->as<SimpleVector<StringView>>()->computeAndSetIsAscii(rows);
+  ASSERT_TRUE(function_t::isAsciiArgs(rows, {input}));
+}
 } // namespace

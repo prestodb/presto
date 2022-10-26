@@ -411,30 +411,23 @@ class SimpleFunctionAdapter : public VectorFunction {
     return fn_->is_default_ascii_behavior;
   }
 
- private:
-  /// Return true if at least one argument has type VARCHAR and all VARCHAR
-  /// arguments are all-ASCII for the specified rows.
+  /// Return true if all VARCHAR arguments are all-ASCII for the specified rows.
   static bool isAsciiArgs(
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args) {
-    bool hasStringArgs = false;
-    bool allAscii = true;
     for (auto& arg : args) {
       if (arg->type()->isVarchar()) {
-        hasStringArgs = true;
         auto stringArg = arg->asUnchecked<SimpleVector<StringView>>();
-        if (auto isAscii = stringArg->isAscii(rows)) {
-          if (!isAscii.value()) {
-            allAscii = false;
-            break;
-          }
+        auto isAscii = stringArg->isAscii(rows);
+        if (!isAscii.has_value() || !*isAscii) {
+          return false;
         }
       }
     }
-
-    return hasStringArgs && allAscii;
+    return true;
   }
 
+ private:
   // This is called only when we know that all args are flat or constant and are
   // eligible for the optimization and the optimization is enabled.
   template <int32_t POSITION, typename... TReader>
