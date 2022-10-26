@@ -186,7 +186,7 @@ class ScanTracker {
   folly::F14FastMap<TrackingId, TrackingData> data_;
   TrackingData sum_;
   // Maximum size of a read. 10MB would count as two references
-  // if the quantim were 8MB. At the same time this would count as a
+  // if the quantum were 8MB. At the same time this would count as a
   // single 10MB reference for 'fileGroupStats_'. 0 means the read
   // size is unlimited.
   const int32_t loadQuantum_;

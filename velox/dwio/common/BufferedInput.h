@@ -60,7 +60,7 @@ class BufferedInput {
     std::unique_ptr<SeekableInputStream> ret = readBuffer(offset, length);
     if (!ret) {
       VLOG(1) << "Unplanned read. Offset: " << offset << ", Length: " << length;
-      // We cannot do enqueue/load here because load() clears previously laoded
+      // We cannot do enqueue/load here because load() clears previously loaded
       // data. TODO: figure out how we can use the data cache for
       // this access.
       ret = std::make_unique<SeekableFileInputStream>(

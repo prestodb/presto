@@ -818,7 +818,7 @@ T percentile(Next next, int32_t numSamples, int percent) {
 // read.
 //
 // Returns the number of distinct IOs, the number of bytes loaded into pins and
-// the number of extr bytes read.
+// the number of extra bytes read.
 CoalesceIoStats readPins(
     const std::vector<CachePin>& pins,
     int32_t maxGap,
