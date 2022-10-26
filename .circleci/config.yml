@@ -25,6 +25,7 @@ workflows:
       - format-check
       - header-check
       - linux-benchmarks-basic
+      - linux-benchmarks-basic-dedicated
 
   # Daily documentation update
   nightly:
@@ -64,10 +65,8 @@ commands:
             git submodule sync --recursive
             git submodule update --init --recursive
 
-  pre-steps:
+  setup-environment:
     steps:
-      - checkout
-      - update-submodules
       - run:
           name: "Setup Environment"
           command: |
@@ -82,11 +81,19 @@ commands:
             mkdir -p .ccache
             echo "export CCACHE_DIR=$(realpath .ccache)" >> $BASH_ENV
             ccache -sz -M 5Gi
-            source /opt/rh/gcc-toolset-9/enable
+            if [ -e /opt/rh/gcc-toolset-9/enable ]; then
+              source /opt/rh/gcc-toolset-9/enable
+            fi
       - restore_cache:
           name: "Restore CCache Cache"
           keys:
             - velox-ccache-debug-{{ arch }}-{{ checksum "merge-base-date" }}
+
+  pre-steps:
+    steps:
+      - checkout
+      - update-submodules
+      - setup-environment
 
   post-steps:
     steps:
@@ -99,6 +106,46 @@ commands:
           path: '_build/debug/.ninja_log'
       - store_test_results:
           path: '/tmp/test_xml_output/'
+
+  build-benchmarks:
+    steps:
+      - run:
+          name: "Build Benchmarks"
+          command: |
+            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            ccache -s
+
+  run-benchmarks:
+    steps:
+      - run:
+          name: "Run Benchmarks"
+          command: |
+            # get to the directory with benchmarks
+            cd scripts/veloxbench/veloxbench
+
+            # setup .conbench file
+            touch .conbench
+            echo "url: $CONBENCH_URL" >> .conbench
+            echo "email: $CONBENCH_EMAIL" >> .conbench
+            echo "password: $CONBENCH_PASSWORD" >> .conbench
+            echo "host_name: $CONBENCH_HOST" >> .conbench
+
+            # Figure out the run name and run reason
+            if [[ $CIRCLE_BRANCH == 'main' ]]; then
+              # Currently, the names of runs to be included in Conbench history must
+              # start with 'commit:'
+              # (https://github.com/conbench/conbench/issues/350)
+              # This way we can keep track of performance over time on the main branch
+              # separately from pull request branches and manual runs.
+
+              run_name="commit: $(git rev-parse HEAD)"
+              run_reason='commit'
+            else
+              run_name="pull request $CIRCLE_PR_NUMBER: $(git rev-parse HEAD)"
+              run_reason='pull request'
+            fi
+
+            conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
 
 executors:
   build:
@@ -222,14 +269,12 @@ jobs:
   linux-benchmarks-basic:
     executor: build
     environment:
-      CONBENCH_URL: https://velox-conbench.voltrondata.run/
+      CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
+      CONBENCH_HOST: "CircleCI-runner"
+      LINUX_DISTRO: "centos"
     steps:
       - pre-steps
-      - run:
-          name: "Build Benchmarks"
-          command: |
-            make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
-            ccache -s
+      - build-benchmarks
       - run:
           name: "Install Conbench, Benchalerts, and Veloxbench"
           command: |
@@ -238,40 +283,45 @@ jobs:
             pip3.8 install conbench
             pip3.8 install git+https://github.com/conbench/benchalerts.git@0.3.2
             pip3.8 install scripts/veloxbench
+      - run-benchmarks
+      # TODO: Disabling conbench github notifications for now until results are more stable.
+      #- run:
+      #  name: "Analyze Benchmark Regressions and Post to Github"
+      #    command: |
+      #      export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
+      #      python3.8 scripts/benchmark-github-status.py --z-score-threshold 50
+      - post-steps
+
+  linux-benchmarks-basic-dedicated:
+    machine:
+      image: ubuntu-2004:current
+    resource_class: 2xlarge
+    environment:
+      CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
+      CONBENCH_HOST: "CircleCI-runner-dedicated"
+      LINUX_DISTRO: "ubuntu"
+    steps:
+      - checkout
+      - update-submodules
       - run:
-          name: "Run Benchmarks"
+          name: "Setup Ubuntu"
           command: |
-            # get to the directory with benchmarks
-            cd scripts/veloxbench/veloxbench
-
-            # setup .conbench file
-            touch .conbench
-            echo "url: $CONBENCH_URL" >> .conbench
-            echo "email: $CONBENCH_EMAIL" >> .conbench
-            echo "password: $CONBENCH_PASSWORD" >> .conbench
-            echo "host_name: CircleCI-runner" >> .conbench
-
-            # Figure out the run name and run reason
-            if [[ $CIRCLE_BRANCH == 'main' ]]; then
-              # Currently, the names of runs to be included in Conbench history must
-              # start with 'commit:'
-              # (https://github.com/conbench/conbench/issues/350)
-              # This way we can keep track of performance over time on the main branch
-              # separately from pull request branches and manual runs.
-
-              run_name="commit: $(git rev-parse HEAD)"
-              run_reason='commit'
-            else
-              run_name="pull request $CIRCLE_PR_NUMBER: $(git rev-parse HEAD)"
-              run_reason='pull request'
-            fi
-
-            conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
+            sudo ./scripts/setup-ubuntu.sh
+      - setup-environment
+      - build-benchmarks
       - run:
-          name: "Analyze Benchmark Regressions and Post to Github"
+          name: "Install Conbench, Benchalerts, and Veloxbench"
           command: |
-            export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
-            python3.8 scripts/benchmark-github-status.py --z-score-threshold 50
+            pip3 install conbench
+            pip3 install git+https://github.com/conbench/benchalerts.git@0.3.1
+            pip3 install scripts/veloxbench
+      - run-benchmarks
+      # TODO: Disabling conbench github notifications for now until results are more stable.
+      #- run:
+      #    name: "Analyze Benchmark Regressions and Post to Github"
+      #    command: |
+      #      export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
+      #      python3 scripts/benchmark-github-status.py --z-score-threshold 50
       - post-steps
 
   # Build with different options
