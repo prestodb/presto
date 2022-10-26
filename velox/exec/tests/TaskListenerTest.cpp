@@ -20,7 +20,7 @@ using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
 struct TaskCompletedEvent {
-  const std::string& taskUuid;
+  std::string taskUuid;
   exec::TaskState state;
   std::exception_ptr error;
   exec::TaskStats stats;
@@ -116,4 +116,35 @@ TEST_F(TaskListenerTest, error) {
   ASSERT_EQ("division by zero", events.back().errorMessage());
 
   ASSERT_TRUE(exec::unregisterTaskListener(listener));
+}
+
+TEST_F(TaskListenerTest, multipleListeners) {
+  std::vector<TaskCompletedEvent> events1;
+  std::vector<TaskCompletedEvent> events2;
+  auto listener1 = std::make_shared<TestTaskListener>(events1);
+  auto listener2 = std::make_shared<TestTaskListener>(events2);
+  ASSERT_TRUE(exec::registerTaskListener(listener1));
+  ASSERT_TRUE(exec::registerTaskListener(listener2));
+
+  ASSERT_EQ(0, events1.size());
+  ASSERT_EQ(0, events2.size());
+
+  auto data = makeRowVector({makeFlatVector<int32_t>({0, 1, 2, 3, 4})});
+  auto plan = PlanBuilder().values({data}).planNode();
+  assertQuery(plan, "VALUES (0), (1), (2), (3), (4)");
+
+  ASSERT_EQ(1, events1.size());
+  ASSERT_EQ(1, events2.size());
+
+  {
+    const auto& event1 = events1.front();
+    const auto& event2 = events2.front();
+    ASSERT_FALSE(event1.taskUuid.empty());
+    ASSERT_EQ(event1.taskUuid, event2.taskUuid);
+    ASSERT_EQ(event1.state, exec::TaskState::kFinished);
+    ASSERT_EQ(event2.state, exec::TaskState::kFinished);
+  }
+
+  ASSERT_TRUE(exec::unregisterTaskListener(listener1));
+  ASSERT_TRUE(exec::unregisterTaskListener(listener2));
 }

@@ -1447,8 +1447,7 @@ void Task::onTaskCompletion() {
     }
 
     for (auto& listener : listeners) {
-      listener->onTaskCompletion(
-          uuid_, taskId_, state, exception, std::move(stats));
+      listener->onTaskCompletion(uuid_, taskId_, state, exception, stats);
     }
   });
 }
