@@ -212,13 +212,13 @@ class StripeStreamsImpl : public StripeStreamsBase {
   void loadStreams();
 
   // map of stream id -> stream information
-  std::unordered_map<
+  folly::F14FastMap<
       DwrfStreamIdentifier,
       StreamInformationImpl,
       dwio::common::StreamIdentifierHash>
       streams_;
-  std::unordered_map<EncodingKey, uint32_t, EncodingKeyHash> encodings_;
-  std::unordered_map<EncodingKey, proto::ColumnEncoding, EncodingKeyHash>
+  folly::F14FastMap<EncodingKey, uint32_t, EncodingKeyHash> encodings_;
+  folly::F14FastMap<EncodingKey, proto::ColumnEncoding, EncodingKeyHash>
       decryptedEncodings_;
 
  public:
@@ -278,9 +278,9 @@ class StripeStreamsImpl : public StripeStreamsBase {
     return getStreamInfo(si).getLength();
   }
 
-  std::unordered_map<uint32_t, std::vector<uint32_t>> getEncodingKeys() const;
+  folly::F14FastMap<uint32_t, std::vector<uint32_t>> getEncodingKeys() const;
 
-  std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
+  folly::F14FastMap<uint32_t, std::vector<DwrfStreamIdentifier>>
   getStreamIdentifiers() const;
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(

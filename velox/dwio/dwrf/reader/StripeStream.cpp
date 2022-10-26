@@ -230,14 +230,14 @@ StripeStreamsImpl::getCompressedStream(const DwrfStreamIdentifier& si) const {
   return streamRead;
 }
 
-std::unordered_map<uint32_t, std::vector<uint32_t>>
+folly::F14FastMap<uint32_t, std::vector<uint32_t>>
 StripeStreamsImpl::getEncodingKeys() const {
   DWIO_ENSURE_EQ(
       decryptedEncodings_.size(),
       0,
       "Not supported for reader with encryption");
 
-  std::unordered_map<uint32_t, std::vector<uint32_t>> encodingKeys;
+  folly::F14FastMap<uint32_t, std::vector<uint32_t>> encodingKeys;
   for (const auto& kv : encodings_) {
     const auto ek = kv.first;
     encodingKeys[ek.node].push_back(ek.sequence);
@@ -246,9 +246,9 @@ StripeStreamsImpl::getEncodingKeys() const {
   return encodingKeys;
 }
 
-std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
+folly::F14FastMap<uint32_t, std::vector<DwrfStreamIdentifier>>
 StripeStreamsImpl::getStreamIdentifiers() const {
-  std::unordered_map<uint32_t, std::vector<DwrfStreamIdentifier>>
+  folly::F14FastMap<uint32_t, std::vector<DwrfStreamIdentifier>>
       nodeToStreamIdMap;
 
   for (const auto& kv : streams_) {
