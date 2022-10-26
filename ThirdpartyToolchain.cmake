@@ -123,6 +123,12 @@ macro(build_protobuf)
       string(APPEND CMAKE_CXX_FLAGS " -Wno-stringop-overflow")
     endif()
 
+    check_cxx_compiler_flag("-Winvalid-noreturn"
+                            COMPILER_HAS_W_INVALID_NORETURN)
+    if(COMPILER_HAS_W_INVALID_NORETURN)
+      string(APPEND CMAKE_CXX_FLAGS " -Wno-invalid-noreturn")
+    endif()
+
     # Fetch the content using previously declared details
     FetchContent_Populate(protobuf)
 
