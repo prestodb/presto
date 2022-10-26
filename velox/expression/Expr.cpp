@@ -177,11 +177,11 @@ bool Expr::allSupportFlatNoNullsFastPath(
 }
 
 void Expr::computeMetadata() {
-  // Sets propagatesNulls if all subtrees propagate nulls.
-  // Sets isDeterministic to false if some subtree is non-deterministic.
-  // Sets 'distinctFields_' to be the union of 'distinctFields_' of inputs.
-  // If one of the inputs has the identical set of distinct fields, then
-  // the input's distinct fields are set to empty.
+  // Sets propagatesNulls if all subtrees that depend on at least one input
+  // field propagate nulls. Sets isDeterministic to false if some subtree is
+  // non-deterministic. Sets 'distinctFields_' to be the union of
+  // 'distinctFields_' of inputs. If one of the inputs has the identical set of
+  // distinct fields, then the input's distinct fields are set to empty.
   if (isSpecialForm()) {
     // 'propagatesNulls_' will be adjusted after inputs are processed.
     propagatesNulls_ = true;
@@ -194,7 +194,9 @@ void Expr::computeMetadata() {
   for (auto& input : inputs_) {
     input->computeMetadata();
     deterministic_ &= input->deterministic_;
-    propagatesNulls_ &= input->propagatesNulls_;
+    if (!input->distinctFields_.empty()) {
+      propagatesNulls_ &= input->propagatesNulls_;
+    }
     mergeFields(
         distinctFields_, multiplyReferencedFields_, input->distinctFields_);
   }

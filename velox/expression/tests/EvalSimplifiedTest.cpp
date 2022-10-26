@@ -68,6 +68,43 @@ class EvalSimplifiedTest : public FunctionBaseTest {
     return makeRowVector(vectors);
   }
 
+  void compareEvals(
+      exec::ExprSet& exprSetCommon,
+      exec::ExprSetSimplified& exprSetSimplified,
+      const RowVectorPtr& rowVector,
+      const SelectivityVector& rows) {
+    exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
+    exec::EvalCtx evalCtxSimplified(
+        &execCtx_, &exprSetSimplified, rowVector.get());
+
+    // Evaluate using both engines.
+    std::vector<VectorPtr> commonEvalResult{nullptr};
+    std::vector<VectorPtr> simplifiedEvalResult{nullptr};
+
+    std::exception_ptr exceptionCommonPtr;
+    std::exception_ptr exceptionSimplifiedPtr;
+
+    try {
+      exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
+    } catch (const std::exception& e) {
+      exceptionCommonPtr = std::current_exception();
+    }
+
+    try {
+      exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
+    } catch (const std::exception& e) {
+      exceptionSimplifiedPtr = std::current_exception();
+    }
+
+    // Compare results or exceptions (if any). Fail is anything is different.
+    if (exceptionCommonPtr || exceptionSimplifiedPtr) {
+      assertExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
+    } else {
+      assertEqualVectors(
+          commonEvalResult.front(), simplifiedEvalResult.front());
+    }
+  }
+
   void runTest(
       const std::string& exprString,
       const RowTypePtr& types = nullptr) {
@@ -93,36 +130,7 @@ class EvalSimplifiedTest : public FunctionBaseTest {
       // Generate the input vectors.
       auto rowVector = genRowVector(types, fuzzerOpts, rng);
 
-      exec::EvalCtx evalCtxCommon(&execCtx_, &exprSetCommon, rowVector.get());
-      exec::EvalCtx evalCtxSimplified(
-          &execCtx_, &exprSetSimplified, rowVector.get());
-
-      // Evaluate using both engines.
-      std::vector<VectorPtr> commonEvalResult{nullptr};
-      std::vector<VectorPtr> simplifiedEvalResult{nullptr};
-
-      std::exception_ptr exceptionCommonPtr;
-      std::exception_ptr exceptionSimplifiedPtr;
-
-      try {
-        exprSetCommon.eval(rows, evalCtxCommon, commonEvalResult);
-      } catch (const std::exception& e) {
-        exceptionCommonPtr = std::current_exception();
-      }
-
-      try {
-        exprSetSimplified.eval(rows, evalCtxSimplified, simplifiedEvalResult);
-      } catch (const std::exception& e) {
-        exceptionSimplifiedPtr = std::current_exception();
-      }
-
-      // Compare results or exceptions (if any). Fail is anything is different.
-      if (exceptionCommonPtr || exceptionSimplifiedPtr) {
-        assertExceptions(exceptionCommonPtr, exceptionSimplifiedPtr);
-      } else {
-        assertEqualVectors(
-            commonEvalResult.front(), simplifiedEvalResult.front());
-      }
+      compareEvals(exprSetCommon, exprSetSimplified, rowVector, rows);
 
       // Update the seed for the next iteration.
       seed_ = folly::Random::rand32(rng);
@@ -154,6 +162,24 @@ TEST_F(EvalSimplifiedTest, strings) {
 
 TEST_F(EvalSimplifiedTest, doubles) {
   runTest("ceil(c1) * c0", ROW({"c0", "c1"}, {DOUBLE(), DOUBLE()}));
+}
+
+TEST_F(EvalSimplifiedTest, propagateNulls) {
+  auto rowVector = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeConstant<int64_t>(std::nullopt, 3),
+  });
+
+  SelectivityVector rows(rowVector->size());
+
+  auto expr = makeTypedExpr(
+      "distinct_from('x', 'y') < ((c0 / 0) > c1)",
+      asRowType(rowVector->type()));
+
+  exec::ExprSet exprSetCommon({expr}, &execCtx_);
+  exec::ExprSetSimplified exprSetSimplified({expr}, &execCtx_);
+
+  compareEvals(exprSetCommon, exprSetSimplified, rowVector, rows);
 }
 
 // Ensure that the right exprSet object is instantiated if `kExprEvalSimplified`
