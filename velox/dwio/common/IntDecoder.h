@@ -148,7 +148,7 @@ class IntDecoder {
   /// stay under 'bufferEnd'.
   template <typename T>
   static void decodeBitsLE(
-      const uint64_t* FOLLY_NONNULL bits,
+      const uint64_t* FOLLY_NULLABLE bits,
       int32_t bitOffset,
       RowSet rows,
       int32_t rowBias,

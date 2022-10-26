@@ -2562,13 +2562,13 @@ template <bool isSigned>
 template <typename T>
 // static
 void IntDecoder<isSigned>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
     const char* bufferEnd,
-    T* FOLLY_NONNULL result) {
+    T* result) {
   uint64_t mask = bits::lowMask(bitWidth);
   if (bitWidth == 0) {
     // A column of dictionary indices can be 0 bits wide if all indices are 0.
@@ -2675,76 +2675,76 @@ void IntDecoder<isSigned>::decodeBitsLE(
 }
 
 template void IntDecoder<false>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int32_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int32_t* result);
 
 template void IntDecoder<false>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int64_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int64_t* result);
 
 template void IntDecoder<true>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int32_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int32_t* result);
 
 template void IntDecoder<true>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int64_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int64_t* result);
 
 template void IntDecoder<true>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int128_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int128_t* result);
 
 template void IntDecoder<false>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int128_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int128_t* result);
 
 template void IntDecoder<false>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int16_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int16_t* result);
 
 template void IntDecoder<true>::decodeBitsLE(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int16_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int16_t* result);
 
 #ifdef CODEGEN_BULK_VARINTS
 // Codegen for vint bulk decode. This is to document how varintSwitch
