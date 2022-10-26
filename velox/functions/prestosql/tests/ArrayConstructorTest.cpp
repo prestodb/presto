@@ -17,6 +17,8 @@
 
 using namespace facebook::velox;
 
+namespace {
+
 class ArrayConstructorTest : public functions::test::FunctionBaseTest {};
 
 TEST_F(ArrayConstructorTest, basic) {
@@ -176,3 +178,37 @@ TEST_F(ArrayConstructorTest, reuseResultWithNulls) {
     ASSERT_TRUE(b->equalValueAt(resultElements, row, offset + 1));
   }
 }
+
+TEST_F(ArrayConstructorTest, literals) {
+  // Simple bigint literals.
+  auto result =
+      evaluate("array_constructor(1, 2, 3, 4, 5)", makeRowVector(ROW({}), 1));
+  auto expected = makeArrayVector<int64_t>({{1, 2, 3, 4, 5}});
+  test::assertEqualVectors(expected, result);
+
+  // Add null literals.
+  result = evaluate(
+      "array_constructor(1, 2, null, 4, null)", makeRowVector(ROW({}), 1));
+  expected =
+      makeNullableArrayVector<int64_t>({{1, 2, std::nullopt, 4, std::nullopt}});
+  test::assertEqualVectors(expected, result);
+
+  // Double literals.
+  result =
+      evaluate("array_constructor(1.9, 2.4, 3.2)", makeRowVector(ROW({}), 1));
+  expected = makeArrayVector<double>({{1.9, 2.4, 3.2}});
+  test::assertEqualVectors(expected, result);
+
+  // String literals.
+  result = evaluate(
+      "array_constructor('asd', '', 'def')", makeRowVector(ROW({}), 1));
+  expected = makeArrayVector<StringView>({{"asd", "", "def"}});
+  test::assertEqualVectors(expected, result);
+
+  // Mixing literals is not allowed.
+  EXPECT_THROW(
+      evaluate("array_constructor('asd', 10, 99.9)", makeRowVector(ROW({}), 1)),
+      VeloxUserError);
+}
+
+} // namespace

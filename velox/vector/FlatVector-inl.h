@@ -157,9 +157,9 @@ void FlatVector<T>::copyValuesAndNulls(
   }
 
   if (source->isFlatEncoding()) {
-    auto flat = source->asUnchecked<FlatVector<T>>();
-    auto* sourceValues =
-        source->typeKind() != TypeKind::UNKNOWN ? flat->rawValues() : nullptr;
+    auto* sourceValues = source->typeKind() != TypeKind::UNKNOWN
+        ? source->asUnchecked<FlatVector<T>>()->rawValues()
+        : nullptr;
     if (toSourceRow) {
       rows.applyToSelected([&](auto row) {
         auto sourceRow = toSourceRow[row];
@@ -238,12 +238,13 @@ void FlatVector<T>::copyValuesAndNulls(
   }
 
   if (source->isFlatEncoding()) {
-    auto flat = source->asUnchecked<FlatVector<T>>();
-    if (!flat->values() || flat->values()->size() == 0) {
+    if (!source->values() || source->values()->size() == 0) {
       // The vector must have all-null values.
       VELOX_CHECK_EQ(
-          BaseVector::countNulls(flat->nulls(), 0, flat->size()), flat->size());
+          BaseVector::countNulls(source->nulls(), 0, source->size()),
+          source->size());
     } else if (source->typeKind() != TypeKind::UNKNOWN) {
+      auto flat = source->asUnchecked<FlatVector<T>>();
       if (Buffer::is_pod_like_v<T>) {
         memcpy(
             &rawValues_[targetIndex],

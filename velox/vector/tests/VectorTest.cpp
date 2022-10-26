@@ -1049,6 +1049,7 @@ TEST_F(VectorTest, map) {
 }
 
 TEST_F(VectorTest, unknown) {
+  // Creates a const UNKNOWN vector.
   auto constUnknownVector =
       BaseVector::createConstant(variant(TypeKind::UNKNOWN), 123, pool_.get());
   ASSERT_FALSE(constUnknownVector->isScalar());
@@ -1058,6 +1059,7 @@ TEST_F(VectorTest, unknown) {
     ASSERT_TRUE(constUnknownVector->isNullAt(i));
   }
 
+  // Create an int vector and copy UNKNOWN const vector into it.
   auto intVector = BaseVector::create(BIGINT(), 10, pool_.get());
   ASSERT_FALSE(intVector->isNullAt(0));
   ASSERT_FALSE(intVector->mayHaveNulls());
@@ -1087,6 +1089,17 @@ TEST_F(VectorTest, unknown) {
   }
   // Can't copy to UNKNOWN vector.
   EXPECT_ANY_THROW(unknownVector->copy(intVector.get(), rows, nullptr));
+
+  // Copying flat UNKNOWN into integer vector nulls out all the copied element.
+  ASSERT_FALSE(intVector->isNullAt(3));
+  intVector->copy(unknownVector.get(), 3, 3, 1);
+  ASSERT_TRUE(intVector->isNullAt(3));
+
+  rows.resize(intVector->size());
+  intVector->copy(unknownVector.get(), rows, nullptr);
+  for (int i = 0; i < intVector->size(); ++i) {
+    ASSERT_TRUE(intVector->isNullAt(i));
+  }
 
   // It is okay to copy to a non-constant UNKNOWN vector.
   unknownVector->copy(constUnknownVector.get(), rows, nullptr);
