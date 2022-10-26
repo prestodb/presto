@@ -178,7 +178,7 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
       auto offset = baseLeftArray->offsetAt(idx);
 
       outputSet.reset();
-      *rawNewOffsets = indicesCursor;
+      rawNewOffsets[row] = indicesCursor;
 
       // Scans the array elements on the left-hand side.
       for (vector_size_t i = offset; i < (offset + size); ++i) {
@@ -217,9 +217,7 @@ class ArrayIntersectExceptFunction : public exec::VectorFunction {
           }
         }
       }
-      *rawNewLengths = indicesCursor - *rawNewOffsets;
-      ++rawNewLengths;
-      ++rawNewOffsets;
+      rawNewLengths[row] = indicesCursor - rawNewOffsets[row];
     };
 
     SetWithNull<T> outputSet;
