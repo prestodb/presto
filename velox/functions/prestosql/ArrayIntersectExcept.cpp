@@ -392,12 +392,19 @@ SetWithNull<T> validateConstantVectorAndGenerateSet(
   VELOX_CHECK_NOT_NULL(constantVector, "wrong constant type found");
   auto arrayVecPtr = constantVector->valueVector()->as<ArrayVector>();
   VELOX_CHECK_NOT_NULL(arrayVecPtr, "wrong array literal type");
-  auto elementsAsFlatVector = arrayVecPtr->elements()->as<FlatVector<T>>();
-  VELOX_CHECK_NOT_NULL(
-      elementsAsFlatVector, "constant value must be encoded as flat");
+
   auto idx = constantArray->index();
+  auto elementBegin = arrayVecPtr->offsetAt(idx);
+  auto elementEnd = elementBegin + arrayVecPtr->sizeAt(idx);
+
+  SelectivityVector rows{elementEnd, false};
+  rows.setValidRange(elementBegin, elementEnd, true);
+  rows.updateBounds();
+
+  DecodedVector decodedElements{*arrayVecPtr->elements(), rows};
+
   SetWithNull<T> constantSet;
-  generateSet<T>(arrayVecPtr, elementsAsFlatVector, idx, constantSet);
+  generateSet<T>(arrayVecPtr, &decodedElements, idx, constantSet);
   return constantSet;
 }
 

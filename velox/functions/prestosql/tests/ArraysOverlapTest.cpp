@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -212,4 +213,18 @@ TEST_F(ArraysOverlapTest, constant) {
   });
   testExpr(expected, "arrays_overlap(C0, ARRAY[1,NULL,4])", {array1});
   testExpr(expected, "arrays_overlap(ARRAY[1,NULL,4], C0)", {array1});
+}
+
+TEST_F(ArraysOverlapTest, dictionaryEncodedElementsInConstant) {
+  exec::registerVectorFunction(
+      "testing_dictionary_array_elements",
+      test::TestingDictionaryArrayElementsFunction::signatures(),
+      std::make_unique<test::TestingDictionaryArrayElementsFunction>());
+
+  auto array = makeArrayVector<int64_t>({{1, 3}, {2, 5}, {0, 6}});
+  auto expected = makeNullableFlatVector<bool>({true, true, false});
+  testExpr(
+      expected,
+      "arrays_overlap(testing_dictionary_array_elements(ARRAY [2, 2, 3, 1, 2, 2]), c0)",
+      {array});
 }

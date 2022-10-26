@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -290,4 +291,18 @@ TEST_F(ArrayExceptTest, constant) {
       {std::nullopt},
   });
   testExpr(expected, "array_except(ARRAY[1,NULL,4], C0)", {array1});
+}
+
+TEST_F(ArrayExceptTest, dictionaryEncodedElementsInConstant) {
+  exec::registerVectorFunction(
+      "testing_dictionary_array_elements",
+      test::TestingDictionaryArrayElementsFunction::signatures(),
+      std::make_unique<test::TestingDictionaryArrayElementsFunction>());
+
+  auto array = makeArrayVector<int64_t>({{1, 3}, {2, 5}, {0, 6}});
+  auto expected = makeArrayVector<int64_t>({{}, {5}, {6}});
+  testExpr(
+      expected,
+      "array_except(c0, testing_dictionary_array_elements(ARRAY [0, 1, 3, 2, 2, 3, 2]))",
+      {array});
 }

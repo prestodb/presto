@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/vector/tests/TestingDictionaryArrayElementsFunction.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::test;
@@ -255,4 +256,18 @@ TEST_F(ArrayIntersectTest, constant) {
   });
   testExpr(expected, "array_intersect(C0, ARRAY[1,NULL,4])", {array1});
   testExpr(expected, "array_intersect(ARRAY[1,NULL,4], C0)", {array1});
+}
+
+TEST_F(ArrayIntersectTest, dictionaryEncodedElementsInConstant) {
+  exec::registerVectorFunction(
+      "testing_dictionary_array_elements",
+      test::TestingDictionaryArrayElementsFunction::signatures(),
+      std::make_unique<test::TestingDictionaryArrayElementsFunction>());
+
+  auto array = makeArrayVector<int32_t>({{1, 3}, {2, 5}, {0, 6}});
+  auto expected = makeArrayVector<int32_t>({{1, 3}, {2}, {}});
+  testExpr(
+      expected,
+      "array_intersect(c0, testing_dictionary_array_elements(ARRAY [2, 2, 3, 1, 2, 2]))",
+      {array});
 }
