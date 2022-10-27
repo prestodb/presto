@@ -30,8 +30,6 @@ CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=$(PRESTO_ENABLE_PARQUET)
 CMAKE_FLAGS += -DPRESTO_ENABLE_HDFS=$(PRESTO_ENABLE_HDFS)
 
-SHELL := /bin/bash
-
 # Use Ninja if available. If Ninja is used, pass through parallelism control flags.
 USE_NINJA ?= 1
 ifeq ($(USE_NINJA), 1)
@@ -81,23 +79,23 @@ TypeSignature:		#: Build the Presto TypeSignature parser
 	cd presto_cpp/main/types; $(MAKE) TypeSignature
 
 format-fix: 			#: Fix formatting issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master --fix && popd
+	velox/scripts/check.py format master --fix
 
 format-check: 			#: Check for formatting issues on the master branch
 	clang-format --version
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py format master && popd
+	velox/scripts/check.py format master
 
 header-fix:				#: Fix license header issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master --fix && popd
+	velox/scripts/check.py header master --fix
 
 header-check:			#: Check for license header issues on the man branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py header master && popd
+	velox/scripts/check.py header master
 
 tidy-fix: cmake			#: Fix clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master --fix && popd
+	velox/scripts/check.py tidy master --fix
 
 tidy-check: cmake		#: Check clang-tidy issues in the master branch
-	pushd "$$(pwd)/.." && presto-native-execution/velox/scripts/check.py tidy master && popd
+	velox/scripts/check.py tidy master
 
 centos-container:			#: Build the linux container for CircleCi
 	$(MAKE) linux-container CONTAINER_NAME=centos

@@ -29,7 +29,8 @@ std::string getDataPath(const std::string& fileName) {
 
   std::string currentPath = fs::current_path().c_str();
   if (boost::algorithm::ends_with(currentPath, kFbcode)) {
-    return currentPath.substr(0, currentPath.length() - kFbcode.length()) + "third-party/presto_cpp/presto_protocol/tests/data/" + fileName;
+    return currentPath.substr(0, currentPath.length() - kFbcode.length()) +
+        "third-party/presto_cpp/presto_protocol/tests/data/" + fileName;
   }
 
   if (boost::algorithm::ends_with(currentPath, "fbsource")) {
