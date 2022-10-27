@@ -30,6 +30,8 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
@@ -172,7 +174,9 @@ public class HudiSplitManager
             List<String> partitionValues = extractPartitionValues(partitionName);
             checkArgument(partitionColumns.size() == partitionValues.size(),
                     format("Invalid partition name %s for partition columns %s", partitionName, partitionColumns));
-            Partition partition = metastore.getPartition(context, databaseName, tableName, partitionValues)
+            Table table = metastore.getTable(context, databaseName, tableName)
+                    .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
+            Partition partition = metastore.getPartition(context, table, partitionValues)
                     .orElseThrow(() -> new PrestoException(HUDI_INVALID_METADATA, format("Partition %s expected but not found", partitionName)));
             Map<String, String> keyValues = zipPartitionKeyValues(partitionColumns, partitionValues);
             return new HudiPartition(partitionName, partitionValues, keyValues, partition.getStorage(), fromDataColumns(partition.getColumns()));

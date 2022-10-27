@@ -3762,7 +3762,7 @@ public abstract class AbstractTestHiveClient
             // create partition with stats for all columns
             metastoreClient.addPartitions(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(new PartitionWithStatistics(partition, partitionName, statsForAllColumns1)));
             assertEquals(
-                    metastoreClient.getPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
+                    metastoreClient.getPartition(METASTORE_CONTEXT, table, partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(ORC));
             assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns1));
@@ -3777,7 +3777,7 @@ public abstract class AbstractTestHiveClient
                     .build();
             metastoreClient.alterPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForAllColumns2));
             assertEquals(
-                    metastoreClient.getPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
+                    metastoreClient.getPartition(METASTORE_CONTEXT, table, partitionValues).get().getStorage().getStorageFormat(),
                     fromHiveStorageFormat(DWRF));
             assertThat(metastoreClient.getPartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
@@ -4330,7 +4330,7 @@ public abstract class AbstractTestHiveClient
 
         Optional<List<String>> partitionNames = metastore.getPartitionNames(metastoreContext, schemaName, tableName);
         if (partitionNames.isPresent()) {
-            metastore.getPartitionsByNames(metastoreContext, schemaName, tableName, partitionNames.get()).values().stream()
+            metastore.getPartitionsByNames(metastoreContext, table, partitionNames.get()).values().stream()
                     .map(Optional::get)
                     .map(partition -> partition.getStorage().getLocation())
                     .filter(location -> !location.startsWith(table.getStorage().getLocation()))
@@ -4361,6 +4361,12 @@ public abstract class AbstractTestHiveClient
         return result;
     }
 
+    private Table getTableOrElseThrow(String schemaName, String tableName, MetastoreContext metastoreContext, ExtendedHiveMetastore metastoreClient)
+    {
+        return metastoreClient.getTable(metastoreContext, schemaName, tableName)
+                .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(schemaName, tableName)));
+    }
+
     private void doInsertIntoNewPartition(HiveStorageFormat storageFormat, SchemaTableName tableName, PageSinkContext pageSinkContext)
             throws Exception
     {
@@ -4382,7 +4388,9 @@ public abstract class AbstractTestHiveClient
                     .collect(toList()));
 
             // verify the node versions in partitions
-            Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNames);
+            ExtendedHiveMetastore metastoreClient = getMetastoreClient();
+            Table table = getTableOrElseThrow(tableName.getSchemaName(), tableName.getTableName(), metastoreContext, metastoreClient);
+            Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(metastoreContext, table, partitionNames);
             assertEquals(partitions.size(), partitionNames.size());
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
@@ -4675,7 +4683,7 @@ public abstract class AbstractTestHiveClient
             List<String> partitionNames = metastoreClient.getPartitionNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
-                    .getPartitionsByNames(METASTORE_CONTEXT, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNames)
+                    .getPartitionsByNames(METASTORE_CONTEXT, table, partitionNames)
                     .entrySet()
                     .stream()
                     .map(Map.Entry::getValue)
@@ -5853,7 +5861,8 @@ public abstract class AbstractTestHiveClient
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
             ExtendedHiveMetastore metastoreClient = getMetastoreClient();
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER);
-            Optional<Partition> partition = metastoreClient.getPartition(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), copyPartitionFrom);
+            Table table = getTableOrElseThrow(tableName.getSchemaName(), tableName.getTableName(), metastoreContext, metastoreClient);
+            Optional<Partition> partition = metastoreClient.getPartition(metastoreContext, table, copyPartitionFrom);
             conflictPartition = Partition.builder(partition.get())
                     .setValues(toPartitionValues(partitionNameToConflict))
                     .build();
@@ -5870,7 +5879,8 @@ public abstract class AbstractTestHiveClient
             // This method bypasses transaction interface because this method is inherently hacky and doesn't work well with the transaction abstraction.
             // Additionally, this method is not part of a test. Its purpose is to set up an environment for another test.
             ExtendedHiveMetastore metastoreClient = getMetastoreClient();
-            Optional<Partition> actualPartition = metastoreClient.getPartition(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), toPartitionValues(partitionNameToConflict));
+            Table table = getTableOrElseThrow(tableName.getSchemaName(), tableName.getTableName(), METASTORE_CONTEXT, metastoreClient);
+            Optional<Partition> actualPartition = metastoreClient.getPartition(METASTORE_CONTEXT, table, toPartitionValues(partitionNameToConflict));
             // Make sure the partition inserted to trigger conflict was not overwritten
             // Checking storage location is sufficient because implement never uses .../pk1=a/pk2=a2 as the directory for partition [b, b2].
             assertEquals(actualPartition.get().getStorage().getLocation(), conflictPartition.getStorage().getLocation());

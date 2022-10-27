@@ -434,7 +434,7 @@ public class HiveSplitManager
                                                                            WarningCollector warningCollector)
     {
         Iterable<List<HivePartitionMetadata>> partitionBatches = transform(partitionNameBatches, partitionBatch -> {
-            Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, tableName, partitionBatch, predicateColumns, domains);
+            Map<String, PartitionSplitInfo> partitionSplitInfo = getPartitionSplitInfo(session, metastore, table, partitionBatch, predicateColumns, domains);
             if (partitionBatch.size() != partitionSplitInfo.size()) {
                 throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitionSplitInfo.size()));
             }
@@ -666,7 +666,7 @@ public class HiveSplitManager
     private Map<String, PartitionSplitInfo> getPartitionSplitInfo(
             ConnectorSession session,
             SemiTransactionalHiveMetastore metastore,
-            SchemaTableName tableName,
+            Table table,
             List<HivePartition> partitionBatch,
             Map<String, HiveColumnHandle> predicateColumns,
             Optional<Map<Subfield, Domain>> domains)
@@ -674,15 +674,14 @@ public class HiveSplitManager
         MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
         Map<String, Optional<Partition>> partitions = metastore.getPartitionsByNames(
                 metastoreContext,
-                tableName.getSchemaName(),
-                tableName.getTableName(),
+                table,
                 Lists.transform(partitionBatch, HivePartition::getPartitionId));
         Map<String, PartitionStatistics> partitionStatistics = ImmutableMap.of();
         if (domains.isPresent() && isPartitionStatisticsBasedOptimizationEnabled(session)) {
             partitionStatistics = metastore.getPartitionStatistics(
                     metastoreContext,
-                    tableName.getSchemaName(),
-                    tableName.getTableName(),
+                    table.getDatabaseName(),
+                    table.getTableName(),
                     partitionBatch.stream()
                             .map(HivePartition::getPartitionId)
                             .collect(toImmutableSet()));
@@ -722,7 +721,7 @@ public class HiveSplitManager
 
             partitionSplitInfoBuilder.put(entry.getKey(), new PartitionSplitInfo(entry.getValue().get(), pruned, redundantColumnDomainsBuilder.build()));
         }
-        metastore.setPartitionLeases(metastoreContext, tableName.getSchemaName(), tableName.getTableName(), partitionNameToLocation, getLeaseDuration(session));
+        metastore.setPartitionLeases(metastoreContext, table.getDatabaseName(), table.getTableName(), partitionNameToLocation, getLeaseDuration(session));
 
         return partitionSplitInfoBuilder.build();
     }

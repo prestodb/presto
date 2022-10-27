@@ -73,6 +73,8 @@ public class MockHiveMetastoreClient
     public static final MetastoreContext TEST_METASTORE_CONTEXT = new MetastoreContext("test_user", "test_queryId", Optional.empty(), Optional.empty(), Optional.empty(), false, HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
     public static final String TEST_PARTITION1 = "key=testpartition1";
     public static final String TEST_PARTITION2 = "key=testpartition2";
+
+    public static final String BAD_PARTITION = "key=badpartition";
     public static final List<String> TEST_PARTITION_VALUES1 = ImmutableList.of("testpartition1");
     public static final List<String> TEST_PARTITION_VALUES2 = ImmutableList.of("testpartition2");
     public static final long PARTITION_VERSION = 1000;

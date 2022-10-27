@@ -1751,7 +1751,7 @@ public class HiveMetadata
         return !table.getTableType().equals(TEMPORARY_TABLE) || shouldCreateEmptyBucketFilesForTemporaryTable(session);
     }
 
-    private MetastoreContext getMetastoreContext(ConnectorSession session)
+    MetastoreContext getMetastoreContext(ConnectorSession session)
     {
         return new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
     }
@@ -2022,7 +2022,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
-        Map<String, Optional<Partition>> existingPartitions = getExistingPartitionsByNames(metastoreContext, handle.getSchemaName(), handle.getTableName(), partitionUpdates);
+        Map<String, Optional<Partition>> existingPartitions = getExistingPartitionsByNames(metastoreContext, table, partitionUpdates);
 
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
             if (partitionUpdate.getName().isEmpty()) {
@@ -2183,7 +2183,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
     }
 
-    private Map<String, Optional<Partition>> getExistingPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<PartitionUpdate> partitionUpdates)
+    private Map<String, Optional<Partition>> getExistingPartitionsByNames(MetastoreContext metastoreContext, Table table, List<PartitionUpdate> partitionUpdates)
     {
         ImmutableMap.Builder<String, Optional<Partition>> existingPartitions = ImmutableMap.builder();
         ImmutableSet.Builder<String> potentiallyNewPartitions = ImmutableSet.builder();
@@ -2204,7 +2204,7 @@ public class HiveMetadata
 
         // try to load potentially new partitions in batches to check if any of them exist
         Lists.partition(ImmutableList.copyOf(potentiallyNewPartitions.build()), maxPartitionBatchSize).stream()
-                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames).entrySet().stream()
+                .flatMap(partitionNames -> metastore.getPartitionsByNames(metastoreContext, table, partitionNames).entrySet().stream()
                         .filter(entry -> entry.getValue().isPresent()))
                 .forEach(entry -> existingPartitions.put(entry.getKey(), entry.getValue()));
 

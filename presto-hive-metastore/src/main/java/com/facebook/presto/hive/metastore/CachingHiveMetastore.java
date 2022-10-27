@@ -50,6 +50,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_CORRUPTED_PARTITION_CACHE;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
@@ -665,9 +667,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
     {
-        KeyAndContext<HivePartitionName> key = getCachingKey(metastoreContext, hivePartitionName(databaseName, tableName, partitionValues));
+        KeyAndContext<HivePartitionName> key = getCachingKey(metastoreContext, hivePartitionName(table.getDatabaseName(), table.getTableName(), partitionValues));
         Optional<Partition> result = get(partitionCache, key);
         if (isPartitionCacheValidationEnabled()) {
             validatePartitionCache(key, result);
@@ -793,9 +795,9 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
     {
-        Iterable<KeyAndContext<HivePartitionName>> names = transform(partitionNames, name -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(databaseName, tableName, name)));
+        Iterable<KeyAndContext<HivePartitionName>> names = transform(partitionNames, name -> getCachingKey(metastoreContext, HivePartitionName.hivePartitionName(table.getDatabaseName(), table.getTableName(), name)));
 
         Map<KeyAndContext<HivePartitionName>, Optional<Partition>> all = getAll(partitionCache, names);
         if (isPartitionCacheValidationEnabled()) {
@@ -812,10 +814,15 @@ public class CachingHiveMetastore
 
     private Optional<Partition> loadPartitionByName(KeyAndContext<HivePartitionName> partitionName)
     {
+        String databaseName = partitionName.getKey().getHiveTableName().getDatabaseName();
+        String tableName = partitionName.getKey().getHiveTableName().getTableName();
+        Optional<Table> table = getTable(partitionName.getContext(), databaseName, tableName);
+        if (!table.isPresent()) {
+            return Optional.empty();
+        }
         return delegate.getPartition(
                 partitionName.getContext(),
-                partitionName.getKey().getHiveTableName().getDatabaseName(),
-                partitionName.getKey().getHiveTableName().getTableName(),
+                table.get(),
                 partitionName.getKey().getPartitionValues());
     }
 
@@ -829,6 +836,10 @@ public class CachingHiveMetastore
         HiveTableName hiveTableName = firstPartitionKey.getKey().getHiveTableName();
         String databaseName = hiveTableName.getDatabaseName();
         String tableName = hiveTableName.getTableName();
+        Optional<Table> table = getTable(firstPartitionKey.getContext(), databaseName, tableName);
+        if (!table.isPresent()) {
+            return StreamSupport.stream(partitionNamesKey.spliterator(), false).collect(Collectors.toMap(name -> name, name -> Optional.empty()));
+        }
 
         List<String> partitionsToFetch = new ArrayList<>();
         for (KeyAndContext<HivePartitionName> partitionNameKey : partitionNamesKey) {
@@ -838,7 +849,7 @@ public class CachingHiveMetastore
         }
 
         ImmutableMap.Builder<KeyAndContext<HivePartitionName>, Optional<Partition>> partitions = ImmutableMap.builder();
-        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(firstPartitionKey.getContext(), databaseName, tableName, partitionsToFetch);
+        Map<String, Optional<Partition>> partitionsByNames = delegate.getPartitionsByNames(firstPartitionKey.getContext(), table.get(), partitionsToFetch);
         for (Entry<String, Optional<Partition>> entry : partitionsByNames.entrySet()) {
             partitions.put(getCachingKey(firstPartitionKey.getContext(), HivePartitionName.hivePartitionName(hiveTableName, entry.getKey())), entry.getValue());
         }

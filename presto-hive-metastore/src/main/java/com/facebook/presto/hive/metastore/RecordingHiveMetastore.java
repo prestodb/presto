@@ -344,12 +344,12 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
+    public Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
     {
         return loadValue(
                 partitionCache,
-                hivePartitionName(databaseName, tableName, partitionValues),
-                () -> delegate.getPartition(metastoreContext, databaseName, tableName, partitionValues));
+                hivePartitionName(table.getDatabaseName(), table.getTableName(), partitionValues),
+                () -> delegate.getPartition(metastoreContext, table, partitionValues));
     }
 
     @Override
@@ -385,12 +385,12 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
+    public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
     {
         return loadValue(
                 partitionsByNamesCache,
-                getHivePartitionNames(databaseName, tableName, ImmutableSet.copyOf(partitionNames)),
-                () -> delegate.getPartitionsByNames(metastoreContext, databaseName, tableName, partitionNames));
+                getHivePartitionNames(table.getDatabaseName(), table.getTableName(), ImmutableSet.copyOf(partitionNames)),
+                () -> delegate.getPartitionsByNames(metastoreContext, table, partitionNames));
     }
 
     @Override
