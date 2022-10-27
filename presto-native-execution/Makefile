@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-.PHONY: all cmake build clean debug release unit submodules velox-submodule
+.PHONY: all cmake build clean debug release unittest submodules velox-submodule
 
 BUILD_BASE_DIR=_build
 BUILD_DIR=release
@@ -19,15 +19,19 @@ ENABLE_WALL ?= 1
 NUM_THREADS ?= $(shell getconf _NPROCESSORS_CONF 2>/dev/null || echo 1)
 CPU_TARGET ?= "avx"
 CMAKE_PREFIX_PATH ?= "/usr/local"
+PRESTOCPP_ROOT_DIR="$(shell pwd)"
 
 PRESTO_ENABLE_PARQUET ?= "OFF"
+PRESTO_ENABLE_S3 ?= "OFF"
 PRESTO_ENABLE_HDFS ?= "OFF"
+EXTRA_CMAKE_FLAGS ?= ""
 
 CMAKE_FLAGS := -DTREAT_WARNINGS_AS_ERRORS=${TREAT_WARNINGS_AS_ERRORS}
 CMAKE_FLAGS += -DENABLE_ALL_WARNINGS=${ENABLE_WALL}
 CMAKE_FLAGS += -DCMAKE_PREFIX_PATH=$(CMAKE_PREFIX_PATH)
 CMAKE_FLAGS += -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)
 CMAKE_FLAGS += -DPRESTO_ENABLE_PARQUET=$(PRESTO_ENABLE_PARQUET)
+CMAKE_FLAGS += -DPRESTO_ENABLE_S3=$(PRESTO_ENABLE_S3)
 CMAKE_FLAGS += -DPRESTO_ENABLE_HDFS=$(PRESTO_ENABLE_HDFS)
 
 SHELL := /bin/bash
@@ -58,7 +62,7 @@ velox-submodule:		#: Check out code for velox submodule
 submodules: velox-submodule
 
 cmake: submodules		#: Use CMake to create a Makefile build system
-	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS)
+	cmake -B "$(BUILD_BASE_DIR)/$(BUILD_DIR)" $(FORCE_COLOR) $(CMAKE_FLAGS) $(EXTRA_CMAKE_FLAGS)
 
 build:					#: Build the software based in BUILD_DIR and BUILD_TYPE variables
 	cmake --build $(BUILD_BASE_DIR)/$(BUILD_DIR) -j $(NUM_THREADS)
@@ -108,6 +112,13 @@ linux-container:
 	cp scripts/setup-$(CONTAINER_NAME).sh scripts/$(CONTAINER_NAME)-container.dockfile velox/scripts/setup-helper-functions.sh /tmp/docker && \
 	cd /tmp/docker && \
 	docker build --build-arg cpu_target=$(CPU_TARGET) --tag "prestocpp/prestocpp-$(CPU_TARGET)-$(CONTAINER_NAME):$(USER)-$(shell date +%Y%m%d)" -f $(CONTAINER_NAME)-container.dockfile .
+
+runtime-container:
+	rm -rf /tmp/release-centos-dockerfile && \
+	mkdir -p /tmp/release-centos-dockerfile && \
+	cp -r scripts/build-centos.sh scripts/release-centos-dockerfile /tmp/release-centos-dockerfile && \
+	cd /tmp/release-centos-dockerfile && \
+	PRESTOCPP_ROOT_DIR=$(PRESTOCPP_ROOT_DIR) ./build-centos.sh
 
 help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
