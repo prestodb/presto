@@ -210,6 +210,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(true)
                 .setNativeExecutionEnabled(false)
                 .setNativeExecutionExecutablePath("./presto_server")
+                .setNativeExecutionResultFetchingRequestTimeout(new Duration(10, SECONDS))
                 .setRandomizeOuterJoinNullKeyEnabled(false)
                 .setOptimizeConditionalAggregationEnabled(false)
                 .setRemoveRedundantDistinctAggregationEnabled(true));
@@ -371,6 +372,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-multiple-approx-percentile-on-same-field", "false")
                 .put("native-execution-enabled", "true")
                 .put("native-execution-executable-path", "/bin/echo")
+                .put("native-execution-result-fetching-request-timeout", "2m")
                 .put("optimizer.randomize-outer-join-null-key", "true")
                 .put("optimizer.optimize-conditional-aggregation-enabled", "true")
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
@@ -530,6 +532,7 @@ public class TestFeaturesConfig
                 .setOptimizeMultipleApproxPercentileOnSameFieldEnabled(false)
                 .setNativeExecutionEnabled(true)
                 .setNativeExecutionExecutablePath("/bin/echo")
+                .setNativeExecutionResultFetchingRequestTimeout(new Duration(2, MINUTES))
                 .setRandomizeOuterJoinNullKeyEnabled(true)
                 .setOptimizeConditionalAggregationEnabled(true)
                 .setRemoveRedundantDistinctAggregationEnabled(false);

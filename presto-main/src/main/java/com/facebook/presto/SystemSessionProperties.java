@@ -257,6 +257,7 @@ public final class SystemSessionProperties
     public static final String NATIVE_ORDER_BY_SPILL_MEMORY_THRESHOLD = "order_by_spill_memory_threshold";
     public static final String NATIVE_EXECUTION_ENABLED = "native_execution_enabled";
     public static final String NATIVE_EXECUTION_EXECUTABLE_PATH = "native_execution_executable_path";
+    public static final String NATIVE_EXECUTION_RESULT_FETCHING_REQUEST_TIMEOUT = "native_execution_result_fetching_request_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1401,6 +1402,15 @@ public final class SystemSessionProperties
                         "The native engine executable file path for native engine execution",
                         featuresConfig.getNativeExecutionExecutablePath(),
                         false),
+                new PropertyMetadata<>(
+                        NATIVE_EXECUTION_RESULT_FETCHING_REQUEST_TIMEOUT,
+                        "The native engine result fetching request max timeout time",
+                        VARCHAR,
+                        Duration.class,
+                        featuresConfig.getNativeExecutionResultFetchingRequestTimeout(),
+                        false,
+                        value -> Duration.valueOf((String) value),
+                        Duration::toString),
                 booleanProperty(
                         RANDOMIZE_OUTER_JOIN_NULL_KEY,
                         "Randomize null join key for outer join",
@@ -2354,6 +2364,11 @@ public final class SystemSessionProperties
     public static String getNativeExecutionExecutablePath(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, String.class);
+    }
+
+    public static Duration getNativeExecutionResultFetchingRequestTimeout(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_RESULT_FETCHING_REQUEST_TIMEOUT, Duration.class);
     }
 
     public static boolean randomizeOuterJoinNullKeyEnabled(Session session)

@@ -237,6 +237,7 @@ public class FeaturesConfig
     private boolean isOptimizeMultipleApproxPercentileOnSameFieldEnabled = true;
     private boolean nativeExecutionEnabled;
     private String nativeExecutionExecutablePath = "./presto_server";
+    private Duration nativeExecutionResultFetchingRequestTimeout = new Duration(10, SECONDS);
     private boolean randomizeOuterJoinNullKey;
     private boolean isOptimizeConditionalAggregationEnabled;
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
@@ -2240,6 +2241,19 @@ public class FeaturesConfig
     public String getNativeExecutionExecutablePath()
     {
         return this.nativeExecutionExecutablePath;
+    }
+
+    @Config("native-execution-result-fetching-request-timeout")
+    @ConfigDescription("Native execution result fetching request timeout")
+    public FeaturesConfig setNativeExecutionResultFetchingRequestTimeout(Duration nativeExecutionResultFetchingRequestTimeout)
+    {
+        this.nativeExecutionResultFetchingRequestTimeout = nativeExecutionResultFetchingRequestTimeout;
+        return this;
+    }
+
+    public Duration getNativeExecutionResultFetchingRequestTimeout()
+    {
+        return this.nativeExecutionResultFetchingRequestTimeout;
     }
 
     public boolean isRandomizeOuterJoinNullKeyEnabled()
