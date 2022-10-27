@@ -47,7 +47,12 @@ inline std::shared_ptr<const HyperLogLogType> HYPERLOGLOG() {
 
 // Type to use for inputs and outputs of simple functions, e.g.
 // arg_type<HyperLogLog> and out_type<HyperLogLog>.
-using HyperLogLog = Varbinary;
+struct HyperLogLogT {
+  using type = Varbinary;
+  static constexpr const char* typeName = "hyperloglog";
+};
+
+using HyperLogLog = CustomType<HyperLogLogT>;
 
 class HyperLogLogTypeFactories : public CustomTypeFactories {
  public:

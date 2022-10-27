@@ -22,12 +22,10 @@ void registerHyperLogFunctions() {
   registerType(
       "hyperloglog", std::make_unique<const HyperLogLogTypeFactories>());
 
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
-  registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
-      {"empty_approx_set"});
   registerFunction<CardinalityFunction, int64_t, HyperLogLog>({"cardinality"});
-  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
+
   registerFunction<EmptyApproxSetWithMaxErrorFunction, HyperLogLog, double>(
       {"empty_approx_set"});
+  registerFunction<EmptyApproxSetFunction, HyperLogLog>({"empty_approx_set"});
 }
 } // namespace facebook::velox::functions
