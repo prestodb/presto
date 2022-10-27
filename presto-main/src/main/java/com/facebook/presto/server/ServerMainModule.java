@@ -398,6 +398,7 @@ public class ServerMainModule
         install(new DefaultThriftCodecsModule());
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlInvokedFunctionCodec.class);
         thriftCodecBinder(binder).bindCustomThriftCodec(SqlFunctionIdCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(LongSetCodec.class);
 
         jsonCodecBinder(binder).bindListJsonCodec(TaskMemoryReservationSummary.class);
         binder.bind(SqlTaskManager.class).in(Scopes.SINGLETON);
