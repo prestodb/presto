@@ -83,7 +83,9 @@ OperatorCtx::createConnectorQueryCtx(
       driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
       expressionEvaluator_.get(),
       driverCtx_->task->queryCtx()->mappedMemory(),
-      fmt::format("{}.{}", driverCtx_->task->taskId(), planNodeId));
+      taskId(),
+      planNodeId,
+      driverCtx_->driverId);
 }
 
 std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(

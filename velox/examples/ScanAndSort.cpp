@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/Task.h"
+#include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/type/Type.h"
@@ -29,6 +31,7 @@
 #include <algorithm>
 
 using namespace facebook::velox;
+using exec::test::HiveConnectorTestBase;
 
 // This file contains a step-by-step minimal example of a workflow that:
 //
@@ -73,13 +76,6 @@ int main(int argc, char** argv) {
     LOG(INFO) << rowVector->toString(i);
   }
 
-  // Create a temporary dir to store the local file created. Note that this
-  // directory is automatically removed when the `tempDir` object runs out of
-  // scope.
-  auto tempDir = exec::test::TempDirectoryPath::create();
-  const std::string filePath = tempDir->path + "/file1.dwrf";
-  LOG(INFO) << "Writing dwrf file to '" << filePath << "'.";
-
   // In order to read and write data and files from storage, we need to use a
   // Connector. Let's instantiate and register a HiveConnector for this
   // example:
@@ -100,6 +96,11 @@ int main(int argc, char** argv) {
   filesystems::registerLocalFileSystem();
   dwrf::registerDwrfReaderFactory();
 
+  // Create a temporary dir to store the local file created. Note that this
+  // directory is automatically removed when the `tempDir` object runs out of
+  // scope.
+  auto tempDir = exec::test::TempDirectoryPath::create();
+
   // Once we finalize setting up the Hive connector, let's define our query
   // plan. We use the helper `PlanBuilder` class to generate the query plan
   // for this example, but this is usually done programatically based on the
@@ -117,8 +118,12 @@ int main(int argc, char** argv) {
               inputRowType->names(),
               std::make_shared<core::InsertTableHandle>(
                   kHiveConnectorId,
-                  std::make_shared<connector::hive::HiveInsertTableHandle>(
-                      filePath)))
+                  HiveConnectorTestBase::makeHiveInsertTableHandle(
+                      inputRowType->names(),
+                      inputRowType->children(),
+                      {},
+                      HiveConnectorTestBase::makeLocationHandle(
+                          tempDir->path))))
           .planFragment();
 
   // Task is the top-level execution concept. A task needs a taskId (as a
@@ -166,14 +171,17 @@ int main(int argc, char** argv) {
   // HiveConnectorSplit for each file, using the same HiveConnector id defined
   // above, the local file path (the "file:" prefix specifies which FileSystem
   // to use; local, in this case), and the file format (DWRF/ORC).
-  auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
-      kHiveConnectorId, "file:" + filePath, dwio::common::FileFormat::DWRF);
-
-  // Wrap it in a `Split` object and add to the task. We need to specify to
-  // which operator we're adding the split (that's why we captured the
-  // TableScan's id above). Here we could pump subsequent split/files into the
-  // TableScan.
-  readTask->addSplit(scanNodeId, exec::Split{connectorSplit});
+  for (auto& filePath : fs::directory_iterator(tempDir->path)) {
+    auto connectorSplit = std::make_shared<connector::hive::HiveConnectorSplit>(
+        kHiveConnectorId,
+        "file:" + filePath.path().string(),
+        dwio::common::FileFormat::DWRF);
+    // Wrap it in a `Split` object and add to the task. We need to specify to
+    // which operator we're adding the split (that's why we captured the
+    // TableScan's id above). Here we could pump subsequent split/files into the
+    // TableScan.
+    readTask->addSplit(scanNodeId, exec::Split{connectorSplit});
+  }
 
   // Signal that no more splits will be added. After this point, calling next()
   // on the task will start the plan execution using the current thread.

@@ -152,6 +152,38 @@ HiveConnectorTestBase::makeHiveConnectorSplit(
       .build();
 }
 
+// static
+std::shared_ptr<connector::hive::HiveInsertTableHandle>
+HiveConnectorTestBase::makeHiveInsertTableHandle(
+    const std::vector<std::string>& tableColumnNames,
+    const std::vector<TypePtr>& tableColumnTypes,
+    const std::vector<std::string>& partitionedBy,
+    std::shared_ptr<connector::hive::LocationHandle> locationHandle) {
+  std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
+      columnHandles;
+  for (int i = 0; i < tableColumnNames.size(); ++i) {
+    if (std::find(
+            partitionedBy.cbegin(),
+            partitionedBy.cend(),
+            tableColumnNames.at(i)) != partitionedBy.cend()) {
+      columnHandles.push_back(
+          std::make_shared<connector::hive::HiveColumnHandle>(
+              tableColumnNames.at(i),
+              connector::hive::HiveColumnHandle::ColumnType::kPartitionKey,
+              tableColumnTypes.at(i)));
+    } else {
+      columnHandles.push_back(
+          std::make_shared<connector::hive::HiveColumnHandle>(
+              tableColumnNames.at(i),
+              connector::hive::HiveColumnHandle::ColumnType::kRegular,
+              tableColumnTypes.at(i)));
+    }
+  }
+
+  return std::make_shared<connector::hive::HiveInsertTableHandle>(
+      columnHandles, locationHandle);
+}
+
 std::shared_ptr<connector::hive::HiveColumnHandle>
 HiveConnectorTestBase::regularColumn(
     const std::string& name,

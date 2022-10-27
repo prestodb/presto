@@ -17,10 +17,12 @@
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
 using namespace facebook::velox::exec::test;
+using namespace facebook::velox::connector;
 using namespace facebook::velox::connector::hive;
 
 class TableWriteTest : public HiveConnectorTestBase {
@@ -31,6 +33,16 @@ class TableWriteTest : public HiveConnectorTestBase {
 
   VectorPtr createConstant(variant value, vector_size_t size) const {
     return BaseVector::createConstant(value, size, pool_.get());
+  }
+
+  std::vector<std::shared_ptr<connector::ConnectorSplit>>
+  makeHiveConnectorSplits(
+      const std::shared_ptr<TempDirectoryPath>& directoryPath) {
+    std::vector<std::shared_ptr<connector::ConnectorSplit>> splits;
+    for (auto& filePath : fs::directory_iterator(directoryPath->path)) {
+      splits.push_back(makeHiveConnectorSplit(filePath.path().string()));
+    }
+    return splits;
   }
 
   RowTypePtr rowType_{
@@ -46,7 +58,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputFile = TempFilePath::create();
+  auto outputDirectory = TempDirectoryPath::create();
 
   createDuckDbTable(vectors);
 
@@ -58,16 +70,19 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
 
   std::vector<std::string> columnNames = {
       "c0", "c1", "c1_plus_c2", "substr_c5"};
-  auto plan =
-      planBuilder
-          .tableWrite(
-              columnNames,
-              std::make_shared<core::InsertTableHandle>(
-                  kHiveConnectorId,
-                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
-              "rows")
-          .project({"rows"})
-          .planNode();
+  auto plan = planBuilder
+                  .tableWrite(
+                      columnNames,
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              columnNames,
+                              rowType_->children(),
+                              {},
+                              makeLocationHandle(outputDirectory->path))),
+                      "rows")
+                  .project({"rows"})
+                  .planNode();
 
   assertQuery(plan, filePaths, "SELECT count(*) FROM tmp WHERE c0 <> 0");
 
@@ -79,7 +94,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
   auto rowType = ROW(std::move(columnNames), std::move(types));
   assertQuery(
       PlanBuilder().tableScan(rowType).planNode(),
-      {outputFile},
+      makeHiveConnectorSplits(outputDirectory),
       "SELECT c0, c1, c1 + c2, substr(c5, 1, 1) FROM tmp WHERE c0 <> 0");
 }
 
@@ -92,23 +107,26 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputFile = TempFilePath::create();
+  auto outputDirectory = TempDirectoryPath::create();
   createDuckDbTable(vectors);
 
   auto tableRowType = ROW({"d", "c", "b"}, {VARCHAR(), DOUBLE(), INTEGER()});
 
-  auto plan =
-      PlanBuilder()
-          .tableScan(rowType)
-          .tableWrite(
-              tableRowType,
-              {"x", "y", "z"},
-              std::make_shared<core::InsertTableHandle>(
-                  kHiveConnectorId,
-                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
-              "rows")
-          .project({"rows"})
-          .planNode();
+  auto plan = PlanBuilder()
+                  .tableScan(rowType)
+                  .tableWrite(
+                      tableRowType,
+                      {"x", "y", "z"},
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              {"x", "y", "z"},
+                              tableRowType->children(),
+                              {},
+                              makeLocationHandle(outputDirectory->path))),
+                      "rows")
+                  .project({"rows"})
+                  .planNode();
 
   assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
 
@@ -116,7 +134,7 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
       PlanBuilder()
           .tableScan(ROW({"x", "y", "z"}, {VARCHAR(), DOUBLE(), INTEGER()}))
           .planNode(),
-      {outputFile},
+      makeHiveConnectorSplits(outputDirectory),
       "SELECT d, c, b FROM tmp");
 }
 
@@ -128,20 +146,22 @@ TEST_F(TableWriteTest, directReadWrite) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputFile = TempFilePath::create();
+  auto outputDirectory = TempDirectoryPath::create();
   createDuckDbTable(vectors);
-
-  auto plan =
-      PlanBuilder()
-          .tableScan(rowType_)
-          .tableWrite(
-              rowType_->names(),
-              std::make_shared<core::InsertTableHandle>(
-                  kHiveConnectorId,
-                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
-              "rows")
-          .project({"rows"})
-          .planNode();
+  auto plan = PlanBuilder()
+                  .tableScan(rowType_)
+                  .tableWrite(
+                      rowType_->names(),
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              rowType_->names(),
+                              rowType_->children(),
+                              {},
+                              makeLocationHandle(outputDirectory->path))),
+                      "rows")
+                  .project({"rows"})
+                  .planNode();
 
   assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
 
@@ -151,7 +171,7 @@ TEST_F(TableWriteTest, directReadWrite) {
 
   assertQuery(
       PlanBuilder().tableScan(rowType_).planNode(),
-      {outputFile},
+      makeHiveConnectorSplits(outputDirectory),
       "SELECT * FROM tmp");
 }
 
@@ -180,43 +200,47 @@ TEST_F(TableWriteTest, constantVectors) {
 
   createDuckDbTable({vector});
 
-  auto outputFile = TempFilePath::create();
-  auto op =
-      PlanBuilder()
-          .values({vector})
-          .tableWrite(
-              rowType->names(),
-              std::make_shared<core::InsertTableHandle>(
-                  kHiveConnectorId,
-                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
-              "rows")
-          .project({"rows"})
-          .planNode();
+  auto outputDirectory = TempDirectoryPath::create();
+  auto op = PlanBuilder()
+                .values({vector})
+                .tableWrite(
+                    rowType->names(),
+                    std::make_shared<core::InsertTableHandle>(
+                        kHiveConnectorId,
+                        makeHiveInsertTableHandle(
+                            rowType_->names(),
+                            rowType_->children(),
+                            {},
+                            makeLocationHandle(outputDirectory->path))),
+                    "rows")
+                .project({"rows"})
+                .planNode();
 
   assertQuery(op, fmt::format("SELECT {}", size));
 
   assertQuery(
       PlanBuilder().tableScan(rowType).planNode(),
-      {outputFile},
+      makeHiveConnectorSplits(outputDirectory),
       "SELECT * FROM tmp");
 }
 
 // Test TableWriter create empty ORC or not based on the config
 TEST_F(TableWriteTest, writeEmptyFile) {
-  auto outputFile = TempFilePath::create();
-  fs::remove(outputFile->path);
-
-  auto plan =
-      PlanBuilder()
-          .tableScan(rowType_)
-          .filter("false")
-          .tableWrite(
-              rowType_->names(),
-              std::make_shared<core::InsertTableHandle>(
-                  kHiveConnectorId,
-                  std::make_shared<HiveInsertTableHandle>(outputFile->path)),
-              "rows")
-          .planNode();
+  auto outputDirectory = TempDirectoryPath::create();
+  auto plan = PlanBuilder()
+                  .tableScan(rowType_)
+                  .filter("false")
+                  .tableWrite(
+                      rowType_->names(),
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              rowType_->names(),
+                              rowType_->children(),
+                              {},
+                              makeLocationHandle(outputDirectory->path))),
+                      "rows")
+                  .planNode();
 
   auto execute = [](const std::shared_ptr<const core::PlanNode>& plan,
                     std::shared_ptr<core::QueryCtx> queryCtx =
@@ -228,11 +252,11 @@ TEST_F(TableWriteTest, writeEmptyFile) {
   };
 
   execute(plan);
-  ASSERT_FALSE(fs::exists(outputFile->path));
+  ASSERT_TRUE(fs::is_empty(outputDirectory->path));
 
   auto queryCtx = core::QueryCtx::createForTest();
   queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kCreateEmptyFiles, "true"}});
   execute(plan, queryCtx);
-  ASSERT_TRUE(fs::exists(outputFile->path));
+  ASSERT_FALSE(fs::is_empty(outputDirectory->path));
 }

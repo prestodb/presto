@@ -16,12 +16,17 @@
 
 #include "velox/connectors/hive/HiveConnector.h"
 
+#include "velox/common/base/Fs.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
 #include "velox/type/Conversions.h"
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
+
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 
 #include <memory>
 
@@ -80,29 +85,49 @@ std::string HiveTableHandle::toString() const {
 }
 
 HiveDataSink::HiveDataSink(
-    std::shared_ptr<const RowType> inputType,
-    const std::string& filePath,
-    velox::memory::MemoryPool* memoryPool)
-    : inputType_(inputType) {
+    RowTypePtr inputType,
+    std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
+    const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx)
+    : inputType_(std::move(inputType)),
+      insertTableHandle_(std::move(insertTableHandle)),
+      connectorQueryCtx_(connectorQueryCtx) {
+  if (!insertTableHandle_->isPartitioned()) {
+    writers_.emplace_back(createWriter());
+  }
+}
+
+void HiveDataSink::appendData(VectorPtr input) {
+  // For the time being the hive data sink supports one file
+  // To extend it we can create a new writer for every
+  // partition
+  if (writers_.empty()) {
+    writers_.emplace_back(createWriter());
+  }
+  writers_[0]->write(input);
+}
+
+void HiveDataSink::close() {
+  for (const auto& writer : writers_) {
+    writer->close();
+  }
+}
+
+std::unique_ptr<velox::dwrf::Writer> HiveDataSink::createWriter() {
   auto config = std::make_shared<WriterConfig>();
   // TODO: Wire up serde properties to writer configs.
 
   facebook::velox::dwrf::WriterOptions options;
   options.config = config;
-  options.schema = inputType;
+  options.schema = inputType_;
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
 
-  auto sink = facebook::velox::dwio::common::DataSink::create(filePath);
-  writer_ = std::make_unique<Writer>(options, std::move(sink), *memoryPool);
-}
-
-void HiveDataSink::appendData(VectorPtr input) {
-  writer_->write(input);
-}
-
-void HiveDataSink::close() {
-  writer_->close();
+  auto fileName =
+      boost::lexical_cast<std::string>(boost::uuids::random_generator()());
+  auto sink = dwio::common::DataSink::create(
+      fs::path(insertTableHandle_->locationHandle()->writePath()) / fileName);
+  return std::make_unique<Writer>(
+      options, std::move(sink), *connectorQueryCtx_->memoryPool());
 }
 
 namespace {
@@ -163,7 +188,7 @@ static void makeFieldSpecs(
 
 std::shared_ptr<common::ScanSpec> makeScanSpec(
     const SubfieldFilters& filters,
-    const std::shared_ptr<const RowType>& rowType) {
+    const RowTypePtr& rowType) {
   auto spec = std::make_shared<common::ScanSpec>("root");
   makeFieldSpecs("", 0, rowType, spec.get());
 
@@ -186,7 +211,7 @@ std::shared_ptr<common::ScanSpec> makeScanSpec(
 } // namespace
 
 HiveDataSource::HiveDataSource(
-    const std::shared_ptr<const RowType>& outputType,
+    const RowTypePtr& outputType,
     const std::shared_ptr<connector::ConnectorTableHandle>& tableHandle,
     const std::unordered_map<
         std::string,
@@ -490,7 +515,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
 
   std::shared_ptr<dwio::common::ColumnSelector> cs;
   if (columnNames.empty()) {
-    static const std::shared_ptr<const RowType> kEmpty{ROW({}, {})};
+    static const RowTypePtr kEmpty{ROW({}, {})};
     cs = std::make_shared<dwio::common::ColumnSelector>(kEmpty);
   } else {
     cs = std::make_shared<dwio::common::ColumnSelector>(fileType, columnNames);

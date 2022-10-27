@@ -28,7 +28,7 @@ class Filter;
 }
 namespace facebook::velox::core {
 class ITypedExpr;
-}
+} // namespace facebook::velox::core
 namespace facebook::velox::exec {
 class ExprSet;
 }
@@ -171,21 +171,25 @@ class ConnectorQueryCtx {
  public:
   ConnectorQueryCtx(
       memory::MemoryPool* pool,
-      Config* config,
+      const Config* FOLLY_NONNULL connectorConfig,
       ExpressionEvaluator* expressionEvaluator,
-      memory::MappedMemory* mappedMemory,
-      const std::string& scanId)
+      memory::MappedMemory* FOLLY_NONNULL mappedMemory,
+      const std::string& taskId,
+      const std::string& planNodeId,
+      int driverId)
       : pool_(pool),
-        config_(config),
+        config_(connectorConfig),
         expressionEvaluator_(expressionEvaluator),
         mappedMemory_(mappedMemory),
-        scanId_(scanId) {}
+        scanId_(fmt::format("{}.{}", taskId, planNodeId)),
+        taskId_(taskId),
+        driverId_(driverId) {}
 
   memory::MemoryPool* memoryPool() const {
     return pool_;
   }
 
-  Config* config() const {
+  const Config* config() const {
     return config_;
   }
 
@@ -199,21 +203,30 @@ class ConnectorQueryCtx {
     return mappedMemory_;
   }
 
-  // Returns an id that allows sharing state between different threads
-  // of the same scan. This is typically a query id plus the scan's
-  // PlanNodeId. This is used for locating a scanTracker, which tracks
-  // the read density of columns for prefetch and other memory
-  // hierarchy purposes.
+  // This is a combination of task id and the scan's PlanNodeId. This is an id
+  // that allows sharing state between different threads of the same scan. This
+  // is used for locating a scanTracker, which tracks the read density of
+  // columns for prefetch and other memory hierarchy purposes.
   const std::string& scanId() const {
     return scanId_;
   }
 
+  const std::string& taskId() const {
+    return taskId_;
+  }
+
+  int driverId() const {
+    return driverId_;
+  }
+
  private:
   memory::MemoryPool* pool_;
-  Config* config_;
+  const Config* config_;
   ExpressionEvaluator* expressionEvaluator_;
   memory::MappedMemory* mappedMemory_;
-  std::string scanId_;
+  const std::string scanId_;
+  const std::string taskId_;
+  const int driverId_;
 };
 
 class Connector {
