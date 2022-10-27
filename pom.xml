@@ -10,7 +10,7 @@
 
     <groupId>com.facebook.presto</groupId>
     <artifactId>presto-root</artifactId>
-    <version>0.277.1-SNAPSHOT</version>
+    <version>0.277.2-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>presto-root</name>
