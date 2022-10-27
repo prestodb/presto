@@ -185,7 +185,7 @@ def get_files(commit, path):
 
     if commit != "":
         status, stdout, stderr = util.run(
-            f"git diff --name-only --diff-filter='ACM' {commit}"
+            f"git diff --relative --name-only --diff-filter='ACM' {commit}"
         )
         filelist = stdout.splitlines()
     else:
