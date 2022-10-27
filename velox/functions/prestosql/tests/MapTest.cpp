@@ -22,6 +22,8 @@ using namespace facebook::velox;
 using namespace facebook::velox::test;
 using namespace facebook::velox::functions::test;
 
+namespace {
+
 class MapTest : public FunctionBaseTest {};
 
 TEST_F(MapTest, noNulls) {
@@ -48,7 +50,7 @@ TEST_F(MapTest, someNulls) {
   auto keyAt = [](vector_size_t row) { return row % 11; };
   auto valueAt = [](vector_size_t row) { return row % 13; };
   auto keys = makeArrayVector<int64_t>(size, sizeAt, keyAt, nullEvery(7));
-  auto values = makeArrayVector<int32_t>(size, sizeAt, valueAt);
+  auto values = makeArrayVector<int32_t>(size, sizeAt, valueAt, nullEvery(7));
 
   auto expectedMap = makeMapVector<int64_t, int32_t>(
       size, sizeAt, keyAt, valueAt, nullEvery(7));
@@ -202,3 +204,30 @@ TEST_F(MapTest, constantValues) {
       }));
   assertEqualVectors(expectedMap, result);
 }
+
+TEST_F(MapTest, outOfOrder) {
+  auto size = 1'000;
+
+  auto sizeAt = [](vector_size_t row) { return row % 5; };
+  auto keyAt = [](vector_size_t row) { return row % 11; };
+  auto valueAt = [](vector_size_t row) { return row % 13; };
+
+  auto keys1 = makeArrayVector<int64_t>(size, sizeAt, keyAt);
+  auto keys2 = makeArrayVector<int64_t>(size, sizeAt, keyAt);
+
+  auto values1 = makeArrayVector<int32_t>(size, sizeAt, valueAt);
+  auto values2 = makeArrayVector<int32_t>(size, sizeAt, valueAt);
+
+  auto intVector =
+      makeFlatVector<int32_t>(size, [](vector_size_t row) { return row; });
+
+  auto expectedMap =
+      makeMapVector<int64_t, int32_t>(size, sizeAt, keyAt, valueAt);
+
+  auto result = evaluate<MapVector>(
+      "map(if(c0 \% 2 = 1, c1, c2), if(c0 \% 3 = 0, c3, c4))",
+      makeRowVector({intVector, keys1, keys2, values1, values2}));
+  assertEqualVectors(expectedMap, result);
+}
+
+} // namespace

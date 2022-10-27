@@ -43,8 +43,16 @@ class MapFunction : public exec::VectorFunction {
         "Duplicate map keys ({}) are not allowed";
 
     MapVectorPtr mapVector;
+
+    // Take the fast path only if:
+    // - both keys and values are identity mapping (no other indirections).
+    // - the offsets in both keys and values vectors are the same.
+    //
+    // (if sizes are different keys and values the function will throw).
     if (decodedKeys->isIdentityMapping() &&
-        decodedValues->isIdentityMapping()) {
+        decodedValues->isIdentityMapping() &&
+        offsetsAligned(
+            keys->as<ArrayVector>(), values->as<ArrayVector>(), rows)) {
       auto keysArray = keys->as<ArrayVector>();
       auto valuesArray = values->as<ArrayVector>();
 
@@ -170,6 +178,20 @@ class MapFunction : public exec::VectorFunction {
                 .argumentType("array(K)")
                 .argumentType("array(V)")
                 .build()};
+  }
+
+ private:
+  // Given two ArrayVectors, return whether their offset buffer values are the
+  // same.
+  bool offsetsAligned(
+      ArrayVector* keys,
+      ArrayVector* values,
+      const SelectivityVector& rows) const {
+    VELOX_CHECK_GE(keys->size(), rows.size());
+    VELOX_CHECK_GE(values->size(), rows.size());
+    return rows.testSelected([&](vector_size_t row) {
+      return keys->offsetAt(row) == values->offsetAt(row);
+    });
   }
 };
 } // namespace
