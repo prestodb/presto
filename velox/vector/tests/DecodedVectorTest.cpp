@@ -615,10 +615,19 @@ TEST_F(DecodedVectorTest, emptyRowsDictOverConstWithNulls) {
   auto dict = BaseVector::wrapInDictionary(
       nulls, indices, 3, BaseVector::createConstant(1, 3, pool()));
 
-  SelectivityVector rows(3, false);
-  DecodedVector d(*dict, rows, false);
-  VELOX_CHECK_EQ(d.size(), 0);
-  VELOX_CHECK_NOT_NULL(d.indices());
+  {
+    SelectivityVector rows(3, false);
+    DecodedVector d(*dict, rows, false);
+    VELOX_CHECK_EQ(d.size(), 0);
+    VELOX_CHECK_NOT_NULL(d.indices());
+  }
+
+  {
+    auto emptyDict = wrapInDictionary(allocateIndices(0, pool()), 0, dict);
+    DecodedVector d(*emptyDict);
+    VELOX_CHECK_EQ(d.size(), 0);
+    VELOX_CHECK_NOT_NULL(d.indices());
+  }
 }
 
 /// Test decoding Dict(Dict(Flat)) for empty rows.
@@ -633,10 +642,19 @@ TEST_F(DecodedVectorTest, emptyRowsMultiDict) {
             return row;
           })));
 
-  SelectivityVector emptyRows(100, false);
-  DecodedVector d(*dict, emptyRows, false);
-  VELOX_CHECK_EQ(d.size(), 0);
-  VELOX_CHECK_NOT_NULL(d.indices());
+  {
+    SelectivityVector emptyRows(100, false);
+    DecodedVector d(*dict, emptyRows, false);
+    VELOX_CHECK_EQ(d.size(), 0);
+    VELOX_CHECK_NOT_NULL(d.indices());
+  }
+
+  {
+    auto emptyDict = wrapInDictionary(allocateIndices(0, pool()), 0, dict);
+    DecodedVector d(*emptyDict);
+    VELOX_CHECK_EQ(d.size(), 0);
+    VELOX_CHECK_NOT_NULL(d.indices());
+  }
 }
 
 TEST_F(DecodedVectorTest, flatNulls) {

@@ -296,6 +296,22 @@ class DecodedVector {
 
   void reset(vector_size_t size);
 
+  // If `rows` is null applies the `func` to all rows in [0, size_)
+  // otherwise, applies it to selected rows only.
+  template <typename Func>
+  void applyToRows(const SelectivityVector* rows, Func&& func) const;
+
+  // If `rows` is null returns 'size_', otherwise returns rows->end().
+  inline vector_size_t end(const SelectivityVector* rows) const {
+    return rows ? rows->end() : size_;
+  }
+
+  // If `rows` is null returns 'size', otherwise returns rows->end().
+  inline vector_size_t end(vector_size_t size, const SelectivityVector* rows)
+      const {
+    return rows ? rows->end() : size;
+  }
+
   // Last valid index into 'indices_' + 1.
   vector_size_t size_ = 0;
 

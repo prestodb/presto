@@ -33,28 +33,6 @@ std::vector<vector_size_t> makeConsecutiveIndices(size_t size) {
   }
   return consecutiveIndices;
 }
-
-// If `rows` is null applys the `func` to all rows in `vector` [0, size)
-// otherwise, applys it on selected rows only.
-template <typename Func>
-void applyToRows(
-    const BaseVector& vector,
-    const SelectivityVector* rows,
-    Func&& func) {
-  if (rows) {
-    rows->applyToSelected([&](vector_size_t row) { func(row); });
-    return;
-  } else {
-    for (auto i = 0; i < vector.size(); i++) {
-      func(i);
-    }
-  }
-}
-
-// If `rows` is null returns vector size, otherwise returns rows->end().
-vector_size_t end(const BaseVector& vector, const SelectivityVector* rows) {
-  return rows ? rows->end() : vector.size();
-}
 } // namespace
 
 const std::vector<vector_size_t>& DecodedVector::consecutiveIndices() {
@@ -72,7 +50,7 @@ void DecodedVector::decode(
     const BaseVector& vector,
     const SelectivityVector* rows,
     bool loadLazy) {
-  reset(end(vector, rows));
+  reset(end(vector.size(), rows));
   loadLazy_ = loadLazy;
   if (loadLazy_ && (isLazyNotLoaded(vector) || vector.isLazy())) {
     decode(*vector.loadedVector(), rows);
@@ -117,9 +95,11 @@ void DecodedVector::makeIndices(
     const BaseVector& vector,
     const SelectivityVector* rows,
     int32_t numLevels) {
-  VELOX_CHECK_LE(end(vector, rows), vector.size());
+  if (rows) {
+    VELOX_CHECK_LE(rows->end(), vector.size());
+  }
 
-  reset(end(vector, rows));
+  reset(end(vector.size(), rows));
   combineWrappers(&vector, rows, numLevels);
 }
 
@@ -163,7 +143,7 @@ void DecodedVector::combineWrappers(
       mayHaveNulls_ = true;
     }
   } else if (topEncoding == VectorEncoding::Simple::SEQUENCE) {
-    copiedIndices_.resize(end(*vector, rows));
+    copiedIndices_.resize(end(rows));
     indices_ = &copiedIndices_[0];
     auto sizes = vector->wrapInfo()->as<vector_size_t>();
     vector_size_t lastBegin = 0;
@@ -171,7 +151,7 @@ void DecodedVector::combineWrappers(
     vector_size_t lastIndex = 0;
     values = vector->valueVector().get();
 
-    applyToRows(*vector, rows, [&](vector_size_t row) {
+    applyToRows(rows, [&](vector_size_t row) {
       copiedIndices_[row] =
           offsetOfIndex(sizes, row, &lastBegin, &lastEnd, &lastIndex);
     });
@@ -223,7 +203,7 @@ void DecodedVector::combineWrappers(
 void DecodedVector::applyDictionaryWrapper(
     const BaseVector& dictionaryVector,
     const SelectivityVector* rows) {
-  if (dictionaryVector.size() == 0 || (rows && !rows->hasSelections())) {
+  if (size_ == 0 || (rows && !rows->hasSelections())) {
     // No further processing is needed.
     return;
   }
@@ -237,7 +217,7 @@ void DecodedVector::applyDictionaryWrapper(
     // buffer is not copied, make a copy because we may need to
     // change it when iterating through wrapped vector
     if (!nulls_ || nullsNotCopied()) {
-      copyNulls(end(dictionaryVector, rows));
+      copyNulls(end(rows));
     }
   }
   auto copiedNulls = copiedNulls_.data();
@@ -247,7 +227,7 @@ void DecodedVector::applyDictionaryWrapper(
     indices_ = copiedIndices_.data();
   }
 
-  applyToRows(dictionaryVector, rows, [&](vector_size_t row) {
+  applyToRows(rows, [&](vector_size_t row) {
     if (!nulls_ || !bits::isBitNull(nulls_, row)) {
       auto wrappedIndex = currentIndices[row];
       if (newNulls && bits::isBitNull(newNulls, wrappedIndex)) {
@@ -262,7 +242,7 @@ void DecodedVector::applyDictionaryWrapper(
 void DecodedVector::applySequenceWrapper(
     const BaseVector& sequenceVector,
     const SelectivityVector* rows) {
-  if (sequenceVector.size() == 0 || (rows && !rows->hasSelections())) {
+  if (size_ == 0 || (rows && !rows->hasSelections())) {
     // No further processing is needed.
     return;
   }
@@ -273,7 +253,7 @@ void DecodedVector::applySequenceWrapper(
     hasExtraNulls_ = true;
     mayHaveNulls_ = true;
     if (!nulls_ || nullsNotCopied()) {
-      copyNulls(end(sequenceVector, rows));
+      copyNulls(end(rows));
     }
   }
   auto copiedNulls = copiedNulls_.data();
@@ -287,7 +267,7 @@ void DecodedVector::applySequenceWrapper(
   vector_size_t lastEnd = lengths[0];
   vector_size_t lastIndex = 0;
 
-  applyToRows(sequenceVector, rows, [&](vector_size_t row) {
+  applyToRows(rows, [&](vector_size_t row) {
     if (!nulls_ || !bits::isBitNull(nulls_, row)) {
       auto wrappedIndex = currentIndices[row];
       if (newNulls && bits::isBitNull(newNulls, wrappedIndex)) {
@@ -350,7 +330,7 @@ void DecodedVector::decodeBiased(
       bits::roundUp(size_, sizeof(int64_t)) / (sizeof(int64_t) / sizeof(T));
   tempSpace_.resize(numInt64);
   T* data = reinterpret_cast<T*>(&tempSpace_[0]); // NOLINT
-  applyToRows(vector, rows, [data, biased](vector_size_t row) {
+  applyToRows(rows, [data, biased](vector_size_t row) {
     data[row] = biased->valueAt(row);
   });
   data_ = data;
@@ -361,11 +341,11 @@ void DecodedVector::setFlatNulls(
     const SelectivityVector* rows) {
   if (hasExtraNulls_) {
     if (nullsNotCopied()) {
-      copyNulls(end(vector, rows));
+      copyNulls(end(rows));
     }
     auto leafNulls = vector.rawNulls();
     auto copiedNulls = &copiedNulls_[0];
-    applyToRows(vector, rows, [&](vector_size_t row) {
+    applyToRows(rows, [&](vector_size_t row) {
       if (!bits::isBitNull(nulls_, row) &&
           (leafNulls && bits::isBitNull(leafNulls, indices_[row]))) {
         bits::setNull(copiedNulls, row);
@@ -428,7 +408,7 @@ void DecodedVector::setBaseDataForConstant(
   } else {
     makeIndicesMutable();
 
-    applyToRows(vector, rows, [this](vector_size_t row) {
+    applyToRows(rows, [this](vector_size_t row) {
       copiedIndices_[row] = constantIndex_;
     });
     setFlatNulls(vector, rows);
@@ -580,5 +560,17 @@ const uint64_t* DecodedVector::nulls() {
   }
 
   return allNulls_.value();
+}
+
+template <typename Func>
+void DecodedVector::applyToRows(const SelectivityVector* rows, Func&& func)
+    const {
+  if (rows) {
+    rows->applyToSelected([&](vector_size_t row) { func(row); });
+  } else {
+    for (auto i = 0; i < size_; i++) {
+      func(i);
+    }
+  }
 }
 } // namespace facebook::velox
