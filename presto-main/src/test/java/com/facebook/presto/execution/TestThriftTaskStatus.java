@@ -17,12 +17,14 @@ import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.codec.internal.compiler.CompilerThriftCodecFactory;
 import com.facebook.drift.codec.internal.reflection.ReflectionThriftCodecFactory;
+import com.facebook.drift.codec.metadata.ThriftCatalog;
 import com.facebook.drift.protocol.TBinaryProtocol;
 import com.facebook.drift.protocol.TCompactProtocol;
 import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
+import com.facebook.presto.server.LongSetCodec;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoTransportException;
@@ -52,14 +54,12 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestThriftTaskStatus
 {
-    private static final ThriftCodecManager COMPILER_READ_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));
-    private static final ThriftCodecManager COMPILER_WRITE_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false));
-    private static final ThriftCodec<TaskStatus> COMPILER_READ_CODEC = COMPILER_READ_CODEC_MANAGER.getCodec(TaskStatus.class);
-    private static final ThriftCodec<TaskStatus> COMPILER_WRITE_CODEC = COMPILER_WRITE_CODEC_MANAGER.getCodec(TaskStatus.class);
-    private static final ThriftCodecManager REFLECTION_READ_CODEC_MANAGER = new ThriftCodecManager(new ReflectionThriftCodecFactory());
-    private static final ThriftCodecManager REFLECTION_WRITE_CODEC_MANAGER = new ThriftCodecManager(new ReflectionThriftCodecFactory());
-    private static final ThriftCodec<TaskStatus> REFLECTION_READ_CODEC = REFLECTION_READ_CODEC_MANAGER.getCodec(TaskStatus.class);
-    private static final ThriftCodec<TaskStatus> REFLECTION_WRITE_CODEC = REFLECTION_WRITE_CODEC_MANAGER.getCodec(TaskStatus.class);
+    private static final ThriftCatalog THRIFT_CATALOG = new ThriftCatalog();
+    private static final LongSetCodec LONG_SET_CODEC = new LongSetCodec(THRIFT_CATALOG);
+    private static final ThriftCodecManager COMPILER_READ_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false), THRIFT_CATALOG, ImmutableSet.of());
+    private static final ThriftCodecManager COMPILER_WRITE_CODEC_MANAGER = new ThriftCodecManager(new CompilerThriftCodecFactory(false), THRIFT_CATALOG, ImmutableSet.of());
+    private static final ThriftCodecManager REFLECTION_READ_CODEC_MANAGER = new ThriftCodecManager(new ReflectionThriftCodecFactory(), THRIFT_CATALOG, ImmutableSet.of());
+    private static final ThriftCodecManager REFLECTION_WRITE_CODEC_MANAGER = new ThriftCodecManager(new ReflectionThriftCodecFactory(), THRIFT_CATALOG, ImmutableSet.of());
     private static final TMemoryBuffer transport = new TMemoryBuffer(100 * 1024);
     public static final long TASK_INSTANCE_ID_LEAST_SIGNIFICANT_BITS = 123L;
     public static final long TASK_INSTANCE_ID_MOST_SIGNIFICANT_BITS = 456L;
@@ -67,6 +67,7 @@ public class TestThriftTaskStatus
     public static final TaskState RUNNING = TaskState.RUNNING;
     public static final URI SELF_URI = java.net.URI.create("fake://task/" + "1");
     public static final Set<Lifespan> LIFESPANS = ImmutableSet.of(Lifespan.taskWide(), Lifespan.driverGroup(100));
+    public static final LongSet COMPLETED_SPLIT_SEQUENCE_IDS = LongSet.of(1, 2, 3);
     public static final int QUEUED_PARTITIONED_DRIVERS = 100;
     public static final long QUEUED_PARTITIONED_WEIGHT = SplitWeight.rawValueForStandardSplitCount(QUEUED_PARTITIONED_DRIVERS);
     public static final int RUNNING_PARTITIONED_DRIVERS = 200;
@@ -84,6 +85,14 @@ public class TestThriftTaskStatus
     public static final HostAddress REMOTE_HOST = HostAddress.fromParts("www.fake.invalid", 8080);
     private TaskStatus taskStatus;
 
+    public TestThriftTaskStatus()
+    {
+        COMPILER_READ_CODEC_MANAGER.addCodec(LONG_SET_CODEC);
+        COMPILER_WRITE_CODEC_MANAGER.addCodec(LONG_SET_CODEC);
+        REFLECTION_READ_CODEC_MANAGER.addCodec(LONG_SET_CODEC);
+        REFLECTION_WRITE_CODEC_MANAGER.addCodec(LONG_SET_CODEC);
+    }
+
     @BeforeMethod
     public void setUp()
     {
@@ -94,33 +103,39 @@ public class TestThriftTaskStatus
     public Object[][] codecCombinations()
     {
         return new Object[][] {
-                {COMPILER_READ_CODEC, COMPILER_WRITE_CODEC},
-                {COMPILER_READ_CODEC, REFLECTION_WRITE_CODEC},
-                {REFLECTION_READ_CODEC, COMPILER_WRITE_CODEC},
-                {REFLECTION_READ_CODEC, REFLECTION_WRITE_CODEC}
+                {COMPILER_READ_CODEC_MANAGER, COMPILER_WRITE_CODEC_MANAGER},
+                {COMPILER_READ_CODEC_MANAGER, REFLECTION_WRITE_CODEC_MANAGER},
+                {REFLECTION_READ_CODEC_MANAGER, COMPILER_WRITE_CODEC_MANAGER},
+                {REFLECTION_READ_CODEC_MANAGER, REFLECTION_WRITE_CODEC_MANAGER}
         };
     }
 
     @Test(dataProvider = "codecCombinations")
-    public void testRoundTripSerializeBinaryProtocol(ThriftCodec<TaskStatus> readCodec, ThriftCodec<TaskStatus> writeCodec)
+    public void testRoundTripSerializeBinaryProtocol(ThriftCodecManager readCodecManager, ThriftCodecManager writeCodecManager)
             throws Exception
     {
+        ThriftCodec<TaskStatus> readCodec = readCodecManager.getCodec(TaskStatus.class);
+        ThriftCodec<TaskStatus> writeCodec = writeCodecManager.getCodec(TaskStatus.class);
         TaskStatus taskStatus = getRoundTripSerialize(readCodec, writeCodec, TBinaryProtocol::new);
         assertSerde(taskStatus);
     }
 
     @Test(dataProvider = "codecCombinations")
-    public void testRoundTripSerializeTCompactProtocol(ThriftCodec<TaskStatus> readCodec, ThriftCodec<TaskStatus> writeCodec)
+    public void testRoundTripSerializeTCompactProtocol(ThriftCodecManager readCodecManager, ThriftCodecManager writeCodecManager)
             throws Exception
     {
+        ThriftCodec<TaskStatus> readCodec = readCodecManager.getCodec(TaskStatus.class);
+        ThriftCodec<TaskStatus> writeCodec = writeCodecManager.getCodec(TaskStatus.class);
         TaskStatus taskStatus = getRoundTripSerialize(readCodec, writeCodec, TCompactProtocol::new);
         assertSerde(taskStatus);
     }
 
     @Test(dataProvider = "codecCombinations")
-    public void testRoundTripSerializeTFacebookCompactProtocol(ThriftCodec<TaskStatus> readCodec, ThriftCodec<TaskStatus> writeCodec)
+    public void testRoundTripSerializeTFacebookCompactProtocol(ThriftCodecManager readCodecManager, ThriftCodecManager writeCodecManager)
             throws Exception
     {
+        ThriftCodec<TaskStatus> readCodec = readCodecManager.getCodec(TaskStatus.class);
+        ThriftCodec<TaskStatus> writeCodec = writeCodecManager.getCodec(TaskStatus.class);
         TaskStatus taskStatus = getRoundTripSerialize(readCodec, writeCodec, TFacebookCompactProtocol::new);
         assertSerde(taskStatus);
     }
@@ -133,6 +148,7 @@ public class TestThriftTaskStatus
         assertEquals(taskStatus.getState(), TaskState.RUNNING);
         assertEquals(taskStatus.getSelf(), SELF_URI);
         assertEquals(taskStatus.getCompletedDriverGroups(), LIFESPANS);
+        assertEquals(taskStatus.getCompletedSplitSequenceIds(), COMPLETED_SPLIT_SEQUENCE_IDS);
         assertEquals(taskStatus.getQueuedPartitionedDrivers(), QUEUED_PARTITIONED_DRIVERS);
         assertEquals(taskStatus.getQueuedPartitionedSplitsWeight(), QUEUED_PARTITIONED_WEIGHT);
         assertEquals(taskStatus.getRunningPartitionedDrivers(), RUNNING_PARTITIONED_DRIVERS);
@@ -196,7 +212,8 @@ public class TestThriftTaskStatus
                 RUNNING,
                 SELF_URI,
                 LIFESPANS,
-                LongSet.of(), executionFailureInfos,
+                COMPLETED_SPLIT_SEQUENCE_IDS,
+                executionFailureInfos,
                 QUEUED_PARTITIONED_DRIVERS,
                 RUNNING_PARTITIONED_DRIVERS,
                 OUTPUT_BUFFER_UTILIZATION,
