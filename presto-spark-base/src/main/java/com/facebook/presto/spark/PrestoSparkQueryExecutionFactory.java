@@ -108,6 +108,7 @@ import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -579,6 +580,11 @@ public class PrestoSparkQueryExecutionFactory
             // Update presto settings in Session, if present
             Session.SessionBuilder sessionBuilder = Session.builder(session);
             prestoSparkRetryExecutionSettings.getPrestoSettings().forEach(sessionBuilder::setSystemProperty);
+
+            Set<String> clientTags = new HashSet<>(session.getClientTags());
+            clientTags.add(retryExecutionStrategy.get().name());
+            sessionBuilder.setClientTags(clientTags);
+
             session = sessionBuilder.build();
         }
 
