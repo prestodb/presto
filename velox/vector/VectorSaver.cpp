@@ -741,6 +741,7 @@ VectorPtr restoreVectorFromFile(
 
 std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath) {
   std::ifstream inputFile(filePath, std::ifstream::binary);
+  VELOX_CHECK(!inputFile.fail(), "Cannot open file: {}", filePath);
 
   // Find out file size.
   auto begin = inputFile.tellg();
