@@ -15,6 +15,7 @@
  */
 
 #include <folly/ScopeGuard.h>
+#include <folly/container/F14Set.h>
 
 #include "velox/common/base/BitSet.h"
 #include "velox/dwio/common/exception/Exception.h"
@@ -180,7 +181,7 @@ void StripeStreamsImpl::loadStreams() {
   if (handler.isEncrypted()) {
     DWIO_ENSURE_EQ(
         handler.getEncryptionGroupCount(), footer.encryptiongroups_size());
-    std::unordered_set<uint32_t> groupIndices;
+    folly::F14FastSet<uint32_t> groupIndices;
     bits::forEachSetBit(
         projectedNodes.bits(), 0, projectedNodes.max() + 1, [&](uint32_t node) {
           if (handler.isEncrypted(node)) {
