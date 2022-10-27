@@ -43,7 +43,7 @@ class SumAggregate
       folly::Range<const vector_size_t*> indices) override {
     exec::Aggregate::setAllNulls(groups, indices);
     for (auto i : indices) {
-      *exec::Aggregate::value<ResultType>(groups[i]) = 0;
+      *exec::Aggregate::value<TAccumulator>(groups[i]) = 0;
     }
   }
 
@@ -51,7 +51,10 @@ class SumAggregate
       override {
     BaseAggregate::template doExtractValues<ResultType>(
         groups, numGroups, result, [&](char* group) {
-          return *BaseAggregate::Aggregate::template value<ResultType>(group);
+          // 'ResultType' and 'TAccumulator' might not be same such as sum(real)
+          // and we do an explicit type conversion here.
+          return (ResultType)(*BaseAggregate::Aggregate::template value<
+                              TAccumulator>(group));
         });
   }
 
@@ -76,7 +79,7 @@ class SumAggregate
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    updateInternal<ResultType>(groups, rows, args, mayPushdown);
+    updateInternal<TAccumulator, TAccumulator>(groups, rows, args, mayPushdown);
   }
 
   void addSingleGroupRawInput(
@@ -99,20 +102,23 @@ class SumAggregate
       const SelectivityVector& rows,
       const std::vector<VectorPtr>& args,
       bool mayPushdown) override {
-    BaseAggregate::template updateOneGroup<ResultType>(
+    BaseAggregate::template updateOneGroup<TAccumulator, TAccumulator>(
         group,
         rows,
         args[0],
-        &updateSingleValue<ResultType>,
-        &updateDuplicateValues<ResultType>,
+        &updateSingleValue<TAccumulator>,
+        &updateDuplicateValues<TAccumulator>,
         mayPushdown,
-        ResultType(0));
+        TAccumulator(0));
   }
 
  protected:
-  // TData is either TAccumulator or TResult, which in most cases are the same,
+  // TData is used to store the updated sum state. It can be either
+  // TAccumulator or TResult, which in most cases are the same, but for
+  // sum(real) can differ. TValue is used to decode the sum input 'args'.
+  // It can be either TAccumulator or TInput, which is most cases are the same
   // but for sum(real) can differ.
-  template <typename TData>
+  template <typename TData, typename TValue = TInput>
   void updateInternal(
       char** groups,
       const SelectivityVector& rows,
@@ -121,16 +127,16 @@ class SumAggregate
     const auto& arg = args[0];
 
     if (mayPushdown && arg->isLazy()) {
-      BaseAggregate::template pushdown<SumHook<TInput, TData>>(
+      BaseAggregate::template pushdown<SumHook<TValue, TData>>(
           groups, rows, arg);
       return;
     }
 
     if (exec::Aggregate::numNulls_) {
-      BaseAggregate::template updateGroups<true, TData>(
+      BaseAggregate::template updateGroups<true, TData, TValue>(
           groups, rows, arg, &updateSingleValue<TData>, false);
     } else {
-      BaseAggregate::template updateGroups<false, TData>(
+      BaseAggregate::template updateGroups<false, TData, TValue>(
           groups, rows, arg, &updateSingleValue<TData>, false);
     }
   }
@@ -160,32 +166,6 @@ class SumAggregate
     }
   }
 };
-
-/// Override 'initializeNewGroups' for float values. Make sure to use 'double'
-/// to store the intermediate results in accumulator.
-template <>
-inline void SumAggregate<float, double, float>::initializeNewGroups(
-    char** groups,
-    folly::Range<const vector_size_t*> indices) {
-  exec::Aggregate::setAllNulls(groups, indices);
-  for (auto i : indices) {
-    *exec::Aggregate::value<double>(groups[i]) = 0;
-  }
-}
-
-/// Override 'extractValues' for single aggregation over float values.
-/// Make sure to correctly read 'float' value from 'double' accumulator.
-template <>
-inline void SumAggregate<float, double, float>::extractValues(
-    char** groups,
-    int32_t numGroups,
-    VectorPtr* result) {
-  BaseAggregate::template doExtractValues<float>(
-      groups, numGroups, result, [&](char* group) {
-        return (
-            float)(*BaseAggregate::Aggregate::template value<double>(group));
-      });
-}
 
 /// Override 'initializeNewGroups' for decimal values to call set method to
 /// initialize the decimal value properly.

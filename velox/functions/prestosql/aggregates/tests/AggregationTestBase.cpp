@@ -121,26 +121,13 @@ void AggregationTestBase::testAggregations(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& postAggregationProjections,
-    std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder& builder)>
+    std::function<std::shared_ptr<exec::Task>(AssertQueryBuilder&)>
         assertResults) {
   {
     SCOPED_TRACE("Run partial + final");
     PlanBuilder builder(pool());
     makeSource(builder);
     builder.partialAggregation(groupingKeys, aggregates).finalAggregation();
-    if (!postAggregationProjections.empty()) {
-      builder.project(postAggregationProjections);
-    }
-
-    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
-    assertResults(queryBuilder);
-  }
-
-  {
-    SCOPED_TRACE("Run single");
-    PlanBuilder builder(pool());
-    makeSource(builder);
-    builder.singleAggregation(groupingKeys, aggregates);
     if (!postAggregationProjections.empty()) {
       builder.project(postAggregationProjections);
     }
@@ -180,12 +167,59 @@ void AggregationTestBase::testAggregations(
 
     // Expect > 0 spilled bytes unless there was no input.
     auto inputRows = toPlanStats(task->taskStats()).at(partialNodeId).inputRows;
-    if (inputRows > 0) {
+    if (inputRows > 1) {
       EXPECT_LT(0, spilledBytes(*task));
     } else {
       EXPECT_EQ(0, spilledBytes(*task));
     }
   }
+
+  {
+    SCOPED_TRACE("Run single");
+    PlanBuilder builder(pool());
+    makeSource(builder);
+    builder.singleAggregation(groupingKeys, aggregates);
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    assertResults(queryBuilder);
+  }
+
+  // TODO: turn on this after spilling for VarianceAggregationTest pass.
+#if 0
+  if (!groupingKeys.empty() && allowInputShuffle_) {
+    SCOPED_TRACE("Run single with spilling");
+    PlanBuilder builder(pool());
+    makeSource(builder);
+    core::PlanNodeId aggregationNodeId;
+    builder.singleAggregation(groupingKeys, aggregates)
+        .capturePlanNodeId(aggregationNodeId);
+    if (!postAggregationProjections.empty()) {
+      builder.project(postAggregationProjections);
+    }
+
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+
+    AssertQueryBuilder queryBuilder(builder.planNode(), duckDbQueryRunner_);
+    queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
+        .config(core::QueryConfig::kSpillEnabled, "true")
+        .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+        .config(core::QueryConfig::kSpillPath, spillDirectory->path);
+
+    auto task = assertResults(queryBuilder);
+
+    // Expect > 0 spilled bytes unless there was no input.
+    auto inputRows =
+        toPlanStats(task->taskStats()).at(aggregationNodeId).inputRows;
+    if (inputRows > 1) {
+      EXPECT_LT(0, spilledBytes(*task));
+    } else {
+      EXPECT_EQ(0, spilledBytes(*task));
+    }
+  }
+#endif
 
   {
     SCOPED_TRACE("Run partial + intermediate + final");

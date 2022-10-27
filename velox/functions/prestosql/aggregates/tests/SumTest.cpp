@@ -223,21 +223,22 @@ TEST_F(SumTest, sumFloat) {
       "SELECT sum(c0) FROM tmp");
 }
 
-TEST_F(SumTest, sumDouble) {
-  // Run the test multiple times to ease reproducing the issue:
-  // https://github.com/facebookincubator/velox/issues/2198
+TEST_F(SumTest, sumDoubleAndFloatg) {
   for (int iter = 0; iter < 3; ++iter) {
     SCOPED_TRACE(fmt::format("test iterations: {}", iter));
-    auto rowType = ROW({"c0", "c1"}, {REAL(), DOUBLE()});
+    auto rowType = ROW({"c0", "c1", "c2"}, {REAL(), DOUBLE(), INTEGER()});
     auto vectors = makeVectors(rowType, 1000, 10);
+
     createDuckDbTable(vectors);
 
-    float sum = 0;
-    for (int i = 0; i < vectors.size(); ++i) {
-      for (int j = 0; j < vectors[0]->size(); ++j) {
-        sum += vectors[i]->childAt(0)->asFlatVector<float>()->valueAt(j);
-      }
-    }
+    // With group by.
+    testAggregations(
+        vectors,
+        {"c2"},
+        {"sum(c0)", "sum(c1)"},
+        "SELECT c2, sum(c0), sum(c1) FROM tmp GROUP BY c2");
+
+    // Without group by.
     testAggregations(
         vectors,
         {},
@@ -368,13 +369,16 @@ TEST_F(SumTest, sumWithMask) {
 // Test aggregation over boolean key
 TEST_F(SumTest, boolKey) {
   vector_size_t size = 1'000;
-  auto vector = makeRowVector(
-      {makeFlatVector<bool>(size, [](auto row) { return row % 3 == 0; }),
-       makeFlatVector<int32_t>(size, [](auto row) { return row; })});
-  createDuckDbTable({vector});
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 5; ++i) {
+    vectors.push_back(makeRowVector(
+        {makeFlatVector<bool>(size, [](auto row) { return row % 3 == 0; }),
+         makeFlatVector<int32_t>(size, [](auto row) { return row; })}));
+  }
+  createDuckDbTable(vectors);
 
   testAggregations(
-      {vector}, {"c0"}, {"sum(c1)"}, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
+      vectors, {"c0"}, {"sum(c1)"}, "SELECT c0, sum(c1) FROM tmp GROUP BY 1");
 }
 
 TEST_F(SumTest, emptyValues) {
@@ -389,20 +393,22 @@ TEST_F(SumTest, emptyValues) {
 /// Test aggregating over lots of null values.
 TEST_F(SumTest, nulls) {
   vector_size_t size = 10'000;
-  auto data = {makeRowVector(
-      {"a", "b"},
-      {
-          makeFlatVector<int32_t>(size, [](auto row) { return row; }),
-          makeFlatVector<int32_t>(
-              size, [](auto row) { return row; }, nullEvery(3)),
-      })};
-  createDuckDbTable(data);
+
+  std::vector<RowVectorPtr> vectors;
+  for (int32_t i = 0; i < 5; ++i) {
+    vectors.push_back(makeRowVector(
+        {makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+         makeFlatVector<int32_t>(
+             size, [](auto row) { return row; }, nullEvery(3))}));
+  }
+
+  createDuckDbTable(vectors);
 
   testAggregations(
-      data,
-      {"a"},
-      {"sum(b) AS sum_b"},
-      "SELECT a, sum(b) as sum_b FROM tmp GROUP BY 1");
+      vectors,
+      {"c0"},
+      {"sum(c1) AS sum_c1"},
+      "SELECT c0, sum(c1) as sum_c1 FROM tmp GROUP BY 1");
 }
 
 template <typename Type>
