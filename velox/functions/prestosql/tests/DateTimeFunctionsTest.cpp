@@ -17,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Date.h"
@@ -202,12 +203,57 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
             makeNullableFlatVector<int16_t>({tzid}),
         })}));
   }
+
+  static std::unordered_set<std::string> getSignatureStrings(
+      const std::string& functionName) {
+    auto allSignatures = getFunctionSignatures();
+    const auto& signatures = allSignatures.at(functionName);
+
+    std::unordered_set<std::string> signatureStrings;
+    for (const auto& signature : signatures) {
+      signatureStrings.insert(signature->toString());
+    }
+    return signatureStrings;
+  }
 };
 
 bool operator==(
     const DateTimeFunctionsTest::TimestampWithTimezone& a,
     const DateTimeFunctionsTest::TimestampWithTimezone& b) {
   return a.milliSeconds_ == b.milliSeconds_ && a.timezoneId_ == b.timezoneId_;
+}
+
+TEST_F(DateTimeFunctionsTest, dateTruncSignatures) {
+  auto signatures = getSignatureStrings("date_trunc");
+  ASSERT_EQ(3, signatures.size());
+
+  ASSERT_EQ(
+      1,
+      signatures.count(
+          "(varchar,timestamp with time zone) -> timestamp with time zone"));
+  ASSERT_EQ(1, signatures.count("(varchar,date) -> date"));
+  ASSERT_EQ(1, signatures.count("(varchar,timestamp) -> timestamp"));
+}
+
+TEST_F(DateTimeFunctionsTest, parseDatetimeSignatures) {
+  auto signatures = getSignatureStrings("parse_datetime");
+  ASSERT_EQ(1, signatures.size());
+
+  ASSERT_EQ(
+      1, signatures.count("(varchar,varchar) -> timestamp with time zone"));
+}
+
+TEST_F(DateTimeFunctionsTest, dayOfXxxSignatures) {
+  for (const auto& name :
+       {"day_of_year", "doy", "day_of_month", "day_of_week", "dow"}) {
+    SCOPED_TRACE(name);
+    auto signatures = getSignatureStrings(name);
+    ASSERT_EQ(3, signatures.size());
+
+    ASSERT_EQ(1, signatures.count("(timestamp with time zone) -> bigint"));
+    ASSERT_EQ(1, signatures.count("(date) -> bigint"));
+    ASSERT_EQ(1, signatures.count("(timestamp) -> bigint"));
+  }
 }
 
 // Test cases from PrestoDB [1] are covered here as well:

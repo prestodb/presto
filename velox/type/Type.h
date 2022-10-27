@@ -1578,6 +1578,14 @@ struct DynamicRow {
   DynamicRow() {}
 };
 
+// T must be a struct with T::type being a built-in type and T::typeName
+// type name to use in FunctionSignature.
+template <typename T>
+struct CustomType {
+ private:
+  CustomType() {}
+};
+
 template <typename T>
 struct CppToType {};
 
@@ -1728,6 +1736,13 @@ struct CppToType<UnscaledLongDecimal>
 
 template <>
 struct CppToType<UnknownValue> : public CppToTypeBase<TypeKind::UNKNOWN> {};
+
+template <typename T>
+struct CppToType<CustomType<T>> : public CppToType<typename T::type> {
+  static auto create() {
+    return CppToType<typename T::type>::create();
+  }
+};
 
 // todo: remaining cpp2type
 

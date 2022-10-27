@@ -700,4 +700,10 @@ struct VectorReader<Generic<T>> {
   mutable TypePtr castType_ = nullptr;
 };
 
+template <typename T>
+struct VectorReader<CustomType<T>> : public VectorReader<typename T::type> {
+  explicit VectorReader(const DecodedVector* decoded)
+      : VectorReader<typename T::type>(decoded) {}
+};
+
 } // namespace facebook::velox::exec

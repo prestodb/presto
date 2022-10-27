@@ -272,6 +272,14 @@ struct TypeAnalysis<Row<T...>> {
   }
 };
 
+template <typename T>
+struct TypeAnalysis<CustomType<T>> {
+  void run(TypeAnalysisResults& results) {
+    results.stats.concreteCount++;
+    results.out << T::typeName;
+  }
+};
+
 // todo(youknowjack): need a better story for types for UDFs. Mapping
 //                    c++ types <-> Velox types is imprecise (e.g. string vs
 //                    binary) and difficult to change.

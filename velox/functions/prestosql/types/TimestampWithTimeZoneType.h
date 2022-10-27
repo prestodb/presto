@@ -51,7 +51,12 @@ TIMESTAMP_WITH_TIME_ZONE() {
 }
 
 // Type used for function registration.
-using TimestampWithTimezone = Row<int64_t, int16_t>;
+struct TimestampWithTimezoneT {
+  using type = Row<int64_t, int16_t>;
+  static constexpr const char* typeName = "timestamp with time zone";
+};
+
+using TimestampWithTimezone = CustomType<TimestampWithTimezoneT>;
 
 class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
  public:
