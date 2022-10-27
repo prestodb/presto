@@ -21,6 +21,11 @@ Run `make` in the root directory to compile the sources. For development, use
 `make debug` to build a non-optimized debug version.  Use `make unittest` to build
 and run tests.
 
+## Building Dockerfile from source
+Run `make runtime-container` in the presto-native-execution root directory
+to build run-ready containerized version of PrestoCpp. Information on available
+configuration options can be found in [scripts/release-centos-dockerfile/README.md](scripts/release-centos-dockerfile/README.md)
+
 ### Makefile targets
 A reminder of the available Makefile targets can be obtained using `make help`
 ```
@@ -39,6 +44,7 @@ A reminder of the available Makefile targets can be obtained using `make help`
     tidy-fix                Fix clang-tidy issues in the current branch
     tidy-check              Check clang-tidy issues in the current branch
     linux-container         Build the CircleCi linux container from scratch
+    runtime-container       Build the software in container using current git commit
     help                    Show the help messages
 ```
 
@@ -48,12 +54,12 @@ A reminder of the available Makefile targets can be obtained using `make help`
 
 Makefile targets exist for showing, fixing and checking formatting, license
 headers and clang-tidy warnings.  These targets are shortcuts for calling
-`./scripts/check.py`.  
+`./scripts/check.py`.
 
 GitHub Actions run `make format-check`, `make header-check` and
 `make tidy-check` as part of our continuous integration.  Pull requests should
 pass linux-build, format-check, header-check and other jobs without errors
-before being accepted.  
+before being accepted.
 
 Formatting issues found on the changed lines in the current commit can be
 displayed using `make format-show`.  These issues can be fixed by using `make
@@ -68,13 +74,13 @@ commit.
 Similar commands `make tidy-show`, `make-tidy-fix`, `make tidy-check` exist for
 running clang-tidy, but these checks are currently advisory only.
 
-An entire directory tree of files can be formatted and have license headers added 
+An entire directory tree of files can be formatted and have license headers added
 using the `tree` variant of the format.sh commands:
 ```
-    ./scripts/check.py format tree 
+    ./scripts/check.py format tree
     ./scripts/check.py format tree --fix
 
-    ./scripts/check.py header tree 
+    ./scripts/check.py header tree
     ./scripts/check.py header tree --fix
 ```
 
@@ -103,7 +109,7 @@ export PATH=$HOME/bin:$HOME/Library/Python/3.7/bin:$PATH
 * Clone the whole Presto repository.
 * Run `presto/presto-native-execution/scripts/setup-centos.sh`
 
-### Setting up local Presto environment on MacOS (with optional IntelliJ and CLion) 
+### Setting up local Presto environment on MacOS (with optional IntelliJ and CLion)
 Clone the whole Presto repository.
 
 Close IntelliJ and CLion
@@ -133,7 +139,7 @@ Run IntelliJ
 In "presto/presto-native-execution" run:
 * `make -C presto-native-execution submodules`
 * `git/presto/presto-native-execution % sudo chown -R $(whoami) /usr/local/bin /usr/local/lib /usr/local/sbin; sudo chown -R $(whoami) /usr/local/bin /usr/local/lib /usr/local/bin; sudo chown -R $(whoami) /usr/local/bin /usr/local/lib /usr/local/lib; chmod u+w /usr/local/bin /usr/local/lib /usr/local/sbin; chmod u+w /usr/local/bin /usr/local/lib /usr/local/bin; chmod u+w /usr/local/bin /usr/local/lib /usr/local/lib; ./scripts/setup-macos.sh`
-  
+
 Run CLion:
 * File->Close Project if any is open.
 * Open `presto/presto-native-execution` folder as CMake project and wait till CLion loads/generates cmake files, symbols, etc.
@@ -166,7 +172,7 @@ Running Presto Coordinator + Worker on MacOS
 ### Running Integration (End to End or E2E) Tests on MacOS (with optional IntelliJ and CLion)
 * Note that everything below can be done w/o using IDEs by running command line commands (not in this readme).
 * Open a test file which has the test(s) you want to run in IntelliJ from `presto/presto-native-execution/src/test/java/com/facebook/presto/nativeworker` path.
-* Click the green arrow to the left of the test class line of code and chose if you want to Run or Debug. This will run all tests in this class. 
+* Click the green arrow to the left of the test class line of code and chose if you want to Run or Debug. This will run all tests in this class.
 * Alternatively click the green arrow to the left of the test class' test method line of code and chose if you want tor Run or Debug. This will run all tests only in this class's member.
 * The framework will launch single Coordinator and four native workers to test-run the queries.
 * Similarly, the unit tests of Velox and presto_cpp can be run from CLion.
@@ -181,5 +187,5 @@ Running Presto Coordinator + Worker on MacOS
 
 ### Creating PRs for presto/presto-native-execution/
 * Submit PRs as usual following [Presto repository guidelines](https://github.com/prestodb/presto/wiki/Review-and-Commit-guidelines).
-* On top of it please add `[native]` prefix in the `title` as well as to the `commit message` for PRs modifying anything in `presto-native-execution`. 
-* PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.  
+* On top of it please add `[native]` prefix in the `title` as well as to the `commit message` for PRs modifying anything in `presto-native-execution`.
+* PRs that only change files in `presto-native-execution` should be approved by a Code Owner ([team-velox](https://github.com/orgs/prestodb/teams/team-velox)) to have merging enabled.
