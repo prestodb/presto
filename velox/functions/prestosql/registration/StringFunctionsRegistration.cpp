@@ -94,7 +94,5 @@ void registerStringFunctions() {
       "regexp_extract_all", re2ExtractAllSignatures(), makeRe2ExtractAll);
   exec::registerStatefulVectorFunction(
       "regexp_like", re2SearchSignatures(), makeRe2Search);
-
-  registerType("json", std::make_unique<const JsonTypeFactories>());
 }
 } // namespace facebook::velox::functions

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/functions/FunctionRegistry.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/functions/prestosql/types/JsonType.h"
 
@@ -37,7 +38,50 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
       std::optional<T> value) {
     return evaluateOnce<bool>("json_array_contains(c0, c1)", json, value);
   }
+
+  static std::unordered_set<std::string> getSignatureStrings(
+      const std::string& functionName) {
+    auto allSignatures = getFunctionSignatures();
+    const auto& signatures = allSignatures.at(functionName);
+
+    std::unordered_set<std::string> signatureStrings;
+    for (const auto& signature : signatures) {
+      signatureStrings.insert(signature->toString());
+    }
+    return signatureStrings;
+  }
 };
+
+TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {
+  auto signatures = getSignatureStrings("is_json_scalar");
+  ASSERT_EQ(1, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(json) -> boolean"));
+}
+
+TEST_F(JsonFunctionsTest, jsonArrayLengthSignatures) {
+  auto signatures = getSignatureStrings("json_array_length");
+  ASSERT_EQ(1, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(json) -> bigint"));
+}
+
+TEST_F(JsonFunctionsTest, jsonExtractScalarSignatures) {
+  auto signatures = getSignatureStrings("json_extract_scalar");
+  ASSERT_EQ(1, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(json,varchar) -> varchar"));
+}
+
+TEST_F(JsonFunctionsTest, jsonArrayContainsSignatures) {
+  auto signatures = getSignatureStrings("json_array_contains");
+  ASSERT_EQ(4, signatures.size());
+
+  ASSERT_EQ(1, signatures.count("(json,varchar) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(json,bigint) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(json,double) -> boolean"));
+  ASSERT_EQ(1, signatures.count("(json,boolean) -> boolean"));
+}
 
 TEST_F(JsonFunctionsTest, isJsonScalar) {
   // Scalars.

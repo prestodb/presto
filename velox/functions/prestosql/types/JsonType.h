@@ -84,7 +84,12 @@ FOLLY_ALWAYS_INLINE std::shared_ptr<const JsonType> JSON() {
 }
 
 // Type used for function registration.
-using Json = StringView;
+struct JsonT {
+  using type = StringView;
+  static constexpr const char* typeName = "json";
+};
+
+using Json = CustomType<JsonT>;
 
 class JsonTypeFactories : public CustomTypeFactories {
  public:

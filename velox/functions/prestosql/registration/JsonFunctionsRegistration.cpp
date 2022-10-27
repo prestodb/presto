@@ -19,18 +19,20 @@
 
 namespace facebook::velox::functions {
 void registerJsonFunctions() {
-  registerFunction<IsJsonScalarFunction, bool, Varchar>({"is_json_scalar"});
-  registerFunction<JsonExtractScalarFunction, Varchar, Varchar, Varchar>(
+  registerType("json", std::make_unique<const JsonTypeFactories>());
+
+  registerFunction<IsJsonScalarFunction, bool, Json>({"is_json_scalar"});
+  registerFunction<JsonExtractScalarFunction, Varchar, Json, Varchar>(
       {"json_extract_scalar"});
-  registerFunction<JsonArrayLengthFunction, int64_t, Varchar>(
+  registerFunction<JsonArrayLengthFunction, int64_t, Json>(
       {"json_array_length"});
-  registerFunction<JsonArrayContainsFunction, bool, Varchar, bool>(
+  registerFunction<JsonArrayContainsFunction, bool, Json, bool>(
       {"json_array_contains"});
-  registerFunction<JsonArrayContainsFunction, bool, Varchar, int64_t>(
+  registerFunction<JsonArrayContainsFunction, bool, Json, int64_t>(
       {"json_array_contains"});
-  registerFunction<JsonArrayContainsFunction, bool, Varchar, double>(
+  registerFunction<JsonArrayContainsFunction, bool, Json, double>(
       {"json_array_contains"});
-  registerFunction<JsonArrayContainsFunction, bool, Varchar, Varchar>(
+  registerFunction<JsonArrayContainsFunction, bool, Json, Varchar>(
       {"json_array_contains"});
 }
 

@@ -16,6 +16,7 @@
 #include "velox/functions/Macros.h"
 #include "velox/functions/UDFOutputString.h"
 #include "velox/functions/prestosql/json/JsonExtractor.h"
+#include "velox/functions/prestosql/types/JsonType.h"
 
 namespace facebook::velox::functions {
 
@@ -23,7 +24,7 @@ template <typename T>
 struct IsJsonScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE void call(bool& result, const arg_type<Varchar>& json) {
+  FOLLY_ALWAYS_INLINE void call(bool& result, const arg_type<Json>& json) {
     auto parsedJson = folly::parseJson(json);
     result = parsedJson.isNumber() || parsedJson.isString() ||
         parsedJson.isBool() || parsedJson.isNull();
@@ -41,7 +42,7 @@ struct JsonExtractScalarFunction {
 
   FOLLY_ALWAYS_INLINE bool call(
       out_type<Varchar>& result,
-      const arg_type<Varchar>& json,
+      const arg_type<Json>& json,
       const arg_type<Varchar>& jsonPath) {
     const folly::StringPiece& jsonStringPiece = json;
     const folly::StringPiece& jsonPathStringPiece = jsonPath;
@@ -61,9 +62,7 @@ template <typename T>
 struct JsonArrayLengthFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
-  FOLLY_ALWAYS_INLINE bool call(
-      int64_t& result,
-      const arg_type<Varchar>& json) {
+  FOLLY_ALWAYS_INLINE bool call(int64_t& result, const arg_type<Json>& json) {
     auto parsedJson = folly::parseJson(json);
     if (!parsedJson.isArray()) {
       return false;
@@ -80,7 +79,7 @@ struct JsonArrayContainsFunction {
 
   template <typename TInput>
   FOLLY_ALWAYS_INLINE bool
-  call(bool& result, const arg_type<Varchar>& json, const TInput& value) {
+  call(bool& result, const arg_type<Json>& json, const TInput& value) {
     auto parsedJson = folly::parseJson(json);
     if (!parsedJson.isArray()) {
       return false;

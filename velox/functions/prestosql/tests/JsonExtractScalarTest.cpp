@@ -33,7 +33,7 @@ class JsonExtractScalarTest : public functions::test::FunctionBaseTest {
       const std::vector<std::optional<StringView>>& json,
       const std::vector<std::optional<StringView>>& path,
       const std::vector<std::optional<StringView>>& expected) {
-    auto jsonVector = makeNullableFlatVector<Json>(json, JSON());
+    auto jsonVector = makeNullableFlatVector<StringView>(json, JSON());
     auto pathVector = makeNullableFlatVector<StringView>(path);
     auto expectedVector = makeNullableFlatVector<StringView>(expected);
 
