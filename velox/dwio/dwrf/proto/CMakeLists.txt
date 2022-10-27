@@ -12,20 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-protobuf_generate_cpp(VELOX_DWIO_DWRF_PROTO_SRCS VELOX_DWIO_DWRF_PROTO_HDRS
-                      dwrf_proto.proto)
+# Set up Proto
+file(
+  GLOB PROTO_FILES
+  RELATIVE ${PROJECT_SOURCE_DIR}
+  ${CMAKE_CURRENT_SOURCE_DIR}/*.proto)
+foreach(PROTO ${PROTO_FILES})
+  get_filename_component(PROTO_DIR ${PROTO} DIRECTORY)
+  get_filename_component(PROTO_NAME ${PROTO} NAME_WE)
+  list(APPEND PROTO_SRCS
+       "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.cc")
+  list(APPEND PROTO_HDRS
+       "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.h")
+endforeach()
+set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
+set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
-protobuf_generate_cpp(VELOX_DWIO_ORC_PROTO_SRCS VELOX_DWIO_ORC_PROTO_HDRS
-                      orc_proto.proto)
+# Generate source and headers
+add_custom_command(
+  OUTPUT ${PROTO_OUTPUT_FILES}
+  COMMAND
+    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
+    ${Protobuf_INCLUDE_DIR} --cpp_out ${PROJECT_BINARY_DIR} ${PROTO_FILES}
+  DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
+  COMMENT "Running PROTO compiler"
+  VERBATIM)
+add_custom_target(dwio_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 
-add_library(
-  velox_dwio_dwrf_proto
-  ${VELOX_DWIO_DWRF_PROTO_SRCS} ${VELOX_DWIO_DWRF_PROTO_HDRS}
-  ${VELOX_DWIO_ORC_PROTO_SRCS} ${VELOX_DWIO_ORC_PROTO_HDRS})
+add_library(velox_dwio_dwrf_proto ${PROTO_HDRS} ${PROTO_SRCS})
 
 # Access generated proto file with.
 #
 # #include "velox/dwio/dwrf/proto/dwrf_proto.pb.h"
-target_link_libraries(velox_dwio_dwrf_proto protobuf::libprotobuf)
-target_include_directories(velox_dwio_dwrf_proto
-                           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/../../../../)
+target_link_libraries(velox_dwio_dwrf_proto ${Protobuf_LIBRARIES})
+target_include_directories(velox_dwio_dwrf_proto PUBLIC ${PROJECT_BINARY_DIR})

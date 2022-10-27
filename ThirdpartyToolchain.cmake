@@ -134,10 +134,15 @@ macro(build_protobuf)
 
     # Set right path to libprotobuf-dev include files.
     set(Protobuf_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src/")
+    set(Protobuf_PROTOC_EXECUTABLE "${protobuf_BINARY_DIR}/protoc")
+    if(CMAKE_BUILD_TYPE MATCHES Debug)
+      set(Protobuf_LIBRARIES "${protobuf_BINARY_DIR}/libprotobufd.a")
+    else()
+      set(Protobuf_LIBRARIES "${protobuf_BINARY_DIR}/libprotobuf.a")
+    endif()
     include_directories("${protobuf_SOURCE_DIR}/src/")
     add_subdirectory(${protobuf_SOURCE_DIR} ${protobuf_BINARY_DIR})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BKP}")
-    set(Protobuf_LIBRARIES protobuf)
   endif()
 endmacro()
 # ================================ END PROTOBUF ================================
