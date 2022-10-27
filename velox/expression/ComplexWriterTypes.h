@@ -257,6 +257,7 @@ class ArrayWriter {
   void initialize(VectorWriter<Array<V>, void>* writer) {
     childWriter_ = &writer->childWriter_;
     elementsVector_ = &childWriter_->vector();
+    valuesOffset_ = elementsVector_->size();
     childWriter_->ensureSize(1);
     elementsVectorCapacity_ = elementsVector_->size();
   }

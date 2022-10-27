@@ -17,6 +17,7 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <cstdint>
 
 #include "velox/expression/VectorWriters.h"
 #include "velox/functions/Udf.h"
@@ -791,5 +792,38 @@ TEST_F(ArrayWriterTest, finishPostSize) {
   ASSERT_EQ(arrayElements->as<ArrayVector>()->elements()->size(), 10);
 }
 
+// ArrayWriter should append and not overwrite elements vectors.
+TEST_F(ArrayWriterTest, appendToElements) {
+  using out_t = Array<int32_t>;
+
+  auto result = prepareResult(CppToType<out_t>::create(), 2);
+
+  {
+    // Write array at offset 0.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(0);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(std::vector<int32_t>({1, 2, 3}));
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+  {
+    // Write array at offset 1 using another writer.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<ArrayVector>());
+    vectorWriter.setOffset(1);
+
+    auto& arrayWriter = vectorWriter.current();
+    arrayWriter.copy_from(std::vector<int32_t>({4, 5, 6}));
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  auto* arrayElements = result->as<ArrayVector>()->elements().get();
+  ASSERT_EQ(arrayElements->size(), 6);
+  ASSERT_EQ(arrayElements->asFlatVector<int32_t>()->valueAt(3), 4);
+}
 } // namespace
 } // namespace facebook::velox
