@@ -16,23 +16,21 @@
 
 #pragma once
 
-#include <folly/Random.h>
-#include <gtest/gtest.h>
-#include <memory>
-
 #include "velox/common/time/Timer.h"
+#include "velox/dwio/common/DataSink.h"
+#include "velox/dwio/common/MemoryInputStream.h"
+#include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ScanSpec.h"
+#include "velox/dwio/common/SelectiveColumnReader.h"
+#include "velox/dwio/common/tests/utils/BatchMaker.h"
+#include "velox/dwio/common/tests/utils/DataSetBuilder.h"
+#include "velox/dwio/common/tests/utils/FilterGenerator.h"
+#include "velox/dwio/type/fbhive/HiveTypeParser.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 #include "velox/vector/FlatVector.h"
 
-#include "velox/dwio/common/DataSink.h"
-#include "velox/dwio/common/MemoryInputStream.h"
-#include "velox/dwio/common/Reader.h"
-#include "velox/dwio/common/SelectiveColumnReader.h"
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/common/tests/utils/FilterGenerator.h"
-#include "velox/dwio/type/fbhive/HiveTypeParser.h"
+#include <gtest/gtest.h>
 
 namespace facebook::velox::dwio::common {
 
@@ -89,61 +87,24 @@ class E2EFilterTestBase : public testing::Test {
         kind != TypeKind::ROW && kind != TypeKind::MAP;
   }
 
-  void makeRowType(const std::string& columns, bool wrapInStruct);
+  std::vector<RowVectorPtr> makeDataset(
+      std::function<void()> customize,
+      bool forRowGroupSkip);
 
-  void makeDataset(
-      std::function<void()> customizeData,
-      bool forRowGroupSkip = false);
-
-  // Adds high values to 'batches_' so that these values occur only in some row
-  // groups. Tests skipping row groups based on row group stats.
-  void addRowGroupSpecificData();
-
-  // Adds 'marker' to random places in selectable  row groups for 'i'th child in
-  // 'batches' If 'marker' occurs in skippable row groups, sets the element to
-  // T(). Row group numbers that are multiples of 3 are skippable.
-  template <typename T>
-  void setRowGroupMarkers(
-      const std::vector<RowVectorPtr>& batches,
-      int32_t child,
-      T marker) {
-    int32_t row = 0;
-    for (auto& batch : batches) {
-      auto values = batch->childAt(child)->as<FlatVector<T>>();
-      for (auto i = 0; i < values->size(); ++i) {
-        auto rowGroup = row++ / kRowsInGroup;
-        bool isIn = (rowGroup % 3) != 0;
-        if (isIn) {
-          if (folly::Random::rand32(filterGenerator->rng()) % 100 == 0) {
-            values->set(i, marker);
-          }
-        } else {
-          if (!values->isNullAt(i) && values->valueAt(i) == marker) {
-            values->set(i, T());
-          }
-        }
-      }
-    }
-  }
-
-  void makeAllNulls(const std::string& name);
+  void makeAllNulls(const std::string& fieldName);
 
   template <typename T>
-  void makeIntData(
-      const common::Subfield& field,
+  void useSuppliedValues(
+      const std::string& fieldName,
+      int32_t batchIndex,
       const std::vector<T>& values) {
-    VELOX_CHECK_EQ(batches_.size(), 1);
-    auto numbers = common::getChildBySubfield(batches_[0].get(), field)
-                       ->as<FlatVector<T>>();
-    VELOX_CHECK_EQ(numbers->size(), values.size());
-    for (auto row = 0; row < numbers->size(); ++row) {
-      numbers->set(row, values[row]);
-    }
+    dataSetBuilder_->withSuppliedValuesForField(
+        Subfield(fieldName), batchIndex, values);
   }
 
   template <typename T>
   void makeIntDistribution(
-      const common::Subfield& field,
+      const std::string& fieldName,
       T min,
       T max,
       int32_t repeats,
@@ -151,53 +112,24 @@ class E2EFilterTestBase : public testing::Test {
       T rareMin,
       T rareMax,
       bool keepNulls) {
-    int counter = 0;
-    for (RowVectorPtr batch : batches_) {
-      auto numbers =
-          common::getChildBySubfield(batch.get(), field)->as<FlatVector<T>>();
-      for (auto row = 0; row < numbers->size(); ++row) {
-        if (keepNulls && numbers->isNullAt(row)) {
-          continue;
-        }
-        T value;
-        if (counter % 100 < repeats) {
-          value = T(counter % repeats);
-          numbers->set(row, value);
-        } else if (counter % 100 > 90 && row > 0) {
-          numbers->copy(numbers, row - 1, row, 1);
-        } else {
-          if (rareFrequency && counter % rareFrequency == 0) {
-            value = rareMin +
-                (T(folly::Random::rand32(filterGenerator->rng())) %
-                 T(rareMax - rareMin));
-          } else {
-            value = min +
-                (T(folly::Random::rand32(filterGenerator->rng())) %
-                 (max - min));
-          }
-          numbers->set(row, value);
-        }
-        ++counter;
-      }
-    }
+    dataSetBuilder_->withIntDistributionForField<T>(
+        Subfield(fieldName),
+        min,
+        max,
+        repeats,
+        rareFrequency,
+        rareMin,
+        rareMax,
+        keepNulls);
   }
 
   template <typename T>
   void makeQuantizedFloat(
-      const common::Subfield& field,
+      const std::string& fieldName,
       int64_t buckets,
       bool keepNulls) {
-    for (RowVectorPtr batch : batches_) {
-      auto numbers =
-          common::getChildBySubfield(batch.get(), field)->as<FlatVector<T>>();
-      for (auto row = 0; row < numbers->size(); ++row) {
-        if (keepNulls && numbers->isNullAt(row)) {
-          continue;
-        }
-        T value = numbers->valueAt(row);
-        numbers->set(row, ceil(value * buckets) / buckets);
-      }
-    }
+    dataSetBuilder_->withQuantizedFloatForField<T>(
+        Subfield(fieldName), buckets, keepNulls);
   }
 
   // Makes strings with an ascending sequence of S<n>, followed by
@@ -207,13 +139,13 @@ class E2EFilterTestBase : public testing::Test {
   // range. These patterns repeat every 100 values so as to trigger
   // dictionary encoding.
   void makeStringDistribution(
-      const common::Subfield& field,
+      const std::string& fieldName,
       int cardinality,
       bool keepNulls,
       bool addOneOffs);
 
   // Makes non-null strings unique by appending a row number.
-  void makeStringUnique(const common::Subfield& field);
+  void makeStringUnique(const std::string& fieldName);
 
   // Makes all data in 'batches_' non-null. This finds a sampling of
   // non-null values from each column and replaces nulls in the column
@@ -222,6 +154,17 @@ class E2EFilterTestBase : public testing::Test {
   void makeNotNull(int32_t firstRow = 0);
 
   void makeNotNullRecursive(int32_t firstRow, RowVectorPtr batch);
+
+  template <typename T>
+  void makeReapeatingValues(
+      const std::string& fieldName,
+      int32_t batchIndex,
+      int32_t firstRow,
+      int32_t lastRow,
+      T value) {
+    dataSetBuilder_->withReapeatingValuesForField<T>(
+        Subfield(fieldName), batchIndex, firstRow, lastRow, value);
+  }
 
   virtual void writeToMemory(
       const TypePtr& type,
@@ -245,12 +188,9 @@ class E2EFilterTestBase : public testing::Test {
       bool useValueHook,
       bool skipCheck = false);
 
-  // Sets one in five filtered columns to be filter-only, so no
-  // passing values are retained.
-  void unprojectSomeFilters(ScanSpec& spec);
-
   template <TypeKind Kind>
   bool checkLoadWithHook(
+      const std::vector<RowVectorPtr>& batches,
       RowVector* batch,
       int32_t columnIndex,
       VectorPtr child,
@@ -271,7 +211,7 @@ class E2EFilterTestBase : public testing::Test {
     child->as<LazyVector>()->load(rows, &hook);
     for (auto i = 0; i < rows.size(); ++i) {
       auto row = rows[i] + rowIndex;
-      auto reference = batches_[common::batchNumber(hitRows[row])]
+      auto reference = batches[common::batchNumber(hitRows[row])]
                            ->childAt(columnIndex)
                            ->as<FlatVector<T>>();
       auto referenceIndex = common::batchRow(hitRows[row]);
@@ -286,31 +226,32 @@ class E2EFilterTestBase : public testing::Test {
   }
 
   bool loadWithHook(
+      const std::vector<RowVectorPtr>& batches,
       RowVector* batch,
       int32_t columnIndex,
       VectorPtr child,
       const std::vector<uint64_t>& hitRows,
       int32_t rowIndex);
 
-  void testFilterSpecs(const std::vector<common::FilterSpec>& filterSpecs);
+  void testFilterSpecs(
+      const std::vector<RowVectorPtr>& batches,
+      const std::vector<FilterSpec>& filterSpecs);
 
-  void testRowGroupSkip(const std::vector<std::string>& filterable);
+  void testNoRowGroupSkip(
+      const std::vector<RowVectorPtr>& batches,
+      const std::vector<std::string>& filterable,
+      int32_t numCombinations);
 
-  /// Writes input data to in-memory Arrow Parquet format.
-  /// Reads the in-memory Parquet format and verifies against the input data.
-  void testWithInputData(
-      const std::string& columns,
-      size_t size,
-      std::function<void()> addInputData);
+  void testRowGroupSkip(
+      const std::vector<RowVectorPtr>& batches,
+      const std::vector<std::string>& filterable);
 
-  void testWithTypes(
+  void testSenario(
       const std::string& columns,
       std::function<void()> customize,
       bool wrapInStruct,
       const std::vector<std::string>& filterable,
-      int32_t numCombinations,
-      bool tryNoNulls = false,
-      bool tryNoVInts = false);
+      int32_t numCombinations);
 
   // Allows testing reading with different batch sizes.
   void resetReadBatchSizes() {
@@ -324,11 +265,15 @@ class E2EFilterTestBase : public testing::Test {
     return readSizes_[nextReadSizeIndex_++];
   }
 
-  std::unique_ptr<common::FilterGenerator> filterGenerator;
+  const size_t kBatchCount = 4;
+  // kBatchSize must be greater than 10000 for RowGroup skipping test
+  const size_t kBatchSize = 25'000;
+
+  std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
+  std::unique_ptr<common::FilterGenerator> filterGenerator_;
   std::unique_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<const RowType> rowType_;
   dwio::common::MemorySink* sinkPtr_;
-  std::vector<RowVectorPtr> batches_;
   bool useVInts_ = true;
   dwio::common::RuntimeStatistics runtimeStats_;
   // Number of calls to flush policy between starting new stripes.

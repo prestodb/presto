@@ -33,3 +33,14 @@ target_link_libraries(
   ${ZSTD}
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_parquet_reader_benchmark ParquetReaderBenchmark.cpp)
+target_link_libraries(
+  velox_dwio_parquet_reader_benchmark
+  velox_dwio_parquet_reader
+  velox_dwio_parquet_writer
+  velox_exec_test_lib
+  velox_exec
+  velox_hive_connector
+  ${FOLLY_WITH_DEPENDENCIES}
+  ${FOLLY_BENCHMARK})

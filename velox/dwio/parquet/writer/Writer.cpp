@@ -45,15 +45,21 @@ void Writer::write(const RowVectorPtr& data) {
   PARQUET_THROW_NOT_OK(arrowWriter_->WriteTable(*table, 10000));
 }
 
+void Writer::flush() {
+  if (arrowWriter_) {
+    PARQUET_THROW_NOT_OK(arrowWriter_->Close());
+    arrowWriter_.reset();
+    finalSink_->write(std::move(stream_->dataBuffer()));
+  }
+}
+
 void Writer::newRowGroup(int32_t numRows) {
   PARQUET_THROW_NOT_OK(arrowWriter_->NewRowGroup(numRows));
 }
 
 void Writer::close() {
-  if (arrowWriter_) {
-    PARQUET_THROW_NOT_OK(arrowWriter_->Close());
-    finalSink_->write(std::move(stream_->dataBuffer()));
-  }
+  flush();
+  finalSink_->close();
 }
 
 } // namespace facebook::velox::parquet

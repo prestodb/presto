@@ -34,6 +34,20 @@ using namespace facebook::velox::common;
 using SubfieldFilters = std::unordered_map<Subfield, std::unique_ptr<Filter>>;
 
 struct FilterSpec {
+  FilterSpec() {}
+
+  explicit FilterSpec(
+      std::string field,
+      float startPct = 50,
+      float selectPct = 20,
+      FilterKind filterKind = FilterKind::kBigintRange,
+      bool isForRowGroupSkip = true)
+      : field(field),
+        startPct(startPct),
+        selectPct(selectPct),
+        filterKind(filterKind),
+        isForRowGroupSkip(isForRowGroupSkip) {}
+
   std::string field;
   float startPct = 50;
   float selectPct = 20;
