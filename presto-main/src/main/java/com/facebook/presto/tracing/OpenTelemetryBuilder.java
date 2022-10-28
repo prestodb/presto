@@ -37,7 +37,7 @@ public final class OpenTelemetryBuilder
                 .merge(Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "presto")));
 
         SdkTracerProvider sdkTracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(BatchSpanProcessor.builder(OtlpGrpcSpanExporter.builder().build()).build())
+                .addSpanProcessor(BatchSpanProcessor.builder(OtlpGrpcSpanExporter.builder().setEndpoint(System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")).build()).build())
                 .setResource(resource)
                 .build();
 
