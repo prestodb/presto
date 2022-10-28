@@ -125,6 +125,16 @@ TEST_F(VectorFuzzerTest, flatNotNull) {
 
   vector = fuzzer.fuzzFlat(MAP(BIGINT(), INTEGER()));
   ASSERT_FALSE(vector->mayHaveNulls());
+
+  // Try the explicit not null API.
+  opts.nullRatio = 0.5;
+  fuzzer.setOptions(opts);
+
+  vector = fuzzer.fuzzFlat(MAP(BIGINT(), INTEGER()));
+  ASSERT_TRUE(vector->mayHaveNulls());
+
+  vector = fuzzer.fuzzFlatNotNull(MAP(BIGINT(), INTEGER()));
+  ASSERT_FALSE(vector->mayHaveNulls());
 }
 
 TEST_F(VectorFuzzerTest, dictionary) {
@@ -351,12 +361,20 @@ TEST_F(VectorFuzzerTest, assorted) {
 TEST_F(VectorFuzzerTest, randomized) {
   VectorFuzzer::Options opts;
   opts.allowLazyVector = true;
+  opts.nullRatio = 0.5;
   VectorFuzzer fuzzer(opts, pool());
 
   for (size_t i = 0; i < 50; ++i) {
     auto type = fuzzer.randType();
-    auto vector = fuzzer.fuzz(type);
-    ASSERT_TRUE(vector->type()->kindEquals(type));
+
+    if (i % 2 == 0) {
+      auto vector = fuzzer.fuzz(type);
+      ASSERT_TRUE(vector->type()->kindEquals(type));
+    } else {
+      auto vector = fuzzer.fuzzNotNull(type);
+      ASSERT_TRUE(vector->type()->kindEquals(type));
+      ASSERT_FALSE(vector->loadedVector()->mayHaveNulls());
+    }
   }
 }
 

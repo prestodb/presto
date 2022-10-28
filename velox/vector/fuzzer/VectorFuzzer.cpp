@@ -34,6 +34,32 @@ namespace {
 // the dependency on DWRF.
 constexpr int64_t MAX_NANOS = 1'000'000'000;
 
+// Structure to help temporary changes to Options. This objects saves the
+// current state of the Options object, and restores it when it's destructed.
+// For instance, if you would like to temporarily disable nulls for a particular
+// recursive call:
+//
+//  {
+//    ScopedOptions scopedOptions(this);
+//    opts_.nullRatio = 0;
+//    // perhaps change other opts_ values.
+//    vector = fuzzFlat(...);
+//  }
+//  // At this point, opts_ would have the original values again.
+//
+struct ScopedOptions {
+  explicit ScopedOptions(VectorFuzzer* fuzzer)
+      : fuzzer(fuzzer), savedOpts(fuzzer->getOptions()) {}
+
+  ~ScopedOptions() {
+    fuzzer->setOptions(savedOpts);
+  }
+
+  // Stores a copy of Options so we can restore at destruction time.
+  VectorFuzzer* fuzzer;
+  VectorFuzzer::Options savedOpts;
+};
+
 // Generate random values for the different supported types.
 template <typename T>
 T rand(FuzzerGenerator&) {
@@ -271,6 +297,20 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type) {
   return fuzz(type, opts_.vectorSize, opts_.allowLazyVector);
 }
 
+VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
+  return fuzz(type, size, opts_.allowLazyVector);
+}
+
+VectorPtr VectorFuzzer::fuzzNotNull(const TypePtr& type) {
+  return fuzzNotNull(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzNotNull(const TypePtr& type, vector_size_t size) {
+  ScopedOptions restorer(this);
+  opts_.nullRatio = 0;
+  return fuzz(type, size);
+}
+
 VectorPtr
 VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size, bool canBeLazy) {
   VectorPtr vector;
@@ -349,6 +389,18 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type) {
   return fuzzFlat(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzFlatNotNull(const TypePtr& type) {
+  return fuzzFlatNotNull(type, opts_.vectorSize);
+}
+
+VectorPtr VectorFuzzer::fuzzFlatNotNull(
+    const TypePtr& type,
+    vector_size_t size) {
+  ScopedOptions restorer(this);
+  opts_.nullRatio = 0;
+  return fuzzFlat(type, size);
 }
 
 VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
