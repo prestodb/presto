@@ -241,6 +241,15 @@ TEST_F(SplitTest, split) {
     }
   }
 
+  // Check the empty delimiter special case.
+  delim = "";
+  auto expected = makeArrayVector<StringView>({
+      {"I", ",", "h", "e", ",", "s", "h", "e", ",", "t", "h", "e", "y", ""},
+      {"o", "n", "e", ",", ",", ",", "f", "o", "u", "r", ",", ""},
+      {""},
+  });
+  assertEqualVectors(expected, run(inputStrings, delim, "split(C0, C1)"));
+
   // Non-ascii, flat strings, flat delimiter, no limit.
   delim = "లేదా";
   inputStrings = std::vector<std::string>{

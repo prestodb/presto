@@ -219,8 +219,14 @@ class SplitFunction : public exec::VectorFunction {
       // Find the byte of the 1st delimiter.
       auto byteIndex = sinput.find(sdelim, 0);
 
+      // Special case for empty delimiters. Split character by character with an
+      // empty string at the end.
+      if (sdelim.empty()) {
+        byteIndex++;
+      }
+
       // Delimiter is not found, leave the loop.
-      if (byteIndex == std::string_view::npos) {
+      if (byteIndex > sinput.size()) {
         break;
       }
 
