@@ -19,6 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
@@ -79,7 +80,8 @@ public class NativeExecutionTask
             ScheduledExecutorService updateScheduledExecutor,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            TaskManagerConfig taskManagerConfig)
     {
         this.session = requireNonNull(session, "session is null");
         this.planFragment = requireNonNull(planFragment, "planFragment is null");
@@ -87,22 +89,24 @@ public class NativeExecutionTask
         this.sources = requireNonNull(sources, "sources is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.outputBuffers = createInitialEmptyOutputBuffers(PARTITIONED);
+        requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.workerClient = new PrestoSparkHttpWorkerClient(
                 requireNonNull(httpClient, "httpClient is null"),
                 taskId,
                 location,
                 taskInfoCodec,
                 planFragmentCodec,
-                taskUpdateRequestCodec);
+                taskUpdateRequestCodec,
+                taskManagerConfig.getInfoRefreshMaxWait());
         requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.taskInfoFetcher = new HttpNativeExecutionTaskInfoFetcher(
                 updateScheduledExecutor,
                 this.workerClient,
-                this.executor);
+                this.executor,
+                taskManagerConfig.getInfoUpdateInterval());
         this.taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 updateScheduledExecutor,
-                this.workerClient,
-                Optional.empty());
+                this.workerClient);
     }
 
     /**
