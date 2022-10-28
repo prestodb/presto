@@ -276,13 +276,11 @@ jobs:
       - pre-steps
       - build-benchmarks
       - run:
-          name: "Install Conbench, Benchalerts, and Veloxbench"
+          name: "Install benchmark dependencies"
           command: |
             # upgrade python to 3.8 for this job
             yum install -y python38
-            pip3.8 install conbench
-            pip3.8 install git+https://github.com/conbench/benchalerts.git@0.3.2
-            pip3.8 install scripts/veloxbench
+            pip3.8 install -r scripts/benchmark-requirements.txt
       - run-benchmarks
       # TODO: Disabling conbench github notifications for now until results are more stable.
       #- run:
@@ -310,11 +308,9 @@ jobs:
       - setup-environment
       - build-benchmarks
       - run:
-          name: "Install Conbench, Benchalerts, and Veloxbench"
+          name: "Install benchmark dependencies"
           command: |
-            pip3 install conbench
-            pip3 install git+https://github.com/conbench/benchalerts.git@0.3.1
-            pip3 install scripts/veloxbench
+            pip3 install -r scripts/benchmark-requirements.txt
       - run-benchmarks
       # TODO: Disabling conbench github notifications for now until results are more stable.
       #- run:
