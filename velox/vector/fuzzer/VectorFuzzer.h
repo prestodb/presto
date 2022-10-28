@@ -205,9 +205,7 @@ class VectorFuzzer {
 
   // Same as the function above, but never return nulls for the top-level row
   // elements.
-  RowVectorPtr fuzzInputRow(const RowTypePtr& rowType) {
-    return fuzzRow(rowType, opts_.vectorSize, false, opts_.allowLazyVector);
-  }
+  RowVectorPtr fuzzInputRow(const RowTypePtr& rowType);
 
   variant randVariant(const TypePtr& arg);
 
@@ -239,11 +237,6 @@ class VectorFuzzer {
   RowVectorPtr fuzzRowChildrenToLazy(RowVectorPtr rowVector);
 
  private:
-  // Returns a "fuzzed" vector, containing randomized data, nulls, and indices
-  // vector (dictionary). Additionally, if 'canBeLazy' is true then the returned
-  // vector can be a lazy vector.
-  VectorPtr fuzz(const TypePtr& type, vector_size_t size, bool canBeLazy);
-
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);
 
@@ -253,13 +246,7 @@ class VectorFuzzer {
   // flat.
   VectorPtr fuzzComplex(const TypePtr& type, vector_size_t size);
 
-  // If 'canChildrenBeLazy' is set to true then the returned vector can have
-  // lazy children.
-  RowVectorPtr fuzzRow(
-      const RowTypePtr& rowType,
-      vector_size_t size,
-      bool rowHasNulls,
-      bool canChildrenBeLazy);
+  RowVectorPtr fuzzRow(const RowTypePtr& rowType, vector_size_t size);
 
   // Generate a random null buffer.
   BufferPtr fuzzNulls(vector_size_t size);
