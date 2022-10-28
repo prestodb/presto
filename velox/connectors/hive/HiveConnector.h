@@ -210,7 +210,7 @@ class HiveDataSink : public DataSink {
 
   const RowTypePtr inputType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
-  const ConnectorQueryCtx* connectorQueryCtx_;
+  const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx_;
   std::vector<std::unique_ptr<dwrf::Writer>> writers_;
 };
 
@@ -316,10 +316,10 @@ class HiveConfig {
  public:
   /// Can new data be inserted into existing partitions or existing
   /// unpartitioned tables
-  static constexpr const char* kImmutablePartitions =
+  static constexpr const char* FOLLY_NONNULL kImmutablePartitions =
       "hive.immutable-partitions";
 
-  static bool isImmutablePartitions(const Config* baseConfig) {
+  static bool isImmutablePartitions(const Config* FOLLY_NONNULL baseConfig) {
     return baseConfig->get<bool>(kImmutablePartitions, true);
   }
 };
@@ -373,13 +373,6 @@ class HiveConnector final : public Connector {
  private:
   FileHandleFactory fileHandleFactory_;
   folly::Executor* FOLLY_NULLABLE executor_;
-
-  static constexpr const char* FOLLY_NONNULL kNodeSelectionStrategy =
-      "node_selection_strategy";
-  static constexpr const char* FOLLY_NONNULL
-      kNodeSelectionStrategyNoPreference = "NO_PREFERENCE";
-  static constexpr const char* FOLLY_NONNULL
-      kNodeSelectionStrategySoftAffinity = "SOFT_AFFINITY";
 };
 
 class HiveConnectorFactory : public ConnectorFactory {
