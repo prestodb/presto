@@ -15,6 +15,7 @@
  */
 
 #include "velox/expression/tests/ExpressionVerifier.h"
+#include "velox/common/base/Fs.h"
 #include "velox/expression/Expr.h"
 #include "velox/vector/VectorSaver.h"
 
@@ -238,6 +239,10 @@ void ExpressionVerifier::persistReproInfo(
   std::string sqlPath;
 
   const auto basePath = options_.reproPersistPath.c_str();
+  if (!common::generateFileDirectory(options_.reproPersistPath.c_str())) {
+    return;
+  }
+
   // Saving input vector
   auto inputPathOpt = generateFilePath(basePath, "vector");
   if (!inputPathOpt.has_value()) {

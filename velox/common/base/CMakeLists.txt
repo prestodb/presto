@@ -23,8 +23,14 @@ target_link_libraries(
   ${GFLAGS_LIBRARIES})
 
 add_library(
-  velox_common_base BitUtil.cpp RandomUtil.cpp RawVector.cpp RuntimeMetrics.cpp
-                    SimdUtil.cpp SuccinctPrinter.cpp)
+  velox_common_base
+  BitUtil.cpp
+  Fs.cpp
+  RandomUtil.cpp
+  RawVector.cpp
+  RuntimeMetrics.cpp
+  SimdUtil.cpp
+  SuccinctPrinter.cpp)
 
 target_link_libraries(velox_common_base velox_exception velox_process xsimd)
 

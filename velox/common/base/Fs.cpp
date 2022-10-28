@@ -13,23 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#if __has_include("filesystem")
-#include <filesystem>
-namespace fs = std::filesystem;
-#else
-#include <experimental/filesystem>
-namespace fs = std::experimental::filesystem;
-#endif
+#include "velox/common/base/Fs.h"
+#include <glog/logging.h>
 
 namespace facebook::velox::common {
 
-/// Generates a file directory specified by 'dirPath'. The generation will be
-/// recursive. Non-exist parent directories will also be created. Returns true
-/// if creation is successful, false otherwise. Error message will be printed if
-/// creation is unsuccessful, but already created directories will not be
-/// removed.
-bool generateFileDirectory(const char* dirPath);
+bool generateFileDirectory(const char* dirPath) {
+  std::error_code errorCode;
+  auto success = fs::create_directories(dirPath, errorCode);
+  if (!success) {
+    LOG(ERROR) << "Failed to create file directory '" << dirPath
+               << "'. Error: " << errorCode.message() << " errno "
+               << errorCode.value();
+    return false;
+  }
+  return true;
+}
 
 } // namespace facebook::velox::common
