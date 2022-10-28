@@ -77,32 +77,6 @@ public final class DynamicFilters
         return new DynamicFilterExtractResult(staticConjuncts.build(), dynamicConjuncts.build());
     }
 
-    public static RowExpression extractDynamicConjuncts(List<RowExpression> conjuncts, LogicalRowExpressions logicalRowExpressions)
-    {
-        ImmutableList.Builder<RowExpression> dynamicConjuncts = ImmutableList.builder();
-        for (RowExpression conjunct : conjuncts) {
-            Optional<DynamicFilterPlaceholder> placeholder = getPlaceholder(conjunct);
-            if (placeholder.isPresent()) {
-                dynamicConjuncts.add(conjunct);
-            }
-        }
-
-        return logicalRowExpressions.combineConjuncts(dynamicConjuncts.build());
-    }
-
-    public static RowExpression extractStaticConjuncts(List<RowExpression> conjuncts, LogicalRowExpressions logicalRowExpressions)
-    {
-        ImmutableList.Builder<RowExpression> staticConjuncts = ImmutableList.builder();
-        for (RowExpression conjunct : conjuncts) {
-            Optional<DynamicFilterPlaceholder> placeholder = getPlaceholder(conjunct);
-            if (!placeholder.isPresent()) {
-                staticConjuncts.add(conjunct);
-            }
-        }
-
-        return logicalRowExpressions.combineConjuncts(staticConjuncts.build());
-    }
-
     public static boolean isDynamicFilter(RowExpression expression)
     {
         return getPlaceholder(expression).isPresent();

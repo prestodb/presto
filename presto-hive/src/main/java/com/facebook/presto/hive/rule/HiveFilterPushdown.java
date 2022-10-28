@@ -62,7 +62,6 @@ import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
@@ -77,8 +76,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains;
-import static com.facebook.presto.expressions.DynamicFilters.extractDynamicConjuncts;
-import static com.facebook.presto.expressions.DynamicFilters.extractStaticConjuncts;
+import static com.facebook.presto.expressions.DynamicFilters.isDynamicFilter;
 import static com.facebook.presto.expressions.DynamicFilters.removeNestedDynamicFilters;
 import static com.facebook.presto.expressions.LogicalRowExpressions.FALSE_CONSTANT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
@@ -92,6 +90,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.getMetastoreHeade
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isUserDefinedTypeEncodingEnabled;
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.facebook.presto.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -153,6 +152,24 @@ public class HiveFilterPushdown
         return rewriteWith(new Rewriter(session, idAllocator), maxSubplan);
     }
 
+    /**
+     * If this method returns true, the expression will not be pushed inside the TableScan node.
+     * This is exposed for dynamic or computed column functionality support.
+     * Consider the following case:
+     * Read a base row from the file. Modify the row to add a new column or update an existing column
+     * all inside the TableScan. If filters are pushed down inside the TableScan, it would try to apply
+     * it on base row. In these cases, override this method and return true. This will prevent the
+     * expression from being pushed into the TableScan but will wrap the TableScanNode in a FilterNode.
+     * @param expression expression to be evaluated.
+     * @param tableHandle tableHandler where the expression to be evaluated.
+     * @param columnHandleMap column name to column handle Map for all columns in the table.
+     * @return true, if this expression should not be pushed inside the table scan, else false.
+     */
+    protected boolean useDynamicFilter(RowExpression expression, ConnectorTableHandle tableHandle, Map<String, ColumnHandle> columnHandleMap)
+    {
+        return false;
+    }
+
     protected ConnectorPushdownFilterResult pushdownFilter(
             ConnectorSession session,
             HiveMetadata metadata,
@@ -164,24 +181,15 @@ public class HiveFilterPushdown
                 session,
                 metadata,
                 metadata.getMetastore(),
-                rowExpressionService,
-                functionResolution,
-                partitionManager,
-                functionMetadataManager,
                 tableHandle,
                 filter,
                 currentLayoutHandle);
     }
 
-    @VisibleForTesting
-    public static ConnectorPushdownFilterResult pushdownFilter(
+    public ConnectorPushdownFilterResult pushdownFilter(
             ConnectorSession session,
             ConnectorMetadata metadata,
             SemiTransactionalHiveMetastore metastore,
-            RowExpressionService rowExpressionService,
-            StandardFunctionResolution functionResolution,
-            HivePartitionManager partitionManager,
-            FunctionMetadataManager functionMetadataManager,
             ConnectorTableHandle tableHandle,
             RowExpression filter,
             Optional<ConnectorTableLayoutHandle> currentLayoutHandle)
@@ -252,7 +260,7 @@ public class HiveFilterPushdown
                 .forEach(predicateColumnNames::add);
         // Include only columns referenced in the optimized expression. Although the expression is sent to the worker node
         // unoptimized, the worker is expected to optimize the expression before executing.
-        extractAll(optimizedRemainingExpression).stream()
+        extractVariableExpressions(optimizedRemainingExpression).stream()
                 .map(VariableReferenceExpression::getName)
                 .forEach(predicateColumnNames::add);
 
@@ -265,8 +273,18 @@ public class HiveFilterPushdown
 
         LogicalRowExpressions logicalRowExpressions = new LogicalRowExpressions(rowExpressionService.getDeterminismEvaluator(), functionResolution, functionMetadataManager);
         List<RowExpression> conjuncts = extractConjuncts(decomposedFilter.getRemainingExpression());
-        RowExpression dynamicFilterExpression = extractDynamicConjuncts(conjuncts, logicalRowExpressions);
-        RowExpression remainingExpression = extractStaticConjuncts(conjuncts, logicalRowExpressions);
+        ImmutableList.Builder<RowExpression> dynamicConjuncts = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> staticConjuncts = ImmutableList.builder();
+        for (RowExpression conjunct : conjuncts) {
+            if (isDynamicFilter(conjunct) || useDynamicFilter(conjunct, tableHandle, columnHandles)) {
+                dynamicConjuncts.add(conjunct);
+            }
+            else {
+                staticConjuncts.add(conjunct);
+            }
+        }
+        RowExpression dynamicFilterExpression = logicalRowExpressions.combineConjuncts(dynamicConjuncts.build());
+        RowExpression remainingExpression = logicalRowExpressions.combineConjuncts(staticConjuncts.build());
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
         Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
@@ -414,7 +432,7 @@ public class HiveFilterPushdown
                 return new ValuesNode(tableScan.getSourceLocation(), idAllocator.getNextId(), tableScan.getOutputVariables(), ImmutableList.of(), Optional.of(tableScan.getTable().getConnectorHandle().toString()));
             }
 
-            return new TableScanNode(
+            TableScanNode node = new TableScanNode(
                     tableScan.getSourceLocation(),
                     tableScan.getId(),
                     new TableHandle(handle.getConnectorId(), handle.getConnectorHandle(), handle.getTransaction(), Optional.of(pushdownFilterResult.getLayout().getHandle())),
@@ -423,6 +441,12 @@ public class HiveFilterPushdown
                     tableScan.getTableConstraints(),
                     pushdownFilterResult.getLayout().getPredicate(),
                     TupleDomain.all());
+
+            RowExpression unenforcedFilter = pushdownFilterResult.getUnenforcedConstraint();
+            if (!TRUE_CONSTANT.equals(unenforcedFilter)) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unenforced filter found %s but not handled", unenforcedFilter));
+            }
+            return node;
         }
     }
 
@@ -441,7 +465,7 @@ public class HiveFilterPushdown
             this.session = session;
             this.expression = expression;
 
-            arguments = ImmutableSet.copyOf(extractAll(expression)).stream()
+            arguments = ImmutableSet.copyOf(extractVariableExpressions(expression)).stream()
                     .map(VariableReferenceExpression::getName)
                     .map(assignments::get)
                     .collect(toImmutableSet());
@@ -506,7 +530,7 @@ public class HiveFilterPushdown
         return metadata.getColumnMetadata(session, tableHandle, columnHandle).getName();
     }
 
-    private boolean isPushdownFilterSupported(ConnectorSession session, TableHandle tableHandle)
+    protected boolean isPushdownFilterSupported(ConnectorSession session, TableHandle tableHandle)
     {
         checkArgument(tableHandle.getConnectorHandle() instanceof HiveTableHandle, "pushdownFilter is never supported on a non-hive TableHandle");
         if (((HiveTableHandle) tableHandle.getConnectorHandle()).getAnalyzePartitionValues().isPresent()) {
@@ -568,7 +592,7 @@ public class HiveFilterPushdown
                 .toString();
     }
 
-    private static Set<VariableReferenceExpression> extractAll(RowExpression expression)
+    public static Set<VariableReferenceExpression> extractVariableExpressions(RowExpression expression)
     {
         ImmutableSet.Builder<VariableReferenceExpression> builder = ImmutableSet.builder();
         expression.accept(new VariableReferenceBuilderVisitor(), builder);
