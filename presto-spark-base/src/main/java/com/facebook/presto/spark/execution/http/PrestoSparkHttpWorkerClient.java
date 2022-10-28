@@ -34,6 +34,7 @@ import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -49,6 +50,7 @@ import static com.facebook.airlift.http.client.Request.Builder.preparePost;
 import static com.facebook.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static com.facebook.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_SIZE;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static com.facebook.presto.server.RequestHelpers.setContentTypeHeaders;
 import static com.facebook.presto.server.smile.AdaptingJsonResponseHandler.createAdaptingJsonResponseHandler;
 import static java.util.Objects.requireNonNull;
@@ -69,6 +71,7 @@ public class PrestoSparkHttpWorkerClient
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final Duration infoRefreshMaxWait;
 
     public PrestoSparkHttpWorkerClient(
             HttpClient httpClient,
@@ -76,7 +79,8 @@ public class PrestoSparkHttpWorkerClient
             URI location,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            Duration infoRefreshMaxWait)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.taskId = requireNonNull(taskId, "taskId is null");
@@ -87,6 +91,7 @@ public class PrestoSparkHttpWorkerClient
         this.taskUri = uriBuilderFrom(location)
                 .appendPath(taskId.toString())
                 .build();
+        this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
     }
 
     /**
@@ -162,6 +167,7 @@ public class PrestoSparkHttpWorkerClient
     public ListenableFuture<BaseResponse<TaskInfo>> getTaskInfo()
     {
         Request request = setContentTypeHeaders(false, prepareGet())
+                .setHeader(PRESTO_MAX_WAIT, infoRefreshMaxWait.toString())
                 .setUri(taskUri)
                 .build();
         ResponseHandler responseHandler = createAdaptingJsonResponseHandler(taskInfoCodec);
