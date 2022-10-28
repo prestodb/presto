@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
@@ -41,14 +40,13 @@ import static java.util.Objects.requireNonNull;
  */
 public class HttpNativeExecutionTaskInfoFetcher
 {
-    public static final Duration GET_TASK_INFO_INTERVALS = new Duration(200, TimeUnit.MILLISECONDS);
-
     private static final Logger log = Logger.get(HttpNativeExecutionTaskInfoFetcher.class);
 
     private final PrestoSparkHttpWorkerClient workerClient;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final Executor executor;
+    private final Duration infoFetchInterval;
 
     @GuardedBy("this")
     private ScheduledFuture<?> scheduledFuture;
@@ -56,11 +54,13 @@ public class HttpNativeExecutionTaskInfoFetcher
     public HttpNativeExecutionTaskInfoFetcher(
             ScheduledExecutorService updateScheduledExecutor,
             PrestoSparkHttpWorkerClient workerClient,
-            Executor executor)
+            Executor executor,
+            Duration infoFetchInterval)
     {
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
         this.updateScheduledExecutor = requireNonNull(updateScheduledExecutor, "updateScheduledExecutor is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.infoFetchInterval = requireNonNull(infoFetchInterval, "infoFetchInterval is null");
     }
 
     public void start()
@@ -91,7 +91,7 @@ public class HttpNativeExecutionTaskInfoFetcher
             catch (Throwable t) {
                 throw t;
             }
-        }, 0, (long) GET_TASK_INFO_INTERVALS.getValue(), GET_TASK_INFO_INTERVALS.getUnit());
+        }, 0, (long) infoFetchInterval.getValue(), infoFetchInterval.getUnit());
     }
 
     public void stop()

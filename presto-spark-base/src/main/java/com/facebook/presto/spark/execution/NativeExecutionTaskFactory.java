@@ -19,6 +19,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
+import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.server.TaskUpdateRequest;
@@ -47,6 +48,7 @@ public class NativeExecutionTaskFactory
     private final JsonCodec<TaskInfo> taskInfoCodec;
     private final JsonCodec<PlanFragment> planFragmentCodec;
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
+    private final TaskManagerConfig taskManagerConfig;
 
     @Inject
     public NativeExecutionTaskFactory(
@@ -55,7 +57,8 @@ public class NativeExecutionTaskFactory
             ScheduledExecutorService updateScheduledExecutor,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<PlanFragment> planFragmentCodec,
-            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec)
+            JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
+            TaskManagerConfig taskManagerConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
@@ -64,6 +67,7 @@ public class NativeExecutionTaskFactory
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
+        this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
     }
 
     public NativeExecutionTask createNativeExecutionTask(
@@ -86,7 +90,8 @@ public class NativeExecutionTaskFactory
                 updateScheduledExecutor,
                 taskInfoCodec,
                 planFragmentCodec,
-                taskUpdateRequestCodec);
+                taskUpdateRequestCodec,
+                taskManagerConfig);
     }
 
     @PreDestroy
