@@ -327,6 +327,7 @@ import static com.facebook.presto.util.SpatialJoinUtils.ST_TOUCHES;
 import static com.facebook.presto.util.SpatialJoinUtils.ST_WITHIN;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialComparisons;
 import static com.facebook.presto.util.SpatialJoinUtils.extractSupportedSpatialFunctions;
+import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -369,7 +370,7 @@ public class LocalExecutionPlanner
     private final JsonCodec<TableCommitContext> tableCommitContextCodec;
     private final LogicalRowExpressions logicalRowExpressions;
     private final FragmentResultCacheManager fragmentResultCacheManager;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper sortedMapObjectMapper;
     private final boolean tableFinishOperatorMemoryTrackingEnabled;
     private final StandaloneSpillerFactory standaloneSpillerFactory;
 
@@ -435,7 +436,9 @@ public class LocalExecutionPlanner
                 new FunctionResolution(metadata.getFunctionAndTypeManager()),
                 metadata.getFunctionAndTypeManager());
         this.fragmentResultCacheManager = requireNonNull(fragmentResultCacheManager, "fragmentResultCacheManager is null");
-        this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
+        this.sortedMapObjectMapper = requireNonNull(objectMapper, "objectMapper is null")
+                .copy()
+                .configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
         this.tableFinishOperatorMemoryTrackingEnabled = requireNonNull(memoryManagerConfig, "memoryManagerConfig is null").isTableFinishOperatorMemoryTrackingEnabled();
         this.standaloneSpillerFactory = requireNonNull(standaloneSpillerFactory, "standaloneSpillerFactory is null");
     }
@@ -630,7 +633,7 @@ public class LocalExecutionPlanner
                         .build(),
                 context.getDriverInstanceCount(),
                 physicalOperation.getPipelineExecutionStrategy(),
-                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, objectMapper));
+                createFragmentResultCacheContext(fragmentResultCacheManager, plan, partitioningScheme, session, sortedMapObjectMapper));
 
         addLookupOuterDrivers(context);
 
@@ -2914,7 +2917,7 @@ public class LocalExecutionPlanner
                     operatorFactories,
                     subContext.getDriverInstanceCount(),
                     source.getPipelineExecutionStrategy(),
-                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, objectMapper));
+                    createFragmentResultCacheContext(fragmentResultCacheManager, sourceNode, node.getPartitioningScheme(), session, sortedMapObjectMapper));
             // the main driver is not an input... the exchange sources are the input for the plan
             context.setInputDriver(false);
 
@@ -3003,7 +3006,7 @@ public class LocalExecutionPlanner
                         operatorFactories,
                         subContext.getDriverInstanceCount(),
                         source.getPipelineExecutionStrategy(),
-                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, objectMapper));
+                        createFragmentResultCacheContext(fragmentResultCacheManager, node.getSources().get(i), node.getPartitioningScheme(), session, sortedMapObjectMapper));
             }
 
             // the main driver is not an input... the exchange sources are the input for the plan
