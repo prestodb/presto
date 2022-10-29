@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -34,7 +35,6 @@ import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SourceLocation;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;

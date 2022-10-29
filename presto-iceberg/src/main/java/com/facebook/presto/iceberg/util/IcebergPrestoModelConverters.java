@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.iceberg.util;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 

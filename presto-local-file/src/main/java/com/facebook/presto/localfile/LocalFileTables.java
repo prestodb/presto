@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;

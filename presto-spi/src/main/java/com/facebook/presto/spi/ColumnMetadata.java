@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static com.facebook.presto.common.utils.SchemaUtil.checkNotEmpty;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Locale.ENGLISH;

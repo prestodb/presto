@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.TableStatistics;
 
 import javax.annotation.Nullable;

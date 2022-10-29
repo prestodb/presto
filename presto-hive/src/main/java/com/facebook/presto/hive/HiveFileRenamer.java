@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.weakref.jmx.Managed;
 

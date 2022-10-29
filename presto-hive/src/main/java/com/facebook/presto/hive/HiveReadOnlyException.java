@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 
 import java.util.Optional;
 

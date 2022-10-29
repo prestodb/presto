@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.Query;

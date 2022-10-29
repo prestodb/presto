@@ -13,12 +13,13 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Objects;
 
-import static com.facebook.presto.spi.SchemaUtil.checkNotEmpty;
+import static com.facebook.presto.common.utils.SchemaUtil.checkNotEmpty;
 import static java.util.Objects.requireNonNull;
 
 public final class CatalogSchemaTableName

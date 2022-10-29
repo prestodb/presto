@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

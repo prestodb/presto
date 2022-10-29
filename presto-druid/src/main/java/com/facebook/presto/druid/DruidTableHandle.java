@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

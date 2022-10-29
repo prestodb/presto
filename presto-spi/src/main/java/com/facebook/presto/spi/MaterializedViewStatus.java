@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 
 import java.util.ArrayList;

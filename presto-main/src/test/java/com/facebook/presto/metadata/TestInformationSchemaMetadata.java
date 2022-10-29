@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.TestingConnectorContext;

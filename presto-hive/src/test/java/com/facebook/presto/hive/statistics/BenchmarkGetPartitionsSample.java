@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.HivePartition;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.openjdk.jmh.annotations.Benchmark;

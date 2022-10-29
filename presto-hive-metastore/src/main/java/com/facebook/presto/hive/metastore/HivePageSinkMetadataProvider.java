@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 
 import java.util.List;
 import java.util.Map;

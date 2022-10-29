@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.execution.warnings.DefaultWarningCollector;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
@@ -29,7 +30,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;

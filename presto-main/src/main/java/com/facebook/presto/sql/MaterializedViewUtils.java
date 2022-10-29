@@ -15,12 +15,12 @@
 package com.facebook.presto.sql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.MaterializedViewStatus;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.base.security;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;

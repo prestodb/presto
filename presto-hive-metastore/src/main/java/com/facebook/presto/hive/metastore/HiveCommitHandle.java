@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

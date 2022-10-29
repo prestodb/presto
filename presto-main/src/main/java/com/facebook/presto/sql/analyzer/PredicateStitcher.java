@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.AstVisitor;

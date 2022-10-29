@@ -15,6 +15,8 @@ package com.facebook.presto.connector.thrift;
 
 import com.facebook.drift.TException;
 import com.facebook.drift.client.DriftClient;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.thrift.annotations.ForMetadataRefresh;
@@ -29,8 +31,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.thrift.api.connector.PrestoThriftNullableSchemaName;

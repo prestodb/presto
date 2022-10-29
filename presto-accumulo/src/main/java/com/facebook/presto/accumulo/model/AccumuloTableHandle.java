@@ -14,11 +14,11 @@
 package com.facebook.presto.accumulo.model;
 
 import com.facebook.presto.accumulo.serializers.AccumuloRowSerializer;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.common.collect.ImmutableList;

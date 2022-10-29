@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -38,7 +39,6 @@ import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PartitionWithStatistics;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;

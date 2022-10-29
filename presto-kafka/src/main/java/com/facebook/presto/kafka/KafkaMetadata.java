@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
@@ -28,8 +30,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;

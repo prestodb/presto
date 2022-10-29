@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
 import static java.util.Objects.requireNonNull;

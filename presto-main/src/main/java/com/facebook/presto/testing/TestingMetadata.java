@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
@@ -31,8 +33,6 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.ViewNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;

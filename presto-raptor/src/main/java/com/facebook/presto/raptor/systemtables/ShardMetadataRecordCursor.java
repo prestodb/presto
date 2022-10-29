@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -21,7 +22,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;

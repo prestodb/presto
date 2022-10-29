@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorTablePartitioning;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.LocalProperty;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.statistics.ColumnStatistics;

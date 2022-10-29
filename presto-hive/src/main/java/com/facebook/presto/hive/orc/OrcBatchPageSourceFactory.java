@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.orc;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -43,7 +44,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

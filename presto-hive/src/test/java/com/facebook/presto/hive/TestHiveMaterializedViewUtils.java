@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -25,7 +26,6 @@ import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.planner.LiteralEncoder;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;

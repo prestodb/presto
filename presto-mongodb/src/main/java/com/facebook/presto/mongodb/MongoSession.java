@@ -14,6 +14,7 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -27,7 +28,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;

@@ -14,11 +14,11 @@
 
 package com.facebook.presto.hive.statistics;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.statistics.TableStatistics;
 
 import java.util.List;

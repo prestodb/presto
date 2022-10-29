@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.base.CharMatcher;

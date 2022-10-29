@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
@@ -42,7 +43,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

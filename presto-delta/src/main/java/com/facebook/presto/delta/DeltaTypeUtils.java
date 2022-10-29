@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.NamedTypeSignature;
 import com.facebook.presto.common.type.RowFieldName;
@@ -22,7 +23,6 @@ import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;

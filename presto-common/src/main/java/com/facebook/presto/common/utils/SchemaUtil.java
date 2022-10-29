@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.common.utils;
 
-final class SchemaUtil
+public final class SchemaUtil
 {
     private SchemaUtil()
     {
     }
 
-    static String checkNotEmpty(String value, String name)
+    public static String checkNotEmpty(String value, String name)
     {
         if (value == null) {
             throw new NullPointerException(name + " is null");

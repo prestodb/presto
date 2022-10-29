@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.jdbc.optimization;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
@@ -30,7 +31,6 @@ import com.facebook.presto.plugin.jdbc.optimization.function.OperatorTranslators
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.function.StandardFunctionResolution;

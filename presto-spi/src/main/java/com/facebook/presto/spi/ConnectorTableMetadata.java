@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.constraints.TableConstraint;
 
 import java.util.ArrayList;

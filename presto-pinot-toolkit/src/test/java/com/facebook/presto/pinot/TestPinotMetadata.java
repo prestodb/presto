@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.pinot;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
@@ -36,7 +37,6 @@ import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

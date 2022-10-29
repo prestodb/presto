@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.plugin.blackhole;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;

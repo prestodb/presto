@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive.parquet;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -40,7 +41,6 @@ import com.facebook.presto.parquet.reader.ParquetReader;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

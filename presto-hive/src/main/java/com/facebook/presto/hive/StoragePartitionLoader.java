@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
@@ -22,7 +23,6 @@ import com.facebook.presto.hive.util.HiveFileIterator;
 import com.facebook.presto.hive.util.InternalHiveSplitFactory;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;

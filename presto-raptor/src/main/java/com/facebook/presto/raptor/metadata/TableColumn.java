@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 

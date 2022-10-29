@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.kudu.schema;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import org.apache.kudu.client.KuduClient;
 
 import java.util.List;

@@ -15,6 +15,8 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveWrittenPartitions;
 import com.facebook.presto.spi.ColumnHandle;
@@ -30,8 +32,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.connector.ConnectorMetadata;

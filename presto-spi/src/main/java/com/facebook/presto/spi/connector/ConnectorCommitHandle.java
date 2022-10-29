@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.connector;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 
 public interface ConnectorCommitHandle
 {

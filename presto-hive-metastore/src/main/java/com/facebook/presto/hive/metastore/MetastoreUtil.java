@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
@@ -48,7 +49,6 @@ import com.facebook.presto.hive.TableOfflineException;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ErrorCodeSupplier;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.statistics.ColumnStatisticType;

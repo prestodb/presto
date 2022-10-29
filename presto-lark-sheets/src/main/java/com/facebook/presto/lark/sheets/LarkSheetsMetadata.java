@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.lark.sheets;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchema;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchemaStore;
@@ -28,8 +30,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;

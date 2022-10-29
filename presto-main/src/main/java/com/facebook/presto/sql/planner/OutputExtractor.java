@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.execution.Output;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.NativeExecutionNode;

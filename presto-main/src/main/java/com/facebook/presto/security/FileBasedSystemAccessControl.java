@@ -15,12 +15,12 @@ package com.facebook.presto.security;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.plugin.base.security.ForwardingSystemAccessControl;
 import com.facebook.presto.plugin.base.security.SchemaAccessControlRule;
 import com.facebook.presto.security.CatalogAccessControlRule.AccessMode;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;

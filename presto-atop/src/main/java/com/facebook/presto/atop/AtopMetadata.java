@@ -14,6 +14,8 @@
 package com.facebook.presto.atop;
 
 import com.facebook.presto.atop.AtopTable.AtopColumn;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnHandle;
@@ -26,8 +28,6 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

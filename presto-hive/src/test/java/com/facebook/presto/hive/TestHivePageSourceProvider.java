@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
@@ -25,7 +26,6 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordPageSource;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.google.common.collect.ImmutableList;

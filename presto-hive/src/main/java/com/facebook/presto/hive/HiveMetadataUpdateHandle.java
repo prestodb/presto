@@ -16,8 +16,8 @@ package com.facebook.presto.hive;
 import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kudu.schema;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;

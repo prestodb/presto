@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;

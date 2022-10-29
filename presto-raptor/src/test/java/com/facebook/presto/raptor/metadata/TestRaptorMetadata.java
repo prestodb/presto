@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.raptor.metadata;
 
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.MetadataUtil.TableMetadataBuilder;
@@ -35,8 +37,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;

@@ -15,6 +15,7 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.Analysis;

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.TestingTypeManager;
@@ -26,7 +27,6 @@ import com.facebook.presto.hive.metastore.SortingColumn;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;

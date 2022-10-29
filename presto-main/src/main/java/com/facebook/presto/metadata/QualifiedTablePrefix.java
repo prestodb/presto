@@ -17,7 +17,7 @@ import com.facebook.drift.annotations.ThriftConstructor;
 import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.QualifiedObjectName;
-import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

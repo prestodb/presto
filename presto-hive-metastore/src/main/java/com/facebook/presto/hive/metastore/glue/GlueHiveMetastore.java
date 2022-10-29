@@ -58,6 +58,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
@@ -85,7 +86,6 @@ import com.facebook.presto.hive.metastore.glue.converter.GlueToPrestoConverter.G
 import com.facebook.presto.spi.ColumnNotFoundException;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaNotFoundException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;

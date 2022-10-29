@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive.metastore;
 
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeTest;

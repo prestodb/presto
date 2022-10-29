@@ -14,6 +14,7 @@
 package com.facebook.presto.hive.orc;
 
 import com.facebook.hive.orc.OrcSerde;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.EncryptionInformation;
@@ -32,7 +33,6 @@ import com.facebook.presto.orc.cache.OrcFileTailSource;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

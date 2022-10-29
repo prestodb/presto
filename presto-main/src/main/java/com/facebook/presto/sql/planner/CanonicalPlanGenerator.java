@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
 import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;

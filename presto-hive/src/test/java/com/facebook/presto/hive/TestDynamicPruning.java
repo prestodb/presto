@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.testing.TempFile;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.StandardTypes;
@@ -25,7 +26,6 @@ import com.facebook.presto.hive.metastore.StorageFormat;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.spi.TableHandle;

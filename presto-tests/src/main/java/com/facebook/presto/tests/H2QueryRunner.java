@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;

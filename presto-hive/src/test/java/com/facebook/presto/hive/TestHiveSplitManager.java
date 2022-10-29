@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -36,7 +37,6 @@ import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

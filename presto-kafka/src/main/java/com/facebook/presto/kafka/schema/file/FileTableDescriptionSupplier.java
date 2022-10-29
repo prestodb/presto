@@ -15,13 +15,13 @@ package com.facebook.presto.kafka.schema.file;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.decoder.dummy.DummyRowDecoder;
 import com.facebook.presto.kafka.KafkaConnectorConfig;
 import com.facebook.presto.kafka.KafkaTopicDescription;
 import com.facebook.presto.kafka.KafkaTopicFieldGroup;
 import com.facebook.presto.kafka.schema.MapBasedTableDescriptionSupplier;
 import com.facebook.presto.kafka.schema.TableDescriptionSupplier;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

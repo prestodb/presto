@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.spi.security.PrestoPrincipal;

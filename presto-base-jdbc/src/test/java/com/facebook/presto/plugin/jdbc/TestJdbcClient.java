@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;

@@ -14,7 +14,7 @@
 package com.facebook.presto.cassandra;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.common.SchemaTableName;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;

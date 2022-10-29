@@ -14,6 +14,7 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TimestampType;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingContext;

@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.datasink.OutputStreamDataSinkFactory;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
@@ -29,7 +30,6 @@ import com.facebook.presto.hive.metastore.UnimplementedHiveMetastore;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.facebook.presto.testing.TestingConnectorSession;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
-import com.facebook.presto.spi.SchemaTableName;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;

@@ -15,6 +15,7 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
@@ -40,7 +41,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;

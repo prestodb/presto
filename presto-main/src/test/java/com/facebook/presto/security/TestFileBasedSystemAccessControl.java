@@ -15,8 +15,8 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AccessDeniedException;
 import com.facebook.presto.spi.security.Identity;

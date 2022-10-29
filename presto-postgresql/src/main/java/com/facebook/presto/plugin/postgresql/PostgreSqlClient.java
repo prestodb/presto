@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.postgresql;
 
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -28,7 +29,6 @@ import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonParser;

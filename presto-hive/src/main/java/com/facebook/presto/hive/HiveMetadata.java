@@ -15,6 +15,8 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.smile.SmileCodec;
+import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Domain;
@@ -69,8 +71,6 @@ import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.RecordCursor;
-import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.SortingProperty;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.TableLayoutFilterCoverage;

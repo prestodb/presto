@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.redis;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.Plugin;
-import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;

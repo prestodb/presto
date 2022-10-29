@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.oracle;
 
+import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
@@ -24,7 +25,6 @@ import com.facebook.presto.plugin.jdbc.JdbcTypeHandle;
 import com.facebook.presto.plugin.jdbc.ReadMapping;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
 
 import javax.inject.Inject;
 
