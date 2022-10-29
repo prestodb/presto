@@ -2955,4 +2955,17 @@ TEST_F(ExprTest, addNulls) {
 
     checkResult(vector);
   }
+
+  // Test flat vector which has a shared values buffer. This is done by first
+  // slicing the vector which creates buffer views of its nulls and values
+  // buffer which are immutable.
+  {
+    VectorPtr vector =
+        makeFlatVector<int64_t>(kSize, [](auto row) { return row; });
+    auto slicedVector = vector->slice(0, kSize - 1);
+    ASSERT_FALSE(slicedVector->values()->isMutable());
+    exec::Expr::addNulls(rows, rawNulls, context, BIGINT(), slicedVector);
+
+    checkResult(slicedVector);
+  }
 }

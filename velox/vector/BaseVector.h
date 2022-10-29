@@ -365,10 +365,12 @@ class BaseVector {
     clearNulls(0, size());
   }
 
-  // Sets the size to 'size' and ensures there is space for the
-  // indicated number of nulls and top level values.
-  // 'setNotNull' indicates if nulls in range [oldSize, newSize) should be set
-  // to not null.
+  // Sets the size to 'newSize' and ensures there is space for the
+  // indicated number of nulls and top level values (eg. values for Flat,
+  // indices for Dictionary, etc). Any immutable buffers that need to be resized
+  // are copied. 'setNotNull' indicates if nulls in range [oldSize, newSize]
+  // should be set to not null.
+  // Note: caller must ensure that the vector is singly referenced.
   virtual void resize(vector_size_t newSize, bool setNotNull = true);
 
   // Sets the rows of 'this' given by 'rows' to

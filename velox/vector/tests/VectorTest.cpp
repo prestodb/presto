@@ -658,6 +658,14 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
           std::make_unique<TestingLoader>(slice));
       testSlices(wrapped, level - 1);
     }
+    {
+      // Test that resize works even when the underlying buffers are
+      // immutable. This is true for a slice since it creates buffer views over
+      // the buffers of the original vector that it sliced.
+      auto newSize = slice->size() * 2;
+      slice->resize(newSize);
+      EXPECT_EQ(slice->size(), newSize);
+    }
   }
 
   static void testSlices(const VectorPtr& slice, int level = 2) {
