@@ -367,14 +367,18 @@ class SelectivityVector {
   }
 
  private:
-  // the vector of bits for what is selected vs not (1 is selected)
+  // The vector of bits for what is selected vs not (1 is selected).
   std::vector<uint64_t> bits_;
+
   // The number of leading bits used in 'bits_'.
   vector_size_t size_ = 0;
-  // the minimum index of a selected value, if there are any selected
+
+  // The minimum index of a selected value, if there are any selected.
   vector_size_t begin_ = 0;
-  // one past the last selected value, if there are any selected
+
+  // One past the last selected value, if there are any selected.
   vector_size_t end_ = 0;
+
   mutable std::optional<bool> allSelected_;
 
   friend class SelectivityIterator;
