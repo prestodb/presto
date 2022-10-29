@@ -17,7 +17,6 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.spi.statistics.EmptyPlanStatisticsProvider;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProviderFactory;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.sql.planner.CachingPlanCanonicalInfoProvider;
@@ -51,7 +50,7 @@ public class HistoryBasedPlanStatisticsManager
     private static final File EXTERNAL_PLAN_STATISTICS_PROVIDER_CONFIG = new File("etc/external-plan-statistics-provider.properties");
     private static final String EXTERNAL_PLAN_STATISTICS_PROVIDER_PROPERTY_NAME = "external-plan-statistics-provider.factory";
     private static final String DEFAULT_EXTERNAL_PLAN_STATISTICS_PROVIDER_FACTORY_NAME = "smarter-warehouse";
-    private ExternalPlanStatisticsProvider externalPlanStatisticsProvider;
+    private HistoryBasedPlanStatisticsProvider externalPlanStatisticsProvider;
     private final Map<String, ExternalPlanStatisticsProviderFactory> externalPlanStatisticsProviderFactories = new ConcurrentHashMap<>();
 
     private final Metadata metadata;
@@ -126,7 +125,7 @@ public class HistoryBasedPlanStatisticsManager
         ExternalPlanStatisticsProviderFactory factory = externalPlanStatisticsProviderFactories.get(factoryName);
         checkState(factory != null, "External Plan Statistics Provider factory %s is not registered", factoryName);
 
-        ExternalPlanStatisticsProvider provider = factory.create(properties);
+        HistoryBasedPlanStatisticsProvider provider = factory.create(properties);
 
         if (externalProviderAdded) {
             throw new IllegalStateException("ExternalPlanStatisticsProvider can only be set once");

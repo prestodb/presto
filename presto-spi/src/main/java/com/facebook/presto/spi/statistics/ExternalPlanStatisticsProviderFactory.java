@@ -19,5 +19,5 @@ public interface ExternalPlanStatisticsProviderFactory
 {
     String getName();
 
-    ExternalPlanStatisticsProvider create(Map<String, String> config);
+    HistoryBasedPlanStatisticsProvider create(Map<String, String> config);
 }

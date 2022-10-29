@@ -22,7 +22,6 @@ import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
 import com.facebook.presto.spi.statistics.CostBasedSourceInfo;
-import com.facebook.presto.spi.statistics.ExternalPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoricalPlanStatistics;
 import com.facebook.presto.spi.statistics.HistoryBasedPlanStatisticsProvider;
 import com.facebook.presto.spi.statistics.HistoryBasedSourceInfo;
@@ -58,7 +57,6 @@ import static com.facebook.presto.SystemSessionProperties.useExternalPlanStatist
 import static com.facebook.presto.SystemSessionProperties.useHistoryBasedPlanStatisticsEnabled;
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.historyBasedPlanCanonicalizationStrategyList;
 import static com.facebook.presto.cost.HistoricalPlanStatisticsUtil.getPredictedPlanStatistics;
-import static com.facebook.presto.cost.TableStatisticsExtractor.extractTableStatistics;
 import static com.facebook.presto.sql.planner.iterative.Plans.resolveGroupReferences;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.jsonLogicalPlan;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -100,7 +98,7 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private final Supplier<HistoryBasedPlanStatisticsProvider> historyBasedPlanStatisticsProvider;
     private static final Logger log = Logger.get(HistoryBasedPlanStatisticsCalculator.class);
-    private final Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider;
+    private final Supplier<HistoryBasedPlanStatisticsProvider> externalPlanStatisticsProvider;
     private final Metadata metadata;
     private final StatsCalculator delegate;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
@@ -111,7 +109,7 @@ public class HistoryBasedPlanStatisticsCalculator
             StatsCalculator delegate,
             PlanCanonicalInfoProvider planCanonicalInfoProvider,
             HistoryBasedOptimizationConfig config,
-            Supplier<ExternalPlanStatisticsProvider> externalPlanStatisticsProvider,
+            Supplier<HistoryBasedPlanStatisticsProvider> externalPlanStatisticsProvider,
             Metadata metadata)
     {
         this.historyBasedPlanStatisticsProvider = requireNonNull(historyBasedPlanStatisticsProvider, "historyBasedPlanStatisticsProvider is null");
@@ -232,18 +230,18 @@ public class HistoryBasedPlanStatisticsCalculator
 
     private PlanStatistics getExternalStatistics(PlanNode planNode, Session session, TypeProvider types)
     {
-        ExternalPlanStatisticsProvider externalStatisticsProvider = externalPlanStatisticsProvider.get();
+        HistoryBasedPlanStatisticsProvider externalStatisticsProvider = externalPlanStatisticsProvider.get();
         try {
             return externalStatisticsProvider.getStats(
-                    planNode,
+                    Collections.singletonList(new PlanNodeWithHash(planNode, Optional.empty())),
                     session.getQueryId(),
                     node -> jsonLogicalPlan(node, types, metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session),
-                    Optional.of(node -> extractTableStatistics(node,
-                            tableScanNode -> metadata.getTableStatistics(
+                    tableScanNode -> metadata.getTableStatistics(
                                     session,
                                     tableScanNode.getTable(),
                                     ImmutableList.copyOf(tableScanNode.getAssignments().values()),
-                                    new Constraint<>(tableScanNode.getCurrentConstraint())))));
+                                    new Constraint<>(tableScanNode.getCurrentConstraint())))
+                    .values().stream().findFirst().get().getLastRunsStatistics().get(0).getPlanStatistics();
         }
         catch (Exception e) {
             log.error(e, "Error calling externalStatisticsProvider.getStats");

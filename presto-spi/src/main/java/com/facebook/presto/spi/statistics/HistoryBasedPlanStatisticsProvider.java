@@ -13,10 +13,14 @@
  */
 package com.facebook.presto.spi.statistics;
 
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeWithHash;
+import com.facebook.presto.spi.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * An interface to provide plan statistics from an external source to Presto planner.
@@ -35,6 +39,15 @@ public interface HistoryBasedPlanStatisticsProvider
      * TODO: Using PlanNode as map key can be expensive, we can use Plan node id as a map key.
      */
     Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodesWithHash);
+
+    /**
+     * Overloaded method to use by external providers
+     */
+    default Map<PlanNodeWithHash, HistoricalPlanStatistics> getStats(List<PlanNodeWithHash> planNodesWithHash,
+            QueryId queryId, Function<PlanNode, String> planPrinter, Function<TableScanNode, TableStatistics> tableStatsResolver)
+    {
+        return getStats(planNodesWithHash);
+    }
 
     /**
      * Given plan hashes and corresponding statistics after a query is run, store them for future retrieval.
