@@ -654,7 +654,6 @@ public class PinotConfig
         return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 
-    @NotNull
     public String getQueryOptions()
     {
         return queryOptions;
