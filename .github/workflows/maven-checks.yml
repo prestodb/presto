@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     concurrency:
-      group: ${{ github.workflow }}-maven-checks-${{ github.event.pull_request.number }}
+      group: ${{ github.workflow }}-maven-checks-praty-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
       - name: Free Disk Space
