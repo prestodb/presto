@@ -94,4 +94,4 @@ Name                                        Description
 See Also
 --------
 
-:doc:`create-function`, :doc:`alter-function`, :doc:`drop-function`, :doc:`show-functions`
+:doc:`/sql/create-function`, :doc:`/sql/alter-function`, :doc:`/sql/drop-function`, :doc:`/sql/show-functions`
