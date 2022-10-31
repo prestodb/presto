@@ -214,8 +214,6 @@ class VectorFuzzer {
   // elements.
   RowVectorPtr fuzzInputRow(const RowTypePtr& rowType);
 
-  variant randVariant(const TypePtr& arg);
-
   // Generates a random type, including maps, vectors, and arrays. maxDepth
   // limits the maximum level of nesting for complex types. maxDepth <= 1 means
   // no complex types are allowed.
@@ -273,6 +271,8 @@ class VectorFuzzer {
       size_t mapSize,
       BufferPtr& offsets,
       BufferPtr& sizes);
+
+  variant randVariant(const TypePtr& arg);
 
   VectorFuzzer::Options opts_;
 

@@ -471,10 +471,6 @@ core::TypedExprPtr ExpressionFuzzer::generateArgConstant(const TypePtr& arg) {
     return std::make_shared<core::ConstantTypedExpr>(
         arg, variant::null(arg->kind()));
   }
-  if (arg->isPrimitiveType()) {
-    return std::make_shared<core::ConstantTypedExpr>(
-        vectorFuzzer_.randVariant(arg));
-  }
   return std::make_shared<core::ConstantTypedExpr>(
       vectorFuzzer_.fuzzConstant(arg, 1));
 }
