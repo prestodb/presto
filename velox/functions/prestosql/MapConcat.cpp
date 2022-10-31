@@ -34,7 +34,7 @@ class MapConcatFunction : public exec::VectorFunction {
       const TypePtr& outputType,
       exec::EvalCtx& context,
       VectorPtr& result) const override {
-    VELOX_CHECK(args.size() >= 2);
+    VELOX_CHECK_GE(args.size(), 2);
     auto mapType = args[0]->type();
     VELOX_CHECK_EQ(mapType->kind(), TypeKind::MAP);
     for (auto& arg : args) {
@@ -155,11 +155,12 @@ class MapConcatFunction : public exec::VectorFunction {
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
-    // map(K,V)... -> map(K,V)
+    // map(K,V), map(K,V), ... -> map(K,V)
     return {exec::FunctionSignatureBuilder()
                 .typeVariable("K")
                 .typeVariable("V")
                 .returnType("map(K,V)")
+                .argumentType("map(K,V)")
                 .argumentType("map(K,V)")
                 .variableArity()
                 .build()};
