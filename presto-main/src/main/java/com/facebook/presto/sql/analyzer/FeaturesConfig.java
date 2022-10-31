@@ -243,6 +243,7 @@ public class FeaturesConfig
     private boolean isRemoveRedundantDistinctAggregationEnabled = true;
     private boolean inPredicatesAsInnerJoinsEnabled;
     private double pushAggregationBelowJoinByteReductionThreshold = 1;
+    private boolean isRemoveRedundantOrderByInWindowEnabled = true;
 
     public enum PartitioningPrecisionStrategy
     {
@@ -2313,6 +2314,19 @@ public class FeaturesConfig
     public FeaturesConfig setPushAggregationBelowJoinByteReductionThreshold(double pushAggregationBelowJoinByteReductionThreshold)
     {
         this.pushAggregationBelowJoinByteReductionThreshold = pushAggregationBelowJoinByteReductionThreshold;
+        return this;
+    }
+
+    public boolean isRemoveRedundantOrderByInWindowEnabled()
+    {
+        return isRemoveRedundantOrderByInWindowEnabled;
+    }
+
+    @Config("optimizer.remove-redundant-orderby-in-window-enabled")
+    @ConfigDescription("Enable removing order by if it's a subset of partition by")
+    public FeaturesConfig setRemoveRedundantOrderByInWindowEnabled(boolean isRemoveRedundantOrderByInWindowEnabled)
+    {
+        this.isRemoveRedundantOrderByInWindowEnabled = isRemoveRedundantOrderByInWindowEnabled;
         return this;
     }
 }

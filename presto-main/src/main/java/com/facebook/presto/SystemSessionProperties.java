@@ -252,6 +252,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
     public static final String REMOVE_REDUNDANT_DISTINCT_AGGREGATION_ENABLED = "remove_redundant_distinct_aggregation_enabled";
+    public static final String REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED = "remove_redundant_order_by_in_window_enabled";
 
     // TODO: Native execution related session properties that are temporarily put here. They will be relocated in the future.
     public static final String NATIVE_SIMPLIFIED_EXPRESSION_EVALUATION_ENABLED = "simplified_expression_evaluation_enabled";
@@ -1432,6 +1433,11 @@ public final class SystemSessionProperties
                         PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD,
                         "Byte reduction ratio threshold at which to disable pushdown of aggregation below inner join",
                         featuresConfig.getPushAggregationBelowJoinByteReductionThreshold(),
+                        false),
+                booleanProperty(
+                        REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED,
+                        "Enable removing order by in window node if order by is a subset of partition by",
+                        featuresConfig.isRemoveRedundantOrderByInWindowEnabled(),
                         false));
     }
 
@@ -2401,5 +2407,10 @@ public final class SystemSessionProperties
     public static double getPushAggregationBelowJoinByteReductionThreshold(Session session)
     {
         return session.getSystemProperty(PUSH_AGGREGATION_BELOW_JOIN_BYTE_REDUCTION_THRESHOLD, Double.class);
+    }
+
+    public static boolean isRemoveRedundantOrderByInWindowEnabled(Session session)
+    {
+        return session.getSystemProperty(REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED, Boolean.class);
     }
 }

@@ -60,6 +60,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_JOINS_WITH_EM
 import static com.facebook.presto.SystemSessionProperties.PUSH_REMOTE_EXCHANGE_THROUGH_GROUP_ID;
 import static com.facebook.presto.SystemSessionProperties.QUICK_DISTINCT_LIMIT_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.RANDOMIZE_OUTER_JOIN_NULL_KEY;
+import static com.facebook.presto.SystemSessionProperties.REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
@@ -6246,5 +6247,36 @@ public abstract class AbstractTestQueries
         assertQuery("select m[1], m[3] from (select map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[1,3,10]) m)", "select 'a', 'c'");
         assertQuery("select cardinality(map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[10,20]))", "select 0");
         assertQuery("select cardinality(map_subset(map(), array[10,20]))", "select 0");
+    }
+
+    @Test
+    public void testRemoveRedundantOrderByFromWindow()
+    {
+        Session enableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED, "true")
+                .build();
+        Session disableOptimization = Session.builder(getSession())
+                .setSystemProperty(REMOVE_REDUNDANT_ORDER_BY_IN_WINDOW_ENABLED, "false")
+                .build();
+
+        String sum = "select orderkey, sum(quantity) over (partition by orderkey order by orderkey) from lineitem";
+        assertQuery(enableOptimization, sum, disableOptimization, sum);
+        String sum2 = "select orderkey, partkey, sum(quantity) over (partition by orderkey, partkey order by orderkey) from lineitem";
+        assertQuery(enableOptimization, sum2, disableOptimization, sum2);
+
+        String count = "select orderkey, count(*) over (partition by orderkey order by orderkey) from lineitem";
+        assertQuery(enableOptimization, count, disableOptimization, count);
+        String count2 = "select orderkey, partkey, count(*) over (partition by orderkey, partkey order by orderkey) from lineitem";
+        assertQuery(enableOptimization, count2, disableOptimization, count2);
+
+        String lag = "select orderkey, lag(quantity) over (partition by suppkey, partkey, orderkey, linenumber order by suppkey, partkey, orderkey, linenumber) from lineitem";
+        assertQuery(enableOptimization, lag, disableOptimization, lag);
+        String lag2 = "select orderkey, lag(quantity) over (partition by suppkey, partkey, orderkey, linenumber order by orderkey) from lineitem";
+        assertQuery(enableOptimization, lag2, disableOptimization, lag2);
+
+        String rank = "select orderkey, rank() over (partition by orderkey order by orderkey) from lineitem";
+        assertQuery(enableOptimization, rank, disableOptimization, rank);
+        String rank2 = "select suppkey, partkey, rank() over (partition by suppkey, partkey order by suppkey) from lineitem";
+        assertQuery(enableOptimization, rank2, disableOptimization, rank2);
     }
 }
