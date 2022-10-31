@@ -171,4 +171,6 @@ void assertEqualResults(
     const std::vector<RowVectorPtr>& expected,
     const std::vector<RowVectorPtr>& actual);
 
+void printResults(const RowVectorPtr& result, std::ostream& out);
+
 } // namespace facebook::velox::exec::test

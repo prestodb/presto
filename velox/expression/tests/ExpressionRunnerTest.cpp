@@ -19,6 +19,7 @@
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/vector/VectorSaver.h"
 
 DEFINE_string(
     input_path,
@@ -35,31 +36,54 @@ DEFINE_string(
     "This has to be set with input_path and optionally result_path.");
 
 DEFINE_string(
+    sql,
+    "",
+    "Comma separated SQL expressions to evaluate. This flag and --sql_path "
+    "flag are mutually exclusive. If both are specified, --sql is used and "
+    "--sql_path is ignored.");
+
+DEFINE_string(
     result_path,
     "",
     "Path for result vector to restore from disk. This is optional for "
     "on-disk reproduction. Don't set if the initial repro result vector is "
     "nullptr");
 
-// TODO(jtan6): Support common mode and simplified mode.
 DEFINE_string(
     mode,
-    "verify",
+    "common",
     "Mode for expression runner: \n"
-    "verify: run expression and compare results between common and simplified "
-    "path.\n"
-    "common: run expression only using common paths. (to be supported)\n"
-    "simplified: run expression only using simplified path. (to be supported)");
+    "verify: evaluate the expression and compare results between common and "
+    "simplified paths.\n"
+    "common: evaluate the expression using common path and print out results.\n"
+    "simplified: evaluate the expression using simplified path and print out "
+    "results.");
+
+DEFINE_int32(
+    num_rows,
+    10,
+    "Maximum number of rows to process. Zero means 'all rows'. Applies to "
+    "'common' and 'simplified' modes only. Ignord for 'verify' mode.");
 
 int main(int argc, char** argv) {
-  facebook::velox::functions::prestosql::registerAllScalarFunctions();
-
   ::testing::InitGoogleTest(&argc, argv);
-
   // Calls common init functions in the necessary order, initializing
   // singletons, installing proper signal handlers for better debugging
   // experience, and initialize glog and gflags.
   folly::init(&argc, &argv);
+
+  VELOX_CHECK(
+      !FLAGS_sql.empty() || !FLAGS_sql_path.empty(),
+      "One of --sql or --sql_path flags must be set.");
+
+  auto sql = FLAGS_sql;
+  if (sql.empty()) {
+    VELOX_CHECK(!FLAGS_sql_path.empty());
+    sql = facebook::velox::restoreStringFromFile(FLAGS_sql_path.c_str());
+    VELOX_CHECK(!sql.empty());
+  }
+
+  facebook::velox::functions::prestosql::registerAllScalarFunctions();
   facebook::velox::test::ExpressionRunner::run(
-      FLAGS_input_path, FLAGS_sql_path, FLAGS_result_path, FLAGS_mode);
+      FLAGS_input_path, sql, FLAGS_result_path, FLAGS_mode, FLAGS_num_rows);
 }

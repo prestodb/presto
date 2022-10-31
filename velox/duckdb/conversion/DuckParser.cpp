@@ -510,6 +510,19 @@ std::shared_ptr<const core::IExpr> parseExpr(
   return parseExpr(*parsedExpressions.front(), options);
 }
 
+std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
+    const std::string& exprString,
+    const ParseOptions& options) {
+  auto parsedExpressions = parseExpression(exprString);
+  VELOX_CHECK_GT(parsedExpressions.size(), 0);
+  std::vector<std::shared_ptr<const core::IExpr>> exprs;
+  exprs.reserve(parsedExpressions.size());
+  for (const auto& parsedExpr : parsedExpressions) {
+    exprs.push_back(parseExpr(*parsedExpr, options));
+  }
+  return exprs;
+}
+
 namespace {
 bool isAscending(::duckdb::OrderType orderType, const std::string& exprString) {
   switch (orderType) {

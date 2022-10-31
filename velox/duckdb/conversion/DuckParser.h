@@ -42,6 +42,10 @@ std::shared_ptr<const core::IExpr> parseExpr(
     const std::string& exprString,
     const ParseOptions& options);
 
+std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
+    const std::string& exprString,
+    const ParseOptions& options);
+
 // Parses an ORDER BY clause using DuckDB's internal postgresql-based parser,
 // converting it to a pair of an IExpr tree and a core::SortOrder. Uses ASC
 // NULLS LAST as the default sort order.

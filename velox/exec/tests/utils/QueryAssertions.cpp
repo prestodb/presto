@@ -912,4 +912,11 @@ void assertEqualResults(
   }
 }
 
+void printResults(const RowVectorPtr& result, std::ostream& out) {
+  auto materializedRows = materialize(result);
+  for (const auto& row : materializedRows) {
+    out << toString(row) << std::endl;
+  }
+}
+
 } // namespace facebook::velox::exec::test

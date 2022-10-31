@@ -113,8 +113,9 @@ target_link_libraries(velox_expression_runner velox_expression_verifier
                       velox_functions_prestosql velox_parse_parser gtest)
 
 add_executable(velox_expression_runner_test ExpressionRunnerTest.cpp)
-target_link_libraries(velox_expression_runner_test velox_expression_runner
-                      velox_function_registry gtest gtest_main)
+target_link_libraries(
+  velox_expression_runner_test velox_expression_runner velox_exec_test_lib
+  velox_function_registry gtest gtest_main)
 
 add_executable(velox_expression_runner_unit_test ExpressionRunnerUnitTest.cpp)
 target_link_libraries(
@@ -125,6 +126,7 @@ target_link_libraries(
   velox_expression_verifier
   velox_function_registry
   velox_temp_path
+  velox_exec_test_lib
   gtest
   gtest_main)
 

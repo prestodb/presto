@@ -35,4 +35,8 @@ std::shared_ptr<const core::IExpr> parseExpr(
 std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
     const std::string& expr);
 
+std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
+    const std::string& expr,
+    const ParseOptions& options);
+
 } // namespace facebook::velox::parse

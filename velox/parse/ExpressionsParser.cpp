@@ -26,6 +26,15 @@ std::shared_ptr<const core::IExpr> parseExpr(
   return facebook::velox::duckdb::parseExpr(expr, duckConversionOptions);
 }
 
+std::vector<std::shared_ptr<const core::IExpr>> parseMultipleExpressions(
+    const std::string& expr,
+    const ParseOptions& options) {
+  facebook::velox::duckdb::ParseOptions duckConversionOptions;
+  duckConversionOptions.parseDecimalAsDouble = options.parseDecimalAsDouble;
+  return facebook::velox::duckdb::parseMultipleExpressions(
+      expr, duckConversionOptions);
+}
+
 std::pair<std::shared_ptr<const core::IExpr>, core::SortOrder> parseOrderByExpr(
     const std::string& expr) {
   return facebook::velox::duckdb::parseOrderByExpr(expr);

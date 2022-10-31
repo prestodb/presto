@@ -56,10 +56,8 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   saveVectorToFile(inputVector.get(), inputPath);
   saveVectorToFile(resultVector.get(), resultPath);
 
-  std::string sql = "length(\"c0\")";
-  saveStringToFile(sql, sqlPath);
   EXPECT_NO_THROW(
-      ExpressionRunner::run(inputPath, sqlPath, resultPath, "verify"));
+      ExpressionRunner::run(inputPath, "length(c0)", resultPath, "verify", 0));
 }
 
 } // namespace facebook::velox::test
