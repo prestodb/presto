@@ -31,6 +31,11 @@ void printRowVector(const RowVectorPtr& rowVector) {
   }
 }
 
+bool isInvalidArgumentOrUnsupported(const VeloxException& ex) {
+  return ex.errorCode() == "INVALID_ARGUMENT" ||
+      ex.errorCode() == "UNSUPPORTED";
+}
+
 void compareExceptions(
     const VeloxException& left,
     const VeloxException& right) {
@@ -42,17 +47,22 @@ void compareExceptions(
   // first. We have seen this happen for the format_datetime Presto function
   // that leads to unmatched error codes UNSUPPORTED vs. INVALID_ARGUMENT.
   // Therefore, we intentionally relax the comparision here.
-  VELOX_CHECK(
-      left.errorCode() == right.errorCode() ||
-      (left.errorCode() == "INVALID_ARGUMENT" &&
-       right.errorCode() == "UNSUPPORTED") ||
-      (right.errorCode() == "INVALID_ARGUMENT" &&
-       left.errorCode() == "UNSUPPORTED"));
-  VELOX_CHECK_EQ(left.errorSource(), right.errorSource());
-  VELOX_CHECK_EQ(left.exceptionName(), right.exceptionName());
-  if (left.message() != right.message()) {
-    LOG(WARNING) << "Two different VeloxExceptions were thrown:\n\t"
-                 << left.message() << "\nand\n\t" << right.message();
+  if (left.errorCode() == right.errorCode() ||
+      (isInvalidArgumentOrUnsupported(left) &&
+       isInvalidArgumentOrUnsupported(right))) {
+    VELOX_CHECK_EQ(left.errorSource(), right.errorSource());
+    VELOX_CHECK_EQ(left.exceptionName(), right.exceptionName());
+    if (left.message() != right.message()) {
+      LOG(WARNING) << "Two different VeloxExceptions were thrown:\n\t"
+                   << left.message() << "\nand\n\t" << right.message();
+    }
+  } else {
+    LOG(ERROR) << left.what();
+    LOG(ERROR) << right.what();
+    VELOX_FAIL(
+        "Common path and simplified path threw different exceptions: {} vs. {}",
+        left.message(),
+        right.message());
   }
 }
 
