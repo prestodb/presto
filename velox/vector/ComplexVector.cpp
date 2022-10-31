@@ -771,15 +771,6 @@ std::unique_ptr<SimpleVector<uint64_t>> MapVector::hashAll() const {
   VELOX_NYI();
 }
 
-vector_size_t MapVector::reserveMap(vector_size_t offset, vector_size_t size) {
-  auto keySize = keys_->size();
-  keys_->resize(keySize + size);
-  values_->resize(keySize + size);
-  offsets_->asMutable<vector_size_t>()[offset] = keySize;
-  sizes_->asMutable<vector_size_t>()[offset] = size;
-  return keySize;
-}
-
 bool MapVector::isSorted(vector_size_t index) const {
   if (isNullAt(index)) {
     return true;
@@ -807,29 +798,28 @@ void MapVector::canonicalize(
   // non-destructive.
   VELOX_CHECK(map.unique());
   BufferPtr indices;
-  folly::Range<vector_size_t*> indicesRange;
+  vector_size_t* indicesRange;
   for (auto i = 0; i < map->BaseVector::length_; ++i) {
     if (map->isSorted(i)) {
       continue;
     }
     if (!indices) {
       indices = map->elementIndices();
-      indicesRange = folly::Range<vector_size_t*>(
-          indices->asMutable<vector_size_t>(), map->keys_->size());
+      indicesRange = indices->asMutable<vector_size_t>();
     }
     auto offset = map->rawOffsets_[i];
     auto size = map->rawSizes_[i];
     if (useStableSort) {
       std::stable_sort(
-          indicesRange.begin() + offset,
-          indicesRange.begin() + offset + size,
+          indicesRange + offset,
+          indicesRange + offset + size,
           [&](vector_size_t left, vector_size_t right) {
             return map->keys_->compare(map->keys_.get(), left, right) < 0;
           });
     } else {
       std::sort(
-          indicesRange.begin() + offset,
-          indicesRange.begin() + offset + size,
+          indicesRange + offset,
+          indicesRange + offset + size,
           [&](vector_size_t left, vector_size_t right) {
             return map->keys_->compare(map->keys_.get(), left, right) < 0;
           });
@@ -853,7 +843,7 @@ std::vector<vector_size_t> MapVector::sortedKeyIndices(
 }
 
 BufferPtr MapVector::elementIndices() const {
-  auto numElements = keys_->size();
+  auto numElements = std::min<vector_size_t>(keys_->size(), values_->size());
   BufferPtr buffer =
       AlignedBuffer::allocate<vector_size_t>(numElements, BaseVector::pool_);
   auto data = buffer->asMutable<vector_size_t>();

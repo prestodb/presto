@@ -536,8 +536,6 @@ class MapVector : public ArrayVectorBase {
     return sortedKeys_;
   }
 
-  vector_size_t reserveMap(vector_size_t offset, vector_size_t size);
-
   void setKeysAndValues(VectorPtr keys, VectorPtr values) {
     keys_ = BaseVector::getOrCreateEmpty(
         std::move(keys), type()->childAt(0), pool_);

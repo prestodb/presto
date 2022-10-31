@@ -1993,6 +1993,31 @@ TEST_F(VectorTest, acquireSharedStringBuffers) {
   EXPECT_EQ(2, flatVector->stringBuffers().size());
 }
 
+/// Test MapVector::canonicalize for a MapVector with 'values' vector shorter
+/// than 'keys' vector.
+TEST_F(VectorTest, mapCanonicalizeValuesShorterThenKeys) {
+  auto mapVector = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      2,
+      makeIndices({0, 2}),
+      makeIndices({2, 2}),
+      makeFlatVector<int64_t>({7, 6, 5, 4, 3, 2, 1}),
+      makeFlatVector<int64_t>({6, 5, 4, 3, 2, 1}));
+  EXPECT_FALSE(mapVector->hasSortedKeys());
+
+  MapVector::canonicalize(mapVector);
+  EXPECT_TRUE(mapVector->hasSortedKeys());
+
+  // Verify that keys and values referenced from the map are sorted. Keys and
+  // values not referenced from the map are not sorted.
+  test::assertEqualVectors(
+      makeFlatVector<int64_t>({6, 7, 4, 5, 3, 2}), mapVector->mapKeys());
+  test::assertEqualVectors(
+      makeFlatVector<int64_t>({5, 6, 3, 4, 2, 1}), mapVector->mapValues());
+}
+
 TEST_F(VectorTest, mapCanonicalize) {
   auto mapVector = makeMapVector<int64_t, int64_t>({
       {{4, 40}, {3, 30}, {2, 20}, {5, 50}, {1, 10}},
