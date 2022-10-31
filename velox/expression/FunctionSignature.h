@@ -28,6 +28,9 @@ inline bool isCommonDecimalName(const std::string& typeName) {
   return (typeName == "DECIMAL");
 }
 
+/// Return a list of primitive type names.
+const std::vector<std::string> primitiveTypeNames();
+
 enum class ParameterType : int8_t { kTypeParameter, kIntegerParameter };
 
 /// TypeVariableConstraint holds both, type parameters (e.g. K or V in map(K,

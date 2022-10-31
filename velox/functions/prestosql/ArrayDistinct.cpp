@@ -179,11 +179,14 @@ std::shared_ptr<exec::VectorFunction> create(
 // Define function signature.
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
   // array(T) -> array(T)
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType("array(T)")
-              .argumentType("array(T)")
-              .build()};
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+  for (const auto& type : exec::primitiveTypeNames()) {
+    signatures.push_back(exec::FunctionSignatureBuilder()
+                             .returnType(fmt::format("array({})", type))
+                             .argumentType(fmt::format("array({})", type))
+                             .build());
+  }
+  return signatures;
 }
 
 } // namespace

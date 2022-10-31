@@ -32,6 +32,24 @@ std::string sanitizeFunctionName(const std::string& name) {
   return sanitizedName;
 }
 
+const std::vector<std::string> primitiveTypeNames() {
+  static const std::vector<std::string> kPrimitiveTypeNames = {
+      "boolean",
+      "bigint",
+      "integer",
+      "smallint",
+      "tinyint",
+      "real",
+      "double",
+      "varchar",
+      "varbinary",
+      "timestamp",
+      "date",
+  };
+
+  return kPrimitiveTypeNames;
+}
+
 void toAppend(
     const facebook::velox::exec::TypeSignature& signature,
     std::string* result) {
@@ -225,5 +243,4 @@ AggregateFunctionSignatureBuilder::build() {
       std::move(argumentTypes_),
       variableArity_);
 }
-
 } // namespace facebook::velox::exec

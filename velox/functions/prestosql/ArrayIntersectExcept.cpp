@@ -459,13 +459,18 @@ std::shared_ptr<exec::VectorFunction> createArrayExcept(
 }
 
 std::vector<std::shared_ptr<exec::FunctionSignature>> signatures(
-    const std::string& returnType) {
-  return {exec::FunctionSignatureBuilder()
-              .typeVariable("T")
-              .returnType(returnType)
-              .argumentType("array(T)")
-              .argumentType("array(T)")
-              .build()};
+    const std::string& returnTypeTemplate) {
+  std::vector<std::shared_ptr<exec::FunctionSignature>> signatures;
+  for (const auto& type : exec::primitiveTypeNames()) {
+    signatures.push_back(
+        exec::FunctionSignatureBuilder()
+            .returnType(
+                fmt::format(fmt::runtime(returnTypeTemplate.c_str()), type))
+            .argumentType(fmt::format("array({})", type))
+            .argumentType(fmt::format("array({})", type))
+            .build());
+  }
+  return signatures;
 }
 
 template <TypeKind kind>
@@ -503,11 +508,11 @@ VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_array_intersect,
-    signatures("array(T)"),
+    signatures("array({})"),
     createArrayIntersect);
 
 VELOX_DECLARE_STATEFUL_VECTOR_FUNCTION(
     udf_array_except,
-    signatures("array(T)"),
+    signatures("array({})"),
     createArrayExcept);
 } // namespace facebook::velox::functions
