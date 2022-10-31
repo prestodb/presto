@@ -48,18 +48,11 @@ Array Functions
 
     Returns a set of elements that occur more than once in ``array``.
 
-    ``T`` must be coercible to ``bigint`` or ``varchar``.
-
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
 
-.. function:: array_frequency(array(bigint)) -> map(bigint, int)
-
-    Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
-    Ignores null elements. Empty array returns empty map.
-
-.. function:: array_frequency(array(varchar)) -> map(varchar, int)
+.. function:: array_frequency(array(E)) -> map(E, int)
 
     Returns a map: keys are the unique elements in the ``array``, values are how many times the key appears.
     Ignores null elements. Empty array returns empty map.
@@ -68,16 +61,13 @@ Array Functions
 
     Returns a boolean: whether ``array`` has any elements that occur more than once.
 
-    ``T`` must be coercible to ``bigint`` or ``varchar``.
-
 .. function:: array_intersect(x, y) -> array
 
     Returns an array of the elements in the intersection of ``x`` and ``y``, without duplicates.
 
-.. function:: array_intersect(array(array(E))) -> array(bigint/double)
+.. function:: array_intersect(array(array(E))) -> array(E)
 
     Returns an array of the elements in the intersection of all arrays in the given array, without duplicates.
-    E must be coercible to ``double``. Returns ``bigint`` if T is coercible to ``bigint``. Otherwise, returns ``double``.
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 

@@ -57,18 +57,10 @@ public final class ArrayIntersectFunction
 
     @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
     @Description("Intersects elements of all arrays in the given array")
-    @SqlParameter(name = "input", type = "array<array<bigint>>")
-    @SqlType("array<bigint>")
-    public static String arrayIntersectBigint()
-    {
-        return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
-    }
-
-    @SqlInvokedScalarFunction(value = "array_intersect", deterministic = true, calledOnNullInput = false)
-    @Description("Intersects elements of all arrays in the given array")
-    @SqlParameter(name = "input", type = "array<array<double>>")
-    @SqlType("array<double>")
-    public static String arrayIntersectDouble()
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array<array<T>>")
+    @SqlType("array<T>")
+    public static String arrayIntersectArray()
     {
         return "RETURN reduce(input, null, (s, x) -> IF((s IS NULL), x, array_intersect(s, x)), (s) -> s)";
     }

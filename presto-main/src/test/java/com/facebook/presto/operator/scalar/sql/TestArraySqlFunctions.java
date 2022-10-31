@@ -14,24 +14,20 @@
 package com.facebook.presto.operator.scalar.sql;
 
 import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.MapType;
-import com.facebook.presto.common.type.TestRowType;
-import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.Collections;
-
-import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
+import static com.facebook.presto.block.BlockAssertions.createMapType;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static java.util.Collections.singletonList;
 
 public class TestArraySqlFunctions
         extends AbstractTestFunctions
@@ -83,48 +79,49 @@ public class TestArraySqlFunctions
     @Test
     public void testArrayFrequencyBigint()
     {
-        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
-        MapType type = new MapType(BIGINT,
-                INTEGER,
-                methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                methodHandle(TestRowType.class, "throwUnsupportedOperation"));
-        TypeSignature typeSignature = TypeSignature.parseTypeSignature(type.getDisplayName());
-
-        assertFunction("array_frequency(cast(null as array(bigint)))", functionAndTypeManager.getType(typeSignature), null);
-        assertFunction("array_frequency(cast(array[] as array(bigint)))", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
-        assertFunction("array_frequency(array[cast(null as bigint), cast(null as bigint), cast(null as bigint)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
-        assertFunction("array_frequency(array[cast(null as bigint), bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 1));
-        assertFunction("array_frequency(array[cast(null as bigint), bigint '1', bigint '3', cast(null as bigint), bigint '1', bigint '3', cast(null as bigint)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
-        assertFunction("array_frequency(array[bigint '1', bigint '1', bigint '2', bigint '2', bigint '3', bigint '1', bigint '3', bigint '2'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 3, 2L, 3, 3L, 2));
-        assertFunction("array_frequency(array[bigint '45'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(45L, 1));
-        assertFunction("array_frequency(array[bigint '-45'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(-45L, 1));
-        assertFunction("array_frequency(array[bigint '1', bigint '3', bigint '1', bigint '3'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
-        assertFunction("array_frequency(array[bigint '3', bigint '1', bigint '3',bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 3L, 2));
-        assertFunction("array_frequency(array[bigint '4',bigint '3',bigint '3',bigint '2',bigint '2',bigint '2',bigint '1',bigint '1',bigint '1',bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 4, 2L, 3, 3L, 2, 4L, 1));
-        assertFunction("array_frequency(array[bigint '3', bigint '3', bigint '2', bigint '2', bigint '5', bigint '5', bigint '1', bigint '1'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of(1L, 2, 2L, 2, 3L, 2, 5L, 2));
+        assertFunction("array_frequency(cast(null as array(bigint)))", createMapType(BIGINT, INTEGER), null);
+        assertFunction("array_frequency(cast(array[] as array(bigint)))", createMapType(BIGINT, INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as bigint), cast(null as bigint), cast(null as bigint)])", createMapType(BIGINT, INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as bigint), bigint '1'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 1));
+        assertFunction("array_frequency(array[cast(null as bigint), bigint '1', bigint '3', cast(null as bigint), bigint '1', bigint '3', cast(null as bigint)])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '1', bigint '1', bigint '2', bigint '2', bigint '3', bigint '1', bigint '3', bigint '2'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 3, 2L, 3, 3L, 2));
+        assertFunction("array_frequency(array[bigint '45'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(45L, 1));
+        assertFunction("array_frequency(array[bigint '-45'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(-45L, 1));
+        assertFunction("array_frequency(array[bigint '1', bigint '3', bigint '1', bigint '3'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '3', bigint '1', bigint '3',bigint '1'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 2, 3L, 2));
+        assertFunction("array_frequency(array[bigint '4',bigint '3',bigint '3',bigint '2',bigint '2',bigint '2',bigint '1',bigint '1',bigint '1',bigint '1'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 4, 2L, 3, 3L, 2, 4L, 1));
+        assertFunction("array_frequency(array[bigint '3', bigint '3', bigint '2', bigint '2', bigint '5', bigint '5', bigint '1', bigint '1'])", createMapType(BIGINT, INTEGER), ImmutableMap.of(1L, 2, 2L, 2, 3L, 2, 5L, 2));
     }
 
     @Test
     public void testArrayFrequencyVarchar()
     {
-        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        assertFunction("array_frequency(cast(null as array(varchar)))", createMapType(VARCHAR, INTEGER), null);
+        assertFunction("array_frequency(cast(array[] as array(varchar)))", createMapType(VARCHAR, INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as varchar), cast(null as varchar), cast(null as varchar)])", createMapType(VARCHAR, INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[varchar 'z', cast(null as varchar)])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("z", 1));
+        assertFunction("array_frequency(array[varchar 'a', cast(null as varchar), varchar 'b', cast(null as varchar), cast(null as varchar) ])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("a", 1, "b", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'a', varchar 'a'])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("a", 4, "b", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'b', varchar 'c'])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("a", 2, "b", 2, "c", 1));
+        assertFunction("array_frequency(array[varchar 'y', varchar 'p'])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("p", 1, "y", 1));
+        assertFunction("array_frequency(array[varchar 'a', varchar 'a', varchar 'p'])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("p", 1, "a", 2));
+        assertFunction("array_frequency(array[varchar 'z'])", createMapType(VARCHAR, INTEGER), ImmutableMap.of("z", 1));
+    }
 
-        MapType type = new MapType(VARCHAR,
-                INTEGER,
-                methodHandle(TestRowType.class, "throwUnsupportedOperation"),
-                methodHandle(TestRowType.class, "throwUnsupportedOperation"));
-        TypeSignature typeSignature = TypeSignature.parseTypeSignature(type.getDisplayName());
+    @Test
+    public void testArrayFrequencyComplexTypes()
+    {
+        assertFunction("array_frequency(cast(null as array(array(varchar))))", createMapType(new ArrayType(VARCHAR), INTEGER), null);
+        assertFunction("array_frequency(cast(array[] as array(array(varchar))))", createMapType(new ArrayType(VARCHAR), INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[cast(null as array(varchar)), cast(null as array(varchar)), cast(null as array(varchar))])", createMapType(new ArrayType(VARCHAR), INTEGER), ImmutableMap.of());
+        assertFunction("array_frequency(array[array[varchar 'z'], array[varchar 'z']])", createMapType(new ArrayType(VARCHAR), INTEGER), ImmutableMap.of(singletonList("z"), 2));
+        assertFunction("array_frequency(array[array[varchar 'z'], array[varchar 't']])", createMapType(new ArrayType(VARCHAR), INTEGER), ImmutableMap.of(singletonList("z"), 1, singletonList("t"), 1));
 
-        assertFunction("array_frequency(cast(null as array(varchar)))", functionAndTypeManager.getType(typeSignature), null);
-        assertFunction("array_frequency(cast(array[] as array(varchar)))", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
-        assertFunction("array_frequency(array[cast(null as varchar), cast(null as varchar), cast(null as varchar)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of());
-        assertFunction("array_frequency(array[varchar 'z', cast(null as varchar)])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("z", 1));
-        assertFunction("array_frequency(array[varchar 'a', cast(null as varchar), varchar 'b', cast(null as varchar), cast(null as varchar) ])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 1, "b", 1));
-        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'a', varchar 'a'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 4, "b", 1));
-        assertFunction("array_frequency(array[varchar 'a', varchar 'b', varchar 'a', varchar 'b', varchar 'c'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("a", 2, "b", 2, "c", 1));
-        assertFunction("array_frequency(array[varchar 'y', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "y", 1));
-        assertFunction("array_frequency(array[varchar 'a', varchar 'a', varchar 'p'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("p", 1, "a", 2));
-        assertFunction("array_frequency(array[varchar 'z'])", functionAndTypeManager.getType(typeSignature), ImmutableMap.of("z", 1));
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
+        String t = rowType.toString();
+        assertFunction("array_frequency(array[(1, 2), (1, 3), (1, 2)])", createMapType(rowType, INTEGER), ImmutableMap.of(ImmutableList.of(1, 2), 2, ImmutableList.of(1, 3), 1));
+        assertInvalidFunction("array_frequency(array[(1, null), (null, 2), (null, 1)])", StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+        assertInvalidFunction("array_frequency(array[(null, 1), (1, null), (null, null)])", StandardErrorCode.NOT_SUPPORTED, "map key cannot be null or contain nulls");
     }
 
     @Test
@@ -146,6 +143,13 @@ public class TestArraySqlFunctions
 
         // Test legacy name.
         assertFunction("array_has_dupes(array[varchar 'a', varchar 'b', varchar 'a'])", BOOLEAN, true);
+
+        assertFunction("array_has_duplicates(array[array[1], array[2], array[]])", BOOLEAN, false);
+        assertFunction("array_has_duplicates(array[array[1], array[2], array[2]])", BOOLEAN, true);
+        assertFunction("array_has_duplicates(array[(1, 2), (1, 2)])", BOOLEAN, true);
+        assertFunction("array_has_duplicates(array[(1, 2), (2, 2)])", BOOLEAN, false);
+        assertInvalidFunction("array_has_duplicates(array[(1, null), (null, 2), (null, 1)])", StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+        assertInvalidFunction("array_has_duplicates(array[(1, null), (null, 2), (null, null)])", StandardErrorCode.NOT_SUPPORTED, "map key cannot be null or contain nulls");
     }
 
     @Test
@@ -158,14 +162,23 @@ public class TestArraySqlFunctions
         assertFunction("array_duplicates(array[varchar 'a', varchar 'b'])", new ArrayType(VARCHAR), ImmutableList.of());
         assertFunction("array_duplicates(array[varchar 'a', varchar 'a'])", new ArrayType(VARCHAR), ImmutableList.of("a"));
 
-        assertFunction("array_duplicates(array[1, 2, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
-        assertFunction("array_duplicates(array[1, 2])", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("array_duplicates(array[1, 1, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertFunction("array_duplicates(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
+        assertFunction("array_duplicates(array[1, 2])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_duplicates(array[1, 1, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
 
-        assertFunction("array_duplicates(array[0, null])", new ArrayType(BIGINT), ImmutableList.of());
-        assertFunction("array_duplicates(array[0, null, null])", new ArrayType(BIGINT), Collections.singletonList(null));
+        assertFunction("array_duplicates(array[0, null])", new ArrayType(INTEGER), ImmutableList.of());
+        assertFunction("array_duplicates(array[0, null, null])", new ArrayType(INTEGER), singletonList(null));
 
         // Test legacy name.
-        assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(BIGINT), ImmutableList.of(1L));
+        assertFunction("array_dupes(array[1, 2, 1])", new ArrayType(INTEGER), ImmutableList.of(1));
+
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field(INTEGER), RowType.field(INTEGER)));
+        String t = rowType.toString();
+        assertFunction("array_duplicates(array[array[1], array[2], array[]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of());
+        assertFunction("array_duplicates(array[array[1], array[2], array[2]])", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(2)));
+        assertFunction("array_duplicates(array[(1, 2), (1, 2)])", new ArrayType(rowType), ImmutableList.of(ImmutableList.of(1, 2)));
+        assertFunction("array_duplicates(array[(1, 2), (2, 2)])", new ArrayType(rowType), ImmutableList.of());
+        assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, 1)])", StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+        assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, null)])", StandardErrorCode.NOT_SUPPORTED, "map key cannot be null or contain nulls");
     }
 }
