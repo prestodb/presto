@@ -932,7 +932,7 @@ public class InternalResourceGroup
 
     private long computeSchedulingWeight()
     {
-        if (runningQueries.size() + descendantRunningQueries >= softConcurrencyLimit) {
+        if (getAggregatedRunningQueries() >= softConcurrencyLimit) {
             return schedulingWeight;
         }
 
