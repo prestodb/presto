@@ -269,11 +269,13 @@ ExpressionFuzzer::ExpressionFuzzer(
     for (const auto& signature : function.second) {
       ++totalFunctionSignatures;
 
-      // Not supporting lambda functions or decimal functions for now.
+      // Not supporting lambda functions, or functions using decimal and
+      // timestamp with time zone types.
       if (useTypeName(*signature, "function") ||
           useTypeName(*signature, "long_decimal") ||
           useTypeName(*signature, "short_decimal") ||
-          useTypeName(*signature, "decimal")) {
+          useTypeName(*signature, "decimal") ||
+          useTypeName(*signature, "timestamp with time zone")) {
         continue;
       }
 
