@@ -110,7 +110,9 @@ class HudiRecordCursors
             HudiFile baseFile = getHudiBaseFile(split);
             Path path = new Path(baseFile.getPath());
             FileSplit fileSplit = new FileSplit(path, baseFile.getStart(), baseFile.getLength(), (String[]) null);
-            List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath())).collect(toList());
+            List<HoodieLogFile> logFiles = split.getLogFiles().stream().map(file -> new HoodieLogFile(file.getPath()))
+                    .sorted(HoodieLogFile.getLogFileComparator())
+                    .collect(toList());
             String tablePath = split.getTable().getPath();
             FileSplit hudiSplit = new HoodieRealtimeFileSplit(fileSplit, tablePath, logFiles, split.getInstantTime(), false, Option.empty());
             return inputFormat.getRecordReader(hudiSplit, jobConf, Reporter.NULL);
