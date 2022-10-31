@@ -27,6 +27,8 @@ import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
 import com.facebook.presto.spi.function.SqlParameters;
 import com.facebook.presto.spi.function.SqlType;
+import com.facebook.presto.spi.function.TypeParameter;
+import com.facebook.presto.spi.function.TypeVariableConstraint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -45,6 +47,7 @@ import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinis
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.NOT_DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.CALLED_ON_NULL_INPUT;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.NullCallClause.RETURNS_NULL_ON_NULL_INPUT;
+import static com.facebook.presto.spi.function.Signature.withVariadicBound;
 import static com.facebook.presto.util.Failures.checkCondition;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -156,10 +159,15 @@ public final class SqlInvokedScalarFromAnnotationsParser
             throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("Failed to get function body for method [%s]", method), e);
         }
 
+        List<TypeVariableConstraint> typeVariableConstraints = stream(method.getAnnotationsByType(TypeParameter.class))
+                .map(t -> withVariadicBound(t.value(), t.boundedBy().isEmpty() ? null : t.boundedBy()))
+                .collect(toImmutableList());
+
         return Stream.concat(Stream.of(functionHeader.value()), stream(functionHeader.alias()))
                 .map(name -> new SqlInvokedFunction(
                         QualifiedObjectName.valueOf(DEFAULT_NAMESPACE, name),
                         parameters,
+                        typeVariableConstraints,
                         returnType,
                         functionDescription,
                         routineCharacteristics,
