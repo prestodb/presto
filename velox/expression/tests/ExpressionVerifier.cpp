@@ -152,8 +152,14 @@ bool ExpressionVerifier::verify(
     std::vector<core::TypedExprPtr> typedExprs = {plan};
     // Disabling constant folding in order to preserver the original
     // expression
-    sql =
-        exec::ExprSet(std::move(typedExprs), execCtx_, false).expr(0)->toSql();
+    try {
+      sql = exec::ExprSet(std::move(typedExprs), execCtx_, false)
+                .expr(0)
+                ->toSql();
+    } catch (const std::exception& e) {
+      LOG(WARNING) << "Failed to generate SQL: " << e.what();
+      sql = "<failed to generate>";
+    }
   }
 
   // Execute expression plan using both common and simplified evals.
@@ -285,11 +291,11 @@ void ExpressionVerifier::persistReproInfo(
   }
 
   std::stringstream ss;
-  ss << "Persisted input at '" << inputPath;
+  ss << "Persisted input: --input_path " << inputPath;
   if (resultVector) {
-    ss << "' and result at '" << resultPath;
+    ss << " --result_path " << resultPath;
   }
-  ss << "' and sql at '" << sqlPath << "'";
+  ss << " --sql_path " << sqlPath;
   LOG(INFO) << ss.str();
 }
 
