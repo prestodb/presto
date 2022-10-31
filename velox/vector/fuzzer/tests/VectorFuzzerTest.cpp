@@ -44,6 +44,36 @@ class VectorFuzzerTest : public testing::Test {
     }
   }
 
+  // Asserts that map keys are unique and not null.
+  void assertMapKeys(MapVector* mapVector) {
+    auto mapKeys = mapVector->mapKeys();
+    ASSERT_FALSE(mapKeys->mayHaveNulls()) << mapKeys->toString();
+
+    std::unordered_map<uint64_t, vector_size_t> map;
+
+    for (size_t i = 0; i < mapVector->size(); ++i) {
+      vector_size_t offset = mapVector->offsetAt(i);
+      map.clear();
+
+      // For each map element, check that keys are unique. Keep track of the
+      // hashes found so far; in case duplicated hashes are found, call the
+      // equalAt() function to break hash colisions ties.
+      for (size_t j = 0; j < mapVector->sizeAt(i); ++j) {
+        vector_size_t idx = offset + j;
+        uint64_t hash = mapKeys->hashValueAt(idx);
+
+        auto it = map.find(hash);
+        if (it != map.end()) {
+          ASSERT_FALSE(mapKeys->equalValueAt(mapKeys.get(), idx, it->second))
+              << "Found duplicated map keys: " << mapKeys->toString(idx)
+              << " vs. " << mapKeys->toString(it->second);
+        } else {
+          map.emplace(hash, idx);
+        }
+      }
+    }
+  }
+
  private:
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
@@ -306,6 +336,42 @@ TEST_F(VectorFuzzerTest, map) {
   vector = fuzzer.fuzzMap(
       fuzzer.fuzzFlat(REAL(), 100), fuzzer.fuzzFlat(INTEGER(), 100), 10);
   assertContainerSize(vector, 10, 10);
+}
+
+// Test that fuzzer return map key which are unique and not null.
+TEST_F(VectorFuzzerTest, mapKeys) {
+  VectorFuzzer::Options opts;
+  opts.nullRatio = 0.5;
+  VectorFuzzer fuzzer(opts, pool());
+
+  auto nullableVector = fuzzer.fuzz(BIGINT(), 1000);
+
+  // Check that a nullable key value throws if normalizeMapKeys is true.
+  opts.normalizeMapKeys = true;
+  fuzzer.setOptions(opts);
+  EXPECT_THROW(
+      fuzzer.fuzzMap(nullableVector, fuzzer.fuzzFlat(BIGINT(), 1000), 10),
+      VeloxRuntimeError);
+
+  opts.normalizeMapKeys = false;
+  fuzzer.setOptions(opts);
+  EXPECT_NO_THROW(
+      fuzzer.fuzzMap(nullableVector, fuzzer.fuzzFlat(BIGINT(), 1000), 10));
+  opts.normalizeMapKeys = true;
+  fuzzer.setOptions(opts);
+
+  std::vector<TypePtr> types = {
+      TINYINT(), SMALLINT(), BIGINT(), DOUBLE(), VARCHAR()};
+
+  for (const auto& keyType : types) {
+    for (size_t i = 0; i < 10; ++i) {
+      auto vector = fuzzer.fuzzMap(
+          fuzzer.fuzzNotNull(keyType, 1000),
+          fuzzer.fuzzFlat(BIGINT(), 1000),
+          10);
+      assertMapKeys(vector->as<MapVector>());
+    }
+  }
 }
 
 TEST_F(VectorFuzzerTest, row) {

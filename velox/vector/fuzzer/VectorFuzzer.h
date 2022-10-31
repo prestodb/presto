@@ -121,6 +121,9 @@ class VectorFuzzer {
     /// `containerLength` is treated as maximum length.
     bool containerVariableLength{false};
 
+    /// If true, generated map keys are normalized (unique and not-null).
+    bool normalizeMapKeys{true};
+
     /// If true, the random generated timestamp value will only be in
     /// microsecond precision (default is nanosecond).
     bool useMicrosecondPrecisionTimestamp{false};
@@ -193,6 +196,10 @@ class VectorFuzzer {
   // The number of elements per map row is based on the size of the `keys` and
   // `values` vectors and `size`, and either fixed or variable (depending on
   // `opts.containerVariableLength`).
+  //
+  // If opt.normalizeMapKeys is true, keys will be normalized - duplicated key
+  // values for a particular element will be removed/skipped. In that case, this
+  // method throws if the keys vector has nulls.
   MapVectorPtr
   fuzzMap(const VectorPtr& keys, const VectorPtr& values, vector_size_t size);
 
@@ -256,6 +263,16 @@ class VectorFuzzer {
       BufferPtr& sizes,
       size_t elementsSize,
       size_t size);
+
+  // Normalize a vector to be used as map key.
+  // For each map element, if duplicate key values are found, remove them (and
+  // any subsequent key values) by cutting the map short (reducing its size).
+  // Throws if the keys vector contains null values.
+  VectorPtr normalizeMapKeys(
+      const VectorPtr& keys,
+      size_t mapSize,
+      BufferPtr& offsets,
+      BufferPtr& sizes);
 
   VectorFuzzer::Options opts_;
 

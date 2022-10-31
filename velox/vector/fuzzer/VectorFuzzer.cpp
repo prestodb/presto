@@ -415,7 +415,10 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
   // Maps.
   else if (type->isMap()) {
     return fuzzMap(
-        fuzzFlat(type->asMap().keyType(), size * opts_.containerLength),
+        opts_.normalizeMapKeys
+            ? fuzzFlatNotNull(
+                  type->asMap().keyType(), size * opts_.containerLength)
+            : fuzzFlat(type->asMap().keyType(), size * opts_.containerLength),
         fuzzFlat(type->asMap().valueType(), size * opts_.containerLength),
         size);
   }
@@ -475,7 +478,10 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
 
     case TypeKind::MAP:
       return fuzzMap(
-          fuzz(type->asMap().keyType(), size * opts_.containerLength),
+          opts_.normalizeMapKeys
+              ? fuzzNotNull(
+                    type->asMap().keyType(), size * opts_.containerLength)
+              : fuzz(type->asMap().keyType(), size * opts_.containerLength),
           fuzz(type->asMap().valueType(), size * opts_.containerLength),
           size);
 
@@ -557,6 +563,46 @@ ArrayVectorPtr VectorFuzzer::fuzzArray(
       elements);
 }
 
+VectorPtr VectorFuzzer::normalizeMapKeys(
+    const VectorPtr& keys,
+    size_t mapSize,
+    BufferPtr& offsets,
+    BufferPtr& sizes) {
+  // Map keys cannot be null.
+  const auto& nulls = keys->nulls();
+  if (nulls) {
+    VELOX_CHECK_EQ(
+        BaseVector::countNulls(nulls, 0, keys->size()),
+        0,
+        "Map keys cannot be null when opt.normalizeMapKeys is true");
+  }
+
+  auto rawOffsets = offsets->as<vector_size_t>();
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+
+  // Looks for duplicate key values.
+  std::unordered_set<uint64_t> set;
+  for (size_t i = 0; i < mapSize; ++i) {
+    set.clear();
+
+    for (size_t j = 0; j < rawSizes[i]; ++j) {
+      vector_size_t idx = rawOffsets[i] + j;
+      uint64_t hash = keys->hashValueAt(idx);
+
+      // If we find the same hash (either same key value or hash colision), we
+      // cut it short by reducing this element's map size. This should not
+      // happen frequently.
+      auto it = set.find(hash);
+      if (it != set.end()) {
+        rawSizes[i] = j;
+        break;
+      }
+      set.insert(hash);
+    }
+  }
+  return keys;
+}
+
 MapVectorPtr VectorFuzzer::fuzzMap(
     const VectorPtr& keys,
     const VectorPtr& values,
@@ -571,7 +617,8 @@ MapVectorPtr VectorFuzzer::fuzzMap(
       size,
       offsets,
       sizes,
-      keys,
+      opts_.normalizeMapKeys ? normalizeMapKeys(keys, size, offsets, sizes)
+                             : keys,
       values);
 }
 
