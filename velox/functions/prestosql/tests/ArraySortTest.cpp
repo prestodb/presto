@@ -405,6 +405,32 @@ TEST_P(ArraySortTest, constant) {
   assertEqualVectors(expected, result);
 }
 
+TEST_P(ArraySortTest, dictionaryEncodedElements) {
+  if (GetParam() != TypeKind::BIGINT) {
+    GTEST_SKIP()
+        << "Skipping dictionaryEncodedElements test for non-bigint type";
+  }
+
+  auto elementVector = makeNullableFlatVector<int64_t>({3, 1, 2, 4, 5});
+  auto dictionaryVector = BaseVector::wrapInDictionary(
+      makeNulls(5, nullEvery(2)), makeIndicesInReverse(5), 5, elementVector);
+  // Array vector with one array.
+  auto arrayVector = makeArrayVector({0}, dictionaryVector);
+  auto result = evaluate("array_sort(c0)", makeRowVector({arrayVector}));
+  assertEqualVectors(
+      result,
+      makeNullableArrayVector<int64_t>(
+          {{1, 4, std::nullopt, std::nullopt, std::nullopt}}));
+
+  // Array vector with 2 arrays.
+  arrayVector = makeArrayVector({0, 2}, dictionaryVector);
+  result = evaluate("array_sort(c0)", makeRowVector({arrayVector}));
+  assertEqualVectors(
+      result,
+      makeNullableArrayVector<int64_t>(
+          {{4, std::nullopt}, {1, std::nullopt, std::nullopt}}));
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     ArraySortTest,
     ArraySortTest,
