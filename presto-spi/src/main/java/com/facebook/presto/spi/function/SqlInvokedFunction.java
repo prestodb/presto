@@ -28,6 +28,7 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.joining;
@@ -75,6 +76,19 @@ public class SqlInvokedFunction
             String body,
             FunctionVersion version)
     {
+        this(functionName, parameters, emptyList(), returnType, description, routineCharacteristics, body, version);
+    }
+
+    public SqlInvokedFunction(
+            QualifiedObjectName functionName,
+            List<Parameter> parameters,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            TypeSignature returnType,
+            String description,
+            RoutineCharacteristics routineCharacteristics,
+            String body,
+            FunctionVersion version)
+    {
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.description = requireNonNull(description, "description is null");
         this.routineCharacteristics = requireNonNull(routineCharacteristics, "routineCharacteristics is null");
@@ -83,7 +97,8 @@ public class SqlInvokedFunction
         List<TypeSignature> argumentTypes = parameters.stream()
                 .map(Parameter::getType)
                 .collect(collectingAndThen(toList(), Collections::unmodifiableList));
-        this.signature = new Signature(functionName, SCALAR, returnType, argumentTypes);
+
+        this.signature = new Signature(functionName, SCALAR, typeVariableConstraints, emptyList(), returnType, argumentTypes, false);
         this.functionId = new SqlFunctionId(functionName, argumentTypes);
         this.functionVersion = requireNonNull(version, "version is null");
         this.functionHandle = version.hasVersion() ? Optional.of(new SqlFunctionHandle(this.functionId, version.toString())) : Optional.empty();
