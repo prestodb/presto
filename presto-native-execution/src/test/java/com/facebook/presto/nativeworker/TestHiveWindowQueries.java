@@ -15,6 +15,7 @@ package com.facebook.presto.nativeworker;
 
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
+import org.testng.internal.collections.Pair;
 
 import java.util.Arrays;
 import java.util.List;
@@ -66,6 +67,62 @@ public class TestHiveWindowQueries
         }
     }
 
+    protected List<String> buildWindowTestQueriesWithFrame(List<Pair<String, String>> functionCalls)
+    {
+        ImmutableList.Builder<String> queries = ImmutableList.builder();
+
+        // Window function over clauses with different datatypes in PARTITION BY and ORDER BY clauses.
+        List<String> overClauses = Arrays.asList("PARTITION BY orderkey ORDER BY commitdate asc nulls first, extendedprice asc, shipinstruct desc",
+                "PARTITION BY commitdate ORDER BY orderkey desc, extendedprice asc, shipinstruct desc nulls first",
+                "PARTITION BY extendedprice ORDER BY commitdate asc nulls first, orderkey desc nulls first, shipinstruct asc nulls first",
+                "PARTITION BY shipinstruct ORDER BY commitdate, extendedprice, orderkey",
+                "ORDER BY commitdate desc, orderkey asc, extendedprice desc nulls first, shipinstruct asc nulls first",
+                "ORDER BY orderkey desc, commitdate asc, extendedprice asc nulls first, shipinstruct desc nulls first",
+                "ORDER BY extendedprice asc nulls first, shipinstruct desc nulls first, commitdate desc, orderkey asc",
+                "ORDER BY shipinstruct desc, orderkey asc, commitdate desc nulls first, extendedprice asc nulls first");
+
+        // Window function frame clauses with UNBOUNDED PRECEDING/FOLLOWING and CURRENT ROW bounds in RANGE and ROWS modes.
+        List<String> frameClauses = Arrays.asList("RANGE UNBOUNDED PRECEDING",
+                "RANGE CURRENT ROW",
+                "RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING",
+                "RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+                "ROWS UNBOUNDED PRECEDING",
+                "ROWS CURRENT ROW",
+                "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING",
+                "ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING");
+
+        for (String overClause : overClauses) {
+            for (String frameClause : frameClauses) {
+                ImmutableList.Builder<String> windowFunctionCalls = ImmutableList.builder();
+                for (Pair<String, String> functionCall : functionCalls) {
+                    // Value functions require a total ordering of input rows to produce deterministic results with window frames in ROWS mode. The argument column for the value
+                    // function is therefore passed as a parameter in functionCall and included in the ORDER BY clause.
+                    windowFunctionCalls.add(String.format("%s OVER (%s, %s %s)", functionCall.first(), overClause, functionCall.second(), frameClause));
+                }
+                String windowFunction = String.join(",", windowFunctionCalls.build());
+                queries.add(String.format("SELECT %s FROM lineitem", windowFunction));
+            }
+        }
+        return queries.build();
+    }
+
+    protected void testAggregateWindowFunction(String aggregateFunction, Boolean numericAggregate)
+    {
+        ImmutableList.Builder<Pair<String, String>> aggregateFunctionPairs = ImmutableList.builder();
+        aggregateFunctionPairs.add(Pair.of(String.format("%s(partkey)", aggregateFunction), "partkey"));
+
+        // Varchar and Date datatypes are tested with columns shipmode and receiptdate respectively for min, max and count aggregate functions.
+        if (!numericAggregate) {
+            aggregateFunctionPairs.add(Pair.of(String.format("%s(shipmode)", aggregateFunction), "shipmode"));
+            aggregateFunctionPairs.add(Pair.of(String.format("%s(receiptdate)", aggregateFunction), "receiptdate"));
+        }
+
+        List<String> queries = buildWindowTestQueriesWithFrame(aggregateFunctionPairs.build());
+        for (String query : queries) {
+            assertQuery(query);
+        }
+    }
+
     @Test
     public void testCumeDist()
     {
@@ -99,5 +156,50 @@ public class TestHiveWindowQueries
     {
         // `row_number() over (partition by key1)` will use `RowNumberNode` which hasn't been implemented yet.
         testRankingFunction("row_number()", true);
+    }
+
+    @Test
+    public void testNthValue()
+    {
+        List<Pair<String, String>> nthValueFunctionPairs = Arrays.asList(Pair.of("nth_value(receiptdate, 5)", "receiptdate"),
+                Pair.of("nth_value(partkey, 5)", "partkey"),
+                Pair.of("nth_value(shipmode, 5)", "shipmode"),
+                Pair.of("nth_value(tax, orderkey + 1)", "tax"),
+                Pair.of("nth_value(linenumber, orderkey + 1)", "linenumber"));
+
+        List<String> queries = buildWindowTestQueriesWithFrame(nthValueFunctionPairs);
+        for (String query : queries) {
+            assertQuery(query);
+        }
+    }
+
+    @Test
+    public void testSum()
+    {
+        testAggregateWindowFunction("sum", true);
+    }
+
+    @Test
+    public void testMin()
+    {
+        testAggregateWindowFunction("min", false);
+    }
+
+    @Test
+    public void testMax()
+    {
+        testAggregateWindowFunction("max", false);
+    }
+
+    @Test
+    public void testCount()
+    {
+        testAggregateWindowFunction("count", false);
+    }
+
+    @Test
+    public void testAvg()
+    {
+        testAggregateWindowFunction("avg", true);
     }
 }
