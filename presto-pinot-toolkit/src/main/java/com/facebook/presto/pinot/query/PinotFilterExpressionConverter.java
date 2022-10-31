@@ -340,24 +340,40 @@ public class PinotFilterExpressionConverter
             Function<VariableReferenceExpression, Selection> context)
     {
         String functionName = function.getDisplayName().toLowerCase(ENGLISH);
+        List<RowExpression> arguments = function.getArguments();
         switch (functionName) {
             case "lower":
             case "trim":
                 return derived(String.format(
                         "%s(%s)",
                         functionName,
-                        function.getArguments().get(0).accept(this, context).getDefinition()));
+                        arguments.get(0).accept(this, context).getDefinition()));
             case "concat":
                 // Pinot's concat function is a bit different from Presto's, taking only two arguments (and a separator) at a time.
                 // We nest and repeat concat function calls to handle additional arguments.
-                int numArguments = function.getArguments().size();
+                int numArguments = arguments.size();
                 return derived(String.format(
                         "%s%s%s",
                         Strings.repeat(String.format("%s(", functionName), numArguments - 1),
                         getExpressionOrConstantString(function.getArguments().get(0), context),
-                        function.getArguments().subList(1, numArguments).stream()
+                        arguments.subList(1, numArguments).stream()
                                 .map(argument -> String.format(", %s, '')", getExpressionOrConstantString(argument, context)))
                                 .collect(Collectors.joining(""))));
+            case "strpos":
+                // Pinot strings are 0-indexed, while Presto strings are 1-indexed.
+                if (arguments.size() == 2) {
+                    return derived(String.format(
+                            "%s(%s,%s) + 1",
+                            functionName,
+                            arguments.get(0).accept(this, context).getDefinition(),
+                            arguments.get(1).accept(this, context).getDefinition()));
+                }
+                return derived(String.format(
+                        "%s(%s,%s,%s) + 1",
+                        functionName,
+                        arguments.get(0).accept(this, context).getDefinition(),
+                        arguments.get(1).accept(this, context).getDefinition(),
+                        arguments.get(2).accept(this, context).getDefinition()));
             default:
                 throw new PinotException(PINOT_UNSUPPORTED_EXPRESSION, Optional.empty(), format("function %s not supported in filter yet", function.getDisplayName()));
         }
