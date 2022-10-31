@@ -41,6 +41,7 @@ class MapFunction : public exec::VectorFunction {
         "Key and value arrays must be the same length";
     static const char* kDuplicateKey =
         "Duplicate map keys ({}) are not allowed";
+    static const char* kNullKey = "map key cannot be null";
 
     MapVectorPtr mapVector;
 
@@ -53,8 +54,20 @@ class MapFunction : public exec::VectorFunction {
       auto keysArray = keys->as<ArrayVector>();
       auto valuesArray = values->as<ArrayVector>();
 
+      // Verify there are no null keys.
+      auto keysElements = keysArray->elements();
+      if (keysElements->mayHaveNulls()) {
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          auto offset = keysArray->offsetAt(row);
+          auto size = keysArray->sizeAt(row);
+          for (auto i = 0; i < size; ++i) {
+            VELOX_USER_CHECK(!keysElements->isNullAt(offset + i), kNullKey);
+          }
+        });
+      }
+
       // Check array lengths
-      rows.applyToSelected([&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         VELOX_USER_CHECK_EQ(
             keysArray->sizeAt(row),
             valuesArray->sizeAt(row),
@@ -78,8 +91,20 @@ class MapFunction : public exec::VectorFunction {
       auto keysArray = decodedKeys->base()->as<ArrayVector>();
       auto valuesArray = decodedValues->base()->as<ArrayVector>();
 
+      // Verify there are no null keys.
+      auto keysElements = keysArray->elements();
+      if (keysElements->mayHaveNulls()) {
+        context.applyToSelectedNoThrow(rows, [&](auto row) {
+          auto offset = keysArray->offsetAt(keyIndices[row]);
+          auto size = keysArray->sizeAt(keyIndices[row]);
+          for (auto i = 0; i < size; ++i) {
+            VELOX_USER_CHECK(!keysElements->isNullAt(offset + i), kNullKey);
+          }
+        });
+      }
+
       // Check array lengths
-      rows.applyToSelected([&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         VELOX_USER_CHECK_EQ(
             keysArray->sizeAt(keyIndices[row]),
             valuesArray->sizeAt(valueIndices[row]),
@@ -150,7 +175,7 @@ class MapFunction : public exec::VectorFunction {
       auto offsets = mapVector->rawOffsets();
       auto sizes = mapVector->rawSizes();
       auto mapKeys = mapVector->mapKeys();
-      rows.applyToSelected([&](vector_size_t row) {
+      context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
         auto offset = offsets[row];
         auto size = sizes[row];
         for (vector_size_t i = 1; i < size; i++) {

@@ -94,6 +94,34 @@ TEST_F(MapTest, partiallyPopulated) {
   }
 }
 
+TEST_F(MapTest, nullKeys) {
+  auto keys = makeNullableArrayVector<int64_t>({
+      {1, 2, 3, std::nullopt},
+      {1, 2},
+      {std::nullopt},
+  });
+
+  auto values = makeNullableArrayVector<int64_t>({
+      {10, 20, 30, 40},
+      {10, 20},
+      {10},
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      "map key cannot be null");
+
+  auto result =
+      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values}));
+  assertEqualVectors(
+      makeNullableMapVector<int64_t, int64_t>({
+          std::nullopt,
+          {{{1, 10}, {2, 20}}},
+          std::nullopt,
+      }),
+      result);
+}
+
 TEST_F(MapTest, duplicateKeys) {
   auto size = 1'000;
 
@@ -106,6 +134,9 @@ TEST_F(MapTest, duplicateKeys) {
   VELOX_ASSERT_THROW(
       evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
       "Duplicate map keys (10) are not allowed");
+
+  ASSERT_NO_THROW(
+      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
 
   // Trying the map version with allowing duplicates.
   functions::prestosql::registerMapAllowingDuplicates("map2");
@@ -128,6 +159,9 @@ TEST_F(MapTest, differentArraySizes) {
   VELOX_ASSERT_THROW(
       evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
       "(0 vs. 5) Key and value arrays must be the same length");
+
+  ASSERT_NO_THROW(
+      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
 }
 
 TEST_F(MapTest, encodings) {
