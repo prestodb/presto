@@ -135,6 +135,9 @@ public class TestPinotExpressionConverters
         testFilter("CONCAT(city, ', CA', city) IN ('San Jose', 'Campbell')",
                 "(concat(concat(\"city\", ', CA', ''), \"city\", '') IN ('San Jose', 'Campbell'))", sessionHolder);
 
+        // strpos
+        testFilter("STRPOS(\"city\", 'Seattle') = 1", "(strpos(\"city\",'Seattle') + 1 = 1)", sessionHolder);
+
         // case, coalesce, if
         testFilter("CASE WHEN city = 'Campbell' THEN regionid ELSE 0 END",
                 "CASE true WHEN (\"city\" = 'Campbell') THEN \"regionId\" ELSE 0 END", sessionHolder);
