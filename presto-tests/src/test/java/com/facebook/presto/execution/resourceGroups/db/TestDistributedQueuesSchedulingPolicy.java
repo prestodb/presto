@@ -20,7 +20,7 @@ import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeGroups;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -45,8 +45,8 @@ public class TestDistributedQueuesSchedulingPolicy
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
     private DistributedQueryRunner queryRunner;
 
-    @BeforeMethod
-    public void setup()
+    @BeforeGroups(groups = "weightedFairScheduling")
+    public void weightedFairSchedulingSetup()
             throws Exception
     {
         String dbConfigUrl = getDbConfigUrl();
@@ -57,7 +57,22 @@ public class TestDistributedQueuesSchedulingPolicy
         coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "500ms");
         coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
 
-        queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, true);
+        queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, true, false);
+    }
+
+    @BeforeGroups(groups = "weightedScheduling")
+    public void weightedSchedulingSetup()
+            throws Exception
+    {
+        String dbConfigUrl = getDbConfigUrl();
+        H2ResourceGroupsDao dao = getDao(dbConfigUrl);
+        ImmutableMap.Builder<String, String> coordinatorProperties = new ImmutableMap.Builder<>();
+        coordinatorProperties.put("query-manager.experimental.required-coordinators", "2");
+        coordinatorProperties.put("resource-manager.query-heartbeat-interval", "10ms");
+        coordinatorProperties.put("resource-group-runtimeinfo-refresh-interval", "500ms");
+        coordinatorProperties.put("concurrency-threshold-to-enable-resource-group-refresh", "0");
+
+        queryRunner = createQueryRunner(dbConfigUrl, dao, coordinatorProperties.build(), 2, false, true);
     }
 
     @AfterMethod(alwaysRun = true)
@@ -67,8 +82,8 @@ public class TestDistributedQueuesSchedulingPolicy
         queryRunner = null;
     }
 
-    @Test(timeOut = 60_000)
-    public void test()
+    @Test(timeOut = 60_000, groups = "weightedFairScheduling")
+    public void testWeightedFairScheduling()
             throws Exception
     {
         QueryId firstAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
@@ -119,5 +134,59 @@ public class TestDistributedQueuesSchedulingPolicy
 
         cancelQuery(queryRunner, 0, firstDashboardQuery);
         waitForQueryState(queryRunner, 1, thirdAdhocQuery, RUNNING);
+    }
+
+    @Test(timeOut = 60_000, groups = "weightedScheduling")
+    public void testWeightedScheduling()
+            throws Exception
+    {
+        QueryId firstAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId secondAdhocQuery = createQuery(queryRunner, 1, adhocSession(), LONG_LASTING_QUERY);
+
+        QueryId firstDashboardQuery = createQuery(queryRunner, 0, dashboardSession(), LONG_LASTING_QUERY);
+
+        QueryId secondDashboardQuery = createQuery(queryRunner, 1, dashboardSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, 0, firstAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, 1, secondAdhocQuery, RUNNING);
+        waitForQueryState(queryRunner, 0, firstDashboardQuery, RUNNING);
+        waitForQueryState(queryRunner, 1, secondDashboardQuery, RUNNING);
+
+        Map<ResourceGroupId, ResourceGroupRuntimeInfo> resourceGroupRuntimeInfoSnapshot;
+        int globalRunningQueries = 0;
+        do {
+            MILLISECONDS.sleep(100);
+            globalRunningQueries = 0;
+            for (int coordinator = 0; coordinator < 2; coordinator++) {
+                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
+                if (resourceGroupRuntimeInfo != null) {
+                    globalRunningQueries += resourceGroupRuntimeInfo.getDescendantRunningQueries();
+                }
+            }
+        } while (globalRunningQueries != 4);
+
+        QueryId thirdAdhocQuery = createQuery(queryRunner, 0, adhocSession(), LONG_LASTING_QUERY);
+        QueryId thirdDashboardQuery = createQuery(queryRunner, 0, dashboardSession(), LONG_LASTING_QUERY);
+
+        waitForQueryState(queryRunner, 0, thirdAdhocQuery, QUEUED);
+        waitForQueryState(queryRunner, 0, thirdDashboardQuery, QUEUED);
+
+        int globalQueuedQueries = 0;
+        do {
+            MILLISECONDS.sleep(100);
+            globalQueuedQueries = 0;
+            for (int coordinator = 0; coordinator < 2; coordinator++) {
+                resourceGroupRuntimeInfoSnapshot = queryRunner.getCoordinator(coordinator).getResourceGroupManager().get().getResourceGroupRuntimeInfosSnapshot();
+                ResourceGroupRuntimeInfo resourceGroupRuntimeInfo = resourceGroupRuntimeInfoSnapshot.get(new ResourceGroupId("global"));
+                if (resourceGroupRuntimeInfo != null) {
+                    globalQueuedQueries += resourceGroupRuntimeInfo.getDescendantQueuedQueries();
+                }
+            }
+        } while (globalQueuedQueries != 2);
+
+        cancelQuery(queryRunner, 1, secondDashboardQuery);
+        waitForQueryState(queryRunner, 0, thirdAdhocQuery, RUNNING);
     }
 }
