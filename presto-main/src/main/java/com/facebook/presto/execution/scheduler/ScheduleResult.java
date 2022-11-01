@@ -60,23 +60,26 @@ public class ScheduleResult
     private final boolean finished;
     private final int splitsScheduled;
 
-    public static ScheduleResult nonBlocked(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled)
+    private final int splitsObtained;
+
+    public static ScheduleResult nonBlocked(boolean finished, Iterable<? extends RemoteTask> newTasks, int splitsScheduled, int splitsObtained)
     {
-        return new ScheduleResult(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled);
+        return new ScheduleResult(finished, newTasks, immediateFuture(null), Optional.empty(), splitsScheduled, splitsObtained);
     }
 
-    public static ScheduleResult blocked(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled)
+    public static ScheduleResult blocked(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, BlockedReason blockedReason, int splitsScheduled, int splitsObtained)
     {
-        return new ScheduleResult(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled);
+        return new ScheduleResult(finished, newTasks, blocked, Optional.of(requireNonNull(blockedReason, "blockedReason is null")), splitsScheduled, splitsObtained);
     }
 
-    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled)
+    private ScheduleResult(boolean finished, Iterable<? extends RemoteTask> newTasks, ListenableFuture<?> blocked, Optional<BlockedReason> blockedReason, int splitsScheduled, int splitsObtained)
     {
         this.finished = finished;
         this.newTasks = ImmutableSet.copyOf(requireNonNull(newTasks, "newTasks is null"));
         this.blocked = requireNonNull(blocked, "blocked is null");
         this.blockedReason = requireNonNull(blockedReason, "blockedReason is null");
         this.splitsScheduled = splitsScheduled;
+        this.splitsObtained = splitsObtained;
     }
 
     public boolean isFinished()
@@ -97,6 +100,11 @@ public class ScheduleResult
     public int getSplitsScheduled()
     {
         return splitsScheduled;
+    }
+
+    public int getSplitsObtained()
+    {
+        return splitsObtained;
     }
 
     public Optional<BlockedReason> getBlockedReason()

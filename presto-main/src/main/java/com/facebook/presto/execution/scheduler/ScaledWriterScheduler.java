@@ -87,7 +87,7 @@ public class ScaledWriterScheduler
         future = SettableFuture.create();
         executor.schedule(() -> future.set(null), 200, MILLISECONDS);
 
-        return ScheduleResult.blocked(done.get(), writers, future, WRITER_SCALING, 0);
+        return ScheduleResult.blocked(done.get(), writers, future, WRITER_SCALING, 0, 0);
     }
 
     private int getNewTaskCount()

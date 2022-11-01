@@ -209,6 +209,7 @@ public class SourcePartitionedScheduler
         boolean anyBlockedOnPlacements = false;
         boolean anyBlockedOnNextSplitBatch = false;
         boolean anyNotBlocked = false;
+        int newPendingSplitsObtained = 0;
 
         for (Entry<Lifespan, ScheduleGroup> entry : scheduleGroups.entrySet()) {
             Lifespan lifespan = entry.getKey();
@@ -230,6 +231,7 @@ public class SourcePartitionedScheduler
                     SplitBatch nextSplits = getFutureValue(scheduleGroup.nextSplitBatchFuture);
                     scheduleGroup.nextSplitBatchFuture = null;
                     scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
+                    newPendingSplitsObtained += scheduleGroup.pendingSplits.size();
                     if (nextSplits.isLastBatch()) {
                         if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && scheduleGroup.pendingSplits.isEmpty()) {
                             // Add an empty split in case no splits have been produced for the source.
@@ -340,14 +342,15 @@ public class SourcePartitionedScheduler
                     return ScheduleResult.nonBlocked(
                             true,
                             overallNewTasks.build(),
-                            overallSplitAssignmentCount);
+                            overallSplitAssignmentCount,
+                            newPendingSplitsObtained);
                 default:
                     throw new IllegalStateException("Unknown state");
             }
         }
 
         if (anyNotBlocked) {
-            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount);
+            return ScheduleResult.nonBlocked(false, overallNewTasks.build(), overallSplitAssignmentCount, newPendingSplitsObtained);
         }
 
         if (anyBlockedOnPlacements) {
@@ -381,7 +384,8 @@ public class SourcePartitionedScheduler
                 overallNewTasks.build(),
                 nonCancellationPropagating(whenAnyComplete(overallBlockedFutures)),
                 blockedReason,
-                overallSplitAssignmentCount);
+                overallSplitAssignmentCount,
+                newPendingSplitsObtained);
     }
 
     private synchronized void dropListenersFromWhenFinishedOrNewLifespansAdded()

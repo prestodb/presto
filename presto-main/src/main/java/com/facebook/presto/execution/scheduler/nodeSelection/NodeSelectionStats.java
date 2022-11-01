@@ -14,6 +14,8 @@
 package com.facebook.presto.execution.scheduler.nodeSelection;
 
 import com.facebook.airlift.stats.CounterStat;
+import com.facebook.airlift.stats.DistributionStat;
+import com.facebook.presto.spi.SplitWeight;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -31,6 +33,8 @@ public class NodeSelectionStats
     private final CounterStat bucketedNonAliveNodeReplacedCount = new CounterStat();
 
     private final CounterStat preferredNonAliveNodeSkippedCount = new CounterStat();
+
+    private final DistributionStat splitWeightDistribution = new DistributionStat();
 
     public void incrementPrimaryPreferredNodeSelectedCount()
     {
@@ -65,6 +69,11 @@ public class NodeSelectionStats
     public void incrementPreferredNonAliveNodeSkippedCount()
     {
         preferredNonAliveNodeSkippedCount.update(1);
+    }
+
+    public void recordSplitWeight(SplitWeight splitWeight)
+    {
+        splitWeightDistribution.add(splitWeight.getRawValue());
     }
 
     @Managed
@@ -114,5 +123,12 @@ public class NodeSelectionStats
     public CounterStat getBucketedNonAliveNodeReplacedCount()
     {
         return bucketedNonAliveNodeReplacedCount;
+    }
+
+    @Managed
+    @Nested
+    public DistributionStat getSplitWeightDistribution()
+    {
+        return splitWeightDistribution;
     }
 }

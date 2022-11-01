@@ -100,6 +100,11 @@ public class TaskHandle
         return maxDriversPerTask;
     }
 
+    public synchronized long getNumQueuedLeafSplits()
+    {
+        return queuedLeafSplits.size();
+    }
+
     // Returns any remaining splits. The caller must destroy these.
     public synchronized List<PrioritizedSplitRunner> destroy()
     {
@@ -143,21 +148,43 @@ public class TaskHandle
         return priorityTracker.getScheduledNanos();
     }
 
-    public synchronized PrioritizedSplitRunner pollNextSplit()
+    enum PollNextSplitResultError {
+        VALID_RESULT,
+        DESTROYED,
+        TARGET_CONCURRENCY_REACHED,
+        FINISHED
+    }
+    public static class PollNextSplitResult
     {
+        final PrioritizedSplitRunner splitRunner;
+        final PollNextSplitResultError errorCode;
+        final int targetConcurrency;
+
+        private PollNextSplitResult(PrioritizedSplitRunner splitRunner, PollNextSplitResultError errorCode, int targetConcurrency)
+        {
+            this.splitRunner = splitRunner;
+            this.errorCode = errorCode;
+            this.targetConcurrency = targetConcurrency;
+        }
+    }
+
+    public synchronized PollNextSplitResult pollNextSplit()
+    {
+        int targetConcurrency = concurrencyController.getTargetConcurrency();
         if (destroyed) {
-            return null;
+            return new PollNextSplitResult(null, PollNextSplitResultError.DESTROYED, targetConcurrency);
         }
 
-        if (runningLeafSplits.size() >= concurrencyController.getTargetConcurrency()) {
-            return null;
+        if (runningLeafSplits.size() >= targetConcurrency) {
+            return new PollNextSplitResult(null, PollNextSplitResultError.TARGET_CONCURRENCY_REACHED, targetConcurrency);
         }
 
         PrioritizedSplitRunner split = queuedLeafSplits.poll();
         if (split != null) {
             runningLeafSplits.add(split);
+            return new PollNextSplitResult(split, PollNextSplitResultError.VALID_RESULT, targetConcurrency);
         }
-        return split;
+        return new PollNextSplitResult(null, PollNextSplitResultError.FINISHED, targetConcurrency);
     }
 
     public synchronized void splitComplete(PrioritizedSplitRunner split)

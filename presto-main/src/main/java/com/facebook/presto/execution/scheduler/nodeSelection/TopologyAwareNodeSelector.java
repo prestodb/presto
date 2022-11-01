@@ -157,6 +157,7 @@ public class TopologyAwareNodeSelector
 
         for (Split split : splits) {
             SplitWeight splitWeight = split.getSplitWeight();
+            nodeSelectionStats.recordSplitWeight(splitWeight);
             if (split.getNodeSelectionStrategy() == HARD_AFFINITY) {
                 List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                 if (candidateNodes.isEmpty()) {

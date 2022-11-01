@@ -11,28 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.operator;
 
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.units.Duration;
-
-import java.io.Closeable;
-import java.util.Optional;
-
-public interface SplitRunner
-        extends Closeable
+public enum OperatorBlockedReason
 {
-    boolean isFinished();
-
-    ListenableFuture<?> processFor(Duration duration);
-
-    String getInfo();
-
-    @Override
-    void close();
-
-    default Optional<DriverProcessStats> getProcessInfo()
-    {
-        return Optional.empty();
-    }
+    REVOKING,
+    IS_BLOCKED,
+    WAITING_FOR_MEMORY,
+    WAITING_FOR_REVOCABLE_MEMORY,
 }

@@ -403,6 +403,7 @@ public class NodeScheduler
             InternalNode node = bucketNodeMap.getAssignedNode(split).get();
             boolean isCacheable = bucketNodeMap.isSplitCacheable(split);
             SplitWeight splitWeight = split.getSplitWeight();
+            nodeSelectionStats.recordSplitWeight(splitWeight);
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
             if (canAssignSplitToDistributionNode(assignmentStats, node, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splitWeight)) {
