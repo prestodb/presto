@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
-#include <folly/Random.h>
 #include "velox/common/base/Nulls.h"
-#include "velox/dwio/common/IntDecoder.h"
+#include "velox/dwio/common/BitPackDecoder.h"
+#include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 
+#include <folly/Random.h>
 #include <gtest/gtest.h>
 
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 
-class DecodeBitsTest : public testing::Test {
+class BitUnpackingTest : public testing::Test {
  protected:
   void SetUp() {
     for (int32_t i = 0; i < 100000; i++) {
@@ -96,7 +97,7 @@ class DecodeBitsTest : public testing::Test {
       // path.
       auto end = reinterpret_cast<const char*>(bitsPointer) +
           (((start + rows[numRows - 1] - rows[start]) * width) / 8);
-      IntDecoder<false>::decodeBitsLE(
+      unpack(
           bitsPointer,
           bitOffset,
           RowSet(&rows[start], numRows),
@@ -125,7 +126,7 @@ class DecodeBitsTest : public testing::Test {
   RowSet oddRows_;
 };
 
-TEST_F(DecodeBitsTest, allWidths) {
+TEST_F(BitUnpackingTest, allWidths) {
   for (auto width = 0; width < bitPackedData_.size(); ++width) {
     testDecodeRows<int32_t>(width, allRows_);
     testDecodeRows<int64_t>(width, allRows_);

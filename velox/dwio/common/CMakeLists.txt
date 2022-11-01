@@ -24,6 +24,7 @@ endif()
 add_library(
   velox_dwio_common
   BitConcatenation.cpp
+  BitPackDecoder.cpp
   BufferedInput.cpp
   CachedBufferedInput.cpp
   CacheInputStream.cpp

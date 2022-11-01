@@ -18,42 +18,24 @@
 
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/base/Nulls.h"
+#include "velox/dwio/common/BitPackDecoder.h"
 #include "velox/dwio/common/DecoderUtil.h"
-#include "velox/dwio/common/IntDecoder.h"
 #include "velox/dwio/common/TypeUtil.h"
+#include "velox/dwio/parquet/reader/RleBpDecoder.h"
 
 namespace facebook::velox::parquet {
 
-template <bool isSigned>
-class RleDecoder : public dwio::common::IntDecoder<isSigned> {
+// This class will be used for dictionary Ids or other data that is RLE/BP
+// encoded.
+class RleBpDataDecoder : public facebook::velox::parquet::RleBpDecoder {
  public:
-  using super = dwio::common::IntDecoder<isSigned>;
+  using super = facebook::velox::parquet::RleBpDecoder;
 
-  RleDecoder(
+  RleBpDataDecoder(
       const char* FOLLY_NONNULL start,
       const char* FOLLY_NONNULL end,
       uint8_t bitWidth)
-      : super::IntDecoder{start, end},
-        bitWidth_(bitWidth),
-        byteWidth_(bits::roundUp(bitWidth, 8) / 8),
-        bitMask_(bits::lowMask(bitWidth)),
-        lastSafeWord_(end - sizeof(uint64_t)) {}
-
-  void seekToRowGroup(
-      dwio::common::PositionProvider& /*positionProvider*/) override {
-    VELOX_UNREACHABLE();
-  }
-
-  void next(
-      int64_t* FOLLY_NONNULL /*data*/,
-      uint64_t /*numValues*/,
-      const uint64_t* FOLLY_NULLABLE /*nulls*/) override {
-    VELOX_UNREACHABLE();
-  }
-
-  void skip(uint64_t numValues) override {
-    skip<false>(numValues, 0, nullptr);
-  }
+      : super::RleBpDecoder{start, end, bitWidth} {}
 
   template <bool hasNulls>
   inline void skip(
@@ -63,19 +45,12 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
     if (hasNulls) {
       numValues = bits::countNonNulls(nulls, current, current + numValues);
     }
-    while (numValues > 0) {
-      if (!remainingValues_) {
-        readHeader();
-      }
-      uint64_t count = std::min<int>(numValues, remainingValues_);
-      remainingValues_ -= count;
-      numValues -= count;
-      if (!repeating_) {
-        auto numBits = bitWidth_ * count + bitOffset_;
-        super::bufferStart += numBits >> 3;
-        bitOffset_ = numBits & 7;
-      }
-    }
+
+    super::skip(numValues);
+  }
+
+  void skip(uint64_t numValues) {
+    super::skip(numValues);
   }
 
   template <bool hasNulls, typename Visitor>
@@ -126,68 +101,7 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
     }
   }
 
-  /// Copies 'numValues' bits from the encoding into 'buffer',
-  /// little-endian. If 'allOnes' is non-nullptr, this function may
-  /// check if all the bits are ones, as in a RLE run of all ones and
-  /// not copy them into 'buffer' but instead may set '*allOnes' to
-  /// true. If allOnes is non-nullptr and not all bits are ones, then
-  /// '*allOnes' is set to false and the bits are copied to 'buffer'.
-  void readBits(
-      int32_t numValues,
-      uint64_t* FOLLY_NONNULL buffer,
-      bool* FOLLY_NULLABLE allOnes = nullptr) {
-    VELOX_CHECK_EQ(1, bitWidth_);
-    auto toRead = numValues;
-    int32_t numWritten = 0;
-    if (allOnes) {
-      // initialize the all ones indicator to false for safety.
-      *allOnes = false;
-    }
-    while (toRead) {
-      if (!remainingValues_) {
-        readHeader();
-      }
-      auto consumed = std::min<int32_t>(toRead, remainingValues_);
-
-      if (repeating_) {
-        if (allOnes && value_ && toRead == numValues &&
-            remainingValues_ >= numValues) {
-          // The whole read is covered by a RLE of ones and 'allOnes' is
-          // provided, so we can shortcut the read.
-          remainingValues_ -= toRead;
-          *allOnes = true;
-          return;
-        }
-        bits::fillBits(buffer, numWritten, numWritten + consumed, value_ != 0);
-      } else {
-        bits::copyBits(
-            reinterpret_cast<const uint64_t*>(super::bufferStart),
-            bitOffset_,
-            buffer,
-            numWritten,
-            consumed);
-        int64_t offset = bitOffset_ + consumed;
-        super::bufferStart += offset >> 3;
-        bitOffset_ = offset & 7;
-      }
-      numWritten += consumed;
-      toRead -= consumed;
-      remainingValues_ -= consumed;
-    }
-  }
-
  private:
-  // Reads one value of 'bitWithd_' bits and advances the position.
-  int64_t readBitField() {
-    auto value = dwio::common::IntDecoder<false>::safeLoadBits(
-                     super::bufferStart, bitOffset_, bitWidth_, lastSafeWord_) &
-        bitMask_;
-    bitOffset_ += bitWidth_;
-    super::bufferStart += bitOffset_ >> 3;
-    bitOffset_ &= 7;
-    return value;
-  }
-
   template <bool hasNulls, typename Visitor>
   void fastPath(const uint64_t* FOLLY_NULLABLE nulls, Visitor& visitor) {
     constexpr bool hasFilter =
@@ -256,15 +170,15 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
     using TValues = typename std::remove_reference<decltype(values[0])>::type;
     using TIndex = typename std::make_signed_t<
         typename dwio::common::make_index<TValues>::type>;
-    super::decodeBitsLE(
-        reinterpret_cast<const uint64_t*>(super::bufferStart),
+    facebook::velox::dwio::common::unpack(
+        reinterpret_cast<const uint64_t*>(super::bufferStart_),
         bitOffset_,
         folly::Range<const int32_t*>(rows + rowIndex, numRows),
         currentRow,
         bitWidth_,
-        super::bufferEnd,
+        super::bufferEnd_,
         reinterpret_cast<TIndex*>(values) + numValues);
-    super::bufferStart += numBits >> 3;
+    super::bufferStart_ += numBits >> 3;
     bitOffset_ = numBits & 7;
     visitor.template processRun<hasFilter, hasHook, scatter>(
         values + numValues,
@@ -362,39 +276,35 @@ class RleDecoder : public dwio::common::IntDecoder<isSigned> {
     }
   }
 
-  inline void readHeader() {
-    bitOffset_ = 0;
-    auto indicator = super::readVuLong();
-    // 0 in low bit means repeating.
-    repeating_ = (indicator & 1) == 0;
-    uint32_t count = indicator >> 1;
-    if (repeating_) {
-      remainingValues_ = count;
-      // Do not load past buffer end. Reports error in valgrind and could in
-      // principle run into unmapped addresses.
-      if (super::bufferStart <= lastSafeWord_) {
-        value_ =
-            *reinterpret_cast<const int64_t*>(super::bufferStart) & bitMask_;
-      } else {
-        value_ = bits::loadPartialWord(
-            reinterpret_cast<const uint8_t*>(super::bufferStart), byteWidth_);
-      }
-      super::bufferStart += byteWidth_;
-    } else {
-      VELOX_CHECK_LT(0, count);
-      VELOX_CHECK_LT(count, std::numeric_limits<int32_t>::max() / 8);
-      remainingValues_ = count * 8;
+  // Loads a bit field from 'ptr' + bitOffset for up to 'bitWidth' bits. makes
+  // sure not to access bytes past lastSafeWord + 7.
+  static inline uint64_t safeLoadBits(
+      const char* FOLLY_NONNULL ptr,
+      int32_t bitOffset,
+      uint8_t bitWidth,
+      const char* FOLLY_NONNULL lastSafeWord) {
+    VELOX_DCHECK_GE(7, bitOffset);
+    VELOX_DCHECK_GE(56, bitWidth);
+    if (ptr < lastSafeWord) {
+      return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
     }
+    int32_t byteWidth = bits::roundUp(bitOffset + bitWidth, 8) / 8;
+    return bits::loadPartialWord(
+               reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
+        bitOffset;
   }
 
-  const int8_t bitWidth_;
-  const int8_t byteWidth_;
-  const uint64_t bitMask_;
-  const char* FOLLY_NONNULL const lastSafeWord_;
-  uint64_t remainingValues_{0};
-  int64_t value_;
-  int8_t bitOffset_{0};
-  bool repeating_;
+  // Reads one value of 'bitWithd_' bits and advances the position.
+  int64_t readBitField() {
+    auto value =
+        safeLoadBits(
+            super::bufferStart_, bitOffset_, bitWidth_, lastSafeWord_) &
+        bitMask_;
+    bitOffset_ += bitWidth_;
+    super::bufferStart_ += bitOffset_ >> 3;
+    bitOffset_ &= 7;
+    return value;
+  }
 };
 
 } // namespace facebook::velox::parquet

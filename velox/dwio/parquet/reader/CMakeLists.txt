@@ -20,7 +20,8 @@ add_library(
   ParquetColumnReader.cpp
   Statistics.cpp
   StructColumnReader.cpp
-  StringColumnReader.cpp)
+  StringColumnReader.cpp
+  RleBpDecoder.cpp)
 
 target_link_libraries(
   velox_dwio_native_parquet_reader

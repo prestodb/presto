@@ -17,7 +17,7 @@ add_subdirectory(utils)
 add_executable(
   velox_dwio_common_test
   BitConcatenationTest.cpp
-  DecodeBitsTest.cpp
+  BitUnpackingTest.cpp
   ChainedBufferTests.cpp
   DataBufferTests.cpp
   DecoderUtilTest.cpp
@@ -66,3 +66,8 @@ target_link_libraries(
   ${ZSTD}
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
+
+add_executable(velox_dwio_common_bitpack_decoder_benchmark
+               BitPackDecoderBenchmark.cpp)
+target_link_libraries(velox_dwio_common_bitpack_decoder_benchmark
+                      velox_dwio_common ${FOLLY} ${FOLLY_BENCHMARK})

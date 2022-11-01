@@ -229,7 +229,7 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
   if (maxRepeat_ > 0) {
     uint32_t repeatLength = readField<int32_t>(pageData_);
     pageData_ += repeatLength;
-    repeatDecoder_ = std::make_unique<RleDecoder<false>>(
+    repeatDecoder_ = std::make_unique<RleBpDecoder>(
         pageData_,
         pageData_ + repeatLength,
         arrow::bit_util::NumRequiredBits(maxRepeat_));
@@ -238,7 +238,7 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
 
   if (maxDefine_ > 0) {
     auto defineLength = readField<uint32_t>(pageData_);
-    defineDecoder_ = std::make_unique<RleDecoder<false>>(
+    defineDecoder_ = std::make_unique<RleBpDecoder>(
         pageData_,
         pageData_ + defineLength,
         arrow::bit_util::NumRequiredBits(maxDefine_));
@@ -267,14 +267,14 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   pageData_ = readBytes(bytes, pageBuffer_);
 
   if (repeatLength) {
-    repeatDecoder_ = std::make_unique<RleDecoder<false>>(
+    repeatDecoder_ = std::make_unique<RleBpDecoder>(
         pageData_,
         pageData_ + repeatLength,
         arrow::bit_util::NumRequiredBits(maxRepeat_));
   }
 
   if (maxDefine_ > 0) {
-    defineDecoder_ = std::make_unique<RleDecoder<false>>(
+    defineDecoder_ = std::make_unique<RleBpDecoder>(
         pageData_ + repeatLength,
         pageData_ + repeatLength + defineLength,
         arrow::bit_util::NumRequiredBits(maxDefine_));
@@ -464,7 +464,7 @@ void PageReader::makeDecoder() {
   switch (encoding_) {
     case Encoding::RLE_DICTIONARY:
     case Encoding::PLAIN_DICTIONARY:
-      rleDecoder_ = std::make_unique<RleDecoder<false>>(
+      dictionaryIdDecoder_ = std::make_unique<RleBpDataDecoder>(
           pageData_ + 1, pageData_ + encodedDataSize_, pageData_[0]);
       break;
     case Encoding::PLAIN:
@@ -513,7 +513,7 @@ void PageReader::skip(int64_t numRows) {
 
   // Skip the decoder
   if (isDictionary()) {
-    rleDecoder_->skip(toSkip);
+    dictionaryIdDecoder_->skip(toSkip);
   } else if (directDecoder_) {
     directDecoder_->skip(toSkip);
   } else if (stringDecoder_) {

@@ -138,42 +138,6 @@ class IntDecoder {
   void
   bulkReadRows(RowSet rows, T* FOLLY_NONNULL result, int32_t initialRow = 0);
 
-  /// Copies bit fields starting at 'bitOffset'th bit of 'bits' into
-  /// 'result'.  The indices of the fields are in 'rows' and their
-  /// bit-width is 'bitWidth'.  'rowBias' is subtracted from each
-  /// index in 'rows' before calculating the bit field's position. The
-  /// bit fields are considered little endian. 'bufferEnd' is the address of the
-  /// first undefined byte after the buffer containing the bits. If non-null,
-  /// extra-wide memory accesses will not be used at thee end of the range to
-  /// stay under 'bufferEnd'.
-  template <typename T>
-  static void decodeBitsLE(
-      const uint64_t* FOLLY_NULLABLE bits,
-      int32_t bitOffset,
-      RowSet rows,
-      int32_t rowBias,
-      uint8_t bitWidth,
-      const char* FOLLY_NULLABLE bufferEnd,
-      T* FOLLY_NONNULL result);
-
-  // Loads a bit field from 'ptr' + bitOffset for up to 'bitWidth' bits. makes
-  // sure not to access bytes past lastSafeWord + 7.
-  static inline uint64_t safeLoadBits(
-      const char* FOLLY_NONNULL ptr,
-      int32_t bitOffset,
-      uint8_t bitWidth,
-      const char* FOLLY_NONNULL lastSafeWord) {
-    VELOX_DCHECK_GE(7, bitOffset);
-    VELOX_DCHECK_GE(56, bitWidth);
-    if (ptr < lastSafeWord) {
-      return *reinterpret_cast<const uint64_t*>(ptr) >> bitOffset;
-    }
-    int32_t byteWidth = bits::roundUp(bitOffset + bitWidth, 8) / 8;
-    return bits::loadPartialWord(
-               reinterpret_cast<const uint8_t*>(ptr), byteWidth) >>
-        bitOffset;
-  }
-
  protected:
   template <typename T>
   void bulkReadFixed(uint64_t size, T* FOLLY_NONNULL result);

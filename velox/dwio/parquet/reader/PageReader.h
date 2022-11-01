@@ -21,7 +21,7 @@
 #include "velox/dwio/common/DirectDecoder.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
 #include "velox/dwio/parquet/reader/ParquetTypeWithId.h"
-#include "velox/dwio/parquet/reader/RleDecoder.h"
+#include "velox/dwio/parquet/reader/RleBpDataDecoder.h"
 #include "velox/dwio/parquet/reader/StringDecoder.h"
 #include "velox/vector/BaseVector.h"
 
@@ -179,7 +179,7 @@ class PageReader {
 
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
-        rleDecoder_->readWithVisitor<true>(nulls, dictVisitor);
+        dictionaryIdDecoder_->readWithVisitor<true>(nulls, dictVisitor);
       } else {
         directDecoder_->readWithVisitor<true>(
             nulls, visitor, nullsFromFastPath);
@@ -187,7 +187,7 @@ class PageReader {
     } else {
       if (isDictionary()) {
         auto dictVisitor = visitor.toDictionaryColumnVisitor();
-        rleDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
+        dictionaryIdDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
       } else {
         directDecoder_->readWithVisitor<false>(
             nulls, visitor, !this->type_->type->isShortDecimal());
@@ -208,7 +208,7 @@ class PageReader {
       if (isDictionary()) {
         nullsFromFastPath = dwio::common::useFastPath<Visitor, true>(visitor);
         auto dictVisitor = visitor.toStringDictionaryColumnVisitor();
-        rleDecoder_->readWithVisitor<true>(nulls, dictVisitor);
+        dictionaryIdDecoder_->readWithVisitor<true>(nulls, dictVisitor);
       } else {
         nullsFromFastPath = false;
         stringDecoder_->readWithVisitor<true>(nulls, visitor);
@@ -216,7 +216,7 @@ class PageReader {
     } else {
       if (isDictionary()) {
         auto dictVisitor = visitor.toStringDictionaryColumnVisitor();
-        rleDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
+        dictionaryIdDecoder_->readWithVisitor<false>(nullptr, dictVisitor);
       } else {
         stringDecoder_->readWithVisitor<false>(nulls, visitor);
       }
@@ -249,8 +249,8 @@ class PageReader {
   BufferPtr tempNulls_;
   BufferPtr nullsInReadRange_;
   BufferPtr multiPageNulls_;
-  std::unique_ptr<RleDecoder<false>> repeatDecoder_;
-  std::unique_ptr<RleDecoder<false>> defineDecoder_;
+  std::unique_ptr<RleBpDecoder> repeatDecoder_;
+  std::unique_ptr<RleBpDecoder> defineDecoder_;
 
   // Encoding of current page.
   thrift::Encoding::type encoding_;
@@ -325,7 +325,7 @@ class PageReader {
 
   // Decoders. Only one will be set at a time.
   std::unique_ptr<dwio::common::DirectDecoder<true>> directDecoder_;
-  std::unique_ptr<RleDecoder<false>> rleDecoder_;
+  std::unique_ptr<RleBpDataDecoder> dictionaryIdDecoder_;
   std::unique_ptr<StringDecoder> stringDecoder_;
   // Add decoders for other encodings here.
 };
