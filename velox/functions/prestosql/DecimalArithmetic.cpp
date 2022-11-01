@@ -16,6 +16,7 @@
 
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/type/DecimalUtil.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -213,26 +214,7 @@ class Divide {
   template <typename R, typename A, typename B>
   inline static void
   apply(R& r, const A& a, const B& b, uint8_t aRescale, uint8_t /*bRescale*/) {
-    VELOX_CHECK_NE(b.unscaledValue(), 0, "Division by zero");
-    int resultSign = 1;
-    R unsignedDividendRescaled(a);
-    if (a < 0) {
-      resultSign = -1;
-      unsignedDividendRescaled *= -1;
-    }
-    R unsignedDivisor(b);
-    if (b < 0) {
-      resultSign *= -1;
-      unsignedDivisor *= -1;
-    }
-    unsignedDividendRescaled = checkedMultiply<R>(
-        unsignedDividendRescaled, R(DecimalUtil::kPowersOfTen[aRescale]));
-    R quotient = unsignedDividendRescaled / unsignedDivisor;
-    R remainder = unsignedDividendRescaled % unsignedDivisor;
-    if (remainder * 2 >= unsignedDivisor) {
-      ++quotient;
-    }
-    r = quotient * resultSign;
+    DecimalUtil::divideWithRoundUp<R, A, B>(r, a, b, false, aRescale, 0);
   }
 
   inline static uint8_t

@@ -20,6 +20,7 @@
 #include "velox/type/DecimalUtil.h"
 
 namespace facebook::velox {
+
 namespace {
 
 TEST(DecimalTest, toString) {
@@ -113,5 +114,29 @@ DEBUG_ONLY_TEST(DecimalTest, limits) {
       "Value '-100000000000000000000000000000000000000' is not in the range of LongDecimal Type");
 }
 
+TEST(DecimalTest, addUnsignedValues) {
+  int128_t a = -buildInt128(0x4B3B4CA85A86C47A, 0x98A223FFFFFFFFF);
+  int128_t sum = a;
+  int64_t overflow = 0;
+  auto count = 1'000'000;
+  // Test underflow
+  for (int i = 1; i < count; ++i) {
+    overflow += DecimalUtil::addWithOverflow(sum, a, sum);
+  }
+  ASSERT_EQ(-587747, overflow);
+  ASSERT_EQ(UPPER(sum), 0xE98C20AD1C80DBEF);
+  ASSERT_EQ(LOWER(sum), 0xFEE2F000000F4240);
+
+  // Test overflow.
+  overflow = 0;
+  a = -a;
+  sum = a;
+  for (int i = 1; i < count; ++i) {
+    overflow += DecimalUtil::addWithOverflow(sum, a, sum);
+  }
+  ASSERT_EQ(587747, overflow);
+  ASSERT_EQ(UPPER(sum), 0x1673df52e37f2410);
+  ASSERT_EQ(LOWER(sum), 0x11d0ffffff0bdc0);
+}
 } // namespace
 } // namespace facebook::velox

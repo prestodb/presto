@@ -50,17 +50,16 @@ struct UnscaledShortDecimal {
   int64_t unscaledValue() const {
     return unscaledValue_;
   }
-
-  void setUnscaledValue(const int64_t unscaledValue) {
-    unscaledValue_ = unscaledValue;
-  }
-
   bool operator==(const UnscaledShortDecimal& other) const {
     return unscaledValue_ == other.unscaledValue_;
   }
 
   bool operator!=(const UnscaledShortDecimal& other) const {
     return unscaledValue_ != other.unscaledValue_;
+  }
+
+  bool operator!=(int other) const {
+    return unscaledValue_ != other;
   }
 
   bool operator<(const UnscaledShortDecimal& other) const {
@@ -89,6 +88,11 @@ struct UnscaledShortDecimal {
 
   UnscaledShortDecimal operator*(int value) const {
     return UnscaledShortDecimal(unscaledValue_ * value);
+  }
+
+  UnscaledShortDecimal& operator+=(const UnscaledShortDecimal& value) {
+    unscaledValue_ += value.unscaledValue_;
+    return *this;
   }
 
   UnscaledShortDecimal& operator*=(int value) {
@@ -162,3 +166,20 @@ class numeric_limits<facebook::velox::UnscaledShortDecimal> {
   }
 };
 } // namespace std
+
+/// fmt::formatter<> specialization required for error message formatting
+/// in VELOX checks.
+template <>
+struct fmt::formatter<facebook::velox::UnscaledShortDecimal> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(
+      const facebook::velox::UnscaledShortDecimal& d,
+      FormatContext& ctx) {
+    return fmt::format_to(ctx.out(), "{}", std::to_string(d.unscaledValue()));
+  }
+};

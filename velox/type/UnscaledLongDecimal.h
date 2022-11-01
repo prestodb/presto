@@ -103,6 +103,10 @@ struct UnscaledLongDecimal {
     return unscaledValue_ != other.unscaledValue_;
   }
 
+  bool operator!=(int other) const {
+    return unscaledValue_ != other;
+  }
+
   bool operator<(const UnscaledLongDecimal& other) const {
     return unscaledValue_ < other.unscaledValue_;
   }
@@ -134,6 +138,10 @@ struct UnscaledLongDecimal {
   UnscaledLongDecimal operator=(int value) const {
     return UnscaledLongDecimal(static_cast<int64_t>(value));
   }
+
+  UnscaledLongDecimal& operator+=(const UnscaledLongDecimal& value);
+
+  UnscaledLongDecimal& operator+=(const UnscaledShortDecimal& value);
 
   UnscaledLongDecimal& operator*=(int value) {
     unscaledValue_ *= value;
@@ -214,3 +222,20 @@ class numeric_limits<facebook::velox::UnscaledLongDecimal> {
   }
 };
 } // namespace std
+
+/// fmt::formatter<> specialization required for error message formatting
+/// in VELOX checks.
+template <>
+struct fmt::formatter<facebook::velox::UnscaledLongDecimal> {
+  template <typename ParseContext>
+  constexpr auto parse(ParseContext& ctx) {
+    return ctx.begin();
+  }
+
+  template <typename FormatContext>
+  auto format(
+      const facebook::velox::UnscaledLongDecimal& d,
+      FormatContext& ctx) {
+    return fmt::format_to(ctx.out(), "{}", std::to_string(d.unscaledValue()));
+  }
+};

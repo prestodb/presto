@@ -15,6 +15,7 @@
  */
 
 #include "velox/type/UnscaledLongDecimal.h"
+#include "velox/common/base/CheckedArithmetic.h"
 
 namespace std {
 
@@ -36,3 +37,18 @@ string to_string(facebook::velox::int128_t x) {
 }
 
 } // namespace std
+
+namespace facebook::velox {
+
+UnscaledLongDecimal& UnscaledLongDecimal::operator+=(
+    const UnscaledLongDecimal& value) {
+  *this = checkedPlus<UnscaledLongDecimal>(*this, UnscaledLongDecimal(value));
+  return *this;
+}
+
+UnscaledLongDecimal& UnscaledLongDecimal::operator+=(
+    const UnscaledShortDecimal& value) {
+  *this = checkedPlus<UnscaledLongDecimal>(*this, UnscaledLongDecimal(value));
+  return *this;
+}
+} // namespace facebook::velox
