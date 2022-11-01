@@ -22,10 +22,13 @@
 namespace facebook::velox {
 
 namespace {
-folly::json::serialization_opts& getOpts() {
-  static folly::json::serialization_opts opts;
-  opts.sort_keys = true;
-  return opts;
+const folly::json::serialization_opts& getOpts() {
+  static const folly::json::serialization_opts opts_ = []() {
+    folly::json::serialization_opts opts;
+    opts.sort_keys = true;
+    return opts;
+  }();
+  return opts_;
 }
 } // namespace
 
