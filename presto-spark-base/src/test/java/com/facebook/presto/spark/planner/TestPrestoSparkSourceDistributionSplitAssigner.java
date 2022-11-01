@@ -13,17 +13,17 @@
  */
 package com.facebook.presto.spark.planner;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTransactionHandle;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.split.SplitSource;
 import com.facebook.presto.testing.TestingTransactionHandle;
 import com.google.common.collect.HashMultimap;

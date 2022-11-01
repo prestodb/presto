@@ -14,14 +14,14 @@
 package com.facebook.presto.plugin.bigquery;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.spi.connector.classloader;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.List;
 

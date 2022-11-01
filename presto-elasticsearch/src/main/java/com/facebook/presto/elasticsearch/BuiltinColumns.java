@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 
 import java.util.Arrays;

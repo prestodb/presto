@@ -15,10 +15,10 @@ package com.facebook.presto.storage;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.node.NodeInfo;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.connector.ConnectorAwareNodeManager;
 import com.facebook.presto.connector.system.GlobalSystemConnector;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.storage.TempStorage;
 import com.facebook.presto.spi.storage.TempStorageContext;

@@ -14,6 +14,9 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
@@ -25,12 +28,9 @@ import com.facebook.presto.hudi.split.HudiSplitWeightProvider;
 import com.facebook.presto.hudi.split.SizeBasedSplitWeightProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplitSource;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.FixedSplitSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;

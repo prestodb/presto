@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.hive.metastore.Partition;
-import com.facebook.presto.spi.ColumnHandle;
 
 import java.util.Optional;
 import java.util.Set;

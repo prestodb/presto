@@ -17,14 +17,14 @@ import com.facebook.presto.accumulo.model.AccumuloColumnHandle;
 import com.facebook.presto.accumulo.model.AccumuloSplit;
 import com.facebook.presto.accumulo.model.AccumuloTableHandle;
 import com.facebook.presto.accumulo.model.AccumuloTableLayoutHandle;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 public class AccumuloHandleResolver
         implements ConnectorHandleResolver

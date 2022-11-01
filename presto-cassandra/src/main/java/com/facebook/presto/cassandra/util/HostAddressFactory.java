@@ -14,7 +14,7 @@
 package com.facebook.presto.cassandra.util;
 
 import com.datastax.driver.core.Host;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 
 import java.util.ArrayList;
 import java.util.Collection;

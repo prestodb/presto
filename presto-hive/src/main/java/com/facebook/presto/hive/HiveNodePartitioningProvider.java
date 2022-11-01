@@ -13,18 +13,18 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTransactionHandle;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.BucketFunction;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorBucketNodeMap;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.function.ToIntFunction;

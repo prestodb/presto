@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.delta.rule;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.delta.DeltaColumnHandle;
 import com.facebook.presto.delta.DeltaTableHandle;
 import com.facebook.presto.parquet.rule.ParquetDereferencePushDown;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.relation.RowExpressionService;
 
 import java.util.Optional;

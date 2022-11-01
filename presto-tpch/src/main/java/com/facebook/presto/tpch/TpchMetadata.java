@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.tpch;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.SchemaTablePrefix;
 import com.facebook.presto.common.block.SortOrder;
@@ -21,12 +24,9 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorTablePartitioning;

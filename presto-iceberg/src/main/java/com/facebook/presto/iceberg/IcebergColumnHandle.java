@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.iceberg.types.Types;

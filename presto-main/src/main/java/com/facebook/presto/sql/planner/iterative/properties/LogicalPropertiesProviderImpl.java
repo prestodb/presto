@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner.iterative.properties;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.constraints.UniqueConstraint;
 import com.facebook.presto.spi.plan.AggregationNode;

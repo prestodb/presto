@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.mongodb;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
-import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.bson.Document;

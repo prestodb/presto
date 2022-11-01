@@ -14,8 +14,8 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;

@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.thrift;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.thrift.api.connector.PrestoThriftColumnMetadata;

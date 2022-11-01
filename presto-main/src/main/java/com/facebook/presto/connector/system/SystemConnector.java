@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.system;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import com.facebook.presto.transaction.InternalConnector;

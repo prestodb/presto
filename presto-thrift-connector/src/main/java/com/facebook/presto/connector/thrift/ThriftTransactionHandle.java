@@ -14,7 +14,7 @@
 
 package com.facebook.presto.connector.thrift;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 public enum ThriftTransactionHandle
         implements ConnectorTransactionHandle

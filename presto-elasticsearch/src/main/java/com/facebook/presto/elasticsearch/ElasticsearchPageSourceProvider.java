@@ -13,19 +13,19 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.elasticsearch.client.ElasticsearchClient;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 

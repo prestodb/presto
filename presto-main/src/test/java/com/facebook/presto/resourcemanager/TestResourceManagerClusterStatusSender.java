@@ -14,6 +14,7 @@
 package com.facebook.presto.resourcemanager;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.execution.MockManagedQueryExecution;
 import com.facebook.presto.execution.resourceGroups.NoOpResourceGroupManager;
 import com.facebook.presto.memory.MemoryInfo;
@@ -21,7 +22,6 @@ import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.server.ServerConfig;
-import com.facebook.presto.spi.ConnectorId;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

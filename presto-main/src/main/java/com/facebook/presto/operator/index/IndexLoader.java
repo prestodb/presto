@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.operator.index;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.PageBuilder;
 import com.facebook.presto.common.type.Type;
@@ -25,9 +27,7 @@ import com.facebook.presto.operator.LookupSource;
 import com.facebook.presto.operator.PagesIndex;
 import com.facebook.presto.operator.PipelineContext;
 import com.facebook.presto.operator.TaskContext;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.google.common.collect.ImmutableList;

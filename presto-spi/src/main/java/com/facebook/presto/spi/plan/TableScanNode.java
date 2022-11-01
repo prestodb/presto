@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.spi.plan;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;

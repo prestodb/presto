@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse.optimization;
 
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.clickhouse.ClickHouseTableHandle;
@@ -20,7 +21,6 @@ import com.facebook.presto.plugin.clickhouse.ClickHouseTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionMetadataManager;
 import com.facebook.presto.spi.function.StandardFunctionResolution;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

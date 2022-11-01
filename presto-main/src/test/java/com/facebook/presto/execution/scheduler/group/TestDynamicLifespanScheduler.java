@@ -14,17 +14,17 @@
 package com.facebook.presto.execution.scheduler.group;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
 import com.facebook.presto.execution.scheduler.ScheduleResult;
 import com.facebook.presto.execution.scheduler.SourceScheduler;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
@@ -35,7 +35,7 @@ import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.testng.Assert.assertEquals;
 

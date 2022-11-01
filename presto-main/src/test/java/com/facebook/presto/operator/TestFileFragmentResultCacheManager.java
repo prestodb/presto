@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTransactionHandle;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.testng.annotations.AfterClass;
@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.block.BlockAssertions.createStringsBlock;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.Files.createTempDirectory;

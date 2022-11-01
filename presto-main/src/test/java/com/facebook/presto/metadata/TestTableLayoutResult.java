@@ -14,9 +14,9 @@
 
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;

@@ -14,10 +14,10 @@
 package com.facebook.presto.connector.informationschema;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.testing.MaterializedResult;

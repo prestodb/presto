@@ -14,10 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.orc.OrcWriteValidation.OrcWriteValidationMode;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;

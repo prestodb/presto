@@ -14,9 +14,9 @@
 package com.facebook.presto.mongodb;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.execution;
 
-import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

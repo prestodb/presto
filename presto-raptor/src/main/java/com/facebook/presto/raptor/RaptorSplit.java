@@ -13,12 +13,12 @@
  */
 package com.facebook.presto.raptor;
 
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +33,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 

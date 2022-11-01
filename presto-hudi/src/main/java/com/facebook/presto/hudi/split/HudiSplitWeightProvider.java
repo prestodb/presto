@@ -14,7 +14,7 @@
 
 package com.facebook.presto.hudi.split;
 
-import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.common.SplitWeight;
 
 /**
  * An interface to provide the logic to calculate Hudi split weight

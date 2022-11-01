@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;

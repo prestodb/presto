@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.lark.sheets;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 import java.util.concurrent.ConcurrentHashMap;
 

@@ -14,10 +14,10 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Constraint;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;

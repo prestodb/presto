@@ -14,16 +14,16 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.connector.MockConnectorFactory;
 import com.facebook.presto.dispatcher.DispatchManager;
 import com.facebook.presto.execution.TestingSessionContext;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.server.BasicQueryInfo;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.testing.TestingTransactionHandle;

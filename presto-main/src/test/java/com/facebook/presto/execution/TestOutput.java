@@ -14,7 +14,7 @@
 package com.facebook.presto.execution;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.common.ConnectorId;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.spi.connector.ConnectorCommitHandle.EMPTY_COMMIT_OUTPUT;

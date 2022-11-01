@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 

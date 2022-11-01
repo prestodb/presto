@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 
 import java.util.concurrent.ConcurrentHashMap;

@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.druid.segment;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
 import org.apache.druid.segment.QueryableIndex;
 
 import java.io.IOException;

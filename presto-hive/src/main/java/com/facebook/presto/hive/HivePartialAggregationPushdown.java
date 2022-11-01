@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadataManager;

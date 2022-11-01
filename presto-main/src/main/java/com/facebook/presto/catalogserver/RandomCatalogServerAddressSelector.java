@@ -14,8 +14,8 @@
 package com.facebook.presto.catalogserver;
 
 import com.facebook.drift.client.address.AddressSelector;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.net.HostAndPort;
 

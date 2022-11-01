@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.execution.Lifespan;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.split.SplitSource;
 import com.google.common.util.concurrent.ListenableFuture;
 

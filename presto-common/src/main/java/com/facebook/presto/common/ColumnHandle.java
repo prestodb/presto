@@ -11,10 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
-
-import com.facebook.presto.common.Subfield;
-import com.facebook.presto.spi.api.Experimental;
+package com.facebook.presto.common;
 
 import java.util.List;
 
@@ -36,7 +33,6 @@ public interface ColumnHandle
      * - Pruning arrays means dropping values with indices larger than maximum
      * required index and filling in remaining non-required indices with nulls.
      */
-    @Experimental
     default ColumnHandle withRequiredSubfields(List<Subfield> subfields)
     {
         return this;

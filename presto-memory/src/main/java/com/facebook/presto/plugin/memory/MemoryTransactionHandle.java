@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.plugin.memory;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 public enum MemoryTransactionHandle
         implements ConnectorTransactionHandle

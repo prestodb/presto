@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.server.ForJsonMetadataUpdateHandle;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.connector.ConnectorTypeSerdeProvider;

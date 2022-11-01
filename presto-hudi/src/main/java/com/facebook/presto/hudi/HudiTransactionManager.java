@@ -14,8 +14,8 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

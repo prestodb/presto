@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.pinot;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 public enum PinotTransactionHandle
         implements ConnectorTransactionHandle

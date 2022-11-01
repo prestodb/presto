@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.BlockBuilder;
@@ -27,7 +28,6 @@ import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.PartitionField;

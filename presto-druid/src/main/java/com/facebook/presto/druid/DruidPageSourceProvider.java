@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.druid.metadata.DruidSegmentInfo;
 import com.facebook.presto.druid.segment.DruidSegmentReader;
 import com.facebook.presto.druid.segment.HdfsDataInputSource;
@@ -22,14 +25,11 @@ import com.facebook.presto.druid.segment.SegmentIndexSource;
 import com.facebook.presto.druid.segment.SmooshedColumnSource;
 import com.facebook.presto.druid.segment.V9SegmentIndexSource;
 import com.facebook.presto.druid.segment.ZipIndexFileSource;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;

@@ -14,7 +14,7 @@
 
 package com.facebook.presto.spi.statistics;
 
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.LinkedHashMap;

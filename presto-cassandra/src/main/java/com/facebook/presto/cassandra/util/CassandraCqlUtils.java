@@ -19,7 +19,7 @@ import com.datastax.driver.core.querybuilder.Select.Selection;
 import com.facebook.presto.cassandra.CassandraColumnHandle;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
-import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.common.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import io.airlift.slice.Slice;
 

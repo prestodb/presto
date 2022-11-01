@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -22,7 +23,6 @@ import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorPlanRewriter;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterNode;

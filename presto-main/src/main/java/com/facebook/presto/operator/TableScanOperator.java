@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.operator;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.memory.context.LocalMemoryContext;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;

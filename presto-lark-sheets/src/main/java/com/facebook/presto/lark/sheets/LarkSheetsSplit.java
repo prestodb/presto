@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.lark.sheets;
 
-import com.facebook.presto.spi.ConnectorSplit;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.NodeProvider;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.facebook.presto.common.ConnectorSplit;
+import com.facebook.presto.common.HostAddress;
+import com.facebook.presto.common.NodeProvider;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

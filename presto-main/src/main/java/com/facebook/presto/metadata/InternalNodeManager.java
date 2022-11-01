@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 
 import java.util.Set;

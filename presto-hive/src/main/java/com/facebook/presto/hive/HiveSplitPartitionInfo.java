@@ -14,8 +14,8 @@
 
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.hive.metastore.Storage;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import org.openjdk.jol.info.ClassLayout;
 

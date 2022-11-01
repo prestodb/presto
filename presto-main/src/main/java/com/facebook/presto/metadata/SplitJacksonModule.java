@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.common.ConnectorSplit;
 
 import javax.inject.Inject;
 

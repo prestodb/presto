@@ -14,6 +14,9 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
@@ -23,10 +26,7 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaColumnHa
 import com.facebook.presto.connector.informationSchema.InformationSchemaMetadata;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableLayoutHandle;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
@@ -45,10 +45,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
+import static com.facebook.presto.common.ConnectorId.createInformationSchemaConnectorId;
+import static com.facebook.presto.common.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
-import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
-import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.testng.Assert.assertEquals;

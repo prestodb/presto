@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;

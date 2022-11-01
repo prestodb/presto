@@ -14,7 +14,7 @@
 
 package com.facebook.presto.hudi.split;
 
-import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.common.SplitWeight;
 import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 

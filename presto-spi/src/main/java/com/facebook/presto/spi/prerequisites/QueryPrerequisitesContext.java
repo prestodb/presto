@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi.prerequisites;
 
-import com.facebook.presto.spi.ConnectorId;
+import com.facebook.presto.common.ConnectorId;
 
 import java.util.Map;
 import java.util.Optional;

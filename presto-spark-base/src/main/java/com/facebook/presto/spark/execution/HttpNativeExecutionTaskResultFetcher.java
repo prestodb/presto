@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.spark.execution;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
 import io.airlift.units.DataSize;

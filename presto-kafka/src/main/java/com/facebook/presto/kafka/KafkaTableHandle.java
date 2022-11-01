@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;

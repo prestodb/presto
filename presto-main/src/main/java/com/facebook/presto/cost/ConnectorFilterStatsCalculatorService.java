@@ -14,8 +14,8 @@
 
 package com.facebook.presto.cost;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.relation.RowExpression;

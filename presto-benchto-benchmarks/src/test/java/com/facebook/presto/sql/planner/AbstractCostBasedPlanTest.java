@@ -14,7 +14,7 @@
 
 package com.facebook.presto.sql.planner;
 
-import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.ValuesNode;

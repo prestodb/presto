@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.split;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.Closeable;

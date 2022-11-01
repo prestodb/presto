@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.relation.RowExpression;
 

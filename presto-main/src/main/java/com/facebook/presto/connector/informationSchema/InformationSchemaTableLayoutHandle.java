@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector.informationSchema;
 
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;

@@ -14,10 +14,10 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.TableHandle;
 
 import java.util.List;
 

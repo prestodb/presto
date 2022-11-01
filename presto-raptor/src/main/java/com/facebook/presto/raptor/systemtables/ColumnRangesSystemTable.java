@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.raptor.systemtables;
 
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
@@ -26,7 +27,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.SystemTable;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.base.VerifyException;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.exceptions.DBIException;

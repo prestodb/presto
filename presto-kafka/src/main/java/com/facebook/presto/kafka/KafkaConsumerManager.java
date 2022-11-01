@@ -14,7 +14,7 @@
 package com.facebook.presto.kafka;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteBufferDeserializer;

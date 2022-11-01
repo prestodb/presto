@@ -14,10 +14,10 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.connector.system.SystemTableHandle;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;

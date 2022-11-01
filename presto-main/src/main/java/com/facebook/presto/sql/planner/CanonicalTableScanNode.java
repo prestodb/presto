@@ -13,14 +13,14 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SourceLocation;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

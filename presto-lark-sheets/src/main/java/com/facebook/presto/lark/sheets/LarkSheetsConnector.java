@@ -14,6 +14,7 @@
 package com.facebook.presto.lark.sheets;
 
 import com.facebook.airlift.bootstrap.LifeCycleManager;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.lark.sheets.api.CachingLarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsApi;
 import com.facebook.presto.lark.sheets.api.LarkSheetsSchemaStore;
@@ -22,7 +23,6 @@ import com.facebook.presto.spi.connector.ConnectorCommitHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 

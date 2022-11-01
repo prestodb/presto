@@ -14,9 +14,9 @@
 
 package com.facebook.presto.hudi;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.HiveType;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

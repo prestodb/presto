@@ -11,8 +11,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi.connector;
+package com.facebook.presto.common;
 
-public interface ConnectorTransactionHandle
+public interface ConnectorTableHandle
 {
 }

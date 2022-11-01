@@ -14,11 +14,11 @@
 package com.facebook.presto.spark.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorSplit;
 import com.facebook.presto.execution.Lifespan;
 import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.metadata.Split;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.SplitSource;

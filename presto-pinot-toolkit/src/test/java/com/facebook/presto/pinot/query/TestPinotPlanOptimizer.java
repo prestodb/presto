@@ -14,6 +14,7 @@
 package com.facebook.presto.pinot.query;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsProvider;
@@ -25,7 +26,6 @@ import com.facebook.presto.pinot.PinotPlanOptimizer;
 import com.facebook.presto.pinot.PinotTableHandle;
 import com.facebook.presto.pinot.TestPinotQueryBase;
 import com.facebook.presto.pinot.TestPinotSplitManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableScanNode;

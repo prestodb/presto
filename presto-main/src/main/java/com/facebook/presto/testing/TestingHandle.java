@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.testing;
 
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public enum TestingHandle
         implements ConnectorOutputTableHandle, ConnectorInsertTableHandle, ConnectorTableLayoutHandle

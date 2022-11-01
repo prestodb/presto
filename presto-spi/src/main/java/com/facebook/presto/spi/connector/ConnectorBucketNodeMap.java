@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.spi.connector;
 
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.Node;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

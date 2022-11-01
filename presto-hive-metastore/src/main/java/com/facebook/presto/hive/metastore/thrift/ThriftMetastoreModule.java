@@ -14,13 +14,13 @@
 package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
 import com.facebook.presto.hive.ForRecordingHiveMetastore;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.metastore.CachingHiveMetastore;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
-import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.HostAddress;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;

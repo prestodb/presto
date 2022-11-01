@@ -14,8 +14,8 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

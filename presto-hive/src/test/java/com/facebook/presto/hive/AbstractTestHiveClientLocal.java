@@ -14,10 +14,10 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.hive.metastore.Database;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.security.PrincipalType;
 import com.google.common.io.Files;

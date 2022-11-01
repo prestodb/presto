@@ -14,6 +14,7 @@
 package com.facebook.presto.kudu;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.DiscreteValues;
 import com.facebook.presto.common.predicate.Domain;
@@ -32,7 +33,6 @@ import com.facebook.presto.kudu.properties.PartitionDesign;
 import com.facebook.presto.kudu.properties.RangePartition;
 import com.facebook.presto.kudu.properties.RangePartitionDefinition;
 import com.facebook.presto.kudu.schema.SchemaEmulation;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;

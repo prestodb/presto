@@ -14,9 +14,9 @@
 package com.facebook.presto.catalogserver;
 
 import com.facebook.drift.client.address.SimpleAddressSelector;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.ConnectorId;
 import com.google.common.net.HostAndPort;
 import org.testng.annotations.Test;
 

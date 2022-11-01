@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.sql.planner;
 
+import com.facebook.presto.common.ConnectorSplit;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
-import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;

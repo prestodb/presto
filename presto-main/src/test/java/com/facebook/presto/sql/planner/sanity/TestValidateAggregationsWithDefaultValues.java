@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.sql.planner.sanity;
 
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;

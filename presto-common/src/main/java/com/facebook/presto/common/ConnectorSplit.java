@@ -11,9 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spi;
+package com.facebook.presto.common;
 
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 
 import java.util.List;
 import java.util.Map;

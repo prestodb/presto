@@ -14,10 +14,10 @@
 package com.facebook.presto.ttl;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ttl.ConfidenceBasedTtlInfo;
 import com.facebook.presto.spi.ttl.NodeInfo;
 import com.facebook.presto.spi.ttl.NodeTtl;

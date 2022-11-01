@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.delta;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 public enum DeltaTransactionHandle
         implements ConnectorTransactionHandle

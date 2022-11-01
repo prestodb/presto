@@ -14,12 +14,12 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.VariableStatsEstimate;
-import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;

@@ -13,10 +13,10 @@
  */
 package com.facebook.presto.metadata;
 
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.procedure.Procedure;

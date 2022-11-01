@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.spi.SplitWeight;
+import com.facebook.presto.common.SplitWeight;
 
 public interface HiveSplitWeightProvider
 {

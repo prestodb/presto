@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.plugin.prometheus;
 
+import com.facebook.presto.common.ConnectorTableHandle;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DoubleType;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;

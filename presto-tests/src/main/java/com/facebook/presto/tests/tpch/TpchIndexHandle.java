@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.tests.tpch;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

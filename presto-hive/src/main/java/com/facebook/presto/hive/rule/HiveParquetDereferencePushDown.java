@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.hive.rule;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.Subfield;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveMetadata;
@@ -21,9 +23,7 @@ import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveTransactionManager;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.parquet.rule.ParquetDereferencePushDown;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.google.common.collect.ImmutableList;

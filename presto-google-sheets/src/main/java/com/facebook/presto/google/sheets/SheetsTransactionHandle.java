@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.google.sheets;
 
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 
 public enum SheetsTransactionHandle
         implements ConnectorTransactionHandle

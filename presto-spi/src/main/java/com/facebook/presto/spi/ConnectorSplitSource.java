@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ConnectorSplit;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 
 import java.io.Closeable;

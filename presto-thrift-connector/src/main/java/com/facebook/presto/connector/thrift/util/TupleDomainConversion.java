@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.connector.thrift.util;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.connector.thrift.ThriftColumnHandle;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.thrift.api.connector.PrestoThriftTupleDomain;
 
 import static com.facebook.presto.thrift.api.connector.PrestoThriftDomain.fromDomain;

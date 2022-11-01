@@ -15,9 +15,9 @@
 package com.facebook.presto.execution.scheduler;
 
 import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
-import com.facebook.presto.spi.TableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;

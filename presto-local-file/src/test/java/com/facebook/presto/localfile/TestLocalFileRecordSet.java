@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.localfile;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.RecordCursor;
 import org.testng.annotations.Test;
 

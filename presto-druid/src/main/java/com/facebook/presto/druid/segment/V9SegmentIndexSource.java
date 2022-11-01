@@ -14,8 +14,8 @@
 package com.facebook.presto.druid.segment;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.druid.DruidColumnHandle;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.PrestoException;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;

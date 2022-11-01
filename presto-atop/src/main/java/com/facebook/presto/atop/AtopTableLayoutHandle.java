@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.atop;
 
+import com.facebook.presto.common.ConnectorTableLayoutHandle;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 

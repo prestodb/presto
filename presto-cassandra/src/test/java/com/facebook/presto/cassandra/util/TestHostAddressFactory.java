@@ -15,7 +15,7 @@ package com.facebook.presto.cassandra.util;
 
 import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TestHost;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 

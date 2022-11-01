@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.Subfield;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects.ToStringHelper;

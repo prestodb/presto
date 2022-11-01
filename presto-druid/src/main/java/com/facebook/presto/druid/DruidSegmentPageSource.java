@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.druid;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.LazyBlock;
 import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.druid.segment.DruidSegmentReader;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
 
 import java.util.List;

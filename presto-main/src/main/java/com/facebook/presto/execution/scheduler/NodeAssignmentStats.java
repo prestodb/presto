@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.common.SplitWeight;
 import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.PartitionedSplitsInfo;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.metadata.InternalNode;
-import com.facebook.presto.spi.SplitWeight;
 
 import java.util.HashMap;
 import java.util.List;

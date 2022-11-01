@@ -14,11 +14,11 @@
 package com.facebook.presto.connector.thrift;
 
 import com.facebook.drift.client.DriftClient;
+import com.facebook.presto.common.ColumnHandle;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
-import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.thrift.api.connector.PrestoThriftId;
 import com.facebook.presto.thrift.api.connector.PrestoThriftNullableToken;
 import com.facebook.presto.thrift.api.connector.PrestoThriftPageResult;

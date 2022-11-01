@@ -14,15 +14,15 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.spi.ConnectorSession;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.facebook.presto.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.hive.HiveSessionProperties.getNodeSelectionStrategy;
 import static com.facebook.presto.hive.HiveSessionProperties.isCacheEnabled;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

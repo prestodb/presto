@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.kafka;
 
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.kafka.encoder.DispatchingRowEncoderFactory;
 import com.facebook.presto.kafka.encoder.EncoderColumnHandle;
 import com.facebook.presto.kafka.encoder.RowEncoder;
@@ -24,7 +25,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageSinkContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;

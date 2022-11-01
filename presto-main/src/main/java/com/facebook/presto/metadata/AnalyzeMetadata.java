@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.metadata;
 
-import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 
 import static java.util.Objects.requireNonNull;

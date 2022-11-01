@@ -13,9 +13,9 @@
  */
 package com.facebook.presto.hive;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.SchemaTableName;
 import com.facebook.presto.common.predicate.NullableValue;
-import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;

@@ -14,7 +14,7 @@
 package com.facebook.presto.redis;
 
 import com.facebook.airlift.log.Logger;
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;

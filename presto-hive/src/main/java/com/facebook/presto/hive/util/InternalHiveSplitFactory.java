@@ -13,15 +13,15 @@
  */
 package com.facebook.presto.hive.util;
 
+import com.facebook.presto.common.HostAddress;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.schedule.NodeSelectionStrategy;
 import com.facebook.presto.hive.EncryptionInformation;
 import com.facebook.presto.hive.HiveFileInfo;
 import com.facebook.presto.hive.HiveSplitPartitionInfo;
 import com.facebook.presto.hive.InternalHiveSplit;
 import com.facebook.presto.hive.InternalHiveSplit.InternalHiveBlock;
 import com.facebook.presto.hive.S3SelectPushdown;
-import com.facebook.presto.spi.HostAddress;
-import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.fs.BlockLocation;
@@ -40,9 +40,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.hive.HiveUtil.isSplittable;
 import static com.facebook.presto.hive.util.CustomSplitConversionUtils.extractCustomSplitInfo;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;

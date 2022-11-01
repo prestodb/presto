@@ -14,17 +14,17 @@
 package com.facebook.presto.catalogserver;
 
 import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.ConnectorId;
+import com.facebook.presto.common.ConnectorTableHandle;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.SchemaTableName;
+import com.facebook.presto.common.TableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.ViewDefinition;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
-import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.transaction.TransactionId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.connector;
 
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.google.common.collect.ImmutableSet;

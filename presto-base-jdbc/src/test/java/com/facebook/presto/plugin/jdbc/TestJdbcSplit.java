@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static org.testng.Assert.assertEquals;
 
 public class TestJdbcSplit

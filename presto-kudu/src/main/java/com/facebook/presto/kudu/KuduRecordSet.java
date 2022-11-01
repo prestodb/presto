@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.kudu;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import org.apache.kudu.client.KuduScanner;

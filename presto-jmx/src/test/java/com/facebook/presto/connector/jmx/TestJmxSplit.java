@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.connector.jmx;
 
-import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.common.HostAddress;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import static com.facebook.presto.common.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static com.facebook.presto.connector.jmx.MetadataUtil.SPLIT_CODEC;
 import static com.facebook.presto.connector.jmx.TestJmxTableHandle.TABLE;
-import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 

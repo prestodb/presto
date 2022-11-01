@@ -14,10 +14,10 @@
 package com.facebook.presto.spark.node;
 
 import com.facebook.presto.client.NodeVersion;
+import com.facebook.presto.common.ConnectorId;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.NodeState;
 import com.google.common.collect.ImmutableSet;
 

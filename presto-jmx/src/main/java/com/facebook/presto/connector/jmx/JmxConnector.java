@@ -14,8 +14,8 @@
 package com.facebook.presto.connector.jmx;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.spi.connector.Connector;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;

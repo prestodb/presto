@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.ConnectorTransactionHandle;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 /**
  * Exactly one of {@link #cursor} or {@link #pageSource} must be implemented.

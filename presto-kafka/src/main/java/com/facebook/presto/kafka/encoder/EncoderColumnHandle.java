@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.kafka.encoder;
 
+import com.facebook.presto.common.ColumnHandle;
 import com.facebook.presto.common.type.Type;
-import com.facebook.presto.spi.ColumnHandle;
 
 public interface EncoderColumnHandle
         extends ColumnHandle
