@@ -27,14 +27,12 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     const std::shared_ptr<const TypeWithId>& dataType,
     DwrfParams& params,
     common::ScanSpec& scanSpec)
-    : dwio::common::SelectiveStructColumnReader(
+    : SelectiveStructColumnReaderBase(
           requestedType,
           dataType,
           params,
-          scanSpec),
-      rowsPerRowGroup_(formatData_->rowsPerRowGroup().value()) {
+          scanSpec) {
   EncodingKey encodingKey{nodeType_->id, params.flatMapContext().sequence};
-  DWIO_ENSURE_EQ(encodingKey.node, dataType->id, "working on the same node");
   auto& stripe = params.stripeStreams();
   auto encoding = static_cast<int64_t>(stripe.getEncoding(encodingKey).kind());
   DWIO_ENSURE_EQ(
@@ -55,13 +53,13 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     auto childParams =
         DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
     VELOX_CHECK(cs.shouldReadNode(childDataType->id));
-    children_.push_back(SelectiveDwrfReader::build(
+    addChild(SelectiveDwrfReader::build(
         childRequestedType, childDataType, childParams, *childSpec));
     childSpec->setSubscript(children_.size() - 1);
   }
 }
 
-void SelectiveStructColumnReader::seekTo(
+void SelectiveStructColumnReaderBase::seekTo(
     vector_size_t offset,
     bool readsNullsOnly) {
   if (offset == readOffset_) {

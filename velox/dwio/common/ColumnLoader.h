@@ -23,7 +23,7 @@ namespace facebook::velox::dwio::common {
 class ColumnLoader : public velox::VectorLoader {
  public:
   ColumnLoader(
-      SelectiveStructColumnReader* structReader,
+      SelectiveStructColumnReaderBase* structReader,
       SelectiveColumnReader* fieldReader,
       uint64_t version)
       : structReader_(structReader),
@@ -34,7 +34,7 @@ class ColumnLoader : public velox::VectorLoader {
   void loadInternal(RowSet rows, ValueHook* hook, VectorPtr* result) override;
 
  private:
-  SelectiveStructColumnReader* structReader_;
+  SelectiveStructColumnReaderBase* structReader_;
   SelectiveColumnReader* fieldReader_;
   // This is checked against the version of 'structReader' on load. If
   // these differ, 'structReader' has been advanced since the creation

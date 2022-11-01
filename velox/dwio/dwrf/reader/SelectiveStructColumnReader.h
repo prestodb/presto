@@ -21,14 +21,22 @@
 
 namespace facebook::velox::dwrf {
 
-class SelectiveStructColumnReader
-    : public dwio::common::SelectiveStructColumnReader {
+class SelectiveStructColumnReaderBase
+    : public dwio::common::SelectiveStructColumnReaderBase {
  public:
-  SelectiveStructColumnReader(
+  SelectiveStructColumnReaderBase(
       const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
       const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
       DwrfParams& params,
-      common::ScanSpec& scanSpec);
+      common::ScanSpec& scanSpec)
+      : dwio::common::SelectiveStructColumnReaderBase(
+            requestedType,
+            dataType,
+            params,
+            scanSpec),
+        rowsPerRowGroup_(formatData_->rowsPerRowGroup().value()) {
+    VELOX_CHECK_EQ(nodeType_->id, dataType->id, "working on the same node");
+  }
 
   void seekTo(vector_size_t offset, bool readsNullsOnly) override;
 
@@ -64,14 +72,24 @@ class SelectiveStructColumnReader
     }
   }
 
-  // Records the number of nulls added by 'this' between the end
-  // position of each child reader and the of the range of
-  // 'read(). This must be done also if a child is not read so that we
-  // know how much to skip when seeking forward within the row group.
-  void recordParentNullsInChildren(vector_size_t offset, RowSet rows);
-
  private:
   const int32_t rowsPerRowGroup_;
+};
+
+struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {
+  SelectiveStructColumnReader(
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      DwrfParams& params,
+      common::ScanSpec& scanSpec);
+
+ private:
+  void addChild(std::unique_ptr<SelectiveColumnReader> child) {
+    children_.push_back(child.get());
+    childrenOwned_.push_back(std::move(child));
+  }
+
+  std::vector<std::unique_ptr<SelectiveColumnReader>> childrenOwned_;
 };
 
 } // namespace facebook::velox::dwrf

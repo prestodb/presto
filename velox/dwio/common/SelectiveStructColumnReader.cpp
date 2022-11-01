@@ -15,11 +15,12 @@
  */
 
 #include "velox/dwio/common/SelectiveStructColumnReader.h"
+
 #include "velox/dwio/common/ColumnLoader.h"
 
 namespace facebook::velox::dwio::common {
 
-std::vector<uint32_t> SelectiveStructColumnReader::filterRowGroups(
+std::vector<uint32_t> SelectiveStructColumnReaderBase::filterRowGroups(
     uint64_t rowGroupSize,
     const dwio::common::StatsContext& context) const {
   auto stridesToSkip =
@@ -43,7 +44,8 @@ std::vector<uint32_t> SelectiveStructColumnReader::filterRowGroups(
   return stridesToSkip;
 }
 
-bool SelectiveStructColumnReader::rowGroupMatches(uint32_t rowGroupId) const {
+bool SelectiveStructColumnReaderBase::rowGroupMatches(
+    uint32_t rowGroupId) const {
   for (const auto& child : children_) {
     if (!child->rowGroupMatches(rowGroupId)) {
       return false;
@@ -52,7 +54,7 @@ bool SelectiveStructColumnReader::rowGroupMatches(uint32_t rowGroupId) const {
   return true;
 }
 
-uint64_t SelectiveStructColumnReader::skip(uint64_t numValues) {
+uint64_t SelectiveStructColumnReaderBase::skip(uint64_t numValues) {
   auto numNonNulls = formatData_->skipNulls(numValues);
   // 'readOffset_' of struct child readers is aligned with
   // 'readOffset_' of the struct. The child readers may have fewer
@@ -74,7 +76,7 @@ uint64_t SelectiveStructColumnReader::skip(uint64_t numValues) {
   return numValues;
 }
 
-void SelectiveStructColumnReader::next(
+void SelectiveStructColumnReaderBase::next(
     uint64_t numValues,
     VectorPtr& result,
     const uint64_t* incomingNulls) {
@@ -105,7 +107,7 @@ void SelectiveStructColumnReader::next(
   getValues(outputRows(), &result);
 }
 
-void SelectiveStructColumnReader::read(
+void SelectiveStructColumnReaderBase::read(
     vector_size_t offset,
     RowSet rows,
     const uint64_t* incomingNulls) {
@@ -139,7 +141,7 @@ void SelectiveStructColumnReader::read(
       continue;
     }
     auto fieldIndex = childSpec->subscript();
-    auto reader = children_.at(fieldIndex).get();
+    auto reader = children_.at(fieldIndex);
     if (reader->isTopLevel() && childSpec->projectOut() &&
         !childSpec->hasFilter() && !childSpec->extractValues()) {
       // Will make a LazyVector.
@@ -178,7 +180,7 @@ void SelectiveStructColumnReader::read(
   readOffset_ = offset + rows.back() + 1;
 }
 
-void SelectiveStructColumnReader::recordParentNullsInChildren(
+void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
     vector_size_t offset,
     RowSet rows) {
   auto& childSpecs = scanSpec_->children();
@@ -188,7 +190,7 @@ void SelectiveStructColumnReader::recordParentNullsInChildren(
       continue;
     }
     auto fieldIndex = childSpec->subscript();
-    auto reader = children_.at(fieldIndex).get();
+    auto reader = children_.at(fieldIndex);
     reader->addParentNulls(
         offset,
         nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr,
@@ -219,11 +221,13 @@ void fillRowVectorChildren(
 }
 } // namespace
 
-void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
+void SelectiveStructColumnReaderBase::getValues(
+    RowSet rows,
+    VectorPtr* result) {
   assert(!children_.empty());
   VELOX_CHECK(
       *result != nullptr,
-      "SelectiveStructColumnReader expects a non-null result");
+      "SelectiveStructColumnReaderBase expects a non-null result");
   VELOX_CHECK(
       result->get()->type()->isRow(),
       "Struct reader expects a result of type ROW.");
@@ -280,8 +284,7 @@ void SelectiveStructColumnReader::getValues(RowSet rows, VectorPtr* result) {
             &memoryPool_,
             resultRow->type()->childAt(channel),
             rows.size(),
-            std::make_unique<ColumnLoader>(
-                this, children_[index].get(), numReads_));
+            std::make_unique<ColumnLoader>(this, children_[index], numReads_));
       } else {
         children_[index]->getValues(rows, &resultRow->childAt(channel));
       }

@@ -52,7 +52,7 @@ void ColumnLoader::loadInternal(
   RowSet effectiveRows;
   ExceptionContextSetter exceptionContext(
       {[](VeloxException::Type /*exceptionType*/, auto* reader) {
-         return static_cast<SelectiveStructColumnReader*>(reader)
+         return static_cast<SelectiveStructColumnReaderBase*>(reader)
              ->debugString();
        },
        structReader_});
@@ -77,7 +77,7 @@ void ColumnLoader::loadInternal(
   if (fieldReader_->type()->kind() == TypeKind::ROW) {
     // 'fieldReader_' may itself produce LazyVectors. For this it must have its
     // result row numbers set.
-    reinterpret_cast<SelectiveStructColumnReader*>(fieldReader_)
+    static_cast<SelectiveStructColumnReaderBase*>(fieldReader_)
         ->setLoadableRows(effectiveRows);
   }
   if (!hook) {

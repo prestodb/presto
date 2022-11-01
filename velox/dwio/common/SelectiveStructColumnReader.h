@@ -20,18 +20,8 @@
 
 namespace facebook::velox::dwio::common {
 
-class SelectiveStructColumnReader : public SelectiveColumnReader {
+class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
  public:
-  SelectiveStructColumnReader(
-      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
-      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
-      FormatParams& params,
-      velox::common::ScanSpec& scanSpec)
-      : SelectiveColumnReader(dataType, params, scanSpec, dataType->type),
-        requestedType_(requestedType),
-        debugString_(
-            getExceptionContext().message(VeloxException::Type::kSystem)) {}
-
   void resetFilterCaches() override {
     for (auto& child : children_) {
       child->resetFilterCaches();
@@ -106,6 +96,16 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   }
 
  protected:
+  SelectiveStructColumnReaderBase(
+      const std::shared_ptr<const dwio::common::TypeWithId>& requestedType,
+      const std::shared_ptr<const dwio::common::TypeWithId>& dataType,
+      FormatParams& params,
+      velox::common::ScanSpec& scanSpec)
+      : SelectiveColumnReader(dataType, params, scanSpec, dataType->type),
+        requestedType_(requestedType),
+        debugString_(
+            getExceptionContext().message(VeloxException::Type::kSystem)) {}
+
   // Records the number of nulls added by 'this' between the end
   // position of each child reader and the end of the range of
   // 'read(). This must be done also if a child is not read so that we
@@ -113,10 +113,13 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   void recordParentNullsInChildren(vector_size_t offset, RowSet rows);
 
   const std::shared_ptr<const dwio::common::TypeWithId> requestedType_;
-  std::vector<std::unique_ptr<SelectiveColumnReader>> children_;
+
+  std::vector<SelectiveColumnReader*> children_;
+
   // Sequence number of output batch. Checked against ColumnLoaders
   // created by 'this' to verify they are still valid at load.
   uint64_t numReads_ = 0;
+
   vector_size_t lazyVectorReadOffset_;
 
   // Dense set of rows to read in next().
@@ -128,6 +131,20 @@ class SelectiveStructColumnReader : public SelectiveColumnReader {
   // and query. Set at construction, which takes place on first
   // use. If no ExceptionContext is in effect, this is "".
   const std::string debugString_;
+};
+
+struct SelectiveStructColumnReader : SelectiveStructColumnReaderBase {
+  using SelectiveStructColumnReaderBase::SelectiveStructColumnReaderBase;
+
+  void addChild(std::unique_ptr<SelectiveColumnReader> child) {
+    children_.push_back(child.get());
+    childrenOwned_.push_back(std::move(child));
+  }
+
+ private:
+  // Store the actual child readers.  In `children_` we only kept the raw
+  // pointers and do not have ownership.
+  std::vector<std::unique_ptr<SelectiveColumnReader>> childrenOwned_;
 };
 
 } // namespace facebook::velox::dwio::common

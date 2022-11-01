@@ -560,7 +560,7 @@ bool ParquetRowReader::advanceToNextRowGroup() {
   readerBase_->scheduleRowGroups(
       rowGroupIds_,
       currentRowGroupIdsIdx_,
-      *reinterpret_cast<StructColumnReader*>(columnReader_.get()));
+      dynamic_cast<StructColumnReader&>(*columnReader_));
   currentRowGroupPtr_ = &rowGroups_[rowGroupIds_[currentRowGroupIdsIdx_]];
   rowsInCurrentRowGroup_ = currentRowGroupPtr_->num_rows;
   currentRowInGroup_ = 0;
