@@ -290,7 +290,7 @@ TEST_F(PartitionedOutputBufferManagerTest, basic) {
   EXPECT_TRUE(task->isRunning());
   deleteResults(taskId, 3);
   fetchEndMarker(taskId, 4, 2);
-
+  bufferManager_->removeTask(taskId);
   EXPECT_TRUE(task->isFinished());
 }
 
@@ -323,6 +323,7 @@ TEST_F(PartitionedOutputBufferManagerTest, maxBytes) {
   for (int destination = 2; destination < 5; destination++) {
     fetchEndMarker(taskId, destination, 0);
   }
+  bufferManager_->removeTask(taskId);
 }
 
 TEST_F(PartitionedOutputBufferManagerTest, outOfOrderAcks) {

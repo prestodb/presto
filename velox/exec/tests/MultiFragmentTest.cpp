@@ -18,6 +18,7 @@
 #include "velox/dwio/common/DataSink.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/Exchange.h"
+#include "velox/exec/PartitionedOutputBufferManager.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -375,6 +376,22 @@ TEST_F(MultiFragmentTest, partitionedOutput) {
     auto op = PlanBuilder().exchange(intermediatePlan->outputType()).planNode();
 
     assertQuery(op, intermediateTaskIds, "SELECT c3, c0, c2 FROM tmp");
+
+    ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
+  }
+
+  // Test asynchronously deleting task buffer (due to abort from downstream).
+  {
+    auto leafTaskId = makeTaskId("leaf", 0);
+    auto leafPlan = PlanBuilder()
+                        .values(vectors_)
+                        .partitionedOutput({}, 1, {"c0", "c1"})
+                        .planNode();
+    auto leafTask = makeTask(leafTaskId, leafPlan, 0);
+    Task::start(leafTask, 4);
+    auto bufferMgr = PartitionedOutputBufferManager::getInstance().lock();
+    // Delete the results asynchronously to simulate abort from downstream.
+    bufferMgr->deleteResults(leafTaskId, 0);
 
     ASSERT_TRUE(waitForTaskCompletion(leafTask.get())) << leafTask->taskId();
   }
