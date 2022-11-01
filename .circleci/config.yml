@@ -240,8 +240,15 @@ jobs:
           path: /tmp/test_xml_output/
       - run:
           name: "Run Fuzzer Tests"
+          # Run fuzzer using the built executable - we do this instead of make
+          # since currently make fuzzertest tends to rebuild the project.
           command: |
-            make fuzzertest NUM_THREADS=10
+            _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
+                --seed 123456 \
+                --duration_sec 60 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+            && echo -e "\n\nFuzzer run finished successfully."
           no_output_timeout: 5m
       - run:
          name: "Run Example Binaries"
