@@ -515,15 +515,9 @@ public final class HttpRequestSessionContext
             return true;
         }
 
-        if (!sessionPropertyManager.isPresent()) {
-            return false;
-        }
-
-        TracingConfig.DistributedTracingMode systemDefaultMode = sessionPropertyManager.get().decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, TracingConfig.DistributedTracingMode.class);
-
-        // Client not set, we then take system default value. If property manager not provided then false.
+        // Client not set, we then take system default value if ALWAYS_TRACE (SAMPLE_BASED disabled). If property manager not provided then false.
         return sessionPropertyManager
-                .map(manager -> (systemDefaultMode == TracingConfig.DistributedTracingMode.ALWAYS_TRACE || systemDefaultMode == TracingConfig.DistributedTracingMode.SAMPLE_BASED))
+                .map(manager -> manager.decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, String.class).equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name()))
                 .orElse(false);
     }
 
