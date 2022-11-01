@@ -32,6 +32,7 @@
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/type/IntervalDayTime.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
@@ -2338,6 +2339,16 @@ TEST_F(ExprTest, constantToSql) {
 
   ASSERT_EQ(toSql(Date(18'506)), "'2020-09-01'::DATE");
   ASSERT_EQ(toSql(variant::null(TypeKind::DATE)), "NULL::DATE");
+
+  ASSERT_EQ(
+      toSql(Timestamp(123'456, 123'000)),
+      "'1970-01-02T10:17:36.000123000'::TIMESTAMP");
+  ASSERT_EQ(toSql(variant::null(TypeKind::TIMESTAMP)), "NULL::TIMESTAMP");
+
+  ASSERT_EQ(toSql(IntervalDayTime(123'456)), "INTERVAL 123456 MILLISECONDS");
+  ASSERT_EQ(
+      toSql(variant::null(TypeKind::INTERVAL_DAY_TIME)),
+      "NULL::INTERVAL DAY TO SECOND");
 
   ASSERT_EQ(toSql(1.5f), "'1.5'::REAL");
   ASSERT_EQ(toSql(variant::null(TypeKind::REAL)), "NULL::REAL");

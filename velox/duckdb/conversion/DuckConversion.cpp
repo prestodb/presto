@@ -130,6 +130,8 @@ TypePtr toVeloxType(LogicalType type) {
       return DATE();
     case LogicalTypeId::TIMESTAMP:
       return TIMESTAMP();
+    case LogicalTypeId::INTERVAL:
+      return INTERVAL_DAY_TIME();
     case LogicalTypeId::BLOB:
       return VARBINARY();
     case LogicalTypeId::LIST: {

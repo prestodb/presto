@@ -156,6 +156,58 @@ std::shared_ptr<const core::IExpr> parseColumnRefExpr(
               colRefExpr.GetTableName(), std::nullopt)});
 }
 
+std::shared_ptr<const core::ConstantExpr> tryParseInterval(
+    const std::string& functionName,
+    const std::shared_ptr<const core::IExpr>& input,
+    std::optional<std::string> alias) {
+  std::optional<int64_t> value;
+  if (auto constInput = dynamic_cast<const core::ConstantExpr*>(input.get())) {
+    if (constInput->type()->isBigint()) {
+      value = constInput->value().value<int64_t>();
+    }
+  } else if (
+      auto castInput = dynamic_cast<const core::CastExpr*>(input.get())) {
+    if (castInput->type()->isBigint()) {
+      if (auto constInput = dynamic_cast<const core::ConstantExpr*>(
+              castInput->getInput().get())) {
+        if (constInput->type()->isBigint()) {
+          value = constInput->value().value<int64_t>();
+        }
+      }
+    }
+  }
+
+  if (!value.has_value()) {
+    return nullptr;
+  }
+
+  if (functionName == "to_hours") {
+    return std::make_shared<core::ConstantExpr>(
+        variant::intervalDayTime(
+            IntervalDayTime(value.value() * 60 * 60 * 1'000)),
+        alias);
+  }
+
+  if (functionName == "to_minutes") {
+    return std::make_shared<core::ConstantExpr>(
+        variant::intervalDayTime(IntervalDayTime(value.value() * 60 * 1'000)),
+        alias);
+  }
+
+  if (functionName == "to_seconds") {
+    return std::make_shared<core::ConstantExpr>(
+        variant::intervalDayTime(IntervalDayTime(value.value() * 1'000)),
+        alias);
+  }
+
+  if (functionName == "to_milliseconds") {
+    return std::make_shared<core::ConstantExpr>(
+        variant::intervalDayTime(IntervalDayTime(value.value())), alias);
+  }
+
+  return nullptr;
+}
+
 // Parse a function call (avg(a), func(1, b), etc).
 // Arithmetic operators also follow this path (a + b, a * b, etc).
 std::shared_ptr<const core::IExpr> parseFunctionExpr(
@@ -169,6 +221,13 @@ std::shared_ptr<const core::IExpr> parseFunctionExpr(
     params.emplace_back(parseExpr(*c, options));
   }
   auto func = normalizeFuncName(functionExpr.function_name);
+
+  if (params.size() == 1) {
+    if (auto interval = tryParseInterval(func, params[0], getAlias(expr))) {
+      return interval;
+    }
+  }
+
   // NOT LIKE function needs special handling as it maps to two functions
   // "not" and "like".
   if (func == "notlike") {

@@ -207,6 +207,28 @@ TEST(DuckParserTest, between) {
       parseExpr("c0 between 0 and 1 and c0 > 10")->toString());
 }
 
+TEST(DuckParserTest, interval) {
+  EXPECT_EQ("\"0 05:00:00.000\"", parseExpr("INTERVAL 5 HOURS")->toString());
+  EXPECT_EQ("\"0 00:36:00.000\"", parseExpr("INTERVAL 36 MINUTES")->toString());
+  EXPECT_EQ("\"0 00:00:07.000\"", parseExpr("INTERVAL 7 SECONDS")->toString());
+  EXPECT_EQ(
+      "\"0 00:00:00.123\"", parseExpr("INTERVAL 123 MILLISECONDS")->toString());
+
+  EXPECT_EQ(
+      "\"0 00:00:12.345\"",
+      parseExpr("INTERVAL 12345 MILLISECONDS")->toString());
+  EXPECT_EQ(
+      "\"0 03:25:45.678\"",
+      parseExpr("INTERVAL 12345678 MILLISECONDS")->toString());
+  EXPECT_EQ(
+      "\"1 03:48:20.100\"",
+      parseExpr("INTERVAL 100100100 MILLISECONDS")->toString());
+
+  EXPECT_EQ(
+      "\"0 00:00:00.011\" AS x",
+      parseExpr("INTERVAL 11 MILLISECONDS AS x")->toString());
+}
+
 TEST(DuckParserTest, cast) {
   EXPECT_EQ(
       "cast(\"1\", BIGINT)", parseExpr("cast('1' as bigint)")->toString());
@@ -235,6 +257,10 @@ TEST(DuckParserTest, cast) {
   EXPECT_EQ(
       "cast(\"str_col\", DATE)",
       parseExpr("cast(str_col as date)")->toString());
+
+  EXPECT_EQ(
+      "cast(\"str_col\", INTERVAL DAY TO SECOND)",
+      parseExpr("cast(str_col as interval day to second)")->toString());
 
   // Unsupported casts for now.
   EXPECT_THROW(parseExpr("cast('2020-01-01' as TIME)"), std::runtime_error);
