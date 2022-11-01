@@ -22,6 +22,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wno-deprecated-declarations)
 endif()
 
+# This stringop-overflow warning seems to have lots of false positives and has
+# been the source of a lot of compiler bug reports
+# (e.g. https://gcc.gnu.org/bugzilla/show_bug.cgi?id=99578), which causes
+# parquet-amalgamation.cpp to fail to compile. For now, we disable this warning
+# on the affected compiler (GCC). 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  add_compile_options(-Wno-stringop-overflow)
+endif()
+
 add_library(
   duckdb
   duckdb-1.cpp
