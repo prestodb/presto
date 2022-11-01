@@ -477,6 +477,16 @@ class HashTable : public BaseHashTable {
       uint64_t* FOLLY_NULLABLE hashes,
       int32_t numGroups);
 
+  /// Checks if we can apply parallel table build optimization for hash join.
+  /// The function returns true if all of the following conditions:
+  /// 1. the hash table is built for parallel join;
+  /// 2. there is more than one sub-tables;
+  /// 3. the build executor has been set;
+  /// 4. the table is not in kArray mode;
+  /// 5. the number of table entries per each parallel build shard is no less
+  ///    than a pre-defined threshold: 1000 for now.
+  bool canApplyParallelJoinBuild() const;
+
   // Builds a join table with '1 + otherTables_.size()' independent
   // threads using 'executor_'. First all RowContainers get partition
   // numbers assigned to each row. Next, all threads pick all rows

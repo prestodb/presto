@@ -717,7 +717,11 @@ bool HashBuild::finishHashBuild() {
         VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
       }
     }
-    table_->prepareJoinTable(std::move(otherTables));
+
+    const bool hasOthers = !otherTables.empty();
+    table_->prepareJoinTable(
+        std::move(otherTables),
+        hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
 
     addRuntimeStats();
     if (joinBridge_->setHashTable(

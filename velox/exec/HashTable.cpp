@@ -19,10 +19,16 @@
 #include "velox/common/base/Portability.h"
 #include "velox/common/base/SimdUtil.h"
 #include "velox/common/process/ProcessBase.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/vector/VectorTypeUtils.h"
 
+using facebook::velox::common::testutil::TestValue;
+
 namespace facebook::velox::exec {
+namespace {
+constexpr int32_t kMinTableSizeForParallelJoinBuild = 1000;
+}
 
 template <bool ignoreNullKeys>
 HashTable<ignoreNullKeys>::HashTable(
@@ -693,12 +699,30 @@ void syncWorkItems(
 } // namespace
 
 template <bool ignoreNullKeys>
+bool HashTable<ignoreNullKeys>::canApplyParallelJoinBuild() const {
+  if (!isJoinBuild_ || buildExecutor_ == nullptr) {
+    return false;
+  }
+  if (hashMode_ == HashMode::kArray) {
+    return false;
+  }
+  if (otherTables_.empty()) {
+    return false;
+  }
+  return (size_ / (1 + otherTables_.size())) >
+      kMinTableSizeForParallelJoinBuild;
+}
+
+template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::parallelJoinBuild() {
+  TestValue::adjust(
+      "facebook::velox::exec::HashTable::parallelJoinBuild", nullptr);
   int32_t numPartitions = 1 + otherTables_.size();
   VELOX_CHECK_GT(
       size_ / numPartitions,
-      160,
-      "Less than 160 entries per partition for parallel build");
+      kMinTableSizeForParallelJoinBuild,
+      "Less than {} entries per partition for parallel build",
+      kMinTableSizeForParallelJoinBuild);
   buildPartitionBounds_.resize(numPartitions + 1);
   // Pad the tail of buildPartitionBounds_ to max int.
   std::fill(
@@ -1010,9 +1034,7 @@ void HashTable<ignoreNullKeys>::insertForJoin(
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::rehash() {
   constexpr int32_t kHashBatchSize = 1024;
-  // @lint-ignore CLANGTIDY
-  if (buildExecutor_ && hashMode_ != HashMode::kArray &&
-      !otherTables_.empty() && size_ / (1 + otherTables_.size()) > 1000) {
+  if (canApplyParallelJoinBuild()) {
     parallelJoinBuild();
     return;
   }
