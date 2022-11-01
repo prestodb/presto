@@ -27,10 +27,6 @@ class RankTest : public WindowTestBase {
   explicit RankTest(const std::string& rankFunction)
       : rankFunction_(rankFunction) {}
 
-  void testTwoColumnOverClauses(const RowVectorPtr& vectors) {
-    WindowTestBase::testTwoColumnOverClauses({vectors}, rankFunction_);
-  }
-
   void testWindowFunction(
       const std::vector<RowVectorPtr>& vectors,
       const std::vector<std::string>& overClauses) {
@@ -47,43 +43,52 @@ class MultiRankTest : public RankTest,
 };
 
 TEST_P(MultiRankTest, basic) {
-  vector_size_t size = 1000;
+  testWindowFunction({makeSimpleVector(50)}, kBasicOverClauses);
+}
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 10; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
-  });
-
-  testTwoColumnOverClauses({vectors});
+TEST_P(MultiRankTest, basicWithSortOrder) {
+  testWindowFunction({makeSimpleVector(50)}, kSortOrderBasedOverClauses);
 }
 
 TEST_P(MultiRankTest, singlePartition) {
   // Test all input rows in a single partition.
-  vector_size_t size = 1'000;
+  testWindowFunction({makeSinglePartitionVector(1000)}, kBasicOverClauses);
+}
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-      makeFlatVector<int32_t>(
-          size, [](auto row) { return row % 50; }, nullEvery(7)),
-  });
+TEST_P(MultiRankTest, singlePartitionWithSortOrder) {
+  // Test all input rows in a single partition.
+  testWindowFunction(
+      {makeSinglePartitionVector(500)}, kSortOrderBasedOverClauses);
+}
 
-  testTwoColumnOverClauses({vectors});
+TEST_P(MultiRankTest, multiInput) {
+  // Double the input rows so that partitioning and ordering over multiple
+  // input groups are exercised.
+  testWindowFunction(
+      {makeSinglePartitionVector(250), makeSinglePartitionVector(250)},
+      kBasicOverClauses);
+}
+
+TEST_P(MultiRankTest, multiInputWithSortOrder) {
+  // Double the input rows so that partitioning and ordering over multiple
+  // input groups are exercised.
+  testWindowFunction(
+      {makeSimpleVector(250), makeSimpleVector(250)},
+      kSortOrderBasedOverClauses);
 }
 
 TEST_P(MultiRankTest, singleRowPartitions) {
-  vector_size_t size = 1000;
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
-  });
+  testWindowFunction({makeSingleRowPartitionsVector(50)}, kBasicOverClauses);
+}
 
-  testTwoColumnOverClauses({vectors});
+TEST_P(MultiRankTest, singleRowPartitionsWithSortOrder) {
+  testWindowFunction(
+      {makeSingleRowPartitionsVector(50)}, kSortOrderBasedOverClauses);
 }
 
 TEST_P(MultiRankTest, randomInput) {
-  auto vectors = makeVectors(
-      ROW({"c0", "c1", "c2", "c3"},
-          {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
+  auto vectors = makeFuzzVectors(
+      ROW({"c0", "c1", "c2", "c3"}, {BIGINT(), VARCHAR(), INTEGER(), BIGINT()}),
       10,
       2,
       0.3);

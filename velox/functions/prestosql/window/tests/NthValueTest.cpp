@@ -26,16 +26,35 @@ namespace {
 class NthValueTest : public WindowTestBase {
  protected:
   void testPrimitiveType(const TypePtr& type) {
-    vector_size_t size = 100;
+    vector_size_t size = 25;
     auto vectors = makeRowVector({
         makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
         makeFlatVector<int32_t>(size, [](auto row) { return row; }),
         makeFlatVector<int64_t>(size, [](auto row) { return row % 3 + 1; }),
         typeValues(type, size),
     });
-    testTwoColumnOverClauses({vectors}, "nth_value(c3, c2)");
-    testTwoColumnOverClauses({vectors}, "nth_value(c3, 1)");
-    testTwoColumnOverClauses({vectors}, "nth_value(c3, 5)");
+    testWindowFunction({vectors}, "nth_value(c3, c2)", kBasicOverClauses);
+    testWindowFunction(
+        {vectors}, "nth_value(c3, c2)", kSortOrderBasedOverClauses);
+    testWindowFunction({vectors}, "nth_value(c3, 1)", kBasicOverClauses);
+    testWindowFunction(
+        {vectors}, "nth_value(c3, 5)", kSortOrderBasedOverClauses);
+  }
+
+  RowVectorPtr makeBasicVectors(vector_size_t size) {
+    return makeRowVector({
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 3 + 1; }),
+    });
+  }
+
+  RowVectorPtr makeSinglePartitionVectors(vector_size_t size) {
+    return makeRowVector({
+        makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
+        makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
+        makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
+    });
   }
 
  private:
@@ -50,32 +69,59 @@ class NthValueTest : public WindowTestBase {
 };
 
 TEST_F(NthValueTest, basic) {
-  vector_size_t size = 100;
+  auto vectors = makeBasicVectors(50);
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 7; }),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 3 + 1; }),
-  });
+  testWindowFunction({vectors}, "nth_value(c0, c2)", kBasicOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 1)", kBasicOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 5)", kBasicOverClauses);
+}
 
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, c2)");
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, 1)");
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, 5)");
+TEST_F(NthValueTest, basicWithSortOrder) {
+  auto vectors = makeBasicVectors(50);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kSortOrderBasedOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 1)", kSortOrderBasedOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 5)", kSortOrderBasedOverClauses);
 }
 
 TEST_F(NthValueTest, singlePartition) {
-  // Test all input rows in a single partition.
-  vector_size_t size = 1'000;
+  auto vectors = makeSinglePartitionVectors(500);
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 50; }),
-      makeFlatVector<int64_t>(size, [](auto row) { return row % 5 + 1; }),
-  });
+  testWindowFunction({vectors}, "nth_value(c0, c2)", kBasicOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 1)", kBasicOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 25)", kBasicOverClauses);
+}
 
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, c2)");
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, 1)");
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, 25)");
+TEST_F(NthValueTest, singlePartitionWithSortOrder) {
+  auto vectors = makeSinglePartitionVectors(500);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kSortOrderBasedOverClauses);
+  testWindowFunction({vectors}, "nth_value(c0, 1)", kSortOrderBasedOverClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 25)", kSortOrderBasedOverClauses);
+}
+
+TEST_F(NthValueTest, multiInput) {
+  auto vectors = makeSinglePartitionVectors(250);
+  auto doubleVectors = {vectors, vectors};
+
+  testWindowFunction(doubleVectors, "nth_value(c0, c2)", kBasicOverClauses);
+  testWindowFunction(doubleVectors, "nth_value(c0, 1)", kBasicOverClauses);
+  testWindowFunction(doubleVectors, "nth_value(c0, 25)", kBasicOverClauses);
+}
+
+TEST_F(NthValueTest, multiInputWithSortOrder) {
+  auto vectors = makeSinglePartitionVectors(250);
+  auto doubleVectors = {vectors, vectors};
+
+  testWindowFunction(
+      doubleVectors, "nth_value(c0, c2)", kSortOrderBasedOverClauses);
+  testWindowFunction(
+      doubleVectors, "nth_value(c0, 1)", kSortOrderBasedOverClauses);
+  testWindowFunction(
+      doubleVectors, "nth_value(c0, 25)", kSortOrderBasedOverClauses);
 }
 
 TEST_F(NthValueTest, integerValues) {
@@ -129,12 +175,14 @@ TEST_F(NthValueTest, nullOffsets) {
           size, [](auto row) { return row % 3 + 1; }, nullEvery(5)),
   });
 
-  testTwoColumnOverClauses({vectors}, "nth_value(c0, c2)");
+  testWindowFunction({vectors}, "nth_value(c0, c2)", kBasicOverClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kSortOrderBasedOverClauses);
 }
 
 TEST_F(NthValueTest, offsetValues) {
   // Test values for offset < 1.
-  vector_size_t size = 100;
+  vector_size_t size = 20;
 
   auto vectors = makeRowVector({
       makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),

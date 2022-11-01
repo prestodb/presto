@@ -24,34 +24,49 @@ namespace {
 class RowNumberTest : public WindowTestBase {};
 
 TEST_F(RowNumberTest, basic) {
-  vector_size_t size = 100;
+  testWindowFunction({makeSimpleVector(50)}, "row_number()", kBasicOverClauses);
+}
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
-      makeFlatVector<int32_t>(
-          size, [](auto row) { return row % 7; }, nullEvery(15)),
-  });
-
-  testTwoColumnOverClauses({vectors}, "row_number()");
+TEST_F(RowNumberTest, basicWithSortOrder) {
+  testWindowFunction(
+      {makeSimpleVector(50)}, "row_number()", kSortOrderBasedOverClauses);
 }
 
 TEST_F(RowNumberTest, singlePartition) {
   // Test all input rows in a single partition.
-  vector_size_t size = 1'000;
+  testWindowFunction(
+      {makeSinglePartitionVector(1000)}, "row_number()", kBasicOverClauses);
+}
 
-  auto vectors = makeRowVector({
-      makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
-      makeFlatVector<int32_t>(
-          size, [](auto row) { return row; }, nullEvery(7)),
-  });
+TEST_F(RowNumberTest, singlePartitionWithSortOrder) {
+  // Test all input rows in a single partition.
+  testWindowFunction(
+      {makeSinglePartitionVector(500)},
+      "row_number()",
+      kSortOrderBasedOverClauses);
+}
 
-  testTwoColumnOverClauses({vectors}, "row_number()");
+TEST_F(RowNumberTest, multiInput) {
+  // Double the input rows so that partitioning and ordering over multiple
+  // input groups are exercised.
+  testWindowFunction(
+      {makeSinglePartitionVector(250), makeSinglePartitionVector(250)},
+      "row_number()",
+      kBasicOverClauses);
+}
+
+TEST_F(RowNumberTest, multiInputWithSortOrder) {
+  // Double the input rows so that partitioning and ordering over multiple
+  // input groups are exercised.
+  testWindowFunction(
+      {makeSimpleVector(500), makeSimpleVector(500)},
+      "row_number()",
+      kSortOrderBasedOverClauses);
 }
 
 TEST_F(RowNumberTest, randomInput) {
-  auto vectors = makeVectors(
-      ROW({"c0", "c1", "c2", "c3"},
-          {BIGINT(), SMALLINT(), INTEGER(), BIGINT()}),
+  auto vectors = makeFuzzVectors(
+      ROW({"c0", "c1", "c2", "c3"}, {BIGINT(), VARCHAR(), INTEGER(), BIGINT()}),
       10,
       2,
       0.3);

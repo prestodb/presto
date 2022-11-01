@@ -48,7 +48,30 @@ QueryInfo buildWindowQuery(
 }
 }; // namespace
 
-std::vector<RowVectorPtr> WindowTestBase::makeVectors(
+RowVectorPtr WindowTestBase::makeSimpleVector(vector_size_t size) {
+  return makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row % 5; }),
+      makeFlatVector<int32_t>(
+          size, [](auto row) { return row % 7; }, nullEvery(15)),
+  });
+}
+
+RowVectorPtr WindowTestBase::makeSinglePartitionVector(vector_size_t size) {
+  return makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto /* row */) { return 1; }),
+      makeFlatVector<int32_t>(
+          size, [](auto row) { return row; }, nullEvery(7)),
+  });
+}
+
+RowVectorPtr WindowTestBase::makeSingleRowPartitionsVector(vector_size_t size) {
+  return makeRowVector({
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+      makeFlatVector<int32_t>(size, [](auto row) { return row; }),
+  });
+}
+
+std::vector<RowVectorPtr> WindowTestBase::makeFuzzVectors(
     const RowTypePtr& rowType,
     vector_size_t size,
     int numVectors,
@@ -79,6 +102,7 @@ void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
     const std::vector<std::string>& overClauses) {
+  createDuckDbTable(input);
   for (const auto& overClause : overClauses) {
     testWindowFunction(input, function, overClause);
   }
@@ -94,46 +118,6 @@ void WindowTestBase::assertWindowFunctionError(
 
   VELOX_ASSERT_THROW(
       assertQuery(queryInfo.planNode, queryInfo.querySql), errorMessage);
-}
-
-void WindowTestBase::testTwoColumnOverClauses(
-    const std::vector<RowVectorPtr>& input,
-    const std::string& windowFunction) {
-  VELOX_CHECK_GE(input[0]->childrenSize(), 2);
-
-  std::vector<std::string> overClauses = {
-      "partition by c0 order by c1",
-      "partition by c1 order by c0",
-      "partition by c0 order by c1 desc",
-      "partition by c1 order by c0 desc",
-      "partition by c0 order by c1 nulls first",
-      "partition by c1 order by c0 nulls first",
-      "partition by c0 order by c1 desc nulls first",
-      "partition by c1 order by c0 desc nulls first",
-      // No partition by clause.
-      "order by c0, c1",
-      "order by c1, c0",
-      "order by c0 asc, c1 desc",
-      "order by c1 asc, c0 desc",
-      "order by c0 asc nulls first, c1 desc nulls first",
-      "order by c1 asc nulls first, c0 desc nulls first",
-      "order by c0 desc nulls first, c1 asc nulls first",
-      "order by c1 desc nulls first, c0 asc nulls first",
-      // No order by clause.
-      "partition by c0, c1",
-  };
-
-  createDuckDbTable(input);
-  testWindowFunction(input, windowFunction, overClauses);
-
-  // Invoking with same vector set twice so that the underlying WindowFunction
-  // receives the same data set multiple times and does a full processing
-  // (partition, sort) + apply of it.
-  std::vector<RowVectorPtr> doubleInput;
-  doubleInput.insert(doubleInput.end(), input.begin(), input.end());
-  doubleInput.insert(doubleInput.end(), input.begin(), input.end());
-  createDuckDbTable(doubleInput);
-  testWindowFunction(doubleInput, windowFunction, overClauses);
 }
 
 }; // namespace facebook::velox::window::test
