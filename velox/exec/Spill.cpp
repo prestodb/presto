@@ -16,6 +16,7 @@
 
 #include "velox/exec/Spill.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 namespace facebook::velox::exec {
@@ -84,7 +85,7 @@ bool SpillFile::nextBatch(RowVectorPtr& rowVector) {
 
 WriteFile& SpillFileList::currentOutput() {
   if (files_.empty() || !files_.back()->isWritable() ||
-      files_.back()->size() > targetFileSize_ * 1.5) {
+      files_.back()->size() > targetFileSize_) {
     if (!files_.empty() && files_.back()->isWritable()) {
       files_.back()->finishWrite();
     }
@@ -146,6 +147,15 @@ uint64_t SpillFileList::spilledBytes() const {
   return bytes;
 }
 
+void SpillFileList::recordRuntimeStats() {
+  for (const auto& file : files_) {
+    addOperatorRuntimeStats(
+        "spillFileSize",
+        RuntimeCounter(file->size(), RuntimeCounter::Unit::kBytes),
+        stats_);
+  }
+}
+
 std::vector<std::string> SpillFileList::testingSpilledFilePaths() const {
   std::vector<std::string> spilledFiles;
   for (auto& file : files_) {
@@ -174,7 +184,8 @@ void SpillState::appendToPartition(
         fmt::format("{}-spill-{}", path_, partition),
         targetFileSize_,
         pool_,
-        mappedMemory_);
+        mappedMemory_,
+        stats_);
   }
 
   IndexRange range{0, rows->size()};

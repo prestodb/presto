@@ -41,35 +41,37 @@ class Spiller {
   struct Config {
     Config(
         const std::string& _filePath,
-        double _fileSizeFactor,
+        uint64_t _maxFileSize,
         folly::Executor* FOLLY_NULLABLE _executor,
         int32_t _spillableReservationGrowthPct,
         const HashBitRange& _hashBitRange,
         int32_t _maxSpillLevel,
         int32_t _testSpillPct)
         : filePath(_filePath),
-          fileSizeFactor(_fileSizeFactor),
+          maxFileSize(
+              _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
+                                : _maxFileSize),
           executor(_executor),
           spillableReservationGrowthPct(_spillableReservationGrowthPct),
           hashBitRange(_hashBitRange),
           maxSpillLevel(_maxSpillLevel),
           testSpillPct(_testSpillPct) {}
 
-    // Returns the spilling level with given 'startBitOffset'.
-    //
-    // NOTE: we advance (or right shift) the partition bit offset when goes to
-    // the next level of recursive spilling.
+    /// Returns the spilling level with given 'startBitOffset'.
+    ///
+    /// NOTE: we advance (or right shift) the partition bit offset when goes to
+    /// the next level of recursive spilling.
     int32_t spillLevel(uint8_t startBitOffset) const;
 
-    // Checks if the given 'startBitOffset' has exceeded the max spill limit.
+    /// Checks if the given 'startBitOffset' has exceeded the max spill limit.
     bool exceedSpillLevelLimit(uint8_t startBitOffset) const;
 
-    // Filesystem path for spill files.
+    /// Filesystem path for spill files.
     std::string filePath;
 
-    // Used to calculate the spill file size based on the associated task or
-    // operator's memory usage.
-    double fileSizeFactor;
+    /// The max spill file size. If it is zero, there is no limit on the spill
+    /// file size.
+    uint64_t maxFileSize;
 
     // Executor for spilling. If nullptr spilling writes on the Driver's thread.
     folly::Executor* FOLLY_NULLABLE executor; // Not owned.
@@ -107,6 +109,7 @@ class Spiller {
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
+      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   Spiller(
@@ -116,6 +119,7 @@ class Spiller {
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
+      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   Spiller(
@@ -129,6 +133,7 @@ class Spiller {
       const std::string& path,
       int64_t targetFileSize,
       memory::MemoryPool& pool,
+      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   /// Spills rows from 'this' until there are under 'targetRows' rows
@@ -377,6 +382,9 @@ class Spiller {
   // non hash join types of spilling.
   bool needSort() const;
 
+  // Invoked when finish spill
+  void recordStats();
+
   const Type type_;
   // NOTE: for hash join probe type, there is no associated row container for
   // the spiller.
@@ -398,8 +406,13 @@ class Spiller {
   // that are not written out and deleted will be captured by
   // spillMergeStreamOverRows().
   bool spillFinalized_{false};
+
   memory::MemoryPool& pool_;
+
+  std::unordered_map<std::string, RuntimeMetric>& stats_;
+
   folly::Executor* FOLLY_NULLABLE const executor_;
+
   uint64_t spilledRows_{0};
 };
 

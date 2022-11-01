@@ -49,7 +49,8 @@ GroupingSet::GroupingSet(
     bool isPartial,
     bool isRawInput,
     const Spiller::Config* spillConfig,
-    OperatorCtx* operatorCtx)
+    OperatorCtx* operatorCtx,
+    OperatorStats& operatorStats)
     : preGroupedKeyChannels_(std::move(preGroupedKeys)),
       hashers_(std::move(hashers)),
       isGlobal_(hashers_.empty()),
@@ -70,7 +71,8 @@ GroupingSet::GroupingSet(
       rows_(mappedMemory_),
       isAdaptive_(
           operatorCtx->task()->queryCtx()->config().hashAdaptivityEnabled()),
-      pool_(*operatorCtx->pool()) {
+      pool_(*operatorCtx->pool()),
+      stats_(operatorStats) {
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());
   }
@@ -562,8 +564,6 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
       names.push_back(fmt::format("s{}", i));
     }
     VELOX_DCHECK(mappedMemory_->tracker() != nullptr);
-    const auto fileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
-        spillConfig_->fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregate,
         rows,
@@ -575,8 +575,9 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         rows->keyTypes().size(),
         std::vector<CompareFlags>(),
         spillConfig_->filePath,
-        fileSize,
+        spillConfig_->maxFileSize,
         Spiller::spillPool(),
+        stats_.runtimeStats,
         spillConfig_->executor);
   }
   spiller_->spill(targetRows, targetBytes);

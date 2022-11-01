@@ -126,7 +126,7 @@ std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
           taskId(),
           driverCtx()->driverId,
           operatorId_),
-      queryConfig.spillFileSizeFactor(),
+      queryConfig.maxSpillFileSize(),
       driverCtx_->task->queryCtx()->spillExecutor(),
       queryConfig.spillableReservationGrowthPct(),
       HashBitRange(
@@ -365,6 +365,12 @@ std::vector<column_index_t> calculateOutputChannels(
     outputChannels.clear();
   }
   return outputChannels;
+}
+
+void OperatorStats::addRuntimeStat(
+    const std::string& name,
+    const RuntimeCounter& value) {
+  addOperatorRuntimeStats(name, value, runtimeStats);
 }
 
 void OperatorStats::add(const OperatorStats& other) {

@@ -39,7 +39,8 @@ class GroupingSet {
       bool isPartial,
       bool isRawInput,
       const Spiller::Config* FOLLY_NULLABLE spillConfig,
-      OperatorCtx* FOLLY_NONNULL operatorCtx);
+      OperatorCtx* FOLLY_NONNULL operatorCtx,
+      OperatorStats& stats);
 
   ~GroupingSet();
 
@@ -251,6 +252,8 @@ class GroupingSet {
   size_t nonSpilledIndex_ = 0;
   // Pool of the OperatorCtx. Used for spilling.
   memory::MemoryPool& pool_;
+
+  OperatorStats& stats_;
 
   // The RowContainer of 'table_' is moved here before freeing
   // 'table_' when starting to read spill output.

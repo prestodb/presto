@@ -150,15 +150,7 @@ struct OperatorStats {
         planNodeId(std::move(_planNodeId)),
         operatorType(std::move(_operatorType)) {}
 
-  void addRuntimeStat(const std::string& name, const RuntimeCounter& value) {
-    if (UNLIKELY(runtimeStats.count(name) == 0)) {
-      runtimeStats.insert(std::pair(name, RuntimeMetric(value.unit)));
-    } else {
-      VELOX_CHECK_EQ(runtimeStats.at(name).unit, value.unit);
-    }
-    runtimeStats.at(name).addValue(value.value);
-  }
-
+  void addRuntimeStat(const std::string& name, const RuntimeCounter& value);
   void add(const OperatorStats& other);
   void clear();
 };

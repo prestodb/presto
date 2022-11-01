@@ -207,8 +207,6 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
   if (spiller_ == nullptr) {
     VELOX_DCHECK(mappedMemory_->tracker() != nullptr);
     const auto& spillConfig = spillConfig_.value();
-    const auto spillFileSize = mappedMemory_->tracker()->getCurrentUserBytes() *
-        spillConfig.fileSizeFactor;
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kOrderBy,
         data_.get(),
@@ -217,8 +215,9 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         data_->keyTypes().size(),
         keyCompareFlags_,
         spillConfig.filePath,
-        spillFileSize,
+        spillConfig.maxFileSize,
         Spiller::spillPool(),
+        stats().runtimeStats,
         spillConfig.executor);
     VELOX_CHECK_EQ(spiller_->state().maxPartitions(), 1);
   }

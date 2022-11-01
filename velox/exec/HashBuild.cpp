@@ -198,13 +198,9 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       keyChannels_.size(),
       std::vector<CompareFlags>(),
       spillConfig.filePath,
-      operatorCtx_->task()
-              ->queryCtx()
-              ->pool()
-              ->getMemoryUsageTracker()
-              ->maxTotalBytes() *
-          spillConfig.fileSizeFactor,
+      spillConfig.maxFileSize,
       Spiller::spillPool(),
+      stats().runtimeStats,
       spillConfig.executor);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();

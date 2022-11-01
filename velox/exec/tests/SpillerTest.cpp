@@ -322,6 +322,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
   void
   setupSpiller(int64_t targetFileSize, bool makeError, bool ascending = true) {
+    stats_.clear();
     if (type_ == Spiller::Type::kHashJoinProbe) {
       // kHashJoinProbe doesn't have associated row container.
       spiller_ = std::make_unique<Spiller>(
@@ -331,6 +332,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           *pool_,
+          stats_,
           executor());
     } else if (type_ == Spiller::Type::kOrderBy) {
       // We spill 'data' in one partition in type of kOrderBy, otherwise in 4
@@ -345,6 +347,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           *pool_,
+          stats_,
           executor());
     } else {
       spiller_ = std::make_unique<Spiller>(
@@ -358,6 +361,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           makeError ? "/bad/path" : tempDirPath_->path,
           targetFileSize,
           *pool_,
+          stats_,
           executor());
     }
     if (type_ == Spiller::Type::kOrderBy) {
@@ -701,15 +705,16 @@ class SpillerTest : public exec::test::RowContainerTestBase {
 
   const TestParam param_;
   const Spiller::Type type_;
-  const int executorPoolSize_;
+  const int32_t executorPoolSize_;
   const HashBitRange hashBits_;
-  const int numPartitions_;
+  const int32_t numPartitions_;
+  std::unordered_map<std::string, RuntimeMetric> stats_;
   folly::Random::DefaultGenerator rng_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<TempDirectoryPath> tempDirPath_;
   std::shared_ptr<FileSystem> fs_;
   RowTypePtr rowType_;
-  int numKeys_;
+  int32_t numKeys_;
   std::vector<column_index_t> keyChannels_;
   std::vector<uint32_t> spillPartitions_;
   std::vector<BufferPtr> spillIndicesBuffers_;

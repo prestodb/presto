@@ -115,4 +115,10 @@ std::string makeOperatorSpillPath(
     const std::string& taskId,
     int driverId,
     int32_t operatorId);
+
+/// Add a named runtime metric to operator 'stats'.
+void addOperatorRuntimeStats(
+    const std::string& name,
+    const RuntimeCounter& value,
+    std::unordered_map<std::string, RuntimeMetric>& stats);
 } // namespace facebook::velox::exec

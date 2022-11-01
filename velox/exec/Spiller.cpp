@@ -37,6 +37,7 @@ Spiller::Spiller(
     const std::string& path,
     int64_t targetFileSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : Spiller(
           type,
@@ -49,6 +50,7 @@ Spiller::Spiller(
           path,
           targetFileSize,
           pool,
+          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kOrderBy);
 }
@@ -60,6 +62,7 @@ Spiller::Spiller(
     const std::string& path,
     int64_t targetFileSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* FOLLY_NULLABLE executor)
     : Spiller(
           type,
@@ -72,6 +75,7 @@ Spiller::Spiller(
           path,
           targetFileSize,
           pool,
+          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kHashJoinProbe);
 }
@@ -87,6 +91,7 @@ Spiller::Spiller(
     const std::string& path,
     int64_t targetFileSize,
     memory::MemoryPool& pool,
+    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : type_(type),
       container_(container),
@@ -100,8 +105,10 @@ Spiller::Spiller(
           sortCompareFlags,
           targetFileSize,
           pool,
-          spillMappedMemory()),
+          spillMappedMemory(),
+          stats),
       pool_(pool),
+      stats_(stats),
       executor_(executor) {
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));
@@ -329,7 +336,9 @@ void Spiller::advanceSpill() {
     if (run.rows.empty()) {
       // Run ends, start with a new file next time.
       run.clear();
-      state_.finishWrite(partition);
+      if (needSort()) {
+        state_.finishWrite(partition);
+      }
       pendingSpillPartitions_.erase(partition);
     }
   }

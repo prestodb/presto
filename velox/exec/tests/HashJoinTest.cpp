@@ -207,6 +207,25 @@ const std::shared_ptr<const core::HashJoinNode> findJoinNode(
   return nullptr;
 }
 
+std::pair<int32_t, int32_t> numTaskSpillFiles(const exec::Task& task) {
+  int32_t numBuildFiles = 0;
+  int32_t numProbeFiles = 0;
+  for (auto& pipelineStat : task.taskStats().pipelineStats) {
+    for (auto& operatorStat : pipelineStat.operatorStats) {
+      if (operatorStat.runtimeStats.count("spillFileSize") == 0) {
+        continue;
+      }
+      if (operatorStat.operatorType == "HashBuild") {
+        numBuildFiles += operatorStat.runtimeStats["spillFileSize"].count;
+      } else {
+        VELOX_CHECK_EQ(operatorStat.operatorType, "HashProbe");
+        numProbeFiles += operatorStat.runtimeStats["spillFileSize"].count;
+      }
+    }
+  }
+  return {numBuildFiles, numProbeFiles};
+}
+
 using JoinResultsVerifier =
     std::function<void(const std::shared_ptr<Task>&, bool)>;
 
@@ -3411,5 +3430,39 @@ TEST_F(HashJoinTest, smallOutputBatchSize) {
       .referenceQuery("SELECT c0, u_c1 FROM t, u WHERE c0 = u_c0 AND c1 < u_c1")
       .injectSpill(false)
       .run();
+}
+
+TEST_F(HashJoinTest, spillFileSize) {
+  const std::vector<uint64_t> maxSpillFileSizes({0, 1, 1'000'000'000});
+  for (const auto spillFileSize : maxSpillFileSizes) {
+    SCOPED_TRACE(fmt::format("spillFileSize: {}", spillFileSize));
+    HashJoinBuilder(*pool_, duckDbQueryRunner_)
+        .numDrivers(numDrivers_)
+        .keyTypes({BIGINT()})
+        .probeVectors(100, 3)
+        .buildVectors(100, 3)
+        .referenceQuery(
+            "SELECT t_k0, t_data, u_k0, u_data FROM t, u WHERE t.t_k0 = u.u_k0")
+        .config(core::QueryConfig::kSpillStartPartitionBit, "48")
+        .config(core::QueryConfig::kSpillPartitionBits, "3")
+        .config(
+            core::QueryConfig::kMaxSpillFileSize, std::to_string(spillFileSize))
+        .checkSpillStats(false)
+        .maxSpillLevel(0)
+        .verifier([&](const std::shared_ptr<Task>& task, bool hasSpill) {
+          if (!hasSpill) {
+            return;
+          }
+          const auto stats = taskSpilledStats(*task);
+          const int32_t numPartitions = stats.spilledPartitions;
+          const auto fileSizes = numTaskSpillFiles(*task);
+          if (spillFileSize != 1) {
+            ASSERT_EQ(fileSizes.first, numPartitions);
+          } else {
+            ASSERT_GT(fileSizes.first, numPartitions);
+          }
+        })
+        .run();
+  }
 }
 } // namespace

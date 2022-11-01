@@ -254,3 +254,27 @@ TEST_F(OperatorUtilsTest, wrap) {
     ASSERT_EQ(wrapVector->size(), 0);
   }
 }
+
+TEST_F(OperatorUtilsTest, addOperatorRuntimeStats) {
+  std::unordered_map<std::string, RuntimeMetric> stats;
+  const std::string statsName("stats");
+  const RuntimeCounter minStatsValue(100, RuntimeCounter::Unit::kBytes);
+  const RuntimeCounter maxStatsValue(200, RuntimeCounter::Unit::kBytes);
+  addOperatorRuntimeStats(statsName, minStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 1);
+  ASSERT_EQ(stats[statsName].sum, 100);
+  ASSERT_EQ(stats[statsName].max, 100);
+  ASSERT_EQ(stats[statsName].min, 100);
+
+  addOperatorRuntimeStats(statsName, maxStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 2);
+  ASSERT_EQ(stats[statsName].sum, 300);
+  ASSERT_EQ(stats[statsName].max, 200);
+  ASSERT_EQ(stats[statsName].min, 100);
+
+  addOperatorRuntimeStats(statsName, maxStatsValue, stats);
+  ASSERT_EQ(stats[statsName].count, 3);
+  ASSERT_EQ(stats[statsName].sum, 500);
+  ASSERT_EQ(stats[statsName].max, 200);
+  ASSERT_EQ(stats[statsName].min, 100);
+}

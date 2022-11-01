@@ -68,6 +68,7 @@ class SpillTest : public testing::Test,
     state_.reset();
     batchesByPartition_.clear();
     values_.clear();
+    stats_.clear();
 
     spillPath_ = tempDir_->path + "/test";
     values_.resize(numBatches * numRowsPerBatch);
@@ -121,7 +122,8 @@ class SpillTest : public testing::Test,
         compareFlags,
         targetFileSize,
         *pool(),
-        *mappedMemory_);
+        *mappedMemory_,
+        stats_);
     EXPECT_EQ(targetFileSize, state_->targetFileSize());
     EXPECT_EQ(numPartitions, state_->maxPartitions());
     EXPECT_EQ(0, state_->spilledPartitions());
@@ -270,6 +272,8 @@ class SpillTest : public testing::Test,
     for (const auto& spilledFile : spilledFiles) {
       EXPECT_ANY_THROW(fs->openFileForRead(spilledFile));
     }
+    // Verify stats.
+    ASSERT_EQ(stats_["spillFileSize"].count, spilledFiles.size());
   }
 
   folly::Random::DefaultGenerator rng_;
@@ -279,6 +283,7 @@ class SpillTest : public testing::Test,
   std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
   std::string spillPath_;
   std::unique_ptr<SpillState> state_;
+  std::unordered_map<std::string, RuntimeMetric> stats_;
 };
 
 TEST_F(SpillTest, spillState) {
@@ -313,7 +318,14 @@ TEST_F(SpillTest, spillTimestamp) {
       Timestamp{1, 17'123'456},
       Timestamp{-1, 17'123'456}};
   SpillState state(
-      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
+      spillPath,
+      1,
+      1,
+      emptyCompareFlags,
+      1024,
+      *pool(),
+      *mappedMemory_,
+      stats_);
   int partitionIndex = 0;
   state.setPartitionSpilled(partitionIndex);
   EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));
