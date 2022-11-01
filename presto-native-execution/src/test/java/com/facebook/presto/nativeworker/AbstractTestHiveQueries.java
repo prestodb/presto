@@ -26,11 +26,16 @@ import static org.testng.Assert.assertNotNull;
 public class AbstractTestHiveQueries
         extends AbstractTestQueryFramework
 {
-    private final boolean useThrift;
+    static final String PARQUET_STORAGE_FORMAT = "PARQUET";
+    static final String DWARF_STORAGE_FORMAT = "DWRF";
 
-    protected AbstractTestHiveQueries(boolean useThrift)
+    private final boolean useThrift;
+    private final String storageFormat;
+
+    protected AbstractTestHiveQueries(boolean useThrift, String storageFormat)
     {
         this.useThrift = useThrift;
+        this.storageFormat = storageFormat;
     }
 
     @Override
@@ -45,7 +50,7 @@ public class AbstractTestHiveQueries
         assertNotNull(prestoServerPath, "Native worker binary path is missing. Add -DPRESTO_SERVER=<path/to/presto_server> to your JVM arguments.");
         assertNotNull(dataDirectory, "Data directory path is missing. Add -DDATA_DIR=<path/to/data> to your JVM arguments.");
 
-        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
+        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat);
     }
 
     @Override
@@ -53,6 +58,6 @@ public class AbstractTestHiveQueries
             throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
+        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
     }
 }

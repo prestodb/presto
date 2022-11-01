@@ -13,15 +13,11 @@
  */
 package com.facebook.presto.nativeworker;
 
-import com.facebook.presto.testing.QueryRunner;
-
-public class TestHiveTpchQueriesUsingJSON
-        extends TestHiveTpchQueries
+public class TestHiveTpcdsQueriesParquetUsingJson
+        extends TestHiveTpcdsQueries
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public TestHiveTpcdsQueriesParquetUsingJson()
     {
-        return TestHiveTpchQueries.createNativeQueryRunner(false);
+        super(false, "PARQUET");
     }
 }

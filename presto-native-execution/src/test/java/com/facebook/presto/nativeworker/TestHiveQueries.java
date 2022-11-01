@@ -30,7 +30,7 @@ abstract class TestHiveQueries
 {
     protected TestHiveQueries(boolean useThrift)
     {
-        super(useThrift);
+        super(useThrift, DWARF_STORAGE_FORMAT);
     }
 
     @Test

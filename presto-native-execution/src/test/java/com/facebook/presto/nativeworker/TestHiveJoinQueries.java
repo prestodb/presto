@@ -21,7 +21,7 @@ public class TestHiveJoinQueries
 {
     public TestHiveJoinQueries()
     {
-        super(true);
+        super(true, DWARF_STORAGE_FORMAT);
     }
 
     @Test

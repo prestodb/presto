@@ -72,6 +72,9 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    static final String PARQUET_STORAGE_FORMAT = "PARQUET";
+    static final String DWARF_STORAGE_FORMAT = "DWRF";
+
     private QueryRunner queryRunner;
     private ExpectedQueryRunner expectedQueryRunner;
     private SqlParser sqlParser;

@@ -21,7 +21,7 @@ public class TestTpchQueries
 {
     public TestTpchQueries()
     {
-        super(true);
+        super(true, DWARF_STORAGE_FORMAT);
     }
 
     @Test

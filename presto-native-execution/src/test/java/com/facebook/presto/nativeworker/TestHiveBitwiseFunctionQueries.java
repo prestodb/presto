@@ -21,7 +21,7 @@ public class TestHiveBitwiseFunctionQueries
 {
     public TestHiveBitwiseFunctionQueries()
     {
-        super(false);
+        super(false, DWARF_STORAGE_FORMAT);
     }
 
     @Test

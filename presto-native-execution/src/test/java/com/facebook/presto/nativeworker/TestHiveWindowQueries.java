@@ -24,7 +24,7 @@ public class TestHiveWindowQueries
 {
     public TestHiveWindowQueries()
     {
-        super(true);
+        super(true, DWARF_STORAGE_FORMAT);
     }
 
     protected List<String> getRankingQueries(String rankingFunction)

@@ -22,7 +22,7 @@ public class TestHiveAggregationQueries
 {
     public TestHiveAggregationQueries()
     {
-        super(true);
+        super(true, DWARF_STORAGE_FORMAT);
     }
 
     @Test

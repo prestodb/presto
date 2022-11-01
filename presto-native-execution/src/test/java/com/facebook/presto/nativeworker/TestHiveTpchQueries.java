@@ -30,7 +30,17 @@ import static org.testng.Assert.assertNotNull;
 public abstract class TestHiveTpchQueries
         extends AbstractTestQueryFramework
 {
-    public static QueryRunner createNativeQueryRunner(boolean useThrift)
+    private final String storageFormat;
+    private final Boolean useThrift;
+
+    public TestHiveTpchQueries(boolean useThrift, String storageFormat)
+    {
+        this.useThrift = useThrift;
+        this.storageFormat = storageFormat;
+    }
+
+    @Override
+    public QueryRunner createQueryRunner()
             throws Exception
     {
         String prestoServerPath = System.getProperty("PRESTO_SERVER");
@@ -41,7 +51,7 @@ public abstract class TestHiveTpchQueries
         assertNotNull(prestoServerPath);
         assertNotNull(dataDirectory);
 
-        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift);
+        return HiveExternalWorkerQueryRunner.createNativeQueryRunner(dataDirectory, prestoServerPath, Optional.ofNullable(workerCount).map(Integer::parseInt), cacheMaxSize, useThrift, storageFormat);
     }
 
     @Override
@@ -49,7 +59,7 @@ public abstract class TestHiveTpchQueries
             throws Exception
     {
         String dataDirectory = System.getProperty("DATA_DIR");
-        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)));
+        return HiveExternalWorkerQueryRunner.createJavaQueryRunner(Optional.of(Paths.get(dataDirectory)), storageFormat);
     }
 
     private static String getTpchQuery(int q)
