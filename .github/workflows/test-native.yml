@@ -71,7 +71,7 @@ jobs:
       - name: Run unit tests
         run: |
           cd ${GITHUB_WORKSPACE}/presto-native-execution/_build/debug
-          ctest -j 1 -VV --output-on-failure --exclude-regex velox.*
+          ctest -j 1 -VV --output-on-failure --exclude-regex velox.* -R presto_http_test
 
       - name: Cache local Maven repository
         id: cache-maven

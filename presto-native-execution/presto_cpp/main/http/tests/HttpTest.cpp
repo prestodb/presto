@@ -370,7 +370,7 @@ TEST(HttpTest, timedOutRequests) {
 
 // TODO: Enabled it when fixed.
 // Disabled it, while we are investigating and fixing this test failure.
-TEST(HttpTest, DISABLED_outstandingRequests) {
+TEST(HttpTest, outstandingRequests) {
   auto server =
       std::make_unique<http::HttpServer>(folly::SocketAddress("127.0.0.1", 0));
   auto request = std::make_shared<AsyncMsgRequestState>();
