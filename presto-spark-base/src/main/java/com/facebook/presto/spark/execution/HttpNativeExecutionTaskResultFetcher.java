@@ -101,7 +101,7 @@ public class HttpNativeExecutionTaskResultFetcher
                 {
                     schedulerFuture.cancel(false);
                     if (throwable != null) {
-                        throw new CompletionException(throwable.getCause());
+                        throw new CompletionException(throwable.getMessage(), throwable.getCause());
                     }
                     return result;
                 });

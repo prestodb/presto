@@ -29,6 +29,7 @@ import com.facebook.presto.spi.page.SerializedPage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.util.List;
@@ -75,6 +76,7 @@ public class NativeExecutionTask
             List<TaskSource> sources,
             HttpClient httpClient,
             TableWriteInfo tableWriteInfo,
+            Duration resultFetchingRequestTimeout,
             Executor executor,
             ScheduledExecutorService updateScheduledExecutor,
             JsonCodec<TaskInfo> taskInfoCodec,
@@ -102,7 +104,7 @@ public class NativeExecutionTask
         this.taskResultFetcher = new HttpNativeExecutionTaskResultFetcher(
                 updateScheduledExecutor,
                 this.workerClient,
-                Optional.empty());
+                Optional.of(resultFetchingRequestTimeout));
     }
 
     /**
@@ -137,7 +139,7 @@ public class NativeExecutionTask
         CompletableFuture<Void> updateFuture = sendUpdateRequest().handle((Void result, Throwable t) ->
         {
             if (t != null) {
-                throw new CompletionException(t.getCause());
+                throw new CompletionException(t.getMessage(), t.getCause());
             }
             taskInfoFetcher.start();
             return null;

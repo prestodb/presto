@@ -33,6 +33,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static com.facebook.presto.SystemSessionProperties.getNativeExecutionResultFetchingRequestTimeout;
 import static java.util.Objects.requireNonNull;
 
 public class NativeExecutionTaskFactory
@@ -82,6 +83,7 @@ public class NativeExecutionTaskFactory
                 sources,
                 httpClient,
                 tableWriteInfo,
+                getNativeExecutionResultFetchingRequestTimeout(session),
                 executor,
                 updateScheduledExecutor,
                 taskInfoCodec,

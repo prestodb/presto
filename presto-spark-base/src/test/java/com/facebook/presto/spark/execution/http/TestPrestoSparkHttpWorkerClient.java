@@ -88,8 +88,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 public class TestPrestoSparkHttpWorkerClient
@@ -579,7 +579,9 @@ public class TestPrestoSparkHttpWorkerClient
                 workerClient,
                 Optional.of(new Duration(200, TimeUnit.MILLISECONDS)));
         CompletableFuture<Void> future = taskResultFetcher.start();
-        assertThrows(ExecutionException.class, future::get);
+        ExecutionException exception = expectThrows(ExecutionException.class, future::get);
+        assertTrue(
+                exception.getMessage().matches("(?s).*Waited 200 milliseconds for(?s).*TestPrestoSparkHttpWorkerClient\\$TestingHttpResponseFutur(?s).*\\[status=PENDING]"));
     }
 
     @Test
