@@ -231,7 +231,7 @@ lengthUnicode(const char* inputBuffer, size_t bufferLength) {
 /// substring and then computing the length of substring[0, byteIndex). This is
 /// safe because in UTF8 a char can not be a subset of another char (in bytes
 /// representation).
-static int64_t findNthInstanceByteIndex(
+static int64_t findNthInstanceByteIndexFromStart(
     const std::string_view& string,
     const std::string_view subString,
     const size_t instance = 1,
@@ -254,8 +254,37 @@ static int64_t findNthInstanceByteIndex(
   }
 
   // Find next occurrence
-  return findNthInstanceByteIndex(
+  return findNthInstanceByteIndexFromStart(
       string, subString, instance - 1, byteIndex + subString.size());
+}
+
+/// Returns the start byte index of the Nth instance of subString in
+/// string from the end. Search starts from endPosition. Positions start with 0.
+/// If not found, -1 is returned.
+inline int64_t findNthInstanceByteIndexFromEnd(
+    const std::string_view string,
+    const std::string_view subString,
+    const size_t instance = 1) {
+  assert(instance > 0);
+
+  if (subString.empty()) {
+    return 0;
+  }
+
+  size_t foundCnt = 0;
+  size_t index = string.size();
+  do {
+    if (index == 0) {
+      return -1;
+    }
+
+    index = string.rfind(subString, index - 1);
+    if (index == std::string_view::npos) {
+      return -1;
+    }
+    ++foundCnt;
+  } while (foundCnt < instance);
+  return index;
 }
 
 /// Replace replaced with replacement in inputString and write results in
@@ -281,7 +310,8 @@ inline static size_t replace(
   bool doCopyUnreplaced = !inPlace || (replaced.size() != replacement.size());
 
   auto findNextReplaced = [&]() {
-    return findNthInstanceByteIndex(inputString, replaced, 1, readPosition);
+    return findNthInstanceByteIndexFromStart(
+        inputString, replaced, 1, readPosition);
   };
 
   auto writeUnchanged = [&](ssize_t size) {

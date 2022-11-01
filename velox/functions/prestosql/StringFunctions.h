@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #define XXH_INLINE_ALL
 #include <xxhash.h>
 
@@ -348,5 +349,52 @@ struct LPadFunction : public PadFunctionBase<T, true> {};
 
 template <typename T>
 struct RPadFunction : public PadFunctionBase<T, false> {};
+
+/// strpos and strrpos functions
+/// strpos(string, substring) → bigint
+///     Returns the starting position of the first instance of substring in
+///     string. Positions start with 1. If not found, 0 is returned.
+/// strpos(string, substring, instance) → bigint
+///     Returns the position of the N-th instance of substring in string.
+///     instance must be a positive number. Positions start with 1. If not
+///     found, 0 is returned.
+/// strrpos(string, substring) → bigint
+///     Returns the starting position of the first instance of substring in
+///     string counting from the end. Positions start with 1. If not found, 0 is
+///     returned.
+/// strrpos(string, substring, instance) → bigint
+///     Returns the position of the N-th instance of substring in string
+///     counting from the end. Instance must be a positive number. Positions
+///     start with 1. If not found, 0 is returned.
+template <typename T, bool lpos>
+struct StrPosFunctionBase {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      out_type<int64_t>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<Varchar>& subString,
+      const arg_type<int64_t>& instance = 1) {
+    result = stringImpl::stringPosition<false /*isAscii*/, lpos>(
+        string, subString, instance);
+    return true;
+  }
+
+  FOLLY_ALWAYS_INLINE bool callAscii(
+      out_type<int64_t>& result,
+      const arg_type<Varchar>& string,
+      const arg_type<Varchar>& subString,
+      const arg_type<int64_t>& instance = 1) {
+    result = stringImpl::stringPosition<true /*isAscii*/, lpos>(
+        string, subString, instance);
+    return true;
+  }
+};
+
+template <typename T>
+struct StrLPosFunction : public StrPosFunctionBase<T, true> {};
+
+template <typename T>
+struct StrRPosFunction : public StrPosFunctionBase<T, false> {};
 
 } // namespace facebook::velox::functions
