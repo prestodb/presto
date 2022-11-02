@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <re2/re2.h>
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
@@ -29,22 +30,39 @@ using facebook::velox::exec::test::PlanBuilder;
 
 class PrintPlanWithStatsTest : public HiveConnectorTestBase {};
 
+struct ExpectedLine {
+  std::string line;
+  bool optional = false;
+};
+
 void compareOutputs(
     const std::string& testName,
     const std::string& result,
-    const std::string& expectedRegex) {
+    const std::vector<ExpectedLine>& expectedRegex) {
   std::string line;
   std::string eline;
   std::istringstream iss(result);
-  std::istringstream ess(expectedRegex);
   int lineCount = 0;
+  int expectedLineIndex = 0;
   for (; std::getline(iss, line);) {
     lineCount++;
-    std::getline(ess, eline);
-    ASSERT_THAT(line, ::testing::MatchesRegex(eline))
-        << "Source:" << testName << ", Line:" << lineCount;
+    std::vector<std::string> potentialLines;
+    auto expectedLine = expectedRegex.at(expectedLineIndex++);
+    while (!RE2::FullMatch(line, expectedLine.line)) {
+      potentialLines.push_back(expectedLine.line);
+      if (!expectedLine.optional) {
+        ASSERT_FALSE(true) << "Output did not match "
+                           << "Source:" << testName
+                           << ", Line number:" << lineCount
+                           << ", Line: " << line << ", Expected Line one of: "
+                           << folly::join(",", potentialLines);
+      }
+      expectedLine = expectedRegex.at(expectedLineIndex++);
+    }
   }
-  ASSERT_FALSE(std::getline(ess, line));
+  for (int i = expectedLineIndex; i < expectedRegex.size(); i++) {
+    ASSERT_TRUE(expectedRegex[expectedLineIndex].optional);
+  }
 }
 
 void ensureTaskCompletion(exec::Task* task) {
@@ -115,54 +133,57 @@ TEST_F(PrintPlanWithStatsTest, innerJoinWithTableScan) {
   compareOutputs(
       ::testing::UnitTest::GetInstance()->current_test_info()->name(),
       printPlanWithStats(*op, task->taskStats()),
-      "-- Project\\[expressions: \\(c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(p1:BIGINT, plus\\(ROW\\[\"c1\"\\],1\\)\\), \\(p2:BIGINT, plus\\(ROW\\[\"c1\"\\],ROW\\[\"u_c1\"\\]\\)\\)\\] -> c0:INTEGER, p1:BIGINT, p2:BIGINT\n"
-      "   Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "  -- HashJoin\\[INNER c0=u_c0\\] -> c0:INTEGER, c1:BIGINT, u_c1:BIGINT\n"
-      "     Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 2\\.00MB, Memory allocations: .+\n"
-      "     HashBuild: Input: 100 rows \\(.+\\), Output: 0 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "    -- TableScan\\[table: hive_table\\] -> c0:INTEGER, c1:BIGINT\n"
-      "       Input: 2000 rows \\(.+\\), Raw Input: 20480 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 20\n"
-      "    -- Project\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT\n"
-      "       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1\n"
-      "      -- Values\\[100 rows in 1 vectors\\] -> c0:INTEGER, c1:BIGINT\n"
-      "         Input: 0 rows \\(.+\\), Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1\n");
+      {{"-- Project\\[expressions: \\(c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(p1:BIGINT, plus\\(ROW\\[\"c1\"\\],1\\)\\), \\(p2:BIGINT, plus\\(ROW\\[\"c1\"\\],ROW\\[\"u_c1\"\\]\\)\\)\\] -> c0:INTEGER, p1:BIGINT, p2:BIGINT"},
+       {"   Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"  -- HashJoin\\[INNER c0=u_c0\\] -> c0:INTEGER, c1:BIGINT, u_c1:BIGINT"},
+       {"     Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 2\\.00MB, Memory allocations: .+"},
+       {"     HashBuild: Input: 100 rows \\(.+\\), Output: 0 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"    -- TableScan\\[table: hive_table\\] -> c0:INTEGER, c1:BIGINT"},
+       {"       Input: 2000 rows \\(.+\\), Raw Input: 20480 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 20"},
+       {"    -- Project\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT"},
+       {"       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1"},
+       {"      -- Values\\[100 rows in 1 vectors\\] -> c0:INTEGER, c1:BIGINT"},
+       {"         Input: 0 rows \\(.+\\), Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1"}});
 
   // with custom stats
   compareOutputs(
       ::testing::UnitTest::GetInstance()->current_test_info()->name(),
       printPlanWithStats(*op, task->taskStats(), true),
-      "-- Project\\[expressions: \\(c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(p1:BIGINT, plus\\(ROW\\[\"c1\"\\],1\\)\\), \\(p2:BIGINT, plus\\(ROW\\[\"c1\"\\],ROW\\[\"u_c1\"\\]\\)\\)\\] -> c0:INTEGER, p1:BIGINT, p2:BIGINT\n"
-      "   Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "      dataSourceLazyWallNanos    sum: .+, count: 20, min: .+, max: .+\n"
-      "  -- HashJoin\\[INNER c0=u_c0\\] -> c0:INTEGER, c1:BIGINT, u_c1:BIGINT\n"
-      "     Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 2\\.00MB, Memory allocations: .+\n"
-      "     HashBuild: Input: 100 rows \\(.+\\), Output: 0 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "        distinctKey0       sum: 101, count: 1, min: 101, max: 101\n"
-      "        queuedWallNanos    sum: .+, count: 1, min: .+, max: .+\n"
-      "        rangeKey0          sum: 200, count: 1, min: 200, max: 200\n"
-      "     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "        dynamicFiltersProduced    sum: 1, count: 1, min: 1, max: 1\n"
-      "        queuedWallNanos           sum: .+, count: 1, min: .+, max: .+\n"
-      "    -- TableScan\\[table: hive_table\\] -> c0:INTEGER, c1:BIGINT\n"
-      "       Input: 2000 rows \\(.+\\), Raw Input: 20480 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 20\n"
-      "          dataSourceWallNanos       sum: .+, count: 40, min: .+, max: .+\n"
-      "          dynamicFiltersAccepted    sum: 1, count: 1, min: 1, max: 1\n"
-      "          localReadBytes            sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "          numLocalRead              sum: 0, count: 1, min: 0, max: 0\n"
-      "          numPrefetch               sum: .+, count: 1, min: .+, max: .+\n"
-      "          numRamRead                sum: 0, count: 1, min: 0, max: 0\n"
-      "          numStorageRead            sum: .+, count: 1, min: .+, max: .+\n"
-      "          prefetchBytes             sum: .+, count: 1, min: .+, max: .+\n"
-      "          ramReadBytes              sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "          skippedSplitBytes         sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "          skippedSplits             sum: 0, count: 1, min: 0, max: 0\n"
-      "          skippedStrides            sum: 0, count: 1, min: 0, max: 0\n"
-      "          storageReadBytes          sum: .+, count: 1, min: .+, max: .+\n"
-      "    -- Project\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT\n"
-      "       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1\n"
-      "      -- Values\\[100 rows in 1 vectors\\] -> c0:INTEGER, c1:BIGINT\n"
-      "         Input: 0 rows \\(.+\\), Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1\n");
+      {{"-- Project\\[expressions: \\(c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(p1:BIGINT, plus\\(ROW\\[\"c1\"\\],1\\)\\), \\(p2:BIGINT, plus\\(ROW\\[\"c1\"\\],ROW\\[\"u_c1\"\\]\\)\\)\\] -> c0:INTEGER, p1:BIGINT, p2:BIGINT"},
+       {"   Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"      dataSourceLazyWallNanos    sum: .+, count: 20, min: .+, max: .+"},
+       {"  -- HashJoin\\[INNER c0=u_c0\\] -> c0:INTEGER, c1:BIGINT, u_c1:BIGINT"},
+       {"     Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 2\\.00MB, Memory allocations: .+"},
+       {"     HashBuild: Input: 100 rows \\(.+\\), Output: 0 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"        distinctKey0       sum: 101, count: 1, min: 101, max: 101"},
+       {"        queuedWallNanos    sum: .+, count: 1, min: .+, max: .+"},
+       {"        rangeKey0          sum: 200, count: 1, min: 200, max: 200"},
+       {"     HashProbe: Input: 2000 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"        dynamicFiltersProduced    sum: 1, count: 1, min: 1, max: 1"},
+       {"        queuedWallNanos           sum: .+, count: 1, min: .+, max: .+",
+        true}, // This line may or may not appear depending on how the threads
+               // running the Drivers are executed, this only appears if the
+               // HashProbe has to wait for the HashBuild construction.
+       {"    -- TableScan\\[table: hive_table\\] -> c0:INTEGER, c1:BIGINT"},
+       {"       Input: 2000 rows \\(.+\\), Raw Input: 20480 rows \\(.+\\), Output: 2000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 20"},
+       {"          dataSourceWallNanos       sum: .+, count: 40, min: .+, max: .+"},
+       {"          dynamicFiltersAccepted    sum: 1, count: 1, min: 1, max: 1"},
+       {"          localReadBytes            sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"          numLocalRead              sum: 0, count: 1, min: 0, max: 0"},
+       {"          numPrefetch               sum: .+, count: 1, min: .+, max: .+"},
+       {"          numRamRead                sum: 0, count: 1, min: 0, max: 0"},
+       {"          numStorageRead            sum: .+, count: 1, min: .+, max: .+"},
+       {"          prefetchBytes             sum: .+, count: 1, min: .+, max: .+"},
+       {"          ramReadBytes              sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"          skippedSplitBytes         sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"          skippedSplits             sum: 0, count: 1, min: 0, max: 0"},
+       {"          skippedStrides            sum: 0, count: 1, min: 0, max: 0"},
+       {"          storageReadBytes          sum: .+, count: 1, min: .+, max: .+"},
+       {"    -- Project\\[expressions: \\(u_c0:INTEGER, ROW\\[\"c0\"\\]\\), \\(u_c1:BIGINT, ROW\\[\"c1\"\\]\\)\\] -> u_c0:INTEGER, u_c1:BIGINT"},
+       {"       Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1"},
+       {"      -- Values\\[100 rows in 1 vectors\\] -> c0:INTEGER, c1:BIGINT"},
+       {"         Input: 0 rows \\(.+\\), Output: 100 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 0B, Memory allocations: .+, Threads: 1"}});
 }
 
 TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
@@ -190,30 +211,30 @@ TEST_F(PrintPlanWithStatsTest, partialAggregateWithTableScan) {
   compareOutputs(
       ::testing::UnitTest::GetInstance()->current_test_info()->name(),
       printPlanWithStats(*op, task->taskStats()),
-      "-- Aggregation\\[PARTIAL \\[c5\\] a0 := max\\(ROW\\[\"c0\"\\]\\), a1 := sum\\(ROW\\[\"c1\"\\]\\), a2 := sum\\(ROW\\[\"c2\"\\]\\), a3 := sum\\(ROW\\[\"c3\"\\]\\), a4 := sum\\(ROW\\[\"c4\"\\]\\)\\] -> c5:VARCHAR, a0:BIGINT, a1:BIGINT, a2:BIGINT, a3:DOUBLE, a4:DOUBLE\n"
-      "   Output: .+, Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "  -- TableScan\\[table: hive_table\\] -> c0:BIGINT, c1:INTEGER, c2:SMALLINT, c3:REAL, c4:DOUBLE, c5:VARCHAR\n"
-      "     Input: 10000 rows \\(.+\\), Output: 10000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 1\n");
+      {{"-- Aggregation\\[PARTIAL \\[c5\\] a0 := max\\(ROW\\[\"c0\"\\]\\), a1 := sum\\(ROW\\[\"c1\"\\]\\), a2 := sum\\(ROW\\[\"c2\"\\]\\), a3 := sum\\(ROW\\[\"c3\"\\]\\), a4 := sum\\(ROW\\[\"c4\"\\]\\)\\] -> c5:VARCHAR, a0:BIGINT, a1:BIGINT, a2:BIGINT, a3:DOUBLE, a4:DOUBLE"},
+       {"   Output: .+, Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"  -- TableScan\\[table: hive_table\\] -> c0:BIGINT, c1:INTEGER, c2:SMALLINT, c3:REAL, c4:DOUBLE, c5:VARCHAR"},
+       {"     Input: 10000 rows \\(.+\\), Output: 10000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 1"}});
 
   compareOutputs(
       ::testing::UnitTest::GetInstance()->current_test_info()->name(),
       printPlanWithStats(*op, task->taskStats(), true),
-      "-- Aggregation\\[PARTIAL \\[c5\\] a0 := max\\(ROW\\[\"c0\"\\]\\), a1 := sum\\(ROW\\[\"c1\"\\]\\), a2 := sum\\(ROW\\[\"c2\"\\]\\), a3 := sum\\(ROW\\[\"c3\"\\]\\), a4 := sum\\(ROW\\[\"c4\"\\]\\)\\] -> c5:VARCHAR, a0:BIGINT, a1:BIGINT, a2:BIGINT, a3:DOUBLE, a4:DOUBLE\n"
-      "   Output: .+, Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1\n"
-      "  -- TableScan\\[table: hive_table\\] -> c0:BIGINT, c1:INTEGER, c2:SMALLINT, c3:REAL, c4:DOUBLE, c5:VARCHAR\n"
-      "     Input: 10000 rows \\(.+\\), Output: 10000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 1\n"
-      "        dataSourceLazyWallNanos    sum: .+, count: 7, min: .+, max: .+\n"
-      "        dataSourceWallNanos        sum: .+, count: 2, min: .+, max: .+\n"
-      "        loadedToValueHook          sum: 50000, count: 5, min: 10000, max: 10000\n"
-      "        localReadBytes             sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "        numLocalRead               sum: 0, count: 1, min: 0, max: 0\n"
-      "        numPrefetch                sum: .+, count: .+, min: .+, max: .+\n"
-      "        numRamRead                 sum: 0, count: 1, min: 0, max: 0\n"
-      "        numStorageRead             sum: .+, count: 1, min: .+, max: .+\n"
-      "        prefetchBytes              sum: .+, count: 1, min: .+, max: .+\n"
-      "        ramReadBytes               sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "        skippedSplitBytes          sum: 0B, count: 1, min: 0B, max: 0B\n"
-      "        skippedSplits              sum: 0, count: 1, min: 0, max: 0\n"
-      "        skippedStrides             sum: 0, count: 1, min: 0, max: 0\n"
-      "        storageReadBytes           sum: .+, count: 1, min: .+, max: .+\n");
+      {{"-- Aggregation\\[PARTIAL \\[c5\\] a0 := max\\(ROW\\[\"c0\"\\]\\), a1 := sum\\(ROW\\[\"c1\"\\]\\), a2 := sum\\(ROW\\[\"c2\"\\]\\), a3 := sum\\(ROW\\[\"c3\"\\]\\), a4 := sum\\(ROW\\[\"c4\"\\]\\)\\] -> c5:VARCHAR, a0:BIGINT, a1:BIGINT, a2:BIGINT, a3:DOUBLE, a4:DOUBLE"},
+       {"   Output: .+, Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1"},
+       {"  -- TableScan\\[table: hive_table\\] -> c0:BIGINT, c1:INTEGER, c2:SMALLINT, c3:REAL, c4:DOUBLE, c5:VARCHAR"},
+       {"     Input: 10000 rows \\(.+\\), Output: 10000 rows \\(.+\\), Cpu time: .+, Blocked wall time: .+, Peak memory: 1\\.00MB, Memory allocations: .+, Threads: 1, Splits: 1"},
+       {"        dataSourceLazyWallNanos    sum: .+, count: 7, min: .+, max: .+"},
+       {"        dataSourceWallNanos        sum: .+, count: 2, min: .+, max: .+"},
+       {"        loadedToValueHook          sum: 50000, count: 5, min: 10000, max: 10000"},
+       {"        localReadBytes             sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"        numLocalRead               sum: 0, count: 1, min: 0, max: 0"},
+       {"        numPrefetch                sum: .+, count: .+, min: .+, max: .+"},
+       {"        numRamRead                 sum: 0, count: 1, min: 0, max: 0"},
+       {"        numStorageRead             sum: .+, count: 1, min: .+, max: .+"},
+       {"        prefetchBytes              sum: .+, count: 1, min: .+, max: .+"},
+       {"        ramReadBytes               sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"        skippedSplitBytes          sum: 0B, count: 1, min: 0B, max: 0B"},
+       {"        skippedSplits              sum: 0, count: 1, min: 0, max: 0"},
+       {"        skippedStrides             sum: 0, count: 1, min: 0, max: 0"},
+       {"        storageReadBytes           sum: .+, count: 1, min: .+, max: .+"}});
 }
