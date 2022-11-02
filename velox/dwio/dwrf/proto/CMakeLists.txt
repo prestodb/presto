@@ -24,16 +24,17 @@ foreach(PROTO ${PROTO_FILES})
        "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.cc")
   list(APPEND PROTO_HDRS
        "${PROJECT_BINARY_DIR}/${PROTO_DIR}/${PROTO_NAME}.pb.h")
+  list(APPEND PROTO_FILES_FULL
+       "${PROJECT_SOURCE_DIR}/${PROTO_DIR}/${PROTO_NAME}.proto")
 endforeach()
 set(PROTO_OUTPUT_FILES ${PROTO_HDRS} ${PROTO_SRCS})
 set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
 
-# Generate source and headers
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND
     ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
-    ${Protobuf_INCLUDE_DIR} --cpp_out ${PROJECT_BINARY_DIR} ${PROTO_FILES}
+    ${Protobuf_INCLUDE_DIR} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
   DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
   COMMENT "Running PROTO compiler"
   VERBATIM)
