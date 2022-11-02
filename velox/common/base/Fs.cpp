@@ -22,7 +22,7 @@ namespace facebook::velox::common {
 bool generateFileDirectory(const char* dirPath) {
   std::error_code errorCode;
   auto success = fs::create_directories(dirPath, errorCode);
-  if (!success) {
+  if (!success && errorCode.value() != 0) {
     LOG(ERROR) << "Failed to create file directory '" << dirPath
                << "'. Error: " << errorCode.message() << " errno "
                << errorCode.value();

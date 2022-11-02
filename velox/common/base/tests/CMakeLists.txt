@@ -19,6 +19,7 @@ add_executable(
   BloomFilterTest.cpp
   CoalesceIoTest.cpp
   ExceptionTest.cpp
+  FsTest.cpp
   RangeTest.cpp
   RawVectorTest.cpp
   SimdUtilTest.cpp
