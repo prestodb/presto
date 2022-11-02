@@ -18,12 +18,14 @@
 
 #include "velox/common/memory/Memory.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/tests/ExpressionRunner.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/parse/Expressions.h"
 #include "velox/parse/ExpressionsParser.h"
+#include "velox/parse/QueryPlanner.h"
 #include "velox/parse/TypeResolver.h"
 #include "velox/vector/VectorSaver.h"
 
@@ -66,7 +68,7 @@ RowVectorPtr createRowVector(
       pool, ROW(std::move(names), std::move(types)), nullptr, size, vectors);
 }
 
-void evaluateAndPrintResults(
+RowVectorPtr evaluateAndPrintResults(
     exec::ExprSet& exprSet,
     const RowVectorPtr& data,
     const SelectivityVector& rows,
@@ -80,10 +82,25 @@ void evaluateAndPrintResults(
   auto rowResult = createRowVector(results, rows.size(), execCtx.pool());
   std::cout << "Result: " << rowResult->type()->toString() << std::endl;
   exec::test::printResults(rowResult, std::cout);
+  return rowResult;
 }
 
 vector_size_t adjustNumRows(vector_size_t numRows, vector_size_t size) {
   return numRows > 0 && numRows < size ? numRows : size;
+}
+
+void saveResults(
+    const RowVectorPtr& results,
+    const std::string& directoryPath) {
+  auto path = generateFilePath(directoryPath.c_str(), "vector");
+  VELOX_CHECK(
+      path.has_value(),
+      "Failed to create file for saving result vector in {} directory.",
+      directoryPath);
+
+  saveVectorToFile(results.get(), path.value().c_str());
+  LOG(INFO) << "Saved the results in " << path.value() << ". "
+            << results->size() << " rows: " << results->type()->toString();
 }
 } // namespace
 
@@ -92,7 +109,8 @@ void ExpressionRunner::run(
     const std::string& sql,
     const std::string& resultPath,
     const std::string& mode,
-    vector_size_t numRows) {
+    vector_size_t numRows,
+    const std::string& storeResultPath) {
   VELOX_CHECK(!sql.empty());
 
   std::shared_ptr<core::QueryCtx> queryCtx{core::QueryCtx::createForTest()};
@@ -115,6 +133,29 @@ void ExpressionRunner::run(
   }
 
   parse::registerTypeResolver();
+
+  if (mode == "query") {
+    core::DuckDbQueryPlanner planner{pool.get()};
+
+    if (inputVector->type()->size()) {
+      LOG(INFO) << "Registering input vector as table t: "
+                << inputVector->type()->toString();
+      planner.registerTable("t", {inputVector});
+    }
+
+    auto plan = planner.plan(sql);
+    auto results = exec::test::AssertQueryBuilder(plan).copyResults(pool.get());
+
+    // Print the results.
+    std::cout << "Result: " << results->type()->toString() << std::endl;
+    exec::test::printResults(results, std::cout);
+
+    if (!storeResultPath.empty()) {
+      saveResults(results, storeResultPath);
+    }
+    return;
+  }
+
   auto typedExprs = parseSql(sql, inputVector->type(), pool.get());
 
   VectorPtr resultVector;
@@ -133,10 +174,16 @@ void ExpressionRunner::run(
         .verify(typedExprs[0], inputVector, std::move(resultVector), true);
   } else if (mode == "common") {
     exec::ExprSet exprSet(typedExprs, &execCtx);
-    evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
+    auto results = evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
+    if (!storeResultPath.empty()) {
+      saveResults(results, storeResultPath);
+    }
   } else if (mode == "simplified") {
     exec::ExprSetSimplified exprSet(typedExprs, &execCtx);
-    evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
+    auto results = evaluateAndPrintResults(exprSet, inputVector, rows, execCtx);
+    if (!storeResultPath.empty()) {
+      saveResults(results, storeResultPath);
+    }
   } else {
     VELOX_FAIL("Unknown expression runner mode: [{}].", mode);
   }

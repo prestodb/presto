@@ -194,7 +194,7 @@ TypedExprPtr toVeloxExpression(
       return std::make_shared<ConstantTypedExpr>(
           duckdb::toVeloxType(constant->return_type),
           duckdb::duckValueToVariant(
-              constant->value, false /*parseDecimalAsDouble*/));
+              constant->value, true /*parseDecimalAsDouble*/));
     }
     case ::duckdb::ExpressionType::COMPARE_EQUAL:
       return toVeloxComparisonExpression("eq", expression, inputType);

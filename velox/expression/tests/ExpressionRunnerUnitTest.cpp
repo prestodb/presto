@@ -56,8 +56,8 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   saveVectorToFile(inputVector.get(), inputPath);
   saveVectorToFile(resultVector.get(), resultPath);
 
-  EXPECT_NO_THROW(
-      ExpressionRunner::run(inputPath, "length(c0)", resultPath, "verify", 0));
+  EXPECT_NO_THROW(ExpressionRunner::run(
+      inputPath, "length(c0)", resultPath, "verify", 0, ""));
 }
 
 } // namespace facebook::velox::test

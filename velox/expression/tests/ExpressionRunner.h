@@ -47,7 +47,8 @@ class ExpressionRunner {
       const std::string& sql,
       const std::string& resultPath,
       const std::string& mode,
-      vector_size_t numRows);
+      vector_size_t numRows,
+      const std::string& storeResultPath);
 };
 
 } // namespace facebook::velox::test
