@@ -19,7 +19,6 @@ import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
@@ -35,18 +34,12 @@ public class TestHiveTypeTranslator
 
     public TestHiveTypeTranslator()
     {
-        this(ImmutableMap.of());
-    }
-
-    protected TestHiveTypeTranslator(Map<String, HiveType> overwriteTranslation)
-    {
-        ImmutableMap<String, HiveType> hiveTypeTranslationMap = ImmutableMap.<String, HiveType>builder()
+        typeTranslationMap = ImmutableMap.<String, HiveType>builder()
                 .put("bigint", HiveType.HIVE_LONG)
                 .put("integer", HiveType.HIVE_INT)
                 .put("smallint", HiveType.HIVE_SHORT)
                 .put("tinyint", HiveType.HIVE_BYTE)
                 .put("double", HiveType.HIVE_DOUBLE)
-                .put("varchar(3)", HiveType.valueOf("varchar(3)"))
                 .put("varchar", HiveType.HIVE_STRING)
                 .put("date", HiveType.HIVE_DATE)
                 .put("timestamp", HiveType.HIVE_TIMESTAMP)
@@ -56,33 +49,61 @@ public class TestHiveTypeTranslator
                 .put("map(boolean,varbinary)", HiveType.valueOf("map<boolean,binary>"))
                 .put("row(col0 integer,col1 varbinary)", HiveType.valueOf("struct<col0:int,col1:binary>"))
                 .build();
-
-        typeTranslationMap = new HashMap<>();
-        typeTranslationMap.putAll(hiveTypeTranslationMap);
-        typeTranslationMap.putAll(overwriteTranslation);
     }
 
     @Test
     public void testTypeTranslator()
     {
-        for (Map.Entry<String, HiveType> entry : typeTranslationMap.entrySet()) {
-            assertTypeTranslation(entry.getKey(), entry.getValue());
+        for (boolean useUnboundedVarchar : new boolean[] {true, false}) {
+            assertTypeTranslation(typeTranslationMap, useUnboundedVarchar);
+
+            assertInvalidTypeTranslation("row(integer,varbinary)", NOT_SUPPORTED.toErrorCode(), "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)", useUnboundedVarchar);
         }
 
-        assertInvalidTypeTranslation("row(integer,varbinary)", NOT_SUPPORTED.toErrorCode(), "Anonymous row type is not supported in Hive. Please give each field a name: row(integer,varbinary)");
+        // verify bounded varchars.
+        Map<String, HiveType> boundedTypes = ImmutableMap.of(
+                "varchar(3)",
+                HiveType.valueOf("varchar(3)"),
+                "array(varchar(23))",
+                HiveType.valueOf("array<varchar(23)>"),
+                "map(varchar(10), varchar(37))",
+                HiveType.valueOf("map<varchar(10),varchar(37)>"),
+                "row(col0 array(varchar(1)),col1 map(varchar(2), bigint))",
+                HiveType.valueOf("struct<col0:array<varchar(1)>,col1:map<varchar(2),bigint>>"));
+        assertTypeTranslation(boundedTypes, false);
+
+        // verify UnBounded types
+        Map<String, HiveType> unboundedTypes = ImmutableMap.of(
+                "varchar(3)",
+                HiveType.HIVE_STRING,
+                "array(varchar(23))",
+                HiveType.valueOf("array<string>"),
+                "map(varchar(10), varchar(37))",
+                HiveType.valueOf("map<string,string>"),
+                "row(col0 array(varchar(1)),col1 map(varchar(2), bigint))",
+                HiveType.valueOf("struct<col0:array<string>,col1:map<string,bigint>>"));
+
+        assertTypeTranslation(unboundedTypes, true);
     }
 
-    private void assertTypeTranslation(String typeName, HiveType hiveType)
+    private void assertTypeTranslation(Map<String, HiveType> typeTranslationMap, boolean useUnboundedVarchar)
+    {
+        for (Map.Entry<String, HiveType> entry : typeTranslationMap.entrySet()) {
+            assertTypeTranslation(entry.getKey(), entry.getValue(), useUnboundedVarchar);
+        }
+    }
+
+    private void assertTypeTranslation(String typeName, HiveType hiveType, boolean useUnboundedVarchar)
     {
         Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
-        assertEquals(HiveType.toHiveType(type), hiveType);
+        assertEquals(HiveType.toHiveType(type, useUnboundedVarchar), hiveType, "Type does not match for " + useUnboundedVarchar);
     }
 
-    private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message)
+    private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message, boolean useUnboundedVarchar)
     {
         Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
         try {
-            HiveType.toHiveType(type);
+            HiveType.toHiveType(type, useUnboundedVarchar);
             fail("expected exception");
         }
         catch (PrestoException e) {

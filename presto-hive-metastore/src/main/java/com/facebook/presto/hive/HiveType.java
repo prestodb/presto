@@ -201,19 +201,19 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(
-            Type type)
+    public static HiveType toHiveType(Type type, boolean useUnboundedVarchar)
     {
-        return toHiveType(type, Optional.empty());
+        return toHiveType(type, Optional.empty(), useUnboundedVarchar);
     }
 
     public static HiveType toHiveType(
             Type type,
-            Optional<HiveType> defaultHiveType)
+            Optional<HiveType> defaultHiveType,
+            boolean useUnboundedVarchar)
     {
         requireNonNull(type, "type is null");
         requireNonNull(defaultHiveType, "defaultHiveType is null");
-        return new HiveType(translate(type, defaultHiveType));
+        return new HiveType(translate(type, useUnboundedVarchar, defaultHiveType));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)

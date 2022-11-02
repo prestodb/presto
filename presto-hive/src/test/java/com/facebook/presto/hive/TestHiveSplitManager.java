@@ -512,7 +512,8 @@ public class TestHiveSplitManager
                 new HiveEncryptionInformationProvider(ImmutableList.of()),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                false);
 
         HiveSplitManager splitManager = new HiveSplitManager(
                 new TestingHiveTransactionManager(metadataFactory),

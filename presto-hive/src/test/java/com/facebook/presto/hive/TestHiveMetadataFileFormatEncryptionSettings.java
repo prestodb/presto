@@ -139,7 +139,8 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 new HiveEncryptionInformationProvider(ImmutableList.of(new TestDwrfEncryptionInformationSource())),
                 new HivePartitionStats(),
                 new HiveFileRenamer(),
-                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER);
+                HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER,
+                false);
 
         metastore.createDatabase(METASTORE_CONTEXT, Database.builder()
                 .setDatabaseName(TEST_DB_NAME)

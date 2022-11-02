@@ -69,18 +69,19 @@ public final class HiveTypeTranslator
     private HiveTypeTranslator()
     {}
 
-    public static TypeInfo translate(Type type)
+    public static TypeInfo translate(Type type, boolean useUnboundedVarchar)
     {
-        return translate(type, Optional.empty());
+        return translate(type, useUnboundedVarchar, Optional.empty());
     }
 
     /**
      * @param type            source type to be translated
+     * @param useUnboundedVarchar when true, all varchar types would be converted to Hive string type regardless of the length.
+     *                            when false, varchar type with INT_MAX length will be converted to string, rest to Hive varchar type
      * @param defaultHiveType When there is no mapping type to translate a type to,
      *                        use provided default hive type when necessary. For example,
-     *                        explicit type is not needed for PageFile format.
      */
-    public static TypeInfo translate(Type type, Optional<HiveType> defaultHiveType)
+    public static TypeInfo translate(Type type, boolean useUnboundedVarchar, Optional<HiveType> defaultHiveType)
     {
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.getTypeInfo();
@@ -104,6 +105,9 @@ public final class HiveTypeTranslator
             return HIVE_DOUBLE.getTypeInfo();
         }
         if (type instanceof VarcharType) {
+            if (useUnboundedVarchar) {
+                return HIVE_STRING.getTypeInfo();
+            }
             VarcharType varcharType = (VarcharType) type;
             int varcharLength = varcharType.getLength();
             if (varcharLength <= HiveVarchar.MAX_VARCHAR_LENGTH) {
@@ -118,7 +122,7 @@ public final class HiveTypeTranslator
             }
         }
         if (type instanceof EnumType<?>) {
-            return translate(((EnumType<?>) type).getValueType());
+            return translate(((EnumType<?>) type).getValueType(), useUnboundedVarchar);
         }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
@@ -130,10 +134,10 @@ public final class HiveTypeTranslator
                     type, HiveChar.MAX_CHAR_LENGTH));
         }
         if (type instanceof TypeWithName) {
-            return translate(((TypeWithName) type).getType());
+            return translate(((TypeWithName) type).getType(), useUnboundedVarchar);
         }
         if (type instanceof DistinctType) {
-            return translate(((DistinctType) type).getBaseType());
+            return translate(((DistinctType) type).getBaseType(), useUnboundedVarchar);
         }
         if (VARBINARY.equals(type)) {
             return HIVE_BINARY.getTypeInfo();
@@ -149,12 +153,12 @@ public final class HiveTypeTranslator
             return new DecimalTypeInfo(decimalType.getPrecision(), decimalType.getScale());
         }
         if (isArrayType(type)) {
-            TypeInfo elementType = translate(type.getTypeParameters().get(0), defaultHiveType);
+            TypeInfo elementType = translate(type.getTypeParameters().get(0), useUnboundedVarchar, defaultHiveType);
             return getListTypeInfo(elementType);
         }
         if (isMapType(type)) {
-            TypeInfo keyType = translate(type.getTypeParameters().get(0), defaultHiveType);
-            TypeInfo valueType = translate(type.getTypeParameters().get(1), defaultHiveType);
+            TypeInfo keyType = translate(type.getTypeParameters().get(0), useUnboundedVarchar, defaultHiveType);
+            TypeInfo valueType = translate(type.getTypeParameters().get(1), useUnboundedVarchar, defaultHiveType);
             return getMapTypeInfo(keyType, valueType);
         }
         if (isRowType(type)) {
@@ -172,7 +176,7 @@ public final class HiveTypeTranslator
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(t -> translate(t, defaultHiveType))
+                            .map(t -> translate(t, useUnboundedVarchar, defaultHiveType))
                             .collect(toList()));
         }
         return defaultHiveType

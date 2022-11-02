@@ -69,6 +69,7 @@ public class HiveMetadataFactory
     private final HivePartitionStats hivePartitionStats;
     private final HiveFileRenamer hiveFileRenamer;
     private final ColumnConverterProvider columnConverterProvider;
+    private final boolean useUnboundedVarchar;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -127,7 +128,8 @@ public class HiveMetadataFactory
                 encryptionInformationProvider,
                 hivePartitionStats,
                 hiveFileRenamer,
-                columnConverterProvider);
+                columnConverterProvider,
+                false);
     }
 
     public HiveMetadataFactory(
@@ -161,7 +163,8 @@ public class HiveMetadataFactory
             HiveEncryptionInformationProvider encryptionInformationProvider,
             HivePartitionStats hivePartitionStats,
             HiveFileRenamer hiveFileRenamer,
-            ColumnConverterProvider columnConverterProvider)
+            ColumnConverterProvider columnConverterProvider,
+            boolean useUnboundedVarchar)
     {
         this.allowCorruptWritesForTesting = allowCorruptWritesForTesting;
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -194,6 +197,7 @@ public class HiveMetadataFactory
         this.hivePartitionStats = requireNonNull(hivePartitionStats, "hivePartitionStats is null");
         this.hiveFileRenamer = requireNonNull(hiveFileRenamer, "hiveFileRenamer is null");
         this.columnConverterProvider = requireNonNull(columnConverterProvider, "columnConverterProvider is null");
+        this.useUnboundedVarchar = useUnboundedVarchar;
 
         if (!allowCorruptWritesForTesting && !timeZone.equals(DateTimeZone.getDefault())) {
             log.warn("Hive writes are disabled. " +
@@ -239,6 +243,7 @@ public class HiveMetadataFactory
                 partitionObjectBuilder,
                 encryptionInformationProvider,
                 hivePartitionStats,
-                hiveFileRenamer);
+                hiveFileRenamer,
+                useUnboundedVarchar);
     }
 }

@@ -37,7 +37,8 @@ public class TestHivePushdownIntegrationSmokeTest
     {
         super(createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
-                HIVE_CATALOG);
+                HIVE_CATALOG,
+                false);
     }
 
     @Override

@@ -221,7 +221,7 @@ public class HivePartialAggregationPushdown
                 CallExpression callExpression = aggregationEntry.getValue().getCall();
                 String columnName;
                 int columnIndex;
-                HiveType hiveType = HiveType.toHiveType(callExpression.getType());
+                HiveType hiveType = HiveType.toHiveType(callExpression.getType(), false);
                 if (callExpression.getArguments().isEmpty()) {
                     columnName = "count_star";
                     columnIndex = DUMMY_AGGREGATED_COLUMN_INDEX;

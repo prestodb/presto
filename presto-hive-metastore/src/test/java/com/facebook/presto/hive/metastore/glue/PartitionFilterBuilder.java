@@ -132,6 +132,6 @@ public class PartitionFilterBuilder
 
     private Column getColumn(String name, Type type)
     {
-        return new Column(name, HiveType.toHiveType(type), Optional.empty(), Optional.empty());
+        return new Column(name, HiveType.toHiveType(type, false), Optional.empty(), Optional.empty());
     }
 }

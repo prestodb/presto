@@ -426,7 +426,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType, false), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         RecordCursor recordCursor = cursorProvider
@@ -461,7 +461,7 @@ public enum FileFormat
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
+            columnHandles.add(new HiveColumnHandle(columnName, toHiveType(columnType, false), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
         SchemaTableName tableName = new SchemaTableName("hive", "testtable");
@@ -547,7 +547,7 @@ public enum FileFormat
         schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
                 .collect(joining(",")));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(type -> toHiveType(type))
+                .map(type -> toHiveType(type, false))
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));
