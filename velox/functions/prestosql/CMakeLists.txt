@@ -33,7 +33,6 @@ add_library(
   GreatestLeast.cpp
   InPredicate.cpp
   Map.cpp
-  MapConcat.cpp
   MapEntries.cpp
   MapKeysAndValues.cpp
   MapZipWith.cpp

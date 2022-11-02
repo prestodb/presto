@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "MapConcat.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/vector/TypeAliases.h"
@@ -168,13 +169,17 @@ class MapConcatFunction : public exec::VectorFunction {
 };
 } // namespace
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_map_concat,
-    MapConcatFunction</*EmptyForNull=*/false>::signatures(),
-    std::make_unique<MapConcatFunction</*EmptyForNull=*/false>>());
+void registerMapConcatFunction(const std::string& name) {
+  exec::registerVectorFunction(
+      name,
+      MapConcatFunction</*EmptyForNull=*/false>::signatures(),
+      std::make_unique<MapConcatFunction</*EmptyForNull=*/false>>());
+}
 
-VELOX_DECLARE_VECTOR_FUNCTION(
-    udf_map_concat_empty_null,
-    MapConcatFunction</*EmptyForNull=*/true>::signatures(),
-    std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>());
+void registerMapConcatEmptyNullsFunction(const std::string& name) {
+  exec::registerVectorFunction(
+      name,
+      MapConcatFunction</*EmptyForNull=*/true>::signatures(),
+      std::make_unique<MapConcatFunction</*EmptyForNull=*/true>>());
+}
 } // namespace facebook::velox::functions

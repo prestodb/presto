@@ -20,6 +20,7 @@ add_executable(
   IsNotNullTest.cpp
   JodaDateTimeTest.cpp
   KllSketchTest.cpp
+  MapConcatTest.cpp
   Re2FunctionsTest.cpp
   ZetaDistributionTest.cpp)
 

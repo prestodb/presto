@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/expression/VectorFunction.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/lib/MapConcat.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
+#include "velox/parse/TypeResolver.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::functions::test;
 
 class MapConcatTest : public FunctionBaseTest {
  protected:
+  static void SetUpTestCase() {
+    FunctionBaseTest::SetUpTestCase();
+    facebook::velox::functions::registerMapConcatEmptyNullsFunction(
+        "map_concat_empty_nulls");
+  }
+
   template <typename TKey, typename TValue>
   static std::vector<TKey> mapKeys(const std::map<TKey, TValue>& m) {
     std::vector<TKey> keys;

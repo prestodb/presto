@@ -28,6 +28,7 @@ add_library(
   JodaDateTime.cpp
   KllSketch.cpp
   LambdaFunctionUtil.cpp
+  MapConcat.cpp
   Re2Functions.cpp
   StringEncodingUtils.cpp)
 
