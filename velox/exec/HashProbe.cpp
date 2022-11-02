@@ -308,8 +308,8 @@ void HashProbe::asyncWaitForHashTable() {
       }
     }
   } else if (
-      (isInnerJoin(joinType_) || isLeftSemiJoin(joinType_) ||
-       isRightSemiJoin(joinType_)) &&
+      (isInnerJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
+       isRightSemiFilterJoin(joinType_)) &&
       table_->hashMode() != BaseHashTable::HashMode::kHash && !isSpillInput() &&
       !hasMoreSpillData()) {
     // Find out whether there are any upstream operators that can accept
@@ -642,7 +642,7 @@ void HashProbe::fillOutput(vector_size_t size) {
 RowVectorPtr HashProbe::getBuildSideOutput() {
   outputTableRows_.resize(outputBatchSize_);
   int32_t numOut;
-  if (isRightSemiJoin(joinType_)) {
+  if (isRightSemiFilterJoin(joinType_)) {
     numOut = table_->listProbedRows(
         &lastProbeIterator_,
         outputBatchSize_,
@@ -688,12 +688,12 @@ void HashProbe::clearIdentityProjectedOutput() {
 
 bool HashProbe::needLastProbe() const {
   return isRightJoin(joinType_) || isFullJoin(joinType_) ||
-      isRightSemiJoin(joinType_);
+      isRightSemiFilterJoin(joinType_);
 }
 
 bool HashProbe::skipProbeOnEmptyBuild() const {
-  return isInnerJoin(joinType_) || isLeftSemiJoin(joinType_) ||
-      isRightJoin(joinType_) || isRightSemiJoin(joinType_);
+  return isInnerJoin(joinType_) || isLeftSemiFilterJoin(joinType_) ||
+      isRightJoin(joinType_) || isRightSemiFilterJoin(joinType_);
 }
 
 bool HashProbe::spillEnabled() const {
@@ -776,7 +776,7 @@ RowVectorPtr HashProbe::getOutput() {
   }
 
   const bool isLeftSemiOrAntiJoinNoFilter =
-      !filter_ && (isLeftSemiJoin(joinType_) || isAntiJoins(joinType_));
+      !filter_ && (isLeftSemiFilterJoin(joinType_) || isAntiJoins(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
@@ -849,7 +849,7 @@ RowVectorPtr HashProbe::getOutput() {
 
     // Right semi join only returns the build side output when the probe side
     // is fully complete. Do not return anything here.
-    if (isRightSemiJoin(joinType_)) {
+    if (isRightSemiFilterJoin(joinType_)) {
       if (results_.atEnd()) {
         input_ = nullptr;
       }
@@ -1118,7 +1118,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     if (results_.atEnd()) {
       noMatchDetector_.finish(addMiss);
     }
-  } else if (isLeftSemiJoin(joinType_)) {
+  } else if (isLeftSemiFilterJoin(joinType_)) {
     auto addLastMatch = [&](auto row) {
       outputTableRows_[numPassed] = nullptr;
       rawOutputProbeRowMapping[numPassed++] = row;
@@ -1162,7 +1162,8 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 }
 
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
-  if (isLeftSemiJoin(joinType_) || isAntiJoins(joinType_) || results_.atEnd()) {
+  if (isLeftSemiFilterJoin(joinType_) || isAntiJoins(joinType_) ||
+      results_.atEnd()) {
     return;
   }
 

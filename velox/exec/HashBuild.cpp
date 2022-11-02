@@ -136,9 +136,9 @@ void HashBuild::setupTable() {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
     const bool dropDuplicates = !joinNode_->filter() &&
-        (joinNode_->isLeftSemiJoin() || isAntiJoins(joinType_));
+        (joinNode_->isLeftSemiFilterJoin() || isAntiJoins(joinType_));
     // Right semi join needs to tag build rows that were probed.
-    const bool needProbedFlag = joinNode_->isRightSemiJoin();
+    const bool needProbedFlag = joinNode_->isRightSemiFilterJoin();
     if (isNullAwareAntiJoinWithFilter(joinNode_)) {
       // We need to check null key rows in build side in case of null-aware anti
       // join with filter set.

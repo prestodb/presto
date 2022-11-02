@@ -926,8 +926,10 @@ enum class JoinType {
   kLeft,
   kRight,
   kFull,
-  kLeftSemi,
-  kRightSemi,
+  kLeftSemi, // TODO Remove after updating Prestissimo.
+  kLeftSemiFilter,
+  kRightSemi, // TODO Remove after updating Prestissimo.
+  kRightSemiFilter,
   kNullAwareAnti,
   kAnti,
 };
@@ -943,9 +945,11 @@ inline const char* joinTypeName(JoinType joinType) {
     case JoinType::kFull:
       return "FULL";
     case JoinType::kLeftSemi:
-      return "LEFT SEMI";
+    case JoinType::kLeftSemiFilter:
+      return "LEFT SEMI (FILTER)";
     case JoinType::kRightSemi:
-      return "RIGHT SEMI";
+    case JoinType::kRightSemiFilter:
+      return "RIGHT SEMI (FILTER)";
     case JoinType::kNullAwareAnti:
       return "NULL-AWARE ANTI";
     case JoinType::kAnti:
@@ -970,12 +974,14 @@ inline bool isFullJoin(JoinType joinType) {
   return joinType == JoinType::kFull;
 }
 
-inline bool isLeftSemiJoin(JoinType joinType) {
-  return joinType == JoinType::kLeftSemi;
+inline bool isLeftSemiFilterJoin(JoinType joinType) {
+  return joinType == JoinType::kLeftSemiFilter ||
+      joinType == JoinType::kLeftSemi;
 }
 
-inline bool isRightSemiJoin(JoinType joinType) {
-  return joinType == JoinType::kRightSemi;
+inline bool isRightSemiFilterJoin(JoinType joinType) {
+  return joinType == JoinType::kRightSemiFilter ||
+      joinType == JoinType::kRightSemi;
 }
 
 inline bool isNullAwareAntiJoin(JoinType joinType) {
@@ -1032,12 +1038,12 @@ class AbstractJoinNode : public PlanNode {
     return joinType_ == JoinType::kFull;
   }
 
-  bool isLeftSemiJoin() const {
-    return joinType_ == JoinType::kLeftSemi;
+  bool isLeftSemiFilterJoin() const {
+    return joinType_ == JoinType::kLeftSemiFilter;
   }
 
-  bool isRightSemiJoin() const {
-    return joinType_ == JoinType::kRightSemi;
+  bool isRightSemiFilterJoin() const {
+    return joinType_ == JoinType::kRightSemiFilter;
   }
 
   bool isNullAwareAntiJoin() const {

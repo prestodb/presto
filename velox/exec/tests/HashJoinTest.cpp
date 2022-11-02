@@ -953,7 +953,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithNull) {
   }
 }
 
-TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithLargeOutput) {
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithLargeOutput) {
   // Build the identical left and right vectors to generate large join outputs.
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(4, [&](uint32_t /*unused*/) {
@@ -977,7 +977,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithLargeOutput) {
       .probeVectors(std::move(probeVectors))
       .buildKeys({"u0"})
       .buildVectors(std::move(buildVectors))
-      .joinType(core::JoinType::kRightSemi)
+      .joinType(core::JoinType::kRightSemiFilter)
       .joinOutputLayout({"u1"})
       .referenceQuery("SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t)")
       .run();
@@ -1141,7 +1141,7 @@ TEST_P(MultiThreadedHashJoinTest, innerJoinWithEmptyBuild) {
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, leftSemiJoin) {
+TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilter) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_)
       .numDrivers(numDrivers_)
       .probeType(probeType_)
@@ -1150,13 +1150,13 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoin) {
       .buildType(buildType_)
       .buildVectors(133, 4)
       .buildKeys({"u_k1"})
-      .joinType(core::JoinType::kLeftSemi)
+      .joinType(core::JoinType::kLeftSemiFilter)
       .joinOutputLayout({"t_k2"})
       .referenceQuery("SELECT t_k2 FROM t WHERE t_k1 IN (SELECT u_k1 FROM u)")
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithEmptyBuild) {
+TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilterWithEmptyBuild) {
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(10, [&](int32_t /*unused*/) {
         return makeRowVector({
@@ -1173,13 +1173,13 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithEmptyBuild) {
         });
       });
 
-  HashJoinBuilder joinBuilder(*pool_, duckDbQueryRunner_);
-  joinBuilder.numDrivers(numDrivers_)
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .numDrivers(numDrivers_)
       .probeKeys({"c0"})
       .probeVectors(std::move(probeVectors))
       .buildKeys({"c0"})
       .buildVectors(std::move(buildVectors))
-      .joinType(core::JoinType::kLeftSemi)
+      .joinType(core::JoinType::kLeftSemiFilter)
       .joinFilter("c0 < 0")
       .joinOutputLayout({"c1"})
       .referenceQuery(
@@ -1187,7 +1187,7 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithEmptyBuild) {
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithFilter) {
+TEST_P(MultiThreadedHashJoinTest, leftSemiJoinFilterWithExtraFilter) {
   std::vector<RowVectorPtr> probeVectors = makeBatches(5, [&](int32_t batch) {
     return makeRowVector(
         {"t0", "t1"},
@@ -1219,7 +1219,7 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithFilter) {
         .probeVectors(std::move(testProbeVectors))
         .buildKeys({"u0"})
         .buildVectors(std::move(testBuildVectors))
-        .joinType(core::JoinType::kLeftSemi)
+        .joinType(core::JoinType::kLeftSemiFilter)
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(
             "SELECT t.* FROM t WHERE EXISTS (SELECT u0 FROM u WHERE t0 = u0)")
@@ -1235,7 +1235,7 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithFilter) {
         .probeVectors(std::move(testProbeVectors))
         .buildKeys({"u0"})
         .buildVectors(std::move(testBuildVectors))
-        .joinType(core::JoinType::kLeftSemi)
+        .joinType(core::JoinType::kLeftSemiFilter)
         .joinFilter("t1 != u1")
         .joinOutputLayout({"t0", "t1"})
         .referenceQuery(
@@ -1244,7 +1244,7 @@ TEST_P(MultiThreadedHashJoinTest, leftSemiJoinWithFilter) {
   }
 }
 
-TEST_P(MultiThreadedHashJoinTest, rightSemiJoin) {
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilter) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_)
       .numDrivers(numDrivers_)
       .probeType(probeType_)
@@ -1253,13 +1253,13 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoin) {
       .buildType(buildType_)
       .buildVectors(174, 4)
       .buildKeys({"u_k1"})
-      .joinType(core::JoinType::kRightSemi)
+      .joinType(core::JoinType::kRightSemiFilter)
       .joinOutputLayout({"u_k2"})
       .referenceQuery("SELECT u_k2 FROM u WHERE u_k1 IN (SELECT t_k1 FROM t)")
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithEmptyBuild) {
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithEmptyBuild) {
   // probeVectors size is greater than buildVector size.
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(5, [&](uint32_t /*unused*/) {
@@ -1288,7 +1288,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithEmptyBuild) {
       .buildKeys({"u0"})
       .buildVectors(std::move(buildVectors))
       .buildFilter("u0 < 0")
-      .joinType(core::JoinType::kRightSemi)
+      .joinType(core::JoinType::kRightSemiFilter)
       .joinOutputLayout({"u1"})
       .referenceQuery(
           "SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t) AND u.u0 < 0")
@@ -1304,7 +1304,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithEmptyBuild) {
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithAllMatches) {
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithAllMatches) {
   // Make build side larger to test all rows are returned.
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(3, [&](uint32_t /*unused*/) {
@@ -1332,13 +1332,13 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithAllMatches) {
       .probeVectors(std::move(probeVectors))
       .buildKeys({"u0"})
       .buildVectors(std::move(buildVectors))
-      .joinType(core::JoinType::kRightSemi)
+      .joinType(core::JoinType::kRightSemiFilter)
       .joinOutputLayout({"u1"})
       .referenceQuery("SELECT u.u1 FROM u WHERE u.u0 IN (SELECT t0 FROM t)")
       .run();
 }
 
-TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithFilter) {
+TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithExtraFilter) {
   auto probeVectors = makeBatches(4, [&](int32_t /*unused*/) {
     return makeRowVector(
         {"t0", "t1"},
@@ -1367,7 +1367,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithFilter) {
         .probeVectors(std::move(testProbeVectors))
         .buildKeys({"u0"})
         .buildVectors(std::move(testBuildVectors))
-        .joinType(core::JoinType::kRightSemi)
+        .joinType(core::JoinType::kRightSemiFilter)
         .joinFilter("t1 > -1")
         .joinOutputLayout({"u0", "u1"})
         .referenceQuery(
@@ -1389,7 +1389,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithFilter) {
         .probeVectors(std::move(testProbeVectors))
         .buildKeys({"u0"})
         .buildVectors(std::move(testBuildVectors))
-        .joinType(core::JoinType::kRightSemi)
+        .joinType(core::JoinType::kRightSemiFilter)
         .joinFilter("t1 > 100000")
         .joinOutputLayout({"u0", "u1"})
         .referenceQuery(
@@ -1410,7 +1410,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinWithFilter) {
         .probeVectors(std::move(testProbeVectors))
         .buildKeys({"u0"})
         .buildVectors(std::move(testBuildVectors))
-        .joinType(core::JoinType::kRightSemi)
+        .joinType(core::JoinType::kRightSemiFilter)
         .joinFilter("t1 % 5 = 0")
         .joinOutputLayout({"u0", "u1"})
         .referenceQuery(
@@ -2834,9 +2834,9 @@ TEST_F(HashJoinTest, dynamicFilters) {
         makeFlatVector<int64_t>(numRowsBuild / 5, [](auto row) { return row; }),
     }));
   }
-  std::vector<RowVectorPtr> keyOnlybuildVectors;
+  std::vector<RowVectorPtr> keyOnlyBuildVectors;
   for (int i = 0; i < 5; ++i) {
-    keyOnlybuildVectors.push_back(
+    keyOnlyBuildVectors.push_back(
         makeRowVector({makeFlatVector<int32_t>(numRowsBuild / 5, [i](auto row) {
           return 35 + 2 * (row + i * numRowsBuild / 5);
         })}));
@@ -2854,7 +2854,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                        .project({"c0 AS u_c0", "c1 AS u_c1"})
                        .planNode();
   auto keyOnlyBuildSide = PlanBuilder(planNodeIdGenerator)
-                              .values(keyOnlybuildVectors)
+                              .values(keyOnlyBuildVectors)
                               .project({"c0 AS u_c0"})
                               .planNode();
 
@@ -2910,7 +2910,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  buildSide,
                  "",
                  {"c0", "c1"},
-                 core::JoinType::kLeftSemi)
+                 core::JoinType::kLeftSemiFilter)
              .project({"c0", "c1 + 1"})
              .planNode();
 
@@ -2951,7 +2951,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  buildSide,
                  "",
                  {"u_c0", "u_c1"},
-                 core::JoinType::kRightSemi)
+                 core::JoinType::kRightSemiFilter)
              .project({"u_c0", "u_c1 + 1"})
              .planNode();
 
@@ -3226,7 +3226,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  buildSide,
                  "",
                  {"c1"},
-                 core::JoinType::kLeftSemi)
+                 core::JoinType::kLeftSemiFilter)
              .project({"c1 + 1"})
              .planNode();
 
@@ -3267,7 +3267,7 @@ TEST_F(HashJoinTest, dynamicFilters) {
                  buildSide,
                  "",
                  {"u_c1"},
-                 core::JoinType::kRightSemi)
+                 core::JoinType::kRightSemiFilter)
              .project({"u_c1 + 1"})
              .planNode();
 
