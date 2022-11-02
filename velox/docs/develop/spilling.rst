@@ -43,7 +43,8 @@ Spill Objects
 The spilling framework consists of the following major software objects:
 
 `Spiller <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spiller.h#L24>`_
-^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The Spiller object provides the spilling functions for all the operators
 and helps them manage their spilled state on disk. There is one Spiller object
 created for each operator. The Spiller object takes a row container object on
@@ -146,7 +147,8 @@ hash join spilling section.
     void Spiller::spill(uint32_t partition, const RowVectorPtr& spillVector);
 
 `SpillFileList <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L155>`_ and `SpillFile <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L58>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 SpillFileList object manages spill files for a single partition. Each spill
 file is managed by one SpillFile object which provides the low level io
 operations with the storage system through Velox file system interface. On the
@@ -481,7 +483,8 @@ requires to cross join null-key probe rows with all build-side rows for filter
 evaluation to check if the null-key probe rows can be added to output or not.
 
 `HashJoinBridge <https://github.com/facebookincubator/velox/blob/main/velox/exec/HashJoinBridge.h#L28>`_
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 The HashJoinBridge object includes the following extensions to support the
 spilling:
 
