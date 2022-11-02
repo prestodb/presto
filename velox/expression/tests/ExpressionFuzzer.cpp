@@ -98,8 +98,9 @@ namespace {
 using exec::SignatureBinder;
 
 /// Returns if `functionName` with the given `argTypes` is deterministic.
-/// Returns std::nullopt if the function was not found.
-std::optional<bool> isDeterministic(
+/// Returns true if the function was not found or determinism cannot be
+/// established.
+bool isDeterministic(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes) {
   // Check if this is a simple function.
@@ -136,7 +137,11 @@ std::optional<bool> isDeterministic(
                  << "' is deterministic or not. Assuming it is.";
     return true;
   }
-  return std::nullopt;
+
+  // functionName must be a special form.
+  LOG(WARNING) << "Unable to determine if '" << functionName
+               << "' is deterministic or not. Assuming it is.";
+  return true;
 }
 
 VectorFuzzer::Options getFuzzerOptions() {
@@ -190,7 +195,7 @@ std::optional<CallableSignature> processSignature(
   }
 
   if (onlyPrimitiveTypes || FLAGS_velox_fuzzer_enable_complex_types) {
-    if (isDeterministic(callable.name, callable.args).value()) {
+    if (isDeterministic(callable.name, callable.args)) {
       return callable;
     }
     LOG(WARNING) << "Skipping non-deterministic function: "
@@ -331,9 +336,6 @@ ExpressionFuzzer::ExpressionFuzzer(
       unsupportedFunctionSignatures,
       (double)unsupportedFunctionSignatures / totalFunctionSignatures * 100);
 
-  // Add additional signatures that are not in function registry.
-  appendConjunctSignatures();
-
   // We sort the available signatures before inserting them into
   // signaturesMap_. The purpose of this step is to ensure the vector of
   // function signatures associated with each key in signaturesMap_ has a
@@ -447,18 +449,6 @@ void ExpressionFuzzer::sortSignatureTemplates() {
         }
         return lhs.functionName < rhs.functionName;
       });
-}
-
-void ExpressionFuzzer::appendConjunctSignatures() {
-  CallableSignature conjunctSignature;
-  conjunctSignature.name = "and";
-  conjunctSignature.returnType = BOOLEAN();
-  conjunctSignature.args = {BOOLEAN(), BOOLEAN()};
-  conjunctSignature.variableArity = true;
-  signatures_.emplace_back(conjunctSignature);
-
-  conjunctSignature.name = "or";
-  signatures_.emplace_back(conjunctSignature);
 }
 
 RowVectorPtr ExpressionFuzzer::generateRowVector() {
@@ -704,7 +694,7 @@ void ExpressionFuzzer::go() {
     VELOX_CHECK(inputRowTypes_.empty());
     VELOX_CHECK(inputRowNames_.empty());
 
-    // Pick a random signature to chose the root return type.
+    // Pick a random signature to choose the root return type.
     size_t idx = folly::Random::rand32(signatures_.size(), rng_);
     const auto& rootType = signatures_[idx].returnType;
 

@@ -37,6 +37,12 @@ DEFINE_string(
     "this comma separated list of function names "
     "(e.g: --only \"split\" or --only \"substr,ltrim\").");
 
+DEFINE_string(
+    special_forms,
+    "and,or",
+    "Comma-separated list of special forms to use in generated expression. "
+    "Supported special forms: and, or, coalesce, if.");
+
 int main(int argc, char** argv) {
   facebook::velox::functions::sparksql::registerFunctions("");
 
@@ -52,5 +58,6 @@ int main(int argc, char** argv) {
   // rlike, md5 and upper
   std::unordered_set<std::string> skipFunctions = {
       "regexp_extract", "rlike", "chr", "replace"};
-  return FuzzerRunner::run(FLAGS_only, FLAGS_seed, skipFunctions);
+  return FuzzerRunner::run(
+      FLAGS_only, FLAGS_seed, skipFunctions, FLAGS_special_forms);
 }
