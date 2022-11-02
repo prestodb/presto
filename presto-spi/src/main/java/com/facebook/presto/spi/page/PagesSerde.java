@@ -49,6 +49,7 @@ public class PagesSerde
     private final boolean checksumEnabled;
 
     private byte[] compressionBuffer;
+    private SliceOutput serializationBuffer;
 
     public PagesSerde(BlockEncodingSerde blockEncodingSerde, Optional<PageCompressor> compressor, Optional<PageDecompressor> decompressor, Optional<SpillCipher> spillCipher)
     {
@@ -68,7 +69,12 @@ public class PagesSerde
 
     public SerializedPage serialize(Page page)
     {
-        SliceOutput serializationBuffer = new DynamicSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES)); // block length is an int
+        if (serializationBuffer == null) {
+            serializationBuffer = new DynamicSliceOutput(toIntExact(page.getSizeInBytes() + Integer.BYTES));
+        }
+        else {
+            serializationBuffer.reset();
+        }
         writeRawPage(page, serializationBuffer, blockEncodingSerde);
 
         return wrapSlice(serializationBuffer.slice(), page.getPositionCount());
