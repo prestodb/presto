@@ -17,6 +17,8 @@ package com.facebook.presto.hudi;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.LazyBlock;
+import com.facebook.presto.common.block.LazyBlockLoader;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
@@ -25,8 +27,11 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HiveCoercer;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,8 +39,11 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -66,20 +74,25 @@ public class HudiPageSource
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource delegate;
+    private final List<HudiColumnHandle> columns;
+    private final List<Optional<Function<Block, Block>>> coercers;
 
     public HudiPageSource(
             List<HudiColumnHandle> columns,
             Map<String, String> partitionKeys,
             ConnectorPageSource delegate,
             TimeZoneKey timeZoneKey,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            Map<String, HiveType> columnCoercions)
     {
         int size = requireNonNull(columns, "columns is null").size();
         requireNonNull(partitionKeys, "partitionKeys is null");
+        this.columns = requireNonNull(columns, "columns is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
 
         prefilledBlocks = new Block[size];
         delegateIndexes = new int[size];
+        ImmutableList.Builder<Optional<Function<Block, Block>>> coercersBuilder = ImmutableList.builder();
 
         int outputIndex = 0;
         int delegateIndex = 0;
@@ -98,8 +111,19 @@ public class HudiPageSource
                 delegateIndex++;
             }
             outputIndex++;
+
+            // create type convert
+            if (!columnCoercions.isEmpty() &&
+                    columnCoercions.containsKey(column.getName()) &&
+                    !column.getHiveType().equals(columnCoercions.get(column.getName()))) {
+                coercersBuilder.add(Optional.of(HiveCoercer.createCoercer(typeManager, columnCoercions.get(column.getName()), column.getHiveType())));
+            }
+            else {
+                coercersBuilder.add(Optional.empty());
+            }
         }
         this.hasPrefilledBlocks = hasPrefilledBlocks;
+        this.coercers = coercersBuilder.build();
     }
 
     @Override
@@ -135,7 +159,7 @@ public class HudiPageSource
                 return null;
             }
             if (!hasPrefilledBlocks) {
-                return dataPage;
+                return reAlignDataPage(dataPage, columns, coercers);
             }
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[prefilledBlocks.length];
@@ -144,7 +168,9 @@ public class HudiPageSource
                     blocks[i] = new RunLengthEncodedBlock(prefilledBlocks[i], batchSize);
                 }
                 else {
-                    blocks[i] = dataPage.getBlock(delegateIndexes[i]);
+                    Block block = dataPage.getBlock(delegateIndexes[i]);
+                    Optional<Function<Block, Block>> coercer = coercers.isEmpty() ? Optional.empty() : coercers.get(i);
+                    blocks[i] = reAlignDataBlock(batchSize, block, coercer);
                 }
             }
             return new Page(batchSize, blocks);
@@ -250,5 +276,57 @@ public class HudiPageSource
         }
         // Hudi tables don't partition by non-primitive-type columns.
         throw new PrestoException(NOT_SUPPORTED, "Invalid partition type " + type);
+    }
+
+    private static Page reAlignDataPage(
+            Page dataPage,
+            List<HudiColumnHandle> columns,
+            List<Optional<Function<Block, Block>>> coercers)
+    {
+        int batchSize = dataPage.getPositionCount();
+        List<Block> blocks = new ArrayList<>();
+        for (int fieldId = 0; fieldId < columns.size(); fieldId++) {
+            Block block = dataPage.getBlock(fieldId);
+            Optional<Function<Block, Block>> coercer = coercers.isEmpty() ? Optional.empty() : coercers.get(fieldId);
+            if (coercer.isPresent()) {
+                block = new LazyBlock(batchSize, new CoercionLazyBlockLoader(block, coercer.get()));
+            }
+            blocks.add(block);
+        }
+        return new Page(batchSize, blocks.toArray(new Block[0]));
+    }
+
+    private static Block reAlignDataBlock(int batchSize, Block dataBlock, Optional<Function<Block, Block>> coercer)
+    {
+        if (coercer.isPresent()) {
+            return new LazyBlock(batchSize, new CoercionLazyBlockLoader(dataBlock, coercer.get()));
+        }
+        return dataBlock;
+    }
+
+    private static final class CoercionLazyBlockLoader
+            implements LazyBlockLoader<LazyBlock>
+    {
+        private final Function<Block, Block> coercer;
+        private Block block;
+
+        public CoercionLazyBlockLoader(Block block, Function<Block, Block> coercer)
+        {
+            this.block = requireNonNull(block, "block is null");
+            this.coercer = requireNonNull(coercer, "coercer is null");
+        }
+
+        @Override
+        public void load(LazyBlock lazyBlock)
+        {
+            if (block == null) {
+                return;
+            }
+
+            lazyBlock.setBlock(coercer.apply(block.getLoadedBlock()));
+
+            // clear reference to loader to free resources, since load was successful
+            block = null;
+        }
     }
 }
