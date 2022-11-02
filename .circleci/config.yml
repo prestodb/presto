@@ -245,6 +245,7 @@ jobs:
           command: |
             _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
                 --seed 123456 \
+                --enable_variadic_signatures \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
