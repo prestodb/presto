@@ -42,9 +42,6 @@ struct TaskCompletedEvent {
 
 class TestTaskListener : public exec::TaskListener {
  public:
-  explicit TestTaskListener(std::vector<TaskCompletedEvent>& events)
-      : events_{events} {}
-
   void onTaskCompletion(
       const std::string& taskUuid,
       const std::string& taskId,
@@ -54,8 +51,12 @@ class TestTaskListener : public exec::TaskListener {
     events_.push_back({taskUuid, state, error, stats});
   }
 
+  std::vector<TaskCompletedEvent>& events() {
+    return events_;
+  }
+
  private:
-  std::vector<TaskCompletedEvent>& events_;
+  std::vector<TaskCompletedEvent> events_;
 };
 
 class TaskListenerTest : public OperatorTestBase {};
@@ -66,8 +67,8 @@ TEST_F(TaskListenerTest, success) {
   auto plan = PlanBuilder().values({data}).planNode();
 
   // Register event listener to collect task completion events.
-  std::vector<TaskCompletedEvent> events;
-  auto listener = std::make_shared<TestTaskListener>(events);
+  auto listener = std::make_shared<TestTaskListener>();
+  auto& events = listener->events();
   ASSERT_TRUE(exec::registerTaskListener(listener));
 
   assertQuery(plan, "VALUES (0), (1), (2), (3), (4)");
@@ -91,7 +92,7 @@ TEST_F(TaskListenerTest, success) {
   ASSERT_TRUE(exec::unregisterTaskListener(listener));
 
   assertQuery(plan, "VALUES (0), (1), (2), (3), (4)");
-  ASSERT_EQ(0, events.size());
+  ASSERT_TRUE(events.empty());
 
   // Try to unregister the listener again.
   ASSERT_FALSE(exec::unregisterTaskListener(listener));
@@ -106,8 +107,8 @@ TEST_F(TaskListenerTest, error) {
   params.planNode = plan;
 
   // Register event listener to collect task completion events.
-  std::vector<TaskCompletedEvent> events;
-  auto listener = std::make_shared<TestTaskListener>(events);
+  auto listener = std::make_shared<TestTaskListener>();
+  auto& events = listener->events();
   ASSERT_TRUE(exec::registerTaskListener(listener));
 
   EXPECT_THROW(readCursor(params, [](auto) {}), VeloxException);
@@ -119,26 +120,24 @@ TEST_F(TaskListenerTest, error) {
 }
 
 TEST_F(TaskListenerTest, multipleListeners) {
-  std::vector<TaskCompletedEvent> events1;
-  std::vector<TaskCompletedEvent> events2;
-  auto listener1 = std::make_shared<TestTaskListener>(events1);
-  auto listener2 = std::make_shared<TestTaskListener>(events2);
+  auto listener1 = std::make_shared<TestTaskListener>();
+  auto listener2 = std::make_shared<TestTaskListener>();
   ASSERT_TRUE(exec::registerTaskListener(listener1));
   ASSERT_TRUE(exec::registerTaskListener(listener2));
 
-  ASSERT_EQ(0, events1.size());
-  ASSERT_EQ(0, events2.size());
+  ASSERT_TRUE(listener1->events().empty());
+  ASSERT_TRUE(listener2->events().empty());
 
   auto data = makeRowVector({makeFlatVector<int32_t>({0, 1, 2, 3, 4})});
   auto plan = PlanBuilder().values({data}).planNode();
   assertQuery(plan, "VALUES (0), (1), (2), (3), (4)");
 
-  ASSERT_EQ(1, events1.size());
-  ASSERT_EQ(1, events2.size());
+  ASSERT_EQ(1, listener1->events().size());
+  ASSERT_EQ(1, listener2->events().size());
 
   {
-    const auto& event1 = events1.front();
-    const auto& event2 = events2.front();
+    const auto& event1 = listener1->events().front();
+    const auto& event2 = listener2->events().front();
     ASSERT_FALSE(event1.taskUuid.empty());
     ASSERT_EQ(event1.taskUuid, event2.taskUuid);
     ASSERT_EQ(event1.state, exec::TaskState::kFinished);
