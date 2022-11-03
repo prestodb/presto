@@ -42,6 +42,7 @@ public class QueryCompletedEvent
     private final Instant executionStartTime;
     private final Instant endTime;
     private final Optional<String> expandedQuery;
+    private final List<PlanOptimizerInformation> optimizerInformation;
 
     public QueryCompletedEvent(
             QueryMetadata metadata,
@@ -59,7 +60,8 @@ public class QueryCompletedEvent
             List<OperatorStatistics> operatorStatistics,
             List<PlanStatisticsWithSourceInfo> planStatisticsRead,
             List<PlanStatisticsWithSourceInfo> planStatisticsWritten,
-            Optional<String> expandedQuery)
+            Optional<String> expandedQuery,
+            List<PlanOptimizerInformation> optimizerInformation)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.statistics = requireNonNull(statistics, "statistics is null");
@@ -77,6 +79,7 @@ public class QueryCompletedEvent
         this.planStatisticsRead = requireNonNull(planStatisticsRead, "planStatisticsRead is null");
         this.planStatisticsWritten = requireNonNull(planStatisticsWritten, "planStatisticsWritten is null");
         this.expandedQuery = requireNonNull(expandedQuery, "expandedQuery is null");
+        this.optimizerInformation = requireNonNull(optimizerInformation, "optimizerInformation is null");
     }
 
     public QueryMetadata getMetadata()
@@ -157,5 +160,10 @@ public class QueryCompletedEvent
     public Optional<String> getExpandedQuery()
     {
         return expandedQuery;
+    }
+
+    public List<PlanOptimizerInformation> getOptimizerInformation()
+    {
+        return optimizerInformation;
     }
 }
