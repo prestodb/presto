@@ -92,6 +92,9 @@ inline constexpr auto kMemCapExceeded = "MEM_CAP_EXCEEDED"_fs;
 // Error caused by failing to allocate cache buffer space for IO.
 inline constexpr auto kNoCacheSpace = "NO_CACHE_SPACE"_fs;
 
+// Errors indicating file read corruptions.
+inline constexpr auto kFileCorruption = "FILE_CORRUPTION"_fs;
+
 // We do not know how to classify it yet.
 inline constexpr auto kUnknown = "UNKNOWN"_fs;
 } // namespace error_code
