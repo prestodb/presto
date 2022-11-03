@@ -29,6 +29,10 @@ std::optional<std::pair<std::vector<T>, bool>> toValues(
 
   auto constantInput =
       std::dynamic_pointer_cast<ConstantVector<ComplexType>>(constantValue);
+  if (constantInput->isNullAt(0)) {
+    // The whole list is null. In will always be null.
+    return std::optional<std::pair<std::vector<T>, bool>>({{}, true});
+  }
   auto arrayVector = dynamic_cast<const ArrayVector*>(
       constantInput->valueVector()->wrappedVector());
   auto elementsVector = arrayVector->elements()->as<SimpleVector<U>>();
@@ -52,53 +56,67 @@ std::optional<std::pair<std::vector<T>, bool>> toValues(
       {std::move(values), nullAllowed});
 }
 
+// Creates a filter for constant values. A null filter means either
+// no values or only null values. The boolean is true if the list is
+// non-empty and consists of nulls only.
 template <typename T>
-std::unique_ptr<common::Filter> createBigintValuesFilter(
+std::pair<std::unique_ptr<common::Filter>, bool> createBigintValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<int64_t, T>(inputArgs);
   if (!valuesPair.has_value()) {
-    return nullptr;
+    return {nullptr, false};
   }
 
   const auto& values = valuesPair.value().first;
   bool nullAllowed = valuesPair.value().second;
 
+  if (values.empty() && nullAllowed) {
+    return {nullptr, true};
+  }
   VELOX_USER_CHECK(
       !values.empty(),
       "IN predicate expects at least one non-null value in the in-list");
   if (values.size() == 1) {
-    return std::make_unique<common::BigintRange>(
-        values[0], values[0], nullAllowed);
+    return {
+        std::make_unique<common::BigintRange>(
+            values[0], values[0], nullAllowed),
+        false};
   }
 
-  return common::createBigintValues(values, nullAllowed);
+  return {common::createBigintValues(values, nullAllowed), false};
 }
 
-std::unique_ptr<common::Filter> createBytesValuesFilter(
+// See createBigintValuesFilter.
+std::pair<std::unique_ptr<common::Filter>, bool> createBytesValuesFilter(
     const std::vector<exec::VectorFunctionArg>& inputArgs) {
   auto valuesPair = toValues<std::string, StringView>(inputArgs);
   if (!valuesPair.has_value()) {
-    return nullptr;
+    return {nullptr, false};
   }
 
   const auto& values = valuesPair.value().first;
   bool nullAllowed = valuesPair.value().second;
+  if (values.empty() && nullAllowed) {
+    return {nullptr, true};
+  }
 
   VELOX_USER_CHECK(
       !values.empty(),
-      "IN predicate expects at least one non-null value in the in-list");
+      "IN predicate expects at least one value in the in-list");
   if (values.size() == 1) {
-    return std::make_unique<common::BytesRange>(
-        values[0], false, false, values[0], false, false, nullAllowed);
+    return {
+        std::make_unique<common::BytesRange>(
+            values[0], false, false, values[0], false, false, nullAllowed),
+        false};
   }
 
-  return std::make_unique<common::BytesValues>(values, nullAllowed);
+  return {std::make_unique<common::BytesValues>(values, nullAllowed), false};
 }
 
 class InPredicate : public exec::VectorFunction {
  public:
-  explicit InPredicate(std::unique_ptr<common::Filter> filter)
-      : filter_{std::move(filter)} {}
+  explicit InPredicate(std::unique_ptr<common::Filter> filter, bool alwaysNull)
+      : filter_{std::move(filter)}, alwaysNull_(alwaysNull) {}
 
   static std::shared_ptr<InPredicate> create(
       const std::string& /*name*/,
@@ -106,7 +124,7 @@ class InPredicate : public exec::VectorFunction {
     VELOX_CHECK_EQ(inputArgs.size(), 2);
     auto inListType = inputArgs[1].type;
     VELOX_CHECK_EQ(inListType->kind(), TypeKind::ARRAY);
-    std::unique_ptr<common::Filter> filter;
+    std::pair<std::unique_ptr<common::Filter>, bool> filter;
 
     switch (inListType->childAt(0)->kind()) {
       case TypeKind::BIGINT:
@@ -125,12 +143,16 @@ class InPredicate : public exec::VectorFunction {
       case TypeKind::VARBINARY:
         filter = createBytesValuesFilter(inputArgs);
         break;
+      case TypeKind::UNKNOWN:
+        filter = {nullptr, true};
+        break;
       default:
         VELOX_UNSUPPORTED(
             "Unsupported in-list type for IN predicate: {}",
             inListType->toString());
     }
-    return std::make_shared<InPredicate>(std::move(filter));
+    return std::make_shared<InPredicate>(
+        std::move(filter.first), filter.second);
   }
 
   // x IN (2, null) returns null when x != 2 and true when x == 2.
@@ -191,6 +213,11 @@ class InPredicate : public exec::VectorFunction {
                                   .argumentType(type)
                                   .argumentType(fmt::format("array({})", type))
                                   .build());
+      signatures.emplace_back(exec::FunctionSignatureBuilder()
+                                  .returnType("boolean")
+                                  .argumentType(type)
+                                  .argumentType("array(unknown)")
+                                  .build());
     }
     return signatures;
   }
@@ -215,6 +242,12 @@ class InPredicate : public exec::VectorFunction {
       exec::EvalCtx& context,
       VectorPtr& result,
       F&& testFunction) const {
+    if (alwaysNull_) {
+      auto localResult = BaseVector::createNullConstant(
+          BOOLEAN(), rows.size(), context.pool());
+      context.moveOrCopyResult(localResult, rows, result);
+      return;
+    }
     VELOX_CHECK(filter_, "IN predicate supports only constant IN list");
 
     // Indicates whether result can be true or null only, e.g. no false results.
@@ -269,6 +302,7 @@ class InPredicate : public exec::VectorFunction {
   }
 
   const std::unique_ptr<common::Filter> filter_;
+  const bool alwaysNull_;
 };
 } // namespace
 

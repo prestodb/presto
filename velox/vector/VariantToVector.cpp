@@ -77,11 +77,18 @@ ArrayVectorPtr variantArrayToVectorImpl(
 ArrayVectorPtr variantArrayToVector(
     const std::vector<variant>& variantArray,
     velox::memory::MemoryPool* pool) {
-  if (variantArray.empty()) {
+  std::optional<int32_t> nonNullIndex;
+  for (auto i = 0; i < variantArray.size(); ++i) {
+    if (!variantArray.at(i).isNull()) {
+      nonNullIndex = i;
+      break;
+    }
+  }
+  if (variantArray.empty() || !nonNullIndex.has_value()) {
     return variantArrayToVectorImpl<TypeKind::UNKNOWN>(variantArray, pool);
   }
 
-  const auto elementType = variantArray.front().inferType();
+  const auto elementType = variantArray.at(nonNullIndex.value()).inferType();
   return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
       variantArrayToVectorImpl, elementType->kind(), variantArray, pool);
 }
