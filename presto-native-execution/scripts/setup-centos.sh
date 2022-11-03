@@ -41,7 +41,7 @@ else
   source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
 fi
 
-export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
+export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
 
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
