@@ -144,6 +144,8 @@ public final class HiveSessionProperties
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String INSERT_NON_MANAGED_TABLE_ENABLED = "insert_non_managed_table_enabled";
+
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
@@ -694,7 +696,12 @@ public final class HiveSessionProperties
                         READ_MASKED_VALUE_ENABLED,
                         "Return null when access is denied for an encrypted parquet column",
                         hiveClientConfig.getReadNullMaskedParquetEncryptedValue(),
-                        false));
+                        false),
+                booleanProperty(
+                        INSERT_NON_MANAGED_TABLE_ENABLED,
+                        "Allow inserting into non-managed hive table",
+                        hiveClientConfig.getWritesToNonManagedTablesEnabled(),
+                        true));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1218,5 +1225,10 @@ public final class HiveSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isWritesToNonManagedTablesEnabled(ConnectorSession session)
+    {
+        return session.getProperty(INSERT_NON_MANAGED_TABLE_ENABLED, Boolean.class);
     }
 }

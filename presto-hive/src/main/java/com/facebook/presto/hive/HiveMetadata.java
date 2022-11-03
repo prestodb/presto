@@ -234,6 +234,7 @@ import static com.facebook.presto.hive.HiveSessionProperties.isSortedWriteToTemp
 import static com.facebook.presto.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isStatisticsEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUsePageFileForHiveUnsupportedType;
+import static com.facebook.presto.hive.HiveSessionProperties.isWritesToNonManagedTablesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.shouldCreateEmptyBucketFilesForTemporaryTable;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -1877,7 +1878,7 @@ public class HiveMetadata
         Table table = metastore.getTable(metastoreContext, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        checkTableIsWritable(table, writesToNonManagedTablesEnabled);
+        checkTableIsWritable(table, writesToNonManagedTablesEnabled || isWritesToNonManagedTablesEnabled(session));
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
