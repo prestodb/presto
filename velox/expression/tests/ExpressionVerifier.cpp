@@ -170,6 +170,9 @@ bool ExpressionVerifier::verify(
       LOG(WARNING) << "Failed to generate SQL: " << e.what();
       sql = "<failed to generate>";
     }
+    if (options_.persistAndRunOnce) {
+      persistReproInfo(rowVector, copiedResult, sql);
+    }
   }
 
   // Execute expression plan using both common and simplified evals.
@@ -238,11 +241,23 @@ bool ExpressionVerifier::verify(
       compareVectors(commonEvalResult.front(), simplifiedEvalResult.front());
     }
   } catch (...) {
-    if (!options_.reproPersistPath.empty()) {
+    if (!options_.reproPersistPath.empty() && !options_.persistAndRunOnce) {
       persistReproInfo(rowVector, copiedResult, sql);
     }
     throw;
   }
+
+  if (!options_.reproPersistPath.empty() && options_.persistAndRunOnce) {
+    // A guard to make sure it runs only once with persistAndRunOnce flag turned
+    // on. It shouldn't reach here normally since the flag is used to persist
+    // repro info for crash failures. But if it hasn't crashed by now, we still
+    // don't want another iteration.
+    LOG(WARNING)
+        << "Iteration succeeded with --persist_and_run_once flag enabled "
+           "(expecting crash failure)";
+    exit(0);
+  }
+
   return true;
 }
 

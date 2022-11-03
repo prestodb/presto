@@ -28,6 +28,7 @@ namespace facebook::velox::test {
 struct ExpressionVerifierOptions {
   bool disableConstantFolding{false};
   std::string reproPersistPath;
+  bool persistAndRunOnce{false};
 };
 
 class ExpressionVerifier {

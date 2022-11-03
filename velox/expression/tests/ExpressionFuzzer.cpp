@@ -81,6 +81,13 @@ DEFINE_string(
     "Directory path for persistence of data and SQL when fuzzer fails for "
     "future reproduction. Empty string disables this feature.");
 
+DEFINE_bool(
+    persist_and_run_once,
+    false,
+    "Persist repro info before evaluation and only run one iteration. "
+    "This is to rerun with the seed number and persist repro info upon a "
+    "crash failure. Only effective if repro_persist_path is set.");
+
 DEFINE_int32(
     velox_fuzzer_max_level_of_nesting,
     10,
@@ -259,7 +266,9 @@ ExpressionFuzzer::ExpressionFuzzer(
     : remainingLevelOfNesting_(std::max(1, maxLevelOfNesting)),
       verifier_(
           &execCtx_,
-          {FLAGS_disable_constant_folding, FLAGS_repro_persist_path}),
+          {FLAGS_disable_constant_folding,
+           FLAGS_repro_persist_path,
+           FLAGS_persist_and_run_once}),
       vectorFuzzer_(getFuzzerOptions(), execCtx_.pool()) {
   seed(initialSeed);
 
