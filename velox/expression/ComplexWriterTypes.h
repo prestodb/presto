@@ -207,36 +207,31 @@ class ArrayWriter {
     }
   }
 
-  // Copy from null-free ArrayView.
-  void add_items(
-      const typename VectorExec::template resolver<Array<V>>::null_free_in_type&
-          arrayView) {
-    // If the null buffer is allocated this will read every null bit.
-    // TODO: create a copy version that avoids null checks (assumes not null)
-    // even when null buffer is allocated.
-
-    // The add_items above works for null-free ArrayView, but calling copy on
-    // the vector directly uses memcpy which is more efficient.
-    auto start = length_;
-    resize(length_ + arrayView.size());
-    elementsVector_->copy(
-        arrayView.elementsVector(),
-        valuesOffset_ + start,
-        arrayView.offset(),
-        arrayView.size());
-  }
-
   // Copy from nullable ArrayView.
   void add_items(
       const typename VectorExec::template resolver<Array<V>>::in_type&
           arrayView) {
-    auto start = length_;
-    resize(length_ + arrayView.size());
-    elementsVector_->copy(
-        arrayView.elementsVector(),
-        valuesOffset_ + start,
-        arrayView.offset(),
-        arrayView.size());
+    if constexpr (provide_std_interface<V>) {
+      // TODO: accelerate this with memcpy.
+      auto start = length_;
+      resize(length_ + arrayView.size());
+      for (auto i = 0; i < arrayView.size(); i++) {
+        if (arrayView[i].has_value()) {
+          this->operator[](i + start) = arrayView[i].value();
+        } else {
+          this->operator[](i + start) = std::nullopt;
+        }
+      }
+    } else {
+      for (const auto& item : arrayView) {
+        if (item.has_value()) {
+          auto& writer = add_item();
+          writer.copy_from(item.value());
+        } else {
+          add_null();
+        }
+      }
+    }
   }
 
  private:
@@ -267,8 +262,8 @@ class ArrayWriter {
   // Pointer to child vector writer.
   child_writer_t* childWriter_ = nullptr;
 
-  // Indicate if commit needs to be called on the childWriter_ before adding a
-  // new element or when finalize is called.
+  // Indicate if commit needs to be called on the childWriter_ before adding
+  // a new element or when finalize is called.
   bool needCommit_ = false;
 
   // Length of the array.
@@ -292,8 +287,8 @@ class ArrayWriter {
   friend class SimpleFunctionAdapter;
 };
 
-// The object passed to the simple function interface that represent a single
-// output map entry.
+// The object passed to the simple function interface that represent a
+// single output map entry.
 template <typename K, typename V>
 class MapWriter {
   using key_writer_t = VectorWriter<K, void>;
@@ -359,30 +354,39 @@ class MapWriter {
     }
   }
 
-  // Copy from nullable MapView.
+  // Copy from nullable mapview.
   void copy_from(
       const typename VectorExec::template resolver<Map<K, V>>::in_type&
           mapView) {
-    resize(mapView.size());
-    // TODO: replace with a copy that avoids null checking for keys.
-    keysVector_->copy(
-        mapView.keysVector(), innerOffset_, mapView.offset(), mapView.size());
+    resize(0);
+    // TODO: acceletare this with memcpy.
+    for (const auto& [key, value] : mapView) {
+      if (value.has_value()) {
+        auto [keyWriter, valueWriter] = add_item();
+        // copy key
+        if constexpr (provide_std_interface<K>) {
+          keyWriter = key;
+        } else {
+          keyWriter.copy_from(key);
+        }
 
-    valuesVector_->copy(
-        mapView.valuesVector(), innerOffset_, mapView.offset(), mapView.size());
-  }
-
-  // Copy from null-free MapView.
-  void copy_from(const typename VectorExec::template resolver<
-                 Map<K, V>>::null_free_in_type& mapView) {
-    resize(mapView.size());
-    // TODO: replace with a copy that avoids null checking for both values and
-    // keys.
-    keysVector_->copy(
-        mapView.keysVector(), innerOffset_, mapView.offset(), mapView.size());
-
-    valuesVector_->copy(
-        mapView.valuesVector(), innerOffset_, mapView.offset(), mapView.size());
+        // copy value
+        if constexpr (provide_std_interface<V>) {
+          valueWriter = value.value();
+        } else {
+          valueWriter.copy_from(value.value());
+        }
+      } else {
+        // Value is null.
+        auto& keyWriter = add_null();
+        // copy key
+        if constexpr (provide_std_interface<K>) {
+          keyWriter = key;
+        } else {
+          keyWriter.copy_from(key);
+        }
+      }
+    }
   }
 
   // 'size' is with respect to the current size of the array being written.
@@ -441,10 +445,11 @@ class MapWriter {
   }
 
   // Should be called by the user (VectorWriter) when null is committed to
-  // pretect against user miss-use (writing to the writer then committing null).
+  // pretect against user miss-use (writing to the writer then committing
+  // null).
   void finalizeNull() {
-    // No need to commit last written items and innerOffset_ stays the same for
-    // the next item.
+    // No need to commit last written items and innerOffset_ stays the same
+    // for the next item.
     length_ = 0;
   }
 
@@ -472,6 +477,7 @@ class MapWriter {
     valuesVector_ = &valuesWriter_->vector();
 
     innerOffset_ = std::max(keysVector_->size(), valuesVector_->size());
+
     // Keys can never be null.
     keysVector_->resetNulls();
 
@@ -539,8 +545,8 @@ class MapWriter {
   friend class SimpleFunctionAdapter;
 };
 
-// The object passed to the simple function interface that represent a single
-// output row entry.
+// The object passed to the simple function interface that represent a
+// single output row entry.
 
 template <typename... T>
 class RowWriter;
@@ -723,9 +729,9 @@ class RowWriter {
 
 // GenericWriter represents a writer of any type. It has to be casted to one
 // specific type first in order to write values to a vector. A GenericWriter
-// must be casted to the same type throughout its lifetime, or an exception will
-// throw. Right now, only casting to the types in writer_variant_t is supported.
-// Casting to unsupported types causes compilation error.
+// must be casted to the same type throughout its lifetime, or an exception
+// will throw. Right now, only casting to the types in writer_variant_t is
+// supported. Casting to unsupported types causes compilation error.
 class GenericWriter {
  public:
   // Make sure user do not use these.

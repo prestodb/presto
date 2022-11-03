@@ -645,5 +645,57 @@ TEST_F(MapWriterTest, appendToKeysAndValues) {
   ASSERT_EQ(values->asFlatVector<int64_t>()->valueAt(1), 20);
 }
 
+// Make sure copy from MapView correctly resizes children vectors.
+TEST_F(MapWriterTest, copyFromViewTypeResizedChildren) {
+  using out_t = Map<int64_t, Map<int64_t, int64_t>>;
+
+  // Create a map vector.
+  auto makeNestedMapVector = [&]() {
+    auto result = prepareResult(CppToType<out_t>::create());
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<MapVector>());
+    vectorWriter.setOffset(0);
+    auto& mapWriter = vectorWriter.current();
+
+    folly::F14FastMap<int64_t, int64_t> element = {{1, 2}, {3, 4}};
+
+    mapWriter.copy_from(
+        folly::F14FastMap<int64_t, folly::F14FastMap<int64_t, int64_t>>{
+            {1, element}, {2, element}, {3, element}});
+    vectorWriter.commit();
+    vectorWriter.finish();
+    return result;
+  };
+
+  auto vectorInput = makeNestedMapVector();
+  DecodedVector decoded;
+  decoded.decode(*vectorInput.get());
+  exec::VectorReader<out_t> reader(&decoded);
+
+  auto mapViewToBeCopied = reader[0];
+
+  // Write a new vector and copy mapViewToBeCopied to it.
+
+  auto result = prepareResult(CppToType<out_t>::create());
+  exec::VectorWriter<out_t> vectorWriter;
+  vectorWriter.init(*result->as<MapVector>());
+  vectorWriter.setOffset(0);
+  auto& mapWriter = vectorWriter.current();
+  mapWriter.copy_from(mapViewToBeCopied);
+  vectorWriter.commit();
+
+  // Check the lengths of the underlying vectors.
+  auto* outerMap = result->as<MapVector>();
+  auto& outerKeys = outerMap->mapKeys();
+  auto* outerValues = outerMap->mapValues()->as<MapVector>();
+
+  vectorWriter.finish();
+  ASSERT_EQ(outerKeys->size(), 3);
+  ASSERT_EQ(outerValues->size(), 3);
+
+  ASSERT_EQ(outerValues->mapKeys()->asFlatVector<int64_t>()->size(), 6);
+  ASSERT_EQ(outerValues->mapValues()->asFlatVector<int64_t>()->size(), 6);
+}
+
 } // namespace
 } // namespace facebook::velox
