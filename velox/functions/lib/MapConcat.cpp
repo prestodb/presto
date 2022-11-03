@@ -51,6 +51,9 @@ class MapConcatFunction : public exec::VectorFunction {
       auto inputMap = decodedArg->base()->as<MapVector>();
       auto rawSizes = inputMap->rawSizes();
       rows.applyToSelected([&](vector_size_t row) {
+        if (EmptyForNull && decodedArg->isNullAt(row)) {
+          return;
+        }
         maxSize += rawSizes[decodedArg->index(row)];
       });
     }
