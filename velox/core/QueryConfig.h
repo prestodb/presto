@@ -152,6 +152,15 @@ class QueryConfig {
   /// The max allowed spill file size. If it is zero, then there is no limit.
   static constexpr const char* kMaxSpillFileSize = "max-spill-file-size";
 
+  /// The min spill run size limit used to select partitions for spilling. The
+  /// spiller tries to spill a previously spilled partitions if its data size
+  /// exceeds this limit, otherwise it spills the partition with most data.
+  /// If the limit is zero, then the spiller always spill a previously spilled
+  /// partition if it has any data. This is to avoid spill from a partition with
+  /// a small amount of data which might result in generating too many small
+  /// spilled files.
+  static constexpr const char* kMinSpillRunSize = "min-spill-run-size";
+
   static constexpr const char* kSpillStartPartitionBit =
       "spiller-start-partition-bit";
 
@@ -324,7 +333,12 @@ class QueryConfig {
 
   uint64_t maxSpillFileSize() const {
     constexpr uint64_t kDefaultMaxFileSize = 0;
-    return get<double>(kMaxSpillFileSize, kDefaultMaxFileSize);
+    return get<uint64_t>(kMaxSpillFileSize, kDefaultMaxFileSize);
+  }
+
+  uint64_t minSpillRunSize() const {
+    constexpr uint64_t kDefaultMinSpillRunSize = 256 << 20; // 256MB.
+    return get<uint64_t>(kMinSpillRunSize, kDefaultMinSpillRunSize);
   }
 
   /// Returns the spillable memory reservation growth percentage of the previous

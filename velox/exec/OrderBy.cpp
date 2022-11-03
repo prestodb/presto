@@ -216,6 +216,7 @@ void OrderBy::spill(int64_t targetRows, int64_t targetBytes) {
         keyCompareFlags_,
         spillConfig.filePath,
         spillConfig.maxFileSize,
+        spillConfig.minSpillRunSize,
         Spiller::spillPool(),
         stats().runtimeStats,
         spillConfig.executor);

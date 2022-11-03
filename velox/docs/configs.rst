@@ -137,3 +137,17 @@ can be used to prevent a query from using too much io and cpu resources.
     * **Default value:** ``0``
 
 The maximum allowed spill file size. Zero means unlimited.
+
+``min-spill-run-size``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``256MB``
+
+The minimum spill run size (bytes) limit used to select partitions for
+spilling. The spiller tries to spill a previously spilled partitions if its
+data size exceeds this limit, otherwise it spills the partition with most data.
+If the limit is zero, then the spiller always spills a previously spilled
+partition if it has any data. This is to avoid spill from a partition with a
+small amount of data which might result in generating too many small spilled
+files.

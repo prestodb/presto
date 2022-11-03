@@ -35,7 +35,8 @@ Spiller::Spiller(
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
     std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
@@ -49,6 +50,7 @@ Spiller::Spiller(
           sortCompareFlags,
           path,
           targetFileSize,
+          minSpillRunSize,
           pool,
           stats,
           executor) {
@@ -60,7 +62,8 @@ Spiller::Spiller(
     RowTypePtr rowType,
     HashBitRange bits,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
     std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* FOLLY_NULLABLE executor)
@@ -74,6 +77,7 @@ Spiller::Spiller(
           {},
           path,
           targetFileSize,
+          minSpillRunSize,
           pool,
           stats,
           executor) {
@@ -89,7 +93,8 @@ Spiller::Spiller(
     int32_t numSortingKeys,
     const std::vector<CompareFlags>& sortCompareFlags,
     const std::string& path,
-    int64_t targetFileSize,
+    uint64_t targetFileSize,
+    uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
     std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
@@ -98,6 +103,7 @@ Spiller::Spiller(
       eraser_(eraser),
       bits_(bits),
       rowType_(std::move(rowType)),
+      minSpillRunSize_(minSpillRunSize),
       state_(
           path,
           bits.numPartitions(),
@@ -470,6 +476,18 @@ int32_t Spiller::pickNextPartitionToSpill() {
       partitionIndices.begin(),
       partitionIndices.end(),
       [&](int32_t lhs, int32_t rhs) {
+        // If one of the partition has been spilled, then select the spilled one
+        // if its number of bytes exceeds 'minSpillRunSize_' limit.
+        if (state_.isPartitionSpilled(lhs) != state_.isPartitionSpilled(rhs)) {
+          if (state_.isPartitionSpilled(lhs) &&
+              spillRuns_[lhs].numBytes > minSpillRunSize_) {
+            return true;
+          }
+          if (state_.isPartitionSpilled(rhs) &&
+              spillRuns_[rhs].numBytes > minSpillRunSize_) {
+            return false;
+          }
+        }
         return spillRuns_[lhs].numBytes > spillRuns_[rhs].numBytes;
       });
   for (auto partition : partitionIndices) {

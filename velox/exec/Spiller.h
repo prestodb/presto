@@ -42,6 +42,7 @@ class Spiller {
     Config(
         const std::string& _filePath,
         uint64_t _maxFileSize,
+        uint64_t _minSpillRunSize,
         folly::Executor* FOLLY_NULLABLE _executor,
         int32_t _spillableReservationGrowthPct,
         const HashBitRange& _hashBitRange,
@@ -51,6 +52,7 @@ class Spiller {
           maxFileSize(
               _maxFileSize == 0 ? std::numeric_limits<int64_t>::max()
                                 : _maxFileSize),
+          minSpillRunSize(_minSpillRunSize),
           executor(_executor),
           spillableReservationGrowthPct(_spillableReservationGrowthPct),
           hashBitRange(_hashBitRange),
@@ -72,6 +74,15 @@ class Spiller {
     /// The max spill file size. If it is zero, there is no limit on the spill
     /// file size.
     uint64_t maxFileSize;
+
+    /// The min spill run size (bytes) limit used to select partitions for
+    /// spilling. The spiller tries to spill a previously spilled partitions if
+    /// its data size exceeds this limit, otherwise it spills the partition with
+    /// most data. If the limit is zero, then the spiller always spill a
+    /// previously spilled partition if it has any data. This is to avoid spill
+    /// from a partition wigth a small amount of data which might result in
+    /// generating too many small spilled files.
+    uint64_t minSpillRunSize;
 
     // Executor for spilling. If nullptr spilling writes on the Driver's thread.
     folly::Executor* FOLLY_NULLABLE executor; // Not owned.
@@ -107,7 +118,8 @@ class Spiller {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
-      int64_t targetFileSize,
+      uint64_t targetFileSize,
+      uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
       std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
@@ -117,7 +129,8 @@ class Spiller {
       RowTypePtr rowType,
       HashBitRange bits,
       const std::string& path,
-      int64_t targetFileSize,
+      uint64_t targetFileSize,
+      uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
       std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
@@ -131,7 +144,8 @@ class Spiller {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
-      int64_t targetFileSize,
+      uint64_t targetFileSize,
+      uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
       std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
@@ -392,6 +406,7 @@ class Spiller {
   const RowContainer::Eraser eraser_;
   const HashBitRange bits_;
   const RowTypePtr rowType_;
+  const uint64_t minSpillRunSize_;
 
   SpillState state_;
 

@@ -260,6 +260,7 @@ void HashProbe::maybeSetupSpillInput(
               spillConfig.hashBitRange.numBits()),
       spillConfig.filePath,
       spillConfig.maxFileSize,
+      spillConfig.minSpillRunSize,
       Spiller::spillPool(),
       stats().runtimeStats,
       spillConfig.executor);

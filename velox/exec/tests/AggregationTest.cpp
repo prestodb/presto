@@ -985,6 +985,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
             .config(QueryConfig::kSpillEnabled, "true")
             .config(QueryConfig::kAggregationSpillEnabled, "true")
             .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(QueryConfig::kMinSpillRunSize, std::to_string(1000'000'000))
             .config(
                 QueryConfig::kSpillPartitionBits,
                 std::to_string(kPartitionsBits))

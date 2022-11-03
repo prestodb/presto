@@ -576,6 +576,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
         std::vector<CompareFlags>(),
         spillConfig_->filePath,
         spillConfig_->maxFileSize,
+        spillConfig_->minSpillRunSize,
         Spiller::spillPool(),
         stats_.runtimeStats,
         spillConfig_->executor);

@@ -127,6 +127,7 @@ std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
           driverCtx()->driverId,
           operatorId_),
       queryConfig.maxSpillFileSize(),
+      queryConfig.minSpillRunSize(),
       driverCtx_->task->queryCtx()->spillExecutor(),
       queryConfig.spillableReservationGrowthPct(),
       HashBitRange(
