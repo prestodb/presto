@@ -16,6 +16,7 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <cstdint>
 #include <optional>
 #include <tuple>
 
@@ -599,6 +600,49 @@ TEST_F(MapWriterTest, finishPostSize) {
   auto* innerMap = outerMap->mapValues()->as<MapVector>();
   ASSERT_EQ(innerMap->mapKeys()->size(), 6);
   ASSERT_EQ(innerMap->mapValues()->size(), 6);
+}
+
+// MapWriter should append to key and values vectors and not overwrite them.
+TEST_F(MapWriterTest, appendToKeysAndValues) {
+  using out_t = Map<int64_t, int64_t>;
+  auto result = prepareResult(CppToType<out_t>::create(), 2);
+
+  {
+    // Write map at offset 0.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<MapVector>());
+    vectorWriter.setOffset(0);
+    auto& mapWriter = vectorWriter.current();
+    mapWriter.copy_from(folly::F14FastMap<int64_t, int64_t>{{1, 2}});
+
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  {
+    // Write map at offset 1 using a different writer.
+    exec::VectorWriter<out_t> vectorWriter;
+    vectorWriter.init(*result->as<MapVector>());
+    vectorWriter.setOffset(1);
+
+    auto& mapWriter = vectorWriter.current();
+    mapWriter.copy_from(folly::F14FastMap<int64_t, int64_t>{{10, 20}});
+
+    vectorWriter.commit();
+    vectorWriter.finish();
+  }
+
+  auto* outerMap = result->as<MapVector>();
+  auto& keys = outerMap->mapKeys();
+  auto& values = outerMap->mapValues();
+  ASSERT_EQ(keys->size(), 2);
+  ASSERT_EQ(values->size(), 2);
+
+  ASSERT_EQ(keys->asFlatVector<int64_t>()->valueAt(0), 1);
+  ASSERT_EQ(values->asFlatVector<int64_t>()->valueAt(0), 2);
+
+  ASSERT_EQ(keys->asFlatVector<int64_t>()->valueAt(1), 10);
+  ASSERT_EQ(values->asFlatVector<int64_t>()->valueAt(1), 20);
 }
 
 } // namespace

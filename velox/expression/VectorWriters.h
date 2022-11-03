@@ -128,8 +128,6 @@ struct VectorWriter<Array<V>> {
   void ensureSize(size_t size) {
     if (size > arrayVector_->size()) {
       arrayVector_->resize(size);
-      childWriter_.init(
-          static_cast<child_vector_t&>(*arrayVector_->elements()));
     }
   }
 
@@ -212,7 +210,6 @@ struct VectorWriter<Map<K, V>> {
   void ensureSize(size_t size) {
     if (size > mapVector_->size()) {
       mapVector_->resize(size);
-      init(vector());
     }
   }
 

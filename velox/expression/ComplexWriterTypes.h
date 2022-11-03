@@ -471,6 +471,7 @@ class MapWriter {
     keysVector_ = &keysWriter_->vector();
     valuesVector_ = &valuesWriter_->vector();
 
+    innerOffset_ = std::max(keysVector_->size(), valuesVector_->size());
     // Keys can never be null.
     keysVector_->resetNulls();
 
