@@ -26,20 +26,25 @@ import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestHiveTypeTranslator
 {
+    private final TypeTranslator typeTranslator;
+
     private final Map<String, HiveType> typeTranslationMap;
 
     public TestHiveTypeTranslator()
     {
-        this(ImmutableMap.of());
+        this(new HiveTypeTranslator(), ImmutableMap.of());
     }
 
-    protected TestHiveTypeTranslator(Map<String, HiveType> overwriteTranslation)
+    protected TestHiveTypeTranslator(TypeTranslator typeTranslator, Map<String, HiveType> overwriteTranslation)
     {
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+
         ImmutableMap<String, HiveType> hiveTypeTranslationMap = ImmutableMap.<String, HiveType>builder()
                 .put("bigint", HiveType.HIVE_LONG)
                 .put("integer", HiveType.HIVE_INT)
@@ -75,14 +80,14 @@ public class TestHiveTypeTranslator
     private void assertTypeTranslation(String typeName, HiveType hiveType)
     {
         Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
-        assertEquals(HiveType.toHiveType(type), hiveType);
+        assertEquals(HiveType.toHiveType(typeTranslator, type), hiveType);
     }
 
     private void assertInvalidTypeTranslation(String typeName, ErrorCode errorCode, String message)
     {
         Type type = FUNCTION_AND_TYPE_MANAGER.getType(parseTypeSignature(typeName));
         try {
-            HiveType.toHiveType(type);
+            HiveType.toHiveType(typeTranslator, type);
             fail("expected exception");
         }
         catch (PrestoException e) {

@@ -64,23 +64,11 @@ import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeI
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 
-public final class HiveTypeTranslator
+public class HiveTypeTranslator
+        implements TypeTranslator
 {
-    private HiveTypeTranslator()
-    {}
-
-    public static TypeInfo translate(Type type)
-    {
-        return translate(type, Optional.empty());
-    }
-
-    /**
-     * @param type            source type to be translated
-     * @param defaultHiveType When there is no mapping type to translate a type to,
-     *                        use provided default hive type when necessary. For example,
-     *                        explicit type is not needed for PageFile format.
-     */
-    public static TypeInfo translate(Type type, Optional<HiveType> defaultHiveType)
+    @Override
+    public TypeInfo translate(Type type, Optional<HiveType> defaultHiveType)
     {
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.getTypeInfo();

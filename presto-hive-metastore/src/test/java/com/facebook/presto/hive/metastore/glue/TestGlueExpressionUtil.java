@@ -16,6 +16,8 @@ package com.facebook.presto.hive.metastore.glue;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.HiveTypeTranslator;
+import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.metastore.Column;
 import com.google.common.base.Strings;
 import org.testng.annotations.Test;
@@ -34,6 +36,8 @@ import static org.testng.Assert.assertEquals;
 
 public class TestGlueExpressionUtil
 {
+    private static final TypeTranslator HIVE_TYPE_TRANSLATOR = new HiveTypeTranslator();
+
     @Test
     public void testBuildGlueExpressionDomainEqualsSingleValue()
     {
@@ -45,7 +49,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainEqualsSingleValue()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", "2020-01-01")
                 .addStringValues("col2", "2020-02-20")
                 .build();
@@ -56,7 +60,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainEqualsAndInClause()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", "2020-01-01")
                 .addStringValues("col2", "2020-02-20", "2020-02-28")
                 .build();
@@ -67,7 +71,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainRange()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", "2020-01-01")
                 .addRanges("col2", Range.greaterThan(BIGINT, 100L))
                 .addRanges("col2", Range.lessThan(BIGINT, 0L))
@@ -79,7 +83,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainEqualAndRangeLong()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addBigintValues("col1", 3L)
                 .addRanges("col1", Range.greaterThan(BIGINT, 100L))
                 .addRanges("col1", Range.lessThan(BIGINT, 0L))
@@ -91,7 +95,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainEqualAndRangeString()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", "2020-01-01", "2020-01-31")
                 .addRanges("col1", Range.range(VarcharType.VARCHAR, utf8Slice("2020-03-01"), true, utf8Slice("2020-03-31"), true))
                 .build();
@@ -102,7 +106,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainIsNull()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -112,7 +116,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionTupleDomainNotNull()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -122,7 +126,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionMaxLengthNone()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", Strings.repeat("x", GLUE_EXPRESSION_CHAR_LIMIT))
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -132,7 +136,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBuildGlueExpressionMaxLengthOneColumn()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues("col1", Strings.repeat("x", GLUE_EXPRESSION_CHAR_LIMIT))
                 .addStringValues("col2", Strings.repeat("x", 5))
                 .build();
@@ -143,7 +147,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testDecimalConversion()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDecimalValues("col1", "10.134")
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -153,7 +157,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testBigintConversion()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addBigintValues("col1", Long.MAX_VALUE)
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -163,7 +167,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testIntegerConversion()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues("col1", Long.valueOf(Integer.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -173,7 +177,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testSmallintConversion()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues("col1", Long.valueOf(Short.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(predicates);
@@ -183,7 +187,7 @@ public class TestGlueExpressionUtil
     @Test
     public void testTinyintConversion()
     {
-        Map<Column, Domain> predicates = new PartitionFilterBuilder()
+        Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues("col1", Long.valueOf(Byte.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(predicates);
