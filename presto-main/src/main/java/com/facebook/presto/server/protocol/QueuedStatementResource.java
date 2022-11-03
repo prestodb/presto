@@ -30,8 +30,8 @@ import com.facebook.presto.server.ServerConfig;
 import com.facebook.presto.server.SessionContext;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
-import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.SqlParserOptions;
+import com.facebook.presto.tracing.TracerProviderManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
@@ -125,7 +125,7 @@ public class QueuedStatementResource
     private final boolean compressionEnabled;
 
     private final SqlParserOptions sqlParserOptions;
-    private final TracerProvider tracerProvider;
+    private final TracerProviderManager tracerProviderManager;
     private final SessionPropertyManager sessionPropertyManager;     // We may need some system default session property values at early query stage even before session is created.
 
     private final QueryBlockingRateLimiter queryRateLimiter;
@@ -138,7 +138,7 @@ public class QueuedStatementResource
             LocalQueryProvider queryResultsProvider,
             SqlParserOptions sqlParserOptions,
             ServerConfig serverConfig,
-            TracerProvider tracerProvider,
+            TracerProviderManager tracerProviderManager,
             SessionPropertyManager sessionPropertyManager,
             QueryBlockingRateLimiter queryRateLimiter)
     {
@@ -149,7 +149,7 @@ public class QueuedStatementResource
 
         this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
         this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
-        this.tracerProvider = requireNonNull(tracerProvider, "tracerProvider is null");
+        this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.sessionPropertyManager = sessionPropertyManager;
 
         this.queryRateLimiter = requireNonNull(queryRateLimiter, "queryRateLimiter is null");
@@ -215,7 +215,7 @@ public class QueuedStatementResource
         SessionContext sessionContext = new HttpRequestSessionContext(
                 servletRequest,
                 sqlParserOptions,
-                tracerProvider,
+                tracerProviderManager.getTracerProvider(),
                 Optional.of(sessionPropertyManager));
         Query query = new Query(statement, sessionContext, dispatchManager, queryResultsProvider, 0);
         queries.put(query.getQueryId(), query);

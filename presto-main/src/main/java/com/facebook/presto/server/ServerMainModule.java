@@ -148,7 +148,6 @@ import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.PredicateCompiler;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spiller.FileSingleStreamSpillerFactory;
 import com.facebook.presto.spiller.GenericPartitioningSpillerFactory;
 import com.facebook.presto.spiller.GenericSpillerFactory;
@@ -195,8 +194,7 @@ import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.statusservice.NodeStatusService;
-import com.facebook.presto.tracing.NoopTracerProvider;
-import com.facebook.presto.tracing.SimpleTracerProvider;
+import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.TransactionManagerConfig;
 import com.facebook.presto.type.TypeDeserializer;
@@ -245,8 +243,6 @@ import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
-import static com.facebook.presto.tracing.TracingConfig.TracerType.NOOP;
-import static com.facebook.presto.tracing.TracingConfig.TracerType.SIMPLE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -741,15 +737,7 @@ public class ServerMainModule
 
         // Distributed tracing
         configBinder(binder).bindConfig(TracingConfig.class);
-        install(installModuleIf(
-                TracingConfig.class,
-                config -> !config.getEnableDistributedTracing() || NOOP.equalsIgnoreCase(config.getTracerType()),
-                moduleBinder -> moduleBinder.bind(TracerProvider.class).to(NoopTracerProvider.class).in(Scopes.SINGLETON)));
-
-        install(installModuleIf(
-                TracingConfig.class,
-                config -> config.getEnableDistributedTracing() && SIMPLE.equalsIgnoreCase(config.getTracerType()),
-                moduleBinder -> moduleBinder.bind(TracerProvider.class).to(SimpleTracerProvider.class).in(Scopes.SINGLETON)));
+        binder.bind(TracerProviderManager.class).in(Scopes.SINGLETON);
 
         //Optional Status Detector
         newOptionalBinder(binder, NodeStatusService.class);

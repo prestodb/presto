@@ -14,12 +14,15 @@
 package com.facebook.presto.tracing.testing;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.tracing.TracerHandle;
 import com.facebook.presto.tracing.SimpleTracer;
 import com.facebook.presto.tracing.SimpleTracerProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -44,7 +47,9 @@ public class TestSimpleTracer
     @Test
     public void testAddPoint()
     {
-        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer();
+        Map<String, String> testHeaders = new HashMap<>();
+        TracerHandle testTracerHandle = tracerProvider.getHandleGenerator().apply(testHeaders);
+        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer(testTracerHandle);
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
             CompletableFuture<?> future = new CompletableFuture<>();
@@ -72,7 +77,9 @@ public class TestSimpleTracer
     @Test
     public void testAddBlock()
     {
-        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer();
+        Map<String, String> testHeaders = new HashMap<>();
+        TracerHandle testTracerHandle = tracerProvider.getHandleGenerator().apply(testHeaders);
+        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer(testTracerHandle);
         List<CompletableFuture<?>> futures = new ArrayList<>();
         for (int i = 0; i < numThreads; i++) {
             CompletableFuture<?> future = new CompletableFuture<>();
@@ -103,7 +110,9 @@ public class TestSimpleTracer
     @Test
     public void testBlockErrors()
     {
-        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer();
+        Map<String, String> testHeaders = new HashMap<>();
+        TracerHandle testTracerHandle = tracerProvider.getHandleGenerator().apply(testHeaders);
+        SimpleTracer tracer = (SimpleTracer) tracerProvider.getNewTracer(testTracerHandle);
 
         // Duplicate block
         PrestoException exception = expectThrows(PrestoException.class, () -> {
