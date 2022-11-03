@@ -168,23 +168,27 @@ public class TestHiveIntegrationSmokeTest
     private final String catalog;
     private final Session bucketedSession;
     private final Session materializeExchangesSession;
+    private final TypeTranslator typeTranslator;
 
     @SuppressWarnings("unused")
     public TestHiveIntegrationSmokeTest()
     {
         this(createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
                 createMaterializeExchangesSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin")))),
-                HIVE_CATALOG);
+                HIVE_CATALOG,
+                new HiveTypeTranslator());
     }
 
     protected TestHiveIntegrationSmokeTest(
             Session bucketedSession,
             Session materializeExchangesSession,
-            String catalog)
+            String catalog,
+            TypeTranslator typeTranslator)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.bucketedSession = requireNonNull(bucketedSession, "bucketSession is null");
         this.materializeExchangesSession = requireNonNull(materializeExchangesSession, "materializeExchangesSession is null");
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
     }
 
     @Override
@@ -5904,7 +5908,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Type canonicalizeType(Type type)
     {
-        HiveType hiveType = HiveType.toHiveType(type);
+        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
         return FUNCTION_AND_TYPE_MANAGER.getType(hiveType.getTypeSignature());
     }
 

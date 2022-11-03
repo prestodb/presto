@@ -132,6 +132,7 @@ public class TestHiveMetadataFileFormatEncryptionSettings
                 PARTITION_UPDATE_CODEC,
                 PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
+                new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(HDFS_ENVIRONMENT, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(HDFS_ENVIRONMENT, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 TEST_SERVER_VERSION,

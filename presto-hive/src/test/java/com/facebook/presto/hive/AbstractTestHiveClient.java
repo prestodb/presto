@@ -1018,6 +1018,7 @@ public abstract class AbstractTestHiveClient
                 HiveTestUtils.PARTITION_UPDATE_CODEC,
                 HiveTestUtils.PARTITION_UPDATE_SMILE_CODEC,
                 listeningDecorator(executor),
+                new HiveTypeTranslator(),
                 new HiveStagingFileCommitter(hdfsEnvironment, listeningDecorator(executor)),
                 new HiveZeroRowFileCreator(hdfsEnvironment, new OutputStreamDataSinkFactory(), listeningDecorator(executor)),
                 TEST_SERVER_VERSION,
@@ -1467,9 +1468,10 @@ public abstract class AbstractTestHiveClient
             MetastoreContext metastoreContext = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), false, DEFAULT_COLUMN_CONVERTER_PROVIDER);
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore().getTable(metastoreContext, schemaName, tableName).get();
+            HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
                     .filter(columnMetadata -> !columnMetadata.getName().equals("ds"))
-                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty(), Optional.empty()))
+                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(hiveTypeTranslator, columnMetadata.getType()), Optional.empty(), Optional.empty()))
                     .collect(toList());
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
