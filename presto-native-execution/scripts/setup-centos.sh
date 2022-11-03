@@ -74,36 +74,27 @@ function cmake_install {
   git clone https://github.com/facebookincubator/fizz &&
   cd fizz &&
   git checkout $FB_OS_VERSION &&
-  cmake_install fizz -DBUILD_TESTS=OFF fizz
+  cmake_install fizz -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
 )
 
 (
   git clone https://github.com/facebook/wangle &&
   cd wangle &&
   git checkout $FB_OS_VERSION &&
-  cmake_install wangle -DBUILD_TESTS=OFF wangle
+  cmake_install wangle -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
 )
 
 (
   git clone https://github.com/facebook/proxygen &&
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
-  mkdir _build && cd _build &&
-  cmake                                     \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo       \
-    -DCMAKE_INSTALL_PREFIX="$PREFIX"        \
-    -DCMAKE_CXX_FLAGS="$COMPILER_FLAGS"     \
-    -DCMAKE_INSTALL_PREFIX=/usr/local       \
-    -DBUILD_TESTS=OFF                       \
-    .. &&
-  make "-j$(nproc)" &&
-  make install
+  cmake_install proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
   git clone https://github.com/google/re2 &&
   cd re2 &&
-  cmake_install re2 -DBUILD_TESTS=OFF
+  cmake_install re2 -DBUILD_SHARED_LIBS=ON
 )
 
 (
@@ -111,11 +102,7 @@ function cmake_install {
   mkdir antlr4-cpp-runtime-4.9.3-source &&
   cd antlr4-cpp-runtime-4.9.3-source &&
   unzip ../antlr4-cpp-runtime-4.9.3-source.zip &&
-  mkdir build && mkdir run && cd build &&
-  cmake .. &&
-  DESTDIR=../run make "-j$(nproc)" install
-  cp -r ../run/usr/local/include/antlr4-runtime  /usr/local/include/. &&
-  cp ../run/usr/local/lib/*  /usr/local/lib/. &&
+  cmake_install antlr4 -DBUILD_SHARED_LIBS=ON
   ldconfig
 )
 
@@ -123,7 +110,7 @@ function cmake_install {
   git clone https://github.com/facebook/fbthrift &&
   cd fbthrift &&
   git checkout $FB_OS_VERSION &&
-  cmake_install fbthrift -DBUILD_TESTS=OFF
+  cmake_install fbthrift -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 dnf clean all
