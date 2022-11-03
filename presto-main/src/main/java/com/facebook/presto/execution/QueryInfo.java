@@ -20,6 +20,7 @@ import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.memory.MemoryPoolId;
@@ -90,6 +91,7 @@ public class QueryInfo
     private final Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions;
     private final Set<SqlFunctionId> removedSessionFunctions;
     private final StatsAndCosts planStatsAndCosts;
+    private final List<PlanOptimizerInformation> optimizerInformation;
     // Using a list rather than map, to avoid implementing map key deserializer
     private final List<CanonicalPlanWithInfo> planCanonicalInfo;
 
@@ -130,6 +132,7 @@ public class QueryInfo
             @JsonProperty("addedSessionFunctions") Map<SqlFunctionId, SqlInvokedFunction> addedSessionFunctions,
             @JsonProperty("removedSessionFunctions") Set<SqlFunctionId> removedSessionFunctions,
             @JsonProperty("planStatsAndCosts") StatsAndCosts planStatsAndCosts,
+            @JsonProperty("optimizerInformation") List<PlanOptimizerInformation> optimizerInformation,
             List<CanonicalPlanWithInfo> planCanonicalInfo)
     {
         requireNonNull(queryId, "queryId is null");
@@ -159,6 +162,7 @@ public class QueryInfo
         requireNonNull(addedSessionFunctions, "addedSessionFunctions is null");
         requireNonNull(removedSessionFunctions, "removedSessionFunctions is null");
         requireNonNull(planStatsAndCosts, "planStatsAndCosts is null");
+        requireNonNull(optimizerInformation, "optimizerInformation is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -200,6 +204,7 @@ public class QueryInfo
         this.addedSessionFunctions = ImmutableMap.copyOf(addedSessionFunctions);
         this.removedSessionFunctions = ImmutableSet.copyOf(removedSessionFunctions);
         this.planStatsAndCosts = planStatsAndCosts;
+        this.optimizerInformation = optimizerInformation;
         this.planCanonicalInfo = planCanonicalInfo == null ? ImmutableList.of() : planCanonicalInfo;
     }
 
@@ -427,6 +432,12 @@ public class QueryInfo
     public StatsAndCosts getPlanStatsAndCosts()
     {
         return planStatsAndCosts;
+    }
+
+    @JsonProperty
+    public List<PlanOptimizerInformation> getOptimizerInformation()
+    {
+        return optimizerInformation;
     }
 
     // Don't serialize this field because it can be big

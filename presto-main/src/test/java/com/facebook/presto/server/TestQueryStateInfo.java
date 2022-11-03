@@ -299,6 +299,7 @@ public class TestQueryStateInfo
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 }
