@@ -796,3 +796,55 @@ TEST_F(RowContainerTest, partition) {
     EXPECT_EQ(partitionRows[partition], result);
   }
 }
+
+TEST_F(RowContainerTest, probedFlag) {
+  auto rowContainer =
+      makeRowContainer({BIGINT()}, {BIGINT()}, true /*isJoinBuild*/);
+
+  auto input = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, 50}),
+  });
+
+  auto size = input->size();
+  std::vector<char*> rows(size);
+  DecodedVector decodedKey(*input->childAt(0));
+  DecodedVector decodedValue(*input->childAt(1));
+  for (auto i = 0; i < size; ++i) {
+    rows[i] = rowContainer->newRow();
+    rowContainer->store(decodedKey, i, rows[i], 0);
+    rowContainer->store(decodedValue, i, rows[i], 1);
+  }
+
+  // No 'probed' flags set. Verify all false.
+  auto result = BaseVector::create<FlatVector<bool>>(BOOLEAN(), 1, pool());
+  rowContainer->extractProbedFlags(rows.data(), size, result);
+
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_FALSE(result->isNullAt(i));
+    ASSERT_FALSE(result->valueAt(i));
+  }
+
+  // Set 'probed' flags for every other row.
+  for (auto i = 0; i < size; i += 2) {
+    rowContainer->setProbedFlag(rows.data() + i, 1);
+  }
+
+  rowContainer->extractProbedFlags(rows.data(), size, result);
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_FALSE(result->isNullAt(i));
+    ASSERT_EQ(result->valueAt(i), i % 2 == 0);
+  }
+
+  // Set 'probed' flags for all rows.
+  rowContainer->setProbedFlag(rows.data(), size);
+
+  rowContainer->extractProbedFlags(rows.data(), size, result);
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_FALSE(result->isNullAt(i));
+    ASSERT_TRUE(result->valueAt(i));
+  }
+}

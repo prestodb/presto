@@ -1539,6 +1539,15 @@ int32_t HashTable<ignoreNullKeys>::listProbedRows(
 }
 
 template <bool ignoreNullKeys>
+int32_t HashTable<ignoreNullKeys>::listAllRows(
+    RowsIterator* iter,
+    int32_t maxRows,
+    uint64_t maxBytes,
+    char** rows) {
+  return listRows<RowContainer::ProbeType::kAll>(iter, maxRows, maxBytes, rows);
+}
+
+template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::erase(folly::Range<char**> rows) {
   auto numRows = rows.size();
   raw_vector<uint64_t> hashes;

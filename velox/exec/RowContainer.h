@@ -304,6 +304,13 @@ class RowContainer {
         rows, rowNumbers, columnAt(columnIndex), resultOffset, result);
   }
 
+  /// Copies the 'probed' flags for the specified rows into 'result'.
+  /// The 'result' is expected to be flat vector of type boolean.
+  void extractProbedFlags(
+      const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+      int32_t numRows,
+      const VectorPtr& result);
+
   static inline int32_t nullByte(int32_t nullOffset) {
     return nullOffset / 8;
   }

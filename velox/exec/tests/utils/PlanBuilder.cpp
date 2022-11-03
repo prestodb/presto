@@ -887,7 +887,24 @@ PlanBuilder& PlanBuilder::hashJoin(
   if (!filter.empty()) {
     filterExpr = parseExpr(filter, resultType, options_, pool_);
   }
-  auto outputType = extract(resultType, outputLayout);
+
+  RowTypePtr outputType;
+  if (isLeftSemiProjectJoin(joinType) || isRightSemiProjectJoin(joinType)) {
+    std::vector<std::string> names = outputLayout;
+
+    // Last column in 'outputLayout' must be a boolean 'match'.
+    std::vector<TypePtr> types;
+    types.reserve(outputLayout.size());
+    for (auto i = 0; i < outputLayout.size() - 1; ++i) {
+      types.emplace_back(resultType->findChild(outputLayout[i]));
+    }
+    types.emplace_back(BOOLEAN());
+
+    outputType = ROW(std::move(names), std::move(types));
+  } else {
+    outputType = extract(resultType, outputLayout);
+  }
+
   auto leftKeyFields = fields(leftType, leftKeys);
   auto rightKeyFields = fields(rightType, rightKeys);
 

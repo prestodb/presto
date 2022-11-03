@@ -136,6 +136,11 @@ class HashProbe : public Operator {
   // Returns the number of passing rows.
   vector_size_t evalFilter(vector_size_t numRows);
 
+  inline bool filterPassed(vector_size_t row) {
+    return !decodedFilterResult_.isNullAt(row) &&
+        decodedFilterResult_.valueAt<bool>(row);
+  }
+
   // Populate filter input columns.
   void fillFilterInput(vector_size_t size);
 
@@ -378,9 +383,9 @@ class HashProbe : public Operator {
     bool currentRowPassed{false};
   };
 
-  // For left semi join with extra filter, de-duplicates probe side rows with
-  // multiple matches.
-  class LeftSemiJoinTracker {
+  // For left semi join filter with extra filter, de-duplicates probe side rows
+  // with multiple matches.
+  class LeftSemiFilterJoinTracker {
    public:
     // Called for each row that the filter passes. Expects that probe
     // side rows with multiple matches are next to each other. Calls onLastMatch
@@ -411,15 +416,59 @@ class HashProbe : public Operator {
     vector_size_t currentRow{-1};
   };
 
+  // For left semi join project with filter, de-duplicates probe side rows
+  // with multiple matches.
+  class LeftSemiProjectJoinTracker {
+   public:
+    // Called for each row and indicates whether the filter passed or not.
+    // Expects that probe side rows with multiple matches are next to each
+    // other. Calls onLast just once for each probe side row.
+    template <typename TOnLast>
+    void advance(vector_size_t row, bool passed, TOnLast onLast) {
+      if (currentRow != row) {
+        if (currentRow != -1) {
+          onLast(currentRow, currentRowPassed);
+        }
+        currentRow = row;
+        currentRowPassed = false;
+      }
+
+      currentRowPassed |= passed;
+    }
+
+    // Called when all rows from the current input batch were processed. Calls
+    // onLast for the last probe row.
+    template <typename TOnLast>
+    void finish(TOnLast onLast) {
+      if (currentRow != -1) {
+        onLast(currentRow, currentRowPassed);
+      }
+
+      currentRow = -1;
+      currentRowPassed = false;
+    }
+
+   private:
+    // The last row number passed to advance for the current input batch.
+    vector_size_t currentRow{-1};
+
+    // True if currentRow has a match.
+    bool currentRowPassed{false};
+  };
+
   BaseHashTable::RowsIterator lastProbeIterator_;
 
   /// For left and anti join with filter, tracks the probe side rows which had
   /// matches on the build side but didn't pass the filter.
   NoMatchDetector noMatchDetector_;
 
-  /// For left semi join with filter, de-duplicates probe side rows with
+  /// For left semi join filter with extra filter, de-duplicates probe side rows
+  /// with multiple matches.
+  LeftSemiFilterJoinTracker leftSemiFilterJoinTracker_;
+
+  /// For left semi join project with filter, de-duplicates probe side rows with
   /// multiple matches.
-  LeftSemiJoinTracker leftSemiJoinTracker_;
+  LeftSemiProjectJoinTracker leftSemiProjectJoinTracker_;
 
   // Keeps track of returned results between successive batches of
   // output for a batch of input.

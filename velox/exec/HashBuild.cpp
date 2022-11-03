@@ -124,7 +124,8 @@ void HashBuild::setupTable() {
   for (int i = numKeys; i < tableType_->size(); ++i) {
     dependentTypes.emplace_back(tableType_->childAt(i));
   }
-  if (joinNode_->isRightJoin() || joinNode_->isFullJoin()) {
+  if (joinNode_->isRightJoin() || joinNode_->isFullJoin() ||
+      joinNode_->isRightSemiProjectJoin()) {
     // Do not ignore null keys.
     table_ = HashTable<false>::createForJoin(
         std::move(keyHashers),
@@ -136,7 +137,8 @@ void HashBuild::setupTable() {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
     const bool dropDuplicates = !joinNode_->filter() &&
-        (joinNode_->isLeftSemiFilterJoin() || isAntiJoins(joinType_));
+        (joinNode_->isLeftSemiFilterJoin() ||
+         joinNode_->isLeftSemiProjectJoin() || isAntiJoins(joinType_));
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiFilterJoin();
     if (isNullAwareAntiJoinWithFilter(joinNode_)) {

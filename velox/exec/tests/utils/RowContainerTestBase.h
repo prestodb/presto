@@ -29,7 +29,8 @@
 
 namespace facebook::velox::exec::test {
 
-class RowContainerTestBase : public testing::Test {
+class RowContainerTestBase : public testing::Test,
+                             public velox::test::VectorTestBase {
  protected:
   void SetUp() override {
     pool_ = memory::getDefaultScopedMemoryPool();

@@ -144,6 +144,13 @@ class BaseHashTable {
       uint64_t maxBytes,
       char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) = 0;
 
+  /// Returns all rows. Used by the right semi join project.
+  virtual int32_t listAllRows(
+      RowsIterator* FOLLY_NULLABLE iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) = 0;
+
   virtual void prepareJoinTable(
       std::vector<std::unique_ptr<BaseHashTable>> tables,
       folly::Executor* FOLLY_NULLABLE executor = nullptr) = 0;
@@ -328,6 +335,12 @@ class HashTable : public BaseHashTable {
       char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) override;
 
   int32_t listProbedRows(
+      RowsIterator* FOLLY_NULLABLE iter,
+      int32_t maxRows,
+      uint64_t maxBytes,
+      char* FOLLY_NULLABLE* FOLLY_NULLABLE rows) override;
+
+  int32_t listAllRows(
       RowsIterator* FOLLY_NULLABLE iter,
       int32_t maxRows,
       uint64_t maxBytes,

@@ -352,14 +352,41 @@ AbstractJoinNode::AbstractJoinNode(
         rightKeys_[i]->type()->kind(),
         "Join key types on the left and right sides must match");
   }
-  for (auto i = 0; i < outputType_->size(); ++i) {
+
+  auto numOutputColumms = outputType_->size();
+  if (core::isLeftSemiProjectJoin(joinType) ||
+      core::isRightSemiProjectJoin(joinType)) {
+    // Last output column must be a boolean 'match'.
+    --numOutputColumms;
+    VELOX_CHECK_EQ(outputType_->childAt(numOutputColumms), BOOLEAN());
+
+    // Verify that 'match' column name doesn't match any column from left or
+    // right source.
+    const auto& name = outputType->nameOf(numOutputColumms);
+    VELOX_CHECK(!leftType->containsChild(name));
+    VELOX_CHECK(!rightType->containsChild(name));
+  }
+
+  // Output of right semi join cannot include columns from the left side.
+  bool outputMayIncludeLeftColumns =
+      !(core::isRightSemiFilterJoin(joinType) ||
+        core::isRightSemiProjectJoin(joinType));
+
+  // Output of left semi and anti joins cannot include columns from the right
+  // side.
+  bool outputMayIncludeRightColumns =
+      !(core::isLeftSemiFilterJoin(joinType) ||
+        core::isLeftSemiProjectJoin(joinType) || core::isAntiJoin(joinType) ||
+        core::isNullAwareAntiJoin(joinType));
+
+  for (auto i = 0; i < numOutputColumms; ++i) {
     auto name = outputType_->nameOf(i);
-    if (leftType->containsChild(name)) {
+    if (outputMayIncludeLeftColumns && leftType->containsChild(name)) {
       VELOX_CHECK(
           !rightType->containsChild(name),
           "Duplicate column name found on join's left and right sides: {}",
           name);
-    } else if (rightType->containsChild(name)) {
+    } else if (outputMayIncludeRightColumns && rightType->containsChild(name)) {
       VELOX_CHECK(
           !leftType->containsChild(name),
           "Duplicate column name found on join's left and right sides: {}",

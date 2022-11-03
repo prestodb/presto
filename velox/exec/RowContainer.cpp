@@ -525,6 +525,18 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
   }
 }
 
+void RowContainer::extractProbedFlags(
+    const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
+    int32_t numRows,
+    const VectorPtr& result) {
+  result->resize(numRows);
+  auto flatResult = result->as<FlatVector<bool>>();
+  auto* rawValues = flatResult->mutableRawValues<uint64_t>();
+  for (auto i = 0; i < numRows; ++i) {
+    bits::setBit(rawValues, i, bits::isBitSet(rows[i], probedFlagOffset_));
+  }
+}
+
 int64_t RowContainer::sizeIncrement(
     vector_size_t numRows,
     int64_t variableLengthBytes) const {
