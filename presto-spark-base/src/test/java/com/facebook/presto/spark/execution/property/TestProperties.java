@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.spark.execution.property;
 
-import com.google.common.collect.ImmutableMap;
+import com.facebook.airlift.configuration.testing.ConfigAssertions;
+import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -25,11 +26,89 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public class TestProperties
 {
+    @Test
+    public void testNativeExecutionSystemConfig()
+    {
+        // Test defaults
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionSystemConfig.class)
+                .setEnableSerializedPageChecksum(true)
+                .setEnableVeloxExpressionLogging(false)
+                .setEnableVeloxTaskLogging(true)
+                .setHttpServerPort(7777)
+                .setHttpExecThreads(32)
+                .setNumIoThreads(30)
+                .setShutdownOnsetSec(10)
+                .setSystemMemoryGb(10)
+                .setConcurrentLifespansPerTask(5)
+                .setMaxDriversPerTask(15)
+                .setPrestoVersion("dummy.presto.version")
+                .setDiscoveryUri("http://127.0.0.1"));
+
+        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
+        NativeExecutionSystemConfig expected = new NativeExecutionSystemConfig()
+                .setConcurrentLifespansPerTask(15)
+                .setEnableSerializedPageChecksum(false)
+                .setEnableVeloxExpressionLogging(true)
+                .setEnableVeloxTaskLogging(false)
+                .setHttpServerPort(8080)
+                .setHttpExecThreads(256)
+                .setNumIoThreads(50)
+                .setPrestoVersion("presto-version")
+                .setShutdownOnsetSec(30)
+                .setSystemMemoryGb(40)
+                .setMaxDriversPerTask(30)
+                .setDiscoveryUri("http://127.0.8.1");
+        Map<String, String> properties = expected.getAllProperties();
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testNativeExecutionNodeConfig()
+    {
+        // Test defaults
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionNodeConfig.class)
+                .setNodeEnvironment("spark-velox")
+                .setNodeLocation("/dummy/location")
+                .setNodeIp("0.0.0.0")
+                .setNodeId(0)
+                .setNodeMemoryGb(10));
+
+        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
+        NativeExecutionNodeConfig expected = new NativeExecutionNodeConfig()
+                .setNodeEnvironment("next-gen-spark")
+                .setNodeId(1)
+                .setNodeLocation("/extra/dummy/location")
+                .setNodeIp("1.1.1.1")
+                .setNodeMemoryGb(40);
+        Map<String, String> properties = expected.getAllProperties();
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testNativeExecutionConnectorConfig()
+    {
+        // Test defaults
+        assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionConnectorConfig.class)
+                .setCacheEnabled(false)
+                .setMaxCacheSize(new DataSize(0, DataSize.Unit.GIGABYTE))
+                .setConnectorName("hive"));
+
+        // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
+        NativeExecutionConnectorConfig expected = new NativeExecutionConnectorConfig()
+                .setConnectorName("custom")
+                .setMaxCacheSize(new DataSize(32, DataSize.Unit.GIGABYTE))
+                .setCacheEnabled(true);
+        Map<String, String> properties = expected.getAllProperties();
+        assertFullMapping(properties, expected);
+    }
+
     @Test
     public void testFilePropertiesPopulator()
     {
@@ -42,15 +121,15 @@ public class TestProperties
             fail();
         }
         Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
-        Map<String, String> workerConfigProperties = createSampleConfigProperties(configPropertiesPath);
+        Map<String, String> workerConfigProperties = new NativeExecutionSystemConfig().getAllProperties();
         testPropertiesPopulate(workerConfigProperties, configPropertiesPath);
 
         Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
-        Map<String, String> nodeConfigProperties = createSampleNodeProperties(nodePropertiesPath);
+        Map<String, String> nodeConfigProperties = new NativeExecutionNodeConfig().getAllProperties();
         testPropertiesPopulate(nodeConfigProperties, nodePropertiesPath);
 
         Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-        Map<String, String> connectorProperties = createSampleConnectorProperties(connectorPropertiesPath);
+        Map<String, String> connectorProperties = new NativeExecutionConnectorConfig().getAllProperties();
         testPropertiesPopulate(connectorProperties, connectorPropertiesPath);
     }
 
@@ -92,43 +171,5 @@ public class TestProperties
         for (Map.Entry<Object, Object> entry : actual.entrySet()) {
             assertEquals((String) entry.getValue(), expected.get((String) entry.getKey()));
         }
-    }
-
-    private Map<String, String> createSampleConfigProperties(Path propertyPath)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("concurrent-lifespans-per-task", "5")
-                .put("enable-serialized-page-checksum", "true")
-                .put("enable_velox_expression_logging", "false")
-                .put("enable_velox_task_logging", "true")
-                .put("http-server.http.port", "7777")
-                .put("http_exec_threads", "128")
-                .put("num-io-threads", "30")
-                .put("presto.version", "presto-version")
-                .put("shutdown-onset-sec", "10")
-                .put("system-memory-gb", "10")
-                .put("task.max-drivers-per-task", "15")
-                .put("discovery.uri", "http://127.0.0.1");
-        return builder.build();
-    }
-
-    private Map<String, String> createSampleNodeProperties(Path propertyPath)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("node.environment", "Sapphire-Velox")
-                .put("node.id", "0")
-                .put("node.location", "/dummy/location")
-                .put("node.ip", "0.0.0.0")
-                .put("node.memory_gb", "10");
-        return builder.build();
-    }
-
-    private Map<String, String> createSampleConnectorProperties(Path propertyPath)
-    {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("cache.enabled", "false")
-                .put("cache.max-cache-size", "0")
-                .put("connector.name", "hive");
-        return builder.build();
     }
 }
