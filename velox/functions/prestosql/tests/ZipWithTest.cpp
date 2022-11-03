@@ -322,7 +322,7 @@ TEST_F(ZipWithTest, fuzzSameSizeNoNulls) {
   options.vectorSize = 1024;
 
   auto rowType =
-      ROW({"c0", "c1", "c2"}, {ARRAY(BIGINT()), ARRAY(INTEGER()), SMALLINT()});
+      ROW({"c0", "c1", "c2"}, {ARRAY(INTEGER()), ARRAY(INTEGER()), SMALLINT()});
 
   VectorFuzzer fuzzer(options, pool());
   for (auto i = 0; i < 10; ++i) {
@@ -331,19 +331,22 @@ TEST_F(ZipWithTest, fuzzSameSizeNoNulls) {
     auto data = fuzzer.fuzzInputRow(rowType);
     auto flatData = flatten<RowVector>(data);
 
-    auto result = evaluate("zip_with(c0, c1, (x, y) -> x + y)", data);
+    auto result =
+        evaluate("zip_with(c0, c1, (x, y) -> cast(x as bigint) + y)", data);
     auto expectedResult =
-        evaluate("zip_with(c0, c1, (x, y) -> x + y)", flatData);
+        evaluate("zip_with(c0, c1, (x, y) -> cast(x as bigint) + y)", flatData);
     assertEqualVectors(expectedResult, result);
 
-    result = evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", data);
-    expectedResult =
-        evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", flatData);
+    result = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", data);
+    expectedResult = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", flatData);
     assertEqualVectors(expectedResult, result);
 
     // Sanity Check with possible lazy inputs.
     data = fuzzer.fuzzRowChildrenToLazy(data);
-    result = evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", data);
+    result = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", data);
     assertEqualVectors(expectedResult, result);
   }
 }
@@ -355,7 +358,7 @@ TEST_F(ZipWithTest, fuzzVariableLengthWithNulls) {
   options.nullRatio = 0.1;
 
   auto rowType =
-      ROW({"c0", "c1", "c2"}, {ARRAY(BIGINT()), ARRAY(INTEGER()), SMALLINT()});
+      ROW({"c0", "c1", "c2"}, {ARRAY(INTEGER()), ARRAY(INTEGER()), SMALLINT()});
 
   VectorFuzzer fuzzer(options, pool());
   for (auto i = 0; i < 10; ++i) {
@@ -364,19 +367,22 @@ TEST_F(ZipWithTest, fuzzVariableLengthWithNulls) {
     auto data = fuzzer.fuzzInputRow(rowType);
     auto flatData = flatten<RowVector>(data);
 
-    auto result = evaluate("zip_with(c0, c1, (x, y) -> x + y)", data);
+    auto result =
+        evaluate("zip_with(c0, c1, (x, y) -> cast(x as bigint) + y)", data);
     auto expectedResult =
-        evaluate("zip_with(c0, c1, (x, y) -> x + y)", flatData);
+        evaluate("zip_with(c0, c1, (x, y) -> cast(x as bigint) + y)", flatData);
     assertEqualVectors(expectedResult, result);
 
-    result = evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", data);
-    expectedResult =
-        evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", flatData);
+    result = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", data);
+    expectedResult = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", flatData);
     assertEqualVectors(expectedResult, result);
 
     // Sanity Check with possible lazy inputs.
     data = fuzzer.fuzzRowChildrenToLazy(data);
-    result = evaluate("zip_with(c0, c1, (x, y) -> (x + y) * c2)", data);
+    result = evaluate(
+        "zip_with(c0, c1, (x, y) -> (cast(x as bigint) + y) * c2)", data);
     assertEqualVectors(expectedResult, result);
   }
 }

@@ -17,6 +17,7 @@
 #include "velox/expression/tests/ArgumentTypeFuzzer.h"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
 
 #include "velox/expression/ReverseSignatureBinder.h"
 #include "velox/expression/SignatureBinder.h"
@@ -26,10 +27,10 @@ namespace facebook::velox::test {
 
 namespace {
 
-// Return a random type among those in kSupportedTypes determined by seed.
+// Return a random type among those in kSupportedTypes determined by rng.
 // TODO: Extend this function to return arbitrary random types including nested
 // complex types.
-TypePtr randomType(std::mt19937& seed) {
+TypePtr randomType(std::mt19937& rng) {
   // Decimal types are not supported because VectorFuzzer doesn't support them.
   static std::vector<TypePtr> kSupportedTypes{
       BOOLEAN(),
@@ -42,7 +43,8 @@ TypePtr randomType(std::mt19937& seed) {
       TIMESTAMP(),
       DATE(),
       INTERVAL_DAY_TIME()};
-  auto index = folly::Random::rand32(kSupportedTypes.size(), seed);
+  auto index = boost::random::uniform_int_distribution<uint32_t>(
+      0, kSupportedTypes.size() - 1)(rng);
   return kSupportedTypes[index];
 }
 
@@ -60,7 +62,7 @@ std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName) {
 void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
   for (auto& binding : bindings_) {
     if (!binding.second) {
-      binding.second = randomType(seed_);
+      binding.second = randomType(rng_);
     }
   }
 }
@@ -79,7 +81,7 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
   for (auto i = 0; i < formalArgsCnt; i++) {
     TypePtr actualArg;
     if (formalArgs[i].baseName() == "any") {
-      actualArg = randomType(seed_);
+      actualArg = randomType(rng_);
     } else {
       actualArg =
           exec::SignatureBinder::tryResolveType(formalArgs[i], bindings_);
@@ -91,7 +93,8 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
   // Generate random repeats of the last argument type if the signature is
   // variadic.
   if (signature_.variableArity()) {
-    auto repeat = folly::Random::rand32(maxVariadicArgs + 1, seed_);
+    auto repeat = boost::random::uniform_int_distribution<uint32_t>(
+        0, maxVariadicArgs)(rng_);
     auto last = argumentTypes_[formalArgsCnt - 1];
     for (int i = 0; i < repeat; ++i) {
       argumentTypes_.push_back(last);

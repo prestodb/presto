@@ -2665,7 +2665,7 @@ TEST_P(MultiThreadedHashJoinTest, fullJoinWithFilters) {
 TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
   HashJoinBuilder(*pool_, duckDbQueryRunner_)
       .numDrivers(numDrivers_)
-      .keyTypes({BIGINT()})
+      .keyTypes({INTEGER()})
       .probeVectors(1600, 5)
       .buildVectors(1500, 5)
       .referenceQuery(

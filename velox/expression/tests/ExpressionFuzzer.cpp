@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <folly/Random.h>
+#include <boost/random/uniform_int_distribution.hpp>
 #include <folly/ScopeGuard.h>
 #include <glog/logging.h>
 #include <exception>
@@ -398,7 +398,7 @@ void ExpressionFuzzer::seed(size_t seed) {
 }
 
 void ExpressionFuzzer::reSeed() {
-  seed(folly::Random::rand32(rng_));
+  seed(rng_());
 }
 
 void ExpressionFuzzer::sortConcreteSignatures() {
@@ -483,7 +483,8 @@ core::TypedExprPtr ExpressionFuzzer::generateArgColumn(const TypePtr& arg) {
 }
 
 core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
-  size_t argClass = folly::Random::rand32(4, rng_);
+  size_t argClass =
+      boost::random::uniform_int_distribution<uint32_t>(0, 3)(rng_);
 
   // Toss a coin and choose between a constant, a column reference, or another
   // expression (function).
@@ -497,7 +498,7 @@ core::TypedExprPtr ExpressionFuzzer::generateArg(const TypePtr& arg) {
     if (remainingLevelOfNesting_ > 0) {
       return generateExpression(arg);
     }
-    argClass = folly::Random::rand32(2, rng_);
+    argClass = boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
   }
 
   if (argClass == kArgConstant) {
@@ -512,7 +513,8 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateArgs(
   std::vector<core::TypedExprPtr> inputExpressions;
   auto numVarArgs = !input.variableArity
       ? 0
-      : folly::Random::rand32(FLAGS_max_num_varargs + 1, rng_);
+      : boost::random::uniform_int_distribution<uint32_t>(
+            0, FLAGS_max_num_varargs)(rng_);
   inputExpressions.reserve(input.args.size() + numVarArgs);
 
   for (const auto& arg : input.args) {
@@ -571,7 +573,8 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
   auto secondAttempt =
       &ExpressionFuzzer::generateExpressionFromSignatureTemplate;
 
-  size_t useSignatureTemplate = folly::Random::rand32(2, rng_);
+  size_t useSignatureTemplate =
+      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
   if (FLAGS_velox_fuzzer_enable_complex_types && useSignatureTemplate) {
     std::swap(firstAttempt, secondAttempt);
   }
@@ -622,7 +625,8 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromConcreteSignatures(
   }
 
   // Randomly pick a function that can return `returnType`.
-  size_t idx = folly::Random::rand32(eligible.size(), rng_);
+  size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+      0, eligible.size() - 1)(rng_);
   const auto& chosen = eligible[idx];
 
   return getCallExprFromCallable(*chosen);
@@ -652,7 +656,8 @@ ExpressionFuzzer::chooseRandomSignatureTemplate(
     return nullptr;
   }
 
-  auto idx = folly::Random::rand32(eligible.size(), rng_);
+  auto idx = boost::random::uniform_int_distribution<uint32_t>(
+      0, eligible.size() - 1)(rng_);
   return eligible[idx];
 }
 
@@ -704,7 +709,8 @@ void ExpressionFuzzer::go() {
     VELOX_CHECK(inputRowNames_.empty());
 
     // Pick a random signature to choose the root return type.
-    size_t idx = folly::Random::rand32(signatures_.size(), rng_);
+    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+        0, signatures_.size() - 1)(rng_);
     const auto& rootType = signatures_[idx].returnType;
 
     // Generate expression tree and input data vectors.

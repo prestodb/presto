@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <folly/Random.h>
+#include <boost/random/uniform_01.hpp>
 #include <random>
 
 #include "velox/type/Type.h"
@@ -229,7 +229,7 @@ class VectorFuzzer {
 
   /// Returns true n% of times (`n` is a double between 0 and 1).
   bool coinToss(double n) {
-    return folly::Random::randDouble01(rng_) < n;
+    return boost::random::uniform_01<double>()(rng_) < n;
   }
 
   // Wraps the given vector in a LazyVector.

@@ -16,6 +16,7 @@
 
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
+#include <boost/random/uniform_int_distribution.hpp>
 #include <fmt/format.h>
 #include <codecvt>
 #include <locale>
@@ -68,67 +69,65 @@ T rand(FuzzerGenerator&) {
 
 template <>
 int8_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int8_t>()(rng);
 }
 
 template <>
 int16_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int16_t>()(rng);
 }
 
 template <>
 int32_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int32_t>()(rng);
 }
 
 template <>
 int64_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<int64_t>()(rng);
 }
 
 template <>
 double rand(FuzzerGenerator& rng) {
-  return folly::Random::randDouble01(rng);
+  return boost::random::uniform_01<double>()(rng);
 }
 
 template <>
 float rand(FuzzerGenerator& rng) {
-  return folly::Random::randDouble01(rng);
+  return boost::random::uniform_01<float>()(rng);
 }
 
 template <>
 bool rand(FuzzerGenerator& rng) {
-  return folly::Random::oneIn(2, rng);
+  return boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng);
 }
 
 template <>
 uint32_t rand(FuzzerGenerator& rng) {
-  return folly::Random::rand32(rng);
+  return boost::random::uniform_int_distribution<uint32_t>()(rng);
 }
 
 Timestamp randTimestamp(
     FuzzerGenerator& rng,
     bool useMicrosecondPrecisionTimestamp = false) {
   return useMicrosecondPrecisionTimestamp
-      ? Timestamp::fromMicros(folly::Random::rand32(rng))
-      : Timestamp(
-            folly::Random::rand32(rng),
-            (folly::Random::rand32(rng) % MAX_NANOS));
+      ? Timestamp::fromMicros(rand<int64_t>(rng))
+      : Timestamp(rand<int32_t>(rng), (rand<int64_t>(rng) % MAX_NANOS));
 }
 
 Date randDate(FuzzerGenerator& rng) {
-  return Date(folly::Random::rand32(rng));
+  return Date(rand<int32_t>(rng));
 }
 
 IntervalDayTime randIntervalDayTime(FuzzerGenerator& rng) {
-  return IntervalDayTime(folly::Random::rand64(rng));
+  return IntervalDayTime(rand<int64_t>(rng));
 }
 
 size_t genContainerLength(
     const VectorFuzzer::Options& opts,
     FuzzerGenerator& rng) {
   return opts.containerVariableLength
-      ? folly::Random::rand32(rng) % opts.containerLength
+      ? rand<uint32_t>(rng) % opts.containerLength
       : opts.containerLength;
 }
 
@@ -190,7 +189,7 @@ StringView randString(
   buf.clear();
   std::u16string wbuf;
   const size_t stringLength = opts.stringVariableLength
-      ? folly::Random::rand32(rng) % opts.stringLength
+      ? rand<uint32_t>(rng) % opts.stringLength
       : opts.stringLength;
   wbuf.resize(stringLength);
 
@@ -315,7 +314,7 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   // Lazy Vectors cannot be sliced, so we skip this if using lazy wrapping.
   if (!usingLazyVector && coinToss(0.1)) {
     // Extend the underlying vector to allow slicing later.
-    vectorSize += folly::Random::rand32(8, rng_);
+    vectorSize += rand<uint32_t>(rng_) % 8;
   }
 
   // 20% chance of adding a constant vector.
@@ -327,7 +326,7 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   }
 
   if (vectorSize > size) {
-    auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+    auto offset = rand<uint32_t>(rng_) % (vectorSize - size + 1);
     vector = vector->slice(offset, size);
   }
 
@@ -339,11 +338,11 @@ VectorPtr VectorFuzzer::fuzz(const TypePtr& type, vector_size_t size) {
   while (coinToss(0.5)) {
     vectorSize = size;
     if (!usingLazyVector && vectorSize > 0 && coinToss(0.05)) {
-      vectorSize += folly::Random::rand32(8, rng_);
+      vectorSize += rand<uint32_t>(rng_) % 8;
     }
     vector = fuzzDictionary(vector, vectorSize);
     if (vectorSize > size) {
-      auto offset = folly::Random::rand32(vectorSize - size + 1, rng_);
+      auto offset = rand<uint32_t>(rng_) % (vectorSize - size + 1);
       vector = vector->slice(offset, size);
     }
   }
@@ -376,7 +375,7 @@ VectorPtr VectorFuzzer::fuzzConstant(const TypePtr& type, vector_size_t size) {
   // generated inner vector.
 
   // Inner vector size can't be zero.
-  auto innerVectorSize = folly::Random::rand32(1, opts_.vectorSize + 1, rng_);
+  auto innerVectorSize = rand<uint32_t>(rng_) % opts_.vectorSize + 1;
   auto constantIndex = rand<vector_size_t>(rng_) % innerVectorSize;
 
   ScopedOptions restorer(this);
@@ -534,7 +533,7 @@ void VectorFuzzer::fuzzOffsetsAndSizes(
     // containerAvgLength (so that the average of generated containers size is
     // equal to number of input elements).
     if (opts_.containerVariableLength) {
-      length = folly::Random::rand32(rng_) % (containerAvgLength * 2);
+      length = rand<uint32_t>(rng_) % (containerAvgLength * 2);
     } else {
       length = containerAvgLength;
     }
@@ -698,10 +697,10 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
   static constexpr int kNumScalarTypes =
       sizeof(kScalarTypes) / sizeof(kScalarTypes[0]);
   // Should we generate a scalar type?
-  if (maxDepth <= 1 || folly::Random::rand32(2, rng_)) {
-    return kScalarTypes[folly::Random::rand32(kNumScalarTypes, rng_)];
+  if (maxDepth <= 1 || rand<bool>(rng_)) {
+    return kScalarTypes[rand<uint32_t>(rng_) % kNumScalarTypes];
   }
-  switch (folly::Random::rand32(3, rng_)) {
+  switch (rand<uint32_t>(rng_) % 3) {
     case 0:
       return MAP(randType(0), randType(maxDepth - 1));
     case 1:
@@ -712,7 +711,7 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
 }
 
 RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
-  int numFields = folly::Random::rand32(rng_) % 7;
+  int numFields = rand<uint32_t>(rng_) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {

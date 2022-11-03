@@ -15,8 +15,7 @@
  */
 #pragma once
 
-#include <folly/Random.h>
-
+#include <random>
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
@@ -24,16 +23,16 @@
 namespace facebook::velox::test {
 
 /// For function signatures containing type variables, try generate a list of
-/// arguments types such that the function taking these arugments returns the
+/// arguments types such that the function taking these arguments returns the
 /// given type. If there are type variables unbounded by the return type,
-/// generate a random type for them with seed_.
+/// generate a random type for them with rng_.
 class ArgumentTypeFuzzer {
  public:
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
-      std::mt19937& seed)
-      : signature_{signature}, returnType_{returnType}, seed_{seed} {}
+      std::mt19937& rng)
+      : signature_{signature}, returnType_{returnType}, rng_{rng} {}
 
   /// Generate random argument types if returnType_ can be bound to the return
   /// type of signature_. Return true if the generation succeeds, false
@@ -61,8 +60,8 @@ class ArgumentTypeFuzzer {
   /// Bindings between type variables and their actual types.
   std::unordered_map<std::string, TypePtr> bindings_;
 
-  /// Seed to generate random types for unbounded type variables when necessary.
-  std::mt19937& seed_;
+  /// RNG to generate random types for unbounded type variables when necessary.
+  std::mt19937& rng_;
 };
 
 /// Return the kind name of type in lower case. This is expected to match the
