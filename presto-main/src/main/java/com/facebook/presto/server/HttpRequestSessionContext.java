@@ -22,6 +22,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.spi.session.ResourceEstimates;
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerHandle;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.ParsingOptions;
@@ -211,19 +212,39 @@ public final class HttpRequestSessionContext
 
         this.sessionFunctions = parseSessionFunctionHeader(servletRequest);
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
-        String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
+
+        Map<String, String> requestHeaders = getRequestHeaders(servletRequest);
+        TracerHandle tracerHandle = tracerProvider.getHandleGenerator().apply(requestHeaders);
+
         if (isTracingEnabled()) {
-            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(), "tracer is null"));
+            this.tracer = Optional.of(requireNonNull(tracerProvider.getNewTracer(tracerHandle), "tracer is null"));
+            traceToken = Optional.ofNullable(this.tracer.get().getTracerId());
+        }
+        else {
+            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
 
             // If tunnel trace token is null, we expose the Presto tracing id.
             // Otherwise we preserve the ability of trace token tunneling but
             // still trace Presto internally for aggregation purposes.
-            traceToken = Optional.ofNullable(tunnelTraceId == null ? this.tracer.get().getTracerId() : tunnelTraceId);
+            String tunnelTraceId = trimEmptyToNull(servletRequest.getHeader(PRESTO_TRACE_TOKEN));
+            if (tunnelTraceId != null) {
+                traceToken = Optional.of(tunnelTraceId);
+            }
+            else {
+                traceToken = Optional.ofNullable(tracerHandle.getTraceToken());
+            }
         }
-        else {
-            this.tracer = Optional.of(NoopTracerProvider.NOOP_TRACER);
-            traceToken = Optional.ofNullable(tunnelTraceId);
+    }
+
+    private static Map<String, String> getRequestHeaders(HttpServletRequest servletRequest)
+    {
+        ImmutableMap.Builder<String, String> headers = ImmutableMap.builder();
+        Enumeration<String> headerNames = servletRequest.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String header = headerNames.nextElement();
+            headers.put(header, servletRequest.getHeader(header));
         }
+        return headers.build();
     }
 
     public static List<String> splitSessionHeader(Enumeration<String> headers)
@@ -502,7 +523,7 @@ public final class HttpRequestSessionContext
      */
     private boolean isTracingEnabled()
     {
-        String clientValue = systemProperties.getOrDefault(DISTRIBUTED_TRACING_MODE, TracingConfig.DistributedTracingMode.NO_TRACE.name());
+        String clientValue = systemProperties.getOrDefault(DISTRIBUTED_TRACING_MODE, "");
 
         // Client session setting overrides everything.
         if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name())) {
@@ -511,13 +532,13 @@ public final class HttpRequestSessionContext
         if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.NO_TRACE.name())) {
             return false;
         }
+        if (clientValue.equalsIgnoreCase(TracingConfig.DistributedTracingMode.SAMPLE_BASED.name())) {
+            return true;
+        }
 
-        // Client not set, we then take system default value, and only init
-        // tracing if it's SAMPLE_BASED (TracingConfig prohibits you to
-        // configure system default to be ALWAYS_TRACE). If property manager
-        // not provided then false.
+        // Client not set, we then take system default value if ALWAYS_TRACE (SAMPLE_BASED disabled). If property manager not provided then false.
         return sessionPropertyManager
-                .map(manager -> manager.decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, TracingConfig.DistributedTracingMode.class) == TracingConfig.DistributedTracingMode.SAMPLE_BASED)
+                .map(manager -> manager.decodeSystemPropertyValue(DISTRIBUTED_TRACING_MODE, null, String.class).equalsIgnoreCase(TracingConfig.DistributedTracingMode.ALWAYS_TRACE.name()))
                 .orElse(false);
     }
 

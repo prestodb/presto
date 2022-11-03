@@ -201,6 +201,7 @@ import com.facebook.presto.sql.tree.StartTransaction;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.testing.PageConsumerOperator.PageConsumerOutputFactory;
+import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.tracing.TracingConfig;
 import com.facebook.presto.transaction.InMemoryTransactionManager;
 import com.facebook.presto.transaction.TransactionManager;
@@ -480,7 +481,8 @@ public class LocalQueryRunner
                 new SessionPropertyDefaults(nodeInfo),
                 new ThrowingNodeTtlFetcherManager(),
                 new ThrowingClusterTtlProviderManager(),
-                historyBasedPlanStatisticsManager);
+                historyBasedPlanStatisticsManager,
+                new TracerProviderManager(new TracingConfig()));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
         connectorManager.createConnection(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());

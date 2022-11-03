@@ -24,6 +24,7 @@ public class TracingConfig
     {
         public static final String NOOP = "noop";
         public static final String SIMPLE = "simple";
+        public static final String OTEL = "otel";
     }
 
     public enum DistributedTracingMode

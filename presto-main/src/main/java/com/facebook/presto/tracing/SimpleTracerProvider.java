@@ -14,8 +14,14 @@
 package com.facebook.presto.tracing;
 
 import com.facebook.presto.spi.tracing.Tracer;
+import com.facebook.presto.spi.tracing.TracerHandle;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.google.inject.Inject;
+
+import java.util.Map;
+import java.util.function.Function;
+
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_TRACE_TOKEN;
 
 public class SimpleTracerProvider
         implements TracerProvider
@@ -26,8 +32,27 @@ public class SimpleTracerProvider
     }
 
     @Override
-    public Tracer getNewTracer()
+    public String getName()
     {
-        return new SimpleTracer();
+        return "Simple tracer provider";
+    }
+
+    @Override
+    public String getTracerType()
+    {
+        return TracingConfig.TracerType.SIMPLE;
+    }
+
+    @Override
+    public Function<Map<String, String>, TracerHandle> getHandleGenerator()
+    {
+        return headers -> new SimpleTracerHandle(headers.get(PRESTO_TRACE_TOKEN));
+    }
+
+    @Override
+    public Tracer getNewTracer(TracerHandle handle)
+    {
+        SimpleTracerHandle tracerHandle = (SimpleTracerHandle) handle;
+        return new SimpleTracer(tracerHandle.getTraceToken());
     }
 }

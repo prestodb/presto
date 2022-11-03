@@ -13,26 +13,7 @@
  */
 package com.facebook.presto.spi.tracing;
 
-import java.util.Map;
-import java.util.function.Function;
-
-public interface TracerProvider
+public interface TracerHandle
 {
-    String getName();
-
-    /**
-     * Return tracer type provided by TracerProvider
-     */
-    String getTracerType();
-
-    /**
-     * The method returns a function to take a set of HTTP headers and generate the tracer handle
-     */
-    Function<Map<String, String>, TracerHandle> getHandleGenerator();
-
-    /**
-     *
-     * @return A @Tracer that should be kept throughout the whole duration of tracing.
-     */
-    Tracer getNewTracer(TracerHandle handle);
+    String getTraceToken();
 }
