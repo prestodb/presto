@@ -192,7 +192,8 @@ public class ClickHouseClient
                 tableHandle.getTableName(),
                 layoutHandle.getTupleDomain(),
                 layoutHandle.getAdditionalPredicate(),
-                layoutHandle.getSimpleExpression());
+                layoutHandle.getSimpleExpression(),
+                layoutHandle.getCkql());
         return new FixedSplitSource(ImmutableList.of(clickHouseSplit));
     }
 
@@ -245,17 +246,33 @@ public class ClickHouseClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, ClickHouseSplit split, List<ClickHouseColumnHandle> columnHandles)
             throws SQLException
     {
-        return new QueryBuilder(identifierQuote).buildSql(
-                this,
-                session,
-                connection,
-                split.getCatalogName(),
-                split.getSchemaName(),
-                split.getTableName(),
-                columnHandles,
-                split.getTupleDomain(),
-                split.getAdditionalPredicate(),
-                split.getSimpleExpression());
+        if (split.getCkql().isPresent()) {
+            return new QueryBuilder(identifierQuote).buildSql2(
+                    this,
+                    session,
+                    connection,
+                    split.getCatalogName(),
+                    split.getSchemaName(),
+                    split.getTableName(),
+                    columnHandles,
+                    split.getTupleDomain(),
+                    split.getAdditionalPredicate(),
+                    split.getSimpleExpression(),
+                    split.getCkql().get().getCkql());
+        }
+        else {
+            return new QueryBuilder(identifierQuote).buildSql(
+                    this,
+                    session,
+                    connection,
+                    split.getCatalogName(),
+                    split.getSchemaName(),
+                    split.getTableName(),
+                    columnHandles,
+                    split.getTupleDomain(),
+                    split.getAdditionalPredicate(),
+                    split.getSimpleExpression());
+        }
     }
 
     public String getIdentifierQuote()

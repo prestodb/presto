@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import org.joda.time.DateTimeZone;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -56,7 +57,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.joining;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class QueryBuilder
 {
@@ -90,6 +93,89 @@ public class QueryBuilder
     public QueryBuilder(String quote)
     {
         this.quote = requireNonNull(quote, "quote is null");
+    }
+
+    public PreparedStatement buildSql2(
+            ClickHouseClient client,
+            ConnectorSession session,
+            Connection connection,
+            String catalog,
+            String schema,
+            String table,
+            List<ClickHouseColumnHandle> columns,
+            TupleDomain<ColumnHandle> tupleDomain,
+            Optional<ClickHouseExpression> additionalPredicate,
+            Optional<String> simpleExpression,
+            String ckql)
+            throws SQLException
+    {
+        List<TypeAndValue> accumulator = new ArrayList<>();
+
+        List<String> clauses = toConjuncts(columns, tupleDomain, accumulator);
+        if (additionalPredicate.isPresent()) {
+            clauses = ImmutableList.<String>builder()
+                    .addAll(clauses)
+                    .add(additionalPredicate.get().getExpression())
+                    .build();
+            accumulator.addAll(additionalPredicate.get().getBoundConstantValues().stream()
+                    .map(constantExpression -> new TypeAndValue(constantExpression.getType(), constantExpression.getValue()))
+                    .collect(ImmutableList.toImmutableList()));
+        }
+
+        PreparedStatement statement = client.getPreparedStatement(connection, ckql);
+
+        for (int i = 0; i < accumulator.size(); i++) {
+            TypeAndValue typeAndValue = accumulator.get(i);
+            if (typeAndValue.getType().equals(BIGINT)) {
+                statement.setLong(i + 1, (long) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(INTEGER)) {
+                statement.setInt(i + 1, ((Number) typeAndValue.getValue()).intValue());
+            }
+            else if (typeAndValue.getType().equals(SMALLINT)) {
+                statement.setShort(i + 1, ((Number) typeAndValue.getValue()).shortValue());
+            }
+            else if (typeAndValue.getType().equals(TINYINT)) {
+                statement.setByte(i + 1, ((Number) typeAndValue.getValue()).byteValue());
+            }
+            else if (typeAndValue.getType().equals(DOUBLE)) {
+                statement.setDouble(i + 1, (double) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(REAL)) {
+                statement.setFloat(i + 1, intBitsToFloat(((Number) typeAndValue.getValue()).intValue()));
+            }
+            else if (typeAndValue.getType().equals(BOOLEAN)) {
+                statement.setBoolean(i + 1, (boolean) typeAndValue.getValue());
+            }
+            else if (typeAndValue.getType().equals(DATE)) {
+                long millis = DAYS.toMillis((long) typeAndValue.getValue());
+//                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+                statement.setDate(i + 1, new java.sql.Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
+            }
+            else if (typeAndValue.getType().equals(TIME)) {
+                statement.setTime(i + 1, new Time((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TIME_WITH_TIME_ZONE)) {
+                statement.setTime(i + 1, new Time(unpackMillisUtc((long) typeAndValue.getValue())));
+            }
+            else if (typeAndValue.getType().equals(TIMESTAMP)) {
+                statement.setTimestamp(i + 1, new Timestamp((long) typeAndValue.getValue()));
+            }
+            else if (typeAndValue.getType().equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                statement.setTimestamp(i + 1, new Timestamp(unpackMillisUtc((long) typeAndValue.getValue())));
+            }
+            else if (typeAndValue.getType() instanceof VarcharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
+            else if (typeAndValue.getType() instanceof CharType) {
+                statement.setString(i + 1, ((Slice) typeAndValue.getValue()).toStringUtf8());
+            }
+            else {
+                throw new UnsupportedOperationException("Can't handle type: " + typeAndValue.getType());
+            }
+        }
+
+        return statement;
     }
 
     public PreparedStatement buildSql(

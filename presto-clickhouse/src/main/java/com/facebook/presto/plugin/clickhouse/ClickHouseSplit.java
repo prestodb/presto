@@ -15,6 +15,8 @@ package com.facebook.presto.plugin.clickhouse;
 
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator.GeneratedCkql;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -44,6 +46,7 @@ public class ClickHouseSplit
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
     private Optional<String> simpleExpression;
+    private Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql;
 
     @JsonCreator
     public ClickHouseSplit(
@@ -53,7 +56,8 @@ public class ClickHouseSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalProperty") Optional<ClickHouseExpression> additionalPredicate,
-            @JsonProperty("simpleExpression") Optional<String> simpleExpression)
+            @JsonProperty("simpleExpression") Optional<String> simpleExpression,
+            @JsonProperty("ckql") Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -62,12 +66,19 @@ public class ClickHouseSplit
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
         this.simpleExpression = simpleExpression;
+        this.ckql = ckql;
     }
 
     @JsonProperty
     public Optional<String> getSimpleExpression()
     {
         return simpleExpression;
+    }
+
+    @JsonProperty
+    public Optional<GeneratedCkql> getCkql()
+    {
+        return ckql;
     }
 
     @JsonProperty

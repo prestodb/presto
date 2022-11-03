@@ -80,6 +80,9 @@ public class ClickHouseRecordCursor
             else if (javaType == Slice.class) {
                 sliceReadFunctions[i] = (SliceReadFunction) readFunction;
             }
+//            else if (javaType == Block.class) {
+//                doubleReadFunctions[i] = (DoubleReadFunction) readFunction;
+//            }
             else {
                 throw new IllegalStateException(format("Unsupported java type %s", javaType));
             }
@@ -166,6 +169,23 @@ public class ClickHouseRecordCursor
     }
 
     @Override
+    public Object getObject(int field)
+    {
+        throw new UnsupportedOperationException();
+//        checkState(!closed, "cursor is closed");
+//        try {
+//            Object s = objectReadFunctions[field].readObject(resultSet, field + 1);
+//            return s;
+////            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
+////            return resultSet.getObject(field + 1);
+////            return objectReadFunctions[field].readObject(resultSet, field + 1);
+//        }
+//        catch (SQLException | RuntimeException e) {
+//            throw handleSqlException(e);
+//        }
+    }
+
+    @Override
     public Slice getSlice(int field)
     {
         checkState(!closed, "cursor is closed");
@@ -177,11 +197,25 @@ public class ClickHouseRecordCursor
         }
     }
 
-    @Override
-    public Object getObject(int field)
-    {
-        throw new UnsupportedOperationException();
-    }
+//    @Override
+//    public Object getObject(int field)
+//    {
+////        throw new UnsupportedOperationException();
+//        checkState(!closed, "cursor is closed");
+//        try {
+//            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
+//        }
+//        catch (SQLException | RuntimeException e) {
+//            throw handleSqlException(e);
+//        }
+//
+////        Map<String, Object> data = (Map<String, Object>) objectReadFunctions[field];
+////        RowType rowType = (RowType) type;
+////
+////        return rowType.getFields().stream()
+////                .map(field -> convertToRowValue(field.getType(), data.get(field.getName().get())))
+////                .collect(toList());
+//    }
 
     @Override
     public boolean isNull(int field)

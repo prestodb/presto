@@ -13,14 +13,32 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.sql.Types;
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.SmallintType.SMALLINT;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
@@ -34,19 +52,54 @@ public final class ClickHouseColumnHandle
     private final Type columnType;
     private final boolean nullable;
 
+    public ClickHouseColumnType getType()
+    {
+        return type;
+    }
+
+    private final ClickHouseColumnType type;
+
+    public ClickHouseColumnHandle(
+            String connectorId,
+            String columnName,
+            ClickHouseTypeHandle clickHouseTypeHandle,
+            Type columnType,
+            boolean nullable)
+    {
+        this(connectorId, columnName, clickHouseTypeHandle, columnType, nullable, ClickHouseColumnType.REGULAR);
+    }
+
+    public ClickHouseColumnHandle(
+            VariableReferenceExpression variable,
+            ClickHouseColumnType type)
+    {
+        this(null, variable.getName(), toMappingDefaultJdbcHandle(variable.getType()), variable.getType(), true, type);
+    }
+
+    public ClickHouseColumnHandle(
+            String columnName,
+            Type columnType,
+            ClickHouseColumnType type)
+    {
+        this(null, columnName, toMappingDefaultJdbcHandle(columnType), columnType, true, type);
+    }
+
     @JsonCreator
     public ClickHouseColumnHandle(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("columnName") String columnName,
             @JsonProperty("clickHouseTypeHandle") ClickHouseTypeHandle clickHouseTypeHandle,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("type") ClickHouseColumnType type)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null");
+        this.connectorId = connectorId;
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.clickHouseTypeHandle = requireNonNull(clickHouseTypeHandle, "clickHouseTypeHandle is null");
+        this.clickHouseTypeHandle = clickHouseTypeHandle;
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.type = type;
+        //this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -113,6 +166,61 @@ public final class ClickHouseColumnHandle
                 .add("clickHouseTypeHandle", clickHouseTypeHandle)
                 .add("columnType", columnType)
                 .add("nullable", nullable)
+                .add("type", type)
                 .toString();
+    }
+
+    public enum ClickHouseColumnType
+    {
+        REGULAR, // refers to the column in table
+        DERIVED, // refers to a derived column that is created after a pushdown expression
+    }
+
+    public static ClickHouseTypeHandle toMappingDefaultJdbcHandle(Type type)
+    {
+        if (type == BOOLEAN) {
+            return new ClickHouseTypeHandle(Types.BOOLEAN, Optional.of("boolean"), 1, 0, Optional.empty(), Optional.empty());
+        }
+        if (type.getTypeSignature().getBase().equals("row")) {
+            return new ClickHouseTypeHandle(Types.DOUBLE, Optional.of("double precision"), 32, 4, Optional.empty(), Optional.empty());
+        }
+        if (type == TINYINT) {
+            return new ClickHouseTypeHandle(Types.TINYINT, Optional.of("tinyint"), 2, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == SMALLINT) {
+            return new ClickHouseTypeHandle(Types.SMALLINT, Optional.of("smallint"), 1, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == INTEGER) {
+            return new ClickHouseTypeHandle(Types.INTEGER, Optional.of("integer"), 4, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == BIGINT) {
+            return new ClickHouseTypeHandle(Types.BIGINT, Optional.of("bigint"), 8, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == REAL) {
+            return new ClickHouseTypeHandle(Types.REAL, Optional.of("real"), 16, 4, Optional.empty(), Optional.empty());
+        }
+        if (type == DOUBLE) {
+            return new ClickHouseTypeHandle(Types.DOUBLE, Optional.of("double precision"), 32, 4, Optional.empty(), Optional.empty());
+        }
+        if (type instanceof CharType || type instanceof VarcharType) {
+            return new ClickHouseTypeHandle(Types.VARCHAR, Optional.of("String"), 100, 0, Optional.empty(), Optional.empty());
+        }
+        if (type instanceof VarbinaryType) {
+            // Strings of arbitrary length.
+            return new ClickHouseTypeHandle(Types.VARCHAR, Optional.of("String"), 2000, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == DATE) {
+            return new ClickHouseTypeHandle(Types.DATE, Optional.of("date"), 8, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == TIME) {
+            return new ClickHouseTypeHandle(Types.TIME, Optional.of("time"), 4, 0, Optional.empty(), Optional.empty());
+        }
+        if (type == TIMESTAMP) {
+            return new ClickHouseTypeHandle(Types.TIMESTAMP, Optional.of("timestamp"), 8, 0, Optional.empty(), Optional.empty());
+        }
+//        if (type instanceof RowType) {
+//            return new ClickHouseTypeHandle(Types.JAVA_OBJECT, Optional.of("java_object"), 2000, 0, Optional.empty(), Optional.empty());
+//        }
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
 }

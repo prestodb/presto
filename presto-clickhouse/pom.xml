@@ -125,7 +125,10 @@
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-expressions</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
         <!-- for testing -->
         <dependency>
             <groupId>com.facebook.presto</groupId>
