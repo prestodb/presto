@@ -36,14 +36,6 @@ CPU_TARGET="${CPU_TARGET:-avx}"
 SOURCE_FILE="$(dirname "${BASH_SOURCE}")/setup-helper-functions.sh"
 export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
 
-function cmake_install {
-  local name=$1
-  shift
-  cmake -B "$name-build" -GNinja -DCMAKE_CXX_STANDARD=17 -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-    -DCMAKE_CXX_FLAGS="${COMPILER_FLAGS}" -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_BUILD_TYPE=Release -Wno-dev "$@"
-  ninja -C "$name-build" install
-}
-
 (
   wget --max-redirect 3 https://download.libsodium.org/libsodium/releases/LATEST.tar.gz &&
   tar -xzvf LATEST.tar.gz &&
@@ -67,34 +59,34 @@ function cmake_install {
   git clone https://github.com/facebook/folly &&
   cd folly &&
   git checkout $FB_OS_VERSION &&
-  cmake_install folly -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
   git clone https://github.com/facebookincubator/fizz &&
   cd fizz &&
   git checkout $FB_OS_VERSION &&
-  cmake_install fizz -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
+  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON fizz
 )
 
 (
   git clone https://github.com/facebook/wangle &&
   cd wangle &&
   git checkout $FB_OS_VERSION &&
-  cmake_install wangle -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
+  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON wangle
 )
 
 (
   git clone https://github.com/facebook/proxygen &&
   cd proxygen &&
   git checkout $FB_OS_VERSION &&
-  cmake_install proxygen -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 (
   git clone https://github.com/google/re2 &&
   cd re2 &&
-  cmake_install re2 -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_SHARED_LIBS=ON
 )
 
 (
@@ -102,7 +94,7 @@ function cmake_install {
   mkdir antlr4-cpp-runtime-4.9.3-source &&
   cd antlr4-cpp-runtime-4.9.3-source &&
   unzip ../antlr4-cpp-runtime-4.9.3-source.zip &&
-  cmake_install antlr4 -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_SHARED_LIBS=ON
   ldconfig
 )
 
@@ -110,7 +102,7 @@ function cmake_install {
   git clone https://github.com/facebook/fbthrift &&
   cd fbthrift &&
   git checkout $FB_OS_VERSION &&
-  cmake_install fbthrift -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
+  cmake_install -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_SHARED_LIBS=ON
 )
 
 dnf clean all
