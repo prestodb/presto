@@ -73,6 +73,12 @@ jobs:
           cd ${GITHUB_WORKSPACE}/presto-native-execution/_build/debug
           ctest -j 1 -VV --output-on-failure --exclude-regex velox.*
 
+      - name: Delete build files
+        run: |
+          cd ${GITHUB_WORKSPACE}/presto-native-execution/_build/debug
+          # Delete static libraries
+          rm `find ./ -name lib\*.a` 
+
       - name: Cache local Maven repository
         id: cache-maven
         uses: actions/cache@v3
