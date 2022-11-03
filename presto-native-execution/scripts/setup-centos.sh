@@ -33,7 +33,7 @@ export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 CPU_TARGET="${CPU_TARGET:-avx}"
-SCRIPT_DIR=$(readlink -f "$(dirname "$0")")
+SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
 if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
 then
   source "${SCRIPT_DIR}/setup-helper-functions.sh"
