@@ -115,3 +115,10 @@ Value functions
 Returns the value at the specified offset from the beginning of the window. Offsets start at 1. The offset
 can be any scalar expression. If the offset is null or greater than the number of values in the window, null is
 returned. It is an error for the offset to be zero or negative.
+
+===================
+Aggregate functions
+===================
+
+All aggregate functions can be used as window functions by adding the OVER clause. The aggregate function is computed
+for each row over the rows within the current row's window frame.

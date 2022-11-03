@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "velox/exec/Aggregate.h"
 
 namespace facebook::velox::window {
 
@@ -23,6 +24,7 @@ extern void registerDenseRank(const std::string& name);
 extern void registerPercentRank(const std::string& name);
 extern void registerCumeDist(const std::string& name);
 extern void registerNthValue(const std::string& name);
+extern void registerAggregateWindowFunction(const std::string& name);
 
 void registerWindowFunctions() {
   window::registerRowNumber("row_number");
@@ -31,6 +33,12 @@ void registerWindowFunctions() {
   window::registerPercentRank("percent_rank");
   window::registerCumeDist("cume_dist");
   window::registerNthValue("nth_value");
+
+  // Register all aggregate functions as window functions.
+  const auto& aggregateFunctions = exec::aggregateFunctions();
+  for (const auto& aggregateEntry : aggregateFunctions) {
+    window::registerAggregateWindowFunction(aggregateEntry.first);
+  }
 }
 
 } // namespace facebook::velox::window
