@@ -482,6 +482,7 @@ public class QueryStateMachine
                 addedSessionFunctions,
                 removedSessionFunctions,
                 Optional.ofNullable(planStatsAndCosts.get()).orElseGet(StatsAndCosts::empty),
+                session.getOptimizerInformationCollector().getOptimizationInfo(),
                 Optional.ofNullable(planCanonicalInfo.get()).orElseGet(ImmutableList::of));
     }
 
@@ -1057,6 +1058,7 @@ public class QueryStateMachine
                 queryInfo.getAddedSessionFunctions(),
                 queryInfo.getRemovedSessionFunctions(),
                 StatsAndCosts.empty(),
+                queryInfo.getOptimizerInformation(),
                 ImmutableList.of());
         finalQueryInfo.compareAndSet(finalInfo, Optional.of(prunedQueryInfo));
     }

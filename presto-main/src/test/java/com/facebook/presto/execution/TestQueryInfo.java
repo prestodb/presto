@@ -191,6 +191,7 @@ public class TestQueryInfo
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of(new CanonicalPlanWithInfo(
                         new CanonicalPlan(
                                 new ValuesNode(Optional.empty(), new PlanNodeId("0"), ImmutableList.of(), ImmutableList.of(), Optional.empty()),
