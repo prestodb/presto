@@ -33,7 +33,14 @@ export CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 export CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
 CPU_TARGET="${CPU_TARGET:-avx}"
-SOURCE_FILE="$(dirname "${BASH_SOURCE}")/setup-helper-functions.sh"
+SCRIPT_DIR=$(readlink -f "$(dirname "$0")")
+if [ -f "${SCRIPT_DIR}/setup-helper-functions.sh" ]
+then
+  source "${SCRIPT_DIR}/setup-helper-functions.sh"
+else
+  source "${SCRIPT_DIR}/../velox/scripts/setup-helper-functions.sh"
+fi
+
 export COMPILER_FLAGS=$(source "$SOURCE_FILE" && echo -n $(get_cxx_flags $CPU_TARGET))
 
 (
