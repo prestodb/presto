@@ -34,17 +34,16 @@ namespace {
 
 class TestShuffle : public ShuffleInterface {
  public:
-  TestShuffle(uint32_t numPartitions, uint32_t maxBytesPerPartition)
+  TestShuffle(
+      uint32_t numPartitions,
+      uint32_t maxBytesPerPartition,
+      velox::memory::MemoryPool* pool)
       : numPartitions_{numPartitions},
         maxBytesPerPartition_{maxBytesPerPartition},
+        pool_(pool),
         inProgressSizes_(numPartitions, 0) {
     inProgressPartitions_.resize(numPartitions_);
     readyPartitions_.resize(numPartitions_);
-  }
-
-  bool initializeMemoryManager(velox::memory::MemoryPool* pool) override {
-    pool_ = pool;
-    return true;
   }
 
   void collect(int32_t partition, std::string_view data) override {
@@ -193,18 +192,15 @@ class TestShuffleWithAllocator : public ShuffleInterface {
  public:
   TestShuffleWithAllocator(
       uint32_t numPartitions,
-      uint32_t maxBytesPerPartition)
-      : numPartitions_{numPartitions},
+      uint32_t maxBytesPerPartition,
+      velox::memory::MemoryPool* pool)
+      : memoryManager_(
+            std::make_unique<TestShuffleMemoryManager>(pool, kMemoryCap_)),
+        numPartitions_{numPartitions},
         maxBytesPerPartition_{maxBytesPerPartition},
         inProgressSizes_(numPartitions, 0) {
     inProgressPartitions_.resize(numPartitions_);
     readyPartitions_.resize(numPartitions_);
-  }
-
-  bool initializeMemoryManager(velox::memory::MemoryPool* pool) override {
-    memoryManager_ =
-        std::make_unique<TestShuffleMemoryManager>(pool, kMemoryCap_);
-    return true;
   }
 
   void initialize() {
@@ -335,8 +331,32 @@ auto addShuffleWriteNode(ShuffleInterface* shuffle) {
 }
 } // namespace
 
+const std::string kShuffleWithAllocatorManager = "ShuffleWithAllocatorManager";
+const std::string kUnsafeRowTestShuffleManager = "UnsafeRowTestShuffleManager";
+const std::string kPersistentShuffleManager = "PersistentShuffleManager";
+
 class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
  protected:
+  UnsafeRowShuffleTest() : exec::test::OperatorTestBase() {
+    clearShuffleManagers();
+    // Registering different shuffle managers.
+    {
+      std::unique_ptr<ShuffleManager> manager =
+          std::make_unique<UnsafeRowTestShuffleWithAllocatorManager>();
+      registerShuffleManager(kShuffleWithAllocatorManager, manager);
+    }
+    {
+      std::unique_ptr<ShuffleManager> manager =
+          std::make_unique<UnsafeRowTestShuffleManager>();
+      registerShuffleManager(kUnsafeRowTestShuffleManager, manager);
+    }
+    {
+      std::unique_ptr<ShuffleManager> manager =
+          std::make_unique<PersistentShuffleManager>();
+      registerShuffleManager(kPersistentShuffleManager, manager);
+    }
+  }
+
   void registerVectorSerde() override {
     serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
   }
@@ -426,6 +446,99 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     return vector;
   }
 
+  /// ShuffleInfo structs.
+  struct TestShuffleInfo : public ShuffleInfo {
+   public:
+    TestShuffleInfo(
+        const std::string& name,
+        uint32_t numPartitions,
+        uint32_t maxBytesPerPartition)
+        : ShuffleInfo(name),
+          numPartitions_(numPartitions),
+          maxBytesPerPartition_(maxBytesPerPartition) {}
+
+    virtual ~TestShuffleInfo() = default;
+
+    uint32_t numPartitions() const {
+      return numPartitions_;
+    }
+
+    uint32_t maxBytesPerPartition() const {
+      return maxBytesPerPartition_;
+    }
+
+   private:
+    const uint32_t numPartitions_;
+    const uint32_t maxBytesPerPartition_;
+  };
+
+  struct PersistentShuffleInfo : public TestShuffleInfo {
+   public:
+    PersistentShuffleInfo(
+        const std::string& name,
+        uint32_t numPartitions,
+        uint32_t maxBytesPerPartition,
+        const std::string& rootPath)
+        : TestShuffleInfo(name, numPartitions, maxBytesPerPartition),
+          rootPath_(std::move(rootPath)) {}
+
+    virtual ~PersistentShuffleInfo() = default;
+
+    const std::string rootPath() const {
+      return rootPath_;
+    }
+
+   private:
+    const std::string rootPath_;
+  };
+
+  /// Shuffle manager classes
+  class UnsafeRowTestShuffleManager : public ShuffleManager {
+   public:
+    std::unique_ptr<ShuffleInterface> create(
+        const ShuffleInfo& info,
+        velox::memory::MemoryPool* pool) override {
+      auto& shuffleInfo = dynamic_cast<const TestShuffleInfo&>(info);
+      auto shuffle = std::make_unique<TestShuffle>(
+          shuffleInfo.numPartitions(),
+          shuffleInfo.maxBytesPerPartition(),
+          pool);
+      return shuffle;
+    }
+    ~UnsafeRowTestShuffleManager() = default;
+  };
+
+  class UnsafeRowTestShuffleWithAllocatorManager : public ShuffleManager {
+   public:
+    std::unique_ptr<ShuffleInterface> create(
+        const ShuffleInfo& info,
+        velox::memory::MemoryPool* pool) override {
+      auto& shuffleInfo = dynamic_cast<const TestShuffleInfo&>(info);
+      auto shuffle = std::make_unique<TestShuffleWithAllocator>(
+          shuffleInfo.numPartitions(),
+          shuffleInfo.maxBytesPerPartition(),
+          pool);
+      return shuffle;
+    }
+    ~UnsafeRowTestShuffleWithAllocatorManager() = default;
+  };
+
+  class PersistentShuffleManager : public ShuffleManager {
+   public:
+    std::unique_ptr<ShuffleInterface> create(
+        const ShuffleInfo& info,
+        velox::memory::MemoryPool* pool) override {
+      auto& shuffleInfo = dynamic_cast<const PersistentShuffleInfo&>(info);
+      auto shuffle = std::make_unique<TestingPersistentShuffle>(
+          shuffleInfo.numPartitions(),
+          shuffleInfo.maxBytesPerPartition(),
+          shuffleInfo.rootPath(),
+          pool);
+      return shuffle;
+    }
+    ~PersistentShuffleManager() = default;
+  };
+
   void runShuffleTest(
       ShuffleInterface* shuffle,
       size_t numPartitions,
@@ -508,8 +621,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
       std::make_unique<PartitionAndSerializeTranslator>());
   exec::Operator::registerOperator(std::make_unique<ShuffleWriteTranslator>());
 
-  TestShuffle shuffle(4, 1 << 20 /* 1MB */);
-  shuffle.initializeMemoryManager(pool());
+  TestShuffle shuffle(4, 1 << 20 /* 1MB */, pool());
 
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
@@ -541,6 +653,10 @@ TEST_F(UnsafeRowShuffleTest, memoryManager) {
   size_t numInputVectors = 10;
   size_t numIterations = 3;
 
+  TestShuffleInfo shuffleInfo(
+      kShuffleWithAllocatorManager, numPartitions, 1 << 20 /* 1MB */);
+  auto shuffle = createShuffleInstance(shuffleInfo, pool());
+
   // Set up the fuzzer parameters.
   VectorFuzzer::Options opts;
   opts.vectorSize = 10;
@@ -571,9 +687,6 @@ TEST_F(UnsafeRowShuffleTest, memoryManager) {
        {"c14", ARRAY(TINYINT())},
        {"c15", ROW({INTEGER(), VARCHAR(), ARRAY(INTEGER())})}});
 
-  TestShuffleWithAllocator shuffle(numPartitions, 1 << 20 /* 1MB */);
-  shuffle.initializeMemoryManager(pool());
-
   for (int it = 0; it < numIterations; it++) {
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);
@@ -583,10 +696,14 @@ TEST_F(UnsafeRowShuffleTest, memoryManager) {
       auto input = fuzzer.fuzzRow(rowType);
       inputVectors.push_back(input);
     }
-    auto memBefore = shuffle.getMemoryUsage();
-    shuffle.initialize();
-    runShuffleTest(&shuffle, numPartitions, numMapDrivers, inputVectors);
-    auto memAfter = shuffle.getMemoryUsage();
+    auto shuffleWithAllocator =
+        dynamic_cast<TestShuffleWithAllocator*>(shuffle.get());
+    ASSERT(shuffleWithAllocator);
+    auto memBefore = shuffleWithAllocator->getMemoryUsage();
+    shuffleWithAllocator->initialize();
+    runShuffleTest(
+        shuffleWithAllocator, numPartitions, numMapDrivers, inputVectors);
+    auto memAfter = shuffleWithAllocator->getMemoryUsage();
     ASSERT_EQ(memBefore, memAfter);
   }
 }
@@ -595,13 +712,14 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   size_t numPartitions = 5;
   size_t numMapDrivers = 2;
 
-  TestShuffle shuffle(numPartitions, 1 << 20 /* 1MB */);
-  shuffle.initializeMemoryManager(pool());
+  TestShuffleInfo shuffleInfo(
+      kUnsafeRowTestShuffleManager, numPartitions, 1 << 20 /* 1MB */);
+  auto shuffle = createShuffleInstance(shuffleInfo, pool());
   auto data = vectorMaker_.rowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
-  runShuffleTest(&shuffle, numPartitions, numMapDrivers, {data});
+  runShuffleTest(shuffle.get(), numPartitions, numMapDrivers, {data});
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
@@ -614,15 +732,15 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   auto rootPath = rootDirectory->path;
 
   // Initialize persistent shuffle.
-  TestingPersistentShuffle shuffle(1 << 20 /* 1MB */);
-  shuffle.initialize(numPartitions, rootPath);
-  shuffle.initializeMemoryManager(pool());
+  PersistentShuffleInfo shuffleInfo(
+      kPersistentShuffleManager, numPartitions, 1 << 20 /* 1MB */, rootPath);
+  auto shuffle = createShuffleInstance(shuffleInfo, pool());
 
   auto data = vectorMaker_.rowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
-  runShuffleTest(&shuffle, numPartitions, numMapDrivers, {data});
+  runShuffleTest(shuffle.get(), numPartitions, numMapDrivers, {data});
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
@@ -675,10 +793,15 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->path;
-  auto shuffle = TestingPersistentShuffle::instance();
+
+  // Initialize persistent shuffle.
+  PersistentShuffleInfo shuffleInfo(
+      kPersistentShuffleManager, numPartitions, 1 << 20 /* 1MB */, rootPath);
+  auto shuffle = createShuffleInstance(shuffleInfo, pool());
+
   for (int it = 0; it < numIterations; it++) {
-    shuffle->initialize(numPartitions, rootPath);
-    shuffle->initializeMemoryManager(pool());
+    dynamic_cast<TestingPersistentShuffle*>(shuffle.get())
+        ->initialize(numPartitions, rootPath);
 
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);
@@ -688,7 +811,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
       auto input = fuzzer.fuzzRow(rowType);
       inputVectors.push_back(input);
     }
-    runShuffleTest(shuffle, numPartitions, numMapDrivers, inputVectors);
+    runShuffleTest(shuffle.get(), numPartitions, numMapDrivers, inputVectors);
   }
 }
 
