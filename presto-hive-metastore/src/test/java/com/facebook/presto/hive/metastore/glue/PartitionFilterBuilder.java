@@ -26,6 +26,7 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.metastore.Column;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
@@ -41,6 +42,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public class PartitionFilterBuilder
 {
@@ -49,6 +51,12 @@ public class PartitionFilterBuilder
     public static final DecimalType DECIMAL_TYPE = DecimalType.createDecimalType(DECIMAL_TYPE_PRECISION, DECIMAL_TYPE_SCALE);
 
     private final Map<Column, Domain> domains = new HashMap<>();
+    private final TypeTranslator typeTranslator;
+
+    public PartitionFilterBuilder(TypeTranslator typeTranslator)
+    {
+        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
+    }
 
     public static Long decimalOf(String value)
     {
@@ -61,35 +69,35 @@ public class PartitionFilterBuilder
     {
         List<Slice> blockValues = Arrays.stream(values).map(Slices::utf8Slice).collect(toImmutableList());
         Domain domain = Domain.multipleValues(VarcharType.VARCHAR, blockValues);
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addBigintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(BigintType.BIGINT, Arrays.asList(values));
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addIntegerValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(IntegerType.INTEGER, Arrays.asList(values));
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addSmallintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(SmallintType.SMALLINT, Arrays.asList(values));
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addTinyintValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(TinyintType.TINYINT, Arrays.asList(values));
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
@@ -100,14 +108,14 @@ public class PartitionFilterBuilder
                 .map(PartitionFilterBuilder::decimalOf)
                 .collect(toImmutableList());
         Domain domain = Domain.multipleValues(DECIMAL_TYPE, encodedValues);
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addDateValues(String columnName, Long... values)
     {
         Domain domain = Domain.multipleValues(DateType.DATE, Arrays.asList(values));
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
@@ -115,13 +123,13 @@ public class PartitionFilterBuilder
     {
         ValueSet values = ValueSet.ofRanges(range, ranges);
         Domain domain = Domain.create(values, false);
-        domains.merge(getColumn(columnName, range.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, range.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
     public PartitionFilterBuilder addDomain(String columnName, Domain domain)
     {
-        domains.merge(getColumn(columnName, domain.getType()), domain, Domain::union);
+        domains.merge(getColumn(columnName, domain.getType(), typeTranslator), domain, Domain::union);
         return this;
     }
 
@@ -130,8 +138,8 @@ public class PartitionFilterBuilder
         return TupleDomain.withColumnDomains(ImmutableMap.copyOf(this.domains)).getDomains().orElseGet(ImmutableMap::of);
     }
 
-    private Column getColumn(String name, Type type)
+    private Column getColumn(String name, Type type, TypeTranslator typeTranslator)
     {
-        return new Column(name, HiveType.toHiveType(type), Optional.empty(), Optional.empty());
+        return new Column(name, HiveType.toHiveType(typeTranslator, type), Optional.empty(), Optional.empty());
     }
 }

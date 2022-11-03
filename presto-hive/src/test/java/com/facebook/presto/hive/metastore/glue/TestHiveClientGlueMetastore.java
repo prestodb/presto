@@ -31,7 +31,9 @@ import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
+import com.facebook.presto.hive.HiveTypeTranslator;
 import com.facebook.presto.hive.MetastoreClientConfig;
+import com.facebook.presto.hive.TypeTranslator;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
@@ -97,6 +99,7 @@ public class TestHiveClientGlueMetastore
     private static final String PARTITION_KEY = "part_key_1";
     private static final String PARTITION_KEY2 = "part_key_2";
     private static final String TEST_DATABASE_NAME_PREFIX = "test_glue";
+    private static final TypeTranslator HIVE_TYPE_TRANSLATOR = new HiveTypeTranslator();
 
     private static final List<ColumnMetadata> CREATE_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
             .add(new ColumnMetadata("id", BIGINT))
@@ -323,7 +326,7 @@ public class TestHiveClientGlueMetastore
             metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> EMPTY_TABLE_STATISTICS);
             metastoreClient.updatePartitionStatistics(METASTORE_CONTEXT, tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> EMPTY_TABLE_STATISTICS);
 
-            Map<Column, Domain> predicates = new PartitionFilterBuilder()
+            Map<Column, Domain> predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                     .addStringValues(reservedKeywordPartitionColumnName, "value1")
                     .addBigintValues(regularColumnPartitionName, 2L)
                     .build();
@@ -339,7 +342,7 @@ public class TestHiveClientGlueMetastore
 
             // KEY is a reserved keyword in the grammar of the SQL parser used internally by Glue API
             // and therefore should not be used in the partition filter
-            predicates = new PartitionFilterBuilder()
+            predicates = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                     .addStringValues(reservedKeywordPartitionColumnName, "value1")
                     .build();
 
@@ -360,25 +363,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterVarChar()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues(PARTITION_KEY, "2020-01-01")
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(VARCHAR, utf8Slice("2020-02-01")))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(VARCHAR, utf8Slice("2020-02-01"), true, utf8Slice("2020-03-01"), true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(VARCHAR, utf8Slice("2020-03-01")))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues(PARTITION_KEY, "2020-01-01", "2020-02-01")
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(VARCHAR, utf8Slice("2020-03-01")))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -400,25 +403,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterBigInt()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addBigintValues(PARTITION_KEY, 1000L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(BIGINT, 100L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(BIGINT, 100L, true, 1000L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(BIGINT, 100L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addBigintValues(PARTITION_KEY, 1L, 1000000L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(BIGINT, 1000L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -440,25 +443,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterInteger()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues(PARTITION_KEY, 1000L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(IntegerType.INTEGER, 100L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(IntegerType.INTEGER, 100L, true, 1000L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(IntegerType.INTEGER, 100L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addIntegerValues(PARTITION_KEY, 1L, 1000000L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(IntegerType.INTEGER, 1000L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -480,25 +483,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterSmallInt()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addSmallintValues(PARTITION_KEY, 1000L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(SmallintType.SMALLINT, 100L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(SmallintType.SMALLINT, 100L, true, 1000L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(SmallintType.SMALLINT, 100L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addSmallintValues(PARTITION_KEY, 1L, 10000L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(SmallintType.SMALLINT, 1000L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -520,25 +523,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterTinyInt()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, 127L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(TinyintType.TINYINT, 10L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(TinyintType.TINYINT, 10L, true, 100L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TinyintType.TINYINT, 10L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, 1L, 127L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(TinyintType.TINYINT, 100L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -560,25 +563,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterTinyIntNegatives()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, -128L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(TinyintType.TINYINT, 0L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(TinyintType.TINYINT, 0L, true, 50L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(TinyintType.TINYINT, 0L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addTinyintValues(PARTITION_KEY, 0L, -128L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(TinyintType.TINYINT, 0L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -605,25 +608,25 @@ public class TestHiveClientGlueMetastore
         String value3 = "25.111";
         String value4 = "30.333";
 
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDecimalValues(PARTITION_KEY, value1)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(DECIMAL_TYPE, decimalOf(value2)))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(DECIMAL_TYPE, decimalOf(value2), true, decimalOf(value3), true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(DECIMAL_TYPE, decimalOf(value3)))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDecimalValues(PARTITION_KEY, value1, value4)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(DECIMAL_TYPE, decimalOf("25.5")))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -646,25 +649,25 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterDate()
             throws Exception
     {
-        Map<Column, Domain> singleEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> singleEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDateValues(PARTITION_KEY, 18000L)
                 .build();
-        Map<Column, Domain> greaterThan = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThan(DateType.DATE, 19000L))
                 .build();
-        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder()
+        Map<Column, Domain> betweenInclusive = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.range(DateType.DATE, 19000L, true, 20000L, true))
                 .build();
-        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder()
+        Map<Column, Domain> greaterThanOrEquals = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(DateType.DATE, 19000L))
                 .build();
-        Map<Column, Domain> inClause = new PartitionFilterBuilder()
+        Map<Column, Domain> inClause = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDateValues(PARTITION_KEY, 18000L, 21000L)
                 .build();
-        Map<Column, Domain> lessThan = new PartitionFilterBuilder()
+        Map<Column, Domain> lessThan = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.lessThan(DateType.DATE, 20000L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
         // we are unable to convert Date to a string format that Glue will accept, so it should translate to the wildcard in all cases. Commented out results are
@@ -695,15 +698,15 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterTwoPartitionKeys()
             throws Exception
     {
-        Map<Column, Domain> equalsFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> equalsFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues(PARTITION_KEY, "2020-03-01")
                 .addBigintValues(PARTITION_KEY2, 300L)
                 .build();
-        Map<Column, Domain> rangeFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> rangeFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addRanges(PARTITION_KEY, Range.greaterThanOrEqual(VarcharType.VARCHAR, utf8Slice("2020-02-01")))
                 .addRanges(PARTITION_KEY2, Range.greaterThan(BIGINT, 200L))
                 .build();
-        Map<Column, Domain> all = new PartitionFilterBuilder()
+        Map<Column, Domain> all = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.all(VARCHAR))
                 .build();
 
@@ -733,7 +736,7 @@ public class TestHiveClientGlueMetastore
             throws Exception
     {
         // this filter string will exceed the 2048 char limit set by glue, and we expect the filter to revert to the wildcard
-        Map<Column, Domain> filter = new PartitionFilterBuilder()
+        Map<Column, Domain> filter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues(PARTITION_KEY, Strings.repeat("x", 2048))
                 .build();
 
@@ -751,7 +754,7 @@ public class TestHiveClientGlueMetastore
             throws Exception
     {
         // we expect the second constraint to still be present and provide filtering
-        Map<Column, Domain> equalsFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> equalsFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addStringValues(PARTITION_KEY, Strings.repeat("x", 2048))
                 .addBigintValues(PARTITION_KEY2, 300L)
                 .build();
@@ -773,7 +776,7 @@ public class TestHiveClientGlueMetastore
             throws Exception
     {
         // test both a single column none, and a valid domain with none()
-        Map<Column, Domain> noneFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> noneFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.none(VarcharType.VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -788,7 +791,7 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterNotNull()
             throws Exception
     {
-        Map<Column, Domain> notNullFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> notNullFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.notNull(VarcharType.VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -803,7 +806,7 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterIsNull()
             throws Exception
     {
-        Map<Column, Domain> isNullFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> isNullFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         doGetPartitionsFilterTest(
@@ -818,7 +821,7 @@ public class TestHiveClientGlueMetastore
     public void testGetPartitionsFilterIsNullWithValue()
             throws Exception
     {
-        Map<Column, Domain> isNullFilter = new PartitionFilterBuilder()
+        Map<Column, Domain> isNullFilter = new PartitionFilterBuilder(HIVE_TYPE_TRANSLATOR)
                 .addDomain(PARTITION_KEY, Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         List<String> partitionList = new ArrayList<>();

@@ -52,7 +52,6 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
-import static com.facebook.presto.hive.HiveTypeTranslator.translate;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -202,18 +201,21 @@ public final class HiveType
     }
 
     public static HiveType toHiveType(
+            TypeTranslator typeTranslator,
             Type type)
     {
-        return toHiveType(type, Optional.empty());
+        return toHiveType(typeTranslator, type, Optional.empty());
     }
 
     public static HiveType toHiveType(
+            TypeTranslator typeTranslator,
             Type type,
             Optional<HiveType> defaultHiveType)
     {
+        requireNonNull(typeTranslator, "typeTranslator is null");
         requireNonNull(type, "type is null");
         requireNonNull(defaultHiveType, "defaultHiveType is null");
-        return new HiveType(translate(type, defaultHiveType));
+        return new HiveType(typeTranslator.translate(type, defaultHiveType));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)
