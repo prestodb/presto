@@ -25,6 +25,7 @@ import com.facebook.presto.matching.Match;
 import com.facebook.presto.matching.Matcher;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -35,6 +36,7 @@ import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -58,6 +60,7 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
     private final Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
+    private final Set<String> rulesTriggered;
 
     public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
@@ -84,6 +87,7 @@ public class IterativeOptimizer
                 .register(newRules)
                 .build();
         this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
+        this.rulesTriggered = new HashSet<>();
 
         stats.registerAll(newRules);
     }
@@ -124,6 +128,8 @@ public class IterativeOptimizer
         if (!planChanged) {
             return plan;
         }
+
+        rulesTriggered.stream().forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
         return memo.extract();
     }
 
@@ -181,6 +187,7 @@ public class IterativeOptimizer
                         }
                     }
                     node = context.memo.replace(group, transformedNode, rule.getClass().getName());
+                    rulesTriggered.add(rule.getClass().getSimpleName());
 
                     done = false;
                     progress = true;
