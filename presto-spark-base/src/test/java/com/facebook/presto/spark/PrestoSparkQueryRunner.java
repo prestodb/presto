@@ -145,7 +145,7 @@ public class PrestoSparkQueryRunner
 
     private final LifeCycleManager lifeCycleManager;
 
-    private final SparkContext sparkContext;
+    private SparkContext sparkContext;
     private final PrestoSparkService prestoSparkService;
 
     private final TestingAccessControlManager testingAccessControlManager;
@@ -566,6 +566,22 @@ public class PrestoSparkQueryRunner
         return waitTimeMetrics;
     }
 
+    public SparkContext getSparkContext()
+    {
+        return sparkContext;
+    }
+
+    public void resetSparkContext()
+    {
+        resetSparkContext(ImmutableMap.of());
+    }
+
+    public void resetSparkContext(Map<String, String> additionalSparkConfigs)
+    {
+        sparkContextHolder.release(sparkContext, true);
+        sparkContext = sparkContextHolder.get(additionalSparkConfigs);
+    }
+
     @Override
     public void close()
     {
@@ -619,6 +635,11 @@ public class PrestoSparkQueryRunner
 
         public SparkContext get()
         {
+            return get(ImmutableMap.of());
+        }
+
+        public SparkContext get(Map<String, String> additionalSparkConfigs)
+        {
             synchronized (SparkContextHolder.class) {
                 if (sparkContext == null) {
                     SparkConf sparkConfiguration = new SparkConf()
@@ -627,6 +648,7 @@ public class PrestoSparkQueryRunner
                             .set("spark.driver.host", "localhost")
                             .set(SPARK_EXECUTOR_CORES_PROPERTY, "4")
                             .set(SPARK_TASK_CPUS_PROPERTY, "4");
+                    additionalSparkConfigs.forEach(sparkConfiguration::set);
                     PrestoSparkConfInitializer.initialize(sparkConfiguration);
                     sparkContext = new SparkContext(sparkConfiguration);
                 }
@@ -637,8 +659,13 @@ public class PrestoSparkQueryRunner
 
         public void release(SparkContext sparkContext)
         {
+            release(sparkContext, false);
+        }
+
+        public void release(SparkContext sparkContext, boolean forceRelease)
+        {
             synchronized (SparkContextHolder.class) {
-                checkState(SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
+                checkState(forceRelease || SparkContextHolder.sparkContext == sparkContext, "unexpected spark context");
                 referenceCount--;
                 if (referenceCount == 0) {
                     sparkContext.cancelAllJobs();

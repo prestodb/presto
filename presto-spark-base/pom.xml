@@ -100,7 +100,7 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>http-client</artifactId>
         </dependency>
-        
+
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
@@ -315,6 +315,7 @@
                                 <exclude>**/TestPrestoSparkWindowQueries.java</exclude>
                                 <exclude>**/TestPrestoSparkSpilledAggregations.java</exclude>
                                 <exclude>**/TestPrestoSparkSpilledJoinQueries.java</exclude>
+                                <exclude>**/TestPrestoSparkNativeExecution.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
