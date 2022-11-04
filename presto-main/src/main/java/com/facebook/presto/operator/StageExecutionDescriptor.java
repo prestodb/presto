@@ -19,12 +19,14 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.RECOVERABLE_GROUPED_EXECUTION;
 import static com.facebook.presto.operator.StageExecutionDescriptor.StageExecutionStrategy.UNGROUPED_EXECUTION;
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -141,5 +143,36 @@ public class StageExecutionDescriptor
         FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
         DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION,
         RECOVERABLE_GROUPED_EXECUTION,
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StageExecutionDescriptor other = (StageExecutionDescriptor) o;
+        return Objects.equals(this.stageExecutionStrategy, other.stageExecutionStrategy) &&
+                Objects.equals(this.groupedExecutionScanNodes, other.groupedExecutionScanNodes) &&
+                this.totalLifespans == other.totalLifespans;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(stageExecutionStrategy, groupedExecutionScanNodes, totalLifespans);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("stageExecutionStrategy", stageExecutionStrategy)
+                .add("groupedExecutionScanNodes", groupedExecutionScanNodes)
+                .add("totalLifespans", totalLifespans)
+                .toString();
     }
 }

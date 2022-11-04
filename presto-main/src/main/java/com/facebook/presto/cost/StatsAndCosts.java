@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 
 import java.util.Map;
+import java.util.Objects;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class StatsAndCosts
@@ -86,5 +88,34 @@ public class StatsAndCosts
             costs.put(node.getId(), costProvider.getCost(node));
         }
         return new StatsAndCosts(stats.build(), costs.build());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        StatsAndCosts other = (StatsAndCosts) o;
+        return Objects.equals(this.stats, other.stats) &&
+                Objects.equals(this.costs, other.costs);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(stats, costs);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("stats", stats)
+                .add("costs", costs)
+                .toString();
     }
 }
