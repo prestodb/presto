@@ -171,6 +171,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         for (int i = reversedBlockBuilder.getPositionCount() - 1; i >= 0; i--) {
             elementType.appendTo(reversedBlockBuilder, i, arrayBlockBuilder);
         }
+        heap.addAll(reversedBlockBuilder);
         out.closeEntry();
     }
 }

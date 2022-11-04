@@ -1785,6 +1785,20 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testMinMaxN()
+    {
+        assertQuery("" +
+                "SELECT x FROM (" +
+                "SELECT min(orderkey, 3) t FROM orders" +
+                ") CROSS JOIN UNNEST(t) AS a(x)",
+                "VALUES 1, 2, 3");
+
+        assertQuery(
+                "SELECT orderkey, min(orderkey, 3) over() AS t FROM orders",
+                "SELECT orderkey, ARRAY[cast(1 as bigint), cast(2 as bigint), cast(3 as bigint)] t FROM orders");
+    }
+
+    @Test
     public void testRowNumberFilterAndLimit()
     {
         MaterializedResult actual = computeActual("" +
