@@ -42,9 +42,8 @@ Spill Objects
 
 The spilling framework consists of the following major software objects:
 
-`Spiller <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spiller.h#L24>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+Spiller
+^^^^^^^
 The Spiller object provides the spilling functions for all the operators
 and helps them manage their spilled state on disk. There is one Spiller object
 created for each operator. The Spiller object takes a row container object on
@@ -94,7 +93,7 @@ For example, the order by operator needs to ensure the sorted runs follow the
 same sort order as specified by the query plan node.
 
 **Spill data io**: the Spiller handles the interaction with the storage system
-through `SpillFileList <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L155>`_ and `SpillFile <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L58>`_ objects as discussed below. It manages the
+through SpillFileList and SpillFile objects as discussed below. It manages the
 lifecycle of a spill file from creation, write, read and deletion. The spill
 writes are offloaded to a dedicated IO executor and each spill partition write
 is a thread execution unit. The spill reads are executed in the driver
@@ -102,6 +101,8 @@ executor. Both read and write are synchronous IO operations.
 
 The Spiller provides the following spilling APIs for operators to use:
 
+Spill APIs
+""""""""""
 **spill with targets**: the operator specifies the number of rows and bytes to
 spill as the target. The Spiller selects a number of partitions to spill to
 meet the target. Spilling runs internally and returns after the spilling is
@@ -123,12 +124,14 @@ process is controlled by the operator in this case. It is used by the hash
 build operator to run spilling on all the build operators in coordination. When
 spilling gets triggered, one of the operators is selected to run the spill on
 all the operators (also called a group spill in discussion below). It first
-collects spillable stats from all the operators and then selects a number of
-partitions to spill.
+collects spillable stats from all the operators through Spiller::fillSpillRuns()
+and then selects a number of partitions to spill.
 
 .. code-block:: c++
 
     void Spiller::spill(const SpillPartitionNumSet& partitions);
+
+    void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList);
 
 **spill vector**: the operator spills a row vector to a specified partition. The
 Spiller directly appends the row vector to the currently open spill file from
@@ -146,9 +149,42 @@ hash join spilling section.
 
     void Spiller::spill(uint32_t partition, const RowVectorPtr& spillVector);
 
-`SpillFileList <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L155>`_ and `SpillFile <https://github.com/facebookincubator/velox/blob/main/velox/exec/Spill.h#L58>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Restore APIs
+""""""""""""
 
+**sorted spill restore**: Used by order by and hash aggregation operators.
+The operator first calls Spiller::finishSpill() to mark the completion of
+spilling. The Spiller collects rows from unspilled partitions and returns these
+to the operator. The operator processes the unspilled partitions, emits the
+results and frees up space in the RowContainer. Then, it loads spilled
+partitions one at a time. It calls Spiller::startMerge() for each spilled
+partition to create a sorted reader to restore the spilled partition state.
+
+.. code-block:: c++
+
+    SpillRows finishSpill();
+
+    std::unique_ptr<TreeOfLosers<SpillMergeStream>> Spiller::startMerge(
+        int32_t partition);
+
+**unsorted spill restore**: Used by order by hash build and hash probe
+operators. The operator first calls Spiller::finishSpill() to mark the
+completion of spilling. The Spiller collects metadata for the spilled
+partitioned and returns these to the operator. The operator processes the
+unspilled partitions, and emits the results and frees up space in the
+RowContainer. Then, it loads spilled partitions one at a time. It calls
+SpillPartition::createReader() for each spilled partition to create unsorted
+reader to restore the spilled partition state.
+
+.. code-block:: c++
+
+    void Spiller::finishSpill(SpillPartitionSet& partitionSet);
+
+    std::unique_ptr<UnorderedStreamReader<BatchStream>>
+    SpillPartition::createReader();
+
+SpillFileList and SpillFile
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 SpillFileList object manages spill files for a single partition. Each spill
 file is managed by one SpillFile object which provides the low level io
 operations with the storage system through Velox file system interface. On the
@@ -199,23 +235,31 @@ small spill files as it might overload the metadata service of the storage
 system. On the other hand, we also want a sufficient number of spill files to
 parallelize the restore work. For example, to build a hash table from a
 spilled partition, we can parallelize the build work among multiple hash build
-operators by assigning each of them a shard of spill files.
+operators by assigning each of them a shard of spill files. There are two
+configuration properties to control.
 
-Given above considerations, we might just need to have a query config limit to
-cap a spill file size in practice. For unsorted spill, as we can continuously
-append to the same spill file so this helps to prevent a spill file from
-growing too big. For sorted spill, each file stores only one sorted run of
-data, hence, the spill file size is the minimum of spillable data size and
-query config limit. Configuration property kMaxSpillFileSize sets the spill
-file limit which can be tuned based on IO characteristics of the underlying
-storage system. We don’t expect it needs too much tuning in practice.
+:doc:`max-spill-file-size <../configs>` sets the maximum spill file size limit. For unsorted spill,
+as we continuously append to the same spill file so this helps to prevent a
+spill file from growing too big. For sorted spill, each file stores only one
+sorted run of data, hence, the spill file size is the minimum of spillable data
+size and this configuration limit.
+
+:doc:`min-spill-run-size <../configs>` sets the minimum data size used by sorted spill to select
+partitions for spilling. Each sorted spill file can only store one sorted run
+of data. Spiller tries to spill from the same set of partitions if possible.
+By having this configuration limit, we can avoid spilling from partitions which
+have small amount of data, to avoid generating too many small spill files.
+
+Both configuration properties can be tuned based on IO characteristics of the
+underlying storage system. We don’t expect they needs too much tuning in
+practice.
 
 Spill Target Size
 ^^^^^^^^^^^^^^^^^
 The spill target size determines how much data to spill each time. If too
 small, spilling interrupts operator execution frequently and generates lots of
 small files. If too large, operator execution slows down by spilling lots of
-data to disk. Configuration property `kSpillableReservationGrowthPct <https://github.com/facebookincubator/velox/blob/main/velox/core/QueryConfig.h#L160>`_ sets the
+data to disk. Configuration property :doc:`spillable-reservation-growth-pct <../configs>` sets the
 spill target size as a factor of the query memory limit. We might need to tune
 this parameter a bit in practice to see its impact on performance.
 
@@ -233,18 +277,18 @@ For storage systems that support time to live (TTL), we can leverage that
 feature to implement the spill file garbage collection. If not, we might need
 to build a lightweight garbage collection (GC) service running out of band.
 
-Configuration property kSpillPath sets the base path for spilling. It can be a
-directory path on the underlying storage system to store all the generated
-spill files. The spill file name is built by concatenating query task id,
-driver id, and the operator id together which is unique within a query.
+Configuration property :doc:`spiller-spill-path <../configs>` sets the base path for spilling. It
+can be a directory path on the underlying storage system to store all the
+generated spill files. The spill file name is built by concatenating query task
+id, driver id, and the operator id together which is unique within a query.
 
 .. code-block:: c++
 
-std::string makeOperatorSpillPath(
-    const std::string& spillPath,
-    const std::string& taskId,
-    int driverId,
-    int32_t operatorId);
+  std::string makeOperatorSpillPath(
+      const std::string& spillPath,
+      const std::string& taskId,
+      int driverId,
+      int32_t operatorId);
 
 Spilling Algorithm
 ------------------
@@ -329,7 +373,7 @@ other to ensure all operators spill the same set of partitions. If operators
 spill independently, it is possible to end up with all partitions being
 spilled. To build a hash table, we need all rows from one or more partitions.
 Unlike hash aggregation and order by, the hash join spilling is explicitly
-controlled by the hash build operators. A `SpillOperatorGroup <https://github.com/facebookincubator/velox/blob/main/velox/exec/SpillOperatorGroup.h#L37>`_ object coordinates
+controlled by the hash build operators. A SpillOperatorGroup object coordinates
 the spilling on all the operators. The SpillOperatorGroup object is shared by
 all the hash build operators. It implements a recurring barrier function. When
 spilling gets triggered, the object starts a barrier to stop all the hash build
@@ -407,8 +451,8 @@ level, *M* = 1*GB*, *N* = 3:
      - 21
      - 2 PB
 
-Note that we can set a configurable limit (`kMaxSpillLevel <https://github.com/facebookincubator/velox/blob/main/velox/core/QueryConfig.h#L150>`_) on the max spilling
-level when used in production.
+For production deployments, we recommend setting a limit for the max spilling
+level using :doc:`max-spill-level <../configs>` configuration property.
 
 The following gives a brief description of the hash build and probe workflows
 extended to support (recursive) spilling:
@@ -478,21 +522,20 @@ Some hash probe optimizations are disabled if the spilling has been triggered
 by the hash build. For example, dynamic filtering is disabled because the
 complete set of join keys is not known.
 
-Spilling is not support for `null-aware anti-join type <https://github.com/facebookincubator/velox/blob/main/velox/core/PlanNode.h#L931>`_ with filter because it
+Spilling not supported for `null-aware anti-join type with filter because it
 requires to cross join null-key probe rows with all build-side rows for filter
 evaluation to check if the null-key probe rows can be added to output or not.
 
-`HashJoinBridge <https://github.com/facebookincubator/velox/blob/main/velox/exec/HashJoinBridge.h#L28>`_
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+HashJoinBridge
+^^^^^^^^^^^^^^
 The HashJoinBridge object includes the following extensions to support the
 spilling:
 
-* extends the existing `setHashTable <https://github.com/facebookincubator/velox/blob/main/velox/exec/HashJoinBridge.h#L41>`_ interface to take optional spilled
+* extends the existing setHashTable interface to take optional spilled
   partition metadata if spilling has been triggered while building the table.
-* adds `probeFinished <https://github.com/facebookincubator/velox/blob/main/velox/exec/HashJoinBridge.h#L83>`_ interface for the hash probe operator to set and notify
+* adds probeFinished interface for the hash probe operator to set and notify
   the hash build operators of the spill input to build the next hash table.
-* adds `spillInputOrFuture <https://github.com/facebookincubator/velox/blob/main/velox/exec/HashJoinBridge.h#L102>`_ interface for the hash build operator to wait for the
+* adds spillInputOrFuture interface for the hash build operator to wait for the
   spill input to build the next hash table.
 * Internally, the object maintains all the spill partitions remaining to
   restore in an ordered map and restore the next spill partition from the
@@ -504,4 +547,53 @@ spilling:
   partition number goes first.
 * To parallelize the hash table build from the spilled partition, the hash join
   bridge will split the spill partition files among the hash build operators
-  with each one having an equally-sized shard to restore.g
+  with each one having an equally-sized shard to restore.
+
+Future Work
+-----------
+
+Memory Arbitration
+^^^^^^^^^^^^^^^^^^
+Introduce memory arbitration logic to choose operators to reclaim memory from
+running queries when any operator fails to allocate or reserve memory. The
+memory arbitrator can reclaim memory from both spillable and some non-spillbale
+operators which store data in the RowContainer. For spillable operator, we need
+to add arena compaction to free up unused memory chunks. For non-spillable
+operator such as partial aggregation, the memory arbitrator can reclaim memory
+by requesting partial aggregation operator to flush its state to the downstream
+query stage. The memory arbitration logic will allow queries to complete
+successfully using limited amounts of memory and enable dynamic memory sharing
+between concurrent queries to improve overall memory efficiency.
+
+Runtime Statistics Collection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Add the following RuntimeMetric stats to measure the spilling execution
+internals to help performance analysis in production:
+
+**Spill data size**: spill bytes, spill rows, spill partitions, spill files and
+spill file size distribution. We can tune the spilling parameters to see the
+impact on these stats and the resulting performance changes.
+
+**Spill execution time**: how much time an operator spends on spilling which
+breaks down into the following parts:
+
+* **spill data scan**: the row iteration and the partition number calculation
+  times. If the partition number calculation turns out to use a significant
+  portion of CPU time, we could optimize this step by caching the calculated
+  partition number along with the row in the row container.
+* **spill data sort**: the spill data sort time.
+* **spill data conversion**: the time to convert rows in the row container into
+  a vector for spill.
+* **spill data serialization**: serialization time of the converted vector into
+  a byte stream for spill write.
+* **spill data deserialization**: deserialization of a byte stream back into
+  the row vector for spill read.
+* **spill file write**: the spill file write time. It can be tuned by adjusting
+  the spill executor pool size as well as considering the fine-grained parallel
+  writes.
+* **spill file read**: the spill file read time. It can be optimized by read
+  ahead.
+
+Spilling Extension
+^^^^^^^^^^^^^^^^^^
+Add spilling support for window operator.

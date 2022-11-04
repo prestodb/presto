@@ -118,6 +118,20 @@ Maximum amount of memory in bytes that a hash join build side can use before spi
 Maximum amount of memory in bytes that an order by can use before spilling.
 0 means unlimited.
 
+``spillable-reservation-growth-pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``25``
+
+The spillable memory reservation growth percentage of the current memory
+reservation size. Suppose a growth percentage of N and the current memory
+reservation size of M, the next memory reservation size will be
+M * (1 + N / 100). After growing the memory reservation K times, the memory
+reservation size will be M * (1 + N / 100) ^ K. Hence the memory reservation
+grows along a series of powers of (1 + N / 100). If the memory reservation
+fails, it starts spilling.
+
 ``max-spill-level``
 ^^^^^^^^^^^^^^^^^^^
 
