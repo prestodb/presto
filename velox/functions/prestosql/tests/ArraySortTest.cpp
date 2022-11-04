@@ -377,11 +377,7 @@ TEST_P(ArraySortTest, basic) {
   runTest(GetParam());
 }
 
-TEST_P(ArraySortTest, constant) {
-  if (GetParam() != TypeKind::BIGINT) {
-    GTEST_SKIP() << "Skipping constant test for non-bigint type";
-  }
-
+TEST_F(ArraySortTest, constant) {
   vector_size_t size = 1'000;
   auto data =
       makeArrayVector<int64_t>({{1, 2, 3, 0}, {4, 5, 4, 5}, {6, 6, 6, 6}});
@@ -405,12 +401,7 @@ TEST_P(ArraySortTest, constant) {
   assertEqualVectors(expected, result);
 }
 
-TEST_P(ArraySortTest, dictionaryEncodedElements) {
-  if (GetParam() != TypeKind::BIGINT) {
-    GTEST_SKIP()
-        << "Skipping dictionaryEncodedElements test for non-bigint type";
-  }
-
+TEST_F(ArraySortTest, dictionaryEncodedElements) {
   auto elementVector = makeNullableFlatVector<int64_t>({3, 1, 2, 4, 5});
   auto dictionaryVector = BaseVector::wrapInDictionary(
       makeNulls(5, nullEvery(2)), makeIndicesInReverse(5), 5, elementVector);
