@@ -324,6 +324,15 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
     if (newSize < previousSize) {
       auto vector = this->template asUnchecked<SimpleVector<StringView>>();
       vector->invalidateIsAscii();
+    } else {
+      // Properly init stringView objects. This is useful when vectors are
+      // re-used where the size changes but not the capacity.
+      // TODO: remove this when resizeValues() checks against size() instead of
+      // capacity() when deciding to init values.
+      auto stringViews = reinterpret_cast<StringView*>(rawValues_);
+      for (auto index = previousSize; index < newSize; ++index) {
+        new (&stringViews[index]) StringView();
+      }
     }
     if (newSize == 0) {
       clearStringBuffers();
@@ -331,7 +340,6 @@ void FlatVector<T>::resize(vector_size_t newSize, bool setNotNull) {
   } else {
     resizeValues(newSize, std::nullopt);
   }
-  rawValues_ = values_->asMutable<T>();
 }
 
 template <typename T>
@@ -397,6 +405,7 @@ void FlatVector<T>::resizeValues(
     } else {
       values_->setSize(newByteSize);
     }
+    rawValues_ = values_->asMutable<T>();
     return;
   }
   BufferPtr newValues =
@@ -419,6 +428,7 @@ void FlatVector<T>::resizeValues(
     }
   }
   values_ = std::move(newValues);
+  rawValues_ = values_->asMutable<T>();
 }
 
 template <>
@@ -439,6 +449,7 @@ inline void FlatVector<bool>::resizeValues(
       auto rawData = values_->asMutable<uint64_t>();
       bits::fillBits(rawData, length_, newSize, initialValue.value());
     }
+    rawValues_ = values_->asMutable<bool>();
     return;
   }
   BufferPtr newValues =
@@ -451,6 +462,7 @@ inline void FlatVector<bool>::resizeValues(
     memcpy(dst, src, len);
   }
   values_ = std::move(newValues);
+  rawValues_ = values_->asMutable<bool>();
 }
 } // namespace velox
 } // namespace facebook

@@ -324,6 +324,15 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       EXPECT_FALSE(flat->isNullAt(size * 2 - 1));
     }
 
+    // Check that new StringView elements are initialized as empty after
+    // downsize and upsize which does not involve a capacity change.
+    if constexpr (std::is_same_v<T, StringView>) {
+      flat->mutableRawValues()[size * 2 - 1] = StringView("a");
+      flat->resize(size * 2 - 1);
+      flat->resize(size * 2);
+      EXPECT_EQ(flat->valueAt(size * 2 - 1).size(), 0);
+    }
+
     // Fill, the values at size * 2 - 1 gets assigned a second time.
     for (int32_t i = 0; i < flat->size(); ++i) {
       if (withNulls && i % 3 == 0) {
