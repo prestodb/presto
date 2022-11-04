@@ -581,6 +581,7 @@ void saveType(const TypePtr& type, std::ostream& out) {
     case TypeKind::VARBINARY:
     case TypeKind::TIMESTAMP:
     case TypeKind::DATE:
+    case TypeKind::INTERVAL_DAY_TIME:
     case TypeKind::UNKNOWN:
       break;
     case TypeKind::ROW: {

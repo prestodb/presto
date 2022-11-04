@@ -209,6 +209,7 @@ TEST_F(VectorSaverTest, types) {
 
   testTypeRoundTrip(TIMESTAMP());
   testTypeRoundTrip(DATE());
+  testTypeRoundTrip(INTERVAL_DAY_TIME());
 
   testTypeRoundTrip(ARRAY(BIGINT()));
   testTypeRoundTrip(ARRAY(ARRAY(VARCHAR())));
@@ -279,6 +280,11 @@ TEST_F(VectorSaverTest, flatVarchar) {
   opts.stringLength = 6;
   opts.vectorSize = 1024;
   testRoundTrip(opts, VARCHAR());
+}
+
+TEST_F(VectorSaverTest, flatIntervalDayTime) {
+  VectorFuzzer::Options opts = fuzzerOptions();
+  testRoundTrip(opts, INTERVAL_DAY_TIME());
 }
 
 TEST_F(VectorSaverTest, row) {
