@@ -22,6 +22,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.rcfile.AircompressorCodecFactory;
 import com.facebook.presto.rcfile.HadoopCodecFactory;
@@ -98,10 +99,7 @@ public class RcFilePageSourceFactory
     public Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             SchemaTableName tableName,
             Map<String, String> tableParameters,
@@ -113,7 +111,7 @@ public class RcFilePageSourceFactory
     {
         if (!columns.isEmpty() && columns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
             throw new UnsupportedOperationException("Partial aggregation pushdown only supported for ORC/Parquet files. " +
-                    "Table " + tableName.toString() + " has file (" + path.toString() + ") of format " + storage.getStorageFormat().getOutputFormat() +
+                    "Table " + tableName.toString() + " has file (" + fileSplit.getPath() + ") of format " + storage.getStorageFormat().getOutputFormat() +
                     ". Set session property hive.pushdown_partial_aggregations_into_scan=false and execute query again");
         }
 
@@ -128,11 +126,12 @@ public class RcFilePageSourceFactory
             return Optional.empty();
         }
 
-        if (fileSize == 0) {
-            throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
+        if (fileSplit.getFileSize() == 0) {
+            throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + fileSplit.getPath());
         }
 
         FSDataInputStream inputStream;
+        Path path = new Path(fileSplit.getPath());
         try {
             inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
         }
@@ -141,7 +140,7 @@ public class RcFilePageSourceFactory
                     e instanceof FileNotFoundException) {
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, fileSplit), e);
         }
 
         try {
@@ -151,12 +150,12 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSize, stats),
+                    new HdfsRcFileDataSource(path.toString(), inputStream, fileSplit.getFileSize(), stats),
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
-                    start,
-                    length,
+                    fileSplit.getStart(),
+                    fileSplit.getLength(),
                     new DataSize(8, Unit.MEGABYTE));
 
             return Optional.of(new RcFilePageSource(rcFileReader, columns, typeManager));
@@ -170,7 +169,7 @@ public class RcFilePageSourceFactory
             if (e instanceof PrestoException) {
                 throw (PrestoException) e;
             }
-            String message = splitError(e, path, start, length);
+            String message = splitError(e, fileSplit);
             if (e instanceof RcFileCorruptionException) {
                 throw new PrestoException(HIVE_BAD_DATA, message, e);
             }
@@ -181,9 +180,9 @@ public class RcFilePageSourceFactory
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, HiveFileSplit fileSplit)
     {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s", fileSplit.getPath(), fileSplit.getStart(), fileSplit.getLength(), t.getMessage());
     }
 
     public static TextRcFileEncoding createTextVectorEncoding(Properties schema, DateTimeZone hiveStorageTimeZone)

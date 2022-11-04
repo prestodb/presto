@@ -450,6 +450,15 @@ public class TestOrcBatchPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
+            HiveFileSplit hiveFileSplit = new HiveFileSplit(
+                    fileSplit.getPath().toString(),
+                    fileSplit.getStart(),
+                    fileSplit.getLength(),
+                    fileSplit.getLength(),
+                    Instant.now().toEpochMilli(),
+                    Optional.empty(),
+                    ImmutableMap.of());
+
             OrcBatchPageSourceFactory orcPageSourceFactory = new OrcBatchPageSourceFactory(
                     FUNCTION_AND_TYPE_MANAGER,
                     FUNCTION_RESOLUTION,
@@ -464,12 +473,8 @@ public class TestOrcBatchPageSourceMemoryTracking
                     ImmutableSet.of(orcPageSourceFactory),
                     new Configuration(),
                     session,
-                    fileSplit.getPath(),
+                    hiveFileSplit,
                     OptionalInt.empty(),
-                    fileSplit.getStart(),
-                    fileSplit.getLength(),
-                    fileSplit.getLength(),
-                    Instant.now().toEpochMilli(),
                     storage,
                     TupleDomain.all(),
                     columns,
@@ -489,8 +494,7 @@ public class TestOrcBatchPageSourceMemoryTracking
                     null,
                     false,
                     ROW_EXPRESSION_SERVICE,
-                    Optional.empty(),
-                    ImmutableMap.of())
+                    Optional.empty())
                     .get();
         }
 
