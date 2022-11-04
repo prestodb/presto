@@ -335,6 +335,31 @@ BENCHMARK_MULTI(copyMapTwoAtATime) {
   return runBenchmark(
       mapVector, selected, MAP(INTEGER(), INTEGER()), pool.get(), 2);
 }
+
+BENCHMARK_MULTI(copyStructNonContiguous) {
+  folly::BenchmarkSuspender suspender;
+  std::unique_ptr<memory::MemoryPool> pool{
+      memory::getDefaultScopedMemoryPool()};
+  test::VectorMaker vectorMaker{pool.get()};
+  constexpr vector_size_t kSize = 2'000;
+  std::vector<VectorPtr> children = {
+      vectorMaker.flatVector<int64_t>(kSize, folly::identity),
+      vectorMaker.flatVector<float>(kSize, folly::identity),
+  };
+  auto source = vectorMaker.rowVector(children);
+  auto target = BaseVector::create(source->type(), kSize / 2, pool.get());
+  BaseVector::CopyRange ranges[kSize / 2];
+  for (int i = 0; i < kSize; i += 2) {
+    ranges[i / 2] = {i, i / 2, 1};
+  }
+  suspender.dismiss();
+  constexpr int kIter = 100;
+  for (int i = 0; i < kIter; ++i) {
+    target->copyRanges(source.get(), {std::begin(ranges), std::end(ranges)});
+  }
+  return kIter * kSize;
+}
+
 } // namespace
 } // namespace facebook::velox
 
