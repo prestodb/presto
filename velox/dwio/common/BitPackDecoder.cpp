@@ -175,13 +175,13 @@ int32_t decode1To24(
 
 template <typename T>
 void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
     const char* bufferEnd,
-    T* FOLLY_NONNULL result) {
+    T* result) {
   uint64_t mask = bits::lowMask(bitWidth);
 
   if (bitWidth == 0) {
@@ -189,6 +189,7 @@ void unpack(
     memset(result, 0, rows.size() * sizeof(T));
     return;
   }
+  VELOX_DCHECK_NOT_NULL(bits);
 
   // We subtract rowBias * bitWidth bits from the starting position.
   bitOffset -= rowBias * bitWidth;
@@ -290,39 +291,39 @@ void unpack(
 }
 
 template void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int32_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int32_t* result);
 
 template void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int64_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int64_t* result);
 
 template void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int128_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int128_t* result);
 
 template void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
     uint8_t bitWidth,
-    const char* FOLLY_NULLABLE bufferEnd,
-    int16_t* FOLLY_NONNULL result);
+    const char* bufferEnd,
+    int16_t* result);
 
 } // namespace facebook::velox::dwio::common

@@ -55,7 +55,7 @@ inline uint64_t safeLoadBits(
 /// stay under 'bufferEnd'.
 template <typename T>
 void unpack(
-    const uint64_t* FOLLY_NONNULL bits,
+    const uint64_t* FOLLY_NULLABLE bits,
     int32_t bitOffset,
     RowSet rows,
     int32_t rowBias,
