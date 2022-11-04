@@ -2352,7 +2352,7 @@ public abstract class AbstractTestHiveClient
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
         for (ConnectorSplit split : splits) {
-            assertTrue(paths.add(((HiveSplit) split).getPath()));
+            assertTrue(paths.add(((HiveSplit) split).getFileSplit().getPath()));
         }
     }
 
@@ -2438,11 +2438,11 @@ public abstract class AbstractTestHiveClient
 
                         long newCompletedBytes = pageSource.getCompletedBytes();
                         assertTrue(newCompletedBytes >= completedBytes);
-                        assertTrue(newCompletedBytes <= hiveSplit.getLength());
+                        assertTrue(newCompletedBytes <= hiveSplit.getFileSplit().getLength());
                         completedBytes = newCompletedBytes;
                     }
 
-                    assertTrue(completedBytes <= hiveSplit.getLength());
+                    assertTrue(completedBytes <= hiveSplit.getFileSplit().getLength());
                     assertEquals(rowNumber, 100);
                 }
             }
@@ -5078,11 +5078,11 @@ public abstract class AbstractTestHiveClient
 
                 long newCompletedBytes = pageSource.getCompletedBytes();
                 assertTrue(newCompletedBytes >= completedBytes);
-                assertTrue(newCompletedBytes <= hiveSplit.getLength() + initialPageSourceCompletedBytes);
+                assertTrue(newCompletedBytes <= hiveSplit.getFileSplit().getLength() + initialPageSourceCompletedBytes);
                 completedBytes = newCompletedBytes;
             }
 
-            assertTrue(completedBytes <= hiveSplit.getLength() + initialPageSourceCompletedBytes);
+            assertTrue(completedBytes <= hiveSplit.getFileSplit().getLength() + initialPageSourceCompletedBytes);
             assertEquals(rowNumber, 100);
         }
         finally {

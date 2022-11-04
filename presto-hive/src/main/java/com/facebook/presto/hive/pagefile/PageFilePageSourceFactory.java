@@ -20,6 +20,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSession;
@@ -63,10 +64,7 @@ public class PageFilePageSourceFactory
     public Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             SchemaTableName tableName,
             Map<String, String> tableParameters,
@@ -81,6 +79,7 @@ public class PageFilePageSourceFactory
         }
 
         FSDataInputStream inputStream;
+        Path path = new Path(fileSplit.getPath());
         try {
             inputStream = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration).openFile(path, hiveFileContext);
         }
@@ -89,11 +88,11 @@ public class PageFilePageSourceFactory
                     e instanceof FileNotFoundException) {
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, fileSplit), e);
         }
 
         try {
-            PageFilePageSource pageFilePageSource = new PageFilePageSource(inputStream, start, length, fileSize, blockEncodingSerde, columns);
+            PageFilePageSource pageFilePageSource = new PageFilePageSource(inputStream, fileSplit.getStart(), fileSplit.getLength(), fileSplit.getFileSize(), blockEncodingSerde, columns);
             return Optional.of(pageFilePageSource);
         }
         catch (Throwable e) {
@@ -103,12 +102,13 @@ public class PageFilePageSourceFactory
             catch (IOException ignored) {
             }
             propagateIfPossible(e, PrestoException.class);
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, fileSplit), e);
         }
     }
 
-    private static String splitError(Throwable t, Path path, long start, long length)
+    private static String splitError(Throwable t, HiveFileSplit fileSplit)
     {
-        return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
+        return format("Error opening Hive split %s (offset=%s, length=%s): %s",
+                fileSplit.getPath(), fileSplit.getStart(), fileSplit.getLength(), t.getMessage());
     }
 }

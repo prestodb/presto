@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveDwrfEncryptionProvider;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveRecordCursorProvider;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
@@ -432,21 +433,26 @@ public enum FileFormat
             columnHandles.add(new HiveColumnHandle(columnName, toHiveType(typeTranslator, columnType), columnType.getTypeSignature(), i, REGULAR, Optional.empty(), Optional.empty()));
         }
 
+        HiveFileSplit fileSplit = new HiveFileSplit(
+                targetFile.getAbsolutePath(),
+                0,
+                targetFile.length(),
+                targetFile.length(),
+                0,
+                Optional.empty(),
+                ImmutableMap.of());
+
         RecordCursor recordCursor = cursorProvider
                 .createRecordCursor(
                         conf,
                         session,
-                        new Path(targetFile.getAbsolutePath()),
-                        0,
-                        targetFile.length(),
-                        targetFile.length(),
+                        fileSplit,
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
                         DateTimeZone.forID(session.getSqlFunctionProperties().getTimeZoneKey().getId()),
                         FUNCTION_AND_TYPE_MANAGER,
-                        false,
-                        ImmutableMap.of())
+                        false)
                 .get();
         return new RecordPageSource(columnTypes, recordCursor);
     }
@@ -470,14 +476,20 @@ public enum FileFormat
 
         SchemaTableName tableName = new SchemaTableName("hive", "testtable");
 
+        HiveFileSplit fileSplit = new HiveFileSplit(
+                targetFile.getAbsolutePath(),
+                0,
+                targetFile.length(),
+                targetFile.length(),
+                0,
+                Optional.empty(),
+                ImmutableMap.of());
+
         return pageSourceFactory
                 .createPageSource(
                         conf,
                         session,
-                        new Path(targetFile.getAbsolutePath()),
-                        0,
-                        targetFile.length(),
-                        targetFile.length(),
+                        fileSplit,
                         new Storage(
                                 StorageFormat.create(format.getSerDe(), format.getInputFormat(), format.getOutputFormat()),
                                 "location",
