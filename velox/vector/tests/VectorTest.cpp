@@ -2106,24 +2106,18 @@ TEST_F(VectorTest, mapSliceMutability) {
       std::dynamic_pointer_cast<MapVector>(createMap(vectorSize_, false)));
 }
 
-// TODO(xiaoxmeng): Inconsistency discovered by following check when
-// running with Prestissmo. Re-enable this check after the issue gets fixed.
-//
-// // Demonstrates incorrect usage of the memory pool. The pool is destroyed
-// while
-// // the vector allocated from it is still alive.
-// TEST_F(VectorTest, lifetime) {
-//   ASSERT_DEATH(
-//       {
-//         auto childPool = pool_->addScopedChild("test");
-//         auto v = BaseVector::create(INTEGER(), 10, childPool.get());
+// Demonstrates incorrect usage of the memory pool. The pool is destroyed
+// while the vector allocated from it is still alive.
+TEST_F(VectorTest, lifetime) {
+  ASSERT_DEATH(
+      {
+        auto childPool = pool_->addScopedChild("test");
+        auto v = BaseVector::create(INTEGER(), 10, childPool.get());
 
-//         // BUG: Memory pool needs to stay alive until all memory allocated
-//         from
-//         // it is freed.
-//         childPool.reset();
-//         v.reset();
-//       },
-//       "Memory pool should be destroyed only after all allocated memory has
-//       been freed.");
-// }
+        // BUG: Memory pool needs to stay alive until all memory allocated from
+        // it is freed.
+        childPool.reset();
+        v.reset();
+      },
+      "Memory pool should be destroyed only after all allocated memory has been freed.");
+}

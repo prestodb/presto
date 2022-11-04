@@ -297,7 +297,7 @@ RowVectorPtr HashAggregation::getOutput() {
     return output;
   }
 
-  auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
+  const auto batchSize = isGlobal_ ? 1 : outputBatchSize_;
 
   // Reuse output vectors if possible.
   prepareOutput(batchSize);

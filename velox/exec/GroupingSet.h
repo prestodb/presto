@@ -124,16 +124,17 @@ class GroupingSet {
   // otherwise.
   void extractGroups(folly::Range<char**> groups, const RowVectorPtr& result);
 
-  /// Produces output in if spilling has occurred. First produces data
-  /// from non-spilled partitions, then merges spill runs and
-  /// unspilled data form spilled partitions. Returns nullptr when at
-  /// end.
-  bool getOutputWithSpill(const RowVectorPtr& result);
+  // Produces output in if spilling has occurred. First produces data
+  // from non-spilled partitions, then merges spill runs and unspilled data
+  // form spilled partitions. Returns nullptr when at end. 'batchSize' specifies
+  // the max number of output rows in 'result'.
+  bool getOutputWithSpill(int32_t batchSize, const RowVectorPtr& result);
 
-  /// Reads rows from the current spilled partition until producing a batch of
-  /// final results in 'result'. Returns false and leaves 'result' empty when
-  /// the partition is fully read.
-  bool mergeNext(const RowVectorPtr& result);
+  // Reads rows from the current spilled partition until producing a batch of
+  // final results in 'result'. Returns false and leaves 'result' empty when
+  // the partition is fully read. 'batchSize' specifies the max number of output
+  // rows in 'result'.
+  bool mergeNext(int32_t batchSize, const RowVectorPtr& result);
 
   // Initializes a new row in 'mergeRows' with the keys from the
   // current element from 'keys'. Accumulators are left in the initial
@@ -218,8 +219,6 @@ class GroupingSet {
   /// The value of mayPushdown flag specified in addInput() for the
   /// 'remainingInput_'.
   bool remainingMayPushdown_;
-
-  uint64_t maxBatchBytes_;
 
   std::unique_ptr<Spiller> spiller_;
   std::unique_ptr<TreeOfLosers<SpillMergeStream>> merge_;

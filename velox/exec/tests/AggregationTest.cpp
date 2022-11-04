@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <folly/Math.h>
+
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/testutil/TestValue.h"
@@ -1242,6 +1244,52 @@ TEST_F(AggregationTest, groupingSets) {
   assertQuery(
       plan,
       "SELECT k1, k2, count(1), sum(a), max(b) FROM tmp GROUP BY ROLLUP (k1, k2)");
+}
+
+TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
+  rowType_ = ROW({"c0", "c1", "c2"}, {INTEGER(), INTEGER(), INTEGER()});
+  VectorFuzzer::Options options;
+  options.vectorSize = 10;
+  VectorFuzzer fuzzer(options, pool());
+  const int32_t numBatches = 10;
+  std::vector<RowVectorPtr> batches;
+  for (int32_t i = 0; i < numBatches; ++i) {
+    batches.push_back(fuzzer.fuzzRow(rowType_));
+  }
+  std::vector<uint32_t> outputBufferSizes({1, 10, 1'000'000});
+  for (const auto& outputBufferSize : outputBufferSizes) {
+    SCOPED_TRACE(fmt::format("outputBufferSize: {}", outputBufferSize));
+
+    auto results =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
+                               .planNode())
+            .copyResults(pool_.get());
+
+    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    auto task =
+        AssertQueryBuilder(PlanBuilder()
+                               .values(batches)
+                               .singleAggregation({"c0", "c1"}, {"sum(c2)"})
+                               .planNode())
+            .config(QueryConfig::kSpillEnabled, "true")
+            .config(QueryConfig::kAggregationSpillEnabled, "true")
+            // Set one spill partition to avoid the test flakiness.
+            .config(QueryConfig::kSpillPartitionBits, "0")
+            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .config(
+                QueryConfig::kPreferredOutputBatchSize,
+                std::to_string(outputBufferSize))
+            // Set the memory trigger limit to be a very small value.
+            .config(QueryConfig::kAggregationSpillMemoryThreshold, "1")
+            .assertResults(results);
+
+    const auto opStats = task->taskStats().pipelineStats[0].operatorStats[1];
+    ASSERT_EQ(
+        folly::divCeil(opStats.outputPositions, outputBufferSize),
+        opStats.outputVectors);
+  }
 }
 
 } // namespace
