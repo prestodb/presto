@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hudi.hadoop.HoodieParquetInputFormat;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
@@ -71,15 +70,19 @@ public class TestHivePageSourceProvider
     {
         HiveClientConfig config = new HiveClientConfig();
 
-        HiveSplit split = new HiveSplit(
-                SCHEMA_NAME,
-                TABLE_NAME,
-                PARTITION_NAME,
-                "file://test",
+        HiveFileSplit fileSplit = new HiveFileSplit("file://test",
                 0,
                 10,
                 10,
                 Instant.now().toEpochMilli(),
+                Optional.empty(),
+                ImmutableMap.of());
+        HiveSplit split = new HiveSplit(
+                fileSplit,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                PARTITION_NAME,
+
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -96,10 +99,8 @@ public class TestHivePageSourceProvider
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of(),
                 ImmutableSet.of(),
                 SplitWeight.standard());
 
@@ -108,14 +109,10 @@ public class TestHivePageSourceProvider
         assertEquals(cacheQuota, expectedCacheQuota);
 
         split = new HiveSplit(
+                fileSplit,
                 SCHEMA_NAME,
                 TABLE_NAME,
                 PARTITION_NAME,
-                "file://test",
-                0,
-                10,
-                10,
-                Instant.now().toEpochMilli(),
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -132,10 +129,8 @@ public class TestHivePageSourceProvider
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty(),
                 new CacheQuotaRequirement(PARTITION, Optional.of(DataSize.succinctDataSize(1, DataSize.Unit.MEGABYTE))),
                 Optional.empty(),
-                ImmutableMap.of(),
                 ImmutableSet.of(),
                 SplitWeight.standard());
 
@@ -157,6 +152,14 @@ public class TestHivePageSourceProvider
         HiveRecordCursorProvider recordCursorProvider = new MockHiveRecordCursorProvider();
         HiveBatchPageSourceFactory hiveBatchPageSourceFactory = new MockHiveBatchPageSourceFactory();
 
+        HiveFileSplit fileSplit = new HiveFileSplit(
+                "/test/",
+                0,
+                100,
+                200,
+                Instant.now().toEpochMilli(),
+                Optional.empty(),
+                customSplitInfo);
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
                 ImmutableSet.of(hiveBatchPageSourceFactory),
@@ -166,12 +169,8 @@ public class TestHivePageSourceProvider
                         new OrcFileWriterConfig(),
                         new ParquetFileWriterConfig(),
                         new CacheConfig()).getSessionProperties()),
-                new Path("/test/"),
+                fileSplit,
                 OptionalInt.empty(),
-                0,
-                100,
-                200,
-                Instant.now().toEpochMilli(),
                 storage,
                 TupleDomain.none(),
                 ImmutableList.of(),
@@ -191,8 +190,7 @@ public class TestHivePageSourceProvider
                 null,
                 false,
                 null,
-                Optional.empty(),
-                customSplitInfo);
+                Optional.empty());
         assertTrue(pageSource.isPresent());
         assertTrue(pageSource.get() instanceof RecordPageSource);
     }
@@ -205,6 +203,15 @@ public class TestHivePageSourceProvider
         HiveRecordCursorProvider recordCursorProvider = new MockHiveRecordCursorProvider();
         HiveBatchPageSourceFactory hiveBatchPageSourceFactory = new MockHiveBatchPageSourceFactory();
 
+        HiveFileSplit fileSplit = new HiveFileSplit(
+                "/test/",
+                0,
+                100,
+                200,
+                Instant.now().toEpochMilli(),
+                Optional.empty(),
+                ImmutableMap.of());
+
         Optional<ConnectorPageSource> pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(recordCursorProvider),
                 ImmutableSet.of(hiveBatchPageSourceFactory),
@@ -214,12 +221,8 @@ public class TestHivePageSourceProvider
                         new OrcFileWriterConfig(),
                         new ParquetFileWriterConfig(),
                         new CacheConfig()).getSessionProperties()),
-                new Path("/test/"),
+                fileSplit,
                 OptionalInt.empty(),
-                0,
-                100,
-                200,
-                Instant.now().toEpochMilli(),
                 storage,
                 TupleDomain.none(),
                 ImmutableList.of(),
@@ -239,8 +242,7 @@ public class TestHivePageSourceProvider
                 null,
                 false,
                 null,
-                Optional.empty(),
-                ImmutableMap.of());
+                Optional.empty());
         assertTrue(pageSource.isPresent());
         assertTrue(pageSource.get() instanceof HivePageSource);
     }
@@ -251,10 +253,7 @@ public class TestHivePageSourceProvider
         @Override
         public Optional<? extends ConnectorPageSource> createPageSource(Configuration configuration,
                 ConnectorSession session,
-                Path path,
-                long start,
-                long length,
-                long fileSize,
+                HiveFileSplit fileSplit,
                 Storage storage,
                 SchemaTableName tableName,
                 Map<String, String> tableParameters,
@@ -320,17 +319,13 @@ public class TestHivePageSourceProvider
         @Override
         public Optional<RecordCursor> createRecordCursor(Configuration configuration,
                 ConnectorSession session,
-                Path path,
-                long start,
-                long length,
-                long fileSize,
+                HiveFileSplit fileSplit,
                 Properties schema,
                 List<HiveColumnHandle> columns,
                 TupleDomain<HiveColumnHandle> effectivePredicate,
                 DateTimeZone hiveStorageTimeZone,
                 TypeManager typeManager,
-                boolean s3SelectPushdownEnabled,
-                Map<String, String> customSplitInfo)
+                boolean s3SelectPushdownEnabled)
         {
             return Optional.of(new MockRecordCursor());
         }

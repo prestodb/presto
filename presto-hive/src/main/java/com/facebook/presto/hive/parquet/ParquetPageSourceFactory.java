@@ -26,6 +26,7 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBatchPageSourceFactory;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HiveFileContext;
+import com.facebook.presto.hive.HiveFileSplit;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.memory.context.AggregatedMemoryContext;
@@ -178,10 +179,7 @@ public class ParquetPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             List<HiveColumnHandle> columns,
             SchemaTableName tableName,
             TypeManager typeManager,
@@ -199,6 +197,7 @@ public class ParquetPageSourceFactory
         boolean readMaskedValue = getReadNullMaskedParquetEncryptedValue(session);
 
         ParquetDataSource dataSource = null;
+        Path path = new Path(fileSplit.getPath());
         try {
             FSDataInputStream inputStream = hdfsEnvironment.getFileSystem(user, path, configuration).openFile(path, hiveFileContext);
             // Lambda expression below requires final variable, so we define a new variable parquetDataSource.
@@ -207,7 +206,7 @@ public class ParquetPageSourceFactory
             Optional<InternalFileDecryptor> fileDecryptor = createDecryptor(configuration, path);
             ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> parquetMetadataSource.getParquetMetadata(
                     parquetDataSource,
-                    fileSize,
+                    fileSplit.getFileSize(),
                     hiveFileContext.isCacheable(),
                     hiveFileContext.getModificationTime(),
                     fileDecryptor,
@@ -236,7 +235,7 @@ public class ParquetPageSourceFactory
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
                 if (firstIndex.isPresent()) {
                     long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
-                    if (firstDataPage >= start && firstDataPage < start + length) {
+                    if (firstDataPage >= fileSplit.getStart() && firstDataPage < fileSplit.getStart() + fileSplit.getLength()) {
                         footerBlocks.add(block);
                     }
                 }
@@ -344,7 +343,7 @@ public class ParquetPageSourceFactory
                     e instanceof FileNotFoundException) {
                 throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
+            String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, fileSplit.getStart(), fileSplit.getLength(), e.getMessage());
             if (e.getClass().getSimpleName().equals("BlockMissingException")) {
                 throw new PrestoException(HIVE_MISSING_DATA, message, e);
             }
@@ -539,10 +538,7 @@ public class ParquetPageSourceFactory
     public Optional<? extends ConnectorPageSource> createPageSource(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Storage storage,
             SchemaTableName tableName,
             Map<String, String> tableParameters,
@@ -560,10 +556,7 @@ public class ParquetPageSourceFactory
                 hdfsEnvironment,
                 session,
                 configuration,
-                path,
-                start,
-                length,
-                fileSize,
+                fileSplit,
                 columns,
                 tableName,
                 typeManager,

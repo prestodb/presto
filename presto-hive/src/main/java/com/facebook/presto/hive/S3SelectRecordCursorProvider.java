@@ -29,7 +29,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -61,22 +60,19 @@ public class S3SelectRecordCursorProvider
     public Optional<RecordCursor> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
-            long start,
-            long length,
-            long fileSize,
+            HiveFileSplit fileSplit,
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
-            boolean s3SelectPushdownEnabled,
-            Map<String, String> customSplitInfo)
+            boolean s3SelectPushdownEnabled)
     {
         if (!s3SelectPushdownEnabled) {
             return Optional.empty();
         }
 
+        Path path = new Path(fileSplit.getPath());
         try {
             this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
         }
@@ -88,8 +84,8 @@ public class S3SelectRecordCursorProvider
         if (CSV_SERDES.contains(serdeName)) {
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
             String ionSqlQuery = queryBuilder.buildSql(columns, effectivePredicate);
-            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, start, length, schema, ionSqlQuery, s3ClientFactory);
-            return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, length, schema, columns, hiveStorageTimeZone, typeManager));
+            S3SelectLineRecordReader recordReader = new S3SelectCsvRecordReader(configuration, clientConfig, path, fileSplit.getStart(), fileSplit.getLength(), schema, ionSqlQuery, s3ClientFactory);
+            return Optional.of(new S3SelectRecordCursor(configuration, path, recordReader, fileSplit.getLength(), schema, columns, hiveStorageTimeZone, typeManager));
         }
 
         // unsupported serdes
