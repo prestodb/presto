@@ -80,15 +80,20 @@ public class TestHiveSplit
                 Optional.empty(),
                 ImmutableList.of(),
                 Optional.empty()));
-        HiveSplit expected = new HiveSplit(
-                "db",
-                "table",
-                "partitionId",
+        HiveFileSplit fileSplit = new HiveFileSplit(
                 "path",
                 42,
                 87,
                 88,
                 Instant.now().toEpochMilli(),
+                Optional.empty(),
+                customSplitInfo);
+
+        HiveSplit expected = new HiveSplit(
+                fileSplit,
+                "db",
+                "table",
+                "partitionId",
                 new Storage(
                         StorageFormat.create("serde", "input", "output"),
                         "location",
@@ -108,14 +113,12 @@ public class TestHiveSplit
                         16,
                         ImmutableList.of(new HiveColumnHandle("col", HIVE_LONG, BIGINT.getTypeSignature(), 5, REGULAR, Optional.of("comment"), Optional.empty())))),
                 false,
-                Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.of(EncryptionInformation.fromEncryptionMetadata(DwrfEncryptionMetadata.forPerField(
                         ImmutableMap.of("field1", "test1".getBytes()),
                         ImmutableMap.of(),
                         "test_algo",
                         "test_provider"))),
-                customSplitInfo,
                 redundantColumnDomains,
                 SplitWeight.fromProportion(2.0)); // some non-standard value
 
@@ -126,10 +129,7 @@ public class TestHiveSplit
         assertEquals(actual.getDatabase(), expected.getDatabase());
         assertEquals(actual.getTable(), expected.getTable());
         assertEquals(actual.getPartitionName(), expected.getPartitionName());
-        assertEquals(actual.getPath(), expected.getPath());
-        assertEquals(actual.getStart(), expected.getStart());
-        assertEquals(actual.getLength(), expected.getLength());
-        assertEquals(actual.getFileSize(), expected.getFileSize());
+        assertEquals(actual.getFileSplit(), expected.getFileSplit());
         assertEquals(actual.getStorage(), expected.getStorage());
         assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
         assertEquals(actual.getAddresses(), expected.getAddresses());
@@ -141,7 +141,6 @@ public class TestHiveSplit
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getCacheQuotaRequirement(), expected.getCacheQuotaRequirement());
         assertEquals(actual.getEncryptionInformation(), expected.getEncryptionInformation());
-        assertEquals(actual.getCustomSplitInfo(), expected.getCustomSplitInfo());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 

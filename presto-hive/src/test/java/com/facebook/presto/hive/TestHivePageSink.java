@@ -227,15 +227,21 @@ public class TestHivePageSink
 
     private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveClientConfig config, MetastoreClientConfig metastoreClientConfig, File outputFile)
     {
-        HiveSplit split = new HiveSplit(
-                SCHEMA_NAME,
-                TABLE_NAME,
-                "",
+        HiveFileSplit fileSplit = new HiveFileSplit(
                 "file:///" + outputFile.getAbsolutePath(),
                 0,
                 outputFile.length(),
                 outputFile.length(),
                 outputFile.lastModified(),
+                Optional.empty(),
+                ImmutableMap.of());
+
+        HiveSplit split = new HiveSplit(
+                fileSplit,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                "",
+
                 new Storage(
                         StorageFormat.create(config.getHiveStorageFormat().getSerDe(), config.getHiveStorageFormat().getInputFormat(), config.getHiveStorageFormat().getOutputFormat()),
                         "location",
@@ -252,10 +258,8 @@ public class TestHivePageSink
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty(),
                 NO_CACHE_REQUIREMENT,
                 Optional.empty(),
-                ImmutableMap.of(),
                 ImmutableSet.of(),
                 SplitWeight.standard());
 
