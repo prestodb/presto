@@ -25,26 +25,30 @@ namespace {
 class MemoryCapExceededTest : public OperatorTestBase {};
 
 TEST_F(MemoryCapExceededTest, singleDriver) {
-  // Executes a plan with a single driver and query memory limit that forces it
-  // to throw MEM_CAP_EXCEEDED exception. Verifies that the error message
-  // contains all the details expected.
+  // Executes a plan with a single driver thread and query memory limit that
+  // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
+  // message contains all the details expected.
 
   vector_size_t size = 1'024;
   // This limit ensures that only the Aggregation Operator fails.
   constexpr int64_t kMaxBytes = 5LL << 20; // 5MB
   // We look for these lines separately, since their order can change (not sure
   // why).
-  std::array<std::string, 9> expectedTexts = {
+  std::array<std::string, 14> expectedTexts = {
       "Exceeded memory cap of 5.00MB when requesting 2.00MB.",
       "query.: total: 5.00MB",
-      "pipe.0: 1.78MB in 5 operators, min 0B, max 1.77MB",
-      "op.OrderBy: 0B in 1 instances, min 0B, max 0B",
-      "op.CallbackSink: 0B in 1 instances, min 0B, max 0B",
-      "op.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
-      "op.Values: 0B in 1 instances, min 0B, max 0B",
-      "Failed Operator: Aggregation.2: 1.77MB",
-      "Top memory usages:",
-  };
+      "node.0: 0B in 1 operators, min 0B, max 0B",
+      "op.0.0.Values: 0B in 1 instances, min 0B, max 0B",
+      "node.1: 12.00KB in 1 operators, min 12.00KB, max 12.00KB",
+      "op.1.0.FilterProject: 12.00KB in 1 instances, min 12.00KB, max 12.00KB",
+      "node.2: 1.77MB in 1 operators, min 1.77MB, max 1.77MB",
+      "op.2.0.Aggregation: 1.77MB in 1 instances, min 1.77MB, max 1.77MB",
+      "node.3: 0B in 1 operators, min 0B, max 0B",
+      "op.3.0.OrderBy: 0B in 1 instances, min 0B, max 0B",
+      "node.N/A: 0B in 1 operators, min 0B, max 0B",
+      "op.N/A.0.CallbackSink: 0B in 1 instances, min 0B, max 0B",
+      "Top operator memory usages:",
+      "Failed Operator: Aggregation.2: 1.77MB"};
 
   std::vector<RowVectorPtr> data;
   for (auto i = 0; i < 100; ++i) {
@@ -70,6 +74,7 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
+  params.maxDrivers = 1;
   try {
     readCursor(params, [](Task*) {});
     FAIL() << "Expected a MEM_CAP_EXCEEDED RuntimeException.";
@@ -86,10 +91,10 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
 TEST_F(MemoryCapExceededTest, multipleDrivers) {
   // Executes a plan that runs with ten drivers and query memory limit that
   // forces it to throw MEM_CAP_EXCEEDED exception. Verifies that the error
-  // message contains information that acknowledges the existence of 10 drivers.
-  // Rest of the message is not verified as the contents are non-deterministic
-  // with respect to which operators make it to the top 3 and their memory
-  // usage.
+  // message contains information that acknowledges the existence of N
+  // operators. Rest of the message is not verified as the contents are
+  // non-deterministic with respect to which operators make it to the top 3 and
+  // their memory usage.
   vector_size_t size = 1'024;
   const int32_t numSplits = 100;
   constexpr int64_t kMaxBytes = 12LL << 20; // 12MB
@@ -112,11 +117,14 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
       velox::memory::MemoryUsageTracker::create(
           kMaxBytes, kMaxBytes, kMaxBytes));
 
+  const int32_t numDrivers = 10;
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
-  params.maxDrivers = 10;
-  VELOX_ASSERT_THROW(readCursor(params, [](Task*) {}), "10 drivers");
+  params.maxDrivers = numDrivers;
+  VELOX_ASSERT_THROW(
+      readCursor(params, [](Task*) {}),
+      fmt::format("{} operators", numDrivers));
 }
 
 } // namespace

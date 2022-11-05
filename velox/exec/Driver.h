@@ -209,8 +209,9 @@ struct DriverCtx {
 
   const core::QueryConfig& queryConfig() const;
 
-  velox::memory::MemoryPool* FOLLY_NONNULL
-  addOperatorPool(const std::string& operatorType = "");
+  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
+      const core::PlanNodeId& planNodeId,
+      const std::string& operatorType);
 };
 
 class Driver : public std::enable_shared_from_this<Driver> {

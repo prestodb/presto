@@ -260,14 +260,19 @@ class Task : public std::enable_shared_from_this<Task> {
   /// library components (Driver, Operator, etc.) and should not be called by
   /// the library users.
 
-  memory::MemoryPool* FOLLY_NONNULL addDriverPool(int pipelineId, int driverId);
+  /// Creates new instance of MemoryPool for a plan node, stores it in the task
+  /// to ensure lifetime and returns a raw pointer. Not thread safe, e.g. must
+  /// be called from the Operator's constructor via addOperatorPool().
+  memory::MemoryPool* FOLLY_NONNULL
+  getOrAddNodePool(const core::PlanNodeId& planNodeId);
 
-  /// Creates new instance of MemoryPool, stores it in the task to ensure
-  /// lifetime and returns a raw pointer. Not thread safe, e.g. must be called
-  /// from the Operator's constructor.
-  memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
-      memory::MemoryPool* FOLLY_NONNULL driverPool,
-      const std::string& operatorType = "");
+  /// Creates new instance of MemoryPool for an operator, stores it in the task
+  /// to ensure lifetime and returns a raw pointer. Not thread safe, e.g. must
+  /// be called from the Operator's constructor.
+  velox::memory::MemoryPool* FOLLY_NONNULL addOperatorPool(
+      const core::PlanNodeId& planNodeId,
+      int pipelineId,
+      const std::string& operatorType);
 
   /// Creates new instance of MappedMemory, stores it in the task to ensure
   /// lifetime and returns a raw pointer. Not thread safe, e.g. must be called
@@ -730,6 +735,12 @@ class Task : public std::enable_shared_from_this<Task> {
   // Keep driver and operator memory pools alive for the duration of the task
   // to allow for sharing vectors across drivers without copy.
   std::vector<std::unique_ptr<memory::MemoryPool>> childPools_;
+
+  // The map from plan node it to the corresponding memory pool object's raw
+  // pointer.
+  //
+  // NOTE: ''childPools_' holds the ownerships of node memory pools.
+  std::unordered_map<core::PlanNodeId, memory::MemoryPool*> nodePools_;
 
   // Keep operator MappedMemory instances alive for the duration of the task to
   // allow for sharing data without copy.

@@ -159,6 +159,7 @@ class OperatorCtx {
  public:
   OperatorCtx(
       DriverCtx* FOLLY_NONNULL driverCtx,
+      const core::PlanNodeId& planNodeId,
       int32_t operatorId,
       const std::string& operatorType = "");
 

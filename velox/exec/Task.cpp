@@ -195,23 +195,27 @@ Task::~Task() {
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL
-Task::addDriverPool(int pipelineId, int driverId) {
-  childPools_.push_back(pool_->addScopedChild(
-      fmt::format("pipe.{}.driver.{}", pipelineId, driverId)));
-  auto* driverPool = childPools_.back().get();
-  auto parentTracker = pool_->getMemoryUsageTracker();
-  if (parentTracker) {
-    driverPool->setMemoryUsageTracker(parentTracker->addChild());
+Task::getOrAddNodePool(const core::PlanNodeId& planNodeId) {
+  if (nodePools_.count(planNodeId) == 1) {
+    return nodePools_[planNodeId];
   }
-
-  return driverPool;
+  childPools_.push_back(
+      pool_->addScopedChild(fmt::format("node.{}", planNodeId)));
+  auto* nodePool = childPools_.back().get();
+  auto parentTracker = pool_->getMemoryUsageTracker();
+  if (parentTracker != nullptr) {
+    nodePool->setMemoryUsageTracker(parentTracker->addChild());
+  }
+  return nodePool;
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL Task::addOperatorPool(
-    velox::memory::MemoryPool* FOLLY_NONNULL driverPool,
+    const core::PlanNodeId& planNodeId,
+    int pipelineId,
     const std::string& operatorType) {
-  childPools_.push_back(
-      driverPool->addScopedChild(fmt::format("op.{}", operatorType)));
+  auto* nodePool = getOrAddNodePool(planNodeId);
+  childPools_.push_back(nodePool->addScopedChild(
+      fmt::format("op.{}.{}.{}", planNodeId, pipelineId, operatorType)));
   return childPools_.back().get();
 }
 
@@ -1824,8 +1828,8 @@ struct MemoryUsage {
   }
 };
 
-// Aggregated memory usage stats of a single Task Pipeline Memory Pool.
-struct PipelineMemoryUsage {
+// Aggregated memory usage stats of a single task plan node memory pool.
+struct NodeMemoryUsage {
   MemoryUsage total;
   std::unordered_map<std::string, MemoryUsage> operators;
 };
@@ -1834,21 +1838,21 @@ struct PipelineMemoryUsage {
 struct TaskMemoryUsage {
   std::string taskId;
   MemoryUsage total;
-  std::vector<PipelineMemoryUsage> pipelines;
+  // The map from node id to its collected memory usage.
+  std::map<std::string, NodeMemoryUsage> nodes;
 
   void toString(std::stringstream& out) const {
     // Using 4 spaces for indent in the output.
     out << "\n    ";
     out << taskId;
     out << ": ";
-    total.toString(out, "drivers");
-    for (auto i = 0; i < pipelines.size(); ++i) {
-      const auto& pipelineMemoryUsage = pipelines[i];
-      out << "\n        pipe.";
-      out << folly::to<std::string>(i);
+    total.toString(out, "nodes");
+    for (const auto& [nodeId, nodeMemoryUsage] : nodes) {
+      out << "\n        ";
+      out << nodeId;
       out << ": ";
-      pipelineMemoryUsage.total.toString(out, "operators");
-      for (const auto& it : pipelineMemoryUsage.operators) {
+      nodeMemoryUsage.total.toString(out, "operators");
+      for (const auto& it : nodeMemoryUsage.operators) {
         out << "\n            ";
         out << it.first;
         out << ": ";
@@ -1857,62 +1861,46 @@ struct TaskMemoryUsage {
     }
   }
 };
-} // namespace
 
-static void collectOperatorMemoryUsage(
-    PipelineMemoryUsage& pipelineMemoryUsage,
+void collectOperatorMemoryUsage(
+    NodeMemoryUsage& nodeMemoryUsage,
     memory::MemoryPool* operatorPool) {
   const auto numBytes =
       operatorPool->getMemoryUsageTracker()->getCurrentTotalBytes();
-  pipelineMemoryUsage.total.update(numBytes);
+  nodeMemoryUsage.total.update(numBytes);
   auto& operatorMemoryUsage =
-      pipelineMemoryUsage.operators[operatorPool->getName()];
+      nodeMemoryUsage.operators[operatorPool->getName()];
   operatorMemoryUsage.update(numBytes);
 }
 
-static void collectDriverMemoryUsage(
+void collectNodeMemoryUsage(
     TaskMemoryUsage& taskMemoryUsage,
-    memory::MemoryPool* driverPool) {
-  // Update task's stats from each driver.
+    memory::MemoryPool* nodePool) {
+  // Update task's stats from each node.
   taskMemoryUsage.total.update(
-      driverPool->getMemoryUsageTracker()->getCurrentTotalBytes());
+      nodePool->getMemoryUsageTracker()->getCurrentTotalBytes());
 
-  // Figure out the pipeline and ensure we have stats struct allocated for it.
-  const auto& poolName = driverPool->getName();
-  // In case of troubles figuring out pipeline id, dump all into the pipeline 0.
-  size_t pipelineId{0};
-  const auto firstDot = poolName.find('.');
-  if (firstDot != std::string::npos) {
-    const auto secondDot = poolName.find('.', firstDot + 1);
-    if (secondDot != std::string::npos) {
-      pipelineId = folly::tryTo<size_t>(
-                       poolName.substr(firstDot + 1, secondDot - firstDot - 1))
-                       .value_or(0);
-    }
-  }
-  taskMemoryUsage.pipelines.resize(pipelineId + 1);
-  auto& pipelineMemoryUsage = taskMemoryUsage.pipelines[pipelineId];
+  // NOTE: we use a plan node id as the node memory pool's name.
+  const auto& poolName = nodePool->getName();
+  auto& nodeMemoryUsage = taskMemoryUsage.nodes[poolName];
 
-  // Run through the operator pools and update operator stats for the
-  // pipeline.
-  driverPool->visitChildren(
-      [&pipelineMemoryUsage](memory::MemoryPool* operPool) {
-        collectOperatorMemoryUsage(pipelineMemoryUsage, operPool);
-      });
-}
-
-static void collectTaskMemoryUsage(
-    TaskMemoryUsage& taskMemoryUsage,
-    memory::MemoryPool* taskPool) {
-  taskMemoryUsage.taskId = taskPool->getName();
-  taskPool->visitChildren([&taskMemoryUsage](memory::MemoryPool* driverPool) {
-    collectDriverMemoryUsage(taskMemoryUsage, driverPool);
+  // Run through the node's child operator pools and update the memory usage.
+  nodePool->visitChildren([&nodeMemoryUsage](memory::MemoryPool* operatorPool) {
+    collectOperatorMemoryUsage(nodeMemoryUsage, operatorPool);
   });
 }
 
-static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
-  // Collect the memory usage numbers from query's tasks, pipelines and
-  // operators.
+void collectTaskMemoryUsage(
+    TaskMemoryUsage& taskMemoryUsage,
+    memory::MemoryPool* taskPool) {
+  taskMemoryUsage.taskId = taskPool->getName();
+  taskPool->visitChildren([&taskMemoryUsage](memory::MemoryPool* nodePool) {
+    collectNodeMemoryUsage(taskMemoryUsage, nodePool);
+  });
+}
+
+std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
+  // Collect the memory usage numbers from query's tasks, nodes and operators.
   std::vector<TaskMemoryUsage> taskMemoryUsages;
   taskMemoryUsages.reserve(queryPool->getChildCount());
   queryPool->visitChildren([&taskMemoryUsages](memory::MemoryPool* taskPool) {
@@ -1926,9 +1914,9 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
     int64_t totalBytes;
     std::string description;
   };
-  std::vector<TopMemoryUsage> topMemoryUsages;
+  std::vector<TopMemoryUsage> topOperatorMemoryUsages;
 
-  // Build the query memory use tree (task->pipeline->operator).
+  // Build the query memory use tree (task->node->operator).
   std::stringstream out;
   out << "\n";
   out << queryPool->getName();
@@ -1937,37 +1925,36 @@ static std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
       queryPool->getMemoryUsageTracker()->getCurrentTotalBytes());
   for (const auto& taskMemoryUsage : taskMemoryUsages) {
     taskMemoryUsage.toString(out);
-
     // Collect each operator's memory usage into the vector.
-    for (auto i = 0; i < taskMemoryUsage.pipelines.size(); ++i) {
-      const auto& pipelineMemoryUsage = taskMemoryUsage.pipelines[i];
-      for (const auto& it : pipelineMemoryUsage.operators) {
+    for (const auto& [nodeId, nodeMemUsage] : taskMemoryUsage.nodes) {
+      for (const auto& it : nodeMemUsage.operators) {
         const MemoryUsage& operatorMemoryUsage = it.second;
         // Ignore operators with zero memory for top memory users.
         if (operatorMemoryUsage.totalBytes > 0) {
-          topMemoryUsages.emplace_back(TopMemoryUsage{
+          topOperatorMemoryUsages.emplace_back(TopMemoryUsage{
               operatorMemoryUsage.totalBytes,
               fmt::format(
-                  "{}.pipe{}.{}", taskMemoryUsage.taskId, i, it.first)});
+                  "{}.{}.{}", taskMemoryUsage.taskId, nodeId, it.first)});
         }
       }
     }
   }
 
   // Sort and show top memory users.
-  out << "\nTop memory usages:";
+  out << "\nTop operator memory usages:";
   std::sort(
-      topMemoryUsages.begin(),
-      topMemoryUsages.end(),
+      topOperatorMemoryUsages.begin(),
+      topOperatorMemoryUsages.end(),
       [](const TopMemoryUsage& left, const TopMemoryUsage& right) {
         return left.totalBytes > right.totalBytes;
       });
-  for (const auto& top : topMemoryUsages) {
+  for (const auto& top : topOperatorMemoryUsages) {
     out << "\n    " << top.description << ": " << succinctBytes(top.totalBytes);
   }
 
   return out.str();
 }
+} // namespace
 
 std::shared_ptr<SpillOperatorGroup> Task::getSpillOperatorGroupLocked(
     uint32_t splitGroupId,
