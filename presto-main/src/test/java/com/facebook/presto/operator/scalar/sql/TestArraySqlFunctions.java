@@ -27,6 +27,9 @@ import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.util.StructuralTestUtil.mapType;
+import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 
 public class TestArraySqlFunctions
@@ -180,5 +183,35 @@ public class TestArraySqlFunctions
         assertFunction("array_duplicates(array[(1, 2), (2, 2)])", new ArrayType(rowType), ImmutableList.of());
         assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, 1)])", StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
         assertInvalidFunction("array_duplicates(array[(1, null), (null, 2), (null, null)])", StandardErrorCode.NOT_SUPPORTED, "map key cannot be null or contain nulls");
+    }
+
+    @Test
+    public void testArrayMaxBy()
+    {
+        assertFunction("ARRAY_MAX_BY(ARRAY [double'1.0', double'2.0'], i -> i)", DOUBLE, 2.0d);
+        assertFunction("ARRAY_MAX_BY(ARRAY [double'-3.0', double'2.0'], i -> i*i)", DOUBLE, -3.0d);
+        assertFunction("ARRAY_MAX_BY(ARRAY ['a', 'bb', 'c'], x -> LENGTH(x))", createVarcharType(2), "bb");
+        assertFunction("ARRAY_MAX_BY(ARRAY [1, 2, 3], x -> 1-x)", INTEGER, 1);
+        assertFunction("ARRAY_MAX_BY(ARRAY [ARRAY['a'], ARRAY['b', 'b'], ARRAY['c']], x -> CARDINALITY(x))", new ArrayType(createVarcharType(1)), asList("b", "b"));
+        assertFunction("ARRAY_MAX_BY(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], x -> x['foo'])", mapType(createVarcharType(3), INTEGER), ImmutableMap.of("foo", 1, "bar", 2));
+        assertFunction("ARRAY_MAX_BY(ARRAY [CAST(ROW(0, 2.0) AS ROW(x BIGINT, y DOUBLE)), CAST(ROW(1, 3.0) AS ROW(x BIGINT, y DOUBLE))], r -> r.y).x", BIGINT, 1L);
+        assertFunction("ARRAY_MAX_BY(ARRAY [null, double'1.0', double'2.0'], i -> i)", DOUBLE, null);
+        assertFunction("ARRAY_MAX_BY(ARRAY [cast(null as double), cast(null as double)], i -> i)", DOUBLE, null);
+        assertFunction("ARRAY_MAX_BY(cast(null as array(double)), i -> i)", DOUBLE, null);
+    }
+
+    @Test
+    public void testArrayMinBy()
+    {
+        assertFunction("ARRAY_MIN_BY(ARRAY [double'1.0', double'2.0'], i -> i)", DOUBLE, 1.0d);
+        assertFunction("ARRAY_MIN_BY(ARRAY [double'-3.0', double'2.0'], i -> i*i)", DOUBLE, 2.0d);
+        assertFunction("ARRAY_MIN_BY(ARRAY ['a', 'bb', 'c'], x -> LENGTH(x))", createVarcharType(2), "a");
+        assertFunction("ARRAY_MIN_BY(ARRAY [1, 2, 3], x -> 1-x)", INTEGER, 3);
+        assertFunction("ARRAY_MIN_BY(ARRAY [ARRAY['a'], ARRAY['b', 'b'], ARRAY['c']], x -> CARDINALITY(x))", new ArrayType(createVarcharType(1)), singletonList("a"));
+        assertFunction("ARRAY_MIN_BY(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])], x -> x['foo'])", mapType(createVarcharType(3), INTEGER), ImmutableMap.of("foo", 0, "bar", 3));
+        assertFunction("ARRAY_MIN_BY(ARRAY [CAST(ROW(0, 2.0) AS ROW(x BIGINT, y DOUBLE)), CAST(ROW(1, 3.0) AS ROW(x BIGINT, y DOUBLE))], r -> r.y).x", BIGINT, 0L);
+        assertFunction("ARRAY_MIN_BY(ARRAY [null, double'1.0', double'2.0'], i -> i)", DOUBLE, null);
+        assertFunction("ARRAY_MIN_BY(ARRAY [cast(null as double), cast(null as double)], i -> i)", DOUBLE, null);
+        assertFunction("ARRAY_MIN_BY(cast(null as array(double)), i -> i)", DOUBLE, null);
     }
 }

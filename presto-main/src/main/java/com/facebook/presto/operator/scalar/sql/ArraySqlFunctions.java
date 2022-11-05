@@ -16,6 +16,7 @@ package com.facebook.presto.operator.scalar.sql;
 import com.facebook.presto.spi.function.Description;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunction;
 import com.facebook.presto.spi.function.SqlParameter;
+import com.facebook.presto.spi.function.SqlParameters;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeParameter;
 
@@ -59,7 +60,7 @@ public class ArraySqlFunctions
     @TypeParameter("T")
     @SqlParameter(name = "input", type = "array(T)")
     @SqlType("map(T, int)")
-    public static String arrayFrequencyBigint()
+    public static String arrayFrequency()
     {
         return "RETURN reduce(" +
                 "input," +
@@ -88,5 +89,31 @@ public class ArraySqlFunctions
     public static String arrayHasDuplicatesVarchar()
     {
         return "RETURN cardinality(array_duplicates(input)) > 0";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_max_by", deterministic = true, calledOnNullInput = true)
+    @Description("Get the maximum value of array, by using a specific transformation function")
+    @TypeParameter("T")
+    @TypeParameter("U")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "f", type = "function(T, U)")})
+    @SqlType("T")
+    public static String arrayMaxBy()
+    {
+        return "RETURN input[" +
+                "array_max(zip_with(transform(input, f), sequence(1, cardinality(input)), (x, y)->IF(x IS NULL, NULL, (x, y))))[2]" +
+                "]";
+    }
+
+    @SqlInvokedScalarFunction(value = "array_min_by", deterministic = true, calledOnNullInput = true)
+    @Description("Get the minimum value of array, by using a specific transformation function")
+    @TypeParameter("T")
+    @TypeParameter("U")
+    @SqlParameters({@SqlParameter(name = "input", type = "array(T)"), @SqlParameter(name = "f", type = "function(T, U)")})
+    @SqlType("T")
+    public static String arrayMinBy()
+    {
+        return "RETURN input[" +
+                "array_min(zip_with(transform(input, f), sequence(1, cardinality(input)), (x, y)->IF(x IS NULL, NULL, (x, y))))[2]" +
+                "]";
     }
 }
