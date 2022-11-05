@@ -154,7 +154,7 @@ void PeriodicTaskManager::start() {
   }
 
   if (auto* asyncDataCache = dynamic_cast<velox::cache::AsyncDataCache*>(
-      velox::memory::MappedMemory::getInstance())) {
+          velox::memory::MappedMemory::getInstance())) {
     scheduler_.addFunction(
         [asyncDataCache]() {
           velox::cache::CacheStats memoryCacheStats =
