@@ -32,11 +32,11 @@ protocol::ScheduledSplit makeHiveScheduledSplit() {
   split.transactionHandle = hiveTransactionHandle;
 
   auto hiveSplit = std::make_shared<protocol::HiveSplit>();
-  hiveSplit->path = "/file/path";
+  hiveSplit->fileSplit.path = "/file/path";
   hiveSplit->storage.storageFormat.inputFormat =
       "com.facebook.hive.orc.OrcInputFormat";
-  hiveSplit->start = 0;
-  hiveSplit->length = 100;
+  hiveSplit->fileSplit.start = 0;
+  hiveSplit->fileSplit.length = 100;
 
   split.connectorSplit = hiveSplit;
   scheduledSplit.split = split;
