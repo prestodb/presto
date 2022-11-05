@@ -14,13 +14,12 @@ Top level supported classes:
 
 Dependencies to Install
 
-   PyYAML
+   PyYAML and Chevron
 
-   pip3 insall pyyaml
-
-   chevron
-
+   ```
+   pip3 install pyyaml
    pip3 install chevron
+   ```
 
    You will need to note the path to the installed executable and add this to your PATH.
    Something like `/Users/adutta/Library/Python/3.8/bin`.

@@ -150,6 +150,7 @@ AbstractClasses:
         - { name: BuiltInFunctionHandle,      key: $static }
 
 JavaClasses:
+  - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/AggregationNode.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/AllOrNoneValueSet.java
   - presto-common/src/main/java/com/facebook/presto/common/RuntimeMetric.java
@@ -182,6 +183,7 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/EncryptionInformation.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/EquatableValueSet.java
   - presto-common/src/main/java/com/facebook/presto/common/ErrorCode.java
+  - presto-common/src/main/java/com/facebook/presto/common/ErrorType.java
   - presto-client/src/main/java/com/facebook/presto/client/ErrorLocation.java
   - presto-client/src/main/java/com/facebook/presto/client/NodeVersion.java
   - presto-client/src/main/java/com/facebook/presto/client/ServerInfo.java
@@ -192,7 +194,6 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/TableWriterNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/UnnestNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/WindowNode.java
-  - presto-common/src/main/java/com/facebook/presto/common/ErrorType.java
   - presto-main/src/main/java/com/facebook/presto/execution/ExecutionFailureInfo.java
   - presto-main/src/main/java/com/facebook/presto/execution/Location.java
   - presto-main/src/main/java/com/facebook/presto/metadata/RemoteTransactionHandle.java
@@ -209,6 +210,7 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveCompressionCodec.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveBucketing.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveColumnHandle.java
+  - presto-hive/src/main/java/com/facebook/presto/hive/HiveFileSplit.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveInsertTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveOutputTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitionKey.java
@@ -293,4 +295,3 @@ JavaClasses:
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/SortNode.java
   - presto-main/src/main/java/com/facebook/presto/sql/planner/plan/AssignUniqueId.java
   - presto-spi/src/main/java/com/facebook/presto/spi/SourceLocation.java
-  - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java

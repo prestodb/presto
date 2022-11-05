@@ -223,11 +223,11 @@ class TaskManagerTest : public testing::Test {
       const std::string& filePath,
       long sequenceId) {
     auto hiveSplit = std::make_shared<protocol::HiveSplit>();
-    hiveSplit->path = filePath;
+    hiveSplit->fileSplit.path = filePath;
     hiveSplit->storage.storageFormat.inputFormat =
         "com.facebook.hive.orc.OrcInputFormat";
-    hiveSplit->start = 0;
-    hiveSplit->length = fs::file_size(filePath);
+    hiveSplit->fileSplit.start = 0;
+    hiveSplit->fileSplit.length = fs::file_size(filePath);
 
     protocol::ScheduledSplit split;
     split.split.connectorId = facebook::velox::exec::test::kHiveConnectorId;
