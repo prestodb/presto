@@ -13,7 +13,7 @@
  */
 package com.facebook.presto.spi;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+// import com.fasterxml.jackson.annotation.JsonProperty;
 
 public interface TableFormatColumnHandle
         extends ColumnHandle
