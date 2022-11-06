@@ -121,7 +121,6 @@ public class HiveColumnHandle
     }
 
     @JsonProperty
-    @Override
     public String getName()
     {
         return name;
@@ -131,13 +130,6 @@ public class HiveColumnHandle
     public HiveType getHiveType()
     {
         return hiveType;
-    }
-
-    @JsonProperty
-    @Override
-    public String getBaseType()
-    {
-        return getHiveType().getTypeSignature().getBase();
     }
 
     @JsonProperty

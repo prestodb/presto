@@ -267,10 +267,12 @@ public class ParquetPageSourceProvider
 
             ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
             effectivePredicate.getDomains().get().forEach((column, domain) -> {
-                String baseType = column.getBaseType();
+                // String baseType = column.getBaseType();
+                String baseType = null;
                 // skip looking up predicates for complex types as Parquet only stores stats for primitives
                 if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
-                    RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(column.getName()));
+                    // RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(column.getName()));
+                    RichColumnDescriptor descriptor = null;
                     if (descriptor != null) {
                         predicate.put(descriptor, domain);
                     }

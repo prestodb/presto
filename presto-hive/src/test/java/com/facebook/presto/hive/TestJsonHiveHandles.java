@@ -47,6 +47,7 @@ public class TestJsonHiveHandles
             .put("columnType", PARTITION_KEY.toString())
             .put("comment", "comment")
             .put("requiredSubfields", ImmutableList.of())
+            .put("baseType", "real")
             .build();
 
     private final ObjectMapper objectMapper = new JsonObjectMapperProvider().get();

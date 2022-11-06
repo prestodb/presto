@@ -18,9 +18,4 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public interface TableFormatColumnHandle
         extends ColumnHandle
 {
-    @JsonProperty
-    String getName();
-
-    @JsonProperty
-    String getBaseType();
 }
