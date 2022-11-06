@@ -2683,6 +2683,122 @@ TEST_P(MultiThreadedHashJoinTest, noSpillLevelLimit) {
       .run();
 }
 
+TEST_F(HashJoinTest, semiProject) {
+  // Some keys have multiple rows: 2, 3, 5.
+  auto probeVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector({
+        makeFlatVector<int64_t>({1, 2, 2, 3, 3, 3, 4, 5, 5, 6, 7}),
+        makeFlatVector<int64_t>({10, 20, 21, 30, 31, 32, 40, 50, 51, 60, 70}),
+    });
+  });
+
+  // Some keys are missing: 2, 6.
+  // Some have multiple rows: 1, 5.
+  // Some keys are not present on probe side: 8.
+  auto buildVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector({
+        makeFlatVector<int64_t>({1, 1, 3, 4, 5, 5, 7, 8}),
+        makeFlatVector<int64_t>({100, 101, 300, 400, 500, 501, 700, 800}),
+    });
+  });
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .values(probeVectors)
+                  .project({"c0 AS t0", "c1 AS t1"})
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .values(buildVectors)
+                          .project({"c0 AS u0", "c1 AS u1"})
+                          .planNode(),
+                      "",
+                      {"t0", "t1", "match"},
+                      core::JoinType::kLeftSemiProject)
+                  .planNode();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE t.c0 = u.c0) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE t.c0 = u.c0) FROM t")
+      .run();
+
+  // With extra filter.
+  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  plan = PlanBuilder(planNodeIdGenerator)
+             .values(probeVectors)
+             .project({"c0 AS t0", "c1 AS t1"})
+             .hashJoin(
+                 {"t0"},
+                 {"u0"},
+                 PlanBuilder(planNodeIdGenerator)
+                     .values(buildVectors)
+                     .project({"c0 AS u0", "c1 AS u1"})
+                     .planNode(),
+                 "t1 * 10 <> u1",
+                 {"t0", "t1", "match"},
+                 core::JoinType::kLeftSemiProject)
+             .planNode();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE t.c0 = u.c0 AND t.c1 * 10 <> u.c1) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE t.c0 = u.c0 AND t.c1 * 10 <> u.c1) FROM t")
+      .run();
+
+  // Empty build side.
+  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  plan = PlanBuilder(planNodeIdGenerator)
+             .values(probeVectors)
+             .project({"c0 AS t0", "c1 AS t1"})
+             .hashJoin(
+                 {"t0"},
+                 {"u0"},
+                 PlanBuilder(planNodeIdGenerator)
+                     .values(buildVectors)
+                     .project({"c0 AS u0", "c1 AS u1"})
+                     .filter("u0 < 0")
+                     .planNode(),
+                 "",
+                 {"t0", "t1", "match"},
+                 core::JoinType::kLeftSemiProject)
+             .planNode();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE u.c0 < 0 AND t.c0 = u.c0) FROM t")
+      // NOTE: there is no spilling in empty build test case as all the
+      // build-side rows have been filtered out.
+      .checkSpillStats(false)
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_)
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t.c0, t.c1, EXISTS (SELECT * FROM u WHERE u.c0 < 0 AND t.c0 = u.c0) FROM t")
+      // NOTE: there is no spilling in empty build test case as all the
+      // build-side rows have been filtered out.
+      .checkSpillStats(false)
+      .run();
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinTest,
     MultiThreadedHashJoinTest,
@@ -3519,113 +3635,4 @@ TEST_F(HashJoinTest, spillFileSize) {
         .run();
   }
 }
-
-TEST_F(HashJoinTest, semiProject) {
-  // Some keys have multiple rows: 2, 3, 5.
-  auto probeData = makeRowVector(
-      {"t0", "t1"},
-      {
-          makeFlatVector<int64_t>({1, 2, 2, 3, 3, 3, 4, 5, 5, 6, 7}),
-          makeFlatVector<int64_t>({10, 20, 21, 30, 31, 32, 40, 50, 51, 60, 70}),
-      });
-
-  // Some keys are missing: 2, 6.
-  // Some have multiple rows: 1, 5.
-  // Some keys are not present on probe side: 8.
-  auto buildData = makeRowVector(
-      {"u0", "u1"},
-      {
-          makeFlatVector<int64_t>({1, 1, 3, 4, 5, 5, 7, 8}),
-          makeFlatVector<int64_t>({100, 101, 300, 400, 500, 501, 700, 800}),
-      });
-
-  createDuckDbTable("t", {probeData});
-  createDuckDbTable("u", {buildData});
-
-  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  auto plan =
-      PlanBuilder(planNodeIdGenerator)
-          .values({probeData})
-          .hashJoin(
-              {"t0"},
-              {"u0"},
-              PlanBuilder(planNodeIdGenerator).values({buildData}).planNode(),
-              "",
-              {"t0", "t1", "match"},
-              core::JoinType::kLeftSemiProject)
-          .planNode();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(plan)
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE t0 = u0) FROM t")
-      .injectSpill(false)
-      .run();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(flipJoinSides(plan))
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE t0 = u0) FROM t")
-      .injectSpill(false)
-      .run();
-
-  // With extra filter.
-  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  plan =
-      PlanBuilder(planNodeIdGenerator)
-          .values({probeData})
-          .hashJoin(
-              {"t0"},
-              {"u0"},
-              PlanBuilder(planNodeIdGenerator).values({buildData}).planNode(),
-              "t1 * 10 <> u1",
-              {"t0", "t1", "match"},
-              core::JoinType::kLeftSemiProject)
-          .planNode();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(plan)
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 * 10 <> u1) FROM t")
-      .injectSpill(false)
-      .run();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(flipJoinSides(plan))
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE t0 = u0 AND t1 * 10 <> u1) FROM t")
-      .injectSpill(false)
-      .run();
-
-  // Empty build side.
-  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-  plan = PlanBuilder(planNodeIdGenerator)
-             .values({probeData})
-             .hashJoin(
-                 {"t0"},
-                 {"u0"},
-                 PlanBuilder(planNodeIdGenerator)
-                     .values({buildData})
-                     .filter("u0 < 0")
-                     .planNode(),
-                 "",
-                 {"t0", "t1", "match"},
-                 core::JoinType::kLeftSemiProject)
-             .planNode();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(plan)
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 < 0 AND t0 = u0) FROM t")
-      .injectSpill(false)
-      .run();
-
-  HashJoinBuilder(*pool_, duckDbQueryRunner_)
-      .planNode(flipJoinSides(plan))
-      .referenceQuery(
-          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 < 0 AND t0 = u0) FROM t")
-      .injectSpill(false)
-      .run();
-}
-
 } // namespace

@@ -458,7 +458,7 @@ The following gives a brief description of the hash build and probe workflows
 extended to support (recursive) spilling:
 
 HashBuild
-^^^^^^^^^
+"""""""""
 
 1. Process inputs from either build input source or the previously spilled
    data.
@@ -493,7 +493,7 @@ evicted tasks first before spilling so we might not need the coordinator support
 if the spilling is triggered in that case.
 
 HashProbe
-^^^^^^^^^
+"""""""""
 
 1. Wait for the next hash table to join from the hash join bridge plus
    additional spilling metadata if spilling gets involved: the table spill
@@ -527,7 +527,7 @@ requires to cross join null-key probe rows with all build-side rows for filter
 evaluation to check if the null-key probe rows can be added to output or not.
 
 HashJoinBridge
-^^^^^^^^^^^^^^
+""""""""""""""
 The HashJoinBridge object includes the following extensions to support the
 spilling:
 
