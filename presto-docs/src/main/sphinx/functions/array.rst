@@ -81,6 +81,20 @@ Array Functions
 
     Returns the minimum value of input array.
 
+.. function:: array_max_by(array(T), function(T, U)) -> T
+
+    Applies the provided function to each element, and returns the element that gives the maximum value.
+    ``U`` can be any orderable type. ::
+
+        SELECT array_max_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'bbb'
+
+.. function:: array_min_by(array(T), function(T, U)) -> T
+
+    Applies the provided function to each element, and returns the element that gives the minimum value.
+    ``U`` can be any orderable type. ::
+
+        SELECT array_min_by(ARRAY ['a', 'bbb', 'cc'], x -> LENGTH(x)) -- 'a'
+
 .. function:: array_normalize(x, p) -> array
 
    Normalizes array ``x`` by dividing each element by the p-norm of the array.

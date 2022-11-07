@@ -345,6 +345,7 @@ public class PrestoSparkQueryExecutionFactory
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of());
     }
 

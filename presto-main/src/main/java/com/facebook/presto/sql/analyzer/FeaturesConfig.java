@@ -159,6 +159,7 @@ public class FeaturesConfig
     private double partialAggregationByteReductionThreshold = 0.5;
     private boolean optimizeTopNRowNumber = true;
     private boolean pushLimitThroughOuterJoin = true;
+    private boolean optimizeConstantGroupingKeys = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private Duration queryAnalyzerTimeout = new Duration(3, MINUTES);
@@ -1627,6 +1628,18 @@ public class FeaturesConfig
     public boolean isPushLimitThroughOuterJoin()
     {
         return pushLimitThroughOuterJoin;
+    }
+
+    @Config("optimizer.optimize-constant-grouping-keys")
+    public FeaturesConfig setOptimizeConstantGroupingKeys(boolean optimizeConstantGroupingKeys)
+    {
+        this.optimizeConstantGroupingKeys = optimizeConstantGroupingKeys;
+        return this;
+    }
+
+    public boolean isOptimizeConstantGroupingKeys()
+    {
+        return optimizeConstantGroupingKeys;
     }
 
     @Config("max-concurrent-materializations")
