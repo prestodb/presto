@@ -49,6 +49,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -57,6 +58,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.airlift.slice.Slices.wrappedLongArray;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -65,6 +67,7 @@ public class PostgreSqlClient
 {
     protected final Type jsonType;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
+    private final Type uuidType;
 
     private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
     private static final ObjectMapper SORTED_MAPPER = new JsonObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
@@ -74,6 +77,7 @@ public class PostgreSqlClient
     {
         super(connectorId, config, "\"", new DriverConnectionFactory(new Driver(), config));
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
+        this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
     }
 
     @Override
@@ -114,6 +118,10 @@ public class PostgreSqlClient
     {
         if (typeHandle.getJdbcTypeName().equals("jsonb") || typeHandle.getJdbcTypeName().equals("json")) {
             return Optional.of(jsonColumnMapping());
+        }
+
+        else if (typeHandle.getJdbcTypeName().equals("uuid")) {
+            return Optional.of(uuidColumnMapping());
         }
         return super.toPrestoType(session, typeHandle);
     }
@@ -177,5 +185,17 @@ public class PostgreSqlClient
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
         return factory.createParser(new InputStreamReader(json.getInput(), UTF_8));
+    }
+
+    private ReadMapping uuidColumnMapping()
+    {
+        return ReadMapping.sliceReadMapping(
+                uuidType,
+                (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)));
+    }
+
+    private static Slice uuidSlice(UUID uuid)
+    {
+        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
     }
 }

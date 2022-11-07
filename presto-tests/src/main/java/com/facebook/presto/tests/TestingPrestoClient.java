@@ -29,6 +29,7 @@ import com.facebook.presto.common.type.SqlTimestamp;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeWithName;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
@@ -261,6 +262,9 @@ public class TestingPrestoClient
             return new BigDecimal((String) value);
         }
         else if (type instanceof JsonType) {
+            return value;
+        }
+        else if (type instanceof UuidType) {
             return value;
         }
         else if (type instanceof VarcharEnumType) {
