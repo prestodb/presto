@@ -161,6 +161,24 @@ TEST_F(PlanNodeToStringTest, aggregation) {
       "-- Aggregation[PARTIAL a := sum(ROW[\"c0\"]), b := avg(ROW[\"c1\"]), c := min(ROW[\"c2\"])] -> a:BIGINT, b:ROW<\"\":DOUBLE,\"\":BIGINT>, c:BIGINT\n",
       plan->toString(true, false));
 
+  // Global aggregation with masks.
+  auto data = makeRowVector(
+      ROW({"c0", "c1", "c2", "m0", "m1", "m2"},
+          {BIGINT(), INTEGER(), BIGINT(), BOOLEAN(), BOOLEAN(), BOOLEAN()}),
+      100);
+  plan = PlanBuilder()
+             .values({data})
+             .partialAggregation(
+                 {},
+                 {"sum(c0) AS a", "avg(c1) AS b", "min(c2) AS c"},
+                 {"m0", "", "m2"})
+             .planNode();
+
+  ASSERT_EQ("-- Aggregation\n", plan->toString());
+  ASSERT_EQ(
+      "-- Aggregation[PARTIAL a := sum(ROW[\"c0\"]) mask: m0, b := avg(ROW[\"c1\"]), c := min(ROW[\"c2\"]) mask: m2] -> a:BIGINT, b:ROW<\"\":DOUBLE,\"\":BIGINT>, c:BIGINT\n",
+      plan->toString(true, false));
+
   // Group-by aggregation.
   plan = PlanBuilder()
              .values({data_})
@@ -170,6 +188,18 @@ TEST_F(PlanNodeToStringTest, aggregation) {
   ASSERT_EQ("-- Aggregation\n", plan->toString());
   ASSERT_EQ(
       "-- Aggregation[SINGLE [c0] a := sum(ROW[\"c1\"]), b := avg(ROW[\"c2\"])] -> c0:SMALLINT, a:BIGINT, b:DOUBLE\n",
+      plan->toString(true, false));
+
+  // Group-by aggregation with masks.
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation(
+                 {"c0"}, {"sum(c1) AS a", "avg(c2) AS b"}, {"m1", "m2"})
+             .planNode();
+
+  ASSERT_EQ("-- Aggregation\n", plan->toString());
+  ASSERT_EQ(
+      "-- Aggregation[SINGLE [c0] a := sum(ROW[\"c1\"]) mask: m1, b := avg(ROW[\"c2\"]) mask: m2] -> c0:BIGINT, a:BIGINT, b:DOUBLE\n",
       plan->toString(true, false));
 }
 

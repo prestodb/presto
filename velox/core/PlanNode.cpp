@@ -146,6 +146,9 @@ void AggregationNode::addDetails(std::stringstream& stream) const {
       stream << ", ";
     }
     stream << aggregateNames_[i] << " := " << aggregates_[i]->toString();
+    if (aggregateMasks_.size() > i && aggregateMasks_[i]) {
+      stream << " mask: " << aggregateMasks_[i]->name();
+    }
   }
 }
 
