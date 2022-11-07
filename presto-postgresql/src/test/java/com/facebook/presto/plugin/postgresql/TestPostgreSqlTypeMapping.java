@@ -38,6 +38,7 @@ import java.util.function.Function;
 
 import static com.facebook.presto.common.type.JsonType.JSON;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static com.facebook.presto.tests.datatype.DataType.bigintDataType;
@@ -327,6 +328,31 @@ public class TestPostgreSqlTypeMapping
     public static String formatStringLiteral(String value)
     {
         return "'" + value.replace("'", "''") + "'";
+    }
+
+    @Test
+    public void testUuid()
+    {
+        uuidTestCases(uuidDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
+        uuidTestCases(uuidDataType())
+                .execute(getQueryRunner(), prestoCreateAsSelect("tpch.presto_test_uuid"));
+    }
+
+    private DataTypeTest uuidTestCases(DataType<String> uuidDataType)
+    {
+        return DataTypeTest.create()
+                .addRoundTrip(uuidDataType, "00000000-0000-0000-0000-000000000000")
+                .addRoundTrip(uuidDataType, "71f9206a-75aa-4005-9ab6-4525c6fdec99");
+    }
+
+    private static DataType<String> uuidDataType()
+    {
+        return dataType(
+                "uuid",
+                UUID,
+                value -> "UUID " + formatStringLiteral(value),
+                Function.identity());
     }
 
     private void testUnsupportedDataType(String databaseDataType)

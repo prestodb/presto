@@ -18,6 +18,7 @@ import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.spi.ConnectorPageSink;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
@@ -46,6 +47,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -162,6 +164,10 @@ public class JdbcPageSink
             long utcMillis = DAYS.toMillis(type.getLong(block, position));
             long localMillis = getInstanceUTC().getZone().getMillisKeepLocal(DateTimeZone.getDefault(), utcMillis);
             statement.setDate(parameter, new Date(localMillis));
+        }
+        else if (UuidType.UUID.equals(type)) {
+            Slice slice = type.getSlice(block, position);
+            statement.setObject(parameter, prestoUuidToJavaUuid(slice));
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
