@@ -34,7 +34,7 @@ template <RankType TRank, typename TResult>
 class RankFunction : public exec::WindowFunction {
  public:
   explicit RankFunction(const TypePtr& resultType)
-      : WindowFunction(resultType, nullptr) {}
+      : WindowFunction(resultType, nullptr, nullptr) {}
 
   void resetPartition(const exec::WindowPartition* partition) override {
     rank_ = 1;
@@ -102,7 +102,8 @@ void registerRankInternal(
       [name](
           const std::vector<exec::WindowFunctionArg>& /*args*/,
           const TypePtr& resultType,
-          velox::memory::MemoryPool* /*pool*/)
+          velox::memory::MemoryPool* /*pool*/,
+          HashStringAllocator* /*stringAllocator*/)
           -> std::unique_ptr<exec::WindowFunction> {
         return std::make_unique<RankFunction<TRank, TResult>>(resultType);
       });

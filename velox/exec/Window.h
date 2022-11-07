@@ -142,9 +142,14 @@ class Window : public Operator {
   // any function computation. As the Window operators gets input rows
   // we store the rows in the RowContainer (data_).
   std::unique_ptr<RowContainer> data_;
+
   // The decodedInputVectors_ are reused across addInput() calls to decode
   // the partition and sort keys for the above RowContainer.
   std::vector<DecodedVector> decodedInputVectors_;
+
+  // HashStringAllocator required by functions that allocate out of line
+  // buffers.
+  HashStringAllocator stringAllocator_;
 
   // The below 3 vectors represent the ChannelIndex of the partition keys,
   // the order by keys and the concatenation of the 2. These keyInfo are

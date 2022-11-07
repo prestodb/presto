@@ -32,8 +32,13 @@ struct WindowFunctionArg {
 
 class WindowFunction {
  public:
-  explicit WindowFunction(TypePtr resultType, memory::MemoryPool* pool)
-      : resultType_(std::move(resultType)), pool_(pool) {}
+  explicit WindowFunction(
+      TypePtr resultType,
+      memory::MemoryPool* pool,
+      HashStringAllocator* stringAllocator)
+      : resultType_(std::move(resultType)),
+        pool_(pool),
+        stringAllocator_(stringAllocator) {}
 
   virtual ~WindowFunction() = default;
 
@@ -43,6 +48,10 @@ class WindowFunction {
 
   memory::MemoryPool* pool() const {
     return pool_;
+  }
+
+  const HashStringAllocator* stringAllocator() const {
+    return stringAllocator_;
   }
 
   /// This function is invoked by the Window operator when it
@@ -86,11 +95,13 @@ class WindowFunction {
       const std::string& name,
       const std::vector<WindowFunctionArg>& args,
       const TypePtr& resultType,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      HashStringAllocator* stringAllocator);
 
  protected:
   const TypePtr resultType_;
   memory::MemoryPool* pool_;
+  HashStringAllocator* const stringAllocator_;
 };
 
 /// Information from the Window operator that is useful for the function logic.
@@ -102,7 +113,8 @@ class WindowFunction {
 using WindowFunctionFactory = std::function<std::unique_ptr<WindowFunction>(
     const std::vector<WindowFunctionArg>& args,
     const TypePtr& resultType,
-    memory::MemoryPool* pool)>;
+    memory::MemoryPool* pool,
+    HashStringAllocator* stringAllocator)>;
 
 /// Register a window function with the specified name and signatures.
 /// Registering a function with the same name a second time overrides the first

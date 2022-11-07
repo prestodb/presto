@@ -71,7 +71,8 @@ Window::Window(
       data_(std::make_unique<RowContainer>(
           windowNode->sources()[0]->outputType()->children(),
           operatorCtx_->mappedMemory())),
-      decodedInputVectors_(numInputColumns_) {
+      decodedInputVectors_(numInputColumns_),
+      stringAllocator_(operatorCtx_->mappedMemory()) {
   auto inputType = windowNode->sources()[0]->outputType();
   initKeyInfo(inputType, windowNode->partitionKeys(), {}, partitionKeyInfo_);
   initKeyInfo(
@@ -145,7 +146,8 @@ void Window::createWindowFunctions(
         windowNodeFunction.functionCall->name(),
         functionArgs,
         windowNodeFunction.functionCall->type(),
-        operatorCtx_->pool()));
+        operatorCtx_->pool(),
+        &stringAllocator_));
 
     checkDefaultWindowFrame(windowNodeFunction);
 

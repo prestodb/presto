@@ -34,8 +34,9 @@ class AggregateWindowFunction : public exec::WindowFunction {
       const std::string& name,
       const std::vector<exec::WindowFunctionArg>& args,
       const TypePtr& resultType,
-      velox::memory::MemoryPool* pool)
-      : WindowFunction(resultType, pool) {
+      velox::memory::MemoryPool* pool,
+      HashStringAllocator* stringAllocator)
+      : WindowFunction(resultType, pool, stringAllocator) {
     argTypes_.reserve(args.size());
     argIndices_.reserve(args.size());
     argVectors_.reserve(args.size());
@@ -54,6 +55,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     // the function value for each row.
     aggregate_ = exec::Aggregate::create(
         name, core::AggregationNode::Step::kSingle, argTypes_, resultType);
+    aggregate_->setAllocator(stringAllocator_);
 
     // Aggregate initialization.
     // Row layout is:
@@ -67,6 +69,9 @@ class AggregateWindowFunction : public exec::WindowFunction {
     static const int32_t kNullOffset = 0;
     static const int32_t kRowSizeOffset = bits::nbytes(1);
     singleGroupRowSize_ = kRowSizeOffset + sizeof(int32_t);
+    // Accumulator offset must be aligned by their alignment size.
+    singleGroupRowSize_ = bits::roundUp(
+        singleGroupRowSize_, aggregate_->accumulatorAlignmentSize());
     aggregate_->setOffsets(
         singleGroupRowSize_,
         exec::RowContainer::nullByte(kNullOffset),
@@ -283,10 +288,11 @@ void registerAggregateWindowFunction(const std::string& name) {
         [name](
             const std::vector<exec::WindowFunctionArg>& args,
             const TypePtr& resultType,
-            velox::memory::MemoryPool* pool)
+            velox::memory::MemoryPool* pool,
+            HashStringAllocator* stringAllocator)
             -> std::unique_ptr<exec::WindowFunction> {
           return std::make_unique<AggregateWindowFunction>(
-              name, args, resultType, pool);
+              name, args, resultType, pool, stringAllocator);
         });
   }
 }

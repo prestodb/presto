@@ -118,5 +118,15 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
         std::string("avg(c2)"),
     }));
 
+class StringAggregatesTest : public WindowTestBase {};
+
+TEST_F(StringAggregatesTest, nonFixedWidthAggregate) {
+  auto vectors = makeFuzzVectors(
+      ROW({"c0", "c1", "c2"}, {BIGINT(), SMALLINT(), VARCHAR()}), 10, 2);
+  createDuckDbTable(vectors);
+  testWindowFunction(vectors, "min(c2)", kBasicOverClauses);
+  testWindowFunction(vectors, "max(c2)", kSortOrderBasedOverClauses);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test
