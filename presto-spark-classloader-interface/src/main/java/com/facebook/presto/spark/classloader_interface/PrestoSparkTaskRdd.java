@@ -145,4 +145,19 @@ public class PrestoSparkTaskRdd<T extends PrestoSparkTaskOutput>
         taskSourceRdd = null;
         taskProcessor = null;
     }
+
+    public List<RDD<Tuple2<MutablePartitionId, PrestoSparkMutableRow>>> getShuffleInputRdds()
+    {
+        return shuffleInputRdds;
+    }
+
+    public PrestoSparkTaskSourceRdd getTaskSourceRdd()
+    {
+        return taskSourceRdd;
+    }
+
+    public List<String> getShuffleInputFragmentIds()
+    {
+        return shuffleInputFragmentIds;
+    }
 }
