@@ -272,4 +272,9 @@ public class PlanFragmenterUtils
                     node.getEnforcedConstraint());
         }
     }
+
+    public static boolean isRootFragment(PlanFragment fragment)
+    {
+        return fragment.getId().getId() == ROOT_FRAGMENT_ID;
+    }
 }
