@@ -1114,7 +1114,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
           node->source)) {
     std::optional<core::JoinType> joinType = std::nullopt;
     if (equal(node->predicate, semiJoin->semiJoinOutput)) {
-      joinType = core::JoinType::kLeftSemi;
+      joinType = core::JoinType::kLeftSemiFilter;
     } else if (auto notCall = isNot(node->predicate)) {
       if (equal(notCall->arguments[0], semiJoin->semiJoinOutput)) {
         joinType = core::JoinType::kNullAwareAnti;
@@ -1150,7 +1150,8 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
       projections.emplace_back(std::make_shared<core::FieldAccessTypedExpr>(
           leftTypes[i], leftNames[i]));
     }
-    const bool constantValue = joinType.value() == core::JoinType::kLeftSemi;
+    const bool constantValue =
+        joinType.value() == core::JoinType::kLeftSemiFilter;
     projections.emplace_back(
         std::make_shared<core::ConstantTypedExpr>(constantValue));
 
