@@ -34,8 +34,9 @@ get_filename_component(PROTO_DIR ${substrait_proto_directory}/, DIRECTORY)
 add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND
-    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
-    ${Protobuf_INCLUDE_DIR} --cpp_out ${CMAKE_SOURCE_DIR} ${PROTO_FILES}
+    ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${PROJECT_SOURCE_DIR}/
+    --proto_path ${Protobuf_INCLUDE_DIR} --cpp_out ${PROJECT_SOURCE_DIR}
+    ${PROTO_FILES}
   DEPENDS ${PROTO_DIR}
   COMMENT "Running PROTO compiler"
   VERBATIM)
