@@ -29,9 +29,12 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import org.apache.spark.JavaFutureActionWrapper;
+import org.apache.spark.SimpleFutureAction;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaFutureAction;
 import scala.reflect.ClassTag;
+import scala.runtime.AbstractFunction1;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -245,6 +248,20 @@ public class PrestoSparkUtils
                 action.cancel(true);
             }
         }
+    }
+
+    public static <T> T getActionResultWithTimeout(SimpleFutureAction<T> action, long timeout, TimeUnit timeUnit, Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics)
+            throws SparkException, TimeoutException
+    {
+        JavaFutureAction<T> javaFutureAction = new JavaFutureActionWrapper<>(action, new AbstractFunction1<T, T>()
+        {
+            @Override
+            public T apply(T v)
+            {
+                return v;
+            }
+        });
+        return getActionResultWithTimeout(javaFutureAction, timeout, timeUnit, waitTimeMetrics);
     }
 
     public static <T> ClassTag<T> classTag(Class<T> clazz)

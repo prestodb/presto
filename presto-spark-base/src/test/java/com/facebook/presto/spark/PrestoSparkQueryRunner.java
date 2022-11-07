@@ -433,13 +433,12 @@ public class PrestoSparkQueryRunner
     @Override
     public MaterializedResult execute(Session session, String sql)
     {
-        IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
         try {
-            return execute(executionFactory, sparkContext, session, sql, Optional.empty());
+            return execute(session, sql, Optional.empty());
         }
         catch (PrestoSparkFailure failure) {
             if (failure.getRetryExecutionStrategy().isPresent()) {
-                return execute(executionFactory, sparkContext, session, sql, failure.getRetryExecutionStrategy());
+                return execute(session, sql, failure.getRetryExecutionStrategy());
             }
 
             throw failure;
@@ -447,25 +446,11 @@ public class PrestoSparkQueryRunner
     }
 
     private MaterializedResult execute(
-            IPrestoSparkQueryExecutionFactory executionFactory,
-            SparkContext sparkContext,
             Session session,
             String sql,
             Optional<RetryExecutionStrategy> retryExecutionStrategy)
     {
-        IPrestoSparkQueryExecution execution = executionFactory.create(
-                sparkContext,
-                createSessionInfo(session, retryExecutionStrategy),
-                Optional.of(sql),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
-                Optional.empty(),
-                Optional.empty(),
-                retryExecutionStrategy);
-
+        IPrestoSparkQueryExecution execution = createPrestoSparkQueryExecution(session, sql, retryExecutionStrategy);
         List<List<Object>> results = execution.execute();
 
         List<MaterializedRow> rows = results.stream()
@@ -498,6 +483,26 @@ public class PrestoSparkQueryRunner
                     OptionalLong.empty(),
                     ImmutableList.of());
         }
+    }
+
+    public IPrestoSparkQueryExecution createPrestoSparkQueryExecution(Session session,
+            String sql,
+            Optional<RetryExecutionStrategy> retryExecutionStrategy)
+    {
+        IPrestoSparkQueryExecutionFactory executionFactory = prestoSparkService.getQueryExecutionFactory();
+        IPrestoSparkQueryExecution execution = executionFactory.create(
+                sparkContext,
+                createSessionInfo(session, retryExecutionStrategy),
+                Optional.of(sql),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
+                Optional.empty(),
+                Optional.empty(),
+                retryExecutionStrategy);
+        return execution;
     }
 
     private static PrestoSparkSession createSessionInfo(Session session, Optional<RetryExecutionStrategy> retryExecutionStrategy)
