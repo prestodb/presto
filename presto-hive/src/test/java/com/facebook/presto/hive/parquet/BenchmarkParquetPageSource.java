@@ -289,8 +289,11 @@ public class BenchmarkParquetPageSource
             for (int i = 0; i < channelCount; i++) {
                 fields.add(ColumnIOConverter.constructField(getTypeFromTypeSignature(), messageColumnIO.getChild(i)));
             }
-
-            ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), batchReadEnabled, enableVerification, null, null, false, Optional.empty());
+            ParquetReader parquetReader = ParquetReader.builder(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext())
+                    .withMaxReadBlockSize(new DataSize(16, MEGABYTE))
+                    .withBatchReadEnabled(batchReadEnabled)
+                    .withEnableVerification(enableVerification)
+                    .build();
             return new ParquetPageSource(parquetReader, Collections.nCopies(channelCount, type), fields, columnNames, new RuntimeStats());
         }
 

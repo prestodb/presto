@@ -278,8 +278,11 @@ public class BenchmarkParquetReader
             MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
 
             this.field = ColumnIOConverter.constructField(getType(), messageColumnIO.getChild(0)).get();
-
-            return new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), enableOptimizedReader, enableVerification, null, null, false, Optional.empty());
+            return ParquetReader.builder(messageColumnIO, parquetMetadata.getBlocks(), dataSource, newSimpleAggregatedMemoryContext())
+                    .withMaxReadBlockSize(new DataSize(16, MEGABYTE))
+                    .withBatchReadEnabled(enableOptimizedReader)
+                    .withEnableVerification(enableVerification)
+                    .build();
         }
 
         protected boolean getNullability()
