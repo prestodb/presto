@@ -304,6 +304,35 @@ class TestColumnReader : public testing::TestWithParam<ReaderTestParams>,
   const bool expectMemoryReuse_;
 };
 
+// For test cases where SelectiveColumnReader does not have support.
+class TestNonSelectiveColumnReader : public testing::TestWithParam<bool>,
+                                     public ColumnReaderTestBase {
+ protected:
+  TestNonSelectiveColumnReader() : expectMemoryReuse_{GetParam()} {}
+
+  VectorPtr newBatch(const TypePtr& rowType) const {
+    return nullptr;
+  }
+
+  vector_size_t getNullCount(const VectorPtr& vector) const {
+    return getNullCount(vector.get());
+  }
+
+  vector_size_t getNullCount(BaseVector* vector) const {
+    return vector->getNullCount().value();
+  }
+
+  bool useSelectiveReader() const override {
+    return false;
+  }
+
+  bool returnFlatVector() const override {
+    return false;
+  }
+
+  const bool expectMemoryReuse_;
+};
+
 class SchemaMismatchTest : public TestWithParam<bool>,
                            public ColumnReaderTestBase {
  protected:
@@ -1355,11 +1384,7 @@ TEST_P(StringReaderTests, testStringDictSkipWithNulls) {
   }
 }
 
-TEST_P(TestColumnReader, testSubstructsWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP() << "SelectiveColumnReader doesn't support nested structs yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testSubstructsWithNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -2153,11 +2178,7 @@ TEST_P(TestColumnReader, testList) {
   }
 }
 
-TEST_P(TestColumnReader, testListPropagateNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP() << "SelectiveColumnReader doesn't support nested structs yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testListPropagateNulls) {
   auto rowType =
       HiveTypeParser().parse("struct<col0:struct<col0_0:array<bigint>>>");
 
@@ -2202,12 +2223,7 @@ TEST_P(TestColumnReader, testListPropagateNulls) {
   ASSERT_EQ(0, longs->size());
 }
 
-TEST_P(TestColumnReader, testListWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for arrays yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testListWithNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -2366,12 +2382,7 @@ TEST_P(TestColumnReader, testListWithNulls) {
   }
 }
 
-TEST_P(TestColumnReader, testListSkipWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for arrays yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testListSkipWithNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -2472,12 +2483,7 @@ TEST_P(TestColumnReader, testListSkipWithNulls) {
   }
 }
 
-TEST_P(TestColumnReader, testListSkipWithNullsNoData) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for arrays yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testListSkipWithNullsNoData) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -2553,12 +2559,7 @@ TEST_P(TestColumnReader, testListSkipWithNullsNoData) {
   EXPECT_EQ(19, lists->offsetAt(1));
 }
 
-TEST_P(TestColumnReader, testListWithAllNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for arrays yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testListWithAllNulls) {
   auto rowType = HiveTypeParser().parse("struct<col0:array<bigint>>");
 
   // set getEncoding
@@ -2671,12 +2672,7 @@ TEST_P(TestColumnReader, testMap) {
   }
 }
 
-TEST_P(TestColumnReader, testMapWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for maps yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testMapWithNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -2881,12 +2877,7 @@ TEST_P(TestColumnReader, testMapWithNulls) {
   }
 }
 
-TEST_P(TestColumnReader, testMapSkipWithNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for maps yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testMapSkipWithNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -3009,12 +3000,7 @@ TEST_P(TestColumnReader, testMapSkipWithNulls) {
   }
 }
 
-TEST_P(TestColumnReader, testMapSkipWithNullsNoData) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for maps yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testMapSkipWithNullsNoData) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -3083,12 +3069,7 @@ TEST_P(TestColumnReader, testMapSkipWithNullsNoData) {
   EXPECT_EQ(19, maps->offsetAt(1));
 }
 
-TEST_P(TestColumnReader, testMapWithAllNulls) {
-  if (useSelectiveReader()) {
-    GTEST_SKIP()
-        << "SelectiveColumnReader doesn't have full support for maps yet";
-  }
-
+TEST_P(TestNonSelectiveColumnReader, testMapWithAllNulls) {
   // set getEncoding
   proto::ColumnEncoding directEncoding;
   directEncoding.set_kind(proto::ColumnEncoding_Kind_DIRECT);
@@ -4736,6 +4717,16 @@ VELOX_INSTANTIATE_TEST_SUITE_P(
     TestSelectiveColumnReader,
     TestColumnReader,
     ::testing::Values(ReaderTestParams{true, false}));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestNonSelectiveColumnReaderNoReuse,
+    TestNonSelectiveColumnReader,
+    ::testing::Values(false));
+
+VELOX_INSTANTIATE_TEST_SUITE_P(
+    TestNonSelectiveColumnReaderReuse,
+    TestNonSelectiveColumnReader,
+    ::testing::Values(true));
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
     StringViewReaderNoReuse,
