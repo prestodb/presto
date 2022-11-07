@@ -17,6 +17,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/connectors/hive/HiveConnector.h"
+#include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/Cursor.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -45,6 +46,7 @@ class TaskTest : public HiveConnectorTestBase {
 
     VELOX_CHECK(task->supportsSingleThreadedExecution());
 
+    vector_size_t numRows = 0;
     std::vector<RowVectorPtr> results;
     for (;;) {
       auto result = task->next();
@@ -56,9 +58,16 @@ class TaskTest : public HiveConnectorTestBase {
         child->loadedVector();
       }
       results.push_back(result);
+      numRows += result->size();
     }
 
     VELOX_CHECK(waitForTaskCompletion(task.get()));
+
+    auto planNodeStats = toPlanStats(task->taskStats());
+    VELOX_CHECK(planNodeStats.count(plan.planNode->id()));
+    VELOX_CHECK_EQ(numRows, planNodeStats.at(plan.planNode->id()).outputRows);
+    VELOX_CHECK_EQ(
+        results.size(), planNodeStats.at(plan.planNode->id()).outputVectors);
 
     return {task, results};
   }

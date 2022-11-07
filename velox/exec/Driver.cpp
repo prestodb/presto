@@ -412,6 +412,10 @@ StopReason Driver::runInternal(
                   "Operator::getOutput() must return nullptr or a non-empty vector: {}",
                   op->stats().operatorType);
 
+              op->stats().outputVectors += 1;
+              op->stats().outputPositions += result->size();
+              op->stats().outputBytes += result->estimateFlatSize();
+
               // This code path is used only in single-threaded execution.
               blockingReason_ = BlockingReason::kWaitForConsumer;
               guard.notThrown();
