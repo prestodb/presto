@@ -130,6 +130,7 @@ class SumNonPODAggregate : public Aggregate {
 
   void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
 };
+} // namespace
 
 bool registerSumNonPODAggregate(const std::string& name) {
   std::vector<std::shared_ptr<velox::exec::AggregateFunctionSignature>>
@@ -154,7 +155,4 @@ bool registerSumNonPODAggregate(const std::string& name) {
   return true;
 }
 
-static bool FB_ANONYMOUS_VARIABLE(g_AggregateFunction) =
-    registerSumNonPODAggregate("sumnonpod");
-} // namespace
 } // namespace facebook::velox::exec::test

@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace facebook::velox::exec::test {
 
@@ -45,4 +46,7 @@ struct NonPODInt64 {
   NonPODInt64& operator=(const NonPODInt64&) = delete;
   NonPODInt64& operator=(NonPODInt64&&) = delete;
 };
+
+bool registerSumNonPODAggregate(const std::string& name);
+
 } // namespace facebook::velox::exec::test

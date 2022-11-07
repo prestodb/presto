@@ -22,6 +22,11 @@ using namespace facebook::velox::exec::test;
 
 class StreamingAggregationTest : public OperatorTestBase {
  protected:
+  void SetUp() override {
+    OperatorTestBase::SetUp();
+    registerSumNonPODAggregate("sumnonpod");
+  }
+
   static CursorParameters makeCursorParameters(
       const std::shared_ptr<const core::PlanNode>& planNode,
       uint32_t preferredOutputBatchSize) {

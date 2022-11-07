@@ -111,11 +111,10 @@ class AggregationTest : public OperatorTestBase {
   }
 
   void SetUp() override {
+    OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
     mappedMemory_ = memory::MappedMemory::getInstance();
-    if (!isRegisteredVectorSerde()) {
-      this->registerVectorSerde();
-    }
+    registerSumNonPODAggregate("sumnonpod");
   }
 
   std::vector<RowVectorPtr>
