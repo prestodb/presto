@@ -18,6 +18,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -107,6 +108,7 @@ public class BaseJdbcClient
             .put(TIME_WITH_TIME_ZONE, "time with timezone")
             .put(TIMESTAMP, "timestamp")
             .put(TIMESTAMP_WITH_TIME_ZONE, "timestamp with timezone")
+            .put(UuidType.UUID, "uuid")
             .build();
 
     protected final String connectorId;

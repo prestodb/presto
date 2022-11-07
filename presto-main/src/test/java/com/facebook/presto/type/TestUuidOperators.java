@@ -23,10 +23,10 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.INDETERMINATE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.type.UuidOperators.castFromVarcharToUuid;
-import static com.facebook.presto.type.UuidType.UUID;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.slice.Slices.utf8Slice;
 
