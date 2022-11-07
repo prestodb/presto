@@ -73,6 +73,7 @@ std::string normalizeFuncName(std::string input) {
       {"like_escape", "like"},
       {"not_like_escape", "notlike"},
       {"IS DISTINCT FROM", "distinct_from"},
+      {"count_star", "count"},
   };
   auto it = kLookup.find(input);
   return (it == kLookup.end()) ? input : it->second;

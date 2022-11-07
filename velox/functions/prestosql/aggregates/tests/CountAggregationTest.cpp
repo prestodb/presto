@@ -22,7 +22,7 @@ namespace facebook::velox::aggregate::test {
 
 namespace {
 
-class CountAggregation : public AggregationTestBase {
+class CountAggregationTest : public AggregationTestBase {
  protected:
   void SetUp() override {
     AggregationTestBase::SetUp();
@@ -41,9 +41,11 @@ class CountAggregation : public AggregationTestBase {
            TINYINT()})};
 };
 
-TEST_F(CountAggregation, count) {
+TEST_F(CountAggregationTest, count) {
   auto vectors = makeVectors(rowType_, 10, 100);
   createDuckDbTable(vectors);
+
+  testAggregations(vectors, {}, {"count()"}, "SELECT count(1) FROM tmp");
 
   testAggregations(vectors, {}, {"count(1)"}, "SELECT count(1) FROM tmp");
 
