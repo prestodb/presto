@@ -44,5 +44,4 @@ target_link_libraries(
   velox_tpch_connector
   velox_presto_serializer
   velox_functions_prestosql
-  velox_aggregates
-  velox_vector_test_lib)
+  velox_aggregates)
