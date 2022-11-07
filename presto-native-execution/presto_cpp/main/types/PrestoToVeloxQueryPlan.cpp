@@ -77,7 +77,7 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     case protocol::ColumnType::SYNTHESIZED:
       return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
     default:
-      throw std::invalid_argument("Unknown Hive column type");
+      VELOX_UNSUPPORTED("Unknown Hive column type");
   }
 }
 
@@ -97,7 +97,7 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
         tpchColumn->columnName);
   }
 
-  throw std::invalid_argument("Unknown column handle type: " + column->_type);
+  VELOX_UNSUPPORTED("Unknown column handle type:{}", column->_type);
 }
 
 connector::hive::LocationHandle::TableType toTableType(
@@ -110,7 +110,7 @@ connector::hive::LocationHandle::TableType toTableType(
     case protocol::TableType::TEMPORARY:
       return connector::hive::LocationHandle::TableType::kTemporary;
     default:
-      throw std::invalid_argument("Unknown table type");
+      VELOX_UNSUPPORTED("Unknown table type");
   }
 }
 
@@ -127,7 +127,7 @@ connector::hive::LocationHandle::WriteMode toWriteMode(
       return connector::hive::LocationHandle::WriteMode::
           kDirectToTargetExistingDirectory;
     default:
-      throw std::invalid_argument("Unknown write mode");
+      VELOX_UNSUPPORTED("Unknown write mode");
   }
 }
 
@@ -665,7 +665,7 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
         tpch::fromTableName(tpchLayout->table.tableName),
         tpchLayout->table.scaleFactor);
   }
-  throw std::invalid_argument("Unsupported TableHandle type");
+  VELOX_UNSUPPORTED("Unsupported TableHandle type");
 }
 
 std::vector<core::TypedExprPtr> getProjections(
@@ -696,7 +696,7 @@ void setCellFromVariantByKind<TypeKind::VARBINARY>(
     const VectorPtr& /*column*/,
     vector_size_t /*row*/,
     const velox::variant& value) {
-  throw std::invalid_argument("Return of VARBINARY data is not supported");
+  VELOX_UNSUPPORTED("Return of VARBINARY data is not supported");
 }
 
 template <>
@@ -749,7 +749,7 @@ core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
     case protocol::SortOrder::DESC_NULLS_LAST:
       return core::SortOrder(false, false);
     default:
-      throw std::invalid_argument("Unknown sort order");
+      VELOX_UNSUPPORTED("Unknown sort order");
   }
 }
 
