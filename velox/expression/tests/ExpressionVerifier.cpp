@@ -270,7 +270,7 @@ void ExpressionVerifier::persistReproInfo(
   std::string sqlPath;
 
   const auto basePath = options_.reproPersistPath.c_str();
-  if (!common::generateFileDirectory(options_.reproPersistPath.c_str())) {
+  if (!common::generateFileDirectory(basePath)) {
     return;
   }
 
@@ -311,7 +311,7 @@ void ExpressionVerifier::persistReproInfo(
     try {
       saveStringToFile(sql, sqlPath.c_str());
     } catch (std::exception& e) {
-      resultPath = e.what();
+      sqlPath = e.what();
     }
   }
 
