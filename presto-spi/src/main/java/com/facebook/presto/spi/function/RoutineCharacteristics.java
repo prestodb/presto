@@ -32,6 +32,7 @@ public class RoutineCharacteristics
     public static class Language
     {
         public static final Language SQL = new Language("SQL");
+        public static final Language CPP = new Language("CPP");
 
         private final String language;
 
