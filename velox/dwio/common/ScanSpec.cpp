@@ -66,8 +66,8 @@ void ScanSpec::reorder() {
       children_.begin(),
       children_.end(),
       [this](
-          const std::unique_ptr<ScanSpec>& left,
-          const std::unique_ptr<ScanSpec>& right) {
+          const std::shared_ptr<ScanSpec>& left,
+          const std::shared_ptr<ScanSpec>& right) {
         if (left->hasFilter() && right->hasFilter()) {
           if (enableFilterReorder_ &&
               (left->selectivity_.numIn() || right->selectivity_.numIn())) {
@@ -320,13 +320,24 @@ std::string ScanSpec::toString() const {
     }
   }
   if (!children_.empty()) {
-    out << "(";
+    out << " (";
     for (auto& child : children_) {
       out << child->toString() << ", ";
     }
     out << ")";
   }
   return out.str();
+}
+
+std::shared_ptr<ScanSpec> ScanSpec::removeChild(const ScanSpec* child) {
+  for (auto it = children_.begin(); it != children_.end(); ++it) {
+    if (it->get() == child) {
+      auto removed = std::move(*it);
+      children_.erase(it);
+      return removed;
+    }
+  }
+  return nullptr;
 }
 
 } // namespace facebook::velox::common

@@ -91,7 +91,7 @@ void E2EFilterTestBase::readWithoutFilter(
   auto reader = makeReader(readerOpts, std::move(input));
 
   // The spec must stay live over the lifetime of the reader.
-  rowReaderOpts.setScanSpec(spec);
+  setUpRowReaderOptions(rowReaderOpts, spec);
   OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);
 
@@ -141,7 +141,7 @@ void E2EFilterTestBase::readWithFilter(
   dwio::common::RowReaderOptions rowReaderOpts;
   auto reader = makeReader(readerOpts, std::move(input));
   // The  spec must stay live over the lifetime of the reader.
-  rowReaderOpts.setScanSpec(spec);
+  setUpRowReaderOptions(rowReaderOpts, spec);
   OwnershipChecker ownershipChecker;
   auto rowReader = reader->createRowReader(rowReaderOpts);
   runtimeStats_ = dwio::common::RuntimeStatistics();
@@ -263,6 +263,9 @@ void E2EFilterTestBase::testFilterSpecs(
   timeWithFilter = 0;
   for (auto& childSpec : spec->children()) {
     childSpec->setExtractValues(false);
+    for (auto& grandchild : childSpec->children()) {
+      grandchild->setExtractValues(false);
+    }
   }
   readWithFilter(spec, batches, hitRows, timeWithFilter, false);
   timeWithFilter = 0;
@@ -273,9 +276,6 @@ void E2EFilterTestBase::testNoRowGroupSkip(
     const std::vector<RowVectorPtr>& batches,
     const std::vector<std::string>& filterable,
     int32_t numCombinations) {
-  // TODO: Seed was hard coded as 1 to make it behave the same as before.
-  // Change to use random seed (like current timestamp).
-  filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, 1);
   auto spec = filterGenerator_->makeScanSpec(SubfieldFilters{});
 
   uint64_t timeWithNoFilter = 0;
@@ -319,6 +319,10 @@ void E2EFilterTestBase::testSenario(
     const std::vector<std::string>& filterable,
     int32_t numCombinations) {
   rowType_ = DataSetBuilder::makeRowType(columns, wrapInStruct);
+
+  // TODO: Seed was hard coded as 1 to make it behave the same as before.
+  // Change to use random seed (like current timestamp).
+  filterGenerator_ = std::make_unique<FilterGenerator>(rowType_, 1);
 
   auto batches = makeDataset(customize, false);
   writeToMemory(rowType_, batches, false);

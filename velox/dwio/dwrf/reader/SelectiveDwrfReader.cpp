@@ -18,6 +18,7 @@
 #include "velox/dwio/common/TypeUtils.h"
 
 #include "velox/dwio/dwrf/reader/SelectiveByteRleColumnReader.h"
+#include "velox/dwio/dwrf/reader/SelectiveFlatMapColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveFloatingPointColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDictionaryColumnReader.h"
 #include "velox/dwio/dwrf/reader/SelectiveIntegerDirectColumnReader.h"
@@ -77,7 +78,8 @@ std::unique_ptr<SelectiveColumnReader> SelectiveDwrfReader::build(
     case TypeKind::MAP:
       if (stripe.getEncoding(ek).kind() ==
           proto::ColumnEncoding_Kind_MAP_FLAT) {
-        VELOX_UNSUPPORTED("SelectiveColumnReader does not support flat maps");
+        return createSelectiveFlatMapColumnReader(
+            requestedType, dataType, params, scanSpec);
       }
       return std::make_unique<SelectiveMapColumnReader>(
           requestedType, dataType, params, scanSpec);

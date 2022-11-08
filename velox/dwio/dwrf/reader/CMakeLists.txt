@@ -22,6 +22,7 @@ add_library(
   ReaderBase.cpp
   SelectiveDwrfReader.cpp
   SelectiveByteRleColumnReader.cpp
+  SelectiveFlatMapColumnReader.cpp
   SelectiveIntegerDirectColumnReader.cpp
   SelectiveIntegerDictionaryColumnReader.cpp
   SelectiveStringDirectColumnReader.cpp

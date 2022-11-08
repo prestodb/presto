@@ -144,7 +144,7 @@ class ScanSpec {
     channel_ = channel;
   }
 
-  const std::vector<std::unique_ptr<ScanSpec>>& children() const {
+  const std::vector<std::shared_ptr<ScanSpec>>& children() const {
     return children_;
   }
 
@@ -192,6 +192,10 @@ class ScanSpec {
     }
     return nullptr;
   }
+
+  // Remove a child from this scan spec, returning the removed child.  This is
+  // used for example to transform a flatmap scan spec into a struct scan spec.
+  std::shared_ptr<ScanSpec> removeChild(const ScanSpec* child);
 
   SelectivityInfo& selectivity() {
     return selectivity_;
@@ -280,7 +284,7 @@ class ScanSpec {
   // True if a string dictionary or flat map in this field should be
   // returned as flat.
   bool makeFlat_ = false;
-  std::unique_ptr<common::Filter> filter_;
+  std::shared_ptr<common::Filter> filter_;
   SelectivityInfo selectivity_;
   // Sort children by filtering efficiency.
   bool enableFilterReorder_ = true;
@@ -299,7 +303,7 @@ class ScanSpec {
   // extractValues true.  Having at least one child with extractValues
   // true differentiates pruning from the case of extracting all children.
 
-  std::vector<std::unique_ptr<ScanSpec>> children_;
+  std::vector<std::shared_ptr<ScanSpec>> children_;
   mutable std::optional<bool> hasFilter_;
   ValueHook* valueHook_ = nullptr;
 };

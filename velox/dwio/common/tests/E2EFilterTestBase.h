@@ -175,6 +175,12 @@ class E2EFilterTestBase : public testing::Test {
       const dwio::common::ReaderOptions& opts,
       std::unique_ptr<dwio::common::InputStream> input) = 0;
 
+  virtual void setUpRowReaderOptions(
+      dwio::common::RowReaderOptions& opts,
+      const std::shared_ptr<ScanSpec>& spec) {
+    opts.setScanSpec(spec);
+  }
+
   void readWithoutFilter(
       std::shared_ptr<common::ScanSpec> spec,
       const std::vector<RowVectorPtr>& batches,

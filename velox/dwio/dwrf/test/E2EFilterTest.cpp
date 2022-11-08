@@ -62,12 +62,7 @@ class E2EFilterTest : public E2EFilterTestBase {
       const TypePtr& type,
       const std::vector<RowVectorPtr>& batches,
       bool forRowGroupSkip = false) override {
-    auto config = std::make_shared<dwrf::Config>();
-    config->set(dwrf::Config::COMPRESSION, CompressionKind_NONE);
-    config->set(dwrf::Config::USE_VINTS, useVInts_);
-    WriterOptions options;
-    options.config = config;
-    options.schema = type;
+    auto options = createWriterOptions(type);
     int32_t flushCounter = 0;
     // If we test row group skip, we have all the data in one stripe. For
     // scan, we start  a stripe every 'flushEveryNBatches_' batches.
@@ -86,13 +81,74 @@ class E2EFilterTest : public E2EFilterTestBase {
     writer_->close();
   }
 
+  void setUpRowReaderOptions(
+      dwio::common::RowReaderOptions& opts,
+      const std::shared_ptr<ScanSpec>& spec) override {
+    E2EFilterTestBase::setUpRowReaderOptions(opts, spec);
+    if (!flatmapNodeIdsAsStruct_.empty()) {
+      opts.setFlatmapNodeIdsAsStruct(flatmapNodeIdsAsStruct_);
+    }
+  }
+
   std::unique_ptr<dwio::common::Reader> makeReader(
       const dwio::common::ReaderOptions& opts,
       std::unique_ptr<dwio::common::InputStream> input) override {
     return std::make_unique<DwrfReader>(opts, std::move(input));
   }
 
+  std::unordered_set<std::string> flatMapColumns_;
+
+ private:
+  WriterOptions createWriterOptions(const TypePtr& type) {
+    auto config = std::make_shared<dwrf::Config>();
+    config->set(dwrf::Config::COMPRESSION, CompressionKind_NONE);
+    config->set(dwrf::Config::USE_VINTS, useVInts_);
+    auto writerSchema = type;
+    if (!flatMapColumns_.empty()) {
+      auto& rowType = type->asRow();
+      auto columnTypes = rowType.children();
+      std::vector<uint32_t> mapFlatCols;
+      std::vector<std::vector<std::string>> mapFlatColsStructKeys;
+      for (int i = 0; i < rowType.size(); ++i) {
+        mapFlatColsStructKeys.emplace_back();
+        if (flatMapColumns_.count(rowType.nameOf(i)) == 0 ||
+            !columnTypes[i]->isRow()) {
+          continue;
+        }
+        for (auto& name : columnTypes[i]->asRow().names()) {
+          mapFlatColsStructKeys.back().push_back(name);
+        }
+        columnTypes[i] = MAP(VARCHAR(), columnTypes[i]->childAt(0));
+      }
+      writerSchema = ROW(
+          std::vector<std::string>(rowType.names()), std::move(columnTypes));
+      auto schemaWithId = TypeWithId::create(writerSchema);
+      for (int i = 0; i < rowType.size(); ++i) {
+        if (flatMapColumns_.count(rowType.nameOf(i)) == 0) {
+          continue;
+        }
+        auto& child = schemaWithId->childAt(i);
+        mapFlatCols.push_back(child->column);
+        if (!rowType.childAt(i)->isRow()) {
+          continue;
+        }
+        flatmapNodeIdsAsStruct_[child->id] = mapFlatColsStructKeys[i];
+      }
+      config->set(Config::FLATTEN_MAP, true);
+      config->set<const std::vector<uint32_t>>(
+          Config::MAP_FLAT_COLS, mapFlatCols);
+      config->set<const std::vector<std::vector<std::string>>>(
+          Config::MAP_FLAT_COLS_STRUCT_KEYS, mapFlatColsStructKeys);
+    }
+    WriterOptions options;
+    options.config = config;
+    options.schema = writerSchema;
+    return options;
+  }
+
   std::unique_ptr<Writer> writer_;
+  std::unordered_map<uint32_t, std::vector<std::string>>
+      flatmapNodeIdsAsStruct_;
 };
 
 TEST_F(E2EFilterTest, integerDirect) {
@@ -287,6 +343,36 @@ TEST_F(E2EFilterTest, filterStruct) {
       40,
       true,
       false);
+}
+
+TEST_F(E2EFilterTest, flatMapAsStruct) {
+  constexpr auto kColumns =
+      "long_val:bigint,"
+      "long_vals:struct<v1:bigint,v2:bigint,v3:bigint>,"
+      "struct_vals:struct<nested1:struct<v1:bigint, v2:float>,nested2:struct<v1:bigint, v2:float>>";
+  flatMapColumns_ = {"long_vals", "struct_vals"};
+  testWithTypes(
+      kColumns, [] {}, false, {"long_val"}, 10, true);
+}
+
+TEST_F(E2EFilterTest, flatMap) {
+  constexpr auto kColumns =
+      "long_val:bigint,"
+      "long_vals:map<tinyint,bigint>,"
+      "struct_vals:map<varchar,struct<v1:bigint, v2:float>>,"
+      "array_vals:map<tinyint,array<int>>";
+  flatMapColumns_ = {"long_vals", "struct_vals", "array_vals"};
+  auto customize = [this] {
+    dataSetBuilder_->makeUniformMapKeys(Subfield("struct_vals"));
+  };
+  int numCombinations = 5;
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+  numCombinations = 1;
+#endif
+#endif
+  testWithTypes(
+      kColumns, customize, false, {"long_val"}, numCombinations, true);
 }
 
 // Define main so that gflags get processed.

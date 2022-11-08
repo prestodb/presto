@@ -83,13 +83,18 @@ DataSetBuilder& DataSetBuilder::withNoNullsAfter(int32_t firstRow) {
       }
 
       int32_t nonNullCounter = 0;
+      std::vector<BaseVector::CopyRange> ranges;
       for (auto row = firstRow; row < values->size(); ++row) {
         if (values->isNullAt(row)) {
-          values->copy(
-              values.get(), row, nonNulls[nonNullCounter % nonNulls.size()], 1);
+          ranges.push_back({
+              .sourceIndex = nonNulls[nonNullCounter % nonNulls.size()],
+              .targetIndex = row,
+              .count = 1,
+          });
           ++nonNullCounter;
         }
       }
+      values->copyRanges(values.get(), ranges);
     }
   }
 
@@ -197,6 +202,36 @@ DataSetBuilder& DataSetBuilder::withUniqueStringsForField(
     }
   }
 
+  return *this;
+}
+
+DataSetBuilder& DataSetBuilder::makeUniformMapKeys(
+    const common::Subfield& field) {
+  for (auto& batch : *batches_) {
+    auto* map = dwio::common::getChildBySubfield(batch.get(), field)
+                    ->asUnchecked<MapVector>();
+    int index = -1;
+    for (int i = 0; i < map->size(); ++i) {
+      if (index == -1 || map->sizeAt(i) > map->sizeAt(index)) {
+        index = i;
+      }
+    }
+    if (index == -1) {
+      continue;
+    }
+    auto& keys = map->mapKeys();
+    std::vector<BaseVector::CopyRange> ranges;
+    for (int i = 0; i < map->size(); ++i) {
+      if (i != index) {
+        ranges.push_back({
+            .sourceIndex = map->offsetAt(index),
+            .targetIndex = map->offsetAt(i),
+            .count = map->sizeAt(i),
+        });
+      }
+    }
+    keys->copyRanges(keys.get(), ranges);
+  }
   return *this;
 }
 

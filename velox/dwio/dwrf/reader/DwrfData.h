@@ -74,6 +74,10 @@ class DwrfData : public dwio::common::FormatData {
     return flatMapContext_;
   }
 
+  const uint64_t* inMap() const {
+    return flatMapContext_.inMapDecoder ? inMap_->as<uint64_t>() : nullptr;
+  }
+
   // seeks possible flat map in map streams and nulls to the row group
   // and returns a PositionsProvider for the other streams.
   dwio::common::PositionProvider seekToRowGroup(uint32_t index) override;
@@ -109,6 +113,9 @@ class DwrfData : public dwio::common::FormatData {
   // Storage for positions backing a PositionProvider returned from
   // seekToRowGroup().
   std::vector<uint64_t> tempPositions_;
+
+  // In map bitmap used in flat map encoding.
+  BufferPtr inMap_;
 };
 
 // DWRF specific initialization.

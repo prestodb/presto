@@ -179,6 +179,8 @@ class DataSetBuilder {
     }
   }
 
+  DataSetBuilder& makeUniformMapKeys(const common::Subfield& field);
+
   std::unique_ptr<std::vector<RowVectorPtr>> build();
 
  private:

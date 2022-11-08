@@ -16,6 +16,8 @@
 
 #include "velox/dwio/dwrf/reader/DwrfData.h"
 
+#include "velox/dwio/common/BufferUtil.h"
+
 namespace facebook::velox::dwrf {
 
 DwrfData::DwrfData(
@@ -43,20 +45,34 @@ DwrfData::DwrfData(
 }
 
 uint64_t DwrfData::skipNulls(uint64_t numValues, bool /*nullsOnly*/) {
-  if (notNullDecoder_) {
-    // page through the values that we want to skip
-    // and count how many are non-null
-    constexpr uint64_t kBufferBytes = 1024;
-    std::array<char, kBufferBytes> buffer;
-    constexpr auto kBitCount = kBufferBytes * 8;
-    uint64_t remaining = numValues;
-    while (remaining > 0) {
-      uint64_t chunkSize = std::min(remaining, kBitCount);
-      notNullDecoder_->next(buffer.data(), chunkSize, nullptr);
-      remaining -= chunkSize;
-      numValues -= bits::countNulls(
-          reinterpret_cast<uint64_t*>(buffer.data()), 0, chunkSize);
+  if (!notNullDecoder_ && !flatMapContext_.inMapDecoder) {
+    return numValues;
+  }
+  // Page through the values that we want to skip and count how many are
+  // non-null.
+  constexpr uint64_t kBufferBytes = 1024;
+  constexpr auto kBitCount = kBufferBytes * 8;
+  auto countNulls = [](ByteRleDecoder& decoder, size_t size) {
+    char buffer[kBufferBytes];
+    decoder.next(buffer, size, nullptr);
+    return bits::countNulls(reinterpret_cast<const uint64_t*>(buffer), 0, size);
+  };
+  uint64_t remaining = numValues;
+  while (remaining > 0) {
+    uint64_t chunkSize = std::min(remaining, kBitCount);
+    uint64_t nullCount;
+    if (flatMapContext_.inMapDecoder) {
+      nullCount = countNulls(*flatMapContext_.inMapDecoder, chunkSize);
+      if (notNullDecoder_) {
+        if (auto inMapSize = chunkSize - nullCount; inMapSize > 0) {
+          nullCount += countNulls(*notNullDecoder_, inMapSize);
+        }
+      }
+    } else {
+      nullCount = countNulls(*notNullDecoder_, chunkSize);
     }
+    remaining -= chunkSize;
+    numValues -= nullCount;
   }
   return numValues;
 }
@@ -88,24 +104,31 @@ void DwrfData::readNulls(
     const uint64_t* FOLLY_NULLABLE incomingNulls,
     BufferPtr& nulls,
     bool /*nullsOnly*/) {
-  if (!notNullDecoder_ && !incomingNulls) {
+  if (!notNullDecoder_ && !flatMapContext_.inMapDecoder && !incomingNulls) {
     nulls = nullptr;
     return;
   }
   auto numBytes = bits::nbytes(numValues);
-  if (!nulls || nulls->capacity() < numBytes + simd::kPadding) {
-    nulls =
-        AlignedBuffer::allocate<char>(numBytes + simd::kPadding, &memoryPool_);
+  if (!nulls || nulls->capacity() < numBytes) {
+    nulls = AlignedBuffer::allocate<char>(numBytes, &memoryPool_);
   }
   nulls->setSize(numBytes);
-  auto* nullsPtr = nulls->asMutable<uint64_t>();
-  if (!notNullDecoder_) {
+  auto* nullsPtr = nulls->asMutable<char>();
+  if (flatMapContext_.inMapDecoder) {
+    if (notNullDecoder_) {
+      dwio::common::ensureCapacity<char>(inMap_, numBytes, &memoryPool_);
+      flatMapContext_.inMapDecoder->next(
+          inMap_->asMutable<char>(), numValues, incomingNulls);
+      notNullDecoder_->next(nullsPtr, numValues, inMap_->as<uint64_t>());
+    } else {
+      flatMapContext_.inMapDecoder->next(nullsPtr, numValues, incomingNulls);
+      inMap_ = nulls;
+    }
+  } else if (notNullDecoder_) {
+    notNullDecoder_->next(nullsPtr, numValues, incomingNulls);
+  } else {
     memcpy(nullsPtr, incomingNulls, numBytes);
-    return;
   }
-  memset(nullsPtr, bits::kNotNullByte, numBytes);
-  notNullDecoder_->next(
-      reinterpret_cast<char*>(nullsPtr), numValues, incomingNulls);
 }
 
 std::vector<uint32_t> DwrfData::filterRowGroups(

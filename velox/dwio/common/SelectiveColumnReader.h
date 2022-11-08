@@ -510,7 +510,7 @@ class SelectiveColumnReader {
   // Specification of filters, value extraction, pruning etc. The
   // spec is assigned at construction and the contents may change at
   // run time based on adaptation. Owned by caller.
-  velox::common::ScanSpec* const FOLLY_NONNULL scanSpec_;
+  velox::common::ScanSpec* FOLLY_NONNULL scanSpec_;
   TypePtr type_;
 
   // Row number after last read row, relative to stripe start.
