@@ -175,14 +175,9 @@ TEST_F(MapUnionTest, globalWithDuplicates) {
  * the input is empty.
  */
 TEST_F(MapUnionTest, globalNoData) {
-  auto inputVectors = {makeRowVector({makeMapVector<int32_t, double>(
-      1,
-      [&](vector_size_t /*row*/) { return 0; },
-      [&](vector_size_t /*row*/) { return 0; },
-      [&](vector_size_t /*row*/) { return 0; })})};
-  auto expectedResult = inputVectors;
+  auto data = makeRowVector(ROW({"c0"}, {MAP(BIGINT(), VARCHAR())}), 0);
 
-  testAggregations(inputVectors, {}, {"map_union(c0)"}, expectedResult);
+  testAggregations({data}, {}, {"map_union(c0)"}, "SELECT null");
 }
 } // namespace
 } // namespace facebook::velox::aggregate::test

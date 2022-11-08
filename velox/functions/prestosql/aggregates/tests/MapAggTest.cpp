@@ -139,13 +139,8 @@ TEST_F(MapAggTest, globalWithNulls) {
 TEST_F(MapAggTest, globalNoData) {
   auto vectors = {makeRowVector(
       {makeFlatVector<int32_t>({}), makeFlatVector<int32_t>({})})};
-  auto expectedResult = {makeRowVector({makeMapVector<int32_t, double>(
-      1,
-      [&](vector_size_t /*row*/) { return 0; },
-      [&](vector_size_t /*row*/) { return 0; },
-      [&](vector_size_t /*row*/) { return 0; })})};
 
-  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, expectedResult);
+  testAggregations(vectors, {}, {"map_agg(c0, c1)"}, "SELECT null");
 }
 
 TEST_F(MapAggTest, globalDuplicateKeys) {
