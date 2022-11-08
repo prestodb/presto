@@ -75,7 +75,7 @@ struct HllAccumulator {
       }
       denseHll_.mergeWith(input);
     } else {
-      VELOX_UNREACHABLE("Unexpected type of HLL");
+      VELOX_USER_FAIL("Unexpected type of HLL");
     }
   }
 
@@ -346,7 +346,7 @@ class ApproxDistinctAggregate : public exec::Aggregate {
   }
 
   void checkSetMaxStandardError() {
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         decodedMaxStandardError_.isConstantMapping(),
         "Max standard error argument must be constant for all input rows");
 
