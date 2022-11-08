@@ -303,4 +303,27 @@ TEST_F(ArgumentTypeFuzzerTest, lambda) {
   }
 }
 
+TEST_F(ArgumentTypeFuzzerTest, unconstrainedSignatureTemplate) {
+  auto signature = exec::FunctionSignatureBuilder()
+                       .typeVariable("K")
+                       .typeVariable("V")
+                       .returnType("V")
+                       .argumentType("map(K,V)")
+                       .argumentType("K")
+                       .build();
+
+  std::mt19937 seed{0};
+  ArgumentTypeFuzzer fuzzer{*signature, MAP(BIGINT(), VARCHAR()), seed};
+  ASSERT_TRUE(fuzzer.fuzzArgumentTypes(kMaxVariadicArgs));
+
+  const auto& argumentTypes = fuzzer.argumentTypes();
+  ASSERT_EQ(2, argumentTypes.size());
+  ASSERT_TRUE(argumentTypes[0] != nullptr);
+  ASSERT_TRUE(argumentTypes[1] != nullptr);
+
+  ASSERT_EQ(argumentTypes[0]->kind(), TypeKind::MAP);
+
+  ASSERT_EQ(argumentTypes[0]->childAt(0), argumentTypes[1]);
+}
+
 } // namespace facebook::velox::test

@@ -22,22 +22,29 @@
 
 namespace facebook::velox::test {
 
-/// For function signatures containing type variables, try generate a list of
-/// arguments types such that the function taking these arguments returns the
-/// given type. If there are type variables unbounded by the return type,
-/// generate a random type for them with rng_.
+/// For function signatures using type variables, generates a list of
+/// arguments types. Optionally, allows to specify a desired return type. If
+/// specified, the return type acts as a constraint on the possible set of
+/// argument types.
 class ArgumentTypeFuzzer {
  public:
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
+      std::mt19937& rng)
+      : signature_{signature}, rng_{rng} {}
+
+  ArgumentTypeFuzzer(
+      const exec::FunctionSignature& signature,
       const TypePtr& returnType,
       std::mt19937& rng)
-      : signature_{signature}, returnType_{returnType}, rng_{rng} {}
+      : signature_{signature}, returnType_{returnType}, rng_{rng} {
+    VELOX_CHECK_NOT_NULL(returnType);
+  }
 
-  /// Generate random argument types if returnType_ can be bound to the return
-  /// type of signature_. Return true if the generation succeeds, false
-  /// otherwise. If signature_ has variable arity, repeat the last argument at
-  /// most maxVariadicArgs times.
+  /// Generate random argument types. If the desired returnType has been
+  /// specified, checks that it can be bound to the return type of signature_.
+  /// Return true if the generation succeeds, false otherwise. If signature_ has
+  /// variable arity, repeat the last argument at most maxVariadicArgs times.
   bool fuzzArgumentTypes(uint32_t maxVariadicArgs);
 
   /// Return the generated list of argument types. This function should be

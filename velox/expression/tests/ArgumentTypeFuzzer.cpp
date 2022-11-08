@@ -71,11 +71,17 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
   const auto& formalArgs = signature_.argumentTypes();
   auto formalArgsCnt = formalArgs.size();
 
-  exec::ReverseSignatureBinder binder{signature_, returnType_};
-  if (!binder.tryBind()) {
-    return false;
+  if (returnType_) {
+    exec::ReverseSignatureBinder binder{signature_, returnType_};
+    if (!binder.tryBind()) {
+      return false;
+    }
+    bindings_ = binder.bindings();
+  } else {
+    for (const auto& constraint : signature_.typeVariableConstraints()) {
+      bindings_.insert({constraint.name(), nullptr});
+    }
   }
-  bindings_ = binder.bindings();
 
   determineUnboundedTypeVariables();
   for (auto i = 0; i < formalArgsCnt; i++) {
