@@ -169,8 +169,7 @@ void RowVector::copy(
   // Copy non-null values.
   SelectivityVector nonNullRows = rows;
 
-  SelectivityVector allRows(source->size());
-  DecodedVector decodedSource(*source, allRows);
+  DecodedVector decodedSource(*source);
   if (decodedSource.isIdentityMapping()) {
     if (source->mayHaveNulls()) {
       auto rawNulls = source->rawNulls();
@@ -233,6 +232,71 @@ void RowVector::copy(
     if (nullRows.hasSelections()) {
       ensureNulls();
       nullRows.setNulls(nulls_);
+    }
+  }
+}
+
+void RowVector::copyRanges(
+    const BaseVector* source,
+    const folly::Range<const CopyRange*>& ranges) {
+  if (ranges.empty()) {
+    return;
+  }
+
+  auto minTargetIndex = std::numeric_limits<vector_size_t>::max();
+  auto maxTargetIndex = std::numeric_limits<vector_size_t>::min();
+  for (auto& r : ranges) {
+    minTargetIndex = std::min(minTargetIndex, r.targetIndex);
+    maxTargetIndex = std::max(maxTargetIndex, r.targetIndex + r.count);
+  }
+  SelectivityVector rows(maxTargetIndex);
+  rows.setValidRange(0, minTargetIndex, false);
+  rows.updateBounds();
+  for (auto i = 0; i < children_.size(); ++i) {
+    BaseVector::ensureWritable(
+        rows, type()->asRow().childAt(i), pool(), children_[i]);
+  }
+
+  DecodedVector decoded(*source);
+  if (decoded.isIdentityMapping() && !decoded.mayHaveNulls()) {
+    if (rawNulls_) {
+      auto* rawNulls = mutableRawNulls();
+      for (auto& r : ranges) {
+        bits::fillBits(rawNulls, r.targetIndex, r.count, bits::kNotNull);
+      }
+    }
+    auto* rowSource = source->loadedVector()->as<RowVector>();
+    for (int i = 0; i < children_.size(); ++i) {
+      children_[i]->copyRanges(rowSource->childAt(i)->loadedVector(), ranges);
+    }
+  } else {
+    std::vector<BaseVector::CopyRange> baseRanges;
+    baseRanges.reserve(ranges.size());
+    for (auto& r : ranges) {
+      for (vector_size_t i = 0; i < r.count; ++i) {
+        bool isNull = decoded.isNullAt(r.sourceIndex + i);
+        setNull(r.targetIndex + i, isNull);
+        if (isNull) {
+          continue;
+        }
+        auto baseIndex = decoded.index(r.sourceIndex + i);
+        if (!baseRanges.empty() &&
+            baseRanges.back().sourceIndex + 1 == baseIndex &&
+            baseRanges.back().targetIndex + 1 == r.targetIndex + i) {
+          ++baseRanges.back().count;
+        } else {
+          baseRanges.push_back({
+              .sourceIndex = baseIndex,
+              .targetIndex = r.targetIndex + i,
+              .count = 1,
+          });
+        }
+      }
+    }
+    auto* rowSource = decoded.base()->as<RowVector>();
+    for (int i = 0; i < children_.size(); ++i) {
+      children_[i]->copyRanges(
+          rowSource->childAt(i)->loadedVector(), baseRanges);
     }
   }
 }

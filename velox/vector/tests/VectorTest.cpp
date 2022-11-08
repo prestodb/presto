@@ -505,6 +505,16 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
       EXPECT_TRUE(source->equalValueAt(target.get(), i, sourceSize + i));
     }
 
+    std::vector<BaseVector::CopyRange> ranges = {
+        {0, 0, sourceSize},
+        {0, sourceSize, sourceSize},
+    };
+    target->copyRanges(source.get(), ranges);
+    for (int32_t i = 0; i < sourceSize; ++i) {
+      EXPECT_TRUE(source->equalValueAt(target.get(), i, i));
+      EXPECT_TRUE(source->equalValueAt(target.get(), i, sourceSize + i));
+    }
+
     // Check that uninitialized is copyable.
     target->resize(target->size() + 100);
     target->copy(target.get(), target->size() - 50, target->size() - 100, 50);
