@@ -272,6 +272,8 @@ bool registerArbitraryAggregate(const std::string& name) {
         VELOX_CHECK_LE(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
+          case TypeKind::BOOLEAN:
+            return std::make_unique<ArbitraryAggregate<bool>>(inputType);
           case TypeKind::TINYINT:
             return std::make_unique<ArbitraryAggregate<int8_t>>(inputType);
           case TypeKind::SMALLINT:
@@ -284,6 +286,13 @@ bool registerArbitraryAggregate(const std::string& name) {
             return std::make_unique<ArbitraryAggregate<float>>(inputType);
           case TypeKind::DOUBLE:
             return std::make_unique<ArbitraryAggregate<double>>(inputType);
+          case TypeKind::TIMESTAMP:
+            return std::make_unique<ArbitraryAggregate<Timestamp>>(inputType);
+          case TypeKind::DATE:
+            return std::make_unique<ArbitraryAggregate<Date>>(inputType);
+          case TypeKind::INTERVAL_DAY_TIME:
+            return std::make_unique<ArbitraryAggregate<IntervalDayTime>>(
+                inputType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:

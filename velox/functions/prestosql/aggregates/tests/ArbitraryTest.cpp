@@ -196,5 +196,169 @@ TEST_F(ArbitraryTest, numericConstAndNulls) {
       "SELECT c0, first(c1), first(c2) FROM tmp group by c0");
 }
 
+TEST_F(ArbitraryTest, boolean) {
+  auto data = makeRowVector({
+      // Grouping key.
+      makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3, 4, 4}),
+      // Input values: 'constant' within groups.
+      makeNullableFlatVector<bool>(
+          {true,
+           true,
+           false,
+           false,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           false}),
+      makeConstant<bool>(std::nullopt, 8),
+  });
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeNullableFlatVector<bool>({true, false, std::nullopt, false}),
+  });
+
+  testAggregations({data}, {"c0"}, {"arbitrary(c1)"}, {expectedResult});
+
+  // Global aggregation.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"arbitrary(c1)"})
+                  .planNode();
+
+  assertQuery(plan, "SELECT true");
+
+  testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
+}
+
+TEST_F(ArbitraryTest, timestamp) {
+  auto data = makeRowVector({
+      // Grouping key.
+      makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3, 4, 4}),
+      // Input values: constant within groups: 100.1, 100.1, 200.2, 200.2, etc.
+      makeNullableFlatVector<Timestamp>(
+          {Timestamp(100, 1),
+           Timestamp(100, 1),
+           Timestamp(200, 2),
+           Timestamp(200, 2),
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           Timestamp(100, 4)}),
+      makeConstant<Timestamp>(std::nullopt, 8),
+  });
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeNullableFlatVector<Timestamp>(
+          {Timestamp(100, 1),
+           Timestamp(200, 2),
+           std::nullopt,
+           Timestamp(100, 4)}),
+  });
+
+  testAggregations({data}, {"c0"}, {"arbitrary(c1)"}, {expectedResult});
+
+  // Global aggregation.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"arbitrary(c1)"})
+                  .planNode();
+
+  auto result = readSingleValue(plan);
+  ASSERT_TRUE(!result.isNull());
+  ASSERT_EQ(*result.inferType(), *TIMESTAMP());
+
+  auto timestamp = result.value<Timestamp>();
+  ASSERT_EQ(timestamp, Timestamp(100, 1));
+
+  testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
+}
+
+TEST_F(ArbitraryTest, date) {
+  auto data = makeRowVector({
+      // Grouping key.
+      makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3, 4, 4}),
+      // Input values: constant within groups.
+      makeNullableFlatVector<Date>(
+          {Date(125),
+           Date(125),
+           Date(126),
+           Date(126),
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           Date(128)}),
+      makeConstant<Timestamp>(std::nullopt, 8),
+  });
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeNullableFlatVector<Date>(
+          {Date(125), Date(126), std::nullopt, Date(128)}),
+  });
+
+  testAggregations({data}, {"c0"}, {"arbitrary(c1)"}, {expectedResult});
+
+  // Global aggregation.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"arbitrary(c1)"})
+                  .planNode();
+
+  auto result = readSingleValue(plan);
+  ASSERT_TRUE(!result.isNull());
+  ASSERT_EQ(*result.inferType(), *DATE());
+
+  auto date = result.value<Date>();
+  ASSERT_EQ(date, Date(125));
+
+  testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
+}
+
+TEST_F(ArbitraryTest, interval) {
+  auto data = makeRowVector({
+      // Grouping key.
+      makeFlatVector<int64_t>({1, 1, 2, 2, 3, 3, 4, 4}),
+      // Input values: constant within groups.
+      makeNullableFlatVector<IntervalDayTime>(
+          {IntervalDayTime(125),
+           IntervalDayTime(125),
+           IntervalDayTime(126),
+           IntervalDayTime(126),
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           IntervalDayTime(128)}),
+      makeConstant<Timestamp>(std::nullopt, 8),
+  });
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4}),
+      makeNullableFlatVector<IntervalDayTime>(
+          {IntervalDayTime(125),
+           IntervalDayTime(126),
+           std::nullopt,
+           IntervalDayTime(128)}),
+  });
+
+  testAggregations({data}, {"c0"}, {"arbitrary(c1)"}, {expectedResult});
+
+  // Global aggregation.
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"arbitrary(c1)"})
+                  .planNode();
+
+  auto result = readSingleValue(plan);
+  ASSERT_TRUE(!result.isNull());
+  ASSERT_EQ(*result.inferType(), *INTERVAL_DAY_TIME());
+
+  auto interval = result.value<IntervalDayTime>();
+  ASSERT_EQ(interval, IntervalDayTime(125));
+
+  testAggregations({data}, {}, {"arbitrary(c2)"}, "SELECT null");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test
