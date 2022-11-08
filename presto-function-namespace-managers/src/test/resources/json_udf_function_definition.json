@@ -1,0 +1,109 @@
+{
+"UDFSignatureMap": {
+"add_ARRAY_element_wise":[
+         {
+            "docString":"function to add two string vectors element-wise",
+            "outputType": "ARRAY<ARRAY<BOOLEAN>>",
+            "paramTypes":[
+                 "ARRAY<ARRAY<BOOLEAN>>",
+                 "ARRAY<ARRAY<BOOLEAN>>"
+            ],
+           "schema":"f3",
+           "routineCharacteristics": {
+             "language":"CPP",
+             "determinism":"DETERMINISTIC",
+             "nullCallClause":"CALLED_ON_NULL_INPUT"
+           }
+         },
+         {
+            "docString":"function to add two float vectors element-wise",
+            "outputType": "ARRAY<ARRAY<BIGINT>>",
+            "paramTypes":[
+                "ARRAY<ARRAY<BIGINT>>",
+                 "ARRAY<ARRAY<BIGINT>>"
+            ],
+           "schema":"f3",
+           "routineCharacteristics": {
+             "language":"CPP",
+             "determinism":"DETERMINISTIC",
+             "nullCallClause":"CALLED_ON_NULL_INPUT"
+           }
+         },
+         {
+            "docString":"function to add two int64_t vectors element-wise",
+            "outputType": "ARRAY<DOUBLE>",
+            "paramTypes":[
+                 "ARRAY<DOUBLE>",
+                 "ARRAY<DOUBLE>"
+            ],
+           "schema":"f3",
+           "routineCharacteristics": {
+             "language":"CPP",
+             "determinism":"DETERMINISTIC",
+             "nullCallClause":"CALLED_ON_NULL_INPUT"
+           }
+         }
+      ],
+ "ads_product_types_transform":[
+         {
+            "docString":"gff ads product types transform",
+            "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+            "paramTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>",
+                 "ARRAY<varchar>"
+            ],
+           "schema":"f3",
+           "routineCharacteristics": {
+             "language":"CPP",
+             "determinism":"DETERMINISTIC",
+             "nullCallClause":"CALLED_ON_NULL_INPUT"
+           }
+         },
+         {
+            "docString":"gff ads product types transform",
+            "outputType": "ARRAY<map<BIGINT, DOUBLE>>",
+            "paramTypes":[
+                 "ARRAY<map<BIGINT, DOUBLE>>",
+                 "ARRAY<ARRAY<BOOLEAN>>",
+                 "ARRAY<varchar>"
+            ],
+           "schema":"f3",
+           "routineCharacteristics": {
+             "language":"CPP",
+             "determinism":"DETERMINISTIC",
+             "nullCallClause":"CALLED_ON_NULL_INPUT"
+           }
+         }
+      ],
+  "square": [
+    {
+      "docString":"square an integer",
+      "outputType": "int",
+      "paramTypes":[
+        "int"
+      ],
+      "schema":"f3",
+      "routineCharacteristics": {
+        "language":"CPP",
+        "determinism":"DETERMINISTIC",
+        "nullCallClause":"CALLED_ON_NULL_INPUT"
+      }
+    },
+    {
+      "docString":"square a double",
+      "outputType": "double",
+      "paramTypes":[
+        "double"
+      ],
+      "schema":"f3",
+      "routineCharacteristics": {
+        "language":"CPP",
+        "determinism":"DETERMINISTIC",
+        "nullCallClause":"CALLED_ON_NULL_INPUT"
+      }
+    }
+  ]
+ }
+}
+
+

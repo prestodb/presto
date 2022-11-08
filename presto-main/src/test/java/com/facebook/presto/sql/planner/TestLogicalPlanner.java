@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.functionNamespace.FunctionNamespaceManagerPlugin;
+import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.FilterNode;
@@ -40,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.StatisticsWriterNode;
 import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tests.QueryTemplate;
 import com.facebook.presto.util.MorePredicates;
 import com.google.common.collect.ImmutableList;
@@ -74,6 +77,7 @@ import static com.facebook.presto.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.sql.TestExpressionInterpreter.SQUARE_UDF_CPP;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static com.facebook.presto.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
@@ -1660,5 +1664,21 @@ public class TestLogicalPlanner
                 "SELECT * FROM t5";
 
         assertPlanSucceeded(joinQuery2, enableLeafNodeInPlanExceedException);
+    }
+
+    @Test
+    public void testJsonBasedFunctions()
+    {
+        LocalQueryRunner queryRunner = getQueryRunner();
+        queryRunner.installPlugin(new FunctionNamespaceManagerPlugin());
+        queryRunner.loadFunctionNamespaceManager(JsonFileBasedFunctionNamespaceManagerFactory.NAME, "json",
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP", "json-based-function-manager.path-to-function-definition", ""));
+        queryRunner.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
+        assertPlan(
+                "SELECT json.f3.square(orderkey) from orders",
+                any(
+                        project(
+                                ImmutableMap.of("out", expression("json.f3.square(orderkey)")),
+                                tableScan("orders", ImmutableMap.of("orderkey", "orderkey")))));
     }
 }
