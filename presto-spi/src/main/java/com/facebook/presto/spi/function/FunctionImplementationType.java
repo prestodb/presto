@@ -15,20 +15,28 @@ package com.facebook.presto.spi.function;
 
 public enum FunctionImplementationType
 {
-    JAVA(false),
-    SQL(false),
-    THRIFT(true),
-    GRPC(true);
+    JAVA(false, true),
+    SQL(false, true),
+    THRIFT(true, false),
+    GRPC(true, false),
+    CPP(false, false);
 
-    private final boolean external;
+    private final boolean externalExecution;
+    private final boolean evaluatedInCoordinator;
 
-    FunctionImplementationType(boolean external)
+    FunctionImplementationType(boolean externalExecution, boolean evaluatedInCoordinator)
     {
-        this.external = external;
+        this.externalExecution = externalExecution;
+        this.evaluatedInCoordinator = evaluatedInCoordinator;
     }
 
-    public boolean isExternal()
+    public boolean isExternalExecution()
     {
-        return external;
+        return externalExecution;
+    }
+
+    public boolean canBeEvaluatedInCoordinator()
+    {
+        return evaluatedInCoordinator;
     }
 }
