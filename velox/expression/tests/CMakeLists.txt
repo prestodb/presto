@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp)
+add_library(velox_expression_test_utility ArgumentTypeFuzzer.cpp
+                                          FuzzerToolkit.cpp)
 
 target_link_libraries(velox_expression_test_utility velox_type
                       velox_expression_functions)
@@ -83,8 +84,9 @@ target_link_libraries(
 
 add_library(velox_expression_verifier ExpressionVerifier.cpp)
 
-target_link_libraries(velox_expression_verifier velox_vector_test_lib
-                      velox_vector_fuzzer velox_type)
+target_link_libraries(
+  velox_expression_verifier velox_vector_test_lib velox_vector_fuzzer
+  velox_type velox_expression_test_utility)
 
 add_library(velox_expression_fuzzer ExpressionFuzzer.cpp)
 

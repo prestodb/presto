@@ -19,6 +19,7 @@
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
+#include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
@@ -30,20 +31,6 @@ namespace facebook::velox::test {
 // Generates random expressions based on `signatures`, random input data (via
 // VectorFuzzer), and executes them.
 void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed);
-
-// Represents one available function signature.
-struct CallableSignature {
-  // Function name.
-  std::string name;
-
-  // Input arguments and return type.
-  std::vector<TypePtr> args;
-  bool variableArity{false};
-  TypePtr returnType;
-
-  // Convenience print function.
-  std::string toString() const;
-};
 
 class ExpressionFuzzer {
  public:
@@ -65,29 +52,9 @@ class ExpressionFuzzer {
 
   enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
 
-  struct SignatureTemplate {
-    std::string functionName;
-    const exec::FunctionSignature* signature;
-    std::unordered_set<std::string> typeVariables;
-
-    SignatureTemplate(
-        std::string functionName,
-        const exec::FunctionSignature* signature,
-        std::unordered_set<std::string> typeVariables)
-        : functionName{functionName},
-          signature{signature},
-          typeVariables{typeVariables} {}
-  };
-
   void seed(size_t seed);
 
   void reSeed();
-
-  /// Sort concrete function signatures in signatures_.
-  void sortConcreteSignatures();
-
-  /// Sort function signature templates in signatureTemplates_.
-  void sortSignatureTemplates();
 
   void appendConjunctSignatures();
 
