@@ -247,6 +247,8 @@ bool registerHistogramAggregate(const std::string& name) {
         auto inputType = argTypes[0];
         switch (exec::isRawInput(step) ? inputType->kind()
                                        : inputType->childAt(0)->kind()) {
+          case TypeKind::BOOLEAN:
+            return std::make_unique<HistogramAggregate<bool>>(resultType);
           case TypeKind::TINYINT:
             return std::make_unique<HistogramAggregate<int8_t>>(resultType);
           case TypeKind::SMALLINT:
@@ -263,6 +265,9 @@ bool registerHistogramAggregate(const std::string& name) {
             return std::make_unique<HistogramAggregate<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<HistogramAggregate<Date>>(resultType);
+          case TypeKind::INTERVAL_DAY_TIME:
+            return std::make_unique<HistogramAggregate<IntervalDayTime>>(
+                resultType);
           default:
             VELOX_NYI(
                 "Unknown input type for {} aggregation {}",

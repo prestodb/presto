@@ -126,6 +126,17 @@ TEST_F(HistogramTest, groupByDouble) {
   testHistogramWithDuck(vector1, vector2);
 }
 
+TEST_F(HistogramTest, groupByBoolean) {
+  vector_size_t num = 37;
+
+  auto vector1 = makeFlatVector<int32_t>(
+      num, [](vector_size_t row) { return row % 3; }, nullEvery(4));
+  auto vector2 = makeFlatVector<bool>(
+      num, [](vector_size_t row) { return row % 5 == 3; }, nullEvery(5));
+
+  testHistogramWithDuck(vector1, vector2);
+}
+
 TEST_F(HistogramTest, groupByTimestamp) {
   vector_size_t num = 10;
 
@@ -168,6 +179,19 @@ TEST_F(HistogramTest, groupByDate) {
   testHistogram("histogram(c1)", {"c0"}, vector1, vector2, expected);
 }
 
+TEST_F(HistogramTest, groupByInterval) {
+  vector_size_t num = 37;
+
+  auto vector1 = makeFlatVector<int32_t>(
+      num, [](vector_size_t row) { return row % 3; }, nullEvery(4));
+  auto vector2 = makeFlatVector<IntervalDayTime>(
+      num,
+      [](vector_size_t row) { return IntervalDayTime(row); },
+      nullEvery(5));
+
+  testHistogramWithDuck(vector1, vector2);
+}
+
 TEST_F(HistogramTest, globalGroupByInteger) {
   vector_size_t num = 29;
   auto vector = makeFlatVector<int32_t>(
@@ -180,6 +204,13 @@ TEST_F(HistogramTest, globalGroupByDouble) {
   vector_size_t num = 29;
   auto vector = makeFlatVector<double>(
       num, [](vector_size_t row) { return row % 5 + 0.05; }, nullEvery(7));
+
+  testGlobalHistogramWithDuck(vector);
+}
+
+TEST_F(HistogramTest, globalGroupByBoolean) {
+  auto vector = makeFlatVector<bool>(
+      1'000, [](vector_size_t row) { return row % 5 == 2; }, nullEvery(7));
 
   testGlobalHistogramWithDuck(vector);
 }
@@ -211,6 +242,15 @@ TEST_F(HistogramTest, globalGroupByDate) {
       {{{Date{0}, 2}, {Date{1}, 3}, {Date{2}, 2}, {Date{3}, 1}}})});
 
   testHistogram("histogram(c1)", {}, vector, vector, expected);
+}
+
+TEST_F(HistogramTest, globalGroupByInterval) {
+  auto vector = makeFlatVector<IntervalDayTime>(
+      1'000,
+      [](vector_size_t row) { return IntervalDayTime(row); },
+      nullEvery(7));
+
+  testGlobalHistogramWithDuck(vector);
 }
 
 TEST_F(HistogramTest, globalGroupByEmpty) {

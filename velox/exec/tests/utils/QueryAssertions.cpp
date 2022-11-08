@@ -220,6 +220,13 @@ velox::variant variantAt(const ::duckdb::Value& value) {
   return velox::variant(value.GetValue<T>());
 }
 
+template <>
+velox::variant variantAt<TypeKind::INTERVAL_DAY_TIME>(
+    const ::duckdb::Value& value) {
+  return velox::variant::intervalDayTime(IntervalDayTime(
+      ::duckdb::Interval::GetMicro(value.GetValue<::duckdb::interval_t>())));
+}
+
 velox::variant decimalVariantAt(const ::duckdb::Value& value) {
   uint8_t precision;
   uint8_t scale;
