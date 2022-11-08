@@ -42,4 +42,16 @@ public class TestSqlFunctionLanguageConfig
 
         assertFullMapping(properties, expected);
     }
+
+    @Test
+    public void testCPPType()
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .put("function-implementation-type", "CPP")
+                .build();
+        SqlFunctionLanguageConfig expected = new SqlFunctionLanguageConfig()
+                .setFunctionImplementationType("CPP");
+
+        assertFullMapping(properties, expected);
+    }
 }

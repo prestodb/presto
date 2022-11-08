@@ -943,8 +943,8 @@ public class ExpressionInterpreter
             Object result;
 
             FunctionImplementationType implementationType = functionMetadata.getImplementationType();
-            if (implementationType.isExternal()) {
-                // do not interpret remote functions on coordinator
+            if (!implementationType.canBeEvaluatedInCoordinator()) {
+                // do not interpret remote functions or cpp UDF on coordinator
                 return new FunctionCall(node.getName(), node.getWindow(), node.isDistinct(), node.isIgnoreNulls(), toExpressions(argumentValues, argumentTypes));
             }
             else if (implementationType.equals(JAVA)) {

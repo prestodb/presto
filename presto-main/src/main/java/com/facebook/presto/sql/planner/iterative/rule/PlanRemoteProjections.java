@@ -247,7 +247,7 @@ public class PlanRemoteProjections
         public List<ProjectionContext> visitCall(CallExpression call, Void context)
         {
             FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
-            boolean local = !functionMetadata.getImplementationType().isExternal();
+            boolean local = !functionMetadata.getImplementationType().isExternalExecution();
 
             // Break function arguments into local and remote projections first
             ImmutableList.Builder<RowExpression> newArgumentsBuilder = ImmutableList.builder();
