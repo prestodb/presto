@@ -24,6 +24,7 @@ public class ReloadingResourceGroupConfig
 {
     private boolean exactMatchSelectorEnabled;
     private Duration maxRefreshInterval = new Duration(1, HOURS);
+    private boolean failFastOnValidation;
 
     @MinDuration("10s")
     public Duration getMaxRefreshInterval()
@@ -49,6 +50,19 @@ public class ReloadingResourceGroupConfig
     public ReloadingResourceGroupConfig setExactMatchSelectorEnabled(boolean exactMatchSelectorEnabled)
     {
         this.exactMatchSelectorEnabled = exactMatchSelectorEnabled;
+        return this;
+    }
+
+    public boolean isFailFastOnValidation()
+    {
+        return failFastOnValidation;
+    }
+
+    @Config("resource-groups.fail-fast-on-validation")
+    @ConfigDescription("If enabled, any validation errors would be fatal failures.")
+    public ReloadingResourceGroupConfig setFailFastOnValidation(boolean failFastOnValidation)
+    {
+        this.failFastOnValidation = failFastOnValidation;
         return this;
     }
 }

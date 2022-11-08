@@ -32,7 +32,8 @@ public class TestReloadingResourceGroupConfig
     {
         assertRecordedDefaults(ConfigAssertions.recordDefaults(ReloadingResourceGroupConfig.class)
                 .setMaxRefreshInterval(new Duration(1, HOURS))
-                .setExactMatchSelectorEnabled(false));
+                .setExactMatchSelectorEnabled(false)
+                .setFailFastOnValidation(false));
     }
 
     @Test
@@ -41,10 +42,12 @@ public class TestReloadingResourceGroupConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("resource-groups.max-refresh-interval", "1m")
                 .put("resource-groups.exact-match-selector-enabled", "true")
+                .put("resource-groups.fail-fast-on-validation", "true")
                 .build();
         ReloadingResourceGroupConfig expected = new ReloadingResourceGroupConfig()
                 .setMaxRefreshInterval(new Duration(1, MINUTES))
-                .setExactMatchSelectorEnabled(true);
+                .setExactMatchSelectorEnabled(true)
+                        .setFailFastOnValidation(true);
 
         assertFullMapping(properties, expected);
     }

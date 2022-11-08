@@ -80,6 +80,8 @@ public class ReloadingResourceGroupConfigurationManager
     private final AtomicLong lastRefresh = new AtomicLong();
     private final Duration maxRefreshInterval;
     private final boolean exactMatchSelectorEnabled;
+    private final boolean failFastOnValidation;
+
 
     private final CounterStat refreshFailures = new CounterStat();
 
@@ -90,6 +92,7 @@ public class ReloadingResourceGroupConfigurationManager
         requireNonNull(memoryPoolManager, "memoryPoolManager is null");
         this.maxRefreshInterval = config.getMaxRefreshInterval();
         this.exactMatchSelectorEnabled = config.getExactMatchSelectorEnabled();
+        this.failFastOnValidation = config.isFailFastOnValidation();
         this.managerSpecProvider = requireNonNull(managerSpecProvider, "provider is null");
         load();
     }
@@ -219,6 +222,12 @@ public class ReloadingResourceGroupConfigurationManager
             log.error(e, "Error loading configuration from source");
             if (lastRefresh.get() != 0) {
                 log.debug("Last successful configuration loading was %s ago", succinctNanos(System.nanoTime() - lastRefresh.get()).toString());
+            }
+
+            if(failFastOnValidation)
+            {
+                log.error(e, "Fail fast mode is enabled. Failing the loading operation");
+                throw e;
             }
         }
     }
