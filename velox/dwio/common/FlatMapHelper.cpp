@@ -50,11 +50,17 @@ void initializeStringVector(
   for (auto vec : vectors) {
     size += vec->size();
     hasNulls = hasNulls || vec->mayHaveNulls();
-    auto& stringBuffers =
-        dynamic_cast<const FlatVector<StringView>&>(*vec->wrappedVector())
-            .stringBuffers();
-    for (auto& buffer : stringBuffers) {
-      buffers.push_back(buffer);
+    auto flatVector =
+        dynamic_cast<const FlatVector<StringView>*>(vec->wrappedVector());
+    if (flatVector) {
+      for (auto& buffer : flatVector->stringBuffers()) {
+        buffers.push_back(buffer);
+      }
+    } else {
+      DWIO_ENSURE(
+          vec->encoding() == VectorEncoding::Simple::CONSTANT &&
+              vec->mayHaveNulls(),
+          "Unsupported encoding");
     }
   }
   initializeFlatVector<StringView>(
