@@ -268,16 +268,19 @@ public class ParquetPageSourceFactory
                 nextStart += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = ParquetReader.builder(messageColumnIO, blocks.build(), dataSource, systemMemoryContext)
-                    .withFirstRowOfBlocks(Optional.of(blockStarts.build()))
-                    .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                    .withBatchReadEnabled(isParquetBatchReadsEnabled(session))
-                    .withEnableVerification(isParquetBatchReaderVerificationEnabled(session))
-                    .withPredicate(parquetPredicate)
-                    .withBlockIndexStores(blockIndexStores)
-                    .withFileDecryptor(fileDecryptor)
-                    .withColumnIndexEnabled(columnIndexFilterEnabled)
-                    .build();
+            ParquetReader parquetReader = new ParquetReader(
+                    messageColumnIO,
+                    blocks.build(),
+                    Optional.of(blockStarts.build()),
+                    dataSource,
+                    systemMemoryContext,
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
+                    parquetPredicate,
+                    blockIndexStores,
+                    columnIndexFilterEnabled,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
