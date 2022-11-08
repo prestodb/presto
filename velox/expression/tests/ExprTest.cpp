@@ -229,9 +229,9 @@ class ExprTest : public testing::Test, public VectorTestBase {
       evaluate(expression, makeRowVector({input}));
       ASSERT_TRUE(false) << "Expected an error";
     } catch (VeloxException& e) {
+      ASSERT_EQ(message, e.message());
       ASSERT_EQ(context, trimInputPath(e.context()));
       ASSERT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
-      ASSERT_EQ(message, e.message());
     }
   }
 
@@ -2979,4 +2979,79 @@ TEST_F(ExprTest, addNulls) {
 
     checkResult(slicedVector);
   }
+}
+
+namespace {
+class AlwaysThrowsVectorFunction : public exec::VectorFunction {
+ public:
+  static constexpr const char* kErrorMessage = "Expected";
+
+  void apply(
+      const SelectivityVector& rows,
+      std::vector<VectorPtr>& /* args */,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& context,
+      VectorPtr& /* result */) const override {
+    auto error = std::make_exception_ptr(std::invalid_argument(kErrorMessage));
+    context.setErrors(rows, error);
+    return;
+  }
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("boolean")
+                .argumentType("integer")
+                .build()};
+  }
+};
+
+class NoOpVectorFunction : public exec::VectorFunction {
+ public:
+  void apply(
+      const SelectivityVector& /* rows */,
+      std::vector<VectorPtr>& /* args */,
+      const TypePtr& /* outputType */,
+      exec::EvalCtx& /* context */,
+      VectorPtr& /* result */) const override {}
+
+  static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
+    return {exec::FunctionSignatureBuilder()
+                .returnType("boolean")
+                .argumentType("integer")
+                .build()};
+  }
+};
+} // namespace
+
+TEST_F(ExprTest, applyFunctionNoResult) {
+  auto data = makeRowVector({
+      makeFlatVector<int32_t>({1, 2, 3}),
+  });
+
+  exec::registerVectorFunction(
+      "always_throws_vector_function",
+      AlwaysThrowsVectorFunction::signatures(),
+      std::make_unique<AlwaysThrowsVectorFunction>());
+
+  // At various places in the code, we don't check if result has been set or
+  // not.  Conjuncts have the nice property that they set throwOnError to
+  // false and don't check if the result VectorPtr is nullptr.
+  assertError(
+      "always_throws_vector_function(c0) AND true",
+      makeFlatVector<int32_t>({1, 2, 3}),
+      "always_throws_vector_function(c0)",
+      "and(always_throws_vector_function(c0), 1:BOOLEAN)",
+      AlwaysThrowsVectorFunction::kErrorMessage);
+
+  exec::registerVectorFunction(
+      "no_op",
+      NoOpVectorFunction::signatures(),
+      std::make_unique<NoOpVectorFunction>());
+
+  assertError(
+      "no_op(c0) AND true",
+      makeFlatVector<int32_t>({1, 2, 3}),
+      "no_op(c0)",
+      "and(no_op(c0), 1:BOOLEAN)",
+      "Function neither returned results nor threw exception.");
 }

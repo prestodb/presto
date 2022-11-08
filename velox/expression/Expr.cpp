@@ -1439,6 +1439,29 @@ void Expr::applyFunction(
 
   vectorFunction_->apply(rows, inputValues_, type(), context, result);
 
+  if (!result) {
+    LocalSelectivityVector mutableRemainingRowsHolder(context);
+    auto mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
+    deselectErrors(context, *mutableRemainingRows);
+
+    // If there are rows with no result and no exception this is a bug in the
+    // function implementation.
+    if (mutableRemainingRows->hasSelections()) {
+      try {
+        // This isn't performant, but it gives us the relevant context and
+        // should only apply when the UDF is buggy (hopefully rarely).
+        VELOX_USER_FAIL(
+            "Function neither returned results nor threw exception.");
+      } catch (const std::exception& e) {
+        context.setErrors(*mutableRemainingRows, std::current_exception());
+      }
+    }
+
+    // Since result was empty, and either the function set errors for every row
+    // or we did above, set it to be all NULL.
+    result = BaseVector::createNullConstant(type(), rows.end(), context.pool());
+  }
+
   if (isAscii.has_value()) {
     result->asUnchecked<SimpleVector<StringView>>()->setIsAscii(
         isAscii.value(), rows);
