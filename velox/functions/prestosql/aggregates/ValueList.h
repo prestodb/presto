@@ -45,7 +45,7 @@ class ValueList {
 
   // Called after all data has been appended.
   void finalize(HashStringAllocator* allocator) {
-    if (size_ % 64 != 0) {
+    if (size_ != 0) {
       writeLastNulls(allocator);
     }
   }
