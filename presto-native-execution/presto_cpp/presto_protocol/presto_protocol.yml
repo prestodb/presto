@@ -150,6 +150,7 @@ AbstractClasses:
         - { name: BuiltInFunctionHandle,      key: $static }
 
 JavaClasses:
+  - presto-spi/src/main/java/com/facebook/presto/spi/ErrorCause.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/AggregationNode.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/AllOrNoneValueSet.java
   - presto-common/src/main/java/com/facebook/presto/common/RuntimeMetric.java

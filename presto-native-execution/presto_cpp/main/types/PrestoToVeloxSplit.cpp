@@ -57,10 +57,10 @@ velox::exec::Split toVeloxSplit(
     return velox::exec::Split(
         std::make_shared<connector::hive::HiveConnectorSplit>(
             scheduledSplit.split.connectorId,
-            hiveSplit->path,
+            hiveSplit->fileSplit.path,
             toVeloxFileFormat(hiveSplit->storage.storageFormat.inputFormat),
-            hiveSplit->start,
-            hiveSplit->length,
+            hiveSplit->fileSplit.start,
+            hiveSplit->fileSplit.length,
             partitionKeys,
             hiveSplit->tableBucketNumber
                 ? std::optional<int>(*hiveSplit->tableBucketNumber)
