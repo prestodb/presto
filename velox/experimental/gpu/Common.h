@@ -40,7 +40,7 @@ namespace facebook::velox::gpu {
 
 namespace detail {
 
-enum class CudaErrorSeverity { kLog, kThrow, kFatal };
+enum class CudaErrorSeverity { kLog, kFatal };
 
 inline void cudaCheck(
     cudaError_t err,
@@ -53,8 +53,6 @@ inline void cudaCheck(
   fprintf(stderr, "%s:%d %s\n", file, line, cudaGetErrorString(err));
   if (severity >= CudaErrorSeverity::kFatal) {
     abort();
-  } else if (severity >= CudaErrorSeverity::kThrow) {
-    throw std::runtime_error("CUDA error");
   }
 }
 
@@ -77,6 +75,18 @@ struct CudaFreeDeleter<T[]> {
   }
 };
 
+struct CudaEventDestroyDeleter {
+  void operator()(cudaEvent_t ptr) const {
+    CUDA_CHECK_LOG(cudaEventDestroy(ptr));
+  }
+};
+
+struct CudaStreamDestroyDeleter {
+  void operator()(cudaStream_t ptr) const {
+    CUDA_CHECK_LOG(cudaStreamDestroy(ptr));
+  }
+};
+
 } // namespace detail
 
 /// A unique_ptr taking care of releasing for memory allocated by CUDA.
@@ -85,5 +95,22 @@ struct CudaFreeDeleter<T[]> {
 /// number of elements initialized thus cannot call destructor on each of them.
 template <typename T>
 using CudaPtr = std::unique_ptr<T, detail::CudaFreeDeleter<T>>;
+
+using CudaEvent = std::unique_ptr<CUevent_st, detail::CudaEventDestroyDeleter>;
+
+inline CudaEvent createCudaEvent() {
+  cudaEvent_t event;
+  CUDA_CHECK_FATAL(cudaEventCreate(&event));
+  return CudaEvent(event);
+}
+
+using CudaStream =
+    std::unique_ptr<CUstream_st, detail::CudaStreamDestroyDeleter>;
+
+inline CudaStream createCudaStream() {
+  cudaStream_t stream;
+  CUDA_CHECK_FATAL(cudaStreamCreate(&stream));
+  return CudaStream(stream);
+}
 
 } // namespace facebook::velox::gpu
