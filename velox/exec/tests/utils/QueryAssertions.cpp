@@ -67,6 +67,15 @@ template <>
 }
 
 template <>
+::duckdb::Value duckValueAt<TypeKind::INTERVAL_DAY_TIME>(
+    const VectorPtr& vector,
+    vector_size_t index) {
+  using T = typename KindToFlatVector<TypeKind::INTERVAL_DAY_TIME>::WrapperType;
+  return ::duckdb::Value::INTERVAL(
+      0, 0, vector->as<SimpleVector<T>>()->valueAt(index).milliseconds());
+}
+
+template <>
 ::duckdb::Value duckValueAt<TypeKind::SHORT_DECIMAL>(
     const VectorPtr& vector,
     vector_size_t index) {
@@ -191,6 +200,16 @@ velox::variant variantAt<TypeKind::DATE>(
     int32_t column) {
   return velox::variant::date(::duckdb::Date::EpochDays(
       dataChunk->GetValue(column, row).GetValue<::duckdb::date_t>()));
+}
+
+template <>
+velox::variant variantAt<TypeKind::INTERVAL_DAY_TIME>(
+    ::duckdb::DataChunk* dataChunk,
+    int32_t row,
+    int32_t column) {
+  return velox::variant::intervalDayTime(
+      IntervalDayTime(::duckdb::Interval::GetMicro(
+          dataChunk->GetValue(column, row).GetValue<::duckdb::interval_t>())));
 }
 
 template <TypeKind kind>

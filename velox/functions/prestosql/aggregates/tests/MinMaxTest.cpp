@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
+#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
@@ -37,10 +36,21 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
     allowInputShuffle();
   }
 
+  std::vector<RowVectorPtr> fuzzData(const RowTypePtr& rowType) {
+    VectorFuzzer::Options options;
+    options.vectorSize = 1'000;
+    VectorFuzzer fuzzer(options, pool());
+    std::vector<RowVectorPtr> vectors(10);
+    for (auto i = 0; i < 10; ++i) {
+      vectors[i] = fuzzer.fuzzInputRow(rowType);
+    }
+    return vectors;
+  }
+
   template <typename TAgg>
-  void testIntegralType(TAgg agg, const TypePtr& inputType) {
+  void doTest(TAgg agg, const TypePtr& inputType) {
     auto rowType = ROW({"c0", "c1"}, {BIGINT(), inputType});
-    auto vectors = makeVectors(rowType, 1000, 10);
+    auto vectors = fuzzData(rowType);
     createDuckDbTable(vectors);
 
     static const std::string c0 = "c0";
@@ -82,101 +92,59 @@ class MinMaxTest : public aggregate::test::AggregationTestBase {
 };
 
 TEST_F(MinMaxTest, maxTinyint) {
-  testIntegralType(max, TINYINT());
+  doTest(max, TINYINT());
 }
 
 TEST_F(MinMaxTest, maxSmallint) {
-  testIntegralType(max, SMALLINT());
+  doTest(max, SMALLINT());
 }
 
 TEST_F(MinMaxTest, maxInteger) {
-  testIntegralType(max, INTEGER());
+  doTest(max, INTEGER());
 }
 
 TEST_F(MinMaxTest, maxBigint) {
-  testIntegralType(max, BIGINT());
-}
-
-TEST_F(MinMaxTest, minTinyint) {
-  testIntegralType(min, TINYINT());
-}
-
-TEST_F(MinMaxTest, minSmallint) {
-  testIntegralType(min, SMALLINT());
-}
-
-TEST_F(MinMaxTest, minInteger) {
-  testIntegralType(min, INTEGER());
-}
-
-TEST_F(MinMaxTest, minBigint) {
-  testIntegralType(min, BIGINT());
+  doTest(max, BIGINT());
 }
 
 TEST_F(MinMaxTest, maxVarchar) {
-  auto rowType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
-  auto vector = std::dynamic_pointer_cast<RowVector>(
-      test::BatchMaker::createBatch(rowType, 10'000, *pool_));
-  std::vector<RowVectorPtr> vectors = {vector};
-  createDuckDbTable(vectors);
+  doTest(max, VARCHAR());
+}
 
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).project({"c0 % 11", "c1"});
-      },
-      {"p0"},
-      {"max(c1)"},
-      "SELECT c0 % 11, max(c1) FROM tmp GROUP BY 1");
+TEST_F(MinMaxTest, maxBoolean) {
+  doTest(max, BOOLEAN());
+}
 
-  testAggregations(vectors, {}, {"max(c1)"}, "SELECT max(c1) FROM tmp");
+TEST_F(MinMaxTest, maxInterval) {
+  doTest(max, INTERVAL_DAY_TIME());
+}
 
-  // Encodings: use filter to wrap aggregation inputs in a dictionary
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 11", "c1"});
-      },
-      {"p0"},
-      {"max(c1)"},
-      "SELECT c0 % 11, max(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
+TEST_F(MinMaxTest, minTinyint) {
+  doTest(min, TINYINT());
+}
 
-  testAggregations(
-      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
-      {},
-      {"max(c1)"},
-      "SELECT max(c1) FROM tmp WHERE c0 % 2 = 0");
+TEST_F(MinMaxTest, minSmallint) {
+  doTest(min, SMALLINT());
+}
+
+TEST_F(MinMaxTest, minInteger) {
+  doTest(min, INTEGER());
+}
+
+TEST_F(MinMaxTest, minBigint) {
+  doTest(min, BIGINT());
+}
+
+TEST_F(MinMaxTest, minInterval) {
+  doTest(min, INTERVAL_DAY_TIME());
 }
 
 TEST_F(MinMaxTest, minVarchar) {
-  auto rowType = ROW({"c0", "c1"}, {INTEGER(), VARCHAR()});
-  auto vector = std::dynamic_pointer_cast<RowVector>(
-      test::BatchMaker::createBatch(rowType, 10'000, *pool_));
-  std::vector<RowVectorPtr> vectors = {vector};
-  createDuckDbTable(vectors);
+  doTest(min, VARCHAR());
+}
 
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).project({"c0 % 17", "c1"});
-      },
-      {"p0"},
-      {"min(c1)"},
-      "SELECT c0 % 17, min(c1) FROM tmp GROUP BY 1");
-
-  testAggregations(vectors, {}, {"min(c1)"}, "SELECT min(c1) FROM tmp");
-
-  // Encodings: use filter to wrap aggregation inputs in a dictionary
-  testAggregations(
-      [&](auto& builder) {
-        builder.values(vectors).filter("c0 % 2 = 0").project({"c0 % 17", "c1"});
-      },
-      {"p0"},
-      {"min(c1)"},
-      "SELECT c0 % 17, min(c1) FROM tmp WHERE c0 % 2 = 0 GROUP BY 1");
-
-  testAggregations(
-      [&](auto& builder) { builder.values(vectors).filter("c0 % 2 = 0"); },
-      {},
-      {"min(c1)"},
-      "SELECT min(c1) FROM tmp WHERE c0 % 2 = 0");
+TEST_F(MinMaxTest, minBoolean) {
+  doTest(min, BOOLEAN());
 }
 
 TEST_F(MinMaxTest, constVarchar) {

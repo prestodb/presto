@@ -51,6 +51,17 @@ struct MinMaxTrait<Date> {
   }
 };
 
+template <>
+struct MinMaxTrait<IntervalDayTime> {
+  static constexpr IntervalDayTime min() {
+    return IntervalDayTime(std::numeric_limits<int64_t>::min());
+  }
+
+  static constexpr IntervalDayTime max() {
+    return IntervalDayTime(std::numeric_limits<int64_t>::max());
+  }
+};
+
 template <typename T>
 class MinMaxAggregate : public SimpleNumericAggregate<T, T, T> {
   using BaseAggregate = SimpleNumericAggregate<T, T, T>;
@@ -147,7 +158,11 @@ class MaxAggregate : public MinMaxAggregate<T> {
         group,
         rows,
         args[0],
-        [](T& result, T value) { result = result > value ? result : value; },
+        [](T& result, T value) {
+          if (result < value) {
+            result = value;
+          }
+        },
         [](T& result, T value, int /* unused */) { result = value; },
         mayPushdown,
         kInitialValue_);
@@ -466,6 +481,8 @@ bool registerMinMaxAggregate(const std::string& name) {
         VELOX_CHECK_EQ(argTypes.size(), 1, "{} takes only one argument", name);
         auto inputType = argTypes[0];
         switch (inputType->kind()) {
+          case TypeKind::BOOLEAN:
+            return std::make_unique<TNumeric<bool>>(resultType);
           case TypeKind::TINYINT:
             return std::make_unique<TNumeric<int8_t>>(resultType);
           case TypeKind::SMALLINT:
@@ -482,6 +499,8 @@ bool registerMinMaxAggregate(const std::string& name) {
             return std::make_unique<TNumeric<Timestamp>>(resultType);
           case TypeKind::DATE:
             return std::make_unique<TNumeric<Date>>(resultType);
+          case TypeKind::INTERVAL_DAY_TIME:
+            return std::make_unique<TNumeric<IntervalDayTime>>(resultType);
           case TypeKind::VARCHAR:
           case TypeKind::ARRAY:
           case TypeKind::MAP:
