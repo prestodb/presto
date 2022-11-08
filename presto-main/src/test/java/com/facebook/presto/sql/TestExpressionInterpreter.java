@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
@@ -20,13 +22,18 @@ import com.facebook.presto.common.block.BlockSerdeUtil;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
+import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
+import com.facebook.presto.functionNamespace.json.JsonFileBasedFunctionNamespaceManagerFactory;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.operator.scalar.FunctionAssertions;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.Parameter;
+import com.facebook.presto.spi.function.RoutineCharacteristics;
+import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.InputReferenceExpression;
@@ -80,10 +87,14 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimeZoneKey.getTimeZoneKey;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.CPP;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
 import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.SERIALIZABLE;
@@ -107,6 +118,15 @@ import static org.testng.Assert.fail;
 
 public class TestExpressionInterpreter
 {
+    public static final SqlInvokedFunction SQUARE_UDF_CPP = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf(new CatalogSchemaName("json", "f3"), "square"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "Integer square",
+            RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setLanguage(CPP).build(),
+            "",
+            notVersioned());
+
     private static final int TEST_VARCHAR_TYPE_LENGTH = 17;
     private static final TypeProvider SYMBOL_TYPES = TypeProvider.viewOf(ImmutableMap.<String, Type>builder()
             .put("bound_integer", INTEGER)
@@ -375,6 +395,16 @@ public class TestExpressionInterpreter
         assertTrue(value instanceof Double);
         double randomValue = (double) value;
         assertTrue(0 <= randomValue && randomValue < 1);
+    }
+
+    @Test
+    public void testCppFunctionCall()
+    {
+        METADATA.getFunctionAndTypeManager().addFunctionNamespaceFactory(new JsonFileBasedFunctionNamespaceManagerFactory());
+        METADATA.getFunctionAndTypeManager().loadFunctionNamespaceManager(JsonFileBasedFunctionNamespaceManagerFactory.NAME, "json",
+                ImmutableMap.of("supported-function-languages", "CPP", "function-implementation-type", "CPP"));
+        METADATA.getFunctionAndTypeManager().createFunction(SQUARE_UDF_CPP, false);
+        assertOptimizedEquals("json.f3.square(-5)", "json.f3.square(-5)");
     }
 
     @Test
