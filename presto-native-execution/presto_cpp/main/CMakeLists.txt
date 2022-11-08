@@ -44,6 +44,7 @@ target_link_libraries(
   presto_thrift_extra
   presto_exception
   presto_http
+  presto_write_protocol
   velox_core
   velox_vector
   velox_exec

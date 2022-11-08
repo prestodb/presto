@@ -67,6 +67,11 @@ RowTypePtr toRowType(
   return ROW(std::move(names), std::move(types));
 }
 
+template <typename T>
+std::string toJsonString(const T& value) {
+  return ((json)value).dump();
+}
+
 connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     protocol::ColumnType type) {
   switch (type) {
@@ -77,7 +82,8 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     case protocol::ColumnType::SYNTHESIZED:
       return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
     default:
-      VELOX_UNSUPPORTED("Unknown Hive column type");
+      VELOX_UNSUPPORTED(
+          "Unsupported Hive column type: {}.", toJsonString(type));
   }
 }
 
@@ -97,7 +103,8 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
         tpchColumn->columnName);
   }
 
-  VELOX_UNSUPPORTED("Unknown column handle type:{}", column->_type);
+  VELOX_UNSUPPORTED(
+      "Unsupported column handle type: {}.", toJsonString(column->_type));
 }
 
 connector::hive::LocationHandle::TableType toTableType(
@@ -110,7 +117,7 @@ connector::hive::LocationHandle::TableType toTableType(
     case protocol::TableType::TEMPORARY:
       return connector::hive::LocationHandle::TableType::kTemporary;
     default:
-      VELOX_UNSUPPORTED("Unknown table type");
+      VELOX_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
   }
 }
 
@@ -127,7 +134,7 @@ connector::hive::LocationHandle::WriteMode toWriteMode(
       return connector::hive::LocationHandle::WriteMode::
           kDirectToTargetExistingDirectory;
     default:
-      VELOX_UNSUPPORTED("Unknown write mode");
+      VELOX_UNSUPPORTED("Unsupported write mode: {}.", toJsonString(writeMode));
   }
 }
 
@@ -665,7 +672,8 @@ std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
         tpch::fromTableName(tpchLayout->table.tableName),
         tpchLayout->table.scaleFactor);
   }
-  VELOX_UNSUPPORTED("Unsupported TableHandle type");
+  VELOX_UNSUPPORTED(
+      "Unsupported TableHandle type: {}.", toJsonString(tableHandle));
 }
 
 std::vector<core::TypedExprPtr> getProjections(
@@ -696,7 +704,7 @@ void setCellFromVariantByKind<TypeKind::VARBINARY>(
     const VectorPtr& /*column*/,
     vector_size_t /*row*/,
     const velox::variant& value) {
-  VELOX_UNSUPPORTED("Return of VARBINARY data is not supported");
+  VELOX_UNSUPPORTED("Return of VARBINARY data is not supported.");
 }
 
 template <>
@@ -749,7 +757,7 @@ core::SortOrder toVeloxSortOrder(const protocol::SortOrder& sortOrder) {
     case protocol::SortOrder::DESC_NULLS_LAST:
       return core::SortOrder(false, false);
     default:
-      VELOX_UNSUPPORTED("Unknown sort order");
+      VELOX_UNSUPPORTED("Unsupported sort order: {}.", sortOrder);
   }
 }
 
@@ -908,11 +916,6 @@ PartitionedOutputChannels toChannels(
     }
   }
   return output;
-}
-
-template <typename T>
-std::string toJsonString(const T& value) {
-  return ((json)value).dump();
 }
 
 core::LocalPartitionNode::Type toLocalExchangeType(
@@ -1728,6 +1731,7 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
       node->columnNames,
       insertTableHandle,
       outputType,
+      connector::WriteProtocol::CommitStrategy::kNoCommit,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
