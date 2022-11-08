@@ -38,21 +38,28 @@ class ExpressionVerifier {
       ExpressionVerifierOptions options)
       : execCtx_(execCtx), options_(options) {}
 
-  // Executes an expression and verifies the results/exceptions from common
-  // execution path vs simple execution path. Returns:
-  //
+  // Executes an expression both using common path (all evaluation
+  // optimizations) and simplified path. Additionally, a sorted list of column
+  // indices can be passed via 'columnsToWarpInLazy' which specify the
+  // columns/children in the input row vector that should be wrapped in a lazy
+  // layer before running it through the common evaluation path.
+  // Returns:
   //  - true if both paths succeeded and returned the exact same results.
-  //  - false if both paths failed with compatible exceptions.
+  //  - false if both failed with compatible exceptions.
   //  - throws otherwise (incompatible exceptions or different results).
   bool verify(
       const core::TypedExprPtr& plan,
       const RowVectorPtr& rowVector,
       VectorPtr&& resultVector,
-      bool canThrow);
+      bool canThrow,
+      std::vector<column_index_t> columnsToWarpInLazy = {});
 
  private:
+  // Utility method used to serialize the relevant data required to repro a
+  // crash.
   void persistReproInfo(
       const VectorPtr& inputVector,
+      std::vector<column_index_t> columnsToWarpInLazy,
       const VectorPtr& resultVector,
       const std::string& sql);
 

@@ -29,9 +29,6 @@
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ArgumentTypeFuzzer.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
-#include "velox/type/Type.h"
-#include "velox/vector/BaseVector.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
 
 DEFINE_int32(steps, 10, "Number of expressions to generate and execute.");
 
@@ -97,6 +94,13 @@ DEFINE_bool(
     velox_fuzzer_enable_complex_types,
     false,
     "Enable testing of function signatures with complex argument or return types.");
+
+DEFINE_double(
+    lazy_vector_generation_ratio,
+    0.0,
+    "Specifies the probability with which columns in the input row "
+    "vector will be selected to be wrapped in lazy encoding "
+    "(expressed as double from 0 to 1).");
 
 namespace facebook::velox::test {
 
@@ -243,6 +247,22 @@ bool useTypeName(
     }
   }
   return false;
+}
+
+// Randomly pick columns from the input row vector to wrap in lazy.
+std::vector<column_index_t> generateLazyColumnIds(
+    const RowVectorPtr& rowVector,
+    VectorFuzzer& vectorFuzzer) {
+  std::vector<column_index_t> columnsToWrapInLazy;
+  if (FLAGS_lazy_vector_generation_ratio > 0) {
+    for (column_index_t idx = 0; idx < rowVector->childrenSize(); idx++) {
+      if (rowVector->childAt(idx) &&
+          vectorFuzzer.coinToss(FLAGS_lazy_vector_generation_ratio)) {
+        columnsToWrapInLazy.push_back(idx);
+      }
+    }
+  }
+  return columnsToWrapInLazy;
 }
 
 } // namespace
@@ -724,6 +744,8 @@ void ExpressionFuzzer::go() {
       resultVector = vectorFuzzer_.fuzzFlat(plan->type());
     }
 
+    auto columnsToWrapInLazy = generateLazyColumnIds(rowVector, vectorFuzzer_);
+
     // If both paths threw compatible exceptions, we add a try() function to
     // the expression's root and execute it again. This time the expression
     // cannot throw.
@@ -731,7 +753,8 @@ void ExpressionFuzzer::go() {
             plan,
             rowVector,
             resultVector ? BaseVector::copy(*resultVector) : nullptr,
-            true) &&
+            true,
+            columnsToWrapInLazy) &&
         FLAGS_retry_with_try) {
       LOG(INFO)
           << "Both paths failed with compatible exceptions. Retrying expression using try().";
@@ -744,7 +767,8 @@ void ExpressionFuzzer::go() {
           plan,
           rowVector,
           resultVector ? BaseVector::copy(*resultVector) : nullptr,
-          false);
+          false,
+          columnsToWrapInLazy);
     }
 
     LOG(INFO) << "==============================> Done with iteration " << i;

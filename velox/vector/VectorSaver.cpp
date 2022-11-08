@@ -774,4 +774,31 @@ std::optional<std::string> generateFilePath(
   }
   return path;
 }
+
+std::optional<std::string> generateFolderPath(
+    const char* basePath,
+    const char* prefix) {
+  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
+  auto createdPath = mkdtemp(path.data());
+  if (createdPath == nullptr) {
+    return std::nullopt;
+  }
+  return path;
+}
+
+template <typename T>
+void saveVectorTofile(const std::vector<T>& list, const char* filePath) {
+  std::ofstream outputFile(filePath, std::ofstream::binary);
+  // Size of the vector
+  write<int32_t>(list.size(), outputFile);
+
+  for (auto element : list) {
+    write<T>(element, outputFile);
+  }
+  outputFile.close();
+}
+
+template void saveVectorTofile<column_index_t>(
+    const std::vector<column_index_t>& list,
+    const char* filePath);
 } // namespace facebook::velox
