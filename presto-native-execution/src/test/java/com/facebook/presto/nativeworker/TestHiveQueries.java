@@ -564,36 +564,41 @@ abstract class TestHiveQueries
                 .build();
     }
 
+    private String generateRandomTableName()
+    {
+        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
     @Test
-    public void testCreateTableAsSelect()
+    public void testCreateUnpartitionedTableAsSelect()
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
                 .build();
         // Generate temporary table name.
-        String tmpTableName = "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        String tmpTableName = generateRandomTableName();
         // Clean up if temporary table already exists.
         dropTableIfExists(tmpTableName);
         try {
-            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT * FROM nation");
-            assertQuery("SELECT * FROM " + tmpTableName, "SELECT * FROM nation");
+            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT * FROM nation", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT * FROM nation");
         }
         finally {
             dropTableIfExists(tmpTableName);
         }
 
         try {
-            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1");
-            assertQuery("SELECT * FROM " + tmpTableName, "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
+            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT linenumber, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT linenumber, count(*) FROM lineitem GROUP BY 1");
         }
         finally {
             dropTableIfExists(tmpTableName);
         }
 
         try {
-            getQueryRunner().execute(session, "CREATE TABLE " + tmpTableName + " AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1");
-            assertQuery("SELECT * FROM " + tmpTableName, "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
+            getQueryRunner().execute(session, String.format("CREATE TABLE %s AS SELECT orderkey, count(*) as cnt FROM lineitem GROUP BY 1", tmpTableName));
+            assertQuery(String.format("SELECT * FROM %s", tmpTableName), "SELECT orderkey, count(*) FROM lineitem GROUP BY 1");
         }
         finally {
             dropTableIfExists(tmpTableName);
@@ -603,7 +608,7 @@ abstract class TestHiveQueries
     private void dropTableIfExists(String tableName)
     {
         // An ugly workaround for the lack of getExpectedQueryRunner()
-        computeExpected("DROP TABLE IF EXISTS " + tableName, ImmutableList.of(BIGINT));
+        computeExpected(String.format("DROP TABLE IF EXISTS %s", tableName), ImmutableList.of(BIGINT));
     }
 
     @Test
