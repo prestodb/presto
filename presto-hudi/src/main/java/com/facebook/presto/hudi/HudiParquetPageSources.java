@@ -149,14 +149,19 @@ class HudiParquetPageSources
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
-            ParquetReader parquetReader = ParquetReader.builder(messageColumnIO, blocks, dataSource, systemMemoryContext)
-                    .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                    .withBatchReadEnabled(isParquetBatchReadsEnabled(session))
-                    .withEnableVerification(isParquetBatchReaderVerificationEnabled(session))
-                    .withPredicate(parquetPredicate)
-                    .withBlockIndexStores(blockIndexStores)
-                    .withFileDecryptor(fileDecryptor)
-                    .build();
+            ParquetReader parquetReader = new ParquetReader(
+                    messageColumnIO,
+                    blocks,
+                    Optional.empty(),
+                    dataSource,
+                    systemMemoryContext,
+                    getParquetMaxReadBlockSize(session),
+                    isParquetBatchReadsEnabled(session),
+                    isParquetBatchReaderVerificationEnabled(session),
+                    parquetPredicate,
+                    blockIndexStores,
+                    false,
+                    fileDecryptor);
 
             ImmutableList.Builder<String> namesBuilder = ImmutableList.builder();
             ImmutableList.Builder<com.facebook.presto.common.type.Type> prestoTypes = ImmutableList.builder();
