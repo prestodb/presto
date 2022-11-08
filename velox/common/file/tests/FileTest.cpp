@@ -115,6 +115,34 @@ TEST(LocalFile, viaRegistry) {
   lfs->remove(filename);
 }
 
+TEST(LocalFile, rename) {
+  filesystems::registerLocalFileSystem();
+  auto tempFolder = ::exec::test::TempDirectoryPath::create();
+  auto a = fmt::format("{}/a", tempFolder->path);
+  auto b = fmt::format("{}/b", tempFolder->path);
+  auto newA = fmt::format("{}/newA", tempFolder->path);
+  const std::string data("aaaaa");
+  auto localFs = filesystems::getFileSystem(a, nullptr);
+  {
+    auto writeFile = localFs->openFileForWrite(a);
+    writeFile = localFs->openFileForWrite(b);
+    writeFile->append(data);
+    writeFile->close();
+  }
+  ASSERT_TRUE(localFs->exists(a));
+  ASSERT_TRUE(localFs->exists(b));
+  ASSERT_FALSE(localFs->exists(newA));
+  EXPECT_THROW(localFs->rename(a, b), VeloxUserError);
+  localFs->rename(a, newA);
+  ASSERT_FALSE(localFs->exists(a));
+  ASSERT_TRUE(localFs->exists(b));
+  ASSERT_TRUE(localFs->exists(newA));
+  localFs->rename(b, newA, true);
+  auto readFile = localFs->openFileForRead(newA);
+  char buffer[5];
+  ASSERT_EQ(readFile->pread(0, 5, &buffer), data);
+}
+
 TEST(LocalFile, exists) {
   filesystems::registerLocalFileSystem();
   auto tempFolder = ::exec::test::TempDirectoryPath::create();

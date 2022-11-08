@@ -49,6 +49,15 @@ class FileSystem {
   // Deletes the file at 'path'. Throws on error.
   virtual void remove(std::string_view path) = 0;
 
+  // Rename the file at 'path' to `newpath`. Throws on error.
+  // If 'overwrite' is true, then rename does overwrite if file at
+  // 'newPath' already exists.
+  // Throws a velox user exception on error.
+  virtual void rename(
+      std::string_view oldPath,
+      std::string_view newPath,
+      bool overwrite = false) = 0;
+
   // Returns true if the file exists.
   virtual bool exists(std::string_view path) = 0;
 

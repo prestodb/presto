@@ -49,6 +49,13 @@ class S3FileSystem : public FileSystem {
     VELOX_UNSUPPORTED("list for S3 not implemented");
   }
 
+  virtual void rename(
+      std::string_view path,
+      std::string_view newPath,
+      bool overWrite = false) {
+    VELOX_UNSUPPORTED("rename for S3 not implemented");
+  }
+
  protected:
   class Impl;
   std::shared_ptr<Impl> impl_;

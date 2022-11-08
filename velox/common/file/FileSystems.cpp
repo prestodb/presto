@@ -100,6 +100,31 @@ class LocalFileSystem : public FileSystem {
     }
   }
 
+  void rename(
+      std::string_view oldPath,
+      std::string_view newPath,
+      bool overwrite) override {
+    auto oldFile = extractPath(oldPath);
+    auto newFile = extractPath(newPath);
+    if (!overwrite && exists(newPath)) {
+      VELOX_USER_FAIL(
+          "Failed to rename file {} to {} with as {} exists.",
+          oldFile,
+          newFile,
+          newFile);
+      return;
+    }
+    int32_t rc =
+        ::rename(std::string(oldFile).c_str(), std::string(newFile).c_str());
+    if (rc != 0) {
+      VELOX_USER_FAIL(
+          "Failed to rename file {} to {} with errno {}",
+          oldFile,
+          newFile,
+          folly::errnoStr(errno));
+    }
+  }
+
   bool exists(std::string_view path) override {
     auto file = extractPath(path);
     return std::filesystem::exists(file);
