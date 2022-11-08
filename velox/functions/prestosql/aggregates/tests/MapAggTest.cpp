@@ -162,5 +162,51 @@ TEST_F(MapAggTest, globalDuplicateKeys) {
   testAggregations(vectors, {}, {"map_agg(c0, c1)"}, expectedResult);
 }
 
+/// Reproduces the bug reported in
+/// https://github.com/facebookincubator/velox/issues/3143
+TEST_F(MapAggTest, selectiveMaskWithDuplicates) {
+  auto data = makeRowVector({
+      // Grouping key with mostly unique values.
+      makeFlatVector<int64_t>(
+          100, [](auto row) { return row == 91 ? 90 : row; }),
+      // Keys. All the same. Grouping key '90' gets a duplicate key.
+      makeFlatVector<int64_t>(100, [](auto row) { return 27; }),
+      // Values. All unique.
+      makeFlatVector<int64_t>(100, [](auto row) { return row; }),
+      // Mask.
+      makeFlatVector<bool>(100, [](auto row) { return row > 85 && row < 95; }),
+  });
+
+  auto nonNullResults = makeMapVector<int64_t, int64_t>({
+      {{27, 86}},
+      {{27, 87}},
+      {{27, 88}},
+      {{27, 89}},
+      {{27, 90}},
+      {{27, 92}},
+      {{27, 93}},
+      {{27, 94}},
+  });
+
+  auto expectedResult = makeRowVector({
+      makeFlatVector<int64_t>(
+          99, [](auto row) { return row >= 91 ? row + 1 : row; }),
+      BaseVector::create(nonNullResults->type(), 99, pool()),
+  });
+  for (auto row = 0; row < 99; ++row) {
+    if (row > 85 && row < 94) {
+      expectedResult->childAt(1)->copy(nonNullResults.get(), row, row - 86, 1);
+    } else {
+      expectedResult->childAt(1)->setNull(row, true);
+    }
+  }
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({"c0"}, {"map_agg(c1, c2)"}, {"c3"})
+                  .planNode();
+  assertQuery(plan, {expectedResult});
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

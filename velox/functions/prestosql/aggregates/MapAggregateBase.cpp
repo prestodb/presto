@@ -88,7 +88,7 @@ VectorPtr MapAggregateBase::removeDuplicates(MapVectorPtr& mapVector) const {
         // Duplicate key found.
         duplicateCnt++;
         if (!rawNewSizes) {
-          newSizes = allocateSizes(numElements, mapVector->pool());
+          newSizes = allocateSizes(numRows, mapVector->pool());
           rawNewSizes = newSizes->asMutable<vector_size_t>();
 
           elementIndices = allocateIndices(numElements, mapVector->pool());
@@ -104,7 +104,7 @@ VectorPtr MapAggregateBase::removeDuplicates(MapVectorPtr& mapVector) const {
     if (rawNewSizes) {
       rawNewSizes[row] = size - duplicateCnt;
     }
-  };
+  }
 
   if (rawNewSizes) {
     return std::make_shared<MapVector>(
