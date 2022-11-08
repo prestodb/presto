@@ -107,7 +107,7 @@ std::unique_ptr<common::Filter> makeOrFilter(
 
 std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
     const core::TypedExprPtr& upperExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto upper = toConstant(upperExpr, queryCtx);
   switch (upper->typeKind()) {
     case TypeKind::TINYINT:
@@ -136,7 +136,7 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
 
 std::unique_ptr<common::Filter> makeLessThanFilter(
     const core::TypedExprPtr& upperExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto upper = toConstant(upperExpr, queryCtx);
   switch (upper->typeKind()) {
     case TypeKind::TINYINT:
@@ -165,7 +165,7 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
 
 std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
     const core::TypedExprPtr& lowerExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto lower = toConstant(lowerExpr, queryCtx);
   switch (lower->typeKind()) {
     case TypeKind::TINYINT:
@@ -194,7 +194,7 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
 
 std::unique_ptr<common::Filter> makeGreaterThanFilter(
     const core::TypedExprPtr& lowerExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto lower = toConstant(lowerExpr, queryCtx);
   switch (lower->typeKind()) {
     case TypeKind::TINYINT:
@@ -223,7 +223,7 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
 
 std::unique_ptr<common::Filter> makeEqualFilter(
     const core::TypedExprPtr& valueExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto value = toConstant(valueExpr, queryCtx);
   switch (value->typeKind()) {
     case TypeKind::BOOLEAN:
@@ -250,7 +250,7 @@ std::unique_ptr<common::Filter> makeEqualFilter(
 
 std::unique_ptr<common::Filter> makeNotEqualFilter(
     const core::TypedExprPtr& valueExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto value = toConstant(valueExpr, queryCtx);
 
   std::unique_ptr<common::Filter> lessThanFilter =
@@ -297,7 +297,7 @@ toInt64List(const VectorPtr& vector, vector_size_t start, vector_size_t size) {
 }
 
 std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto vector = toConstant(expr, queryCtx);
   VELOX_CHECK_EQ(vector->typeKind(), TypeKind::ARRAY);
 
@@ -335,7 +335,7 @@ std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
 std::unique_ptr<common::Filter> makeBetweenFilter(
     const core::TypedExprPtr& lowerExpr,
     const core::TypedExprPtr& upperExpr) {
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto lower = toConstant(lowerExpr, queryCtx);
   auto upper = toConstant(upperExpr, queryCtx);
   switch (lower->typeKind()) {

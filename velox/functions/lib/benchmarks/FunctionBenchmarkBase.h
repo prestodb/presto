@@ -60,7 +60,7 @@ class FunctionBenchmarkBase {
   }
 
  protected:
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};

@@ -29,7 +29,7 @@ TEST(HiveWriteProtocolTest, writerParameters) {
   HiveNoCommitWriteProtocol::registerProtocol();
   HiveTaskCommitWriteProtocol::registerProtocol();
 
-  auto queryCtx = QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<QueryCtx>();
   ConnectorQueryCtx connectorQueryCtx(
       queryCtx->pool(),
       queryCtx->getConnectorConfig(HiveConnectorFactory::kHiveConnectorName),

@@ -72,33 +72,6 @@ template <class... Ts>
 overloaded(Ts...) -> overloaded<Ts...>;
 
 namespace detail {
-
-template <
-    size_t Idx,
-    typename Tuple,
-    typename Func,
-    std::enable_if_t<Idx >= std::tuple_size<Tuple>::value, int32_t> = 0>
-void forEachWithIndex(Func&& func, Tuple&& tup) {}
-
-template <
-    size_t Idx,
-    typename Tuple,
-    typename Func,
-    std::enable_if_t<Idx<std::tuple_size<Tuple>::value, int32_t> = 0> void
-        forEachWithIndex(Func&& func, Tuple&& tup) {
-  func(Idx, std::get<Idx>(tup));
-  forEachWithIndex<Idx + 1>(std::forward<Func>(func), std::forward<Tuple>(tup));
-}
-
-} // namespace detail
-
-template <typename Func, typename Tuple>
-void forEachWithIndex(Func&& func, Tuple&& tup) {
-  detail::forEachWithIndex<0>(
-      std::forward<Func>(func), std::forward<Tuple>(tup));
-}
-
-namespace detail {
 template <typename...>
 struct voider {
   using type = void;

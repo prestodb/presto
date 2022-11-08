@@ -32,7 +32,8 @@ namespace vestrait = facebook::velox::substrait;
 
 class FunctionTest : public ::testing::Test {
  protected:
-  std::shared_ptr<core::QueryCtx> queryCtx_ = core::QueryCtx::createForTest();
+  std::shared_ptr<core::QueryCtx> queryCtx_ =
+      std::make_shared<core::QueryCtx>();
 
   std::unique_ptr<memory::ScopedMemoryPool> pool_ =
       memory::getDefaultScopedMemoryPool();

@@ -13,4 +13,4 @@
 # limitations under the License.
 add_library(velox_vector_test_lib VectorMaker.cpp VectorTestBase.cpp)
 
-target_link_libraries(velox_vector_test_lib velox_vector)
+target_link_libraries(velox_vector_test_lib velox_exec velox_vector)

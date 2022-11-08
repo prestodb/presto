@@ -113,7 +113,7 @@ void ExpressionRunner::run(
     const std::string& storeResultPath) {
   VELOX_CHECK(!sql.empty());
 
-  std::shared_ptr<core::QueryCtx> queryCtx{core::QueryCtx::createForTest()};
+  std::shared_ptr<core::QueryCtx> queryCtx{std::make_shared<core::QueryCtx>()};
   std::unique_ptr<memory::MemoryPool> pool{
       memory::getDefaultScopedMemoryPool()};
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};

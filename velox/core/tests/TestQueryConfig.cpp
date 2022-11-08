@@ -26,7 +26,8 @@ using ::facebook::velox::core::QueryCtx;
 TEST(TestQueryConfig, emptyConfig) {
   std::unordered_map<std::string, std::string> configData;
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = QueryCtx::createForTest(queryCtxConfig);
+  auto queryCtx = std::make_shared<QueryCtx>(
+      std::shared_ptr<folly::Executor>(nullptr), queryCtxConfig);
   const QueryConfig& config = queryCtx->config();
 
   ASSERT_FALSE(config.codegenEnabled());
@@ -40,7 +41,8 @@ TEST(TestQueryConfig, setConfig) {
       {{QueryConfig::kCodegenEnabled, "true"},
        {QueryConfig::kCodegenConfigurationFilePath, path}});
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
-  auto queryCtx = QueryCtx::createForTest(queryCtxConfig);
+  auto queryCtx = std::make_shared<QueryCtx>(
+      std::shared_ptr<folly::Executor>(nullptr), queryCtxConfig);
   const QueryConfig& config = queryCtx->config();
 
   ASSERT_TRUE(config.codegenEnabled());

@@ -580,7 +580,7 @@ class ExpressionCodegenTestBase : public testing::Test {
         core::ConcatTypedExpr({"c0"}, {typedExpr}));
   }
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   std::unique_ptr<core::ExecCtx> execCtx_{

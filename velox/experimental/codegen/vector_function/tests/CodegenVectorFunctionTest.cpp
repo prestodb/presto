@@ -103,7 +103,7 @@ TEST(TestConcat, EvalConcatFunction) {
   in2->addNulls(nullptr, rows);
 
   std::vector<VectorPtr> in{in1, in2};
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
   exec::EvalCtx context(execCtx.get(), nullptr, inRowVector->as<RowVector>());
   GeneratedVectorFunction<GeneratedVectorFunctionConfigDouble> vectorFunction;
@@ -195,7 +195,7 @@ TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   auto pool_ = memory::getDefaultScopedMemoryPool();
   auto pool = pool_.get();
   const size_t vectorSize = 1000;
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto execCtx = std::make_unique<core::ExecCtx>(pool, queryCtx.get());
 
   auto inRowType =

@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
       udf_map_resolver_vector, "map_resolver_vector");
 
   // Create memory pool and other query-related structures.
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
   auto pool = memory::getDefaultScopedMemoryPool();
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 

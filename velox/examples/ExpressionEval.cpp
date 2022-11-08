@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
   // QueryCtx holds the metadata and configuration associated with a
   // particular query. This is shared between all threads of execution
   // for the same query (one object per query).
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>();
 
   // ExecCtx holds structures associated with a single thread of execution
   // (one per thread). Each thread of execution requires a scoped memory pool,
