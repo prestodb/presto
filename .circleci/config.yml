@@ -150,17 +150,17 @@ commands:
 executors:
   build:
     docker:
-      - image : prestocpp/velox-avx-circleci:kpai-20221017
+      - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
     resource_class: 2xlarge
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
         CXX: /opt/rh/gcc-toolset-9/root/bin/g++
   check:
     docker:
-      - image : prestocpp/velox-check:mikesh-20210609
+      - image : ghcr.io/facebookincubator/velox-dev:check-avx
   doc-gen:
     docker:
-      - image : prestocpp/velox-circleci:sagarm-20220131
+      - image : ghcr.io/facebookincubator/velox-dev:circleci-avx
 
 jobs:
   macos-build:
