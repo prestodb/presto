@@ -72,12 +72,61 @@ TEST_F(ArrayAggTest, global) {
 }
 
 TEST_F(ArrayAggTest, globalNoData) {
-  std::vector<RowVectorPtr> vectors = {
-      vectorMaker_.rowVector(ROW({"c0"}, {INTEGER()}), 0)};
-  auto expected = makeRowVector({makeArrayVector<int32_t>({{}})});
+  auto data = makeRowVector(ROW({"c0"}, {INTEGER()}), 0);
 
-  createDuckDbTable(vectors);
-  testAggregations(vectors, {}, {"array_agg(c0)"}, {expected});
+  testAggregations({data}, {}, {"array_agg(c0)"}, "SELECT null");
+}
+
+TEST_F(ArrayAggTest, mask) {
+  // Global aggregation with all-false mask.
+  auto data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      makeConstant(false, 5),
+  });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"array_agg(c0)"}, {"c1"})
+                  .planNode();
+  assertQuery(plan, "SELECT null");
+
+  // Global aggregation with a non-constant mask.
+  data = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      makeFlatVector<bool>({true, false, true, false, true}),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({}, {"array_agg(c0)"}, {"c1"})
+             .planNode();
+  assertQuery(plan, "SELECT [1, 3, 5]");
+
+  // Group-by with all-false mask.
+  data = makeRowVector({
+      makeFlatVector<int64_t>({10, 20, 10, 20, 20}),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      makeConstant(false, 5),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"array_agg(c1)"}, {"c2"})
+             .planNode();
+  assertQuery(plan, "VALUES (10, null), (20, null)");
+
+  // Group-by with a non-constant mask.
+  data = makeRowVector({
+      makeFlatVector<int64_t>({10, 20, 10, 20, 20}),
+      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
+      makeFlatVector<bool>({true, false, true, false, true}),
+  });
+
+  plan = PlanBuilder()
+             .values({data})
+             .singleAggregation({"c0"}, {"array_agg(c1)"}, {"c2"})
+             .planNode();
+  assertQuery(plan, "VALUES (10, [1, 3]), (20, [5])");
 }
 
 } // namespace

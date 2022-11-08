@@ -64,11 +64,11 @@ class ArrayAggAggregate : public exec::Aggregate {
     uint64_t* rawNulls = getRawNulls(vector);
     vector_size_t offset = 0;
     for (int32_t i = 0; i < numGroups; ++i) {
-      clearNull(rawNulls, i);
-
       auto& values = value<ArrayAccumulator>(groups[i])->elements;
       auto arraySize = values.size();
       if (arraySize) {
+        clearNull(rawNulls, i);
+
         ValueListReader reader(values);
         for (auto index = 0; index < arraySize; ++index) {
           reader.next(*elements, offset + index);
@@ -76,7 +76,7 @@ class ArrayAggAggregate : public exec::Aggregate {
         vector->setOffsetAndSize(i, offset, arraySize);
         offset += arraySize;
       } else {
-        vector->setOffsetAndSize(i, offset, 0);
+        vector->setNull(i, true);
       }
     }
   }
