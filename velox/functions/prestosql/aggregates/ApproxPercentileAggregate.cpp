@@ -454,7 +454,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
       const SelectivityVector& rows,
       const BaseVector& vec) {
     DecodedVector decoded(vec, rows);
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         decoded.isConstantMapping(),
         "Percentile argument must be constant for all input rows");
     bool isArray;
@@ -470,11 +470,15 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     } else if (decoded.base()->typeKind() == TypeKind::ARRAY) {
       isArray = true;
       auto arrays = decoded.base()->asUnchecked<ArrayVector>();
+      VELOX_USER_CHECK(
+          arrays->elements()->isFlatEncoding(),
+          "Only flat encoding is allowed for percentile array elements");
       auto elements = arrays->elements()->asFlatVector<double>();
       data = elements->rawValues() + arrays->offsetAt(i);
       len = arrays->sizeAt(i);
     } else {
-      VELOX_UNREACHABLE();
+      VELOX_USER_FAIL(
+          "Incorrect type for percentile: {}", decoded.base()->typeKind());
     }
     checkSetPercentile(isArray, data, len);
   }

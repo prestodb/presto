@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/common/base/RandomUtil.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/prestosql/aggregates/tests/AggregationTestBase.h"
 
@@ -303,6 +305,33 @@ TEST_F(ApproxPercentileTest, finalAggregateAccuracy) {
                 .finalAggregation()
                 .planNode();
   assertQuery(op, "SELECT 5");
+}
+
+TEST_F(ApproxPercentileTest, invalidEncoding) {
+  auto indices = AlignedBuffer::allocate<vector_size_t>(3, pool());
+  auto rawIndices = indices->asMutable<vector_size_t>();
+  std::iota(rawIndices, rawIndices + indices->size(), 0);
+  auto percentiles = std::make_shared<ArrayVector>(
+      pool(),
+      ARRAY(DOUBLE()),
+      nullptr,
+      1,
+      AlignedBuffer::allocate<vector_size_t>(1, pool(), 0),
+      AlignedBuffer::allocate<vector_size_t>(1, pool(), 3),
+      BaseVector::wrapInDictionary(
+          nullptr, indices, 1, makeFlatVector<double>({0, 0.5, 1})));
+  auto rows = makeRowVector({
+      makeFlatVector<int32_t>(10, folly::identity),
+      BaseVector::wrapInConstant(1, 0, percentiles),
+  });
+  auto plan = PlanBuilder()
+                  .values({rows})
+                  .singleAggregation({}, {"approx_percentile(c0, c1)"})
+                  .planNode();
+  AssertQueryBuilder assertQuery(plan);
+  VELOX_ASSERT_THROW(
+      assertQuery.copyResults(pool()),
+      "Only flat encoding is allowed for percentile array elements");
 }
 
 } // namespace
