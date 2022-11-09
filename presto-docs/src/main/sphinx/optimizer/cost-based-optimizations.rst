@@ -16,7 +16,7 @@ data for longer than necessary, increasing the time and resources needed for
 the query.
 
 With cost based join enumeration, Presto uses
-cdoc:`/optimizer/statistics` provided by connectors to estimate
+:doc:`/optimizer/statistics` provided by connectors to estimate
 the costs for different join orders and automatically pick the
 join order with the lowest computed costs.
 
