@@ -433,10 +433,20 @@ public class TestEncryption
             nextStart += block.getRowCount();
         }
 
-        return ParquetReader.builder(messageColumn, blocks.build(), dataSource, newSimpleAggregatedMemoryContext())
-                .withMaxReadBlockSize(new DataSize(100000, DataSize.Unit.BYTE))
-                .withFileDecryptor(fileDecryptor)
-                .build();
+        return new ParquetReader(
+                messageColumn,
+                blocks.build(),
+                Optional.empty(),
+                dataSource,
+                com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext(),
+                new DataSize(100000, DataSize.Unit.BYTE),
+                false,
+                false,
+                null,
+                null,
+                false,
+                fileDecryptor);
+
     }
 
     private void validateFile(ParquetReader parquetReader, MessageColumnIO messageColumn, EncryptionTestFile inputFile)
