@@ -167,8 +167,12 @@ velox::variant readSingleValue(
     const std::shared_ptr<const core::PlanNode>& plan,
     int32_t maxDrivers = 1);
 
-void assertEqualResults(
+bool assertEqualResults(
     const std::vector<RowVectorPtr>& expected,
+    const std::vector<RowVectorPtr>& actual);
+
+bool assertEqualResults(
+    const MaterializedRowMultiset& expected,
     const std::vector<RowVectorPtr>& actual);
 
 void printResults(const RowVectorPtr& result, std::ostream& out);

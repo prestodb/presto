@@ -93,6 +93,7 @@ class SignatureBinder : private SignatureBinderBase {
     return tryResolveType(
         typeSignature, typeParameters, constraints, integerParameters);
   }
+
   /// Returns concrete return type or null if couldn't fully resolve.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,

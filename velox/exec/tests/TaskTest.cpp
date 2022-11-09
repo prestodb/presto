@@ -466,7 +466,8 @@ TEST_F(TaskTest, singleThreadedExecution) {
   uint64_t numDeletedTasks = Task::numDeletedTasks();
   {
     auto [task, results] = executeSingleThreaded(plan);
-    assertEqualResults({expectedResult, expectedResult}, results);
+    assertEqualResults(
+        std::vector<RowVectorPtr>{expectedResult, expectedResult}, results);
   }
   ASSERT_EQ(numCreatedTasks + 1, Task::numCreatedTasks());
   ASSERT_EQ(numDeletedTasks + 1, Task::numDeletedTasks());

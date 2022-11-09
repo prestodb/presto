@@ -118,3 +118,13 @@ target_link_libraries(
   velox_exec_test_lib
   velox_tpch_connector
   velox_memory)
+
+add_library(velox_aggregation_fuzzer AggregationFuzzer.cpp)
+
+target_link_libraries(velox_aggregation_fuzzer velox_type velox_vector_fuzzer
+                      velox_exec_test_lib velox_expression_test_utility)
+
+add_executable(velox_aggregation_fuzzer_test AggregationFuzzerTest.cpp)
+
+target_link_libraries(velox_aggregation_fuzzer_test velox_aggregation_fuzzer
+                      velox_aggregates gtest gtest_main)
