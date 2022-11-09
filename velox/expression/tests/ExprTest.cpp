@@ -3055,3 +3055,31 @@ TEST_F(ExprTest, applyFunctionNoResult) {
       "and(no_op(c0), 1:BOOLEAN)",
       "Function neither returned results nor threw exception.");
 }
+
+TEST_F(ExprTest, mapKeysAndValues) {
+  // Verify that the right size of maps and keys arrays are created. This is
+  // done by executing eval with a selectivity vector larger than the size of
+  // the input map but with the extra trailing rows marked invalid. Finally, if
+  // map_keys/_values tried to create a larger result array (equivalent to
+  // rows.size()) this will throw.
+  vector_size_t vectorSize = 100;
+  VectorPtr mapVector = std::make_shared<MapVector>(
+      pool_.get(),
+      MAP(BIGINT(), BIGINT()),
+      makeNulls(vectorSize, nullEvery(3)),
+      vectorSize,
+      makeIndices(vectorSize, [](auto /* row */) { return 0; }),
+      makeIndices(vectorSize, [](auto /* row */) { return 1; }),
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeFlatVector<int64_t>({10, 20, 30}));
+  auto input = makeRowVector({mapVector});
+  auto exprSet = compileMultiple(
+      {"map_keys(c0)", "map_values(c0)"}, asRowType(input->type()));
+  exec::EvalCtx context(execCtx_.get(), exprSet.get(), input.get());
+
+  SelectivityVector rows(vectorSize + 1);
+  rows.setValid(vectorSize, false);
+  rows.updateBounds();
+  std::vector<VectorPtr> result(2);
+  ASSERT_NO_THROW(exprSet->eval(rows, context, result));
+}
