@@ -53,4 +53,14 @@ public interface LogicalProperties
      * @return True if there is provably at most one tuple or false otherwise.
      */
     boolean isAtMost(long n);
+
+    /**
+     * Determines whether one set of expressions (expressions) can be realized/rewritten
+     * in terms of the other (targetVariables) using EquivalenceClasses
+     *
+     * @param expressions
+     * @param targetVariables
+     * @return True if all expressions can be realized in terms of targetVariables
+     */
+    boolean canBeHomogenized(Set<VariableReferenceExpression> expressions, Set<VariableReferenceExpression> targetVariables);
 }

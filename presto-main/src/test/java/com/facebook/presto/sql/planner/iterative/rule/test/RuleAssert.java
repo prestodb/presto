@@ -43,7 +43,9 @@ import com.facebook.presto.sql.planner.iterative.Memo;
 import com.facebook.presto.sql.planner.iterative.PlanNodeMatcher;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl;
+import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.TranslateExpressions;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableSet;
 
@@ -265,6 +267,7 @@ public class RuleAssert
     {
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, variableAllocator.getTypes());
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
+        LogicalPropertiesProvider logicalPropertiesProvider = new LogicalPropertiesProviderImpl(new FunctionResolution(metadata.getFunctionAndTypeManager()));
 
         return new Rule.Context()
         {
@@ -311,6 +314,12 @@ public class RuleAssert
             public WarningCollector getWarningCollector()
             {
                 return WarningCollector.NOOP;
+            }
+
+            @Override
+            public Optional<LogicalPropertiesProvider> getLogicalPropertiesProvider()
+            {
+                return Optional.of(logicalPropertiesProvider);
             }
         };
     }

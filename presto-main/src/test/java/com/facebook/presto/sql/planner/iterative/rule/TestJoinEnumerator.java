@@ -23,6 +23,7 @@ import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.LogicalPropertiesProvider;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -181,6 +182,12 @@ public class TestJoinEnumerator
             public WarningCollector getWarningCollector()
             {
                 return WarningCollector.NOOP;
+            }
+
+            @Override
+            public Optional<LogicalPropertiesProvider> getLogicalPropertiesProvider()
+            {
+                return Optional.empty();
             }
         };
     }
