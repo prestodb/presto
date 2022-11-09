@@ -95,7 +95,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       maxUserMemoryPerNode, maxSystemMemoryPerNode, maxTotalMemoryPerNode));
 
   auto queryCtx = std::make_shared<core::QueryCtx>(
-      executor(),
+      executor().get(),
       config,
       connectorConfigs,
       memory::MappedMemory::getInstance(),
