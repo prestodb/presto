@@ -46,8 +46,10 @@ class SimpleAggregatesTest : public WindowTestBase {
 
   void testWindowFunction(
       const std::vector<RowVectorPtr>& vectors,
-      const std::vector<std::string>& overClauses) {
-    WindowTestBase::testWindowFunction(vectors, function_, overClauses);
+      const std::vector<std::string>& overClauses,
+      const std::vector<std::string>& frameClauses = {""}) {
+    WindowTestBase::testWindowFunction(
+        vectors, function_, overClauses, frameClauses);
   }
 
   const std::string function_;
@@ -105,6 +107,21 @@ TEST_P(MultiAggregatesTest, randomInput) {
   };
 
   testWindowFunction(vectors, overClauses);
+}
+
+TEST_P(MultiAggregatesTest, basicRangeFrames) {
+  SimpleAggregatesTest::testWindowFunction(
+      {makeBasicVectors(50)}, kFrameOverClauses, kRangeFrameClauses);
+}
+
+TEST_P(MultiAggregatesTest, basicRangeFramesWithSortOrders) {
+  SimpleAggregatesTest::testWindowFunction(
+      {makeBasicVectors(50)}, kSortOrderBasedOverClauses, kRangeFrameClauses);
+}
+
+TEST_P(MultiAggregatesTest, singlePartitionRangeFrames) {
+  SimpleAggregatesTest::testWindowFunction(
+      {makeSinglePartitionVector(100)}, kFrameOverClauses, kRangeFrameClauses);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

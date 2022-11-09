@@ -200,5 +200,38 @@ TEST_F(NthValueTest, offsetValues) {
       {vectors}, "nth_value(c0, c2)", overClause, offsetError);
 }
 
+TEST_F(NthValueTest, basicRangeFrames) {
+  auto vectors = makeBasicVectors(50);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kFrameOverClauses, kRangeFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 1)", kFrameOverClauses, kRangeFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRangeFrameClauses);
+}
+
+TEST_F(NthValueTest, singlePartitionRangeFrames) {
+  auto vectors = makeSinglePartitionVectors(400);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kFrameOverClauses, kRangeFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRangeFrameClauses);
+}
+
+TEST_F(NthValueTest, multiInputRangeFrames) {
+  auto vectors = makeSinglePartitionVectors(200);
+  auto doubleVectors = {vectors, vectors};
+
+  testWindowFunction(
+      doubleVectors,
+      "nth_value(c0, c2)",
+      kFrameOverClauses,
+      kRangeFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRangeFrameClauses);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

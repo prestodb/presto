@@ -48,6 +48,32 @@ static std::vector<std::string> kSortOrderBasedOverClauses = {
     "order by c1 desc nulls first, c0 asc nulls first",
 };
 
+/// Common set of window function over clauses for window frame tests to ensure
+/// total ordering for deterministic results in ROW mode.
+static std::vector<std::string> kFrameOverClauses = {
+    "partition by c0 order by c1, c2",
+    "partition by c1 order by c0, c2",
+    "partition by c0 order by c2, c1",
+    "partition by c1 order by c2, c0",
+    // No partition by clause.
+    "order by c0 asc nulls first, c1 desc, c2 asc",
+    "order by c1 asc, c0 desc nulls last, c2 desc",
+    "order by c0 asc, c2 desc, c1 asc nulls last",
+    "order by c2 asc, c1 desc nulls first, c0 asc",
+    // No order by clause.
+    "partition by c0, c1, c2",
+};
+
+/// Common set of window function frame clauses in RANGE mode, with current row,
+/// unbounded preceding, and unbounded following frame combinations.
+static std::vector<std::string> kRangeFrameClauses = {
+    "range unbounded preceding",
+    "range current row",
+    "range between unbounded preceding and current row",
+    "range between current row and unbounded following",
+    "range between unbounded preceding and unbounded following",
+};
+
 class WindowTestBase : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override {
@@ -84,7 +110,8 @@ class WindowTestBase : public exec::test::OperatorTestBase {
   void testWindowFunction(
       const std::vector<RowVectorPtr>& input,
       const std::string& function,
-      const std::vector<std::string>& overClauses);
+      const std::vector<std::string>& overClauses,
+      const std::vector<std::string>& frameClauses = {""});
 
   /// This function tests the SQL query for the window function and overClause
   /// combination with the input RowVectors. It is expected that query execution
@@ -99,6 +126,7 @@ class WindowTestBase : public exec::test::OperatorTestBase {
   void testWindowFunction(
       const std::vector<RowVectorPtr>& input,
       const std::string& function,
-      const std::string& overClause);
+      const std::string& overClause,
+      const std::string& frameClause = "");
 };
 }; // namespace facebook::velox::window::test

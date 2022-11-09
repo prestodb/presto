@@ -158,12 +158,13 @@ class AggregateWindowFunction : public exec::WindowFunction {
     vector_size_t lastRow = rawFrameEnds[0];
 
     bool nonDecreasingFrameEnd = true;
+    bool fixedFirstRow = true;
     for (int i = 1; i < numRows; i++) {
       firstRow = std::min(firstRow, rawFrameStarts[i]);
       lastRow = std::max(lastRow, rawFrameEnds[i]);
+      fixedFirstRow &= rawFrameStarts[i] == firstRow;
       nonDecreasingFrameEnd &= rawFrameEnds[i] >= rawFrameEnds[i - 1];
     }
-    bool fixedFirstRow = firstRow == rawFrameStarts[0];
 
     vector_size_t numFrameRows = lastRow + 1 - firstRow;
     for (int i = 0; i < argIndices_.size(); i++) {

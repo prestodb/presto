@@ -34,8 +34,12 @@ struct QueryInfo {
 QueryInfo buildWindowQuery(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
-    const std::string& overClause) {
-  auto functionSql = fmt::format("{} over ({})", function, overClause);
+    const std::string& overClause,
+    const std::optional<std::string> frameClause) {
+  auto functionSql = frameClause
+      ? fmt::format(
+            "{} over ({} {})", function, overClause, frameClause.value())
+      : fmt::format("{} over ({})", function, overClause);
 
   auto op = PlanBuilder().values(input).window({functionSql}).planNode();
 
@@ -92,8 +96,9 @@ std::vector<RowVectorPtr> WindowTestBase::makeFuzzVectors(
 void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
-    const std::string& overClause) {
-  auto queryInfo = buildWindowQuery(input, function, overClause);
+    const std::string& overClause,
+    const std::string& frameClause) {
+  auto queryInfo = buildWindowQuery(input, function, overClause, frameClause);
   SCOPED_TRACE(queryInfo.functionSql);
   assertQuery(queryInfo.planNode, queryInfo.querySql);
 }
@@ -101,10 +106,13 @@ void WindowTestBase::testWindowFunction(
 void WindowTestBase::testWindowFunction(
     const std::vector<RowVectorPtr>& input,
     const std::string& function,
-    const std::vector<std::string>& overClauses) {
+    const std::vector<std::string>& overClauses,
+    const std::vector<std::string>& frameClauses) {
   createDuckDbTable(input);
   for (const auto& overClause : overClauses) {
-    testWindowFunction(input, function, overClause);
+    for (const auto& frameClause : frameClauses) {
+      testWindowFunction(input, function, overClause, frameClause);
+    }
   }
 }
 
@@ -113,7 +121,7 @@ void WindowTestBase::assertWindowFunctionError(
     const std::string& function,
     const std::string& overClause,
     const std::string& errorMessage) {
-  auto queryInfo = buildWindowQuery(input, function, overClause);
+  auto queryInfo = buildWindowQuery(input, function, overClause, std::nullopt);
   SCOPED_TRACE(queryInfo.functionSql);
 
   VELOX_ASSERT_THROW(
