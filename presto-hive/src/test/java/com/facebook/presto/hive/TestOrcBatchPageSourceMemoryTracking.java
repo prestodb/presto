@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.stats.Distribution;
 import com.facebook.presto.cache.CacheConfig;
+import com.facebook.presto.common.FileFormatDataSourceStats;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.TupleDomain;

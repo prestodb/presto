@@ -93,6 +93,21 @@
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.facebook.airlift</groupId>
+                    <artifactId>stats</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.weakref</groupId>
+                    <artifactId>jmxutils</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-hive-metastore</artifactId>
         </dependency>
 
         <dependency>
