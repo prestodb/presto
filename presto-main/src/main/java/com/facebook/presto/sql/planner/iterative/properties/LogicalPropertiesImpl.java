@@ -17,7 +17,6 @@ import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.LogicalProperties;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
-import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.relational.FunctionResolution;
 
@@ -164,6 +163,26 @@ public class LogicalPropertiesImpl
         return maxCardProperty.isAtMost(n);
     }
 
+    /**
+     * Determines whether one set of expressions (expressions) can be realized/rewritten
+     * in terms of the other (targetVariables) using EquivalenceClasses
+     * @param expressions
+     * @param targetVariables
+     * @return True if all expressions can be realized in terms of targetVariables
+     */
+    public boolean canBeHomogenized(Set<VariableReferenceExpression> expressions, Set<VariableReferenceExpression> targetVariables)
+    {
+        Set<RowExpression> expressionsInTermsOfEquivalenceClassHeads = expressions.stream()
+                .map(equivalenceClassProperty::getEquivalenceClassHead)
+                .collect(Collectors.toSet());
+
+        Set<RowExpression> targetVariablesInTermsOfEquivalenceClassHeads = targetVariables.stream()
+                .map(equivalenceClassProperty::getEquivalenceClassHead)
+                .collect(Collectors.toSet());
+
+        return targetVariablesInTermsOfEquivalenceClassHeads.containsAll(expressionsInTermsOfEquivalenceClassHeads);
+    }
+
     private boolean keyRequirementSatisfied(Key keyRequirement)
     {
         if (maxCardProperty.isAtMostOne()) {
@@ -273,10 +292,10 @@ public class LogicalPropertiesImpl
      * This logical properties builder should be used by PlanNode's that propagate their source
      * properties and add a unique key. For example, an AggregationNode with a single grouping key
      * propagates it's input properties and adds the grouping key attributes as a new unique key.
-     * The resulting properties are projected by the provided output variables.
+     * All computed logical properties are propagated (including ones that are projected out)
      */
 
-    public static LogicalPropertiesImpl aggregationProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, List<VariableReferenceExpression> outputVariables)
+    public static LogicalPropertiesImpl aggregationProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables)
     {
         checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
 
@@ -292,18 +311,19 @@ public class LogicalPropertiesImpl
             KeyProperty keyProperty = new KeyProperty(sourceProperties.keyProperty);
             resultProperties = new LogicalPropertiesImpl(equivalenceClassProperty, maxCardProperty, keyProperty);
         }
-        //project the properties using the output variables to ensure only the interesting constraints propagate
-        return projectProperties(resultProperties, AssignmentUtils.identityAssignments(outputVariables));
+        // Emit all interesting constraints, including ones that may be projected out
+        // Some optimizations (e.g. canBeHomogenized) may utilize these
+        return resultProperties;
     }
 
     /**
      * This logical properties builder should be used by PlanNode's that propagate their source
      * properties, add a unique key, and also limit the result. For example, a DistinctLimitNode.
      */
-    public static LogicalPropertiesImpl distinctLimitProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, Long limit, List<VariableReferenceExpression> outputVariables)
+    public static LogicalPropertiesImpl distinctLimitProperties(LogicalPropertiesImpl sourceProperties, Set<VariableReferenceExpression> keyVariables, Long limit)
     {
         checkArgument(!keyVariables.isEmpty(), "keyVariables is empty");
-        LogicalPropertiesImpl aggregationProperties = aggregationProperties(sourceProperties, keyVariables, outputVariables);
+        LogicalPropertiesImpl aggregationProperties = aggregationProperties(sourceProperties, keyVariables);
         return propagateAndLimitProperties(aggregationProperties, limit);
     }
 
@@ -350,7 +370,6 @@ public class LogicalPropertiesImpl
                                                        List<JoinNode.EquiJoinClause> equijoinPredicates,
                                                        JoinNode.Type joinType,
                                                        Optional<RowExpression> filterPredicate,
-                                                       List<VariableReferenceExpression> outputVariables,
                                                        FunctionResolution functionResolution)
     {
         MaxCardProperty maxCardProperty = new MaxCardProperty();
@@ -412,10 +431,9 @@ public class LogicalPropertiesImpl
         }
 
         //since we likely merged equivalence class from left and right source we will normalize the key property
-        LogicalPropertiesImpl resultProperties = normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
-
-        //project the resulting properties by the output variables
-        return projectProperties(resultProperties, AssignmentUtils.identityAssignments(outputVariables));
+        // Emit all interesting constraints, including ones that may be projected out
+        // Some optimizations (e.g. canBeHomogenized) may utilize these
+        return normalizeKeyPropertyAndSetMaxCard(keyProperty, maxCardProperty, equivalenceClassProperty);
     }
 
     /**
