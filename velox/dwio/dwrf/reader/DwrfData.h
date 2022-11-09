@@ -74,7 +74,7 @@ class DwrfData : public dwio::common::FormatData {
     return flatMapContext_;
   }
 
-  const uint64_t* inMap() const {
+  const uint64_t* FOLLY_NULLABLE inMap() const {
     return flatMapContext_.inMapDecoder ? inMap_->as<uint64_t>() : nullptr;
   }
 
