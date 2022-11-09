@@ -29,37 +29,13 @@ namespace dwio {
 namespace common {
 
 template <typename T, typename = std::enable_if_t<std::is_trivial_v<T>>>
-class DataBuffer final {
- private:
-  velox::memory::AbstractMemoryPool& pool_;
-  T* buf_;
-  // current size
-  uint64_t size_;
-  // maximal capacity (actual allocated memory)
-  uint64_t capacity_;
-  // the referenced velox buffer. buf_ owns the memory when this veloxRef_ is
-  // nullptr.
-  const velox::BufferPtr veloxRef_;
-
-  DataBuffer(
-      velox::memory::AbstractMemoryPool& pool,
-      const velox::BufferPtr& buffer)
-      : pool_{pool}, veloxRef_{buffer} {
-    buf_ = const_cast<T*>(veloxRef_->as<T>());
-    size_ = veloxRef_->size() / sizeof(T);
-    capacity_ = size_;
-  }
-
-  uint64_t sizeInBytes(uint64_t items) const {
-    return sizeof(T) * items;
-  }
-
+class DataBuffer {
  public:
-  DataBuffer(velox::memory::AbstractMemoryPool& pool, uint64_t size = 0)
-      : pool_(pool),
+  explicit DataBuffer(velox::memory::MemoryPool& pool, uint64_t size = 0)
+      : pool_(&pool),
         // Initial allocation uses calloc, to avoid memset.
         buf_(reinterpret_cast<T*>(
-            pool_.allocateZeroFilled(sizeInBytes(size), 1))),
+            pool_->allocateZeroFilled(sizeInBytes(size), 1))),
         size_(size),
         capacity_(size) {
     DWIO_ENSURE(buf_ != nullptr || size == 0);
@@ -67,23 +43,29 @@ class DataBuffer final {
 
   DataBuffer(DataBuffer&& other) noexcept
       : pool_{other.pool_},
+        veloxRef_{other.veloxRef_},
         buf_{other.buf_},
         size_{other.size_},
         capacity_{other.capacity_} {
+    DWIO_ENSURE_EQ((pool_ == nullptr), (veloxRef_ != nullptr));
     other.buf_ = nullptr;
     other.size_ = 0;
     other.capacity_ = 0;
   }
 
+  DataBuffer(const DataBuffer&) = delete;
+  DataBuffer& operator=(DataBuffer&) = delete;
+  DataBuffer& operator=(DataBuffer&&) = delete;
+
   ~DataBuffer() {
     clear();
   }
 
-  T* data() {
+  T* FOLLY_NULLABLE data() {
     return buf_;
   }
 
-  const T* data() const {
+  const T* FOLLY_NULLABLE data() const {
     return buf_;
   }
 
@@ -116,18 +98,23 @@ class DataBuffer final {
   }
 
   void reserve(uint64_t capacity) {
-    // After resetting the buffer, capacity always resets to zero.
-    if (capacity > capacity_ || !buf_) {
-      auto newSize = sizeInBytes(capacity);
-      if (!buf_) {
-        buf_ = reinterpret_cast<T*>(pool_.allocate(newSize));
-      } else {
-        buf_ = reinterpret_cast<T*>(
-            pool_.reallocate(buf_, sizeInBytes(capacity_), newSize));
-      }
-      DWIO_ENSURE(buf_ != nullptr || newSize == 0);
-      capacity_ = capacity;
+    if (capacity <= capacity_) {
+      // After resetting the buffer, capacity always resets to zero.
+      DWIO_ENSURE_NOT_NULL(buf_);
+      return;
     }
+    if (veloxRef_ != nullptr) {
+      DWIO_RAISE("Can't reserve on a referenced buffer");
+    }
+    const auto newSize = sizeInBytes(capacity);
+    if (buf_ == nullptr) {
+      buf_ = reinterpret_cast<T*>(pool_->allocate(newSize));
+    } else {
+      buf_ = reinterpret_cast<T*>(
+          pool_->reallocate(buf_, sizeInBytes(capacity_), newSize));
+    }
+    DWIO_ENSURE(buf_ != nullptr || newSize == 0);
+    capacity_ = capacity;
   }
 
   void extend(uint64_t size) {
@@ -155,12 +142,29 @@ class DataBuffer final {
     append(offset, src.data() + srcOffset, items);
   }
 
-  void append(uint64_t offset, const T* src, uint64_t items) {
+  void append(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items) {
     reserve(offset + items);
     unsafeAppend(offset, src, items);
   }
 
-  void extendAppend(uint64_t offset, const T* src, uint64_t items) {
+  /// Set a value to the specified offset - if offset overflows current capacity
+  /// It safely allocate more space to meet the request.
+  void safeSet(uint64_t offset, T value) {
+    if (offset >= capacity_) {
+      // 50% increasing capacity or offset;
+      auto size = std::max(offset + 1, capacity_ + ((capacity_ + 1) / 2) + 1);
+      reserve(size);
+      VLOG(1) << "reserve size: " << size << " for offset set: " << offset;
+    }
+
+    buf_[offset] = value;
+    if (offset >= size_) {
+      size_ = offset + 1;
+    }
+  }
+
+  void
+  extendAppend(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items) {
     auto newSize = offset + items;
     if (UNLIKELY(newSize > capacity_)) {
       reserve(newSize + ((newSize + 1) / 2) + 1);
@@ -168,7 +172,8 @@ class DataBuffer final {
     unsafeAppend(offset, src, items);
   }
 
-  void unsafeAppend(uint64_t offset, const T* src, uint64_t items) {
+  void
+  unsafeAppend(uint64_t offset, const T* FOLLY_NONNULL src, uint64_t items) {
     if (LIKELY(items > 0)) {
       std::memcpy(data() + offset, src, sizeInBytes(items));
     }
@@ -186,53 +191,43 @@ class DataBuffer final {
     unsafeAppend(value);
   }
 
-  /**
-   * Set a value to the specified offset - if offset overflows current capacity
-   * It safely allocate more space to meet the request
-   */
-  void safeSet(uint64_t offset, T value) {
-    if (offset >= capacity_) {
-      // 50% increasing capacity or offset;
-      auto size = std::max(offset + 1, capacity_ + ((capacity_ + 1) / 2) + 1);
-      reserve(size);
-      VLOG(1) << "reserve size: " << size << " for offset set: " << offset;
-    }
-
-    buf_[offset] = value;
-    if (offset >= size_) {
-      size_ = offset + 1;
-    }
-  }
-
   void clear() {
     if (!veloxRef_ && buf_) {
-      pool_.free(buf_, sizeInBytes(capacity_));
+      pool_->free(buf_, sizeInBytes(capacity_));
     }
     size_ = 0;
     capacity_ = 0;
     buf_ = nullptr;
   }
 
-  DataBuffer(const DataBuffer&) = delete;
-  DataBuffer& operator=(DataBuffer&) = delete;
-  DataBuffer& operator=(DataBuffer&&) = delete;
-
-  friend class DataBufferFactory;
-};
-
-class DataBufferFactory {
- public:
-  template <typename T>
   static std::shared_ptr<const DataBuffer<T>> wrap(
       const velox::BufferPtr& buffer) {
-    return std::shared_ptr<DataBuffer<T>>(
-        new DataBuffer<T>(failAllOperationPool(), buffer));
+    return std::shared_ptr<DataBuffer<T>>(new DataBuffer<T>(buffer));
   }
 
  private:
-  static velox::memory::AbstractMemoryPool& failAllOperationPool();
-};
+  explicit DataBuffer(const velox::BufferPtr& buffer)
+      : pool_{nullptr}, veloxRef_{buffer} {
+    buf_ = const_cast<T*>(veloxRef_->as<T>());
+    size_ = veloxRef_->size() / sizeof(T);
+    capacity_ = size_;
+  }
 
+  uint64_t sizeInBytes(uint64_t items) const {
+    return sizeof(T) * items;
+  }
+
+  velox::memory::MemoryPool* const FOLLY_NULLABLE pool_;
+  // The referenced velox buffer. 'buf_' owns the memory when 'veloxRef_' is
+  // nullptr.
+  const velox::BufferPtr veloxRef_{nullptr};
+
+  T* FOLLY_NULLABLE buf_;
+  // current size
+  uint64_t size_;
+  // maximal capacity (actual allocated memory)
+  uint64_t capacity_;
+};
 } // namespace common
 } // namespace dwio
 } // namespace velox

@@ -67,9 +67,10 @@ constexpr uint16_t kDefaultAlignment = 64;
 
 class ScopedMemoryPool;
 
-class AbstractMemoryPool {
+class MemoryPool {
  public:
-  virtual ~AbstractMemoryPool() {}
+  virtual ~MemoryPool() {}
+
   virtual void* FOLLY_NULLABLE allocate(int64_t size) = 0;
   virtual void* FOLLY_NULLABLE
   allocateZeroFilled(int64_t numMembers, int64_t sizeEach) = 0;
@@ -77,11 +78,7 @@ class AbstractMemoryPool {
   reallocate(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize) = 0;
   virtual void free(void* FOLLY_NULLABLE p, int64_t size) = 0;
   virtual size_t getPreferredSize(size_t size) = 0;
-};
 
-class MemoryPool : public AbstractMemoryPool {
- public:
-  virtual ~MemoryPool() {}
   // Accounting/governing methods, lazily managed and expensive for intermediate
   // tree nodes, cheap for leaf nodes.
   virtual int64_t getCurrentBytes() const = 0;

@@ -28,67 +28,20 @@ using namespace facebook::velox::memory;
 using namespace testing;
 using MemoryPool = facebook::velox::memory::MemoryPool;
 
-namespace {
-class ConstFillPool final : public AbstractMemoryPool {
- public:
-  explicit ConstFillPool(uint8_t v, MemoryPool& pool)
-      : value_(v), pool_{pool} {}
-
-  ~ConstFillPool() = default;
-
-  void* reallocate(void* p, int64_t size, int64_t newSize) override {
-    auto* newp = pool_.reallocate(p, size, newSize);
-    if (newp && newSize > size) {
-      fill(newp, size, newSize - size);
-    }
-    return newp;
-  }
-
-  void* allocate(int64_t size) override {
-    return pool_.allocate(size);
-  }
-
-  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
-    return pool_.allocateZeroFilled(numMembers, sizeEach);
-  }
-
-  void free(void* p, int64_t size) override {
-    pool_.free(p, size);
-  }
-
-  size_t getPreferredSize(size_t size) override {
-    VELOX_NYI();
-  }
-
- private:
-  void fill(void* p, uint64_t offset, uint64_t count) {
-    memset(static_cast<uint8_t*>(p) + offset, value_, count);
-  }
-
- private:
-  uint8_t value_;
-  MemoryPool& pool_;
-};
-} // namespace
-
 TEST(DataBuffer, ZeroOut) {
   const uint8_t VALUE = 13;
-  const uint8_t NEW_VALUE = 1;
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& memoryPool = scopedPool->getPool();
-
-  ConstFillPool pool(VALUE, memoryPool);
-  DataBuffer<uint8_t, ConstFillPool> buffer(pool, 16);
+  auto pool = facebook::velox::memory::getDefaultScopedMemoryPool();
+  DataBuffer<uint8_t> buffer(*pool, 16);
   for (auto i = 0; i < buffer.size(); i++) {
     auto data = buffer.data();
     ASSERT_EQ(data[i], 0);
-    data[i] = NEW_VALUE;
+    data[i] = VALUE;
   }
 
   buffer.resize(8);
   for (auto i = 0; i < buffer.size(); i++) {
     auto data = buffer.data();
-    ASSERT_EQ(data[i], NEW_VALUE);
+    ASSERT_EQ(data[i], VALUE);
   }
 
   auto currentSize = buffer.size();
@@ -97,7 +50,7 @@ TEST(DataBuffer, ZeroOut) {
   for (auto i = 0; i < buffer.size(); i++) {
     auto data = buffer.data();
     if (i < currentSize) {
-      ASSERT_EQ(data[i], NEW_VALUE);
+      ASSERT_EQ(data[i], VALUE);
     } else {
       ASSERT_EQ(data[i], 0);
     }
@@ -105,10 +58,9 @@ TEST(DataBuffer, ZeroOut) {
 }
 
 TEST(DataBuffer, At) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultScopedMemoryPool();
 
-  DataBuffer<uint8_t> buffer{pool};
+  DataBuffer<uint8_t> buffer{*pool};
   for (auto i = 0; i != 15; ++i) {
     buffer.append(i);
   }
@@ -128,10 +80,9 @@ TEST(DataBuffer, At) {
 }
 
 TEST(DataBuffer, Reset) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultScopedMemoryPool();
 
-  DataBuffer<uint8_t> buffer{pool};
+  DataBuffer<uint8_t> buffer{*pool};
   buffer.reserve(16);
   for (auto i = 0; i != 15; ++i) {
     buffer.append(i);
@@ -185,14 +136,14 @@ TEST(DataBuffer, Reset) {
 }
 
 TEST(DataBuffer, Wrap) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
+  auto pool = facebook::velox::memory::getDefaultScopedMemoryPool();
   auto size = 26;
-  auto buffer = velox::AlignedBuffer::allocate<char>(size, scopedPool.get());
+  auto buffer = velox::AlignedBuffer::allocate<char>(size, pool.get());
   auto raw = buffer->asMutable<char>();
   for (size_t i = 0; i < size; ++i) {
     raw[i] = 'a' + i;
   }
-  auto dataBuffer = DataBufferFactory::wrap<char>(buffer);
+  auto dataBuffer = DataBuffer<char>::wrap(buffer);
   buffer = nullptr;
   ASSERT_EQ(size, dataBuffer->size());
   ASSERT_EQ(size, dataBuffer->capacity());
@@ -201,42 +152,25 @@ TEST(DataBuffer, Wrap) {
   }
 }
 
-class MockMemoryPool : public AbstractMemoryPool {
- public:
-  MOCK_METHOD1(allocate, void*(int64_t));
-  MOCK_METHOD2(allocateZeroFilled, void*(int64_t, int64_t));
-  MOCK_METHOD3(reallocate, void*(void*, int64_t, int64_t));
-  MOCK_METHOD2(free, void(void*, int64_t));
-  MOCK_METHOD1(getPreferredSize, size_t(size_t));
-};
-
 TEST(DataBuffer, Move) {
-  StrictMock<MockMemoryPool> mockPool;
-  auto initialCalloc = std::calloc(0, 1);
-  auto preAlloced = std::malloc(16);
+  auto pool = facebook::velox::memory::getDefaultScopedMemoryPool();
   {
-    EXPECT_CALL(mockPool, allocateZeroFilled(0, 1))
-        .WillOnce(Return(initialCalloc));
-    EXPECT_CALL(mockPool, reallocate(initialCalloc, 0, 16))
-        .WillOnce(Return(preAlloced));
-    DataBuffer<uint8_t> buffer{mockPool};
+    DataBuffer<uint8_t> buffer{*pool};
     buffer.reserve(16);
     for (auto i = 0; i != 15; ++i) {
       buffer.append(i);
     }
     ASSERT_EQ(15, buffer.size());
     ASSERT_EQ(16, buffer.capacity());
+    const auto usedBytes = pool->getCurrentBytes();
 
     // Expect no double freeing from memory pool.
     DataBuffer<uint8_t> newBuffer{std::move(buffer)};
-    EXPECT_EQ(15, newBuffer.size());
-    EXPECT_EQ(16, newBuffer.capacity());
-
-    // Expect free call exactly once for destruction of both data buffers.
-    EXPECT_CALL(mockPool, free(preAlloced, 16)).Times(1);
+    ASSERT_EQ(15, newBuffer.size());
+    ASSERT_EQ(16, newBuffer.capacity());
+    ASSERT_EQ(usedBytes, pool->getCurrentBytes());
   }
-  std::free(preAlloced);
-  std::free(initialCalloc);
+  ASSERT_EQ(0, pool->getCurrentBytes());
 }
 } // namespace common
 } // namespace dwio
