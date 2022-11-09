@@ -164,7 +164,7 @@ public class LogicalPropertiesProviderImpl
 
         LogicalPropertiesImpl leftProps = (LogicalPropertiesImpl) ((GroupReference) joinNode.getLeft()).getLogicalProperties().get();
         LogicalPropertiesImpl rightProps = (LogicalPropertiesImpl) ((GroupReference) joinNode.getRight()).getLogicalProperties().get();
-        return joinProperties(leftProps, rightProps, joinNode.getCriteria(), joinNode.getType(), joinNode.getFilter(), joinNode.getOutputVariables(), functionResolution);
+        return joinProperties(leftProps, rightProps, joinNode.getCriteria(), joinNode.getType(), joinNode.getFilter(), functionResolution);
     }
 
     /**
@@ -214,8 +214,7 @@ public class LogicalPropertiesProviderImpl
         }
         else {
             return aggregationProperties(sourceProperties,
-                    aggregationNode.getGroupingKeys().stream().collect(Collectors.toSet()),
-                    aggregationNode.getOutputVariables());
+                    aggregationNode.getGroupingKeys().stream().collect(Collectors.toSet()));
         }
     }
 
@@ -244,7 +243,7 @@ public class LogicalPropertiesProviderImpl
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) assignUniqueIdNode.getSource()).getLogicalProperties().get();
         Set<VariableReferenceExpression> key = new HashSet<>();
         key.add(assignUniqueIdNode.getIdVariable());
-        return aggregationProperties(sourceProperties, key, assignUniqueIdNode.getOutputVariables());
+        return aggregationProperties(sourceProperties, key);
     }
 
     /**
@@ -264,8 +263,7 @@ public class LogicalPropertiesProviderImpl
         LogicalPropertiesImpl sourceProperties = (LogicalPropertiesImpl) ((GroupReference) distinctLimitNode.getSource()).getLogicalProperties().get();
         return distinctLimitProperties(sourceProperties,
                 distinctLimitNode.getDistinctVariables().stream().collect(Collectors.toSet()),
-                distinctLimitNode.getLimit(),
-                distinctLimitNode.getOutputVariables());
+                distinctLimitNode.getLimit());
     }
 
     /**

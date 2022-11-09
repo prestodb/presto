@@ -293,6 +293,12 @@ public class IterativeOptimizer
             {
                 return context.warningCollector;
             }
+
+            @Override
+            public Optional<LogicalPropertiesProvider> getLogicalPropertiesProvider()
+            {
+                return logicalPropertiesProvider;
+            }
         };
     }
 

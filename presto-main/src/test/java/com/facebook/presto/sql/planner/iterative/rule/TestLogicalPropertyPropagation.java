@@ -1655,14 +1655,16 @@ public class TestLogicalPropertyPropagation
                 .matches(expectedLogicalProperties);
 
         // Test propagation of equivalence classes through aggregation.
-        // None of the equivalence classes from aggregation's source node should be propagated since none of the
-        // members are projected by the aggregation node.
         // Key property (shippriority, linenumber) which form the group by keys and maxcard=6 should be propagated.
 
+        EquivalenceClassProperty equivalenceClassProperty2 = new EquivalenceClassProperty(ImmutableMap.of(customerCustKeyVariable, ordersOrderKeyVariable),
+                ImmutableMap.of(customerCustKeyVariable, ImmutableList.of(ordersCustKeyVariable), ordersOrderKeyVariable, ImmutableList.of(lineitemOrderkeyVariable)));
         expectedLogicalProperties = new LogicalPropertiesImpl(
-                new EquivalenceClassProperty(),
+                equivalenceClassProperty2,
                 new MaxCardProperty(),
-                new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(shipPriorityVariable, lineitemLinenumberVariable)))));
+                new KeyProperty(ImmutableSet.of(
+                        new Key(ImmutableSet.of(shipPriorityVariable, lineitemLinenumberVariable)),
+                        new Key(ImmutableSet.of(ordersOrderKeyVariable, lineitemLinenumberVariable)))));
 
         tester().assertThat(new NoOpRule(), logicalPropertiesProvider)
                 .on(p -> {
@@ -1712,7 +1714,7 @@ public class TestLogicalPropertyPropagation
         // A variation to the above case, where in groupby keys are (l_lineitem,o_orderkey,shippriority). Since
         // (o_orderkey, l_lineitem) are already a key, the key should be normalized to have only (o_orderkey, l_lineitem).
         expectedLogicalProperties = new LogicalPropertiesImpl(
-                new EquivalenceClassProperty(),
+                equivalenceClassProperty2,
                 new MaxCardProperty(),
                 new KeyProperty(ImmutableSet.of(new Key(ImmutableSet.of(ordersOrderKeyVariable, lineitemLinenumberVariable)))));
 
