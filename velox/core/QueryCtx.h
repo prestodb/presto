@@ -28,25 +28,15 @@ namespace facebook::velox::core {
 
 class QueryCtx : public Context {
  public:
-  // Returns QueryCtx with new executor created if not supplied. For testing
-  // purpose.
-  static std::shared_ptr<QueryCtx> createForTest(
-      std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
-      std::shared_ptr<folly::Executor> executor =
-          std::make_shared<folly::CPUThreadPoolExecutor>(
-              std::thread::hardware_concurrency())) {
-    return std::make_shared<QueryCtx>(std::move(executor), std::move(config));
-  }
-
-  // QueryCtx is used in different places. When used with `Task`, it's required
-  // that callers supply executors. In contrast, when used in expression
-  // evaluation through `ExecCtx`, executor is not needed. Hence, we don't
-  // require executor to always be passed in here, but instead, ensure that
-  // executor exists when actually being used.
-  //
-  // This constructor keeps the ownership of `executor`.
+  // QueryCtx is used in different places. When used with `Task::start()`, it's
+  // required that the caller supplies the executor and ensure its lifetime
+  // outlives the tasks that use it. In contrast, when used in expression
+  // evaluation through `ExecCtx` or 'Task::next()' for single thread execution
+  // mode, executor is not needed. Hence, we don't require executor to always be
+  // passed in here, but instead, ensure that executor exists when actually
+  // being used.
   QueryCtx(
-      std::shared_ptr<folly::Executor> executor = nullptr,
+      folly::Executor* FOLLY_NULLABLE executor = nullptr,
       std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
       std::unordered_map<std::string, std::shared_ptr<Config>>
           connectorConfigs = {},
@@ -59,7 +49,7 @@ class QueryCtx : public Context {
         pool_(std::move(pool)),
         mappedMemory_(mappedMemory),
         connectorConfigs_(connectorConfigs),
-        executor_{std::move(executor)},
+        executor_(executor),
         config_{this},
         queryId_(queryId),
         spillExecutor_(std::move(spillExecutor)) {
@@ -73,7 +63,7 @@ class QueryCtx : public Context {
   // object is alive.
   //
   // This constructor does not keep the ownership of executor.
-  explicit QueryCtx(
+  QueryCtx(
       folly::Executor::KeepAlive<> executorKeepalive,
       std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
       std::unordered_map<std::string, std::shared_ptr<Config>>
@@ -108,8 +98,8 @@ class QueryCtx : public Context {
   }
 
   folly::Executor* FOLLY_NONNULL executor() const {
-    if (executor_) {
-      return executor_.get();
+    if (executor_ != nullptr) {
+      return executor_;
     }
     auto executor = executorKeepalive_.get();
     VELOX_CHECK(executor, "Executor was not supplied.");
@@ -163,7 +153,7 @@ class QueryCtx : public Context {
   std::unique_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
-  std::shared_ptr<folly::Executor> executor_;
+  folly::Executor* FOLLY_NULLABLE executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
   QueryConfig config_;
   const std::string queryId_;

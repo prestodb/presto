@@ -448,10 +448,11 @@ TEST_F(DriverTest, pause) {
       [](int64_t num) { return num % 10 > 0; },
       &hits);
   params.maxDrivers = 10;
-  params.queryCtx =
-      core::QueryCtx::createForTest(std::make_shared<core::MemConfig>(
+  params.queryCtx = std::make_shared<core::QueryCtx>(
+      executor_.get(),
+      // Make sure CPU usage tracking is enabled.
+      std::make_shared<core::MemConfig>(
           std::unordered_map<std::string, std::string>{
-              // Make sure CPU usage tracking is enabled.
               {core::QueryConfig::kOperatorTrackCpuUsage, "true"}}));
   int32_t numRead = 0;
   readResults(params, ResultOperation::kPause, 370'000'000, &numRead);

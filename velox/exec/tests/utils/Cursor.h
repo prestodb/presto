@@ -127,14 +127,17 @@ class TaskCursor {
   }
 
  private:
+  static std::atomic<int32_t> serial_;
+
   const int32_t maxDrivers_;
   const int32_t numConcurrentSplitGroups_;
   const int32_t numSplitGroups_;
+
+  std::shared_ptr<folly::Executor> executor_;
   bool started_ = false;
   std::shared_ptr<TaskQueue> queue_;
   std::shared_ptr<exec::Task> task_;
   RowVectorPtr current_;
-  static std::atomic<int32_t> serial_;
   bool atEnd_{false};
 };
 

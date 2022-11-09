@@ -16,6 +16,8 @@
 
 #include "velox/vector/tests/utils/VectorTestBase.h"
 
+#include "velox/exec/Task.h"
+
 namespace facebook::velox::test {
 
 BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
@@ -28,21 +30,10 @@ BufferPtr makeIndicesInReverse(vector_size_t size, memory::MemoryPool* pool) {
 }
 
 VectorTestBase::~VectorTestBase() {
-  auto tracker = pool_->getMemoryUsageTracker();
-  if (tracker == nullptr) {
-    return;
-  }
-  // Wait for current user bytes count dropping to zero as there might be async
-  // event still running at the background like the last task reference dropped
-  // at the background.
-  const uint64_t kMaxWaitUs = 3'000'000;
-  while (tracker->getCurrentUserBytes() != 0) {
-    const uint64_t kWaitIntervalUs = 100'000;
-    LOG(WARNING) << "Memory pool has " << tracker->getCurrentUserBytes()
-                 << " current user bytes, wait " << kWaitIntervalUs
-                 << " us for the pending usage to be released";
-    std::this_thread::sleep_for(std::chrono::microseconds(kWaitIntervalUs));
-  }
+  // Wait for all the tasks to be deleted.
+  exec::Task::testingWaitForAllTasksToBeDeleted();
+  // Reset the executor to wait for all the async activities to finish.
+  executor_.reset();
 }
 
 // static

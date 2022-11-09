@@ -40,8 +40,8 @@ class MultiFragmentTest : public HiveConnectorTestBase {
       const std::string& taskId,
       std::shared_ptr<const core::PlanNode> planNode,
       int destination) {
-    auto queryCtx = core::QueryCtx::createForTest(
-        std::make_shared<core::MemConfig>(configSettings_));
+    auto queryCtx = std::make_shared<core::QueryCtx>(
+        executor_.get(), std::make_shared<core::MemConfig>(configSettings_));
     core::PlanFragment planFragment{planNode};
     return std::make_shared<Task>(
         taskId, std::move(planFragment), destination, std::move(queryCtx));

@@ -251,7 +251,7 @@ TEST_F(ApproxPercentileTest, largeWeightsGroupBy) {
 TEST_F(ApproxPercentileTest, partialFull) {
   // Make sure partial aggregation runs out of memory after first batch.
   CursorParameters params;
-  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   params.queryCtx->setConfigOverridesUnsafe({
       {core::QueryConfig::kMaxPartialAggregationMemory, "300000"},
   });

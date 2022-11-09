@@ -126,6 +126,10 @@ int main(int argc, char** argv) {
                           tempDir->path))))
           .planFragment();
 
+  std::shared_ptr<folly::Executor> executor(
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency()));
+
   // Task is the top-level execution concept. A task needs a taskId (as a
   // string), the plan fragment to execute, a destination (only used for
   // shuffles), and a QueryCtx containing metadata and configs for a query.
@@ -133,7 +137,7 @@ int main(int argc, char** argv) {
       "my_write_task",
       writerPlanFragment,
       /*destination=*/0,
-      core::QueryCtx::createForTest());
+      std::make_shared<core::QueryCtx>(executor.get()));
 
   // next() starts execution using the client thread. The loop pumps output
   // vectors out of the task (there are none in this query fragment).
@@ -162,7 +166,7 @@ int main(int argc, char** argv) {
       "my_read_task",
       readPlanFragment,
       /*destination=*/0,
-      core::QueryCtx::createForTest());
+      std::make_shared<core::QueryCtx>(executor.get()));
 
   // Now that we have the query fragment and Task structure set up, we will
   // add data to it via `splits`.

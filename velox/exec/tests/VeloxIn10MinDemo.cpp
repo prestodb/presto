@@ -96,7 +96,11 @@ class VeloxIn10MinDemo : public VectorTestBase {
   /// Run the demo.
   void run();
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
+  std::shared_ptr<folly::Executor> executor_{
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency())};
+  std::shared_ptr<core::QueryCtx> queryCtx_{
+      std::make_shared<core::QueryCtx>(executor_.get())};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get())};
 };

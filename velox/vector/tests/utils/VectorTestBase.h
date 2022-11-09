@@ -15,6 +15,9 @@
  */
 #pragma once
 
+#include <folly/Executor.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/tests/utils/VectorMaker.h"
 
@@ -704,6 +707,9 @@ class VectorTestBase {
   std::unique_ptr<memory::MemoryPool> pool_{
       memory::getDefaultScopedMemoryPool()};
   velox::test::VectorMaker vectorMaker_{pool_.get()};
+  std::shared_ptr<folly::Executor> executor_{
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency())};
 };
 
 } // namespace facebook::velox::test

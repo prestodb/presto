@@ -1914,7 +1914,7 @@ TEST_F(TableScanTest, groupedExecutionWithOutputBuffer) {
           .planFragment();
   planFragment.executionStrategy = core::ExecutionStrategy::kGrouped;
   planFragment.numSplitGroups = 10;
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   auto task = std::make_shared<exec::Task>(
       "0", std::move(planFragment), 0, std::move(queryCtx));
   // 3 drivers max and 1 concurrent split group.

@@ -242,19 +242,18 @@ TEST_F(TableWriteTest, writeEmptyFile) {
                       "rows")
                   .planNode();
 
-  auto execute = [](const std::shared_ptr<const core::PlanNode>& plan,
-                    std::shared_ptr<core::QueryCtx> queryCtx =
-                        core::QueryCtx::createForTest()) {
+  auto execute = [&](const std::shared_ptr<const core::PlanNode>& plan,
+                     std::shared_ptr<core::QueryCtx> queryCtx) {
     CursorParameters params;
     params.planNode = plan;
     params.queryCtx = queryCtx;
     readCursor(params, [&](Task* task) { task->noMoreSplits("0"); });
   };
 
-  execute(plan);
+  execute(plan, std::make_shared<core::QueryCtx>(executor_.get()));
   ASSERT_TRUE(fs::is_empty(outputDirectory->path));
 
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kCreateEmptyFiles, "true"}});
   execute(plan, queryCtx);

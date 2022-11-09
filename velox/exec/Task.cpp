@@ -188,10 +188,6 @@ Task::~Task() {
   } catch (const std::exception& e) {
     LOG(WARNING) << "Caught exception in ~Task(): " << e.what();
   }
-  // NOTE: this is a hack to enforce destruction on 'planFragment_'. We found in
-  // some case the task dtor doesn't call 'planFragment_' dtor which cause the
-  // memory leak of the vectors held by the plan node such as Value node.
-  planFragment_.planNode.reset();
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL
@@ -1990,11 +1986,13 @@ void Task::testingWaitForAllTasksToBeDeleted(uint64_t maxWaitUs) {
       break;
     }
   }
-  if (numDeletedTasks < numCreatedTasks) {
-    LOG(ERROR) << numCreatedTasks << " tasks hav been created while only "
-               << numDeletedTasks << " have been deleted after waiting for "
-               << waitUs << " us";
-  }
+  VELOX_CHECK_EQ(
+      numDeletedTasks,
+      numCreatedTasks,
+      "{} tasks have been created while only {} have been deleted after waiting for {} us",
+      numCreatedTasks,
+      numDeletedTasks,
+      waitUs);
 }
 
 } // namespace facebook::velox::exec

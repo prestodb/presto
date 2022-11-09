@@ -101,15 +101,18 @@ class AssertQueryBuilder {
 
   /// Run the query and collect all results into a single vector. Throws if
   /// query returns empty result.
-  RowVectorPtr copyResults(memory::MemoryPool* pool);
+  RowVectorPtr copyResults(memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   std::pair<std::unique_ptr<TaskCursor>, std::vector<RowVectorPtr>>
   readCursor();
 
+  // Used by the created task as the default driver executor.
+  std::unique_ptr<folly::Executor> executor_{
+      new folly::CPUThreadPoolExecutor(std::thread::hardware_concurrency())};
+  DuckDbQueryRunner* FOLLY_NULLABLE const duckDbQueryRunner_;
   CursorParameters params_;
   std::unordered_map<std::string, std::string> configs_;
   std::unordered_map<core::PlanNodeId, std::vector<Split>> splits_;
-  DuckDbQueryRunner* duckDbQueryRunner_;
 };
 } // namespace facebook::velox::exec::test

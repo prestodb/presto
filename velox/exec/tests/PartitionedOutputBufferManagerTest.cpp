@@ -54,7 +54,10 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
                                 BatchMaker::createBatch(rowType, 100, *pool_))})
                             .planFragment();
     auto task = std::make_shared<Task>(
-        taskId, std::move(planFragment), 0, core::QueryCtx::createForTest());
+        taskId,
+        std::move(planFragment),
+        0,
+        std::make_shared<core::QueryCtx>(executor_.get()));
 
     bufferManager_->initializeTask(task, false, numDestinations, numDrivers);
     return task;
@@ -224,6 +227,9 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
     EXPECT_FALSE(receivedData) << "for destination " << destination;
   }
 
+  std::shared_ptr<folly::Executor> executor_{
+      std::make_shared<folly::CPUThreadPoolExecutor>(
+          std::thread::hardware_concurrency())};
   std::unique_ptr<facebook::velox::memory::ScopedMemoryPool> pool_;
   memory::MappedMemory* mappedMemory_;
   std::shared_ptr<PartitionedOutputBufferManager> bufferManager_;

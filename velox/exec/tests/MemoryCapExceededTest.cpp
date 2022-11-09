@@ -67,7 +67,7 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
                   .singleAggregation({"c0"}, {"sum(p1)"})
                   .orderBy({"c0"}, false)
                   .planNode();
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->pool()->setMemoryUsageTracker(
       velox::memory::MemoryUsageTracker::create(
           kMaxBytes, kMaxBytes, kMaxBytes));
@@ -112,7 +112,7 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
                   .values(data, true)
                   .singleAggregation({"c0"}, {"sum(c1)"})
                   .planNode();
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->pool()->setMemoryUsageTracker(
       velox::memory::MemoryUsageTracker::create(
           kMaxBytes, kMaxBytes, kMaxBytes));

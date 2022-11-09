@@ -113,7 +113,11 @@ TaskCursor::TaskCursor(const CursorParameters& params)
   if (params.queryCtx) {
     queryCtx = params.queryCtx;
   } else {
-    queryCtx = core::QueryCtx::createForTest();
+    // NOTE: the destructor of 'executor_' will wait for all the async task
+    // activities to finish on TaskCursor destruction.
+    executor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        std::thread::hardware_concurrency());
+    queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   }
 
   queue_ = std::make_shared<TaskQueue>(params.bufferedBytes);

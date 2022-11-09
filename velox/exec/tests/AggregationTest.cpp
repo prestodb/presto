@@ -794,7 +794,7 @@ TEST_F(AggregationTest, partialAggregationMaybeReservationReleaseCheck) {
   const int64_t kMaxUserMemoryUsage = 2 * kMaxPartialMemoryUsage;
   // Make sure partial aggregation runs out of memory after first batch.
   CursorParameters params;
-  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   params.queryCtx->setConfigOverridesUnsafe({
       {QueryConfig::kMaxPartialAggregationMemory,
        std::to_string(kMaxPartialMemoryUsage)},
@@ -859,7 +859,7 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
     SCOPED_TRACE(testData.debugString());
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto queryCtx = core::QueryCtx::createForTest();
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->pool()->setMemoryUsageTracker(
         velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
     auto results = AssertQueryBuilder(
@@ -964,7 +964,7 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
             .copyResults(pool_.get());
 
     auto tempDirectory = exec::test::TempDirectoryPath::create();
-    auto queryCtx = core::QueryCtx::createForTest();
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->pool()->setMemoryUsageTracker(
         velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
 
@@ -1084,7 +1084,7 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
           .copyResults(pool_.get());
 
   auto tempDirectory = exec::test::TempDirectoryPath::create();
-  auto queryCtx = core::QueryCtx::createForTest();
+  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->pool()->setMemoryUsageTracker(
       velox::memory::MemoryUsageTracker::create(kMaxBytes, 0, kMaxBytes));
 

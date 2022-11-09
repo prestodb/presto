@@ -26,16 +26,16 @@ class MergeJoinTest : public HiveConnectorTestBase {
  protected:
   using OperatorTestBase::assertQuery;
 
-  static CursorParameters makeCursorParameters(
+  CursorParameters makeCursorParameters(
       const std::shared_ptr<const core::PlanNode>& planNode,
       uint32_t preferredOutputBatchSize) {
-    auto queryCtx = core::QueryCtx::createForTest();
+    auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
     queryCtx->setConfigOverridesUnsafe(
         {{core::QueryConfig::kCreateEmptyFiles, "true"}});
 
     CursorParameters params;
     params.planNode = planNode;
-    params.queryCtx = core::QueryCtx::createForTest();
+    params.queryCtx = queryCtx;
     params.queryCtx->setConfigOverridesUnsafe(
         {{core::QueryConfig::kPreferredOutputBatchSize,
           std::to_string(preferredOutputBatchSize)}});

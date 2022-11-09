@@ -145,7 +145,7 @@ class SimpleAggregatesBenchmark : public HiveConnectorTestBase {
         "t",
         std::move(plan),
         0,
-        core::QueryCtx::createForTest(),
+        std::make_shared<core::QueryCtx>(executor_.get()),
         [&](auto vector, auto* /*future*/) {
           if (vector) {
             numResultRows += vector->size();

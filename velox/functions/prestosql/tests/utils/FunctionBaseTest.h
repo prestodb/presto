@@ -253,7 +253,8 @@ class FunctionBaseTest : public testing::Test,
     return result[0];
   }
 
-  std::shared_ptr<core::QueryCtx> queryCtx_{core::QueryCtx::createForTest()};
+  std::shared_ptr<core::QueryCtx> queryCtx_{
+      std::make_shared<core::QueryCtx>(executor_.get())};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   parse::ParseOptions options_;
 

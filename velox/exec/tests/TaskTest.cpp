@@ -87,7 +87,10 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
                   .planFragment();
 
   exec::Task task(
-      "task-1", std::move(plan), 0, core::QueryCtx::createForTest());
+      "task-1",
+      std::move(plan),
+      0,
+      std::make_shared<core::QueryCtx>(executor_.get()));
 
   // Add split for the source node.
   task.addSplit("0", exec::Split(folly::copy(connectorSplit)));
@@ -136,7 +139,10 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
           .planFragment();
 
   exec::Task valuesTask(
-      "task-2", std::move(plan), 0, core::QueryCtx::createForTest());
+      "task-2",
+      std::move(plan),
+      0,
+      std::make_shared<core::QueryCtx>(executor_.get()));
   errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 0 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
@@ -158,7 +164,11 @@ TEST_F(TaskTest, duplicatePlanNodeIds) {
                   .planFragment();
 
   VELOX_ASSERT_THROW(
-      exec::Task("task-1", std::move(plan), 0, core::QueryCtx::createForTest()),
+      exec::Task(
+          "task-1",
+          std::move(plan),
+          0,
+          std::make_shared<core::QueryCtx>(executor_.get())),
       "Plan node IDs must be unique. Found duplicate ID: 0.")
 }
 
@@ -676,7 +686,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = core::QueryCtx::createForTest();
+  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   params.queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
   auto task = assertQueryOrdered(params, "VALUES (0)", {0});
