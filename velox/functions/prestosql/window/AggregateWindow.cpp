@@ -42,13 +42,14 @@ class AggregateWindowFunction : public exec::WindowFunction {
     argVectors_.reserve(args.size());
     for (const auto& arg : args) {
       argTypes_.push_back(arg.type);
-      // TODO : Enhance code to handle constant arguments.
-      VELOX_CHECK_NULL(
-          arg.constantValue,
-          "Constant arguments are not supported in aggregate window functions.");
-      VELOX_CHECK(arg.index.has_value());
-      argIndices_.push_back(arg.index.value());
-      argVectors_.push_back(BaseVector::create(arg.type, 0, pool_));
+      if (arg.constantValue) {
+        argIndices_.push_back(kConstantChannel);
+        argVectors_.push_back(arg.constantValue);
+      } else {
+        VELOX_CHECK(arg.index.has_value());
+        argIndices_.push_back(arg.index.value());
+        argVectors_.push_back(BaseVector::create(arg.type, 0, pool_));
+      }
     }
     // Create an Aggregate function object to do result computation. Window
     // function usage only requires single group aggregation for calculating
@@ -169,8 +170,13 @@ class AggregateWindowFunction : public exec::WindowFunction {
     vector_size_t numFrameRows = lastRow + 1 - firstRow;
     for (int i = 0; i < argIndices_.size(); i++) {
       argVectors_[i]->resize(numRows);
-      partition_->extractColumn(
-          argIndices_[i], firstRow, numFrameRows, 0, argVectors_[i]);
+      // Only non-constant field argument vectors need to be populated. The
+      // constant vectors are correctly set during aggregate initialization
+      // itself.
+      if (argIndices_[i] != kConstantChannel) {
+        partition_->extractColumn(
+            argIndices_[i], firstRow, numFrameRows, 0, argVectors_[i]);
+      }
     }
 
     return {firstRow, lastRow, fixedFirstRow, nonDecreasingFrameEnd};
@@ -256,6 +262,9 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
   // Args information : their types, column indexes in inputs and vectors
   // used to populate values to pass to the aggregate function.
+  // For a constant argument a column index of kConstantChannel is used in
+  // argIndices_, and its ConstantVector value from the Window operator
+  // is saved in argVectors_.
   std::vector<TypePtr> argTypes_;
   std::vector<column_index_t> argIndices_;
   std::vector<VectorPtr> argVectors_;

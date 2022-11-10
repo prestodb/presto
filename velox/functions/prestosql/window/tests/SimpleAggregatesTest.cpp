@@ -127,13 +127,13 @@ TEST_P(MultiAggregatesTest, singlePartitionRangeFrames) {
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SimpleAggregatesTest,
     MultiAggregatesTest,
-    testing::ValuesIn({
-        std::string("sum(c2)"),
-        std::string("min(c2)"),
-        std::string("max(c2)"),
-        std::string("count(c2)"),
-        std::string("avg(c2)"),
-    }));
+    testing::ValuesIn(
+        {std::string("sum(c2)"),
+         std::string("min(c2)"),
+         std::string("max(c2)"),
+         std::string("count(c2)"),
+         std::string("avg(c2)"),
+         std::string("sum(1)")}));
 
 class StringAggregatesTest : public WindowTestBase {};
 
