@@ -97,6 +97,15 @@ public class PullConstantsAboveGroupBy
             return Result.empty();
         }
 
+        // Can't pull up constant grouping keys if there are no other
+        // grouping keys because it will turn the aggregation into a global
+        // aggregation, which has different semantics on an empty input.
+        // A grouped aggregation with 0 rows of input will output 0 rows, but
+        // a global aggregation will always return one row
+        if (newGroupingKeys.isEmpty()) {
+            return Result.empty();
+        }
+
         AggregationNode newAgg = new AggregationNode(
                 parent.getSourceLocation(),
                 parent.getId(),

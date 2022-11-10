@@ -93,6 +93,23 @@ public class TestPullConstantsAboveGroupBy
     }
 
     @Test
+    public void testOnlyConstantKeysDoesNotFire()
+    {
+        tester().assertThat(new PullConstantsAboveGroupBy())
+                .on(p -> p.aggregation(ab -> ab
+                        .source(
+                                p.project(
+                                        Assignments.builder()
+                                                .put(p.variable("COL"), p.rowExpression("COL"))
+                                                .put(p.variable("CONST_COL"), p.rowExpression("1"))
+                                                .build(),
+                                        p.values(p.variable("COL"))))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL)"))
+                        .singleGroupingSet(p.variable("CONST_COL"))))
+                .doesNotFire();
+    }
+
+    @Test
     public void testSingleConstColumn()
     {
         tester().assertThat(new PullConstantsAboveGroupBy())

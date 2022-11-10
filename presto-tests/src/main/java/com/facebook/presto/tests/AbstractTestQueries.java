@@ -4903,6 +4903,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT cnt FROM (SELECT col, count(*) as cnt FROM (SELECT 'bla' as col from nation) GROUP BY col)");
         assertQuery("SELECT MIN(10), 1 as col1 GROUP BY 2");
         assertQuery("SELECT col, 'bla' as const_col, count(*) FROM (SELECT 1 as col) GROUP BY 1,2");
+        assertQuery("SELECT 'bla' as const_col, count(*) FROM (SELECT 1 as col LIMIT 0) GROUP BY 1");
         assertQuery("SELECT AVG(x) FROM (SELECT 1 AS x, orderstatus FROM orders) GROUP BY x, orderstatus");
     }
 
