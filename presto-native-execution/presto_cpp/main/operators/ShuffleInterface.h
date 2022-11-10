@@ -22,6 +22,15 @@ class ShuffleInterface {
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
+  /// Write a serialized vector to a shuffle partition. In case of
+  /// broadcast, the partition is not set/used.
+  virtual void writeColumnar(
+      std::string_view data,
+      std::optional<std::string> writerId = std::nullopt,
+      std::optional<int32_t> partition = std::nullopt) {
+    VELOX_FAIL("This method is for columnar or broadcast shuffle");
+  }
+
   /// Tell the shuffle system the writer is done.
   /// @param success set to false indicate aborted client.
   virtual void noMoreData(bool success) = 0;
@@ -33,10 +42,54 @@ class ShuffleInterface {
   /// Read the next block of data for this partition.
   /// @param success set to false indicate aborted client.
   virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+
   /// Return true if all the data is finished writing and is ready to
   /// to be read while noMoreData signals the shuffle service that there
   /// is no more data to be writen.
   virtual bool readyForRead() const = 0;
+
+  virtual ~ShuffleInterface() = default;
 };
+
+/// Shuffle specific info provide by each reader or writer inorder to get
+/// the right instance of shuffle interface.
+/// The minimum specified shuffle info is the name associated with the shuffle
+/// manager.
+struct ShuffleInfo {
+ public:
+  ShuffleInfo(const std::string& name) : name_(name) {}
+  const std::string& name() const {
+    return name_;
+  }
+  virtual ~ShuffleInfo() = default;
+
+ private:
+  const std::string name_;
+};
+
+/// Base class for the shuffle manager. Each shuffle manager receives the
+/// shuffle info and memory pool and then can create a shuffle instance that
+/// implements the shuffle interface.
+class ShuffleManager {
+ public:
+  virtual std::unique_ptr<ShuffleInterface> create(
+      const ShuffleInfo&,
+      velox::memory::MemoryPool* pool) = 0;
+
+  virtual ~ShuffleManager() = default;
+};
+
+/// Keeps track of all shuffle managers.
+void registerShuffleManager(
+    const std::string& name,
+    std::unique_ptr<ShuffleManager>& manager);
+
+/// Method used to create shuffle instance based on the shuffle info.
+std::unique_ptr<ShuffleInterface> createShuffleInstance(
+    const ShuffleInfo& info,
+    velox::memory::MemoryPool* pool);
+
+/// Clears all the register shuffle managers.
+void clearShuffleManagers();
 
 } // namespace facebook::presto::operators

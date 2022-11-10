@@ -35,10 +35,6 @@ const static std::string kReadyForReadFilename = "readyForRead";
 
 namespace facebook::presto::operators {
 
-constexpr static uint32_t kMaxBytesPerPartition = 1 << 15;
-TestingPersistentShuffle TestingPersistentShuffle::kInstance_(
-    kMaxBytesPerPartition);
-
 std::unique_ptr<velox::WriteFile> TestingPersistentShuffle::getNextOutputFile(
     int32_t partition) {
   auto fileCount = getWritePartitionFilesCount(partition);

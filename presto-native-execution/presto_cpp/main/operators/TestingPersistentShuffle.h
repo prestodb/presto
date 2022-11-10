@@ -39,20 +39,23 @@ namespace facebook::presto::operators {
 /// use it to read and write shuffle data.
 class TestingPersistentShuffle : public ShuffleInterface {
  public:
-  TestingPersistentShuffle(uint32_t maxBytesPerPartition)
+  TestingPersistentShuffle(
+      uint32_t numPartitions,
+      uint32_t maxBytesPerPartition,
+      const std::string& rootPath,
+      velox::memory::MemoryPool* pool)
       : maxBytesPerPartition_(maxBytesPerPartition),
-        threadId_(std::this_thread::get_id()) {}
+        pool_(pool),
+        threadId_(std::this_thread::get_id()) {
+    initialize(numPartitions, rootPath);
+  }
 
   /// This method resets the state of the shuffle using a specific number of
   /// partitions and a rootPath.
   /// This can be used multiple times on the same shuffle object. If the
   /// current rootPath is not an empty string, the method also cleans up the
   /// its previous root path folder (does not delete the folder itself).
-  void initialize(
-      velox::memory::MemoryPool* pool,
-      uint32_t numPartitions,
-      std::string rootPath) {
-    pool_ = pool;
+  void initialize(uint32_t numPartitions, std::string rootPath) {
     numPartitions_ = numPartitions;
     // Use resize/assign instead of resize(size, val).
     inProgressPartitions_.resize(numPartitions_);
@@ -79,10 +82,6 @@ class TestingPersistentShuffle : public ShuffleInterface {
   velox::BufferPtr next(int32_t partition, bool success) override;
 
   bool readyForRead() const override;
-
-  static TestingPersistentShuffle* instance() {
-    return &kInstance_;
-  }
 
  private:
   /// Find the next file for writing the next block of the partition.
@@ -116,8 +115,6 @@ class TestingPersistentShuffle : public ShuffleInterface {
   /// Thread Id is used to make sure files created by this thread have unique
   /// names.
   std::thread::id threadId_;
-  /// Singleton always-alive object to be used for the purpose of testing.
-  static TestingPersistentShuffle kInstance_;
 };
 
 } // namespace facebook::presto::operators
