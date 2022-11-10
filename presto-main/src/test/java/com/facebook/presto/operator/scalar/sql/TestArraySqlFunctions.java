@@ -17,6 +17,7 @@ import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.operator.scalar.AbstractTestFunctions;
 import com.facebook.presto.spi.StandardErrorCode;
+import com.facebook.presto.sql.analyzer.SemanticErrorCode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -26,10 +27,12 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.util.StructuralTestUtil.mapType;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 
 public class TestArraySqlFunctions
@@ -213,5 +216,30 @@ public class TestArraySqlFunctions
         assertFunction("ARRAY_MIN_BY(ARRAY [null, double'1.0', double'2.0'], i -> i)", DOUBLE, null);
         assertFunction("ARRAY_MIN_BY(ARRAY [cast(null as double), cast(null as double)], i -> i)", DOUBLE, null);
         assertFunction("ARRAY_MIN_BY(cast(null as array(double)), i -> i)", DOUBLE, null);
+    }
+
+    @Test
+    public void testArraySortDesc()
+    {
+        assertFunction("ARRAY_SORT_DESC(ARRAY [100, 1, 10, 50])", new ArrayType(INTEGER), ImmutableList.of(100, 50, 10, 1));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [null, null, 100, 1, 10, 50])", new ArrayType(INTEGER), asList(100, 50, 10, 1, null, null));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [double'1.0', double'2.0'])", new ArrayType(DOUBLE), ImmutableList.of(2.0d, 1.0d));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [null, double'-3.0', double'2.0', null])", new ArrayType(DOUBLE), asList(2.0d, -3.0d, null, null));
+        assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c'])", new ArrayType(createVarcharType(2)), ImmutableList.of("c", "bb", "a"));
+        assertFunction("ARRAY_SORT_DESC(ARRAY ['a', 'bb', 'c', null])", new ArrayType(createVarcharType(2)), asList("c", "bb", "a", null));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [null, null, null])", new ArrayType(UNKNOWN), asList(null, null, null));
+        assertFunction("ARRAY_SORT_DESC(ARRAY [])", new ArrayType(UNKNOWN), emptyList());
+        assertFunction("ARRAY_SORT_DESC(null)", new ArrayType(UNKNOWN), null);
+        assertFunction("ARRAY_SORT_DESC(" +
+                        "ARRAY [ARRAY['a'], ARRAY['b', 'b'], ARRAY['c']])",
+                new ArrayType(new ArrayType(createVarcharType(1))),
+                ImmutableList.of(ImmutableList.of("c"), ImmutableList.of("b", "b"), ImmutableList.of("a")));
+        assertFunction("ARRAY_SORT_DESC(" +
+                        "ARRAY [ARRAY['a'], ARRAY['b', 'b'], ARRAY['c'], null, null, ARRAY['a', NULL]])",
+                new ArrayType(new ArrayType(createVarcharType(1))),
+                asList(singletonList("c"), ImmutableList.of("b", "b"), asList("a", null), singletonList("a"), null, null));
+        assertInvalidFunction("ARRAY_SORT_DESC(ARRAY [ROW('a', 1), ROW('a', null), null, ROW('a', 0)])", StandardErrorCode.INVALID_FUNCTION_ARGUMENT);
+        assertInvalidFunction("ARRAY_SORT_DESC(ARRAY [MAP(ARRAY['foo', 'bar'], ARRAY[1, 2]), MAP(ARRAY['foo', 'bar'], ARRAY[0, 3])])", SemanticErrorCode.FUNCTION_NOT_FOUND);
     }
 }

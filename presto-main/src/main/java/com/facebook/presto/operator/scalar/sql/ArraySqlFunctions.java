@@ -116,4 +116,14 @@ public class ArraySqlFunctions
                 "array_min(zip_with(transform(input, f), sequence(1, cardinality(input)), (x, y)->IF(x IS NULL, NULL, (x, y))))[2]" +
                 "]";
     }
+
+    @SqlInvokedScalarFunction(value = "array_sort_desc", deterministic = true, calledOnNullInput = true)
+    @Description("Sorts the given array in descending order according to the natural ordering of its elements.")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array(T)")
+    @SqlType("array<T>")
+    public static String arraySortDesc()
+    {
+        return "RETURN reverse(array_sort(remove_nulls(input))) || filter(input, x -> x is null)";
+    }
 }
