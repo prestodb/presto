@@ -56,7 +56,6 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
-import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
@@ -433,8 +432,14 @@ public class TestEncryption
             nextStart += block.getRowCount();
         }
 
-        return ParquetReader.builder(messageColumn, blocks.build(), dataSource, newSimpleAggregatedMemoryContext())
+        return ParquetReader.builder(messageColumn, blocks.build(), dataSource, com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext())
+                .withFirstRowOfBlocks(Optional.empty())
                 .withMaxReadBlockSize(new DataSize(100000, DataSize.Unit.BYTE))
+                .withBatchReadEnabled(false)
+                .withEnableVerification(false)
+                .withPredicate(null)
+                .withBlockIndexStores(null)
+                .withColumnIndexEnabled(false)
                 .withFileDecryptor(fileDecryptor)
                 .build();
     }
