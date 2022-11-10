@@ -54,6 +54,11 @@ public class TestHiveJoinQueries
 
         assertQuery(partitionedJoin, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
         assertQuery(broadcastJoin, "SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+
+        assertQuery(partitionedJoin, "SELECT * FROM lineitem " +
+                "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(broadcastJoin, "SELECT linenumber, quantity FROM lineitem " +
+                "WHERE linenumber = 3 OR orderkey IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
     }
 
     @Test
@@ -64,6 +69,11 @@ public class TestHiveJoinQueries
 
         assertQuery(partitionedJoin, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
         assertQuery(broadcastJoin, "SELECT * FROM lineitem WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+
+        assertQuery(partitionedJoin, "SELECT * FROM lineitem " +
+                "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
+        assertQuery(broadcastJoin, "SELECT * FROM lineitem " +
+                "WHERE linenumber = 3 OR orderkey NOT IN (SELECT orderkey FROM orders WHERE (orderkey + custkey) % 2 = 0)");
     }
 
     @Test
