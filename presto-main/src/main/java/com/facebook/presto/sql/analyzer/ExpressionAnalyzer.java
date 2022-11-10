@@ -31,6 +31,7 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.BuiltInMetadataResolver;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -1784,7 +1785,7 @@ public class ExpressionAnalyzer
     {
         return new ExpressionAnalyzer(
                 metadata.getFunctionAndTypeManager(),
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector),
+                node -> new StatementAnalyzer(analysis, metadata, new BuiltInMetadataResolver(session, metadata), sqlParser, accessControl, session, warningCollector),
                 Optional.of(session.getSessionFunctions()),
                 session.getTransactionId(),
                 session.getSqlFunctionProperties(),
