@@ -1464,6 +1464,107 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithExtraFilter) {
   }
 }
 
+TEST_P(MultiThreadedHashJoinTest, semiFilterOverLazyVectors) {
+  auto probeVectors = makeBatches(1, [&](auto /*unused*/) {
+    return makeRowVector(
+        {"t0", "t1"},
+        {
+            makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+            makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+        });
+  });
+
+  auto buildVectors = makeBatches(3, [&](auto /*unused*/) {
+    return makeRowVector(
+        {"u0", "u1"},
+        {
+            makeFlatVector<int32_t>(
+                1'000, [](auto row) { return -100 + (row / 5); }),
+            makeFlatVector<int64_t>(
+                1'000, [](auto row) { return -1000 + (row / 5) * 10; }),
+        });
+  });
+
+  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+  writeToFile(probeFile->path, probeVectors);
+
+  std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
+  writeToFile(buildFile->path, buildVectors);
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  core::PlanNodeId probeScanId;
+  core::PlanNodeId buildScanId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(probeVectors[0]->type()))
+                  .capturePlanNodeId(probeScanId)
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(buildVectors[0]->type()))
+                          .capturePlanNodeId(buildScanId)
+                          .planNode(),
+                      "",
+                      {"t0", "t1"},
+                      core::JoinType::kLeftSemiFilter)
+                  .planNode();
+
+  SplitInput splitInput = {
+      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
+      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+  };
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT t0, t1 FROM t WHERE t0 IN (SELECT u0 FROM u)")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT t0, t1 FROM t WHERE t0 IN (SELECT u0 FROM u)")
+      .run();
+
+  // With extra filter.
+  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  plan = PlanBuilder(planNodeIdGenerator)
+             .tableScan(asRowType(probeVectors[0]->type()))
+             .capturePlanNodeId(probeScanId)
+             .hashJoin(
+                 {"t0"},
+                 {"u0"},
+                 PlanBuilder(planNodeIdGenerator)
+                     .tableScan(asRowType(buildVectors[0]->type()))
+                     .capturePlanNodeId(buildScanId)
+                     .planNode(),
+                 "(t1 + u1) % 3 = 0",
+                 {"t0", "t1"},
+                 core::JoinType::kLeftSemiFilter)
+             .planNode();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1 FROM t WHERE t0 IN (SELECT u0 FROM u WHERE (t1 + u1) % 3 = 0)")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1 FROM t WHERE t0 IN (SELECT u0 FROM u WHERE (t1 + u1) % 3 = 0)")
+      .run();
+}
+
 TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoin) {
   std::vector<RowVectorPtr> probeVectors =
       makeBatches(5, [&](uint32_t /*unused*/) {
@@ -2893,6 +2994,107 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
       .planNode(flipJoinSides(plan))
       .referenceQuery(
           "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE u0 IS NOT NULL) FROM t")
+      .run();
+}
+
+TEST_F(HashJoinTest, semiProjectOverLazyVectors) {
+  auto probeVectors = makeBatches(1, [&](auto /*unused*/) {
+    return makeRowVector(
+        {"t0", "t1"},
+        {
+            makeFlatVector<int32_t>(1'000, [](auto row) { return row; }),
+            makeFlatVector<int64_t>(1'000, [](auto row) { return row * 10; }),
+        });
+  });
+
+  auto buildVectors = makeBatches(3, [&](auto /*unused*/) {
+    return makeRowVector(
+        {"u0", "u1"},
+        {
+            makeFlatVector<int32_t>(
+                1'000, [](auto row) { return -100 + (row / 5); }),
+            makeFlatVector<int64_t>(
+                1'000, [](auto row) { return -1000 + (row / 5) * 10; }),
+        });
+  });
+
+  std::shared_ptr<TempFilePath> probeFile = TempFilePath::create();
+  writeToFile(probeFile->path, probeVectors);
+
+  std::shared_ptr<TempFilePath> buildFile = TempFilePath::create();
+  writeToFile(buildFile->path, buildVectors);
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  core::PlanNodeId probeScanId;
+  core::PlanNodeId buildScanId;
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator)
+                  .tableScan(asRowType(probeVectors[0]->type()))
+                  .capturePlanNodeId(probeScanId)
+                  .hashJoin(
+                      {"t0"},
+                      {"u0"},
+                      PlanBuilder(planNodeIdGenerator)
+                          .tableScan(asRowType(buildVectors[0]->type()))
+                          .capturePlanNodeId(buildScanId)
+                          .planNode(),
+                      "",
+                      {"t0", "t1", "match"},
+                      core::JoinType::kLeftSemiProject)
+                  .planNode();
+
+  SplitInput splitInput = {
+      {probeScanId, {exec::Split(makeHiveConnectorSplit(probeFile->path))}},
+      {buildScanId, {exec::Split(makeHiveConnectorSplit(buildFile->path))}},
+  };
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery("SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t")
+      .run();
+
+  // With extra filter.
+  planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  plan = PlanBuilder(planNodeIdGenerator)
+             .tableScan(asRowType(probeVectors[0]->type()))
+             .capturePlanNodeId(probeScanId)
+             .hashJoin(
+                 {"t0"},
+                 {"u0"},
+                 PlanBuilder(planNodeIdGenerator)
+                     .tableScan(asRowType(buildVectors[0]->type()))
+                     .capturePlanNodeId(buildScanId)
+                     .planNode(),
+                 "(t1 + u1) % 3 = 0",
+                 {"t0", "t1", "match"},
+                 core::JoinType::kLeftSemiProject)
+             .planNode();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE (t1 + u1) % 3 = 0) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .inputSplits(splitInput)
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE (t1 + u1) % 3 = 0) FROM t")
       .run();
 }
 

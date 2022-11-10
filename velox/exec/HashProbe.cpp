@@ -832,8 +832,9 @@ RowVectorPtr HashProbe::getOutput() {
     return output;
   }
 
-  const bool isLeftSemiOrAntiJoinNoFilter =
-      !filter_ && (isLeftSemiFilterJoin(joinType_) || isAntiJoins(joinType_));
+  const bool isLeftSemiOrAntiJoinNoFilter = !filter_ &&
+      (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
+       isAntiJoins(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
@@ -892,11 +893,6 @@ RowVectorPtr HashProbe::getOutput() {
     numOut = evalFilter(numOut);
 
     if (!numOut) {
-      // The filter was false on all rows.
-      if (isLeftSemiOrAntiJoinNoFilter) {
-        input_ = nullptr;
-        return nullptr;
-      }
       continue;
     }
 
@@ -1228,15 +1224,18 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 }
 
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
-  if (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
-      isAntiJoins(joinType_) || results_.atEnd()) {
+  if ((!filter_ &&
+       (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
+        isAntiJoins(joinType_))) ||
+      results_.atEnd()) {
     return;
   }
 
   if (!passingInputRowsInitialized_) {
     passingInputRowsInitialized_ = true;
     passingInputRows_.resize(input_->size());
-    if (isLeftJoin(joinType_) || isFullJoin(joinType_)) {
+    if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
+        isLeftSemiProjectJoin(joinType_)) {
       passingInputRows_.setAll();
     } else {
       passingInputRows_.clearAll();
