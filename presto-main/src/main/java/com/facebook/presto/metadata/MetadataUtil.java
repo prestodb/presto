@@ -134,6 +134,24 @@ public final class MetadataUtil
         return new CatalogSchemaName(catalogName, schemaName);
     }
 
+    public static QualifiedObjectName createQualifiedObjectName(String catalog, String schema, QualifiedName name)
+    {
+        requireNonNull(catalog, "catalog is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(name, "name is null");
+
+        if (name.getParts().size() > 3) {
+            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+        }
+
+        List<String> parts = Lists.reverse(name.getParts());
+        String objectName = parts.get(0);
+        String schemaName = (parts.size() > 1) ? parts.get(1) : schema;
+        String catalogName = (parts.size() > 2) ? parts.get(2) : catalog;
+
+        return new QualifiedObjectName(catalogName, schemaName, objectName);
+    }
+
     public static QualifiedObjectName createQualifiedObjectName(Session session, Node node, QualifiedName name)
     {
         requireNonNull(session, "session is null");
