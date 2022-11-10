@@ -1,9 +1,20 @@
 #!/usr/bin/env bash
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 set -eExv -o functrace
 
 SCRIPT_DIR=$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")
-PRESTO_HOME="${PRESTO_HOME:-"/opt/presto/"}"
+PRESTO_HOME="${PRESTO_HOME:-"/opt/presto"}"
 USE_ENV_PARAMS=${USE_ENV_PARAMS:-0}
 
 source "${SCRIPT_DIR}/common.sh"
@@ -12,6 +23,9 @@ trap 'exit 2' SIGSTOP SIGINT SIGTERM SIGQUIT
 trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"; [ -z "${DEBUG}" ] && exit 1 || sleep 3600' ERR
 
 if [[ "${DEBUG}" == "0" || "${DEBUG}" == "false" || "${DEBUG}" == "False" ]]; then DEBUG=""; fi
+
+http_server_port=8080
+discovery_uri="http://127.0.0.1:${http_server_port}"
 
 while getopts ':-:' optchar; do
   case "$optchar" in
@@ -45,8 +59,23 @@ function node_command_line_config()
 
 function node_configuration()
 {
-  cat "${PRESTO_HOME}/config.properties.template" > "${PRESTO_HOME}/config.properties"
-  cat "${PRESTO_HOME}/node.properties.template" > "${PRESTO_HOME}/node.properties"
+  if [ -f "${PRESTO_HOME}/config.properties.template" ]
+  then
+    prompt "Using user provided config.properties.template"
+    cat "${PRESTO_HOME}/config.properties.template" > "${PRESTO_HOME}/config.properties"
+  else
+    prompt "Using default config.properties.template. No user config found."
+    cat "${PRESTO_HOME}/etc/config.properties.template" > "${PRESTO_HOME}/config.properties"
+  fi
+
+  if [ -f "${PRESTO_HOME}/node.properties.template" ]
+  then
+    prompt "Using user provided node.properties.template"
+    cat "${PRESTO_HOME}/node.properties.template" > "${PRESTO_HOME}/node.properties"
+  else
+    prompt "Using default node.properties.template. No user config found."
+    cat "${PRESTO_HOME}/etc/node.properties.template" > "${PRESTO_HOME}/node.properties"
+  fi
 
   [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return -2
 
