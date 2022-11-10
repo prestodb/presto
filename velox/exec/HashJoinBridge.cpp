@@ -32,7 +32,8 @@ void HashJoinBridge::addBuilder() {
 
 bool HashJoinBridge::setHashTable(
     std::unique_ptr<BaseHashTable> table,
-    SpillPartitionSet spillPartitionSet) {
+    SpillPartitionSet spillPartitionSet,
+    bool hasNullKeys) {
   VELOX_CHECK_NOT_NULL(table, "setHashTable called with null table");
 
   auto spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
@@ -61,7 +62,8 @@ bool HashJoinBridge::setHashTable(
     buildResult_ = HashBuildResult(
         std::move(table),
         std::move(restoringSpillPartitionId_),
-        std::move(spillPartitionIdSet));
+        std::move(spillPartitionIdSet),
+        hasNullKeys);
     restoringSpillPartitionId_.reset();
 
     hasSpillData = !spillPartitionSets_.empty();

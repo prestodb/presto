@@ -279,9 +279,9 @@ class HashBuild final : public Operator {
   // Set of active rows during addInput().
   SelectivityVector activeRows_;
 
-  // True if this is a build side of an anti join and has at least one entry
-  // with null join keys.
-  bool antiJoinHasNullKeys_{false};
+  // True if this is a build side of an anti or left semi project join and has
+  // at least one entry with null join keys.
+  bool joinHasNullKeys_{false};
 
   // Counts input batches and triggers spilling if folly hash of this % 100 <=
   // 'testSpillPct_';.

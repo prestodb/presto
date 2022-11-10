@@ -2803,6 +2803,99 @@ TEST_F(HashJoinTest, semiProject) {
       .run();
 }
 
+TEST_F(HashJoinTest, semiProjectWithNullKeys) {
+  // Some keys have multiple rows: 2, 3, 5.
+  auto probeVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {"t0", "t1"},
+        {
+            makeNullableFlatVector<int64_t>(
+                {1, 2, 2, 3, 3, 3, 4, std::nullopt, 5, 5, 6, 7}),
+            makeFlatVector<int64_t>(
+                {10, 20, 21, 30, 31, 32, 40, -1, 50, 51, 60, 70}),
+        });
+  });
+
+  // Some keys are missing: 2, 6.
+  // Some have multiple rows: 1, 5.
+  // Some keys are not present on probe side: 8.
+  auto buildVectors = makeBatches(3, [&](int32_t /*unused*/) {
+    return makeRowVector(
+        {"u0", "u1"},
+        {
+            makeNullableFlatVector<int64_t>(
+                {1, 1, 3, 4, std::nullopt, 5, 5, 7, 8}),
+            makeFlatVector<int64_t>(
+                {100, 101, 300, 400, -100, 500, 501, 700, 800}),
+        });
+  });
+
+  createDuckDbTable("t", probeVectors);
+  createDuckDbTable("u", buildVectors);
+
+  auto makePlan = [&](const std::string& probeFilter = "",
+                      const std::string& buildFilter = "") {
+    auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+    return PlanBuilder(planNodeIdGenerator)
+        .values(probeVectors)
+        .optionalFilter(probeFilter)
+        .hashJoin(
+            {"t0"},
+            {"u0"},
+            PlanBuilder(planNodeIdGenerator)
+                .values(buildVectors)
+                .optionalFilter(buildFilter)
+                .planNode(),
+            "",
+            {"t0", "t1", "match"},
+            core::JoinType::kLeftSemiProject)
+        .planNode();
+  };
+
+  // Null join keys on both sides.
+  auto plan = makePlan();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .referenceQuery("SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery("SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t")
+      .run();
+
+  // Null join keys on build side-only.
+  plan = makePlan("t0 IS NOT NULL");
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t WHERE t0 IS NOT NULL")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u) FROM t WHERE t0 IS NOT NULL")
+      .run();
+
+  // Null join keys on probe side-only.
+  plan = makePlan("", "u0 IS NOT NULL");
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE u0 IS NOT NULL) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t0, t1, t0 IN (SELECT u0 FROM u WHERE u0 IS NOT NULL) FROM t")
+      .run();
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashJoinTest,
     MultiThreadedHashJoinTest,

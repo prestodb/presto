@@ -296,6 +296,7 @@ void HashBuild::addInput(RowVectorPtr input) {
   }
 
   if (!isRightJoin(joinType_) && !isFullJoin(joinType_) &&
+      !isRightSemiProjectJoin(joinType_) &&
       !isNullAwareAntiJoinWithFilter(joinNode_)) {
     deselectRowsWithNulls(hashers, activeRows_);
   }
@@ -310,13 +311,15 @@ void HashBuild::addInput(RowVectorPtr input) {
       removeInputRowsForAntiJoinFilter();
     }
   } else if (
-      isNullAwareAntiJoin(joinType_) &&
+      (isNullAwareAntiJoin(joinType_) || isLeftSemiProjectJoin(joinType_)) &&
       activeRows_.countSelected() < input->size()) {
-    // Null-aware anti join with no extra filter returns no rows if build side
-    // has nulls in join keys. Hence, we can stop processing on first null.
-    antiJoinHasNullKeys_ = true;
-    noMoreInput();
-    return;
+    joinHasNullKeys_ = true;
+    if (isNullAwareAntiJoin(joinType_)) {
+      // Null-aware anti join with no extra filter returns no rows if build side
+      // has nulls in join keys. Hence, we can stop processing on first null.
+      noMoreInput();
+      return;
+    }
   }
 
   spillInput(input);
@@ -689,14 +692,18 @@ bool HashBuild::finishHashBuild() {
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   Spiller::Stats spillStats;
-  if (!antiJoinHasNullKeys_) {
+  if (joinHasNullKeys_ && isNullAwareAntiJoin(joinType_)) {
+    joinBridge_->setAntiJoinHasNullKeys();
+  } else {
     for (auto& peer : peers) {
       auto op = peer->findOperator(planNodeId());
       HashBuild* build = dynamic_cast<HashBuild*>(op);
       VELOX_CHECK(build);
-      if (build->antiJoinHasNullKeys_) {
-        antiJoinHasNullKeys_ = true;
-        break;
+      if (build->joinHasNullKeys_) {
+        joinHasNullKeys_ = true;
+        if (isNullAwareAntiJoin(joinType_)) {
+          break;
+        }
       }
       otherTables.push_back(std::move(build->table_));
       if (build->spiller_ != nullptr) {
@@ -705,34 +712,38 @@ bool HashBuild::finishHashBuild() {
       }
     }
 
-    if (spiller_ != nullptr) {
-      spillStats += spiller_->stats();
+    if (joinHasNullKeys_ && isNullAwareAntiJoin(joinType_)) {
+      joinBridge_->setAntiJoinHasNullKeys();
+    } else {
+      if (spiller_ != nullptr) {
+        spillStats += spiller_->stats();
 
-      stats_.spilledBytes += spillStats.spilledBytes;
-      stats_.spilledRows += spillStats.spilledRows;
-      stats_.spilledPartitions += spillStats.spilledPartitions;
+        stats_.spilledBytes += spillStats.spilledBytes;
+        stats_.spilledRows += spillStats.spilledRows;
+        stats_.spilledPartitions += spillStats.spilledPartitions;
 
-      spiller_->finishSpill(spillPartitions);
+        spiller_->finishSpill(spillPartitions);
 
-      // Verify all the spilled partitions are not empty as we won't spill on
-      // an empty one.
-      for (const auto& spillPartitionEntry : spillPartitions) {
-        VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
+        // Verify all the spilled partitions are not empty as we won't spill on
+        // an empty one.
+        for (const auto& spillPartitionEntry : spillPartitions) {
+          VELOX_CHECK_GT(spillPartitionEntry.second->numFiles(), 0);
+        }
+      }
+
+      const bool hasOthers = !otherTables.empty();
+      table_->prepareJoinTable(
+          std::move(otherTables),
+          hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
+
+      addRuntimeStats();
+      if (joinBridge_->setHashTable(
+              std::move(table_),
+              std::move(spillPartitions),
+              joinHasNullKeys_)) {
+        spillGroup_->restart();
       }
     }
-
-    const bool hasOthers = !otherTables.empty();
-    table_->prepareJoinTable(
-        std::move(otherTables),
-        hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
-
-    addRuntimeStats();
-    if (joinBridge_->setHashTable(
-            std::move(table_), std::move(spillPartitions))) {
-      spillGroup_->restart();
-    }
-  } else {
-    joinBridge_->setAntiJoinHasNullKeys();
   }
 
   // Realize the promises so that the other Drivers (which were not

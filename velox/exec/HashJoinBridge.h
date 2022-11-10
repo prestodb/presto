@@ -40,7 +40,8 @@ class HashJoinBridge : public JoinBridge {
   /// applies if the disk spilling is enabled.
   bool setHashTable(
       std::unique_ptr<BaseHashTable> table,
-      SpillPartitionSet spillPartitionSet);
+      SpillPartitionSet spillPartitionSet,
+      bool hasNullKeys);
 
   void setAntiJoinHasNullKeys();
 
@@ -54,15 +55,16 @@ class HashJoinBridge : public JoinBridge {
     HashBuildResult(
         std::shared_ptr<BaseHashTable> _table,
         std::optional<SpillPartitionId> _restoredPartitionId,
-        SpillPartitionIdSet _spillPartitionIds)
-        : antiJoinHasNullKeys(false),
+        SpillPartitionIdSet _spillPartitionIds,
+        bool _hasNullKeys)
+        : hasNullKeys(_hasNullKeys),
           table(std::move(_table)),
           restoredPartitionId(std::move(_restoredPartitionId)),
           spillPartitionIds(std::move(_spillPartitionIds)) {}
 
-    HashBuildResult() : antiJoinHasNullKeys(true) {}
+    HashBuildResult() : hasNullKeys(true) {}
 
-    bool antiJoinHasNullKeys{false};
+    bool hasNullKeys;
     std::shared_ptr<BaseHashTable> table;
     std::optional<SpillPartitionId> restoredPartitionId;
     SpillPartitionIdSet spillPartitionIds;

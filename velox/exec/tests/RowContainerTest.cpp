@@ -16,14 +16,12 @@
 #include "velox/exec/RowContainer.h"
 #include <gtest/gtest.h>
 #include <algorithm>
-#include <array>
 #include <random>
 #include "velox/common/file/FileSystems.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/VectorHasher.h"
 #include "velox/exec/tests/utils/RowContainerTestBase.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 
 using namespace facebook::velox;
@@ -798,12 +796,22 @@ TEST_F(RowContainerTest, partition) {
 }
 
 TEST_F(RowContainerTest, probedFlag) {
-  auto rowContainer =
-      makeRowContainer({BIGINT()}, {BIGINT()}, true /*isJoinBuild*/);
+  static const std::vector<std::unique_ptr<Aggregate>> kEmptyAggregates;
+  auto rowContainer = std::make_unique<RowContainer>(
+      std::vector<TypePtr>{BIGINT()}, // keyTypes
+      true, // nullableKeys
+      kEmptyAggregates,
+      std::vector<TypePtr>{BIGINT()}, // dependentTypes
+      true, // hasNext
+      true, // isJoinBuild
+      true, // hasProbedFlag
+      false, // hasNormalizedKey
+      mappedMemory_,
+      ContainerRowSerde::instance());
 
   auto input = makeRowVector({
-      makeFlatVector<int64_t>({1, 2, 3, 4, 5}),
-      makeFlatVector<int64_t>({10, 20, 30, 40, 50}),
+      makeNullableFlatVector<int64_t>({1, 2, 3, 4, std::nullopt, 5}),
+      makeFlatVector<int64_t>({10, 20, 30, 40, -1, 50}),
   });
 
   auto size = input->size();
@@ -816,14 +824,26 @@ TEST_F(RowContainerTest, probedFlag) {
     rowContainer->store(decodedValue, i, rows[i], 1);
   }
 
-  // No 'probed' flags set. Verify all false.
+  // No 'probed' flags set. Verify all false, except for null key row.
   auto result = BaseVector::create<FlatVector<bool>>(BOOLEAN(), 1, pool());
-  rowContainer->extractProbedFlags(rows.data(), size, result);
+  rowContainer->extractProbedFlags(
+      rows.data(), size, false /*replaceFalseWithNull*/, result);
 
   ASSERT_EQ(size, result->size());
   for (auto i = 0; i < size; ++i) {
-    ASSERT_FALSE(result->isNullAt(i));
-    ASSERT_FALSE(result->valueAt(i));
+    if (i == 4) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_FALSE(result->valueAt(i));
+    }
+  }
+
+  rowContainer->extractProbedFlags(
+      rows.data(), size, true /*replaceFalseWithNull*/, result);
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    ASSERT_TRUE(result->isNullAt(i));
   }
 
   // Set 'probed' flags for every other row.
@@ -831,20 +851,54 @@ TEST_F(RowContainerTest, probedFlag) {
     rowContainer->setProbedFlag(rows.data() + i, 1);
   }
 
-  rowContainer->extractProbedFlags(rows.data(), size, result);
+  rowContainer->extractProbedFlags(
+      rows.data(), size, false /*replaceFalseWithNull*/, result);
   ASSERT_EQ(size, result->size());
   for (auto i = 0; i < size; ++i) {
-    ASSERT_FALSE(result->isNullAt(i));
-    ASSERT_EQ(result->valueAt(i), i % 2 == 0);
+    if (i == 4) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_EQ(result->valueAt(i), i % 2 == 0);
+    }
+  }
+
+  rowContainer->extractProbedFlags(
+      rows.data(), size, true /*replaceFalseWithNull*/, result);
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    if (i == 4 || i % 2 != 0) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_TRUE(result->valueAt(i));
+    }
   }
 
   // Set 'probed' flags for all rows.
   rowContainer->setProbedFlag(rows.data(), size);
 
-  rowContainer->extractProbedFlags(rows.data(), size, result);
+  rowContainer->extractProbedFlags(
+      rows.data(), size, false /*replaceFalseWithNull*/, result);
   ASSERT_EQ(size, result->size());
   for (auto i = 0; i < size; ++i) {
-    ASSERT_FALSE(result->isNullAt(i));
-    ASSERT_TRUE(result->valueAt(i));
+    if (i == 4) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_TRUE(result->valueAt(i));
+    }
+  }
+
+  rowContainer->extractProbedFlags(
+      rows.data(), size, true /*replaceFalseWithNull*/, result);
+  ASSERT_EQ(size, result->size());
+  for (auto i = 0; i < size; ++i) {
+    if (i == 4) {
+      ASSERT_TRUE(result->isNullAt(i));
+    } else {
+      ASSERT_FALSE(result->isNullAt(i));
+      ASSERT_TRUE(result->valueAt(i));
+    }
   }
 }

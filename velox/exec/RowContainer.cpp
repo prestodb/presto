@@ -528,12 +528,36 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
 void RowContainer::extractProbedFlags(
     const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
     int32_t numRows,
+    bool replaceFalseWithNull,
     const VectorPtr& result) {
   result->resize(numRows);
+  result->clearAllNulls();
   auto flatResult = result->as<FlatVector<bool>>();
   auto* rawValues = flatResult->mutableRawValues<uint64_t>();
   for (auto i = 0; i < numRows; ++i) {
-    bits::setBit(rawValues, i, bits::isBitSet(rows[i], probedFlagOffset_));
+    // Check if this row has null keys.
+    bool hasNullKey = false;
+    if (nullableKeys_) {
+      for (auto c = 0; c < keyTypes_.size(); ++c) {
+        bool isNull =
+            isNullAt(rows[i], columnAt(c).nullByte(), columnAt(c).nullMask());
+        if (isNull) {
+          hasNullKey = true;
+          break;
+        }
+      }
+    }
+
+    if (hasNullKey) {
+      flatResult->setNull(i, true);
+    } else {
+      bool probed = bits::isBitSet(rows[i], probedFlagOffset_);
+      if (replaceFalseWithNull && !probed) {
+        flatResult->setNull(i, true);
+      } else {
+        bits::setBit(rawValues, i, probed);
+      }
+    }
   }
 }
 

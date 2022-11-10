@@ -153,7 +153,8 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
     auto joinBridge = createJoinBridge();
     // Can't call any other APIs except addBuilder() before start a join bridge
     // first.
-    ASSERT_ANY_THROW(joinBridge->setHashTable(createFakeHashTable(), {}));
+    ASSERT_ANY_THROW(
+        joinBridge->setHashTable(createFakeHashTable(), {}, false));
     ASSERT_ANY_THROW(joinBridge->setAntiJoinHasNullKeys());
     ASSERT_ANY_THROW(joinBridge->probeFinished());
     ASSERT_ANY_THROW(joinBridge->tableOrFuture(&futures[0]));
@@ -182,8 +183,9 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
     } else {
       auto table = createFakeHashTable();
       rawTable = table.get();
-      joinBridge->setHashTable(std::move(table), {});
-      ASSERT_ANY_THROW(joinBridge->setHashTable(createFakeHashTable(), {}));
+      joinBridge->setHashTable(std::move(table), {}, false);
+      ASSERT_ANY_THROW(
+          joinBridge->setHashTable(createFakeHashTable(), {}, false));
     }
 
     for (int32_t i = 0; i < numProbers_; ++i) {
@@ -197,12 +199,12 @@ TEST_P(HashJoinBridgeTest, withoutSpill) {
       ASSERT_TRUE(tableOr.has_value());
       ASSERT_FALSE(futures[i].valid());
       if (hasNullKeys) {
-        ASSERT_TRUE(tableOr.value().antiJoinHasNullKeys);
+        ASSERT_TRUE(tableOr.value().hasNullKeys);
         ASSERT_TRUE(tableOr.value().table == nullptr);
         ASSERT_FALSE(tableOr.value().restoredPartitionId.has_value());
         ASSERT_TRUE(tableOr.value().spillPartitionIds.empty());
       } else {
-        ASSERT_FALSE(tableOr.value().antiJoinHasNullKeys);
+        ASSERT_FALSE(tableOr.value().hasNullKeys);
         ASSERT_FALSE(tableOr.value().table == nullptr);
         ASSERT_EQ(tableOr.value().table.get(), rawTable);
         ASSERT_FALSE(tableOr.value().restoredPartitionId.has_value());
@@ -278,7 +280,7 @@ TEST_P(HashJoinBridgeTest, withSpill) {
         numSpilledPartitions += spillPartitionSet.size();
         spillPartitionIdSet = toSpillPartitionIdSet(spillPartitionSet);
         hasMoreSpill = joinBridge->setHashTable(
-            createFakeHashTable(), std::move(spillPartitionSet));
+            createFakeHashTable(), std::move(spillPartitionSet), false);
       }
 
       // Get built table from probe side.
@@ -287,10 +289,10 @@ TEST_P(HashJoinBridgeTest, withSpill) {
         auto tableOr = joinBridge->tableOrFuture(&probeFutures[i]);
         ASSERT_TRUE(tableOr.has_value());
         if (!hasMoreSpill && testData.endWithNull) {
-          ASSERT_TRUE(tableOr.value().antiJoinHasNullKeys);
+          ASSERT_TRUE(tableOr.value().hasNullKeys);
           ASSERT_TRUE(tableOr.value().table == nullptr);
         } else {
-          ASSERT_FALSE(tableOr.value().antiJoinHasNullKeys);
+          ASSERT_FALSE(tableOr.value().hasNullKeys);
           ASSERT_TRUE(tableOr.value().table != nullptr);
           ASSERT_EQ(tableOr.value().spillPartitionIds, spillPartitionIdSet);
         }
@@ -391,9 +393,9 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
                 auto spillPartitionSet =
                     makeFakeSpillPartitionSet(partitionBitOffset);
                 joinBridge->setHashTable(
-                    createFakeHashTable(), std::move(spillPartitionSet));
+                    createFakeHashTable(), std::move(spillPartitionSet), false);
               } else {
-                joinBridge->setHashTable(createFakeHashTable(), {});
+                joinBridge->setHashTable(createFakeHashTable(), {}, false);
               }
             }
             for (auto& promise : promises) {
@@ -429,7 +431,7 @@ TEST_P(HashJoinBridgeTest, multiThreading) {
             tableOr = joinBridge->tableOrFuture(&tableFuture);
             ASSERT_TRUE(tableOr.has_value());
           }
-          if (tableOr.value().antiJoinHasNullKeys) {
+          if (tableOr.value().hasNullKeys) {
             break;
           }
           ASSERT_TRUE(tableOr.value().table != nullptr);
