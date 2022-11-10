@@ -47,7 +47,6 @@ class DataBuffer {
         buf_{other.buf_},
         size_{other.size_},
         capacity_{other.capacity_} {
-    DWIO_ENSURE_EQ((pool_ == nullptr), (veloxRef_ != nullptr));
     other.buf_ = nullptr;
     other.size_ = 0;
     other.capacity_ = 0;
