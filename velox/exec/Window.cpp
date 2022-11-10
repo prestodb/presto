@@ -350,25 +350,32 @@ void Window::callApplyForPartitionRows(
     rawPeerEnds[j] = peerEndRow_ - 1 - firstPartitionRow;
   }
 
-  auto updateFrameBounds = [&](vector_size_t* frameBoundBuffer,
+  auto updateFrameBounds = [&](vector_size_t* rawFrameBounds,
                                core::WindowNode::BoundType boundType,
                                core::WindowNode::WindowType type,
                                bool isStartBound) -> void {
     switch (boundType) {
       case core::WindowNode::BoundType::kUnboundedPreceding:
-        std::memset(frameBoundBuffer, 0, numRows * sizeof(vector_size_t));
+        std::memset(rawFrameBounds, 0, numRows * sizeof(vector_size_t));
         break;
       case core::WindowNode::BoundType::kUnboundedFollowing:
         std::fill_n(
-            frameBoundBuffer, numRows, lastPartitionRow - firstPartitionRow);
+            rawFrameBounds, numRows, lastPartitionRow - firstPartitionRow);
         break;
       case core::WindowNode::BoundType::kCurrentRow: {
         if (type == core::WindowNode::WindowType::kRange) {
           vector_size_t* rawPeerBuffer =
               isStartBound ? rawPeerStarts : rawPeerEnds;
-          std::copy(rawPeerBuffer, rawPeerBuffer + numRows, frameBoundBuffer);
+          std::copy(rawPeerBuffer, rawPeerBuffer + numRows, rawFrameBounds);
         } else {
-          VELOX_NYI("Not supported");
+          // Fills the frameBound buffer with increasing value of row indices
+          // (corresponding to CURRENT ROW) from the startRow of the current
+          // output buffer. The startRow has to be adjusted relative to the
+          // partition start row.
+          std::iota(
+              rawFrameBounds,
+              rawFrameBounds + numRows,
+              startRow - firstPartitionRow);
         }
         break;
       }

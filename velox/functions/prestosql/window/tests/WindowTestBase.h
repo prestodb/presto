@@ -69,9 +69,17 @@ static std::vector<std::string> kFrameOverClauses = {
 static std::vector<std::string> kRangeFrameClauses = {
     "range unbounded preceding",
     "range current row",
-    "range between unbounded preceding and current row",
     "range between current row and unbounded following",
     "range between unbounded preceding and unbounded following",
+};
+
+/// Common set of window function frame clauses in ROWS mode, with current row,
+/// unbounded preceding, and unbounded following frame combinations.
+static std::vector<std::string> kRowsFrameClauses = {
+    "rows unbounded preceding",
+    "rows current row",
+    "rows between current row and unbounded following",
+    "rows between unbounded preceding and unbounded following",
 };
 
 class WindowTestBase : public exec::test::OperatorTestBase {

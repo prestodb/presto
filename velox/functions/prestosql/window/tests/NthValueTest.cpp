@@ -233,5 +233,35 @@ TEST_F(NthValueTest, multiInputRangeFrames) {
       {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRangeFrameClauses);
 }
 
+TEST_F(NthValueTest, basicRowFrames) {
+  auto vectors = makeBasicVectors(50);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kFrameOverClauses, kRowsFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 1)", kFrameOverClauses, kRowsFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRowsFrameClauses);
+}
+
+TEST_F(NthValueTest, singlePartitionRowFrames) {
+  auto vectors = makeSinglePartitionVectors(400);
+
+  testWindowFunction(
+      {vectors}, "nth_value(c0, c2)", kFrameOverClauses, kRowsFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRowsFrameClauses);
+}
+
+TEST_F(NthValueTest, multiInputRowFrames) {
+  auto vectors = makeSinglePartitionVectors(200);
+  auto doubleVectors = {vectors, vectors};
+
+  testWindowFunction(
+      doubleVectors, "nth_value(c0, c2)", kFrameOverClauses, kRowsFrameClauses);
+  testWindowFunction(
+      {vectors}, "nth_value(c0, 5)", kFrameOverClauses, kRowsFrameClauses);
+}
+
 }; // namespace
 }; // namespace facebook::velox::window::test

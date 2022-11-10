@@ -124,6 +124,16 @@ TEST_P(MultiAggregatesTest, singlePartitionRangeFrames) {
       {makeSinglePartitionVector(100)}, kFrameOverClauses, kRangeFrameClauses);
 }
 
+TEST_P(MultiAggregatesTest, basicRowFrames) {
+  SimpleAggregatesTest::testWindowFunction(
+      {makeBasicVectors(50)}, kFrameOverClauses, kRowsFrameClauses);
+}
+
+TEST_P(MultiAggregatesTest, singlePartitionRowFrames) {
+  SimpleAggregatesTest::testWindowFunction(
+      {makeSinglePartitionVector(100)}, kFrameOverClauses, kRowsFrameClauses);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     SimpleAggregatesTest,
     MultiAggregatesTest,
