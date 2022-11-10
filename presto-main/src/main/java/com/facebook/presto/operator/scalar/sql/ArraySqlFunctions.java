@@ -126,4 +126,14 @@ public class ArraySqlFunctions
     {
         return "RETURN reverse(array_sort(remove_nulls(input))) || filter(input, x -> x is null)";
     }
+
+    @SqlInvokedScalarFunction(value = "remove_nulls", deterministic = true, calledOnNullInput = true)
+    @Description("Removes null values from an array.")
+    @TypeParameter("T")
+    @SqlParameter(name = "input", type = "array(T)")
+    @SqlType("array<T>")
+    public static String removeNulls()
+    {
+        return "RETURN IF(none_match(input, x -> x is null), input, filter(input, x -> x is not null))";
+    }
 }
