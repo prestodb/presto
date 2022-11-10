@@ -151,6 +151,15 @@ Array Functions
                                        -1,
                                        IF(cardinality(x) = cardinality(y), 0, 1))); -- [[1, 2], [2, 3, 1], [4, 2, 1, 4]]
 
+.. function:: array_sort_desc(x) -> array
+
+    Returns the ``array`` sorted in the descending order. Elements of the ``array`` must be orderable.
+    Null elements will be placed at the end of the returned array.
+
+        SELECT array_sort_desc(ARRAY [100, 1, 10, 50]); -- [100, 50, 10, 1]
+        SELECT array_sort_desc(ARRAY [null, 100, null, 1, 10, 50]); -- [100, 50, 10, 1, null, null]
+        SELECT array_sort_desc(ARRAY [ARRAY ["a", null], null, ARRAY ["a"]); -- [["a", null], ["a"], null]
+
 .. function:: array_sum(array(T)) -> bigint/double
 
     Returns the sum of all non-null elements of the ``array``. If there is no non-null elements, returns ``0``.
