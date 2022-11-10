@@ -46,49 +46,27 @@ public class TestClusterMemoryLeakDetector
         QueryId testQuery = new QueryId("test");
         ClusterMemoryLeakDetector leakDetector = new ClusterMemoryLeakDetector();
 
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(), ImmutableMap.of());
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(), ImmutableMap.of());
+        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
+
+        // the leak detector should be okay with a missing basic query info and treat that as a running query
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(testQuery, Optional.empty()), ImmutableMap.of(testQuery, 1L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
 
         // the leak detector should report no leaked queries as the query is still running
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), RUNNING)), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(testQuery, Optional.of(createQueryInfo(testQuery.getId(), RUNNING))), ImmutableMap.of(testQuery, 1L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
 
         // the leak detector should report exactly one leaked query since the query is finished, and its end time is way in the past
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(testQuery, Optional.of(createQueryInfo(testQuery.getId(), FINISHED))), ImmutableMap.of(testQuery, 1L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
 
         // the leak detector should report no leaked queries as the query doesn't have any memory reservation
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 0L));
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(testQuery, Optional.of(createQueryInfo(testQuery.getId(), FINISHED))), ImmutableMap.of(testQuery, 0L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
 
         // the leak detector should report exactly one leaked query since the coordinator doesn't know of any query
-        leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(), ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
-    }
-
-    @Test
-    public void testClusterLeakDetector()
-    {
-        QueryId testQuery = new QueryId("test");
-        ClusterMemoryLeakDetector leakDetector = new ClusterMemoryLeakDetector();
-
-        leakDetector.checkForClusterMemoryLeaks(() -> Optional.empty(), ImmutableMap.of());
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
-
-        // the leak detector should report no leaked queries as the query is still running
-        leakDetector.checkForClusterMemoryLeaks(() -> Optional.of(ImmutableList.of(testQuery)), ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
-
-        // the leak detector should report exactly one leaked query since the query is finished, and its end time is way in the past
-        leakDetector.checkForClusterMemoryLeaks(() -> Optional.empty(), ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
-
-        // the leak detector should report no leaked queries as the query doesn't have any memory reservation
-        leakDetector.checkForClusterMemoryLeaks(() -> Optional.empty(), ImmutableMap.of(testQuery, 0L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
-
-        // the leak detector should report exactly one leaked query since the coordinator doesn't know of any query
-        leakDetector.checkForClusterMemoryLeaks(() -> Optional.empty(), ImmutableMap.of(testQuery, 1L));
+        leakDetector.checkForMemoryLeaks(ImmutableMap.of(), ImmutableMap.of(testQuery, 1L));
         assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
     }
 
