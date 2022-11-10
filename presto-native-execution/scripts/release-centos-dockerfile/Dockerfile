@@ -27,7 +27,6 @@ ARG PRESTODB_CHECKOUT=origin/master
 USER root:root
 
 ENV CPU_TARGET=${CPU_TARGET}
-ENV TZ=Europe/Warsaw
 
 ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
@@ -51,8 +50,11 @@ SHELL ["/bin/bash", "-c"]
 #---( START of PrestoDB and Velox dependency tree build scripts
 #-----------------------------------------------------------
 WORKDIR ${PRESTODB_HOME}
-RUN set -exu && \
-    dnf -y install git wget unzip pkg-config python3-devel java clang-tools-extra bzip2 bzip2-libs && \
+RUN --mount=type=ssh \
+    set -exu && \
+    dnf -y install openssh-clients git wget unzip make && \
+    mkdir -p -m 0600 /root/.ssh && \
+    ssh-keyscan github.com >> /root/.ssh/known_hosts && \
     git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
     git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \
@@ -63,7 +65,8 @@ RUN set -exu && \
     dnf clean all
 
 WORKDIR ${DEPENDENCY_DIR}
-RUN set -exu && \
+RUN --mount=type=ssh \
+    set -exu && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
@@ -83,13 +86,16 @@ RUN set -exu && \
 #---( START of PrestoCpp and Velox main build process
 #-----------------------------------------------------------
 WORKDIR ${PRESTODB_HOME}
-RUN source /opt/rh/gcc-toolset-9/enable && \
+RUN --mount=type=ssh \
+    source /opt/rh/gcc-toolset-9/enable && \
     set -exu && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" release \
-        PRESTO_ENABLE_PARQUET=ON \
-        PRESTO_ENABLE_S3=ON \
-        PRESTO_ENABLE_HDFS=ON \
-        EXTRA_CMAKE_FLAGS=" -DFBTHRIFT_INCLUDE_DIR=${DEPENDENCY_DIR}/fbthrift/thrift/lib/cpp2 "
+        PRESTO_ENABLE_PARQUET=${PRESTO_ENABLE_PARQUET} \
+        PRESTO_ENABLE_S3=${PRESTO_ENABLE_S3} \
+        PRESTO_ENABLE_HDFS=${PRESTO_ENABLE_HDFS} \
+        PRESTO_ENABLE_TESTING=${PRESTO_ENABLE_TESTING} \
+        TREAT_WARNINGS_AS_ERRORS=OFF
+
 #-----------------------------------------------------------
 #---( START of clean-up artifacts task
 #-----------------------------------------------------------

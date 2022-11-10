@@ -1,1 +1,3 @@
-# presto.version=0.273.3
+presto.version=0.279
+discovery.uri=http://127.0.0.1:8080
+http-server.http.port=8080
