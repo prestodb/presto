@@ -58,100 +58,95 @@ public class CatalogServer
     }
 
     @ThriftMethod
-    public boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
+    public MetadataEntry<Boolean> schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return metadataProvider.schemaExists(session.toSession(sessionPropertyManager), schema);
+        return new MetadataEntry<>(metadataProvider.schemaExists(session.toSession(sessionPropertyManager), schema), false);
     }
 
     @ThriftMethod
-    public boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public MetadataEntry<Boolean> catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return metadataProvider.catalogExists(session.toSession(sessionPropertyManager), catalogName);
+        return new MetadataEntry<>(metadataProvider.catalogExists(session.toSession(sessionPropertyManager), catalogName), false);
     }
 
     @ThriftMethod
-    public String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
+    public MetadataEntry<String> listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         List<String> schemaNames = metadataProvider.listSchemaNames(session.toSession(sessionPropertyManager), catalogName);
-        if (!schemaNames.isEmpty()) {
-            return writeValueAsString(schemaNames, objectMapper);
-        }
-        return EMPTY_STRING;
+        return schemaNames.isEmpty()
+                ? new MetadataEntry<>(EMPTY_STRING, false)
+                : new MetadataEntry<>(writeValueAsString(schemaNames, objectMapper), true);
     }
 
     @ThriftMethod
-    public String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
+    public MetadataEntry<String> getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         Optional<TableHandle> tableHandle = metadataProvider.getTableHandle(session.toSession(sessionPropertyManager), table);
-        return tableHandle.map(handle -> writeValueAsString(handle, objectMapper))
-                .orElse(EMPTY_STRING);
+        return tableHandle.map(handle -> new MetadataEntry<>(writeValueAsString(handle, objectMapper), true))
+                .orElse(new MetadataEntry<>(EMPTY_STRING, false));
     }
 
     @ThriftMethod
-    public String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         List<QualifiedObjectName> tableList = metadataProvider.listTables(session.toSession(sessionPropertyManager), prefix);
-        if (!tableList.isEmpty()) {
-            return writeValueAsString(tableList, objectMapper);
-        }
-        return EMPTY_STRING;
+        return tableList.isEmpty()
+                ? new MetadataEntry<>(EMPTY_STRING, false)
+                : new MetadataEntry<>(writeValueAsString(tableList, objectMapper), true);
     }
 
     @ThriftMethod
-    public String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         List<QualifiedObjectName> viewsList = metadataProvider.listViews(session.toSession(sessionPropertyManager), prefix);
-        if (!viewsList.isEmpty()) {
-            writeValueAsString(viewsList, objectMapper);
-        }
-        return EMPTY_STRING;
+        return viewsList.isEmpty()
+                ? new MetadataEntry<>(EMPTY_STRING, false)
+                : new MetadataEntry<>(writeValueAsString(viewsList, objectMapper), true);
     }
 
     @ThriftMethod
-    public String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
+    public MetadataEntry<String> getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         Map<QualifiedObjectName, ViewDefinition> viewsMap = metadataProvider.getViews(session.toSession(sessionPropertyManager), prefix);
-        if (!viewsMap.isEmpty()) {
-            return writeValueAsString(viewsMap, objectMapper);
-        }
-        return EMPTY_STRING;
+        return viewsMap.isEmpty()
+                ? new MetadataEntry<>(EMPTY_STRING, false)
+                : new MetadataEntry<>(writeValueAsString(viewsMap, objectMapper), true);
     }
 
     @ThriftMethod
-    public String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public MetadataEntry<String> getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         Optional<ViewDefinition> viewDefinition = metadataProvider.getView(session.toSession(sessionPropertyManager), viewName);
-        return viewDefinition.map(view -> writeValueAsString(view, objectMapper))
-                .orElse(EMPTY_STRING);
+        return viewDefinition.map(view -> new MetadataEntry<>(writeValueAsString(view, objectMapper), true))
+                .orElse(new MetadataEntry<>(EMPTY_STRING, false));
     }
 
     @ThriftMethod
-    public String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
+    public MetadataEntry<String> getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition =
                 metadataProvider.getMaterializedView(session.toSession(sessionPropertyManager), viewName);
-        return connectorMaterializedViewDefinition.map(materializedView -> writeValueAsString(materializedView, objectMapper))
-                .orElse(EMPTY_STRING);
+        return connectorMaterializedViewDefinition.map(materializedView -> new MetadataEntry<>(writeValueAsString(materializedView, objectMapper), true))
+                .orElse(new MetadataEntry<>(EMPTY_STRING, false));
     }
 
     @ThriftMethod
-    public String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
+    public MetadataEntry<String> getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         List<QualifiedObjectName> referencedMaterializedViewsList = metadataProvider.getReferencedMaterializedViews(session.toSession(sessionPropertyManager), tableName);
-        if (!referencedMaterializedViewsList.isEmpty()) {
-            return writeValueAsString(referencedMaterializedViewsList, objectMapper);
-        }
-        return EMPTY_STRING;
+        return referencedMaterializedViewsList.isEmpty()
+                ? new MetadataEntry<>(EMPTY_STRING, false)
+                : new MetadataEntry<>(writeValueAsString(referencedMaterializedViewsList, objectMapper), true);
     }
 
     private static String writeValueAsString(Object value, ObjectMapper objectMapper)

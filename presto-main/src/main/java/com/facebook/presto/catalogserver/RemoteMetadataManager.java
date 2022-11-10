@@ -64,42 +64,48 @@ public class RemoteMetadataManager
     @Override
     public boolean schemaExists(Session session, CatalogSchemaName schema)
     {
-        return catalogServerClient.get().schemaExists(
+        MetadataEntry<Boolean> metadataEntry = catalogServerClient.get().schemaExists(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 schema);
+        return metadataEntry.getIsJson()
+                ? false
+                : metadataEntry.getValue();
     }
 
     @Override
     public boolean catalogExists(Session session, String catalogName)
     {
-        return catalogServerClient.get().catalogExists(
+        MetadataEntry<Boolean> metadataEntry = catalogServerClient.get().catalogExists(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 catalogName);
+        return metadataEntry.getIsJson()
+                ? false
+                : metadataEntry.getValue();
     }
 
     @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
-        String schemaNamesJson = catalogServerClient.get().listSchemaNames(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().listSchemaNames(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 catalogName);
-        return schemaNamesJson.isEmpty()
-                ? ImmutableList.of()
-                : readValue(schemaNamesJson, new TypeReference<List<String>>() {});
+        return metadataEntry.getIsJson()
+                ? readValue(metadataEntry.getValue(), new TypeReference<List<String>>() {})
+                : ImmutableList.of();
     }
 
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
-        String tableHandleJson = catalogServerClient.get().getTableHandle(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().getTableHandle(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 table);
-        if (!tableHandleJson.isEmpty()) {
-            TableHandle tableHandle = readValue(tableHandleJson, new TypeReference<TableHandle>() {});
+        if (metadataEntry.getIsJson()) {
+            TableHandle tableHandle = readValue(metadataEntry.getValue(), new TypeReference<TableHandle>() {});
             Optional<CatalogMetadata> catalogMetadata = this.transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), table.getCatalogName());
             if (catalogMetadata.isPresent()) {
                 tableHandle = new TableHandle(
@@ -116,73 +122,73 @@ public class RemoteMetadataManager
     @Override
     public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
     {
-        String tableListJson = catalogServerClient.get().listTables(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().listTables(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 prefix);
-        return tableListJson.isEmpty()
-                ? ImmutableList.of()
-                : readValue(tableListJson, new TypeReference<List<QualifiedObjectName>>() {});
+        return metadataEntry.getIsJson()
+                ? readValue(metadataEntry.getValue(), new TypeReference<List<QualifiedObjectName>>() {})
+                : ImmutableList.of();
     }
 
     @Override
     public List<QualifiedObjectName> listViews(Session session, QualifiedTablePrefix prefix)
     {
-        String viewsListJson = catalogServerClient.get().listViews(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().listViews(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 prefix);
-        return viewsListJson.isEmpty()
-                ? ImmutableList.of()
-                : readValue(viewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
+        return metadataEntry.getIsJson()
+                ? readValue(metadataEntry.getValue(), new TypeReference<List<QualifiedObjectName>>() {})
+                : ImmutableList.of();
     }
 
     @Override
     public Map<QualifiedObjectName, ViewDefinition> getViews(Session session, QualifiedTablePrefix prefix)
     {
-        String viewsMapJson = catalogServerClient.get().getViews(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().getViews(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 prefix);
-        return viewsMapJson.isEmpty()
-                ? ImmutableMap.of()
-                : readValue(viewsMapJson, new TypeReference<Map<QualifiedObjectName, ViewDefinition>>() {});
+        return metadataEntry.getIsJson()
+                ? readValue(metadataEntry.getValue(), new TypeReference<Map<QualifiedObjectName, ViewDefinition>>() {})
+                : ImmutableMap.of();
     }
 
     @Override
     public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
     {
-        String viewDefinitionJson = catalogServerClient.get().getView(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().getView(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 viewName);
-        return viewDefinitionJson.isEmpty()
-                ? Optional.empty()
-                : Optional.of(readValue(viewDefinitionJson, new TypeReference<ViewDefinition>() {}));
+        return metadataEntry.getIsJson()
+                ? Optional.of(readValue(metadataEntry.getValue(), new TypeReference<ViewDefinition>() {}))
+                : Optional.empty();
     }
 
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        String connectorMaterializedViewDefinitionJson = catalogServerClient.get().getMaterializedView(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().getMaterializedView(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 viewName);
-        return connectorMaterializedViewDefinitionJson.isEmpty()
-                ? Optional.empty()
-                : Optional.of(readValue(connectorMaterializedViewDefinitionJson, new TypeReference<ConnectorMaterializedViewDefinition>() {}));
+        return metadataEntry.getIsJson()
+                ? Optional.of(readValue(metadataEntry.getValue(), new TypeReference<ConnectorMaterializedViewDefinition>() {}))
+                : Optional.empty();
     }
 
     @Override
     public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
     {
-        String referencedMaterializedViewsListJson = catalogServerClient.get().getReferencedMaterializedViews(
+        MetadataEntry<String> metadataEntry = catalogServerClient.get().getReferencedMaterializedViews(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
                 session.toSessionRepresentation(),
                 tableName);
-        return referencedMaterializedViewsListJson.isEmpty()
-                ? ImmutableList.of()
-                : readValue(referencedMaterializedViewsListJson, new TypeReference<List<QualifiedObjectName>>() {});
+        return metadataEntry.getIsJson()
+                ? readValue(metadataEntry.getValue(), new TypeReference<List<QualifiedObjectName>>() {})
+                : ImmutableList.of();
     }
 
     private <T> T readValue(String content, TypeReference<T> valueTypeRef)

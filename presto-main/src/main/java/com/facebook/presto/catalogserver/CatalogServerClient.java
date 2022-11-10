@@ -25,32 +25,32 @@ import com.facebook.presto.transaction.TransactionInfo;
 public interface CatalogServerClient
 {
     @ThriftMethod
-    boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema);
+    MetadataEntry<Boolean> schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema);
 
     @ThriftMethod
-    boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
+    MetadataEntry<Boolean> catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
 
     @ThriftMethod
-    String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
+    MetadataEntry<String> listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName);
 
     @ThriftMethod
-    String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table);
+    MetadataEntry<String> getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table);
 
     @ThriftMethod
-    String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
+    MetadataEntry<String> getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix);
 
     @ThriftMethod
-    String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
+    MetadataEntry<String> getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
 
     @ThriftMethod
-    String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
+    MetadataEntry<String> getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName);
 
     @ThriftMethod
-    String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName);
+    MetadataEntry<String> getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName);
 }
