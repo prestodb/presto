@@ -24,7 +24,7 @@ dnf install -y clang-tools-extra
 dnf install -y jq
 dnf install -y perl-XML-XPath
 
-python3 -m pip install regex pyyaml chevron black
+python3 -m pip install regex pyyaml chevron black six
 
 # Required for Antlr4
 dnf install -y libuuid-devel
@@ -62,7 +62,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
   ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
 )
 
-(
+! (
   git clone https://github.com/facebook/folly &&
   cd folly &&
   git checkout $FB_OS_VERSION &&

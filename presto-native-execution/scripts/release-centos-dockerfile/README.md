@@ -8,7 +8,7 @@
 
 > 📝 _**Note:** This readme and the build process was adapted from internal pipeline. You can e-mail the author if you've got questions [milosz.linkiewicz@intel.com](mailto:milosz.linkiewicz@intel.com)_
 
-Prestissimo, marked in PrestoDB GitHub repository as 'presto-native-execution', is effort of making PrestoDB even better using Velox library as a starting point. Both of mentioned - PrestoCpp and Velox - are mainly written using low level `C` and `C++ 17` languages, which makes the build-from-scratch process humongously complicated. To make this process simple, Intel Cloud Native Data Services Team is introducing 3-stage, fully automated Docker build process based on unmodified project GitHub repository.
+Prestissimo, marked in PrestoDB GitHub repository as 'presto-native-execution', is effort of making PrestoDB even better using Velox library as a starting point. Both of mentioned - PrestoCpp and Velox - are mainly written using low level `C` and `C++ 17` languages, which makes the build-from-scratch process humongously complicated. This workflow simplifies and automates Docker build process based on unmodified project GitHub repository.
 
 ## Quick Start
 
@@ -39,6 +39,17 @@ export IMAGE_TAG='latest'
 export IMAGE_REGISTRY='https://my_docker_registry.com/'
 # defaults to '0'
 export IMAGE_PUSH='0'
+```
+
+Additionally if you are using docker registry cache for downloading images bellow values should be exported as follows:
+
+```bash
+# defaults to 'quay.io/centos/'
+export IMAGE_CACHE_REGISTRY='my.company.registry.cache.xyz:5000/path/to/library/'
+# this will be concatenated with (defaults to 'centos:stream8')
+export IMAGE_BASE_NAME='centos:stream8'
+# resulting in BASE_IMAGE:
+export BASE_IMAGE="${IMAGE_CACHE_REGISTRY}${IMAGE_BASE_NAME}"
 ```
 
 ### 3. Make sure Docker daemon is running
@@ -102,9 +113,9 @@ export PRESTODB_REPOSITORY=$(git config --get remote.origin.url)
 export PRESTODB_CHECKOUT=$(git show -s --format="%H" HEAD)
 ```
 
-Where `IMAGE_NAME` and `IMAGE_TAG` will be the prestissimo release image name and tag, `IMAGE_REGISTRY` will be the registry that the image will be tagged with and witch will be used to download the images from previous stages in case there are no cached images locally. The `CPU_TARGET` will be unchanged for most of the cases, for more info read the Velox documentation. The `PRESTODB_REPOSITORY` and `PRESTODB_CHECKOUT` will be used as a build repository and branch inside the container. You can set them manually or as provided using git commands.
+Where `IMAGE_NAME` and `IMAGE_TAG` will be the prestissimo release image name and tag, `IMAGE_REGISTRY` will be the registry that the image will be tagged with and which will be used to download the images from previous stages in case there are no cached images locally. The `CPU_TARGET` will be unchanged for most of the cases, for more info read the Velox documentation. The `PRESTODB_REPOSITORY` and `PRESTODB_CHECKOUT` will be used as a build repository and branch inside the container. You can set them manually or as provided using git commands.
 
-Then for example to build containers when being behind a proxy server, change dir to and type:
+Then to manually build the Dockerfile type:
 
 ```bash
 cd presto-native-execution/scripts/release-centos-dockerfile
@@ -120,12 +131,14 @@ docker build \
 ```
 
 
-## Build process - more info - `prestissimo` (with artifacts ~35 GB, without ~10 GB)
+## Build process - more info
 
-Most of runtime and build time dependencies are downloaded, configured and installed in this step. The result from this step is a starting point for both second and third stage. This container will be build 'once per breaking change' in any of repositories. It can be used as starting point for Ci/Cd integrated systems.
+> 📝 _**Note:** `prestissimo` image size is with artifacts ~35 GB, without ~10 GB_
+
+In this step most of runtime and build time dependencies are downloaded, configured and installed. The image built in this step is a starting point for both second and third stage. It will be build 'once per breaking change' in any of repositories.
 This step install Maven, Java 8, Python3-Dev, libboost-dev and lots of other massive frameworks, libraries and applications and ensures that all of steps from 2 stage will run with no errors.
 
-On-top of container from step 1 repository is initialized, Velox and submodules are updated, adapters, connectors and side-dependencies are build and configured. PrestoDB native, full repository build, using Meta wrapper mvnw for Maven is being done. After all of those partial steps, make and build are being run for PrestoCpp and Velox with Parquet, ORC, Hive connector with Thrift with S3-EMRFS filesystem implementation (schema `s3://`) and Hadoop filesystem implementation.
+Build directory structure used inside the Dockerfile:
 
 ```bash
 ### DIRECTORY AND MAIN BUILD ARTIFACTS
@@ -158,7 +171,7 @@ On-top of container from step 1 repository is initialized, Velox and submodules 
 /opt/presto/_repo/presto-native-execution/_build/release/presto_cpp/
 ```
 
-Release container build - mostly with only the must-have runtime files, including presto_server build presto executable and some libraries. What will be used in the final released container depends on user needs and can be adjusted.
+Release image build - mostly with only the must-have runtime files, including presto_server build presto executable and some libraries. What will be used in the final released image depends on user needs and can be adjusted.
 
 # Prestissimo - runtime configuration and settings
 
@@ -175,9 +188,9 @@ This is valid when running using docker and using kubernetes. It is not advised 
 
 ## 2) Using in Kubernetes environment:
 
-Mount config file inside a container as `/opt/presto/node.properties.template`. Replace each variable with you configuration values or leave it as is:
+Mount configuration file inside a pod as `/opt/presto/node.properties.template`. Replace each variable with preferred configuration value:
 
-> _**Notice:** set up same values for JAVA coordinator as for prestoCpp - version, location and environment should be the same or you will get connection errors._
+> _**Notice:** JAVA Presto Server should use same values as Presto-Native-Execution - explicitly version, location and environment should be same in both deployments - otherwise you will get connection errors._
 
 ```ini
 presto.version=0.273.3
@@ -189,7 +202,7 @@ plugin.dir=/opt/presto/plugin
 # node.id is generated and filled during machine startup if not specified
 ```
 
-Mount config file inside a container as `/opt/presto/config.properties.template`.  Replace each variable with you configuration values:
+Mount config file inside a container as `/opt/presto/config.properties.template`. Replace each variable with your configuration values:
 
 ```ini
 coordinator=false

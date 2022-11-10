@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 function message() {
     local type=$1
@@ -120,58 +131,4 @@ function failure() {
     _output_array+=('--- CRITICAL ERROR! ---')
     _output_array+=('---')
     printf '%s\n' "${_output_array[@]}" >&2
-}
-
-function print_logo() {
-    local blue_code=(17 17 18 19 20 20 21 04 27 26 32 12 33 06 39 38 44 45)
-    local IFS='\n\t'
-	local logo_string="$(cat <<- EOF
-	.-----------------------------------------------------------.
-	|        *          .                    ..        .    *   |
-	|                      .             .     . :  .   .    .  |
-	|       .                         .   .  .  .   .           |
-	|                                    . .  *:. . .           |
-	|                             .  .   . .. .         .       |
-	|                    .     . .  . ...    .    .             |
-	|  .              .  .  . .    . .  . .                     |
-	|                   .    .     . ...   ..   .       .       |
-	|            .  .    . *.   . .                             |
-	|                   :.  .           .                       |
-	|            .   .    .    .                                |
-	|        .  .  .    . ^                                     |
-	|       .  .. :.    . |             .               .       |
-	|.   ... .            |                                     |
-	| :.  . .   *.        |     .               .               |
-	| *.              We are here.                              |
-	|   .               .             *.                        |
-	.---------------------------------------ascii-author-unknown.
-	=                                                           =
-	=        88                                  88             =
-	=        ""                ,d                88             =
-	=        88                88                88             =
-	=        88  8b,dPPYba,  MM88MMM  ,adPPYba,  88             =
-	=        88  88P'   '"8a   88    a8P_____88  88             =
-	=        88  88       88   88    8PP"""""""  88             =
-	=        88  88       88   88,   "8b,   ,aa  88             =
-	=        88  88       88   "Y888  '"Ybbd8"'  88             =
-	=                                                           =
-	=============================================================
-	=     Intel® Technology Poland 2022                         =
-	=            by Cloud Native Data Services Team             =
-	=-----------------------------------------------------------=
-	=    PROJECT:   Cloud Native Data Services                  =
-	=-----------------------------------------------------------=
-	=============================================================
-		EOF
-    )"
-
-    local colorized_logo_string=()
-    for (( i=0; i<${#logo_string}; i++ ))
-    do
-        colorized_logo_string+="\e[38;05;${blue_code[$(( (i-(i/64)*64)/4 ))]}m";
-        colorized_logo_string+="${logo_string:$i:1}";
-    done;
-    colorized_logo_string+='\e[m\n'
-
-    echo -e "$colorized_logo_string" >&2
 }
