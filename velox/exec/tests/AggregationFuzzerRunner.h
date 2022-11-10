@@ -65,7 +65,8 @@ class AggregationFuzzerRunner {
   static int run(
       const std::string& onlyFunctions,
       size_t seed,
-      const std::unordered_set<std::string>& skipFunctions) {
+      const std::unordered_set<std::string>& skipFunctions,
+      const std::unordered_set<std::string>& orderDependentFunctions) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
@@ -80,7 +81,8 @@ class AggregationFuzzerRunner {
       exit(1);
     }
 
-    facebook::velox::exec::test::aggregateFuzzer(filteredSignatures, seed);
+    facebook::velox::exec::test::aggregateFuzzer(
+        filteredSignatures, seed, orderDependentFunctions);
     return RUN_ALL_TESTS();
   }
 

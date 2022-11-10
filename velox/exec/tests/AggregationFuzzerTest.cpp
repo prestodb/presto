@@ -48,19 +48,18 @@ int main(int argc, char** argv) {
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
   std::unordered_set<std::string> skipFunctions = {
-      // approx_percentile crashes:
-      // https://github.com/facebookincubator/velox/issues/3099
-      "approx_percentile",
       // approx_most_frequent crashes:
       // https://github.com/facebookincubator/velox/issues/3101
       "approx_most_frequent",
       // avg crashes under UBSAN:
       // https://github.com/facebookincubator/velox/issues/3103
       "avg",
-      // The results of the following functions depend on the order of input
-      // rows.
-      // TODO Enhance the fuzzer allow partial testing for these, i.e. skip
-      // multi-threaded plans using local exchange.
+  };
+
+  // The results of the following functions depend on the order of input
+  // rows.
+  std::unordered_set<std::string> orderDependentFunctions = {
+      "approx_distinct",
       "approx_set",
       "arbitrary",
       "array_agg",
@@ -70,5 +69,6 @@ int main(int argc, char** argv) {
       "min_by",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
-  return AggregationFuzzerRunner::run(FLAGS_only, initialSeed, skipFunctions);
+  return AggregationFuzzerRunner::run(
+      FLAGS_only, initialSeed, skipFunctions, orderDependentFunctions);
 }

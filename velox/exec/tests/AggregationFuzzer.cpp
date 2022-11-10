@@ -78,7 +78,10 @@ struct ResultOrError {
 
 class AggregationFuzzer {
  public:
-  AggregationFuzzer(AggregateFunctionSignatureMap signatureMap, size_t seed);
+  AggregationFuzzer(
+      AggregateFunctionSignatureMap signatureMap,
+      size_t seed,
+      const std::unordered_set<std::string>& orderDependentFunctions);
 
   void go();
 
@@ -130,7 +133,8 @@ class AggregationFuzzer {
       const std::vector<std::string>& groupingKeys,
       const std::vector<std::string>& aggregates,
       const std::vector<std::string>& masks,
-      const std::vector<RowVectorPtr>& input);
+      const std::vector<RowVectorPtr>& input,
+      bool orderDependent);
 
   std::optional<MaterializedRowMultiset> computeDuckDbResult(
       const std::vector<std::string>& groupingKeys,
@@ -141,6 +145,7 @@ class AggregationFuzzer {
 
   ResultOrError execute(const core::PlanNodePtr& plan);
 
+  const std::unordered_set<std::string> orderDependentFunctions_;
   const bool persistAndRunOnce_;
   const std::string reproPersistPath_;
 
@@ -160,8 +165,12 @@ class AggregationFuzzer {
 };
 } // namespace
 
-void aggregateFuzzer(AggregateFunctionSignatureMap signatureMap, size_t seed) {
-  AggregationFuzzer(std::move(signatureMap), seed).go();
+void aggregateFuzzer(
+    AggregateFunctionSignatureMap signatureMap,
+    size_t seed,
+    const std::unordered_set<std::string>& orderDependentFunctions) {
+  AggregationFuzzer(std::move(signatureMap), seed, orderDependentFunctions)
+      .go();
 }
 
 namespace {
@@ -218,8 +227,10 @@ std::unordered_set<std::string> getDuckDbFunctions() {
 
 AggregationFuzzer::AggregationFuzzer(
     AggregateFunctionSignatureMap signatureMap,
-    size_t initialSeed)
-    : persistAndRunOnce_{FLAGS_persist_and_run_once},
+    size_t initialSeed,
+    const std::unordered_set<std::string>& orderDependentFunctions)
+    : orderDependentFunctions_{orderDependentFunctions},
+      persistAndRunOnce_{FLAGS_persist_and_run_once},
       reproPersistPath_{FLAGS_repro_persist_path},
       vectorFuzzer_{getFuzzerOptions(), pool_.get()} {
   seed(initialSeed);
@@ -419,6 +430,9 @@ void AggregationFuzzer::go() {
     CallableSignature signature = pickSignature();
     stats_.functionNames.insert(signature.name);
 
+    const bool orderDependent =
+        orderDependentFunctions_.count(signature.name) != 0;
+
     std::vector<TypePtr> argTypes = signature.args;
     std::vector<std::string> argNames = makeNames(argTypes.size());
     auto call = makeFunctionCall(signature.name, argNames);
@@ -458,7 +472,7 @@ void AggregationFuzzer::go() {
       input.push_back(vectorFuzzer_.fuzzInputRow(inputType));
     }
 
-    verify(groupingKeys, {call}, masks, input);
+    verify(groupingKeys, {call}, masks, input, orderDependent);
 
     LOG(INFO) << "==============================> Done with iteration "
               << iteration;
@@ -605,7 +619,8 @@ void AggregationFuzzer::verify(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
-    const std::vector<RowVectorPtr>& input) {
+    const std::vector<RowVectorPtr>& input,
+    bool orderDependent) {
   auto plan = PlanBuilder()
                   .values(input)
                   .singleAggregation(groupingKeys, aggregates, masks)
@@ -623,9 +638,11 @@ void AggregationFuzzer::verify(
 
     std::optional<MaterializedRowMultiset> expectedResult;
     try {
-      expectedResult =
-          computeDuckDbResult(groupingKeys, aggregates, masks, input, plan);
-      ++stats_.numDuckDbVerified;
+      if (!orderDependent) {
+        expectedResult =
+            computeDuckDbResult(groupingKeys, aggregates, masks, input, plan);
+        ++stats_.numDuckDbVerified;
+      }
     } catch (std::exception& e) {
       LOG(WARNING) << "Couldn't get results from DuckDB";
     }
@@ -647,7 +664,7 @@ void AggregationFuzzer::verify(
         // Throws in case exceptions are not compatible.
         velox::test::compareExceptions(
             resultOrError.exceptionPtr, altResultOrError.exceptionPtr);
-      } else {
+      } else if (!orderDependent) {
         VELOX_CHECK(
             assertEqualResults(
                 {resultOrError.result}, {altResultOrError.result}),

@@ -517,7 +517,7 @@ class ApproxPercentileAggregate : public exec::Aggregate {
     if (!hasAccuracy_) {
       return;
     }
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         decodedAccuracy_.isConstantMapping(),
         "Accuracy argument must be constant for all input rows");
     checkSetAccuracy(decodedAccuracy_.valueAt<double>(0));
