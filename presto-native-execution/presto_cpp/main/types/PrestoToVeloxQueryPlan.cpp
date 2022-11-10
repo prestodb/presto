@@ -1121,12 +1121,6 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
       }
     }
 
-    if (!joinType.has_value()) {
-      VELOX_UNSUPPORTED(
-          "Unsupported Filter over SemiJoin: {}",
-          toJsonString(node->predicate));
-    }
-
     std::vector<core::FieldAccessTypedExprPtr> leftKeys = {
         exprConverter_.toVeloxExpr(semiJoin->sourceJoinVariable)};
     std::vector<core::FieldAccessTypedExprPtr> rightKeys = {
@@ -1139,10 +1133,26 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
     const auto& leftNames = left->outputType()->names();
     const auto& leftTypes = left->outputType()->children();
 
-    std::vector<std::string> names;
-    names.reserve(leftNames.size() + 1);
-    std::copy(leftNames.begin(), leftNames.end(), std::back_inserter(names));
-    names.emplace_back(semiJoin->semiJoinOutput.name);
+    auto names = leftNames;
+    names.push_back(semiJoin->semiJoinOutput.name);
+
+    if (!joinType.has_value()) {
+      auto types = leftTypes;
+      types.push_back(BOOLEAN());
+
+      return std::make_shared<core::FilterNode>(
+          node->id,
+          exprConverter_.toVeloxExpr(node->predicate),
+          std::make_shared<core::HashJoinNode>(
+              semiJoin->id,
+              core::JoinType::kLeftSemiProject,
+              leftKeys,
+              rightKeys,
+              nullptr, // filter
+              left,
+              right,
+              ROW(std::move(names), std::move(types))));
+    }
 
     std::vector<core::TypedExprPtr> projections;
     projections.reserve(leftNames.size() + 1);
