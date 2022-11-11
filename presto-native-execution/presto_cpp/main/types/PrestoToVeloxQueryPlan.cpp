@@ -160,6 +160,14 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
   return std::make_unique<common::BigintRange>(low, high, nullAllowed);
 }
 
+int64_t dateToInt64(
+    const std::shared_ptr<protocol::Block>& block,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  auto value = exprConverter.getConstantValue(type, *block);
+  return value.value<Date>().days();
+}
+
 double toDouble(
     const std::shared_ptr<protocol::Block>& block,
     const VeloxExprConverter& exprConverter,
@@ -343,6 +351,30 @@ std::unique_ptr<common::BytesRange> varcharRangeToFilter(
       nullAllowed);
 }
 
+std::unique_ptr<common::BigintRange> dateRangeToFilter(
+    const protocol::Range& range,
+    bool nullAllowed,
+    const VeloxExprConverter& exprConverter,
+    const TypePtr& type) {
+  bool lowUnbounded = range.low.valueBlock == nullptr;
+  auto low = lowUnbounded
+      ? std::numeric_limits<int32_t>::min()
+      : dateToInt64(range.low.valueBlock, exprConverter, type);
+  if (!lowUnbounded && range.low.bound == protocol::Bound::ABOVE) {
+    low++;
+  }
+
+  bool highUnbounded = range.high.valueBlock == nullptr;
+  auto high = highUnbounded
+      ? std::numeric_limits<int32_t>::max()
+      : dateToInt64(range.high.valueBlock, exprConverter, type);
+  if (!highUnbounded && range.high.bound == protocol::Bound::BELOW) {
+    high--;
+  }
+
+  return std::make_unique<common::BigintRange>(low, high, nullAllowed);
+}
+
 std::unique_ptr<common::Filter> combineIntegerRanges(
     std::vector<std::unique_ptr<common::BigintRange>>& bigintFilters,
     bool nullAllowed) {
@@ -507,6 +539,8 @@ std::unique_ptr<common::Filter> toFilter(
       return boolRangeToFilter(range, nullAllowed, exprConverter, type);
     case TypeKind::REAL:
       return floatRangeToFilter(range, nullAllowed, exprConverter, type);
+    case TypeKind::DATE:
+      return dateRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
       VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
