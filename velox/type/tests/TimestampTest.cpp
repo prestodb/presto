@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/type/Timestamp.h"
 
 namespace facebook::velox {
@@ -67,6 +68,27 @@ TEST(TimestampTest, fromNanos) {
   Timestamp ts3(negativeSecond, 0);
   EXPECT_EQ(ts3, Timestamp::fromNanos(negativeSecond * 1'000'000'000));
   EXPECT_EQ(ts3, Timestamp::fromNanos(ts3.toNanos()));
+}
+
+TEST(TimestampTest, arithmeticOverflow) {
+  int64_t positiveSecond = 9223372036854776;
+  uint64_t nano = 123 * 1'000'000;
+
+  Timestamp ts1(positiveSecond, nano);
+  VELOX_ASSERT_THROW(
+      ts1.toMillis(), "integer overflow: 9223372036854776 * 1000");
+  VELOX_ASSERT_THROW(
+      ts1.toMicros(), "integer overflow: 9223372036854776 * 1000000");
+  VELOX_ASSERT_THROW(
+      ts1.toNanos(), "integer overflow: 9223372036854776 * 1000000000");
+
+  Timestamp ts2(-positiveSecond, nano);
+  VELOX_ASSERT_THROW(
+      ts2.toMillis(), "integer overflow: -9223372036854776 * 1000");
+  VELOX_ASSERT_THROW(
+      ts2.toMicros(), "integer overflow: -9223372036854776 * 1000000");
+  VELOX_ASSERT_THROW(
+      ts2.toNanos(), "integer overflow: -9223372036854776 * 1000000000");
 }
 
 } // namespace
