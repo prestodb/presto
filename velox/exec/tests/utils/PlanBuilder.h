@@ -663,6 +663,16 @@ class PlanBuilder {
     return *this;
   }
 
+  /// Stores the latest plan node into the specified variable. Useful for
+  /// capturing intermediate plan nodes without interrupting the build flow.
+  template <typename T = core::PlanNode>
+  PlanBuilder& capturePlanNode(std::shared_ptr<const T>& planNode) {
+    VELOX_CHECK_NOT_NULL(planNode_);
+    planNode = std::dynamic_pointer_cast<const T>(planNode_);
+    VELOX_CHECK_NOT_NULL(planNode);
+    return *this;
+  }
+
   /// Return the latest plan node, e.g. the root node of the plan tree.
   const core::PlanNodePtr& planNode() const {
     return planNode_;

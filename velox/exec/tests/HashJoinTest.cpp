@@ -186,27 +186,6 @@ int32_t maxHashBuildSpillLevel(const exec::Task& task) {
   return maxSpillLevel;
 }
 
-const std::shared_ptr<const core::HashJoinNode> findJoinNode(
-    const core::PlanNodePtr& root,
-    const core::PlanNodeId& joinNodeId) {
-  std::vector<core::PlanNodePtr> nodes;
-  nodes.push_back(root);
-  while (!nodes.empty()) {
-    std::vector<core::PlanNodePtr> nextNodes;
-    for (const auto& node : nodes) {
-      if (node->id() == joinNodeId) {
-        return std::dynamic_pointer_cast<const core::HashJoinNode>(node);
-      }
-      const auto childNodes = node->sources();
-      std::copy(
-          childNodes.begin(), childNodes.end(), std::back_inserter(nextNodes));
-    }
-    nodes.swap(nextNodes);
-  }
-  VELOX_UNREACHABLE("Plan node {} is not found", joinNodeId);
-  return nullptr;
-}
-
 std::pair<int32_t, int32_t> numTaskSpillFiles(const exec::Task& task) {
   int32_t numBuildFiles = 0;
   int32_t numProbeFiles = 0;
@@ -476,8 +455,8 @@ class HashJoinBuilder {
       SCOPED_TRACE(fmt::format(
           "{} numDrivers: {}", testData.debugString(), numDrivers_));
       auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
-      core::PlanNodeId joinNodeId;
-      core::PlanNodePtr planNode =
+      std::shared_ptr<const core::HashJoinNode> joinNode;
+      auto planNode =
           PlanBuilder(planNodeIdGenerator)
               .values(
                   testData.probeParallelize ? probeVectors_ : allProbeVectors_,
@@ -498,10 +477,10 @@ class HashJoinBuilder {
                   joinFilter_,
                   joinOutputLayout_,
                   joinType_)
-              .capturePlanNodeId(joinNodeId)
+              .capturePlanNode<core::HashJoinNode>(joinNode)
               .optionalProject(outputProjections_)
               .planNode();
-      const auto& joinNode = findJoinNode(planNode, joinNodeId);
+
       if (isNullAwareAntiJoin(joinNode->joinType()) &&
           (joinNode->filter() != nullptr)) {
         ASSERT_TRUE(isNullAwareAntiJoinWithFilter(joinNode));
