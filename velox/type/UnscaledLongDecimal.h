@@ -185,6 +185,50 @@ static inline UnscaledLongDecimal operator*(
     int b) {
   return UnscaledLongDecimal(mul(a.unscaledValue(), b));
 }
+
+template <>
+inline UnscaledLongDecimal checkedPlus(
+    const UnscaledLongDecimal& a,
+    const UnscaledLongDecimal& b) {
+  int128_t result;
+  bool overflow =
+      __builtin_add_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledLongDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} + {}", a.unscaledValue(), b.unscaledValue());
+  }
+  return UnscaledLongDecimal(result);
+}
+
+template <>
+inline UnscaledLongDecimal checkedMinus(
+    const UnscaledLongDecimal& a,
+    const UnscaledLongDecimal& b) {
+  int128_t result;
+  bool overflow =
+      __builtin_sub_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledLongDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} - {}", a.unscaledValue(), b.unscaledValue());
+  }
+
+  return UnscaledLongDecimal(result);
+}
+
+template <>
+inline UnscaledLongDecimal checkedMultiply(
+    const UnscaledLongDecimal& a,
+    const UnscaledLongDecimal& b) {
+  int128_t result;
+  bool overflow =
+      __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledLongDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} * {}", a.unscaledValue(), b.unscaledValue());
+  }
+  return UnscaledLongDecimal(result);
+}
+
 } // namespace facebook::velox
 
 namespace folly {

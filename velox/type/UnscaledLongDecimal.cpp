@@ -15,7 +15,6 @@
  */
 
 #include "velox/type/UnscaledLongDecimal.h"
-#include "velox/common/base/CheckedArithmetic.h"
 
 namespace std {
 

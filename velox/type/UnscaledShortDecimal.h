@@ -16,6 +16,7 @@
 #include <folly/dynamic.h>
 #include <sstream>
 #include <string>
+#include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/type/StringView.h"
 
@@ -132,6 +133,48 @@ static inline UnscaledShortDecimal operator/(
     int b) {
   VELOX_CHECK_NE(b, 0, "Divide by zero is not supported");
   return UnscaledShortDecimal(a.unscaledValue() / b);
+}
+
+template <>
+inline UnscaledShortDecimal checkedPlus(
+    const UnscaledShortDecimal& a,
+    const UnscaledShortDecimal& b) {
+  int64_t result;
+  bool overflow =
+      __builtin_add_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledShortDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} + {}", a.unscaledValue(), b.unscaledValue());
+  }
+  return UnscaledShortDecimal(result);
+}
+
+template <>
+inline UnscaledShortDecimal checkedMinus(
+    const UnscaledShortDecimal& a,
+    const UnscaledShortDecimal& b) {
+  int64_t result;
+  bool overflow =
+      __builtin_sub_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledShortDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} - {}", a.unscaledValue(), b.unscaledValue());
+  }
+  return UnscaledShortDecimal(result);
+}
+
+template <>
+inline UnscaledShortDecimal checkedMultiply(
+    const UnscaledShortDecimal& a,
+    const UnscaledShortDecimal& b) {
+  int64_t result;
+  bool overflow =
+      __builtin_mul_overflow(a.unscaledValue(), b.unscaledValue(), &result);
+  if (UNLIKELY(overflow || !UnscaledShortDecimal::valueInRange(result))) {
+    VELOX_ARITHMETIC_ERROR(
+        "Decimal overflow: {} * {}", a.unscaledValue(), b.unscaledValue());
+  }
+  return UnscaledShortDecimal(result);
 }
 } // namespace facebook::velox
 
