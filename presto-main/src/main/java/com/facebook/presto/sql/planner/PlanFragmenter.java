@@ -82,6 +82,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.getExchangeMaterializationStrategy;
@@ -180,10 +181,34 @@ public class PlanFragmenter
         PlanNode root = SimplePlanRewriter.rewriteWith(fragmenter, plan.getRoot(), properties);
 
         SubPlan subPlan = fragmenter.buildRootFragment(root, properties);
-        subPlan = reassignPartitioningHandleIfNecessary(session, subPlan);
+        return finalizeSubPlan(subPlan, config, metadata, nodePartitioningManager, session, forceSingleNode, warningCollector);
+    }
+
+    /**
+     * Perform any additional transformations and validations on the subplan after it has been fragmented
+     *
+     * @param subPlan the SubPlan to finalize
+     * @param config
+     * @param metadata
+     * @param nodePartitioningManager
+     * @param session
+     * @param forceSingleNode
+     * @param warningCollector
+     * @return the final SubPlan for execution
+     */
+    public static SubPlan finalizeSubPlan(
+            SubPlan subPlan,
+            QueryManagerConfig config,
+            Metadata metadata,
+            NodePartitioningManager nodePartitioningManager,
+            Session session,
+            boolean forceSingleNode,
+            WarningCollector warningCollector)
+    {
+        subPlan = reassignPartitioningHandleIfNecessary(metadata, session, subPlan);
         if (!forceSingleNode) {
             // grouped execution is not supported for SINGLE_DISTRIBUTION
-            subPlan = analyzeGroupedExecution(session, subPlan, false);
+            subPlan = analyzeGroupedExecution(session, subPlan, false, metadata, nodePartitioningManager);
         }
 
         checkState(!isForceSingleNodeOutput(session) || subPlan.getFragment().getPartitioning().isSingleNode(), "Root of PlanFragment is not single node");
@@ -199,7 +224,7 @@ public class PlanFragmenter
         return subPlan;
     }
 
-    private void sanityCheckFragmentedPlan(
+    private static void sanityCheckFragmentedPlan(
             SubPlan subPlan,
             WarningCollector warningCollector,
             ExchangeMaterializationStrategy exchangeMaterializationStrategy,
@@ -234,7 +259,7 @@ public class PlanFragmenter
 
      * TODO: We should introduce "query section" and make recoverability analysis done at query section level.
      */
-    private SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan, boolean parentContainsTableFinish)
+    private static SubPlan analyzeGroupedExecution(Session session, SubPlan subPlan, boolean parentContainsTableFinish, Metadata metadata, NodePartitioningManager nodePartitioningManager)
     {
         PlanFragment fragment = subPlan.getFragment();
         GroupedExecutionProperties properties = fragment.getRoot().accept(new GroupedExecutionTagger(session, metadata, nodePartitioningManager), null);
@@ -271,7 +296,7 @@ public class PlanFragmenter
         ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
         boolean containsTableFinishNode = containsTableFinishNode(fragment);
         for (SubPlan child : subPlan.getChildren()) {
-            result.add(analyzeGroupedExecution(session, child, containsTableFinishNode));
+            result.add(analyzeGroupedExecution(session, child, containsTableFinishNode, metadata, nodePartitioningManager));
         }
         return new SubPlan(fragment, result.build());
     }
@@ -282,12 +307,12 @@ public class PlanFragmenter
         return root instanceof OutputNode && getOnlyElement(root.getSources()) instanceof TableFinishNode;
     }
 
-    private SubPlan reassignPartitioningHandleIfNecessary(Session session, SubPlan subPlan)
+    private static SubPlan reassignPartitioningHandleIfNecessary(Metadata metadata, Session session, SubPlan subPlan)
     {
-        return reassignPartitioningHandleIfNecessaryHelper(session, subPlan, subPlan.getFragment().getPartitioning());
+        return reassignPartitioningHandleIfNecessaryHelper(metadata, session, subPlan, subPlan.getFragment().getPartitioning());
     }
 
-    private SubPlan reassignPartitioningHandleIfNecessaryHelper(Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
+    private static SubPlan reassignPartitioningHandleIfNecessaryHelper(Metadata metadata, Session session, SubPlan subPlan, PartitioningHandle newOutputPartitioningHandle)
     {
         PlanFragment fragment = subPlan.getFragment();
 
@@ -322,12 +347,12 @@ public class PlanFragmenter
 
         ImmutableList.Builder<SubPlan> childrenBuilder = ImmutableList.builder();
         for (SubPlan child : subPlan.getChildren()) {
-            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(session, child, fragment.getPartitioning()));
+            childrenBuilder.add(reassignPartitioningHandleIfNecessaryHelper(metadata, session, child, fragment.getPartitioning()));
         }
         return new SubPlan(newFragment, childrenBuilder.build());
     }
 
-    private static Set<PlanNodeId> getTableWriterNodeIds(PlanNode plan)
+    public static Set<PlanNodeId> getTableWriterNodeIds(PlanNode plan)
     {
         return stream(forTree(PlanNode::getSources).depthFirstPreOrder(plan))
                 .filter(node -> node instanceof TableWriterNode)
@@ -336,6 +361,23 @@ public class PlanFragmenter
     }
 
     private static class Fragmenter
+            extends BasePlanFragmenter
+    {
+        private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
+
+        public Fragmenter(Session session, Metadata metadata, StatsAndCosts statsAndCosts, PlanChecker planChecker, WarningCollector warningCollector, SqlParser sqlParser, PlanNodeIdAllocator idAllocator, PlanVariableAllocator variableAllocator, Set<PlanNodeId> outputTableWriterNodeIds)
+        {
+            super(session, metadata, statsAndCosts, planChecker, warningCollector, sqlParser, idAllocator, variableAllocator, outputTableWriterNodeIds);
+        }
+
+        @Override
+        public PlanFragmentId nextFragmentId()
+        {
+            return new PlanFragmentId(nextFragmentId++);
+        }
+    }
+
+    public static abstract class BasePlanFragmenter
             extends SimplePlanRewriter<FragmentProperties>
     {
         private final Session session;
@@ -347,10 +389,9 @@ public class PlanFragmenter
         private final WarningCollector warningCollector;
         private final SqlParser sqlParser;
         private final Set<PlanNodeId> outputTableWriterNodeIds;
-        private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
         private final StatisticsAggregationPlanner statisticsAggregationPlanner;
 
-        public Fragmenter(
+        public BasePlanFragmenter(
                 Session session,
                 Metadata metadata,
                 StatsAndCosts statsAndCosts,
@@ -378,10 +419,7 @@ public class PlanFragmenter
             return buildFragment(root, properties, new PlanFragmentId(ROOT_FRAGMENT_ID));
         }
 
-        private PlanFragmentId nextFragmentId()
-        {
-            return new PlanFragmentId(nextFragmentId++);
-        }
+        public abstract PlanFragmentId nextFragmentId();
 
         private SubPlan buildFragment(PlanNode root, FragmentProperties properties, PlanFragmentId fragmentId)
         {
@@ -852,7 +890,7 @@ public class PlanFragmenter
         }
     }
 
-    private static class FragmentProperties
+    public static class FragmentProperties
     {
         private final List<SubPlan> children = new ArrayList<>();
 
