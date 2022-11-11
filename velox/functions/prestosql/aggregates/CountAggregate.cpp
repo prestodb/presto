@@ -93,14 +93,14 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
       const std::vector<VectorPtr>& args,
       bool /*mayPushdown*/) override {
     if (args.empty()) {
-      addToGroup(group, rows.size());
+      addToGroup(group, rows.countSelected());
       return;
     }
 
     DecodedVector decoded(*args[0], rows);
     if (decoded.isConstantMapping()) {
       if (!decoded.isNullAt(0)) {
-        addToGroup(group, rows.size());
+        addToGroup(group, rows.countSelected());
       }
     } else if (decoded.mayHaveNulls()) {
       int64_t nonNullCount = 0;
@@ -111,7 +111,7 @@ class CountAggregate : public SimpleNumericAggregate<bool, int64_t, int64_t> {
       });
       addToGroup(group, nonNullCount);
     } else {
-      addToGroup(group, rows.size());
+      addToGroup(group, rows.countSelected());
     }
   }
 
