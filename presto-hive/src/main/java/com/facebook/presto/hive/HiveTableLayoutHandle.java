@@ -65,6 +65,7 @@ public class HiveTableLayoutHandle
     private final Optional<Set<HiveColumnHandle>> requestedColumns;
     private final boolean partialAggregationsPushedDown;
     private final boolean appendRowNumberEnabled;
+    private final boolean footerStatsUnreliable;
 
     // coordinator-only properties
     private final Optional<List<HivePartition>> partitions;
@@ -86,7 +87,8 @@ public class HiveTableLayoutHandle
             @JsonProperty("layoutString") String layoutString,
             @JsonProperty("requestedColumns") Optional<Set<HiveColumnHandle>> requestedColumns,
             @JsonProperty("partialAggregationsPushedDown") boolean partialAggregationsPushedDown,
-            @JsonProperty("appendRowNumber") boolean appendRowNumberEnabled)
+            @JsonProperty("appendRowNumber") boolean appendRowNumberEnabled,
+            @JsonProperty("footerStatsUnreliable") boolean footerStatsUnreliable)
     {
         this(
                 schemaTableName,
@@ -105,7 +107,8 @@ public class HiveTableLayoutHandle
                 requestedColumns,
                 partialAggregationsPushedDown,
                 appendRowNumberEnabled,
-                Optional.empty());
+                Optional.empty(),
+                footerStatsUnreliable);
     }
 
     protected HiveTableLayoutHandle(
@@ -125,7 +128,8 @@ public class HiveTableLayoutHandle
             Optional<Set<HiveColumnHandle>> requestedColumns,
             boolean partialAggregationsPushedDown,
             boolean appendRowNumberEnabled,
-            Optional<List<HivePartition>> partitions)
+            Optional<List<HivePartition>> partitions,
+            boolean footerStatsUnreliable)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -144,6 +148,7 @@ public class HiveTableLayoutHandle
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
         this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.partitions = requireNonNull(partitions, "partitions is null");
+        this.footerStatsUnreliable = footerStatsUnreliable;
     }
 
     @JsonProperty
@@ -259,6 +264,12 @@ public class HiveTableLayoutHandle
         return appendRowNumberEnabled;
     }
 
+    @JsonProperty
+    public boolean isFooterStatsUnreliable()
+    {
+        return footerStatsUnreliable;
+    }
+
     @Override
     public Object getIdentifier(Optional<ConnectorSplit> split, PlanCanonicalizationStrategy canonicalizationStrategy)
     {
@@ -356,7 +367,8 @@ public class HiveTableLayoutHandle
                 .setRequestedColumns(getRequestedColumns())
                 .setPartialAggregationsPushedDown(isPartialAggregationsPushedDown())
                 .setAppendRowNumberEnabled(isAppendRowNumberEnabled())
-                .setPartitions(getPartitions());
+                .setPartitions(getPartitions())
+                .setFooterStatsUnreliable(isFooterStatsUnreliable());
     }
 
     public static class Builder
@@ -377,6 +389,7 @@ public class HiveTableLayoutHandle
         private Optional<Set<HiveColumnHandle>> requestedColumns;
         private boolean partialAggregationsPushedDown;
         private boolean appendRowNumberEnabled;
+        private boolean footerStatsUnreliable;
 
         private Optional<List<HivePartition>> partitions;
 
@@ -489,6 +502,12 @@ public class HiveTableLayoutHandle
             return this;
         }
 
+        public Builder setFooterStatsUnreliable(boolean footerStatsUnreliable)
+        {
+            this.footerStatsUnreliable = footerStatsUnreliable;
+            return this;
+        }
+
         public HiveTableLayoutHandle build()
         {
             return new HiveTableLayoutHandle(
@@ -508,7 +527,8 @@ public class HiveTableLayoutHandle
                     requestedColumns,
                     partialAggregationsPushedDown,
                     appendRowNumberEnabled,
-                    partitions);
+                    partitions,
+                    footerStatsUnreliable);
         }
     }
 }

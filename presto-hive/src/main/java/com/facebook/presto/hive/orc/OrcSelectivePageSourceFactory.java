@@ -213,7 +213,8 @@ public class OrcSelectivePageSourceFactory
             DateTimeZone hiveStorageTimeZone,
             HiveFileContext hiveFileContext,
             Optional<EncryptionInformation> encryptionInformation,
-            boolean appendRowNumberEnabled)
+            boolean appendRowNumberEnabled,
+            boolean footerStatsUnreliable)
     {
         if (!OrcSerde.class.getName().equals(storage.getStorageFormat().getSerDe())) {
             return Optional.empty();
@@ -251,7 +252,8 @@ public class OrcSelectivePageSourceFactory
                 tupleDomainFilterCache,
                 encryptionInformation,
                 NO_ENCRYPTION,
-                appendRowNumberEnabled));
+                appendRowNumberEnabled,
+                footerStatsUnreliable));
     }
 
     public static ConnectorPageSource createOrcPageSource(
@@ -281,7 +283,8 @@ public class OrcSelectivePageSourceFactory
             TupleDomainFilterCache tupleDomainFilterCache,
             Optional<EncryptionInformation> encryptionInformation,
             DwrfEncryptionProvider dwrfEncryptionProvider,
-            boolean appendRowNumberEnabled)
+            boolean appendRowNumberEnabled,
+            boolean footerStatsUnreliable)
     {
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
 
@@ -340,7 +343,7 @@ public class OrcSelectivePageSourceFactory
 
             List<HiveColumnHandle> physicalColumns = getPhysicalHiveColumnHandles(columns, useOrcColumnNames, reader.getTypes(), path);
 
-            if (!physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
+            if (!footerStatsUnreliable && !physicalColumns.isEmpty() && physicalColumns.stream().allMatch(hiveColumnHandle -> hiveColumnHandle.getColumnType() == AGGREGATED)) {
                 return new AggregatedOrcPageSource(physicalColumns, reader.getFooter(), typeManager, functionResolution);
             }
 
