@@ -37,6 +37,11 @@ DEFINE_string(
     "This has to be set with input_path and optionally result_path.");
 
 DEFINE_string(
+    complex_constant_path,
+    "",
+    "Path for complex constants that aren't expressable in SQL.");
+
+DEFINE_string(
     sql,
     "",
     "Comma separated SQL expressions to evaluate. This flag and --sql_path "
@@ -113,6 +118,7 @@ int main(int argc, char** argv) {
   facebook::velox::test::ExpressionRunner::run(
       FLAGS_input_path,
       sql,
+      FLAGS_complex_constant_path,
       FLAGS_result_path,
       FLAGS_mode,
       FLAGS_num_rows,

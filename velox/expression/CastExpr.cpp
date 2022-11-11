@@ -738,10 +738,10 @@ void toTypeSql(const TypePtr& type, std::ostream& out) {
 }
 } // namespace
 
-std::string CastExpr::toSql() const {
+std::string CastExpr::toSql(std::vector<VectorPtr>* complexConstants) const {
   std::stringstream out;
   out << "cast(";
-  appendInputsSql(out);
+  appendInputsSql(out, complexConstants);
   out << " as ";
   toTypeSql(type_, out);
   out << ")";

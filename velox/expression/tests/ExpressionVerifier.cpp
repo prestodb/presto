@@ -20,17 +20,20 @@
 #include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/vector/VectorSaver.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::test {
-
 namespace {
 
-// File names used to persist data required for reproducing a failed test case.
+// File names used to persist data required for reproducing a failed test
+// case.
 static constexpr std::string_view kInputVectorFileName = "input_vector";
 static constexpr std::string_view kIndicesOfLazyColumnsFileName =
     "indices_of_lazy_columns";
 static constexpr std::string_view kResultVectorFileName = "result_vector";
 static constexpr std::string_view kExpressionInSqlFileName = "sql";
+static constexpr std::string_view kComplexConstantsFileName =
+    "complex_constants";
 
 void logRowVector(const RowVectorPtr& rowVector) {
   if (rowVector == nullptr) {
@@ -77,8 +80,8 @@ void compareVectors(const VectorPtr& left, const VectorPtr& right) {
 }
 
 // Returns a copy of 'rowVector' but with the columns having indices listed in
-// 'columnsToWrapInLazy' wrapped in lazy encoding. 'columnsToWrapInLazy' should
-// be a sorted list of column indices.
+// 'columnsToWrapInLazy' wrapped in lazy encoding. 'columnsToWrapInLazy'
+// should be a sorted list of column indices.
 RowVectorPtr wrapColumnsInLazy(
     RowVectorPtr rowVector,
     const std::vector<column_index_t>& columnsToWrapInLazy) {
@@ -130,6 +133,9 @@ bool ExpressionVerifier::verify(
   // Store data and expression in case of reproduction.
   VectorPtr copiedResult;
   std::string sql;
+
+  // Complex constants that aren't all expressable in sql
+  std::vector<VectorPtr> complexConstants;
   // Deep copy to preserve the initial state of result vector.
   if (!options_.reproPersistPath.empty()) {
     if (resultVector) {
@@ -141,13 +147,14 @@ bool ExpressionVerifier::verify(
     try {
       sql = exec::ExprSet(std::move(typedExprs), execCtx_, false)
                 .expr(0)
-                ->toSql();
+                ->toSql(&complexConstants);
     } catch (const std::exception& e) {
       LOG(WARNING) << "Failed to generate SQL: " << e.what();
       sql = "<failed to generate>";
     }
     if (options_.persistAndRunOnce) {
-      persistReproInfo(rowVector, columnsToWrapInLazy, copiedResult, sql);
+      persistReproInfo(
+          rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
     }
   }
 
@@ -220,16 +227,17 @@ bool ExpressionVerifier::verify(
     }
   } catch (...) {
     if (!options_.reproPersistPath.empty() && !options_.persistAndRunOnce) {
-      persistReproInfo(rowVector, columnsToWrapInLazy, copiedResult, sql);
+      persistReproInfo(
+          rowVector, columnsToWrapInLazy, copiedResult, sql, complexConstants);
     }
     throw;
   }
 
   if (!options_.reproPersistPath.empty() && options_.persistAndRunOnce) {
-    // A guard to make sure it runs only once with persistAndRunOnce flag turned
-    // on. It shouldn't reach here normally since the flag is used to persist
-    // repro info for crash failures. But if it hasn't crashed by now, we still
-    // don't want another iteration.
+    // A guard to make sure it runs only once with persistAndRunOnce flag
+    // turned on. It shouldn't reach here normally since the flag is used to
+    // persist repro info for crash failures. But if it hasn't crashed by now,
+    // we still don't want another iteration.
     LOG(WARNING)
         << "Iteration succeeded with --persist_and_run_once flag enabled "
            "(expecting crash failure)";
@@ -243,11 +251,13 @@ void ExpressionVerifier::persistReproInfo(
     const VectorPtr& inputVector,
     std::vector<column_index_t> columnsToWrapInLazy,
     const VectorPtr& resultVector,
-    const std::string& sql) {
+    const std::string& sql,
+    const std::vector<VectorPtr>& complexConstants) {
   std::string inputPath;
   std::string lazyListPath;
   std::string resultPath;
   std::string sqlPath;
+  std::string complexConstantsPath;
 
   const auto basePath = options_.reproPersistPath.c_str();
   if (!common::generateFileDirectory(basePath)) {
@@ -297,6 +307,20 @@ void ExpressionVerifier::persistReproInfo(
   } catch (std::exception& e) {
     sqlPath = e.what();
   }
+  // Saving complex constants
+  if (!complexConstants.empty()) {
+    complexConstantsPath =
+        fmt::format("{}/{}", dirPath->c_str(), kComplexConstantsFileName);
+    try {
+      saveVectorToFile(
+          VectorMaker(complexConstants[0]->pool())
+              .rowVector(complexConstants)
+              .get(),
+          complexConstantsPath.c_str());
+    } catch (std::exception& e) {
+      complexConstantsPath = e.what();
+    }
+  }
 
   std::stringstream ss;
   ss << "Persisted input: --input_path " << inputPath;
@@ -307,6 +331,9 @@ void ExpressionVerifier::persistReproInfo(
   if (!columnsToWrapInLazy.empty()) {
     // TODO: add support for consuming this in ExpressionRunner
     ss << " --lazy_column_list_path " << lazyListPath;
+  }
+  if (!complexConstants.empty()) {
+    ss << " --complex_constant_path " << complexConstantsPath;
   }
   LOG(INFO) << ss.str();
 }

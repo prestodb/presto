@@ -123,12 +123,14 @@ add_executable(velox_expression_runner_unit_test ExpressionRunnerUnitTest.cpp)
 target_link_libraries(
   velox_expression_runner_unit_test
   velox_dwio_common_test_utils
+  velox_expression
   velox_expression_runner
   velox_expression_fuzzer
   velox_expression_verifier
   velox_function_registry
   velox_temp_path
   velox_exec_test_lib
+  velox_vector_test_lib
   gtest
   gtest_main)
 

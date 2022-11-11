@@ -1525,10 +1525,10 @@ std::string Expr::toString(bool recursive) const {
   return name_;
 }
 
-std::string Expr::toSql() const {
+std::string Expr::toSql(std::vector<VectorPtr>* complexConstants) const {
   std::stringstream out;
   out << "\"" << name_ << "\"";
-  appendInputsSql(out);
+  appendInputsSql(out, complexConstants);
   return out.str();
 }
 
@@ -1545,14 +1545,16 @@ void Expr::appendInputs(std::stringstream& stream) const {
   }
 }
 
-void Expr::appendInputsSql(std::stringstream& stream) const {
+void Expr::appendInputsSql(
+    std::stringstream& stream,
+    std::vector<VectorPtr>* complexConstants) const {
   if (!inputs_.empty()) {
     stream << "(";
     for (auto i = 0; i < inputs_.size(); ++i) {
       if (i > 0) {
         stream << ", ";
       }
-      stream << inputs_[i]->toSql();
+      stream << inputs_[i]->toSql(complexConstants);
     }
     stream << ")";
   }

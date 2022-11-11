@@ -115,7 +115,7 @@ std::string LambdaExpr::toString(bool recursive) const {
   return fmt::format("({}) -> {}", inputs, body_->toString());
 }
 
-std::string LambdaExpr::toSql() const {
+std::string LambdaExpr::toSql(std::vector<VectorPtr>* complexConstants) const {
   std::ostringstream out;
   out << "(";
   // Inputs.
@@ -125,7 +125,7 @@ std::string LambdaExpr::toSql() const {
     }
     out << signature_->nameOf(i);
   }
-  out << ") -> " << body_->toSql();
+  out << ") -> " << body_->toSql(complexConstants);
 
   return out.str();
 }

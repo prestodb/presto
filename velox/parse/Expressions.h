@@ -40,7 +40,8 @@ class Expressions {
   static TypedExprPtr inferTypes(
       const std::shared_ptr<const IExpr>& expr,
       const TypePtr& input,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
 
   static TypePtr getInputRowType(const TypedExprPtr& expr);
 
@@ -57,7 +58,8 @@ class Expressions {
       const std::shared_ptr<const IExpr>& expr,
       const TypePtr& input,
       const std::vector<TypePtr>& lambdaInputTypes,
-      memory::MemoryPool* pool);
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants = nullptr);
 
   static TypedExprPtr resolveLambdaExpr(
       const std::shared_ptr<const core::LambdaExpr>& lambdaExpr,

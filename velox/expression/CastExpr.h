@@ -102,7 +102,7 @@ class CastExpr : public SpecialForm {
 
   std::string toString(bool recursive = true) const override;
 
-  std::string toSql() const override;
+  std::string toSql(std::vector<VectorPtr>*) const override;
 
  private:
   /// @tparam To The cast target type

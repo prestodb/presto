@@ -186,8 +186,9 @@ bool hasLambdaArgument(const exec::FunctionSignature& signature) {
 TypedExprPtr Expressions::inferTypes(
     const std::shared_ptr<const core::IExpr>& expr,
     const TypePtr& inputRow,
-    memory::MemoryPool* pool) {
-  return inferTypes(expr, inputRow, {}, pool);
+    memory::MemoryPool* pool,
+    const VectorPtr& complexConstants) {
+  return inferTypes(expr, inputRow, {}, pool, complexConstants);
 }
 
 // static
@@ -195,7 +196,8 @@ TypedExprPtr Expressions::inferTypes(
     const std::shared_ptr<const core::IExpr>& expr,
     const TypePtr& inputRow,
     const std::vector<TypePtr>& lambdaInputTypes,
-    memory::MemoryPool* pool) {
+    memory::MemoryPool* pool,
+    const VectorPtr& complexConstants) {
   VELOX_CHECK_NOT_NULL(expr);
 
   if (auto lambdaExpr = std::dynamic_pointer_cast<const LambdaExpr>(expr)) {
@@ -210,9 +212,24 @@ TypedExprPtr Expressions::inferTypes(
     }
   }
 
+  // try rebuilding complex constant type from vector
+  if (auto fun = std::dynamic_pointer_cast<const CallExpr>(expr)) {
+    if (fun->getFunctionName() == "__complex_constant") {
+      VELOX_CHECK(complexConstants);
+      auto ccInputRow = complexConstants->as<RowVector>();
+      auto name =
+          std::dynamic_pointer_cast<const FieldAccessExpr>(fun->getInputs()[0])
+              ->getFieldName();
+      auto rowType = asRowType(ccInputRow->type());
+      return std::make_shared<const ConstantTypedExpr>(
+          ccInputRow->childAt(rowType->getChildIdx(name)));
+    }
+  }
+
   std::vector<TypedExprPtr> children;
   for (auto& child : expr->getInputs()) {
-    children.push_back(inferTypes(child, inputRow, lambdaInputTypes, pool));
+    children.push_back(
+        inferTypes(child, inputRow, lambdaInputTypes, pool, complexConstants));
   }
 
   if (auto fae = std::dynamic_pointer_cast<const FieldAccessExpr>(expr)) {

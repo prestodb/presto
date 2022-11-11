@@ -218,10 +218,17 @@ void appendSqlLiteral(
 }
 } // namespace
 
-std::string ConstantExpr::toSql() const {
+std::string ConstantExpr::toSql(
+    std::vector<VectorPtr>* complexConstants) const {
   VELOX_CHECK_NOT_NULL(sharedSubexprValues_);
   std::ostringstream out;
-  appendSqlLiteral(*sharedSubexprValues_, 0, out);
+  if (complexConstants && !sharedSubexprValues_->type()->isPrimitiveType()) {
+    int idx = complexConstants->size();
+    out << "__complex_constant(c" << idx << ")";
+    complexConstants->push_back(sharedSubexprValues_);
+  } else {
+    appendSqlLiteral(*sharedSubexprValues_, 0, out);
+  }
   return out.str();
 }
 } // namespace facebook::velox::exec

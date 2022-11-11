@@ -236,7 +236,12 @@ class Expr {
   virtual std::string toString(bool recursive = true) const;
 
   /// Return the expression as SQL string.
-  virtual std::string toSql() const;
+  /// @param complexConstants An optional std::vector of VectorPtr to record
+  /// complex constants (Array, Maps, Structs, ...) that aren't accurately
+  /// expressable as sql. If not given, they will be converted to
+  /// SQL-expressable simple constants.
+  virtual std::string toSql(
+      std::vector<VectorPtr>* complexConstants = nullptr) const;
 
   const ExprStats& stats() const {
     return stats_;
@@ -362,7 +367,9 @@ class Expr {
  protected:
   void appendInputs(std::stringstream& stream) const;
 
-  void appendInputsSql(std::stringstream& stream) const;
+  void appendInputsSql(
+      std::stringstream& stream,
+      std::vector<VectorPtr>* complexConstants) const;
 
   /// Release 'inputValues_' back to vector pool in 'evalCtx' so they can be
   /// reused.

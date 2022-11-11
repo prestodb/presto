@@ -93,7 +93,7 @@ additions/removals of UDFs from the list, and etc. To have an accurate
 reproduction of a fuzzer failure regardless of environments you can record the
 input vector and expression to files and replay these later.
 
-1. Run Fuzzer using ``--seed`` and ``--repro_persist_path`` flags to save the input vector and expression to files in the specified directory.
+1. Run Fuzzer using ``--seed`` and ``--repro_persist_path`` flags to save the input vector and expression to files in the specified directory. Add "--persist_and_run_once" if the issue is not an exception failure but a crash failure.
 
 2. Run Expression Runner using generated files.
 
@@ -109,6 +109,8 @@ ExpressionRunner supports the following flags:
 * ``--input_path`` path to input vector that was created by the Fuzzer
 
 * ``--sql_path`` path to expression SQL that was created by the Fuzzer
+
+* ``--complex_constant_path`` optional path to complex constants that aren't accurately expressable in SQL (Array, Map, Structs, ...). This is used with SQL file to reproduce the exact expression, not needed when the expression doesn't contain complex constants.
 
 * ``--result_path`` optional path to result vector that was created by the Fuzzer. Result vector is used to reproduce cases where Fuzzer passes dirty vectors to expression evaluation as a result buffer. This ensures that functions are implemented correctly, taking into consideration dirty result buffer.
 

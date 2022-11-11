@@ -61,7 +61,8 @@ class ConstantExpr : public SpecialForm {
 
   std::string toString(bool recursive = true) const override;
 
-  std::string toSql() const override;
+  std::string toSql(
+      std::vector<VectorPtr>* complexConstants = nullptr) const override;
 
  private:
   const variant value_;

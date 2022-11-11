@@ -32,21 +32,6 @@
 namespace facebook::velox::test {
 
 namespace {
-/// Parse comma-separated SQL expressions.
-std::vector<core::TypedExprPtr> parseSql(
-    const std::string& sql,
-    const TypePtr& inputType,
-    memory::MemoryPool* pool) {
-  auto exprs = parse::parseMultipleExpressions(sql, {});
-
-  std::vector<core::TypedExprPtr> typedExprs;
-  typedExprs.reserve(exprs.size());
-  for (const auto& expr : exprs) {
-    typedExprs.push_back(core::Expressions::inferTypes(expr, inputType, pool));
-  }
-  return typedExprs;
-}
-
 /// Creates a RowVector from a list of child vectors. Uses _col0, _col1,..
 /// auto-generated names for the RowType.
 RowVectorPtr createRowVector(
@@ -104,9 +89,26 @@ void saveResults(
 }
 } // namespace
 
+std::vector<core::TypedExprPtr> ExpressionRunner::parseSql(
+    const std::string& sql,
+    const TypePtr& inputType,
+    memory::MemoryPool* pool,
+    const VectorPtr& complexConstants) {
+  auto exprs = parse::parseMultipleExpressions(sql, {});
+
+  std::vector<core::TypedExprPtr> typedExprs;
+  typedExprs.reserve(exprs.size());
+  for (const auto& expr : exprs) {
+    typedExprs.push_back(
+        core::Expressions::inferTypes(expr, inputType, pool, complexConstants));
+  }
+  return typedExprs;
+}
+
 void ExpressionRunner::run(
     const std::string& inputPath,
     const std::string& sql,
+    const std::string& complexConstantsPath,
     const std::string& resultPath,
     const std::string& mode,
     vector_size_t numRows,
@@ -156,7 +158,13 @@ void ExpressionRunner::run(
     return;
   }
 
-  auto typedExprs = parseSql(sql, inputVector->type(), pool.get());
+  VectorPtr complexConstants{nullptr};
+  if (!complexConstantsPath.empty()) {
+    complexConstants =
+        restoreVectorFromFile(complexConstantsPath.c_str(), pool.get());
+  }
+  auto typedExprs =
+      parseSql(sql, inputVector->type(), pool.get(), complexConstants);
 
   VectorPtr resultVector;
   if (!resultPath.empty()) {

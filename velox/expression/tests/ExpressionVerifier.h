@@ -61,7 +61,8 @@ class ExpressionVerifier {
       const VectorPtr& inputVector,
       std::vector<column_index_t> columnsToWarpInLazy,
       const VectorPtr& resultVector,
-      const std::string& sql);
+      const std::string& sql,
+      const std::vector<VectorPtr>& complexConstants);
 
  private:
   core::ExecCtx* FOLLY_NONNULL execCtx_;

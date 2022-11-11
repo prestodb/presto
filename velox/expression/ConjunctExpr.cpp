@@ -266,12 +266,13 @@ void ConjunctExpr::updateResult(
   }
 }
 
-std::string ConjunctExpr::toSql() const {
+std::string ConjunctExpr::toSql(
+    std::vector<VectorPtr>* complexConstants) const {
   std::stringstream out;
-  out << "(" << inputs_[0]->toSql() << ")";
+  out << "(" << inputs_[0]->toSql(complexConstants) << ")";
   for (auto i = 1; i < inputs_.size(); ++i) {
     out << " " << name_ << " "
-        << "(" << inputs_[i]->toSql() << ")";
+        << "(" << inputs_[i]->toSql(complexConstants) << ")";
   }
   return out.str();
 }

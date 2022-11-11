@@ -15,6 +15,7 @@
  */
 
 #include <string>
+#include "velox/parse/Expressions.h"
 #include "velox/vector/TypeAliases.h"
 
 namespace facebook::velox::test {
@@ -32,6 +33,9 @@ class ExpressionRunner {
   /// @param inputPath The path to the on-disk vector that will be used as input
   ///        to feed to the expression.
   /// @param sql Comma-separated SQL expressions.
+  /// @param complexConstantsPath The path to on-disk vector that stores complex
+  ///        subexpressions that aren't expressable in SQL (if any), used with
+  ///        sql to construct the complete plan
   /// @param resultPath The path to the on-disk vector
   ///        that will be used as the result buffer to which the expression
   ///        evaluation results will be written.
@@ -45,10 +49,19 @@ class ExpressionRunner {
   static void run(
       const std::string& inputPath,
       const std::string& sql,
+      const std::string& complexConstantsPath,
       const std::string& resultPath,
       const std::string& mode,
       vector_size_t numRows,
       const std::string& storeResultPath);
+
+  /// Parse comma-separated SQL expressions. This should be treated as private
+  /// except for tests.
+  static std::vector<core::TypedExprPtr> parseSql(
+      const std::string& sql,
+      const TypePtr& inputType,
+      memory::MemoryPool* pool,
+      const VectorPtr& complexConstants);
 };
 
 } // namespace facebook::velox::test
