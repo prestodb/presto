@@ -48,9 +48,7 @@ public class OracleClientModule
     public static ConnectionFactory connectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
             throws SQLException
     {
-        Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("user",config.getConnectionUser());
-        connectionProperties.setProperty("password",config.getConnectionPassword());
+        Properties connectionProperties = DriverConnectionFactory.basicConnectionProperties(config);
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         return new DriverConnectionFactory(
