@@ -17,6 +17,7 @@
 #include "velox/connectors/hive/HiveConnector.h"
 
 #include "velox/common/base/Fs.h"
+#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/common/InputStream.h"
 #include "velox/dwio/common/ReaderFactory.h"
 #include "velox/expression/FieldReference.h"
@@ -30,6 +31,7 @@
 
 #include <memory>
 
+using namespace facebook::velox::exec;
 using namespace facebook::velox::dwrf;
 using WriterConfig = facebook::velox::dwrf::Config;
 
@@ -87,13 +89,19 @@ std::string HiveTableHandle::toString() const {
 HiveDataSink::HiveDataSink(
     RowTypePtr inputType,
     std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
-    const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx)
+    const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
+    std::shared_ptr<WriteProtocol> writeProtocol)
     : inputType_(std::move(inputType)),
       insertTableHandle_(std::move(insertTableHandle)),
-      connectorQueryCtx_(connectorQueryCtx) {
-  if (!insertTableHandle_->isPartitioned()) {
-    writers_.emplace_back(createWriter());
-  }
+      connectorQueryCtx_(connectorQueryCtx),
+      writeProtocol_(std::move(writeProtocol)) {
+  VELOX_CHECK_NOT_NULL(
+      writeProtocol_, "Write protocol could not be nullptr for HiveDataSink.");
+}
+
+std::shared_ptr<ConnectorCommitInfo> HiveDataSink::getConnectorCommitInfo()
+    const {
+  return std::make_shared<HiveConnectorCommitInfo>(writerParameters_);
 }
 
 void HiveDataSink::appendData(VectorPtr input) {

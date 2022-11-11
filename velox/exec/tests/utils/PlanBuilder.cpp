@@ -30,6 +30,7 @@
 #include "velox/parse/ExpressionsParser.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::connector;
 using namespace facebook::velox::connector::hive;
 
 namespace facebook::velox::exec::test {
@@ -267,25 +268,30 @@ PlanBuilder& PlanBuilder::filter(const std::string& filter) {
 PlanBuilder& PlanBuilder::tableWrite(
     const std::vector<std::string>& columnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    WriteProtocol::CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
   return tableWrite(
-      planNode_->outputType(), columnNames, insertHandle, rowCountColumnName);
+      planNode_->outputType(),
+      columnNames,
+      insertHandle,
+      commitStrategy,
+      rowCountColumnName);
 }
 
 PlanBuilder& PlanBuilder::tableWrite(
     const RowTypePtr& inputColumns,
     const std::vector<std::string>& tableColumnNames,
     const std::shared_ptr<core::InsertTableHandle>& insertHandle,
+    WriteProtocol::CommitStrategy commitStrategy,
     const std::string& rowCountColumnName) {
-  auto outputType =
-      ROW({rowCountColumnName, "fragments", "commitcontext"},
-          {BIGINT(), VARBINARY(), VARBINARY()});
+  auto outputType = ROW({rowCountColumnName}, {BIGINT()});
   planNode_ = std::make_shared<core::TableWriteNode>(
       nextPlanNodeId(),
       inputColumns,
       tableColumnNames,
       insertHandle,
       outputType,
+      commitStrategy,
       planNode_);
   return *this;
 }

@@ -15,12 +15,14 @@
  */
 #include <folly/experimental/FunctionScheduler.h>
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/WriteProtocol.h"
 #include "velox/exec/PlanNodeStats.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::connector;
 using namespace facebook::velox::test;
 
 namespace facebook::velox::exec::test {
@@ -146,10 +148,11 @@ class TestConnector : public connector::Connector {
   }
 
   std::shared_ptr<connector::DataSink> createDataSink(
-      RowTypePtr /* inputType */,
-      std::shared_ptr<connector::ConnectorInsertTableHandle>
-      /* connectorInsertTableHandle */,
-      connector::ConnectorQueryCtx* /* connectorQueryCtx */) override {
+      RowTypePtr /*inputType*/,
+      std::shared_ptr<
+          ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
+      ConnectorQueryCtx* FOLLY_NONNULL /*connectorQueryCtx*/,
+      std::shared_ptr<WriteProtocol> /*writeProtocol*/) override final {
     VELOX_NYI();
   }
 };

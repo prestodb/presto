@@ -19,6 +19,7 @@
 #include "velox/common/memory/Memory.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveConnectorSplit.h"
+#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/exec/Task.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
@@ -92,9 +93,11 @@ int main(int argc, char** argv) {
   connector::registerConnector(hiveConnector);
 
   // To be able to read local files, we need to register the local file
-  // filesystem. We also need to register the dwrf reader factory:
+  // filesystem. We also need to register the dwrf reader factory as well as a
+  // write protocol, in this case commit is not required:
   filesystems::registerLocalFileSystem();
   dwrf::registerDwrfReaderFactory();
+  connector::hive::HiveNoCommitWriteProtocol::registerProtocol();
 
   // Create a temporary dir to store the local file created. Note that this
   // directory is automatically removed when the `tempDir` object runs out of
@@ -123,7 +126,8 @@ int main(int argc, char** argv) {
                       inputRowType->children(),
                       {},
                       HiveConnectorTestBase::makeLocationHandle(
-                          tempDir->path))))
+                          tempDir->path))),
+              connector::WriteProtocol::CommitStrategy::kNoCommit)
           .planFragment();
 
   std::shared_ptr<folly::Executor> executor(

@@ -30,13 +30,47 @@ class WriterParameters {
   virtual ~WriterParameters() = default;
 };
 
-/// Interface that includes all info from write. It will be passed to commit()
-/// of WriteProtocol.
-class WriteInfo {
+/// Interface for the commit info of the connector.
+class ConnectorCommitInfo {
  public:
-  virtual ~WriteInfo() = default;
+  virtual ~ConnectorCommitInfo() = default;
+};
 
-  virtual vector_size_t numWrittenRows() const = 0;
+/// Commit info that will be passed to commit() of a write protocol, including
+/// commit info of the connector and more generic info from TableWriter.
+class CommitInfo {
+ public:
+  CommitInfo(
+      std::shared_ptr<const ConnectorCommitInfo> connectorInfo,
+      vector_size_t numWrittenRows,
+      RowTypePtr outputType,
+      std::string taskId)
+      : connectorInfo_(std::move(connectorInfo)),
+        numWrittenRows_(numWrittenRows),
+        outputType_(std::move(outputType)),
+        taskId_(std::move(taskId)) {}
+
+  std::shared_ptr<const ConnectorCommitInfo> connectorCommitInfo() const {
+    return connectorInfo_;
+  }
+
+  vector_size_t numWrittenRows() const {
+    return numWrittenRows_;
+  }
+
+  const RowTypePtr& outputType() const {
+    return outputType_;
+  }
+
+  const std::string& taskId() const {
+    return taskId_;
+  }
+
+ private:
+  const std::shared_ptr<const ConnectorCommitInfo> connectorInfo_;
+  const vector_size_t numWrittenRows_;
+  const RowTypePtr outputType_;
+  const std::string taskId_;
 };
 
 /// Abstraction for write behaviors. Systems register WriteProtocols
@@ -50,7 +84,7 @@ class WriteProtocol {
     kTaskCommit // Task level commit is needed.
   };
 
-  virtual ~WriteProtocol() {}
+  virtual ~WriteProtocol() = default;
 
   /// Return the commit strategy of the write protocol. It will be the commit
   /// strategy that the write protocol registers for.
@@ -72,7 +106,7 @@ class WriteProtocol {
   /// return outputs that would be included in writer outputs. Return nullptr if
   /// the commit action does not need to add output to the table writer output.
   virtual RowVectorPtr commit(
-      const WriteInfo& writeInfo,
+      const CommitInfo& commitInfo,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) {
     return nullptr;
   }
@@ -108,7 +142,7 @@ class DefaultWriteProtocol : public WriteProtocol {
   }
 
   RowVectorPtr commit(
-      const WriteInfo& writeInfo,
+      const CommitInfo& commitInfo,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
 
   std::shared_ptr<const WriterParameters> getWriterParameters(

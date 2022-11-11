@@ -60,7 +60,7 @@ std::shared_ptr<WriteProtocol> WriteProtocol::getWriteProtocol(
 }
 
 RowVectorPtr DefaultWriteProtocol::commit(
-    const WriteInfo& writeInfo,
+    const CommitInfo& commitInfo,
     velox::memory::MemoryPool* FOLLY_NONNULL pool) {
   return std::make_shared<RowVector>(
       pool,
@@ -68,7 +68,7 @@ RowVectorPtr DefaultWriteProtocol::commit(
       BufferPtr(nullptr),
       1,
       std::vector<VectorPtr>{std::make_shared<ConstantVector<int64_t>>(
-          pool, 1, false, BIGINT(), writeInfo.numWrittenRows())});
+          pool, 1, false, BIGINT(), commitInfo.numWrittenRows())});
 }
 
 } // namespace facebook::velox::connector

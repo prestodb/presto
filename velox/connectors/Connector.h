@@ -33,6 +33,8 @@ namespace facebook::velox::exec {
 class ExprSet;
 }
 namespace facebook::velox::connector {
+class ConnectorCommitInfo;
+class WriteProtocol;
 
 // A split represents a chunk of data that a connector should load and return
 // as a RowVectorPtr, potentially after processing pushdowns.
@@ -92,6 +94,10 @@ class ConnectorInsertTableHandle {
 class DataSink {
  public:
   virtual ~DataSink() = default;
+
+  // Get commit info of the connector.
+  virtual std::shared_ptr<ConnectorCommitInfo> getConnectorCommitInfo()
+      const = 0;
 
   // Add the next data (vector) to be written. This call is blocking
   // TODO maybe at some point we want to make it async
@@ -263,7 +269,8 @@ class Connector {
   virtual std::shared_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) = 0;
+      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
+      std::shared_ptr<WriteProtocol> writeProtocol) = 0;
 
   // Returns a ScanTracker for 'id'. 'id' uniquely identifies the
   // tracker and different threads will share the same

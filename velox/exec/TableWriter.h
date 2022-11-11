@@ -73,6 +73,7 @@ class TableWriter : public Operator {
   std::shared_ptr<connector::Connector> connector_;
   std::shared_ptr<connector::ConnectorQueryCtx> connectorQueryCtx_;
   std::shared_ptr<connector::DataSink> dataSink_;
+  std::shared_ptr<connector::WriteProtocol> writeProtocol_;
   std::shared_ptr<connector::ConnectorInsertTableHandle> insertTableHandle_;
 };
 } // namespace facebook::velox::exec

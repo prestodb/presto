@@ -94,12 +94,33 @@ class HiveWriterParameters : public WriterParameters {
   const std::string writeDirectory_;
 };
 
+/// Commit info of Hive connector.
+class HiveConnectorCommitInfo : public ConnectorCommitInfo {
+ public:
+  /// @param writerParameters Parameters provided for writers. Hive connector
+  /// will pass this info to commit.
+  explicit HiveConnectorCommitInfo(
+      std::vector<std::shared_ptr<const HiveWriterParameters>> writerParameters)
+      : writeParameters_(std::move(writerParameters)) {}
+
+  ~HiveConnectorCommitInfo() override = default;
+
+  const std::vector<std::shared_ptr<const HiveWriterParameters>>&
+  writerParameters() const {
+    return writeParameters_;
+  }
+
+ private:
+  const std::vector<std::shared_ptr<const HiveWriterParameters>>
+      writeParameters_;
+};
+
 /// WriteProtocol base implementation for Hive writes. WriterParameters have the
 /// write file name the same as the target file name, so no commit is needed for
 /// file move.
 class HiveNoCommitWriteProtocol : public DefaultWriteProtocol {
  public:
-  ~HiveNoCommitWriteProtocol() override {}
+  ~HiveNoCommitWriteProtocol() override = default;
 
   CommitStrategy commitStrategy() const override {
     return CommitStrategy::kNoCommit;
@@ -123,7 +144,7 @@ class HiveNoCommitWriteProtocol : public DefaultWriteProtocol {
 /// move write file to the target location.
 class HiveTaskCommitWriteProtocol : public DefaultWriteProtocol {
  public:
-  ~HiveTaskCommitWriteProtocol() override {}
+  ~HiveTaskCommitWriteProtocol() override = default;
 
   CommitStrategy commitStrategy() const override {
     return CommitStrategy::kTaskCommit;

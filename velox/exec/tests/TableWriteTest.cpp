@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #include "velox/common/base/Fs.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/connectors/WriteProtocol.h"
+#include "velox/connectors/hive/HiveWriteProtocol.h"
 #include "velox/dwio/common/DataSink.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -29,6 +32,7 @@ class TableWriteTest : public HiveConnectorTestBase {
  protected:
   void SetUp() override {
     HiveConnectorTestBase::SetUp();
+    HiveNoCommitWriteProtocol::registerProtocol();
   }
 
   VectorPtr createConstant(variant value, vector_size_t size) const {
@@ -58,10 +62,9 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputDirectory = TempDirectoryPath::create();
-
   createDuckDbTable(vectors);
 
+  auto outputDirectory = TempDirectoryPath::create();
   auto planBuilder = PlanBuilder();
   auto project = planBuilder.tableScan(rowType_)
                      .filter("c0 <> 0")
@@ -80,6 +83,7 @@ TEST_F(TableWriteTest, scanFilterProjectWrite) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
+                      WriteProtocol::CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -107,11 +111,10 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputDirectory = TempDirectoryPath::create();
   createDuckDbTable(vectors);
 
+  auto outputDirectory = TempDirectoryPath::create();
   auto tableRowType = ROW({"d", "c", "b"}, {VARCHAR(), DOUBLE(), INTEGER()});
-
   auto plan = PlanBuilder()
                   .tableScan(rowType)
                   .tableWrite(
@@ -124,6 +127,7 @@ TEST_F(TableWriteTest, renameAndReorderColumns) {
                               tableRowType->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
+                      WriteProtocol::CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -146,8 +150,9 @@ TEST_F(TableWriteTest, directReadWrite) {
     writeToFile(filePaths[i]->path, vectors[i]);
   }
 
-  auto outputDirectory = TempDirectoryPath::create();
   createDuckDbTable(vectors);
+
+  auto outputDirectory = TempDirectoryPath::create();
   auto plan = PlanBuilder()
                   .tableScan(rowType_)
                   .tableWrite(
@@ -159,6 +164,7 @@ TEST_F(TableWriteTest, directReadWrite) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
+                      WriteProtocol::CommitStrategy::kNoCommit,
                       "rows")
                   .project({"rows"})
                   .planNode();
@@ -212,6 +218,7 @@ TEST_F(TableWriteTest, constantVectors) {
                             rowType_->children(),
                             {},
                             makeLocationHandle(outputDirectory->path))),
+                    WriteProtocol::CommitStrategy::kNoCommit,
                     "rows")
                 .project({"rows"})
                 .planNode();
@@ -224,8 +231,51 @@ TEST_F(TableWriteTest, constantVectors) {
       "SELECT * FROM tmp");
 }
 
-// Test TableWriter create empty ORC or not based on the config
-TEST_F(TableWriteTest, writeEmptyFile) {
+TEST_F(TableWriteTest, TestASecondCommitStrategy) {
+  auto filePaths = makeFilePaths(10);
+  auto vectors = makeVectors(rowType_, filePaths.size(), 1000);
+  for (int i = 0; i < filePaths.size(); i++) {
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+
+  createDuckDbTable(vectors);
+
+  auto outputDirectory = TempDirectoryPath::create();
+  auto plan = PlanBuilder()
+                  .tableScan(rowType_)
+                  .tableWrite(
+                      rowType_->names(),
+                      std::make_shared<core::InsertTableHandle>(
+                          kHiveConnectorId,
+                          makeHiveInsertTableHandle(
+                              rowType_->names(),
+                              rowType_->children(),
+                              {},
+                              makeLocationHandle(outputDirectory->path))),
+                      WriteProtocol::CommitStrategy::kTaskCommit,
+                      "rows")
+                  .project({"rows"})
+                  .planNode();
+
+  // No write protocol is registered for CommitStrategy::kTaskCommit.
+  VELOX_ASSERT_THROW(
+      assertQuery(plan, filePaths, "SELECT count(*) FROM tmp"),
+      "No write protocol found for commit strategy TASK_COMMIT");
+
+  // HiveTaskCommitWriteProtocol is registered for CommitStrategy::kTaskCommit.
+  HiveTaskCommitWriteProtocol::registerProtocol();
+  assertQuery(plan, filePaths, "SELECT count(*) FROM tmp");
+
+  // HiveTaskCommitWriteProtocol writes to dot-prefixed file in the
+  // outputDirectory which is still picked up by table scan.
+  assertQuery(
+      PlanBuilder().tableScan(rowType_).planNode(),
+      makeHiveConnectorSplits(outputDirectory),
+      "SELECT * FROM tmp");
+}
+
+// Test TableWriter does not create a file if input is empty.
+TEST_F(TableWriteTest, writeNoFile) {
   auto outputDirectory = TempDirectoryPath::create();
   auto plan = PlanBuilder()
                   .tableScan(rowType_)
@@ -239,6 +289,7 @@ TEST_F(TableWriteTest, writeEmptyFile) {
                               rowType_->children(),
                               {},
                               makeLocationHandle(outputDirectory->path))),
+                      WriteProtocol::CommitStrategy::kNoCommit,
                       "rows")
                   .planNode();
 
@@ -252,10 +303,4 @@ TEST_F(TableWriteTest, writeEmptyFile) {
 
   execute(plan, std::make_shared<core::QueryCtx>(executor_.get()));
   ASSERT_TRUE(fs::is_empty(outputDirectory->path));
-
-  auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
-  queryCtx->setConfigOverridesUnsafe(
-      {{core::QueryConfig::kCreateEmptyFiles, "true"}});
-  execute(plan, queryCtx);
-  ASSERT_FALSE(fs::is_empty(outputDirectory->path));
 }

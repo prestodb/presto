@@ -15,8 +15,9 @@
  */
 
 #include "velox/exec/TableWriter.h"
+
+#include "velox/connectors/WriteProtocol.h"
 #include "velox/exec/Task.h"
-#include "velox/vector/FlatVector.h"
 
 namespace facebook::velox::exec {
 
@@ -36,9 +37,6 @@ TableWriter::TableWriter(
       driverCtx_(driverCtx),
       insertTableHandle_(
           tableWriteNode->insertTableHandle()->connectorInsertTableHandle()) {
-  // For the time being the table writer supports one file
-  // To extend it we can create a new data sink for each
-  // partition
   const auto& connectorId = tableWriteNode->insertTableHandle()->connectorId();
   connector_ = connector::getConnector(connectorId);
   connectorQueryCtx_ =
@@ -55,16 +53,17 @@ TableWriter::TableWriter(
   }
 
   mappedType_ = ROW(std::move(names), std::move(types));
-  const auto& config = driverCtx_->task->queryCtx()->config();
-  if (config.createEmptyFiles()) {
-    LOG(INFO) << "Enforce creating empty files\n";
-    createDataSink();
-  }
+  writeProtocol_ = connector::WriteProtocol::getWriteProtocol(
+      tableWriteNode->commitStrategy());
+  createDataSink();
 }
 
 void TableWriter::createDataSink() {
   dataSink_ = connector_->createDataSink(
-      mappedType_, insertTableHandle_, connectorQueryCtx_.get());
+      mappedType_,
+      insertTableHandle_,
+      connectorQueryCtx_.get(),
+      writeProtocol_);
 }
 
 void TableWriter::addInput(RowVectorPtr input) {
@@ -86,7 +85,6 @@ void TableWriter::addInput(RowVectorPtr input) {
       mappedChildren,
       input->getNullCount());
 
-  // Lazily instantiate data sink to prevent leftover empty files.
   if (!dataSink_) {
     createDataSink();
   }
@@ -101,34 +99,11 @@ RowVectorPtr TableWriter::getOutput() {
   }
   finished_ = true;
 
-  auto rowsWritten = std::dynamic_pointer_cast<FlatVector<int64_t>>(
-      BaseVector::create(BIGINT(), 1, pool()));
-  rowsWritten->set(0, numWrittenRows_);
-
-  std::vector<VectorPtr> columns = {rowsWritten};
-
-  // TODO Find a way to not have this Presto-specific logic in here.
-  if (outputType_->size() > 1) {
-    auto fragments = std::dynamic_pointer_cast<FlatVector<StringView>>(
-        BaseVector::create(VARBINARY(), 1, pool()));
-    fragments->setNull(0, true);
-    columns.emplace_back(fragments);
-
-    // clang-format off
-    auto commitContextJson = folly::toJson(
-        folly::dynamic::object
-            ("lifespan", "TaskWide")
-            ("taskId", driverCtx_->task->taskId())
-            ("pageSinkCommitStrategy", "NO_COMMIT")
-            ("lastPage", false));
-    // clang-format on
-
-    auto commitContext = std::make_shared<ConstantVector<StringView>>(
-        pool(), 1, false, VARBINARY(), StringView(commitContextJson));
-    columns.emplace_back(commitContext);
-  }
-
-  return std::make_shared<RowVector>(
-      pool(), outputType_, BufferPtr(nullptr), 1, columns);
+  connector::CommitInfo commitInfo(
+      dataSink_->getConnectorCommitInfo(),
+      numWrittenRows_,
+      outputType_,
+      driverCtx_->task->taskId());
+  return writeProtocol_->commit(commitInfo, pool());
 }
 } // namespace facebook::velox::exec

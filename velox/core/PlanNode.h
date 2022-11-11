@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/WriteProtocol.h"
 #include "velox/core/Expressions.h"
 
 namespace facebook::velox::core {
@@ -370,18 +371,40 @@ class TableWriteNode : public PlanNode {
       const std::vector<std::string>& columnNames,
       const std::shared_ptr<InsertTableHandle>& insertTableHandle,
       const RowTypePtr& outputType,
+      connector::WriteProtocol::CommitStrategy commitStrategy,
       const PlanNodePtr& source)
       : PlanNode(id),
         sources_{source},
         columns_{columns},
         columnNames_{columnNames},
         insertTableHandle_(insertTableHandle),
-        outputType_(outputType) {
+        outputType_(outputType),
+        commitStrategy_(commitStrategy) {
     VELOX_CHECK_EQ(columns->size(), columnNames.size());
     for (const auto& column : columns->names()) {
       VELOX_CHECK(source->outputType()->containsChild(column));
     }
   }
+
+  // TODO(gaoge): remove after presto_cpp is migrated to use the above
+  // constructor
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  TableWriteNode(
+      const PlanNodeId& id,
+      const RowTypePtr& columns,
+      const std::vector<std::string>& columnNames,
+      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
+      const RowTypePtr& outputType,
+      const PlanNodePtr& source)
+      : TableWriteNode(
+            id,
+            columns,
+            columnNames,
+            insertTableHandle,
+            outputType,
+            connector::WriteProtocol::CommitStrategy::kNoCommit,
+            source) {}
+#endif
 
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
@@ -407,6 +430,10 @@ class TableWriteNode : public PlanNode {
     return insertTableHandle_;
   }
 
+  connector::WriteProtocol::CommitStrategy commitStrategy() const {
+    return commitStrategy_;
+  }
+
   std::string_view name() const override {
     return "TableWrite";
   }
@@ -419,6 +446,7 @@ class TableWriteNode : public PlanNode {
   const std::vector<std::string> columnNames_;
   const std::shared_ptr<InsertTableHandle> insertTableHandle_;
   const RowTypePtr outputType_;
+  const connector::WriteProtocol::CommitStrategy commitStrategy_;
 };
 
 class AggregationNode : public PlanNode {

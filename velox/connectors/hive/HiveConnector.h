@@ -27,7 +27,12 @@
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 
+namespace facebook::velox::connector {
+class WriteProtocol;
+} // namespace facebook::velox::connector
+
 namespace facebook::velox::connector::hive {
+class HiveWriterParameters;
 
 class HiveColumnHandle : public ColumnHandle {
  public:
@@ -199,7 +204,10 @@ class HiveDataSink : public DataSink {
   explicit HiveDataSink(
       RowTypePtr inputType,
       std::shared_ptr<const HiveInsertTableHandle> insertTableHandle,
-      const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx);
+      const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
+      std::shared_ptr<WriteProtocol> writeProtocol);
+
+  std::shared_ptr<ConnectorCommitInfo> getConnectorCommitInfo() const override;
 
   void appendData(VectorPtr input) override;
 
@@ -211,6 +219,10 @@ class HiveDataSink : public DataSink {
   const RowTypePtr inputType_;
   const std::shared_ptr<const HiveInsertTableHandle> insertTableHandle_;
   const ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx_;
+  const std::shared_ptr<WriteProtocol> writeProtocol_;
+  // Parameters used by writers, and thus are tracked in the same order
+  // as the writers_ vector
+  std::vector<std::shared_ptr<const HiveWriterParameters>> writerParameters_;
   std::vector<std::unique_ptr<dwrf::Writer>> writers_;
 };
 
@@ -357,13 +369,14 @@ class HiveConnector final : public Connector {
   std::shared_ptr<DataSink> createDataSink(
       RowTypePtr inputType,
       std::shared_ptr<ConnectorInsertTableHandle> connectorInsertTableHandle,
-      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx) override final {
+      ConnectorQueryCtx* FOLLY_NONNULL connectorQueryCtx,
+      std::shared_ptr<WriteProtocol> writeProtocol) override final {
     auto hiveInsertHandle = std::dynamic_pointer_cast<HiveInsertTableHandle>(
         connectorInsertTableHandle);
     VELOX_CHECK_NOT_NULL(
         hiveInsertHandle, "Hive connector expecting hive write handle!");
     return std::make_shared<HiveDataSink>(
-        inputType, hiveInsertHandle, connectorQueryCtx);
+        inputType, hiveInsertHandle, connectorQueryCtx, writeProtocol);
   }
 
   folly::Executor* FOLLY_NULLABLE executor() {

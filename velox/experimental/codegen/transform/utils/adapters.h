@@ -181,6 +181,7 @@ struct TableWriteNodeReader {
         node.columnNames(),
         node.insertTableHandle(),
         node.outputType(),
+        node.commitStrategy(),
         node.sources()[0]);
   }
 };
