@@ -328,7 +328,8 @@ public class HivePageSourceProvider
                             split.getFileSplit().getFileModifiedTime(),
                             HiveSessionProperties.isVerboseRuntimeStatsEnabled(session)),
                     encryptionInformation,
-                    layout.isAppendRowNumberEnabled());
+                    layout.isAppendRowNumberEnabled(),
+                    layout.isFooterStatsUnreliable());
             if (pageSource.isPresent()) {
                 return Optional.of(pageSource.get());
             }
