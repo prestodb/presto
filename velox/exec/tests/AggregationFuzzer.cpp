@@ -156,6 +156,11 @@ class AggregationFuzzer {
 
   ResultOrError execute(const core::PlanNodePtr& plan);
 
+  void testPlans(
+      const std::vector<core::PlanNodePtr>& plans,
+      bool verifyResults,
+      const ResultOrError& expected);
+
   const std::unordered_set<std::string> orderDependentFunctions_;
   const bool persistAndRunOnce_;
   const std::string reproPersistPath_;
@@ -627,11 +632,16 @@ std::vector<core::PlanNodePtr> makeAlternativePlans(
                       .planNode());
 
   // Partial -> local exchange -> final aggregation plan.
+  std::vector<std::vector<RowVectorPtr>> sourceInputs(4);
+  for (auto i = 0; i < inputVectors.size(); ++i) {
+    sourceInputs[i % 4].push_back(inputVectors[i]);
+  }
+
   auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
   std::vector<core::PlanNodePtr> sources;
-  for (const auto& vector : inputVectors) {
+  for (const auto& sourceInput : sourceInputs) {
     sources.push_back(PlanBuilder(planNodeIdGenerator)
-                          .values({vector})
+                          .values({sourceInput})
                           .partialAggregation(groupingKeys, aggregates, masks)
                           .planNode());
   }
@@ -641,6 +651,31 @@ std::vector<core::PlanNodePtr> makeAlternativePlans(
                       .planNode());
 
   return plans;
+}
+
+void AggregationFuzzer::testPlans(
+    const std::vector<core::PlanNodePtr>& plans,
+    bool verifyResults,
+    const ResultOrError& expected) {
+  for (const auto& plan : plans) {
+    auto actual = execute(plan);
+
+    // Compare results or exceptions (if any). Fail is anything is different.
+    if (expected.exceptionPtr || actual.exceptionPtr) {
+      // Throws in case exceptions are not compatible.
+      velox::test::compareExceptions(
+          expected.exceptionPtr, actual.exceptionPtr);
+    } else if (verifyResults) {
+      VELOX_CHECK(
+          assertEqualResults({expected.result}, {actual.result}),
+          "Logically equivalent plans produced different results");
+    } else {
+      VELOX_CHECK_EQ(
+          expected.result->size(),
+          actual.result->size(),
+          "Logically equivalent plans produced different number of rows");
+    }
+  }
 }
 
 void AggregationFuzzer::verify(
@@ -683,22 +718,20 @@ void AggregationFuzzer::verify(
 
     auto altPlans =
         makeAlternativePlans(groupingKeys, aggregates, masks, input);
+    testPlans(altPlans, !orderDependent, resultOrError);
 
-    for (const auto& altPlan : altPlans) {
-      auto altResultOrError = execute(altPlan);
-
-      // Compare results or exceptions (if any). Fail is anything is different.
-      if (resultOrError.exceptionPtr || altResultOrError.exceptionPtr) {
-        // Throws in case exceptions are not compatible.
-        velox::test::compareExceptions(
-            resultOrError.exceptionPtr, altResultOrError.exceptionPtr);
-      } else if (!orderDependent) {
-        VELOX_CHECK(
-            assertEqualResults(
-                {resultOrError.result}, {altResultOrError.result}),
-            "Logically equivalent plans produced different results");
-      }
+    // Evaluate same plans on flat inputs.
+    std::vector<RowVectorPtr> flatInput;
+    for (const auto& vector : input) {
+      auto flat = BaseVector::create<RowVector>(
+          vector->type(), vector->size(), vector->pool());
+      flat->copy(vector.get(), 0, 0, vector->size());
+      flatInput.push_back(flat);
     }
+
+    altPlans = makeAlternativePlans(groupingKeys, aggregates, masks, flatInput);
+    testPlans(altPlans, !orderDependent, resultOrError);
+
   } catch (...) {
     if (!reproPersistPath_.empty()) {
       persistReproInfo(input, plan, reproPersistPath_);
