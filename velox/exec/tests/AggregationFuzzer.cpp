@@ -99,6 +99,9 @@ class AggregationFuzzer {
     // Number of iterations using global aggregation.
     size_t numGlobal{0};
 
+    // Number of iterations using distinct aggregation.
+    size_t numDistinct{0};
+
     // Number of iterations where results were verified against DuckDB,
     size_t numDuckDbVerified{0};
 
@@ -127,7 +130,15 @@ class AggregationFuzzer {
     seed(rng_());
   }
 
+  std::vector<std::string> generateGroupingKeys(
+      std::vector<std::string>& names,
+      std::vector<TypePtr>& types);
+
   CallableSignature pickSignature();
+
+  std::vector<RowVectorPtr> generateInputData(
+      std::vector<std::string> names,
+      std::vector<TypePtr> types);
 
   void verify(
       const std::vector<std::string>& groupingKeys,
@@ -175,8 +186,8 @@ void aggregateFuzzer(
 
 namespace {
 
-std::string toPercentageString(size_t n, size_t total) {
-  return fmt::format("{:.2f}%", (double)n / total * 100);
+std::string printStat(size_t n, size_t total) {
+  return fmt::format("{} ({:.2f}%)", n, (double)n / total * 100);
 }
 
 void printStats(
@@ -186,26 +197,18 @@ void printStats(
     size_t numSupportedSignatures) {
   LOG(INFO) << fmt::format(
       "Total functions: {} ({} signatures)", numFunctions, numSignatures);
-  LOG(INFO) << fmt::format(
-      "Functions with at least one supported signature: {} ({})",
-      numSupportedFunctions,
-      toPercentageString(numSupportedFunctions, numFunctions));
+  LOG(INFO) << "Functions with at least one supported signature: "
+            << printStat(numSupportedFunctions, numFunctions);
 
   size_t numNotSupportedFunctions = numFunctions - numSupportedFunctions;
-  LOG(INFO) << fmt::format(
-      "Functions with no supported signature: {} ({})",
-      numNotSupportedFunctions,
-      toPercentageString(numNotSupportedFunctions, numFunctions));
-  LOG(INFO) << fmt::format(
-      "Supported function signatures: {} ({})",
-      numSupportedSignatures,
-      toPercentageString(numSupportedSignatures, numSignatures));
+  LOG(INFO) << "Functions with no supported signature: "
+            << printStat(numNotSupportedFunctions, numFunctions);
+  LOG(INFO) << "Supported function signatures: {} "
+            << printStat(numSupportedSignatures, numSignatures);
 
   size_t numNotSupportedSignatures = numSignatures - numSupportedSignatures;
-  LOG(INFO) << fmt::format(
-      "Unsupported function signatures: {} ({})",
-      numNotSupportedSignatures,
-      toPercentageString(numNotSupportedSignatures, numSignatures));
+  LOG(INFO) << "Unsupported function signatures: {} "
+            << printStat(numNotSupportedSignatures, numSignatures);
 }
 
 std::unordered_set<std::string> getDuckDbFunctions() {
@@ -414,6 +417,33 @@ CallableSignature AggregationFuzzer::pickSignature() {
   return signature;
 }
 
+std::vector<std::string> AggregationFuzzer::generateGroupingKeys(
+    std::vector<std::string>& names,
+    std::vector<TypePtr>& types) {
+  auto numGroupingKeys =
+      boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+  std::vector<std::string> groupingKeys;
+  for (auto i = 0; i < numGroupingKeys; ++i) {
+    groupingKeys.push_back(fmt::format("g{}", i));
+
+    // Pick random scalar type.
+    types.push_back(vectorFuzzer_.randType(0 /*maxDepth*/));
+    names.push_back(groupingKeys.back());
+  }
+  return groupingKeys;
+}
+
+std::vector<RowVectorPtr> AggregationFuzzer::generateInputData(
+    std::vector<std::string> names,
+    std::vector<TypePtr> types) {
+  auto inputType = ROW(std::move(names), std::move(types));
+  std::vector<RowVectorPtr> input;
+  for (auto i = 0; i < 10; ++i) {
+    input.push_back(vectorFuzzer_.fuzzInputRow(inputType));
+  }
+  return input;
+}
+
 void AggregationFuzzer::go() {
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
@@ -426,54 +456,52 @@ void AggregationFuzzer::go() {
     LOG(INFO) << "==============================> Started iteration "
               << iteration << " (seed: " << currentSeed_ << ")";
 
-    // Pick a random signature.
-    CallableSignature signature = pickSignature();
-    stats_.functionNames.insert(signature.name);
-
-    const bool orderDependent =
-        orderDependentFunctions_.count(signature.name) != 0;
-
-    std::vector<TypePtr> argTypes = signature.args;
-    std::vector<std::string> argNames = makeNames(argTypes.size());
-    auto call = makeFunctionCall(signature.name, argNames);
-
-    // 20% of times use mask.
-    std::vector<std::string> masks;
-    if (vectorFuzzer_.coinToss(0.2)) {
-      ++stats_.numMask;
-
-      masks.push_back("m0");
-      argTypes.push_back(BOOLEAN());
-      argNames.push_back(masks.back());
-    }
-
-    // 10% of times use global aggregation (no grouping keys).
-    std::vector<std::string> groupingKeys;
+    // 10% of times test distinct aggregation.
     if (vectorFuzzer_.coinToss(0.1)) {
-      ++stats_.numGlobal;
+      ++stats_.numDistinct;
+
+      std::vector<TypePtr> types;
+      std::vector<std::string> names;
+
+      auto groupingKeys = generateGroupingKeys(names, types);
+      auto input = generateInputData(names, types);
+
+      verify(groupingKeys, {}, {}, input, false);
     } else {
-      ++stats_.numGroupBy;
+      // Pick a random signature.
+      CallableSignature signature = pickSignature();
+      stats_.functionNames.insert(signature.name);
 
-      auto numGroupingKeys =
-          boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
-      for (auto i = 0; i < numGroupingKeys; ++i) {
-        groupingKeys.push_back(fmt::format("g{}", i));
+      const bool orderDependent =
+          orderDependentFunctions_.count(signature.name) != 0;
 
-        // Pick random scalar type.
-        argTypes.push_back(vectorFuzzer_.randType(0 /*maxDepth*/));
-        argNames.push_back(groupingKeys.back());
+      std::vector<TypePtr> argTypes = signature.args;
+      std::vector<std::string> argNames = makeNames(argTypes.size());
+      auto call = makeFunctionCall(signature.name, argNames);
+
+      // 20% of times use mask.
+      std::vector<std::string> masks;
+      if (vectorFuzzer_.coinToss(0.2)) {
+        ++stats_.numMask;
+
+        masks.push_back("m0");
+        argTypes.push_back(BOOLEAN());
+        argNames.push_back(masks.back());
       }
+
+      // 10% of times use global aggregation (no grouping keys).
+      std::vector<std::string> groupingKeys;
+      if (vectorFuzzer_.coinToss(0.1)) {
+        ++stats_.numGlobal;
+      } else {
+        ++stats_.numGroupBy;
+        groupingKeys = generateGroupingKeys(argNames, argTypes);
+      }
+
+      auto input = generateInputData(argNames, argTypes);
+
+      verify(groupingKeys, {call}, masks, input, orderDependent);
     }
-
-    // Generate random input data.
-    auto inputType = ROW(std::move(argNames), std::move(argTypes));
-    std::vector<RowVectorPtr> input;
-    for (auto i = 0; i < 10; ++i) {
-      input.push_back(vectorFuzzer_.fuzzInputRow(inputType));
-    }
-
-    verify(groupingKeys, {call}, masks, input, orderDependent);
-
     LOG(INFO) << "==============================> Done with iteration "
               << iteration;
 
@@ -681,17 +709,18 @@ void AggregationFuzzer::verify(
 
 void AggregationFuzzer::Stats::print(size_t numIterations) const {
   LOG(INFO) << "Total functions tested: " << functionNames.size();
-  LOG(INFO) << "Total masked aggregations: " << numMask << " ("
-            << toPercentageString(numMask, numIterations) << ")";
-  LOG(INFO) << "Total global aggregations: " << numGlobal << " ("
-            << toPercentageString(numGlobal, numIterations) << ")";
-  LOG(INFO) << "Total group-by aggregations: " << numGroupBy << " ("
-            << toPercentageString(numGroupBy, numIterations) << ")";
+  LOG(INFO) << "Total masked aggregations: "
+            << printStat(numMask, numIterations);
+  LOG(INFO) << "Total global aggregations: "
+            << printStat(numGlobal, numIterations);
+  LOG(INFO) << "Total group-by aggregations: "
+            << printStat(numGroupBy, numIterations);
+  LOG(INFO) << "Total distinct aggregations: "
+            << printStat(numDistinct, numIterations);
   LOG(INFO) << "Total aggregations verified against DuckDB: "
-            << numDuckDbVerified << " ("
-            << toPercentageString(numDuckDbVerified, numIterations) << ")";
-  LOG(INFO) << "Total failed aggregations: " << numFailed << " ("
-            << toPercentageString(numFailed, numIterations) << ")";
+            << printStat(numDuckDbVerified, numIterations);
+  LOG(INFO) << "Total failed aggregations: "
+            << printStat(numFailed, numIterations);
 }
 
 } // namespace
