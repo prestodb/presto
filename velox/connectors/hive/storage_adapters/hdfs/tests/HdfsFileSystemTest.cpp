@@ -16,12 +16,14 @@
 #include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <boost/format.hpp>
 #include <connectors/hive/storage_adapters/hdfs/HdfsReadFile.h>
+#include <connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h>
 #include <gmock/gmock-matchers.h>
 #include <hdfs/hdfs.h>
 #include <atomic>
 #include <random>
 #include "HdfsMiniCluster.h"
 #include "gtest/gtest.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/File.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
@@ -53,6 +55,7 @@ class HdfsFileSystemTest : public testing::Test {
     if (!miniCluster->isRunning()) {
       miniCluster->start();
     }
+    facebook::velox::filesystems::registerHdfsFileSystem();
   }
 
   static void TearDownTestSuite() {
@@ -97,6 +100,14 @@ void readData(ReadFile* readFile) {
   ASSERT_EQ(zarf, "ccccccccccddddd");
   ASSERT_EQ(warf, "abbbbbcc");
   ASSERT_EQ(warfFromBuf, "abbbbbcc");
+}
+
+std::unique_ptr<WriteFile> openFileForWrite(std::string_view path) {
+  auto memConfig = std::make_shared<const core::MemConfig>(configurationValues);
+  std::string hdfsFilePath =
+      "hdfs://" + localhost + ":" + hdfsPort + std::string(path);
+  auto hdfsFileSystem = filesystems::getFileSystem(hdfsFilePath, memConfig);
+  return hdfsFileSystem->openFileForWrite(path);
 }
 
 void checkReadErrorMessages(
@@ -348,6 +359,41 @@ TEST_F(HdfsFileSystemTest, multipleThreadsWithFileSystem) {
   for (auto& thread : threads) {
     thread.join();
   }
+}
+
+TEST_F(HdfsFileSystemTest, write) {
+  std::string path = "/a.txt";
+  auto writeFile = openFileForWrite(path);
+  std::string data = "abcdefghijk";
+  writeFile->append(data);
+  writeFile->flush();
+  ASSERT_EQ(writeFile->size(), 0);
+  writeFile->append(data);
+  writeFile->append(data);
+  writeFile->flush();
+  writeFile->close();
+  ASSERT_EQ(writeFile->size(), data.size() * 3);
+}
+
+TEST_F(HdfsFileSystemTest, missingFileForWrite) {
+  const std::string filePath = "hdfs://localhost:7777/path/that/does/not/exist";
+  const std::string errorMsg =
+      "Failed to open hdfs file: hdfs://localhost:7777/path/that/does/not/exist";
+  VELOX_ASSERT_THROW(openFileForWrite(filePath), errorMsg);
+}
+
+TEST_F(HdfsFileSystemTest, writeDataFailures) {
+  const std::string errorMsg = "Write failure in HDFSWriteFile::append";
+  auto writeFile = openFileForWrite("/a.txt");
+  writeFile->close();
+  VELOX_ASSERT_THROW(writeFile->append("abcde"), errorMsg);
+}
+
+TEST_F(HdfsFileSystemTest, writeFlushFailures) {
+  const std::string errorMsg = "Hdfs flush error";
+  auto writeFile = openFileForWrite("/a.txt");
+  writeFile->close();
+  VELOX_ASSERT_THROW(writeFile->flush(), errorMsg);
 }
 
 TEST_F(HdfsFileSystemTest, readFailures) {

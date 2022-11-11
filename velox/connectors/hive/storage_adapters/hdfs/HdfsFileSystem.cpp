@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "HdfsFileSystem.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsFileSystem.h"
 #include <hdfs/hdfs.h>
-#include "HdfsReadFile.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsReadFile.h"
+#include "velox/connectors/hive/storage_adapters/hdfs/HdfsWriteFile.h"
 #include "velox/core/Context.h"
 
 namespace facebook::velox::filesystems {
@@ -90,7 +91,7 @@ std::unique_ptr<ReadFile> HdfsFileSystem::openFileForRead(
 
 std::unique_ptr<WriteFile> HdfsFileSystem::openFileForWrite(
     std::string_view path) {
-  VELOX_UNSUPPORTED("Write to HDFS is unsupported");
+  return std::make_unique<HdfsWriteFile>(impl_->hdfsClient(), path);
 }
 
 bool HdfsFileSystem::isHdfsFile(const std::string_view filename) {
