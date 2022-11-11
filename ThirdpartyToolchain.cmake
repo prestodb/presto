@@ -211,5 +211,32 @@ macro(resolve_dependency DEPENDENCY_NAME)
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
     build_dependency(${DEPENDENCY_NAME})
+  else()
+    message(
+      FATAL_ERROR
+        "Invalid source for ${DEPENDENCY_NAME}: ${${DEPENDENCY_NAME}_SOURCE}")
   endif()
 endmacro()
+
+# By using a macro we don't need to propagate the value into the parent scope.
+macro(set_source DEPENDENCY_NAME)
+  set_with_default(${DEPENDENCY_NAME}_SOURCE ${DEPENDENCY_NAME}_SOURCE
+                   ${VELOX_DEPENDENCY_SOURCE})
+  message(
+    STATUS "Setting ${DEPENDENCY_NAME} source to ${${DEPENDENCY_NAME}_SOURCE}")
+endmacro()
+
+# Set a variable to the value of $ENV{envvar_name} if defined, set to ${DEFAULT}
+# if not defined. If called from within a nested scope the variable will not
+# propagate into outer scopes automatically! Use PARENT_SCOPE.
+function(set_with_default var_name envvar_name default)
+  if(DEFINED ENV{${envvar_name}})
+    set(${var_name}
+        $ENV{${envvar_name}}
+        PARENT_SCOPE)
+  else()
+    set(${var_name}
+        ${default}
+        PARENT_SCOPE)
+  endif()
+endfunction()

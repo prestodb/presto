@@ -26,7 +26,8 @@ services:
       context: .
       dockerfile: scripts/ubuntu-22.04-cpp.dockerfile
     environment:
-      - NUM_THREADS=8 # default value for NUM_THREADS
+      NUM_THREADS: 8 # default value for NUM_THREADS
+      VELOX_DEPENDENCY_SOURCE: BUNDLED # Build dependencies from source
     volumes:
       - .:/velox:delegated
     command: scripts/docker-command.sh
