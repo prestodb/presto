@@ -582,10 +582,18 @@ inline std::string mapAggregationStepToName(const AggregationNode::Step& step) {
 /// The rest of the grouping key columns are filled in with nulls.
 class GroupIdNode : public PlanNode {
  public:
+  struct GroupingKeyInfo {
+    // The name to use in the output.
+    std::string output;
+    // The input field.
+    FieldAccessTypedExprPtr input;
+  };
+
   /// @param id Plan node ID.
   /// @param groupingSets A list of grouping key sets. Grouping keys within the
   /// set must be unique, but grouping keys across sets may repeat.
-  /// @param outputGroupingKeyNames Output names for the grouping keys.
+  /// @param groupingKeyInfos The names and order of the grouping keys in the
+  /// output.
   /// @param aggregationInputs Columns that contain inputs to the aggregate
   /// functions.
   /// @param groupIdName Name of the column that will contain the grouping set
@@ -594,10 +602,28 @@ class GroupIdNode : public PlanNode {
   GroupIdNode(
       PlanNodeId id,
       std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets,
-      std::map<std::string, FieldAccessTypedExprPtr> outputGroupingKeyNames,
+      std::vector<GroupingKeyInfo> groupingKeyInfos,
       std::vector<FieldAccessTypedExprPtr> aggregationInputs,
       std::string groupIdName,
       PlanNodePtr source);
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  /// TODO Remove after updating Prestissimo.
+  GroupIdNode(
+      PlanNodeId id,
+      std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets,
+      std::map<std::string, FieldAccessTypedExprPtr> outputGroupingKeyNames,
+      std::vector<FieldAccessTypedExprPtr> aggregationInputs,
+      std::string groupIdName,
+      PlanNodePtr source)
+      : GroupIdNode(
+            std::move(id),
+            std::move(groupingSets),
+            makeGroupingKeyInfos(outputGroupingKeyNames),
+            std::move(aggregationInputs),
+            std::move(groupIdName),
+            std::move(source)) {}
+#endif
 
   const RowTypePtr& outputType() const override {
     return outputType_;
@@ -612,9 +638,8 @@ class GroupIdNode : public PlanNode {
     return groupingSets_;
   }
 
-  const std::map<std::string, FieldAccessTypedExprPtr>& outputGroupingKeyNames()
-      const {
-    return outputGroupingKeyNames_;
+  const std::vector<GroupingKeyInfo>& groupingKeyInfos() const {
+    return groupingKeyInfos_;
   }
 
   const std::vector<FieldAccessTypedExprPtr>& aggregationInputs() const {
@@ -634,12 +659,25 @@ class GroupIdNode : public PlanNode {
   }
 
  private:
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  /// TODO Remove after updating Prestissimo.
+  static std::vector<GroupIdNode::GroupingKeyInfo> makeGroupingKeyInfos(
+      const std::map<std::string, FieldAccessTypedExprPtr>&
+          outputGroupingKeyNames) {
+    std::vector<GroupIdNode::GroupingKeyInfo> infos;
+    for (const auto& [name, field] : outputGroupingKeyNames) {
+      infos.push_back({name, field});
+    }
+    return infos;
+  }
+#endif
+
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<PlanNodePtr> sources_;
   const RowTypePtr outputType_;
   const std::vector<std::vector<FieldAccessTypedExprPtr>> groupingSets_;
-  const std::map<std::string, FieldAccessTypedExprPtr> outputGroupingKeyNames_;
+  const std::vector<GroupingKeyInfo> groupingKeyInfos_;
   const std::vector<FieldAccessTypedExprPtr> aggregationInputs_;
   const std::string groupIdName_;
 };

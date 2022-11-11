@@ -148,6 +148,9 @@ GroupIdNode
 Duplicates the input for each of the specified grouping key sets. Used to
 implement aggregations over grouping sets.
 
+The output consists of grouping keys, followed by aggregation inputs,
+followed by the group ID column. The type of group ID column is BIGINT.
+
 .. list-table::
    :widths: 10 30
    :align: left
@@ -157,8 +160,8 @@ implement aggregations over grouping sets.
      - Description
    * - groupingSets
      - List of grouping key sets. Keys within each set must be unique, but keys can repeat across the sets.
-   * - outputGroupingKeyNames
-     - Output names for the grouping key columns.
+   * - groupingKeyInfos
+     - The names and order of the grouping key columns in the output.
    * - aggregationInputs
      - Input columns to duplicate.
    * - groupIdName

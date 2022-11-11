@@ -437,7 +437,8 @@ class PlanBuilder {
       const std::vector<TypePtr>& resultTypes = {});
 
   /// Add a GroupIdNode using the specified grouping sets, aggregation inputs
-  /// and a groupId column name.
+  /// and a groupId column name. And create GroupIdNode plan node with grouping
+  /// keys appearing in the output in the order they appear in 'groupingSets'.
   PlanBuilder& groupId(
       const std::vector<std::vector<std::string>>& groupingSets,
       const std::vector<std::string>& aggregationInputs,
