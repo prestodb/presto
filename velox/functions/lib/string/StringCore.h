@@ -19,6 +19,7 @@
 #include <string>
 #include <string_view>
 #include "folly/CPortability.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/external/utf8proc/utf8procImpl.h"
 
 #if (ENABLE_VECTORIZATION > 0) && !defined(_DEBUG) && !defined(DEBUG)
@@ -74,12 +75,12 @@ reverseUnicode(char* output, const char* input, size_t length) {
     utf8proc_codepoint(&input[inputIdx], size);
     // invalid utf8 gets byte sequence with nextCodePoint==-1 and size==1,
     // continue reverse invalid sequence byte by byte.
-    assert(
-        size > 0 && "UNLIKELY: could not get size of invalid utf8 code point");
-    assert(outputIdx >= size && "access out of bound");
+    VELOX_USER_CHECK_GT(
+        size, 0, "UNLIKELY: could not get size of invalid utf8 code point");
+    VELOX_USER_CHECK_GE(outputIdx, size, "access out of bound");
     outputIdx -= size;
 
-    assert(outputIdx < length && "access out of bound");
+    VELOX_USER_CHECK_LT(outputIdx, length, "access out of bound");
     std::memcpy(&output[outputIdx], &input[inputIdx], size);
     inputIdx += size;
   }

@@ -18,6 +18,7 @@
 #include <cctype>
 #include <random>
 #include "velox/common/base/VeloxException.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/lib/StringEncodingUtils.h"
 #include "velox/functions/lib/string/StringImpl.h"
@@ -1491,6 +1492,15 @@ TEST_F(StringFunctionsTest, reverse) {
       "\u671B\u5E0C\u2014\u7231\u2014\u5FF5\u4FE1",
       reverse("\u4FE1\u5FF5\u2014\u7231\u2014\u5E0C\u671B"));
   EXPECT_EQ(expectedInvalidStr, reverse(invalidStr));
+
+  // Test unicode out of the valid range.
+  std::string invalidUnicodeStr;
+  invalidUnicodeStr.resize(3);
+  // An invalid unicode within 0xD800--0xDFFF.
+  int16_t invalidUnicode = 0xeda0;
+  memcpy(invalidUnicodeStr.data(), &invalidUnicode, 2);
+  invalidUnicodeStr[2] = '\0';
+  EXPECT_THROW(reverse(invalidUnicodeStr), VeloxUserError);
 }
 
 TEST_F(StringFunctionsTest, fromBase64) {
