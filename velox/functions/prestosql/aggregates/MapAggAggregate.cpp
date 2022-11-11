@@ -36,6 +36,7 @@ class MapAggAggregate : public aggregate::MapAggregateBase {
       // Skip null keys
       if (!decodedKeys_.isNullAt(row)) {
         auto group = groups[row];
+        clearNull(group);
         auto accumulator = value<MapAccumulator>(group);
         auto tracker = trackRowSize(group);
         accumulator->keys.appendValue(decodedKeys_, row, allocator_);
@@ -59,6 +60,7 @@ class MapAggAggregate : public aggregate::MapAggregateBase {
     rows.applyToSelected([&](vector_size_t row) {
       // Skip null keys
       if (!decodedKeys_.isNullAt(row)) {
+        clearNull(group);
         keys.appendValue(decodedKeys_, row, allocator_);
         values.appendValue(decodedValues_, row, allocator_);
       }

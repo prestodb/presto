@@ -44,6 +44,7 @@ class MapAggregateBase : public exec::Aggregate {
     for (auto index : indices) {
       new (groups[index] + offset_) MapAccumulator();
     }
+    setAllNulls(groups, indices);
   }
 
   void finalize(char** groups, int32_t numGroups) override {

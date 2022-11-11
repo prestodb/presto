@@ -37,10 +37,16 @@ void MapAggregateBase::extractValues(
   for (int32_t i = 0; i < numGroups; ++i) {
     char* group = groups[i];
 
+    if (isNull(group)) {
+      mapVector->setNull(i, true);
+      continue;
+    }
+
+    clearNull(rawNulls, i);
+
     auto accumulator = value<MapAccumulator>(group);
     auto mapSize = accumulator->keys.size();
     if (mapSize) {
-      clearNull(rawNulls, i);
       ValueListReader keysReader(accumulator->keys);
       ValueListReader valuesReader(accumulator->values);
       for (auto index = 0; index < mapSize; ++index) {
@@ -50,7 +56,7 @@ void MapAggregateBase::extractValues(
       mapVector->setOffsetAndSize(i, offset, mapSize);
       offset += mapSize;
     } else {
-      mapVector->setNull(i, true);
+      mapVector->setOffsetAndSize(i, 0, 0);
     }
   }
 
@@ -141,12 +147,15 @@ void MapAggregateBase::addMapInputToAccumulator(
     auto group = groups[row];
     auto accumulator = value<MapAccumulator>(group);
 
-    auto decodedRow = decodedMaps_.index(row);
-    auto offset = mapVector->offsetAt(decodedRow);
-    auto size = mapVector->sizeAt(decodedRow);
-    auto tracker = trackRowSize(group);
-    accumulator->keys.appendRange(mapKeys, offset, size, allocator_);
-    accumulator->values.appendRange(mapValues, offset, size, allocator_);
+    if (!decodedMaps_.isNullAt(row)) {
+      clearNull(group);
+      auto decodedRow = decodedMaps_.index(row);
+      auto offset = mapVector->offsetAt(decodedRow);
+      auto size = mapVector->sizeAt(decodedRow);
+      auto tracker = trackRowSize(group);
+      accumulator->keys.appendRange(mapKeys, offset, size, allocator_);
+      accumulator->values.appendRange(mapValues, offset, size, allocator_);
+    }
   });
 }
 
@@ -166,11 +175,14 @@ void MapAggregateBase::addSingleGroupMapInputToAccumulator(
   auto& mapKeys = mapVector->mapKeys();
   auto& mapValues = mapVector->mapValues();
   rows.applyToSelected([&](vector_size_t row) {
-    auto decodedRow = decodedMaps_.index(row);
-    auto offset = mapVector->offsetAt(decodedRow);
-    auto size = mapVector->sizeAt(decodedRow);
-    keys.appendRange(mapKeys, offset, size, allocator_);
-    values.appendRange(mapValues, offset, size, allocator_);
+    if (!decodedMaps_.isNullAt(row)) {
+      clearNull(group);
+      auto decodedRow = decodedMaps_.index(row);
+      auto offset = mapVector->offsetAt(decodedRow);
+      auto size = mapVector->sizeAt(decodedRow);
+      keys.appendRange(mapKeys, offset, size, allocator_);
+      values.appendRange(mapValues, offset, size, allocator_);
+    }
   });
 }
 } // namespace facebook::velox::aggregate

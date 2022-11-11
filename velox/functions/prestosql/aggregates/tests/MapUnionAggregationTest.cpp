@@ -179,5 +179,44 @@ TEST_F(MapUnionTest, globalNoData) {
 
   testAggregations({data}, {}, {"map_union(c0)"}, "SELECT null");
 }
+
+TEST_F(MapUnionTest, nulls) {
+  auto data = makeRowVector(
+      {"k", "m"},
+      {
+          makeFlatVector<int64_t>({1, 2, 1, 3, 3}),
+          makeMapVector<int64_t, int64_t>({
+              {{{1, 10}, {2, 20}}},
+              {{123, 100}}, // to be null
+              {{{3, 33}, {4, 44}, {5, 55}}},
+              {{456, 1000}}, // to be null
+              {}, // empty map
+          }),
+      });
+
+  data->childAt(1)->setNull(1, true);
+  data->childAt(1)->setNull(3, true);
+
+  // Global aggregation.
+  auto expected = makeRowVector({
+      makeMapVector<int64_t, int64_t>({
+          {{1, 10}, {2, 20}, {3, 33}, {4, 44}, {5, 55}},
+      }),
+  });
+
+  testAggregations({data}, {}, {"map_union(m)"}, {expected});
+
+  // Group-by aggregation.
+  expected = makeRowVector({
+      makeFlatVector<int64_t>({1, 2, 3}),
+      makeNullableMapVector<int64_t, int64_t>({
+          {{{1, 10}, {2, 20}, {3, 33}, {4, 44}, {5, 55}}},
+          std::nullopt,
+          {{}},
+      }),
+  });
+
+  testAggregations({data}, {"k"}, {"map_union(m)"}, {expected});
+}
 } // namespace
 } // namespace facebook::velox::aggregate::test
