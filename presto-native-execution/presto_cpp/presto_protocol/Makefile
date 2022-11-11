@@ -11,6 +11,7 @@
 # limitations under the License.
 .PHONY: presto_protocol presto_protocol-json presto_protocol-cpp
 
+default: presto_protocol
 
 presto_protocol: presto_protocol-cpp
 

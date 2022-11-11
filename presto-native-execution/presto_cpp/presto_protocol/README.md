@@ -23,6 +23,12 @@ Dependencies to Install
 
    You will need to note the path to the installed executable and add this to your PATH.
    Something like `/Users/adutta/Library/Python/3.8/bin`.
+   
+   Presto repo must be present at $HOME/presto. The PRESTO_HOME environment variable can
+   be set to override this location.
+
+Presto Protocol Code Generation:
+   Run `make` in terminal.
 
 Implementation Notes:
 
@@ -40,9 +46,7 @@ source generation.
  * Abstract classes, their subclasses and the subclass type key are listed in
  AbstractClasses.
 
- * Java files from Presto are listed in JavaClasses.  The script defaults the
-presto repo checkout to $HOME/presto.  The PRESTO_HOME environment variable can
-be set to override this location.
+ * Java files from the Presto repo are listed in JavaClasses.
 
  * ExtraProps lists a few additional java class properties that failed to be
  extracted via Jackson annotations.
