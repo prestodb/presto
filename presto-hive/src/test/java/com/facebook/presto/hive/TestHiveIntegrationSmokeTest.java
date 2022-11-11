@@ -56,6 +56,7 @@ import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import org.apache.hadoop.fs.Path;
 import org.intellij.lang.annotations.Language;
@@ -101,6 +102,7 @@ import static com.facebook.presto.common.type.VarcharType.createVarcharType;
 import static com.facebook.presto.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
+import static com.facebook.presto.hive.HiveColumnHandle.FILE_SPLIT_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveColumnHandle.PATH_COLUMN_NAME;
 import static com.facebook.presto.hive.HiveQueryRunner.HIVE_CATALOG;
 import static com.facebook.presto.hive.HiveQueryRunner.TPCH_SCHEMA;
@@ -2805,14 +2807,15 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testPathHiddenColumn()
+    public void testFileHiddenColumn()
     {
-        testWithAllStorageFormats(this::testPathHiddenColumn);
+        testWithAllStorageFormats(this::testFileHiddenColumn);
     }
 
-    private void testPathHiddenColumn(Session session, HiveStorageFormat storageFormat)
+    private void testFileHiddenColumn(Session session, HiveStorageFormat storageFormat)
     {
-        @Language("SQL") String createTable = "CREATE TABLE test_path " +
+        String tableName = "test_file_hidden_columns";
+        @Language("SQL") String createTable = "CREATE TABLE " + tableName + " " +
                 "WITH (" +
                 "format = '" + storageFormat + "'," +
                 "partitioned_by = ARRAY['col1']" +
@@ -2823,35 +2826,44 @@ public class TestHiveIntegrationSmokeTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(session, createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_path"));
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
 
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
+        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
         assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columns = ImmutableList.of("col0", "col1");
+        List<String> hiddenColumns = ImmutableList.of(PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, FILE_SPLIT_COLUMN_NAME);
+
+        List<String> columnNames = ImmutableList.copyOf(Iterables.concat(columns, hiddenColumns));
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
             assertEquals(columnMetadata.getName(), columnNames.get(i));
-            if (columnMetadata.getName().equals(PATH_COLUMN_NAME)) {
-                // $path should be hidden column
-                assertTrue(columnMetadata.isHidden());
-            }
+            assertEquals(columnMetadata.isHidden(), hiddenColumns.contains(columnMetadata.getName()));
         }
-        assertEquals(getPartitions("test_path").size(), 3);
+        assertEquals(getPartitions(tableName).size(), 3);
 
-        MaterializedResult results = computeActual(session, format("SELECT *, \"%s\" FROM test_path", PATH_COLUMN_NAME));
+        verifyPathColumn(session, tableName);
+        verifyFileSizeColumn(session, tableName);
+        verifyFileModifiedColumn(session, tableName);
+        verifyFileSplitColumn(session, tableName);
+        assertUpdate(session, "DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(session, tableName));
+    }
+
+    private void verifyPathColumn(Session session, String tableName)
+    {
+        List<MaterializedRow> results = getMaterializedRows(session, tableName, PATH_COLUMN_NAME);
         Map<Integer, String> partitionPathMap = new HashMap<>();
-        for (int i = 0; i < results.getRowCount(); i++) {
-            MaterializedRow row = results.getMaterializedRows().get(i);
+        for (MaterializedRow row : results) {
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
             String pathName = (String) row.getField(2);
             String parentDirectory = new Path(pathName).getParent().toString();
 
             assertTrue(pathName.length() > 0);
-            assertEquals((int) (col0 % 3), col1);
+            assertEquals(col0 % 3, col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
                 assertEquals(partitionPathMap.get(col1), parentDirectory);
@@ -2861,9 +2873,68 @@ public class TestHiveIntegrationSmokeTest
             }
         }
         assertEquals(partitionPathMap.size(), 3);
+    }
 
-        assertUpdate(session, "DROP TABLE test_path");
-        assertFalse(getQueryRunner().tableExists(session, "test_path"));
+    private void verifyFileSizeColumn(Session session, String tableName)
+    {
+        List<MaterializedRow> results = getMaterializedRows(session, tableName, FILE_SIZE_COLUMN_NAME);
+        Map<Integer, Long> fileSizeMap = new HashMap<>();
+        for (MaterializedRow row : results) {
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            long fileSize = (Long) row.getField(2);
+
+            assertTrue(fileSize > 0);
+            assertEquals(col0 % 3, col1);
+            if (fileSizeMap.containsKey(col1)) {
+                assertEquals(fileSizeMap.get(col1).longValue(), fileSize);
+            }
+            else {
+                fileSizeMap.put(col1, fileSize);
+            }
+        }
+        assertEquals(fileSizeMap.size(), 3);
+    }
+
+    private void verifyFileModifiedColumn(Session session, String tableName)
+    {
+        long testStartTime = Instant.now().toEpochMilli();
+
+        List<MaterializedRow> results = getMaterializedRows(session, tableName, FILE_MODIFIED_TIME_COLUMN_NAME);
+        Map<Integer, Long> fileModifiedTimeMap = new HashMap<>();
+        for (MaterializedRow row : results) {
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            long fileModifiedTime = (Long) row.getField(2);
+
+            assertTrue(fileModifiedTime > (testStartTime - 30_000));
+            assertEquals(col0 % 3, col1);
+            if (fileModifiedTimeMap.containsKey(col1)) {
+                assertEquals(fileModifiedTimeMap.get(col1).longValue(), fileModifiedTime);
+            }
+            else {
+                fileModifiedTimeMap.put(col1, fileModifiedTime);
+            }
+        }
+        assertEquals(fileModifiedTimeMap.size(), 3);
+    }
+
+    private void verifyFileSplitColumn(Session session, String tableName)
+    {
+        List<MaterializedRow> results = getMaterializedRows(session, tableName, FILE_SPLIT_COLUMN_NAME);
+        for (MaterializedRow row : results) {
+            int col0 = (int) row.getField(0);
+            int col1 = (int) row.getField(1);
+            String fileSplit = (String) row.getField(2);
+            assertEquals(col0 % 3, col1);
+            assertNotEquals(fileSplit, "");
+        }
+    }
+
+    private List<MaterializedRow> getMaterializedRows(Session session, String tableName, String columnName)
+    {
+        MaterializedResult results = computeActual(session, format("SELECT *, \"%s\" FROM %s", columnName, tableName));
+        return results.getMaterializedRows();
     }
 
     @Test
@@ -2886,7 +2957,7 @@ public class TestHiveIntegrationSmokeTest
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
         assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
 
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
+        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, FILE_SPLIT_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
         assertEquals(columnMetadatas.size(), columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
@@ -2917,107 +2988,6 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_bucket_hidden_column");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column"));
-    }
-
-    @Test
-    public void testFileSizeHiddenColumn()
-    {
-        @Language("SQL") String createTable = "CREATE TABLE test_file_size " +
-                "AS " +
-                "SELECT * FROM (VALUES " +
-                "(0, 0), (3, 0), (6, 0), " +
-                "(1, 1), (4, 1), (7, 1), " +
-                "(2, 2), (5, 2) " +
-                " ) t(col0, col1) ";
-        assertUpdate(createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_file_size"));
-
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
-
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
-        for (int i = 0; i < columnMetadatas.size(); i++) {
-            ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
-            if (columnMetadata.getName().equals(FILE_SIZE_COLUMN_NAME)) {
-                assertTrue(columnMetadata.isHidden());
-            }
-        }
-
-        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_size", FILE_SIZE_COLUMN_NAME));
-        Map<Integer, Long> fileSizeMap = new HashMap<>();
-        for (int i = 0; i < results.getRowCount(); i++) {
-            MaterializedRow row = results.getMaterializedRows().get(i);
-            int col0 = (int) row.getField(0);
-            int col1 = (int) row.getField(1);
-            long fileSize = (Long) row.getField(2);
-
-            assertTrue(fileSize > 0);
-            assertEquals(col0 % 3, col1);
-            if (fileSizeMap.containsKey(col1)) {
-                assertEquals(fileSizeMap.get(col1).longValue(), fileSize);
-            }
-            else {
-                fileSizeMap.put(col1, fileSize);
-            }
-        }
-        assertEquals(fileSizeMap.size(), 3);
-
-        assertUpdate("DROP TABLE test_file_size");
-    }
-
-    @Test
-    public void testFileModifiedTimeHiddenColumn()
-    {
-        long testStartTime = Instant.now().toEpochMilli();
-
-        @Language("SQL") String createTable = "CREATE TABLE test_file_modified_time " +
-                "WITH (" +
-                "partitioned_by = ARRAY['col1']" +
-                ") AS " +
-                "SELECT * FROM (VALUES " +
-                "(0, 0), (3, 0), (6, 0), " +
-                "(1, 1), (4, 1), (7, 1), " +
-                "(2, 2), (5, 2) " +
-                " ) t(col0, col1) ";
-        assertUpdate(createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_file_modified_time"));
-
-        TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
-
-        List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
-        List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
-        for (int i = 0; i < columnMetadatas.size(); i++) {
-            ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
-            if (columnMetadata.getName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
-                assertTrue(columnMetadata.isHidden());
-            }
-        }
-        assertEquals(getPartitions("test_file_modified_time").size(), 3);
-
-        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_modified_time", FILE_MODIFIED_TIME_COLUMN_NAME));
-        Map<Integer, Long> fileModifiedTimeMap = new HashMap<>();
-        for (int i = 0; i < results.getRowCount(); i++) {
-            MaterializedRow row = results.getMaterializedRows().get(i);
-            int col0 = (int) row.getField(0);
-            int col1 = (int) row.getField(1);
-            long fileModifiedTime = (Long) row.getField(2);
-
-            assertTrue(fileModifiedTime > (testStartTime - 2_000));
-            assertEquals(col0 % 3, col1);
-            if (fileModifiedTimeMap.containsKey(col1)) {
-                assertEquals(fileModifiedTimeMap.get(col1).longValue(), fileModifiedTime);
-            }
-            else {
-                fileModifiedTimeMap.put(col1, fileModifiedTime);
-            }
-        }
-        assertEquals(fileModifiedTimeMap.size(), 3);
-
-        assertUpdate("DROP TABLE test_file_modified_time");
     }
 
     @Test

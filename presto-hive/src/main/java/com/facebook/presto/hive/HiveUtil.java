@@ -135,9 +135,11 @@ import static com.facebook.presto.hive.HiveColumnHandle.MAX_PARTITION_KEY_COLUMN
 import static com.facebook.presto.hive.HiveColumnHandle.bucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.fileModifiedTimeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.fileSizeColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.fileSplitColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isBucketColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isFileModifiedTimeColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isFileSizeColumnHandle;
+import static com.facebook.presto.hive.HiveColumnHandle.isFileSplitColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.isPathColumnHandle;
 import static com.facebook.presto.hive.HiveColumnHandle.pathColumnHandle;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_BAD_DATA;
@@ -937,6 +939,7 @@ public final class HiveUtil
         }
         columns.add(fileSizeColumnHandle());
         columns.add(fileModifiedTimeColumnHandle());
+        columns.add(fileSplitColumnHandle());
 
         return columns.build();
     }
@@ -1000,6 +1003,9 @@ public final class HiveUtil
         }
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
             return Optional.of(String.valueOf(fileSplit.getFileModifiedTime()));
+        }
+        if (isFileSplitColumnHandle(columnHandle)) {
+            return Optional.of(fileSplit.toString());
         }
 
         throw new PrestoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);

@@ -15,12 +15,16 @@ package com.facebook.presto.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableMap;
 
+import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +37,8 @@ public class HiveFileSplit
     private final long fileModifiedTime;
     private final Optional<byte[]> extraFileInfo;
     private final Map<String, String> customSplitInfo;
+
+    private AtomicReference<String> cachedToString = new AtomicReference<>();
 
     @JsonCreator
     public HiveFileSplit(
@@ -133,14 +139,28 @@ public class HiveFileSplit
     @Override
     public String toString()
     {
-        return "HiveFileSplit{" +
-                "path='" + path + '\'' +
-                ", start=" + start +
-                ", length=" + length +
-                ", fileSize=" + fileSize +
-                ", fileModifiedTime=" + fileModifiedTime +
-                ", extraFileInfo=" + extraFileInfo +
-                ", customSplitInfo=" + customSplitInfo +
-                '}';
+        String existingToString = cachedToString.get();
+        if (existingToString != null) {
+            return existingToString;
+        }
+
+        ToStringHelper toStringHelper = toStringHelper(this);
+        toStringHelper.add("path", path);
+        toStringHelper.add("start", start);
+        toStringHelper.add("length", length);
+        toStringHelper.add("fileSize", fileSize);
+        toStringHelper.add("fileModifiedTime", fileModifiedTime);
+
+        if (extraFileInfo.isPresent()) {
+            String extraFileInfoString = new String(Base64.getEncoder().encode(extraFileInfo.get()));
+            toStringHelper.add("extraFileInfo", extraFileInfoString);
+        }
+
+        if (!customSplitInfo.isEmpty()) {
+            toStringHelper.add("customSplitInfo", customSplitInfo);
+        }
+
+        cachedToString.compareAndSet(null, toStringHelper.toString());
+        return cachedToString.get();
     }
 }
