@@ -119,7 +119,7 @@ Maximum amount of memory in bytes that an order by can use before spilling.
 0 means unlimited.
 
 ``spillable-reservation-growth-pct``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
     * **Type:** ``integer``
     * **Default value:** ``25``

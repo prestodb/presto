@@ -241,7 +241,7 @@ class Expr {
   /// expressable as sql. If not given, they will be converted to
   /// SQL-expressable simple constants.
   virtual std::string toSql(
-      std::vector<VectorPtr>* complexConstants = nullptr) const;
+      std::vector<VectorPtr>* FOLLY_NULLABLE complexConstants = nullptr) const;
 
   const ExprStats& stats() const {
     return stats_;
@@ -369,7 +369,7 @@ class Expr {
 
   void appendInputsSql(
       std::stringstream& stream,
-      std::vector<VectorPtr>* complexConstants) const;
+      std::vector<VectorPtr>* FOLLY_NULLABLE complexConstants) const;
 
   /// Release 'inputValues_' back to vector pool in 'evalCtx' so they can be
   /// reused.

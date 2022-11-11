@@ -1,64 +1,106 @@
-=================
-Expression Fuzzer
-=================
+======
+Fuzzer
+======
 
-Velox allows users to define UDFs and provides an expression fuzzer tool to
-test expression evaluation engine and UDFs thoroughly. It is being used to
-test builtin Presto and Spark UDFs and has discovered numerous bugs caused
-by corner cases that are difficult to cover in unit tests.
+Velox allows users to define UDFs (user-defined functions) and UDAFs
+(user-defined aggregate functions) and provides a fuzzer tools to test the
+engine and UDFs thoroughly. These tools are being used to test builtin Presto
+and Spark functions and have discovered numerous bugs caused by corner cases
+that are difficult to cover in unit tests.
 
-The expression fuzzer generates random expressions and evaluates these on
-random input vectors. Each generated expression may contain multiple sub-
-expressions and each input vector can have random and potentially nested
-encodings.
+The Expression Fuzzer tests the expression evaluation engine and UDFs by
+generating random expressions and evaluating these on random input vectors.
+Each generated expression may contain multiple sub-expressions and each input
+vector can have random and potentially nested encodings.
 
-To ensure that evaluation engine and UDFs handle vector encodings correctly,
-the expression fuzzer evaluates an expression twice and asserts the results to
-be the same: using regular evaluation path and using simplified evaluation that
+To ensure that evaluation engine and UDFs handle vector encodings correctly, the
+expression fuzzer evaluates each expression twice and asserts the results to be
+the same: using regular evaluation path and using simplified evaluation that
 flattens all input vectors before evaluating an expression.
 
-How to integrate with expression fuzzer
+The Aggregation Fuzzer tests the HashAggregation operator and UDAFs by
+generating random aggregations and evaluating these on random input vectors.
+
+The Aggregation Fuzzer tests global aggregations (no grouping keys), group-by
+aggregations (one or more grouping keys), distinct aggregations(no aggregates),
+aggregations with and without masks.
+
+The results of aggregations using functions supported by DuckDB are compared
+with DuckDB results.
+
+For each aggregation, Fuzzer generates multiple logically equivalent plans and
+verifies that results match. These plans are:
+
+- Single aggregation (raw input, final result).
+- Partial -> Final aggregation.
+- Partial -> Intermediate -> Final aggregation.
+- Partial -> LocalExchange(grouping keys) -> Final aggregation.
+- All the above using flattened input vectors.
+
+When testing aggregate functions whose results depend on the order of inputs
+(e.g. map_agg, map_union, arbitrary, etc.), the Fuzzer verifies that all plans
+succeed or fail with compatible user exceptions. When plans succeed, the Fuzzer
+verifies that number of result rows is the same across all plans.
+
+At the end of the run, Fuzzer prints out statistics that show what has been
+tested:
+
+.. code-block::
+
+    ==============================> Done with iteration 5683
+    Total functions tested: 31
+    Total masked aggregations: 1011 (17.79%)
+    Total global aggregations: 500 (8.80%)
+    Total group-by aggregations: 4665 (82.07%)
+    Total distinct aggregations: 519 (9.13%)
+    Total aggregations verified against DuckDB: 2537 (44.63%)
+    Total failed aggregations: 1061 (18.67%)
+
+How to integrate
 ---------------------------------------
 
-Integrating with the expression fuzzer is simple. All you need to do is to
-create a test, register all the custom UDFs and the Velox built-in UDFs that
-the engine is going to support, and call ``FuzzerRunner::run()`` defined in
-`FuzzerRunner.h`_. An example can be found at
-`ExpressionFuzzerTest.cpp`_.
+To integrate with the Expression Fuzzer, create a test, register all scalar
+functions supported by the engine, and call ``FuzzerRunner::run()`` defined in
+`FuzzerRunner.h`_. See `ExpressionFuzzerTest.cpp`_.
 
 .. _FuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/expression/tests/ExpressionFuzzer.h
 
 .. _ExpressionFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/expression/tests/ExpressionFuzzerTest.cpp
 
+Functions with known bugs can be excluded from testing using a skip-list.
 
-A skip function list of UDF names is allowed to specify UDFs not expected to be
-tested. UDFs in this list will not appear in the randomly generated
-expressions.
+Integration with Aggregation Fuzzer is similar. Create a test, register all
+aggregate functions supported by the engine, and call
+``AggregationFuzzerRunner::run()`` defined in `AggregationFuzzerRunner.h`_. See
+`AggregationFuzzerTest.cpp`_.
 
-How to run expression fuzzer
+.. _AggregationFuzzerRunner.h: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzer.h
+
+.. _AggregationFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzerTest.cpp
+
+How to run
 ----------------------------
 
-Expression fuzzer allows some powerful command line arguments.
+Fuzzers support a number of powerful command line arguments.
 
-* ``–-steps``: How many iterations to run. Each iteration generates and evaluates one expression. Default is 10.
+* ``–-steps``: How many iterations to run. Each iteration generates and evaluates one expression or aggregation. Default is 10.
 
-* ``–-duration_sec``: How many seconds to run. If both ``-–steps`` and ``-–duration_sec`` are specified, –duration_sec takes effect.
+* ``–-duration_sec``: For how long to run in seconds. If both ``-–steps`` and ``-–duration_sec`` are specified, –duration_sec takes precedence.
 
 * ``–-seed``: The seed to generate random expressions and input vectors with.
 
-* ``–-v=1``: Verbose logging.
+* ``–-v=1``: Verbose logging (from Google Logging Library).
 
 * ``–-only``: A comma-separated list of functions to use in generated expressions.
 
 * ``–-batch_size``: The size of input vectors to generate. Default is 100.
 
-If you are running from CLion IDE, add ``--logtostderr=1`` to see the full
-output.
+If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
 
-How to reproduce fuzzer test failures
+How to reproduce failures
 -------------------------------------
 
-When a fuzzer test fails, a seed number and the evaluated expression are
+When Fuzzer test fails, a seed number and the evaluated expression are
 printed to the log. An example is given below. Developers can use ``--seed``
 with this seed number to rerun the exact same expression with the same inputs,
 and use a debugger to investigate the issue. For the example below, the command
@@ -99,7 +141,7 @@ input vector and expression to files and replay these later.
 
 ``--repro_persist_path <path/to/directory>`` flag tells the Fuzzer to save
 input vector and expression SQL to files in the specified directory and print
-out the exact paths. Fuzzer uses :doc:`VectorSaver <vector-saver>` for storing vectors on disk
+out the exact paths. Fuzzer uses :doc:`VectorSaver <../debugging/vector-saver>` for storing vectors on disk
 while preserving encodings.
 
 ExpressionRunner takes a path to input vector, path to expression SQL and
