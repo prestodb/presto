@@ -50,17 +50,20 @@ AbstractClasses:
       comparable: true
       subclasses:
         - { name: HiveColumnHandle,         key: hive }
+        - { name: TpchColumnHandle,         key: tpch }
 
     ConnectorPartitioningHandle:
       super: JsonEncodedSubclass
       subclasses:
         - { name: SystemPartitioningHandle, key: $remote }
         - { name: HivePartitioningHandle,   key: hive}
+        - { name: TpchPartitioningHandle,   key: tpch}
 
     ConnectorTableHandle:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveTableHandle,          key: hive }
+        - { name: TpchTableHandle,          key: tpch }
 
     ConnectorOutputTableHandle:
       super: JsonEncodedSubclass
@@ -82,6 +85,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveTableLayoutHandle,    key: hive }
+        - { name: TpchTableLayoutHandle,    key: tpch }
 
     ConnectorMetadataUpdateHandle:
       super: JsonEncodedSubclass
@@ -92,6 +96,7 @@ AbstractClasses:
       super: JsonEncodedSubclass
       subclasses:
         - { name: HiveSplit,            key: hive }
+        - { name: TpchSplit,            key: tpch }
         - { name: RemoteSplit,          key: $remote }
         - { name: EmptySplit,           key: $empty }
 
@@ -219,6 +224,11 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTableLayoutHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTransactionHandle.java
+  - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchSplit.java
+  - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableHandle.java
+  - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchTableLayoutHandle.java
+  - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchColumnHandle.java
+  - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchPartitioningHandle.java
   - presto-spi/src/main/java/com/facebook/presto/spi/plan/LimitNode.java
   - presto-spi/src/main/java/com/facebook/presto/spi/function/LongVariableConstraint.java
   - presto-common/src/main/java/com/facebook/presto/common/predicate/Marker.java

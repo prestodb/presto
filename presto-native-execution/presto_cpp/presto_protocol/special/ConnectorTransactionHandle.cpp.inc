@@ -11,6 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// dependency TpchTransactionHandle
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
   if (p == nullptr) {
@@ -26,6 +29,10 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
     j = *std::static_pointer_cast<HiveTransactionHandle>(p);
     return;
   }
+  if (getConnectorKey(type) == "tpch") {
+    j = *std::static_pointer_cast<TpchTransactionHandle>(p);
+    return;
+  }
 
   throw TypeError(type + " no abstract type ConnectorTransactionHandle");
 }
@@ -33,7 +40,12 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
   String type;
   try {
-    type = p->getSubclassKey(j);
+    // TPC-H transactionHandle is an array ["tpch","INSTANCE"].
+    if (j.is_array()) {
+      type = j[0];
+    } else {
+      type = p->getSubclassKey(j);
+    }
   } catch (json::parse_error& e) {
     throw ParseError(
         std::string(e.what()) +
@@ -48,6 +60,12 @@ void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
   }
   if (getConnectorKey(type) == "hive") {
     auto k = std::make_shared<HiveTransactionHandle>();
+    j.get_to(*k);
+    p = k;
+    return;
+  }
+  if (getConnectorKey(type) == "tpch") {
+    auto k = std::make_shared<TpchTransactionHandle>();
     j.get_to(*k);
     p = k;
     return;
