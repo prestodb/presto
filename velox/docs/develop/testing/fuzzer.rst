@@ -78,6 +78,15 @@ aggregate functions supported by the engine, and call
 
 .. _AggregationFuzzerTest.cpp: https://github.com/facebookincubator/velox/blob/main/velox/exec/tests/AggregationFuzzerTest.cpp
 
+Aggregation Fuzzer allows to indicate functions whose results depend on the
+order of inputs and optionally provide an expression to apply to the result to
+make it stable. For example, the results of array_agg can be stabilized by
+applying array_sort on top: array_sort(array_map(x)) and the results of map_agg
+can be stabilized using array_sort(map_keys(map_agg(k, v))). Order-dependent
+functions are tested to ensure no crashes or failures. The results of
+order-dependent functions with stabilizing expressions are further verified for
+correctness by ensuring that results of logically equivalent plans match.
+
 How to run
 ----------------------------
 
@@ -94,6 +103,10 @@ Fuzzers support a number of powerful command line arguments.
 * ``–-only``: A comma-separated list of functions to use in generated expressions.
 
 * ``–-batch_size``: The size of input vectors to generate. Default is 100.
+
+In addition, Aggregation Fuzzer supports:
+
+* ``--num_batches``: The number of input vectors of size `--batch_size` to generate. Default is 10.
 
 If running from CLion IDE, add ``--logtostderr=1`` to see the full output.
 

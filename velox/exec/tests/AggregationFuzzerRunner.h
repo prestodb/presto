@@ -24,6 +24,7 @@
 
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/AggregationFuzzer.h"
+#include "velox/parse/TypeResolver.h"
 
 /// AggregationFuzzerRunner leverages AggregationFuzzer and VectorFuzzer to
 /// automatically generate and execute aggregation tests. It works by:
@@ -66,7 +67,8 @@ class AggregationFuzzerRunner {
       const std::string& onlyFunctions,
       size_t seed,
       const std::unordered_set<std::string>& skipFunctions,
-      const std::unordered_set<std::string>& orderDependentFunctions) {
+      const std::unordered_map<std::string, std::string>&
+          orderDependentFunctions) {
     auto signatures = facebook::velox::exec::getAggregateFunctionSignatures();
     if (signatures.empty()) {
       LOG(ERROR) << "No aggregate functions registered.";
@@ -80,6 +82,8 @@ class AggregationFuzzerRunner {
           << "No aggregate functions left after filtering using 'only' and 'skip' lists.";
       exit(1);
     }
+
+    facebook::velox::parse::registerTypeResolver();
 
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures, seed, orderDependentFunctions);

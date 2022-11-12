@@ -21,6 +21,7 @@
 
 #include "velox/exec/tests/AggregationFuzzerRunner.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 DEFINE_int64(
     seed,
@@ -37,6 +38,7 @@ DEFINE_string(
 
 int main(int argc, char** argv) {
   facebook::velox::aggregate::prestosql::registerAllAggregateFunctions();
+  facebook::velox::functions::prestosql::registerAllScalarFunctions();
 
   ::testing::InitGoogleTest(&argc, argv);
 
@@ -56,20 +58,25 @@ int main(int argc, char** argv) {
       // Incorrect results:
       // https://github.com/facebookincubator/velox/issues/3207
       "avg",
+      // Incorrect results:
+      // https://github.com/facebookincubator/velox/issues/3207
       "max_data_size_for_stats",
   };
 
   // The results of the following functions depend on the order of input
-  // rows.
-  std::unordered_set<std::string> orderDependentFunctions = {
-      "approx_distinct",
-      "approx_set",
-      "arbitrary",
-      "array_agg",
-      "map_agg",
-      "map_union",
-      "max_by",
-      "min_by",
+  // rows. For some functions, the result can be transformed to a value that
+  // doesn't dopend on the order of inputs. If such transformation exists, it
+  // can be specified to be used for results verification. If no transformation
+  // is specified, results are not verified.
+  std::unordered_map<std::string, std::string> orderDependentFunctions = {
+      {"approx_distinct", ""},
+      {"approx_set", ""},
+      {"arbitrary", ""},
+      {"array_agg", "array_sort({})"},
+      {"map_agg", "array_sort(map_keys({}))"},
+      {"map_union", "array_sort(map_keys({}))"},
+      {"max_by", ""},
+      {"min_by", ""},
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return AggregationFuzzerRunner::run(
