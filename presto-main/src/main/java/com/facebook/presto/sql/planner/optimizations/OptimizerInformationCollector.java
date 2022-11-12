@@ -14,21 +14,27 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
+import com.google.common.collect.ImmutableList;
+
+import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.LinkedList;
 import java.util.List;
 
+@ThreadSafe
 public class OptimizerInformationCollector
 {
-    private final List<PlanOptimizerInformation> optimizationInfo = new LinkedList<PlanOptimizerInformation>();
+    @GuardedBy("this")
+    private final List<PlanOptimizerInformation> optimizationInfo = new LinkedList<>();
 
-    public void addInformation(PlanOptimizerInformation optimizerInformation)
+    public synchronized void addInformation(PlanOptimizerInformation optimizerInformation)
     {
         this.optimizationInfo.add(optimizerInformation);
     }
 
-    public List<PlanOptimizerInformation> getOptimizationInfo()
+    public synchronized List<PlanOptimizerInformation> getOptimizationInfo()
     {
-        return optimizationInfo;
+        return ImmutableList.copyOf(optimizationInfo);
     }
 }

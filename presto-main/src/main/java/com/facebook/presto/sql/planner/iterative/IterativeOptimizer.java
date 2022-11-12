@@ -60,7 +60,6 @@ public class IterativeOptimizer
     private final List<PlanOptimizer> legacyRules;
     private final RuleIndex ruleIndex;
     private final Optional<LogicalPropertiesProvider> logicalPropertiesProvider;
-    private final Set<String> rulesTriggered;
 
     public IterativeOptimizer(RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
@@ -87,7 +86,6 @@ public class IterativeOptimizer
                 .register(newRules)
                 .build();
         this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
-        this.rulesTriggered = new HashSet<>();
 
         stats.registerAll(newRules);
     }
@@ -125,11 +123,11 @@ public class IterativeOptimizer
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session);
         Context context = new Context(memo, lookup, idAllocator, variableAllocator, System.nanoTime(), timeout.toMillis(), session, warningCollector, costProvider, statsProvider);
         boolean planChanged = exploreGroup(memo.getRootGroup(), context, matcher);
+        context.collectOptimizerInformation();
         if (!planChanged) {
             return plan;
         }
 
-        rulesTriggered.stream().forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
         return memo.extract();
     }
 
@@ -187,7 +185,7 @@ public class IterativeOptimizer
                         }
                     }
                     node = context.memo.replace(group, transformedNode, rule.getClass().getName());
-                    rulesTriggered.add(rule.getClass().getSimpleName());
+                    context.addRulesTriggered(rule.getClass().getSimpleName());
 
                     done = false;
                     progress = true;
@@ -314,6 +312,7 @@ public class IterativeOptimizer
         private final WarningCollector warningCollector;
         private final CostProvider costProvider;
         private final StatsProvider statsProvider;
+        private final Set<String> rulesTriggered;
 
         public Context(
                 Memo memo,
@@ -339,6 +338,7 @@ public class IterativeOptimizer
             this.warningCollector = warningCollector;
             this.costProvider = costProvider;
             this.statsProvider = statsProvider;
+            this.rulesTriggered = new HashSet<>();
         }
 
         public void checkTimeoutNotExhausted()
@@ -346,6 +346,16 @@ public class IterativeOptimizer
             if ((NANOSECONDS.toMillis(System.nanoTime() - startTimeInNanos)) >= timeoutInMilliseconds) {
                 throw new PrestoException(OPTIMIZER_TIMEOUT, format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds));
             }
+        }
+
+        public void addRulesTriggered(String rule)
+        {
+            rulesTriggered.add(rule);
+        }
+
+        public void collectOptimizerInformation()
+        {
+            rulesTriggered.forEach(x -> session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(x, true, Optional.empty())));
         }
     }
 }
