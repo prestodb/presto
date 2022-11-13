@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.spark.execution;
+package com.facebook.presto.spark.execution.operator;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.Page;
@@ -27,6 +27,7 @@ import com.facebook.presto.operator.OperatorFactory;
 import com.facebook.presto.operator.SourceOperator;
 import com.facebook.presto.operator.SourceOperatorFactory;
 import com.facebook.presto.operator.SplitOperatorInfo;
+import com.facebook.presto.spark.execution.NativeExecutionTask;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.plan.PlanNode;

@@ -15,7 +15,7 @@ package com.facebook.presto.spark.execution;
 
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
-import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
+import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -56,7 +56,7 @@ public class HttpNativeExecutionTaskResultFetcher
     private static final DataSize MAX_BUFFER_SIZE = new DataSize(128, DataSize.Unit.MEGABYTE);
 
     private final ScheduledExecutorService scheduler;
-    private final PrestoSparkHttpWorkerClient workerClient;
+    private final PrestoSparkHttpTaskClient workerClient;
     private final LinkedBlockingDeque<SerializedPage> pageBuffer = new LinkedBlockingDeque<>();
     private final AtomicLong bufferMemoryBytes;
 
@@ -65,7 +65,7 @@ public class HttpNativeExecutionTaskResultFetcher
 
     public HttpNativeExecutionTaskResultFetcher(
             ScheduledExecutorService scheduler,
-            PrestoSparkHttpWorkerClient workerClient)
+            PrestoSparkHttpTaskClient workerClient)
     {
         this.scheduler = requireNonNull(scheduler, "scheduler is null");
         this.workerClient = requireNonNull(workerClient, "workerClient is null");
@@ -131,7 +131,7 @@ public class HttpNativeExecutionTaskResultFetcher
         private static final DataSize MAX_RESPONSE_SIZE = new DataSize(32, DataSize.Unit.MEGABYTE);
         private static final int MAX_TRANSPORT_ERROR_RETRIES = 5;
 
-        private final PrestoSparkHttpWorkerClient client;
+        private final PrestoSparkHttpTaskClient client;
         private final LinkedBlockingDeque<SerializedPage> pageBuffer;
         private final AtomicLong bufferMemoryBytes;
         private final CompletableFuture<Void> future;
@@ -140,7 +140,7 @@ public class HttpNativeExecutionTaskResultFetcher
         private long token;
 
         public HttpNativeExecutionTaskResultFetcherRunner(
-                PrestoSparkHttpWorkerClient client,
+                PrestoSparkHttpTaskClient client,
                 CompletableFuture<Void> future,
                 LinkedBlockingDeque<SerializedPage> pageBuffer,
                 AtomicLong bufferMemoryBytes)

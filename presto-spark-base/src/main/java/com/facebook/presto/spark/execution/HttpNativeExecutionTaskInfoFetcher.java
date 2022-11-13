@@ -16,7 +16,7 @@ package com.facebook.presto.spark.execution;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.server.smile.BaseResponse;
-import com.facebook.presto.spark.execution.http.PrestoSparkHttpWorkerClient;
+import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -42,7 +42,7 @@ public class HttpNativeExecutionTaskInfoFetcher
 {
     private static final Logger log = Logger.get(HttpNativeExecutionTaskInfoFetcher.class);
 
-    private final PrestoSparkHttpWorkerClient workerClient;
+    private final PrestoSparkHttpTaskClient workerClient;
     private final ScheduledExecutorService updateScheduledExecutor;
     private final AtomicReference<TaskInfo> taskInfo = new AtomicReference<>();
     private final Executor executor;
@@ -53,7 +53,7 @@ public class HttpNativeExecutionTaskInfoFetcher
 
     public HttpNativeExecutionTaskInfoFetcher(
             ScheduledExecutorService updateScheduledExecutor,
-            PrestoSparkHttpWorkerClient workerClient,
+            PrestoSparkHttpTaskClient workerClient,
             Executor executor,
             Duration infoFetchInterval)
     {

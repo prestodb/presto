@@ -62,7 +62,7 @@ public class RequestErrorTracker
 
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    public RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
     {
         this.id = requireNonNull(id, "id is null");
         this.uri = requireNonNull(uri, "uri is null");
