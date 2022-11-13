@@ -1,73 +1,65 @@
-## Hacked JSON serde for Presto worker
+## Presto Native Worker Protocol Code Generation
 
-The serialization / de-serialization code generator works by extracting JSON
-Java annotations from Presto source files and generating similar C++ classes.
-Two files are generated:
-  * presto_prococol.h
-  * presto_prococol.cpp
+###Required Dependencies:
 
-Top level supported classes:
+Install [PyYAML](https://pyyaml.org/) and [Chevron](https://github.com/noahmorrison/chevron)
 
-  * TaskInfo
-  * TaskStatus
-  * TaskUpdateRequest
+```
+ $ pip3 install pyyaml chevron
+```
 
-Dependencies to Install
+Presto repo must be present at `$HOME/presto`. The `PRESTO_HOME` environment variable can
+be set to override this location.
 
-   PyYAML and Chevron
+###Presto Protocol Code Generation:
 
-   ```
-   pip3 install pyyaml
-   pip3 install chevron
-   ```
+Make necessary changes to `presto_protocol.yml` or to the files in the `special` directory
+and run
+```
+ $ make
+```
 
-   You will need to note the path to the installed executable and add this to your PATH.
-   Something like `/Users/adutta/Library/Python/3.8/bin`.
+The C++ protocol classes are generated as `presto_prococol.h` and `presto_prococol.cpp`.
+
+Check-in these generated files. **DO NOT EDIT THESE FILES MANUALLY.**
+
+###Implementation Notes:
+
+
+Presto Worker Protocol continues to evolve and is implemented in the Presto Java code base.
+For the Native Worker, instead of manually implementing the corresponding
+protocol structures, we try to automatically translate the Java classes.
+
+The C++ protocol code generation involves 2 steps
+1. A python script `java-to-struct-json.py` uses the `presto_protocol.yml` config
+file, files inside the `special` directory to  produce a description of the
+   protocol structures in the `presto_protocol.json` file.
+The `presto_protocol.yml` config file is further described  below.
+
+2. `Chevron` now uses this `presto_protocol.json` as input to the
+[mustache](http://mustache.github.io/mustache.5.html) files
+`presto_protocol-json-hpp.mustache`, `presto_protocol-json-cpp.mustache` and
+generates the C++ protocol files `presto_protocol.h`, `presto_protocol.cpp`.
    
-   Presto repo must be present at $HOME/presto. The PRESTO_HOME environment variable can
-   be set to override this location.
+###presto_protocol.yml
+The config file contains the following yaml format entries.
 
-Presto Protocol Code Generation:
-   Run `make` in terminal.
+ * `JavaClasses` list the Java files from the Presto repo. Jackson Annotations in the Java
+    classes are used in the translation.
+ * `AbstractClasses` contains a list of Java classes. Each abstract class
+  contains some properties and a list of their subclasses. Each subclass contains
+  a name and a key.
+ * `EnumMap` is used to specify the enum names in a Java class.
+ * `ExtraFields` allow adding additional fields to a class.
 
-Implementation Notes:
+Additional Java files can be added to the `special` directory. You might want to add these
+if certain Java classes are not available in source form in the Presto repo or need
+to be edited.
 
-* Recursive types, abstract types and optionals are implemented as shared_ptr
-values.  They should be tested for nullptr before use.
-* Subclasses of abstract types have an additional "_type" field of type
-std::string that indicates the subclass of that instance.
-
-## java-to-struct-json.py
-
-A python script that produces a description of the protocol structures in
-presto_protocol.json.  The config file in presto_protocol.yml controls the
-source generation.
-
- * Abstract classes, their subclasses and the subclass type key are listed in
- AbstractClasses.
-
- * Java files from the Presto repo are listed in JavaClasses.
-
- * ExtraProps lists a few additional java class properties that failed to be
- extracted via Jackson annotations.
-
-A few additional java files are found in ./special/*.java  These are either not
-available in source form in the Presto repo or needed to be lightly edited.
-
-Classes with custom serde logic are in ./special/*.inc files in this directory.
-Each class must be in a file that is the same as the class name.  To properly
-order the resulting C++ declarations .inc files can be annotated with "//
-dependency" comments.  These comments may appear in two places.  Annotations
-following a field declaration create a dependency of this class on the data
-type of that field.  Annotations of the form : ```// dependency other_class```
-create a dependency of this class on the other class.
-
-## chevron
-
-[chevron](https://github.com/noahmorrison/chevron) is run twice once to produce
-the header, presto_prococol.h, and again to produce the presto_prococol.cpp file.
-Two mustache templates control source generation
-  * presto_protocol-json-hpp.mustache
-  * presto_protocol-json-cpp.mustache
-
-The required declaration and templates are at the top of each of these files.
+You can also override the generated C++ classes. Custom serde logic can be specified in
+ `special/*.inc` files. The file name must match the class name.
+To properly order the resulting C++ declarations, the `.inc` files can be annotated
+with `//dependency` comments. These comments may appear in two places. Annotation
+following a field declaration creates a dependency of this class on the data
+type of that field. Annotations of the form `//dependency other_class`
+create a dependency of this class on `other_class`.
