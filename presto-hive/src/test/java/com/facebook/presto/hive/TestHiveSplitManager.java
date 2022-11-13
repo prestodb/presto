@@ -549,29 +549,30 @@ public class TestHiveSplitManager
                 .transform(HiveColumnHandle.class::cast)
                 .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
 
+        HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
+                .setSchemaTableName(new SchemaTableName("test_schema", "test_table"))
+                .setTablePath("test_path")
+                .setPartitionColumns(ImmutableList.of(partitionColumn))
+                .setDataColumns(COLUMNS)
+                .setTableParameters(ImmutableMap.of())
+                .setDomainPredicate(domainPredicate)
+                .setRemainingPredicate(TRUE_CONSTANT)
+                .setPredicateColumns(ImmutableMap.of(partitionColumn.getName(), partitionColumn, columnHandle.getName(), columnHandle))
+                .setPartitionColumnPredicate(queryTupleDomain)
+                .setPartitions(partitions)
+                .setBucketHandle(Optional.empty())
+                .setBucketFilter(Optional.empty())
+                .setPushdownFilterEnabled(false)
+                .setLayoutString("layout")
+                .setRequestedColumns(Optional.empty())
+                .setPartialAggregationsPushedDown(false)
+                .setAppendRowNumberEnabled(false)
+                .build();
+
         ConnectorSplitSource splitSource = splitManager.getSplits(
                 new HiveTransactionHandle(),
                 new TestingConnectorSession(new HiveSessionProperties(hiveClientConfig, new OrcFileWriterConfig(), new ParquetFileWriterConfig(), new CacheConfig()).getSessionProperties()),
-                new HiveTableLayoutHandle(
-                        new SchemaTableName("test_schema", "test_table"),
-                        "test_path",
-                        ImmutableList.of(partitionColumn),
-                        COLUMNS,
-                        ImmutableMap.of(),
-                        partitions,
-                        domainPredicate,
-                        TRUE_CONSTANT,
-                        ImmutableMap.of(
-                                partitionColumn.getName(), partitionColumn,
-                                columnHandle.getName(), columnHandle),
-                        queryTupleDomain,
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        "layout",
-                        Optional.empty(),
-                        false,
-                        false),
+                layoutHandle,
                 SPLIT_SCHEDULING_CONTEXT);
         List<Set<ColumnHandle>> actualRedundantColumnDomains = splitSource.getNextBatch(NOT_PARTITIONED, 100).get().getSplits().stream()
                 .map(HiveSplit.class::cast)
