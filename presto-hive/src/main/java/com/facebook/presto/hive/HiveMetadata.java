@@ -107,7 +107,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -1218,7 +1217,7 @@ public class HiveMetadata
             HiveStorageFormat hiveStorageFormat,
             Optional<TableEncryptionProperties> tableEncryptionProperties)
     {
-        Builder<String, String> tableProperties = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> tableProperties = ImmutableMap.builder();
 
         // Hook point for extended versions of the Hive Plugin
         tableProperties.putAll(tableParameterCodec.encode(tableMetadata.getProperties()));
@@ -2715,28 +2714,31 @@ public class HiveMetadata
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+
+        String layoutString = createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate);
+        Optional<Set<HiveColumnHandle>> requestedColumns = desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet()));
         return ImmutableList.of(new ConnectorTableLayoutResult(
                 getTableLayout(
                         session,
-                        new HiveTableLayoutHandle(
-                                handle.getSchemaTableName(),
-                                table.getStorage().getLocation(),
-                                hivePartitionResult.getPartitionColumns(),
-                                // remove comments to optimize serialization costs
-                                pruneColumnComments(hivePartitionResult.getDataColumns()),
-                                hivePartitionResult.getTableParameters(),
-                                hivePartitionResult.getPartitions(),
-                                domainPredicate,
-                                TRUE_CONSTANT,
-                                predicateColumns,
-                                hivePartitionResult.getEnforcedConstraint(),
-                                hiveBucketHandle,
-                                hivePartitionResult.getBucketFilter(),
-                                false,
-                                createTableLayoutString(session, handle.getSchemaTableName(), hivePartitionResult.getBucketHandle(), hivePartitionResult.getBucketFilter(), TRUE_CONSTANT, domainPredicate),
-                                desiredColumns.map(columns -> columns.stream().map(column -> (HiveColumnHandle) column).collect(toImmutableSet())),
-                                false,
-                                false)),
+                        new HiveTableLayoutHandle.Builder()
+                                .setSchemaTableName(handle.getSchemaTableName())
+                                .setTablePath(table.getStorage().getLocation())
+                                .setPartitionColumns(hivePartitionResult.getPartitionColumns())
+                                .setDataColumns(pruneColumnComments(hivePartitionResult.getDataColumns()))
+                                .setTableParameters(hivePartitionResult.getTableParameters())
+                                .setDomainPredicate(domainPredicate)
+                                .setRemainingPredicate(TRUE_CONSTANT)
+                                .setPredicateColumns(predicateColumns)
+                                .setPartitionColumnPredicate(hivePartitionResult.getEnforcedConstraint())
+                                .setPartitions(hivePartitionResult.getPartitions())
+                                .setBucketHandle(hiveBucketHandle)
+                                .setBucketFilter(hivePartitionResult.getBucketFilter())
+                                .setPushdownFilterEnabled(false)
+                                .setLayoutString(layoutString)
+                                .setRequestedColumns(requestedColumns)
+                                .setPartialAggregationsPushedDown(false)
+                                .setAppendRowNumberEnabled(false)
+                                .build()),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
 
@@ -2989,24 +2991,10 @@ public class HiveMetadata
                 largerBucketCount % smallerBucketCount == 0 && Integer.bitCount(largerBucketCount / smallerBucketCount) == 1,
                 "The requested partitioning is not a valid alternative for the table layout");
 
-        return new HiveTableLayoutHandle(
-                hiveLayoutHandle.getSchemaTableName(),
-                hiveLayoutHandle.getTablePath(),
-                hiveLayoutHandle.getPartitionColumns(),
-                hiveLayoutHandle.getDataColumns(),
-                hiveLayoutHandle.getTableParameters(),
-                hiveLayoutHandle.getPartitions().get(),
-                hiveLayoutHandle.getDomainPredicate(),
-                hiveLayoutHandle.getRemainingPredicate(),
-                hiveLayoutHandle.getPredicateColumns(),
-                hiveLayoutHandle.getPartitionColumnPredicate(),
-                Optional.of(new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount())),
-                hiveLayoutHandle.getBucketFilter(),
-                hiveLayoutHandle.isPushdownFilterEnabled(),
-                hiveLayoutHandle.getLayoutString(),
-                hiveLayoutHandle.getRequestedColumns(),
-                hiveLayoutHandle.isPartialAggregationsPushedDown(),
-                hiveLayoutHandle.isAppendRowNumberEnabled());
+        HiveBucketHandle updatedBucketHandle = new HiveBucketHandle(bucketHandle.getColumns(), bucketHandle.getTableBucketCount(), hivePartitioningHandle.getBucketCount());
+        return hiveLayoutHandle.builder()
+                .setBucketHandle(Optional.of(updatedBucketHandle))
+                .build();
     }
 
     @Override

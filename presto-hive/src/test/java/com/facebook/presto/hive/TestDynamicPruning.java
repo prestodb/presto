@@ -161,29 +161,30 @@ public class TestDynamicPruning
                 ImmutableSet.of(),
                 SplitWeight.standard());
 
+        HiveTableLayoutHandle tableLayoutHandle = new HiveTableLayoutHandle.Builder()
+                .setSchemaTableName(new SchemaTableName(SCHEMA_NAME, TABLE_NAME))
+                .setTablePath("path")
+                .setPartitionColumns(ImmutableList.of(PARTITION_HIVE_COLUMN_HANDLE))
+                .setDataColumns(getColumnHandles().stream().map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty())).collect(toImmutableList()))
+                .setTableParameters(ImmutableMap.of())
+                .setDomainPredicate(TupleDomain.all())
+                .setRemainingPredicate(TRUE_CONSTANT)
+                .setPredicateColumns(ImmutableMap.of())
+                .setPartitionColumnPredicate(TupleDomain.all())
+                .setBucketHandle(Optional.empty())
+                .setBucketFilter(Optional.empty())
+                .setPushdownFilterEnabled(false)
+                .setLayoutString("layout")
+                .setRequestedColumns(Optional.empty())
+                .setPartialAggregationsPushedDown(false)
+                .setAppendRowNumberEnabled(false)
+                .setPartitions(Optional.empty())
+                .build();
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
                 new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
                 transaction,
-                Optional.of(new HiveTableLayoutHandle(
-                        new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
-                        "path",
-                        ImmutableList.of(PARTITION_HIVE_COLUMN_HANDLE),
-                        getColumnHandles().stream()
-                                .map(column -> new Column(column.getName(), column.getHiveType(), Optional.empty(), Optional.empty()))
-                                .collect(toImmutableList()),
-                        ImmutableMap.of(),
-                        TupleDomain.all(),
-                        TRUE_CONSTANT,
-                        ImmutableMap.of(),
-                        TupleDomain.all(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        false,
-                        "layout",
-                        Optional.empty(),
-                        false,
-                        false)));
+                Optional.of(tableLayoutHandle));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);
         return provider.createPageSource(transaction, getSession(config), split, tableHandle.getLayout().get(), ImmutableList.copyOf(getColumnHandles()), splitContext);
     }

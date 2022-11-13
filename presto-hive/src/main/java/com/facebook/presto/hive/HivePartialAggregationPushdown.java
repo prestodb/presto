@@ -247,24 +247,7 @@ public class HivePartialAggregationPushdown
             }
 
             HiveTableLayoutHandle oldTableLayoutHandle = (HiveTableLayoutHandle) oldTableHandle.getLayout().get();
-            HiveTableLayoutHandle newTableLayoutHandle = new HiveTableLayoutHandle(
-                    oldTableLayoutHandle.getSchemaTableName(),
-                    oldTableLayoutHandle.getTablePath(),
-                    oldTableLayoutHandle.getPartitionColumns(),
-                    oldTableLayoutHandle.getDataColumns(),
-                    oldTableLayoutHandle.getTableParameters(),
-                    oldTableLayoutHandle.getPartitions().get(),
-                    oldTableLayoutHandle.getDomainPredicate(),
-                    oldTableLayoutHandle.getRemainingPredicate(),
-                    oldTableLayoutHandle.getPredicateColumns(),
-                    oldTableLayoutHandle.getPartitionColumnPredicate(),
-                    oldTableLayoutHandle.getBucketHandle(),
-                    oldTableLayoutHandle.getBucketFilter(),
-                    oldTableLayoutHandle.isPushdownFilterEnabled(),
-                    oldTableLayoutHandle.getLayoutString(),
-                    oldTableLayoutHandle.getRequestedColumns(),
-                    true,
-                    oldTableLayoutHandle.isAppendRowNumberEnabled());
+            HiveTableLayoutHandle newTableLayoutHandle = oldTableLayoutHandle.builder().setPartialAggregationsPushedDown(true).build();
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
