@@ -289,35 +289,40 @@ public class HiveFilterPushdown
 
         Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
+        String layoutString = createTableLayoutString(
+                session,
+                rowExpressionService,
+                tableName,
+                hivePartitionResult.getBucketHandle(),
+                hivePartitionResult.getBucketFilter(),
+                remainingExpression,
+                domainPredicate);
+
+        Optional<Set<HiveColumnHandle>> requestedColumns = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty());
+
+        boolean appendRowNumbereEnabled = currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).isAppendRowNumberEnabled()).orElse(false);
         return new ConnectorPushdownFilterResult(
                 metadata.getTableLayout(
                         session,
-                        new HiveTableLayoutHandle(
-                                tableName,
-                                table.getStorage().getLocation(),
-                                hivePartitionResult.getPartitionColumns(),
-                                // remove comments to optimize serialization costs
-                                pruneColumnComments(hivePartitionResult.getDataColumns()),
-                                hivePartitionResult.getTableParameters(),
-                                hivePartitionResult.getPartitions(),
-                                domainPredicate,
-                                remainingExpression,
-                                predicateColumns,
-                                hivePartitionResult.getEnforcedConstraint(),
-                                hivePartitionResult.getBucketHandle(),
-                                hivePartitionResult.getBucketFilter(),
-                                true,
-                                createTableLayoutString(
-                                        session,
-                                        rowExpressionService,
-                                        tableName,
-                                        hivePartitionResult.getBucketHandle(),
-                                        hivePartitionResult.getBucketFilter(),
-                                        remainingExpression,
-                                        domainPredicate),
-                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).getRequestedColumns()).orElse(Optional.empty()),
-                                false,
-                                currentLayoutHandle.map(layout -> ((HiveTableLayoutHandle) layout).isAppendRowNumberEnabled()).orElse(false))),
+                        new HiveTableLayoutHandle.Builder()
+                                .setSchemaTableName(tableName)
+                                .setTablePath(table.getStorage().getLocation())
+                                .setPartitionColumns(hivePartitionResult.getPartitionColumns())
+                                .setDataColumns(pruneColumnComments(hivePartitionResult.getDataColumns()))
+                                .setTableParameters(hivePartitionResult.getTableParameters())
+                                .setDomainPredicate(domainPredicate)
+                                .setRemainingPredicate(remainingExpression)
+                                .setPredicateColumns(predicateColumns)
+                                .setPartitionColumnPredicate(hivePartitionResult.getEnforcedConstraint())
+                                .setPartitions(hivePartitionResult.getPartitions())
+                                .setBucketHandle(hivePartitionResult.getBucketHandle())
+                                .setBucketFilter(hivePartitionResult.getBucketFilter())
+                                .setPushdownFilterEnabled(true)
+                                .setLayoutString(layoutString)
+                                .setRequestedColumns(requestedColumns)
+                                .setPartialAggregationsPushedDown(false)
+                                .setAppendRowNumberEnabled(appendRowNumbereEnabled)
+                                .build()),
                 dynamicFilterExpression);
     }
 
