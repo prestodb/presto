@@ -26,6 +26,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.TableScanNode;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.ConnectorPlanRewriter.rewriteWith;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -55,26 +56,8 @@ public class HiveAddRequestedColumnsToLayout
             }
 
             HiveTableLayoutHandle hiveLayout = (HiveTableLayoutHandle) layout.get();
-            HiveTableLayoutHandle hiveLayoutWithDesiredColumns = new HiveTableLayoutHandle(
-                    hiveLayout.getSchemaTableName(),
-                    hiveLayout.getTablePath(),
-                    hiveLayout.getPartitionColumns(),
-                    hiveLayout.getDataColumns(),
-                    hiveLayout.getTableParameters(),
-                    hiveLayout.getPartitions().get(),
-                    hiveLayout.getDomainPredicate(),
-                    hiveLayout.getRemainingPredicate(),
-                    hiveLayout.getPredicateColumns(),
-                    hiveLayout.getPartitionColumnPredicate(),
-                    hiveLayout.getBucketHandle(),
-                    hiveLayout.getBucketFilter(),
-                    hiveLayout.isPushdownFilterEnabled(),
-                    hiveLayout.getLayoutString(),
-                    Optional.of(tableScan.getOutputVariables().stream()
-                            .map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output))
-                            .collect(toImmutableSet())),
-                    hiveLayout.isPartialAggregationsPushedDown(),
-                    hiveLayout.isAppendRowNumberEnabled());
+            Optional<Set<HiveColumnHandle>> requestedColumns = Optional.of(tableScan.getOutputVariables().stream().map(output -> (HiveColumnHandle) tableScan.getAssignments().get(output)).collect(toImmutableSet()));
+            HiveTableLayoutHandle hiveLayoutWithDesiredColumns = hiveLayout.builder().setRequestedColumns(requestedColumns).build();
 
             return new TableScanNode(
                     tableScan.getSourceLocation(),
