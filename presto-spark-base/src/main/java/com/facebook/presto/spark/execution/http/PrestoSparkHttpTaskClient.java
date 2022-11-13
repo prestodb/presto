@@ -59,10 +59,11 @@ import static java.util.Objects.requireNonNull;
  * An abstraction of HTTP client that communicates with the locally running Presto worker process. It exposes worker endpoints to simple method calls.
  */
 @ThreadSafe
-public class PrestoSparkHttpWorkerClient
+public class PrestoSparkHttpTaskClient
         implements RpcShuffleClient
 {
-    private static final Logger log = Logger.get(PrestoSparkHttpWorkerClient.class);
+    private static final Logger log = Logger.get(PrestoSparkHttpTaskClient.class);
+    private static final String TASK_URI = "/v1/task/";
 
     private final HttpClient httpClient;
     private final URI location;
@@ -73,7 +74,7 @@ public class PrestoSparkHttpWorkerClient
     private final JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec;
     private final Duration infoRefreshMaxWait;
 
-    public PrestoSparkHttpWorkerClient(
+    public PrestoSparkHttpTaskClient(
             HttpClient httpClient,
             TaskId taskId,
             URI location,
@@ -88,9 +89,7 @@ public class PrestoSparkHttpWorkerClient
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
         this.planFragmentCodec = requireNonNull(planFragmentCodec, "planFragmentCodec is null");
         this.taskUpdateRequestCodec = requireNonNull(taskUpdateRequestCodec, "taskUpdateRequestCodec is null");
-        this.taskUri = uriBuilderFrom(location)
-                .appendPath(taskId.toString())
-                .build();
+        this.taskUri = getTaskUri(location, taskId);
         this.infoRefreshMaxWait = requireNonNull(infoRefreshMaxWait, "infoRefreshMaxWait is null");
     }
 
@@ -102,8 +101,7 @@ public class PrestoSparkHttpWorkerClient
             long token,
             DataSize maxResponseSize)
     {
-        URI uri = uriBuilderFrom(location)
-                .appendPath(taskId.toString())
+        URI uri = uriBuilderFrom(taskUri)
                 .appendPath("/results/0")
                 .appendPath(String.valueOf(token))
                 .build();
@@ -118,8 +116,7 @@ public class PrestoSparkHttpWorkerClient
     @Override
     public void acknowledgeResultsAsync(long nextToken)
     {
-        URI uri = uriBuilderFrom(location)
-                .appendPath(taskId.toString())
+        URI uri = uriBuilderFrom(taskUri)
                 .appendPath("/results/0")
                 .appendPath(String.valueOf(nextToken))
                 .appendPath("acknowledge")
@@ -129,8 +126,7 @@ public class PrestoSparkHttpWorkerClient
                 new ResponseHandler<Void, RuntimeException>()
                 {
                     @Override
-                    public Void handleException(Request request,
-                                                Exception exception)
+                    public Void handleException(Request request, Exception exception)
                     {
                         log.debug(exception, "Acknowledge request failed: %s", uri);
                         return null;
@@ -150,11 +146,8 @@ public class PrestoSparkHttpWorkerClient
     @Override
     public ListenableFuture<?> abortResults()
     {
-        URI uri = uriBuilderFrom(location)
-                .appendPath(taskId.toString())
-                .build();
         return httpClient.executeAsync(
-                prepareDelete().setUri(uri).build(),
+                prepareDelete().setUri(taskUri).build(),
                 createStatusResponseHandler());
     }
 
@@ -202,5 +195,13 @@ public class PrestoSparkHttpWorkerClient
     public URI getLocation()
     {
         return location;
+    }
+
+    private URI getTaskUri(URI baseUri, TaskId taskId)
+    {
+        return uriBuilderFrom(baseUri)
+                .appendPath(TASK_URI)
+                .appendPath(taskId.toString())
+                .build();
     }
 }

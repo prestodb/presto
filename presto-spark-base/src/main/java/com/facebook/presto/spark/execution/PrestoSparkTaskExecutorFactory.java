@@ -68,6 +68,7 @@ import com.facebook.presto.spark.execution.PrestoSparkPageOutputOperator.PrestoS
 import com.facebook.presto.spark.execution.PrestoSparkRowBatch.RowTupleSupplier;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PreDeterminedPartitionFunction;
 import com.facebook.presto.spark.execution.PrestoSparkRowOutputOperator.PrestoSparkRowOutputFactory;
+import com.facebook.presto.spark.execution.operator.NativeExecutionOperator;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.facebook.presto.spi.page.PageDataOutput;
