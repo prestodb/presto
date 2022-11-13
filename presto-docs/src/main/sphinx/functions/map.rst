@@ -98,6 +98,10 @@ Map Functions
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
 
+.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
+
+    Removes all the entries where the value is null from the map ``x``.
+
 .. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
 
     Returns the map with the same keys but all non-null values are scaled proportionally so that the sum of values becomes 1.
