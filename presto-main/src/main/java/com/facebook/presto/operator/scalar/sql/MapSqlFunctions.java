@@ -67,4 +67,15 @@ public class MapSqlFunctions
     {
         return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), slice(reverse(array_sort(remove_nulls(map_values(input)), f)) || filter(map_values(input), x -> x is null), 1, n))";
     }
+
+    @SqlInvokedScalarFunction(value = "map_remove_null_values", deterministic = true, calledOnNullInput = true)
+    @Description("Constructs a map by removing all the keys with null values.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameter(name = "input", type = "map(K, V)")
+    @SqlType("map(K, V)")
+    public static String mapRemoveNulls()
+    {
+        return "RETURN map_filter(input, (k, v) -> v is not null)";
+    }
 }
