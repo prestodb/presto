@@ -17,7 +17,6 @@ using namespace facebook::velox::exec;
 using namespace facebook::velox;
 
 namespace {
-namespace {
 inline std::string createShuffleFilename(
     const std::string& rootPath,
     int32_t partition,
@@ -25,7 +24,6 @@ inline std::string createShuffleFilename(
     const std::thread::id& id) {
   return fmt::format("{}/{}_{}_{}.bin", rootPath, partition, fileIndex, id);
 }
-} // namespace
 
 /// This file is used to indicate that the shuffle system is ready to
 /// be used for reading (acts as a sync point between readers if needed).
@@ -134,9 +132,9 @@ void TestingPersistentShuffle::noMoreData(bool success) {
     }
   }
   // Write "ready to read" file.
-  auto readToRead = fileSystem_->openFileForWrite(
+  auto readyToRead = fileSystem_->openFileForWrite(
       fmt::format("{}/{}", rootPath_, kReadyForReadFilename));
-  readToRead->close();
+  readyToRead->close();
 }
 
 bool TestingPersistentShuffle::hasNext(int32_t partition) const {

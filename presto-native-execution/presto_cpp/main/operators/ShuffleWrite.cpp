@@ -20,7 +20,6 @@ using namespace facebook::velox;
 
 namespace facebook::presto::operators {
 namespace {
-
 class ShuffleWriteOperator : public Operator {
  public:
   ShuffleWriteOperator(

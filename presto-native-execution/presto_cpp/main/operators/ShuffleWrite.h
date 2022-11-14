@@ -51,7 +51,6 @@ class ShuffleWriteNode : public velox::core::PlanNode {
   void addDetails(std::stringstream& stream) const override {}
 
   ShuffleInterface* shuffle_;
-
   const std::vector<velox::core::PlanNodePtr> sources_;
 };
 
