@@ -20,6 +20,8 @@
 
 namespace facebook::presto::operators {
 
+/// Partitions the input row based on partition function and serializes the
+/// entire row.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
   PartitionAndSerializeNode(

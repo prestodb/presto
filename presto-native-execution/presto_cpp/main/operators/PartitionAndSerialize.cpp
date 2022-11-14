@@ -45,6 +45,9 @@ void PartitionAndSerializeNode::addDetails(std::stringstream& stream) const {
 
 namespace {
 
+/// The output of this operator has 2 columns:
+/// (1) partition number (INTEGER);
+/// (2) serialized row (VARBINARY)
 class PartitionAndSerializeOperator : public Operator {
  public:
   PartitionAndSerializeOperator(
