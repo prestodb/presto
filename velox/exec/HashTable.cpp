@@ -621,6 +621,9 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
     // hashing.
     auto newSize = std::max(
         (uint64_t)2048, bits::nextPowerOfTwo(numNew * 2 + numDistinct_));
+    if (numNew + numDistinct_ > rehashSize(newSize)) {
+      newSize *= 2;
+    }
     allocateTables(newSize);
     if (numDistinct_) {
       rehash();

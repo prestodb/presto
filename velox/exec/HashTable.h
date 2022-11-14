@@ -397,13 +397,17 @@ class HashTable : public BaseHashTable {
     return 0;
   }
 
+  uint64_t rehashSize() const {
+    return rehashSize(size_);
+  }
+
   std::string toString() override;
 
  private:
   // Returns the number of entries after which the table gets rehashed.
-  uint64_t rehashSize() const {
+  static uint64_t rehashSize(int64_t size) {
     // This implements the F14 load factor: Resize if less than 1/8 unoccupied.
-    return size_ - (size_ / 8);
+    return size - (size / 8);
   }
 
   template <RowContainer::ProbeType probeType>

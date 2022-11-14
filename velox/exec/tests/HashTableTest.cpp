@@ -587,6 +587,34 @@ TEST_P(HashTableTest, arrayProbeNormalizedKey) {
   ASSERT_TRUE(table->hashMode() == BaseHashTable::HashMode::kNormalizedKey);
 }
 
+TEST_P(HashTableTest, regularHashingTableSize) {
+  keySpacing_ = 1000;
+  auto checkTableSize = [&](BaseHashTable::HashMode mode,
+                            const RowTypePtr& type) {
+    std::vector<std::unique_ptr<VectorHasher>> keyHashers;
+    for (auto channel = 0; channel < type->size(); ++channel) {
+      keyHashers.emplace_back(
+          std::make_unique<VectorHasher>(type->childAt(channel), channel));
+    }
+    auto table = HashTable<true>::createForJoin(
+        std::move(keyHashers), {}, true, false, mappedMemory_);
+    std::vector<RowVectorPtr> batches;
+    makeRows(1 << 12, 1, 0, type, batches);
+    copyVectorsToTable(batches, 0, table.get());
+    table->prepareJoinTable({}, executor_.get());
+    ASSERT_EQ(table->hashMode(), mode);
+    EXPECT_GE(table->rehashSize(), table->numDistinct());
+  };
+  {
+    auto type = ROW({"key"}, {ROW({"k1"}, {BIGINT()})});
+    checkTableSize(BaseHashTable::HashMode::kHash, type);
+  }
+  {
+    auto type = ROW({"k1", "k2"}, {BIGINT(), BIGINT()});
+    checkTableSize(BaseHashTable::HashMode::kNormalizedKey, type);
+  }
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashTableTests,
     HashTableTest,
