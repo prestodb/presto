@@ -14,6 +14,7 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.ViewDefinition;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.TupleDomain;

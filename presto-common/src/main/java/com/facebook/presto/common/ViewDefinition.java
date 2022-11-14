@@ -11,18 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.metadata;
+package com.facebook.presto.common;
 
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 public final class ViewDefinition
@@ -46,10 +44,12 @@ public final class ViewDefinition
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schema = requireNonNull(schema, "schema is null");
-        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.columns = unmodifiableList(requireNonNull(columns, "columns is null"));
         this.owner = requireNonNull(owner, "owner is null");
         this.runAsInvoker = runAsInvoker;
-        checkArgument(!runAsInvoker || !owner.isPresent(), "owner cannot be present with runAsInvoker");
+        if (runAsInvoker && owner.isPresent()) {
+            throw new IllegalArgumentException("owner cannot be present with runAsInvoker");
+        }
     }
 
     @JsonProperty
@@ -91,15 +91,14 @@ public final class ViewDefinition
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("originalSql", originalSql)
-                .add("catalog", catalog.orElse(null))
-                .add("schema", schema.orElse(null))
-                .add("columns", columns)
-                .add("owner", owner.orElse(null))
-                .add("runAsInvoker", runAsInvoker)
-                .omitNullValues()
-                .toString();
+        return "ViewDefinition{" +
+                "originalSql='" + originalSql + '\'' +
+                ", catalog=" + catalog.orElse(null) +
+                ", schema=" + schema.orElse(null) +
+                ", columns=" + columns +
+                ", owner=" + owner.orElse(null) +
+                ", runAsInvoker=" + runAsInvoker +
+                '}';
     }
 
     public ViewDefinition withOwner(String owner)
