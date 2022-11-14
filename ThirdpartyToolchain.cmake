@@ -151,11 +151,44 @@ macro(build_protobuf)
 endmacro()
 # ================================ END PROTOBUF ================================
 
+# ================================== PYBIND11 ==================================
+if(DEFINED ENV{VELOX_PYBIND11_URL})
+  set(PYBIND11_SOURCE_URL "$ENV{VELOX_PYBIND11_URL}")
+else()
+  set(VELOX_PYBIND11_BUILD_VERSION 2.10.0)
+  string(CONCAT PYBIND11_SOURCE_URL
+                "https://github.com/pybind/pybind11/archive/refs/tags/"
+                "v${VELOX_PYBIND11_BUILD_VERSION}.tar.gz")
+  set(VELOX_PYBIND11_BUILD_SHA256_CHECKSUM
+      eacf582fa8f696227988d08cfc46121770823839fe9e301a20fbce67e7cd70ec)
+endif()
+
+macro(build_pybind11)
+  message(STATUS "Building Pybind11 from source")
+
+  FetchContent_Declare(
+    pybind11
+    URL ${PYBIND11_SOURCE_URL}
+    URL_HASH SHA256=${VELOX_PYBIND11_BUILD_SHA256_CHECKSUM})
+
+  if(NOT pybind11_POPULATED)
+
+    # Fetch the content using previously declared details
+    FetchContent_Populate(pybind11)
+
+    add_subdirectory(${pybind11_SOURCE_DIR})
+  endif()
+endmacro()
+
+# ================================ END PYBIND11 ================================
+
 macro(build_dependency DEPENDENCY_NAME)
   if("${DEPENDENCY_NAME}" STREQUAL "folly")
     build_folly()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "pybind11")
+    build_pybind11()
   else()
     message(
       FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
