@@ -21,7 +21,7 @@ namespace facebook::velox::dwio::common {
 using int128_t = __int128_t;
 
 #if XSIMD_WITH_AVX2
-// Bit unpacking using BMI2 and AVX2.
+
 typedef int32_t __m256si __attribute__((__vector_size__(32), __may_alias__));
 
 typedef int32_t __m256si_u
@@ -165,13 +165,14 @@ int32_t decode1To24(
   return i;
 }
 
-} // namespace
-#endif
-
 #define WIDTH_CASE(width)                                                      \
   case width:                                                                  \
     i = decode1To24<width>(bits, bitOffset, rows.data(), numSafeRows, result); \
     break;
+
+} // namespace
+
+#endif
 
 template <typename T>
 void unpack(

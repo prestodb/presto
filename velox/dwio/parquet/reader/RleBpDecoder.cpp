@@ -16,6 +16,8 @@
 
 #include "velox/dwio/parquet/reader/RleBpDecoder.h"
 
+#include "velox/dwio/common/BitPackDecoder.h"
+
 namespace facebook::velox::parquet {
 
 void RleBpDecoder::skip(uint64_t numValues) {
@@ -36,7 +38,7 @@ void RleBpDecoder::skip(uint64_t numValues) {
 
 void RleBpDecoder::readBits(
     int32_t numValues,
-    uint64_t* FOLLY_NONNULL buffer,
+    uint64_t* FOLLY_NONNULL outputBuffer,
     bool* FOLLY_NULLABLE allOnes) {
   VELOX_CHECK_EQ(1, bitWidth_);
   auto toRead = numValues;
@@ -60,12 +62,14 @@ void RleBpDecoder::readBits(
         *allOnes = true;
         return;
       }
-      bits::fillBits(buffer, numWritten, numWritten + consumed, value_ != 0);
+
+      bits::fillBits(
+          outputBuffer, numWritten, numWritten + consumed, value_ != 0);
     } else {
       bits::copyBits(
           reinterpret_cast<const uint64_t*>(bufferStart_),
           bitOffset_,
-          buffer,
+          outputBuffer,
           numWritten,
           consumed);
       int64_t offset = bitOffset_ + consumed;
