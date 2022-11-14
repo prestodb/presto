@@ -47,16 +47,16 @@ TEST_F(MaxSizeForStatsTest, nullValues) {
   testAggregations(
       vectors,
       {},
-      {"\"max_data_size_for_stats\"(c0)",
-       "\"max_data_size_for_stats\"(c1)",
-       "\"max_data_size_for_stats\"(c2)",
-       "\"max_data_size_for_stats\"(c3)",
-       "\"max_data_size_for_stats\"(c4)",
-       "\"max_data_size_for_stats\"(c5)",
-       "\"max_data_size_for_stats\"(c6)",
-       "\"max_data_size_for_stats\"(c7)",
-       "\"max_data_size_for_stats\"(c8)",
-       "\"max_data_size_for_stats\"(c9)"},
+      {"max_data_size_for_stats(c0)",
+       "max_data_size_for_stats(c1)",
+       "max_data_size_for_stats(c2)",
+       "max_data_size_for_stats(c3)",
+       "max_data_size_for_stats(c4)",
+       "max_data_size_for_stats(c5)",
+       "max_data_size_for_stats(c6)",
+       "max_data_size_for_stats(c7)",
+       "max_data_size_for_stats(c8)",
+       "max_data_size_for_stats(c9)"},
       "SELECT NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL");
 }
 
@@ -77,16 +77,16 @@ TEST_F(MaxSizeForStatsTest, nullAndNonNullValues) {
   testAggregations(
       vectors,
       {},
-      {"\"max_data_size_for_stats\"(c0)",
-       "\"max_data_size_for_stats\"(c1)",
-       "\"max_data_size_for_stats\"(c2)",
-       "\"max_data_size_for_stats\"(c3)",
-       "\"max_data_size_for_stats\"(c4)",
-       "\"max_data_size_for_stats\"(c5)",
-       "\"max_data_size_for_stats\"(c6)",
-       "\"max_data_size_for_stats\"(c7)",
-       "\"max_data_size_for_stats\"(c8)",
-       "\"max_data_size_for_stats\"(c9)"},
+      {"max_data_size_for_stats(c0)",
+       "max_data_size_for_stats(c1)",
+       "max_data_size_for_stats(c2)",
+       "max_data_size_for_stats(c3)",
+       "max_data_size_for_stats(c4)",
+       "max_data_size_for_stats(c5)",
+       "max_data_size_for_stats(c6)",
+       "max_data_size_for_stats(c7)",
+       "max_data_size_for_stats(c8)",
+       "max_data_size_for_stats(c9)"},
       "SELECT 1, 2, 4, 8, 4, 8, 1, 4, 16, 16");
 }
 
@@ -115,146 +115,152 @@ TEST_F(MaxSizeForStatsTest, allScalarTypes) {
   testAggregations(
       vectors,
       {"c0"},
-      {"\"max_data_size_for_stats\"(c1)",
-       "\"max_data_size_for_stats\"(c2)",
-       "\"max_data_size_for_stats\"(c3)",
-       "\"max_data_size_for_stats\"(c4)",
-       "\"max_data_size_for_stats\"(c5)",
-       "\"max_data_size_for_stats\"(c6)",
-       "\"max_data_size_for_stats\"(c7)",
-       "\"max_data_size_for_stats\"(c8)",
-       "\"max_data_size_for_stats\"(c9)"},
+      {"max_data_size_for_stats(c1)",
+       "max_data_size_for_stats(c2)",
+       "max_data_size_for_stats(c3)",
+       "max_data_size_for_stats(c4)",
+       "max_data_size_for_stats(c5)",
+       "max_data_size_for_stats(c6)",
+       "max_data_size_for_stats(c7)",
+       "max_data_size_for_stats(c8)",
+       "max_data_size_for_stats(c9)"},
       "VALUES (1,1,2,4,8,4,8,1,4,16),(2,1,2,4,8,4,8,1,4,16)");
 
   // Without grouping keys.
   testAggregations(
       vectors,
       {},
-      {"\"max_data_size_for_stats\"(c1)",
-       "\"max_data_size_for_stats\"(c2)",
-       "\"max_data_size_for_stats\"(c3)",
-       "\"max_data_size_for_stats\"(c4)",
-       "\"max_data_size_for_stats\"(c5)",
-       "\"max_data_size_for_stats\"(c6)",
-       "\"max_data_size_for_stats\"(c7)",
-       "\"max_data_size_for_stats\"(c8)",
-       "\"max_data_size_for_stats\"(c9)"},
+      {"max_data_size_for_stats(c1)",
+       "max_data_size_for_stats(c2)",
+       "max_data_size_for_stats(c3)",
+       "max_data_size_for_stats(c4)",
+       "max_data_size_for_stats(c5)",
+       "max_data_size_for_stats(c6)",
+       "max_data_size_for_stats(c7)",
+       "max_data_size_for_stats(c8)",
+       "max_data_size_for_stats(c9)"},
       "VALUES (1,2,4,8,4,8,1,4,16)");
 }
 
 TEST_F(MaxSizeForStatsTest, arrayGlobalAggregate) {
-  auto vectors = {makeRowVector({makeArrayVector<int64_t>({
-      {1, 2, 3, 4, 5},
-      {},
-      {1, 2, 3},
-  })})};
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 44");
+  auto vectors = {makeRowVector({
+      makeArrayVector<int64_t>({
+          {1, 2, 3, 4, 5},
+          {},
+          {1, 2, 3},
+      }),
+  })};
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 44");
 }
 
 TEST_F(MaxSizeForStatsTest, mapGlobalAggregate) {
-  auto vectors = {makeRowVector({makeMapVector<int8_t, int32_t>(
-      {{{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}},
-       {},
-       {{1, 1}, {1, 1}, {1, 1}}})})};
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 29");
+  auto vectors = {makeRowVector({
+      makeMapVector<int8_t, int32_t>({
+          {{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}},
+          {},
+          {{1, 1}, {1, 1}, {1, 1}},
+      }),
+  })};
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 29");
 }
 
 TEST_F(MaxSizeForStatsTest, rowGlobalAggregate) {
-  auto vectors = {makeRowVector({makeRowVector(
-      {makeArrayVector<int64_t>({
-           {1, 2, 3, 4, 5},
-           {},
-           {1, 2, 3},
-       }),
-       makeMapVector<int8_t, int32_t>(
-           {{{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}},
-            {},
-            {{1, 1}, {1, 1}, {1, 1}}})})})};
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 77");
+  auto vectors = {makeRowVector({
+      makeRowVector({
+          makeArrayVector<int64_t>({
+              {1, 2, 3, 4, 5},
+              {},
+              {1, 2, 3},
+          }),
+          makeMapVector<int8_t, int32_t>({
+              {{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}},
+              {},
+              {{1, 1}, {1, 1}, {1, 1}},
+          }),
+      }),
+  })};
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 77");
 }
 
 TEST_F(MaxSizeForStatsTest, varbinaryGlobalAggregate) {
   VectorPtr varbinaryVector = BaseVector::create(VARBINARY(), 3, pool());
   auto flatVector = varbinaryVector->asFlatVector<StringView>();
-  StringView buf_sv{"buf"};
-  StringView _sv{""};
-  StringView hello_sv{"hello, world !"};
-  flatVector->set(0, buf_sv);
-  flatVector->set(1, _sv);
-  flatVector->set(2, hello_sv);
+  flatVector->set(0, "buf");
+  flatVector->set(1, "");
+  flatVector->set(2, "hello, world !");
 
   auto vectors = {makeRowVector({varbinaryVector})};
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 18");
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 18");
 }
 
 TEST_F(MaxSizeForStatsTest, varcharGlobalAggregate) {
-  auto vectors = {makeRowVector({makeFlatVector<StringView>({
-      "{1, 2, 3, 4, 5}",
-      "{}",
-      "{1, 2, 3}",
-  })})};
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 19");
+  auto vectors = {makeRowVector({
+      makeFlatVector<StringView>({
+          "{1, 2, 3, 4, 5}",
+          "{}",
+          "{1, 2, 3}",
+      }),
+  })};
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 19");
 }
 
 TEST_F(MaxSizeForStatsTest, complexRecursiveGlobalAggregate) {
-  auto vectors = {makeRowVector({makeRowVector(
-      {makeFlatVector<StringView>({
-           "{1, 2, 3, 4, 5}",
-           "{}",
-           "{1, 2, 3}",
-       }),
-       createMapOfArraysVector<int8_t, int64_t>(
-           {{{1, std::nullopt}},
-            {{2, {{4, 5, std::nullopt}}}},
-            {{std::nullopt, {{7, 8, 9}}}}})})})};
+  auto vectors = {makeRowVector({
+      makeRowVector({
+          makeFlatVector<StringView>({
+              "{1, 2, 3, 4, 5}",
+              "{}",
+              "{1, 2, 3}",
+          }),
+          createMapOfArraysVector<int8_t, int64_t>({
+              {{1, std::nullopt}},
+              {{2, {{4, 5, std::nullopt}}}},
+              {{std::nullopt, {{7, 8, 9}}}},
+          }),
+      }),
+  })};
 
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c0)"}, "SELECT 50");
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c0)"}, "SELECT 50");
 }
 
 TEST_F(MaxSizeForStatsTest, constantEncodingTest) {
   auto columnOne = makeFlatVector<int64_t>({1, 2, 1});
-  auto columnTwo = makeRowVector(
-      {makeFlatVector<StringView>({
-           "{1, 2, 3, 4, 5}",
-           "{}",
-           "{1, 2, 3}",
-       }),
-       createMapOfArraysVector<int8_t, int64_t>(
-           {{{1, std::nullopt}},
-            {{2, {{4, 5, std::nullopt}}}},
-            {{std::nullopt, {{7, 8, 9}}}}})});
+  auto columnTwo = makeRowVector({
+      makeFlatVector<StringView>({
+          "{1, 2, 3, 4, 5}",
+          "{}",
+          "{1, 2, 3}",
+      }),
+      createMapOfArraysVector<int8_t, int64_t>({
+          {{1, std::nullopt}},
+          {{2, {{4, 5, std::nullopt}}}},
+          {{std::nullopt, {{7, 8, 9}}}},
+      }),
+  });
   auto columnTwoConstantEncoded = BaseVector::wrapInConstant(3, 1, columnTwo);
 
   auto vectors = {makeRowVector({columnOne, columnTwoConstantEncoded})};
 
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c1)"}, "SELECT 36");
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c1)"}, "SELECT 36");
 
   testAggregations(
-      vectors,
-      {"c0"},
-      {"\"max_data_size_for_stats\"(c1)"},
-      "VALUES (1,36),(2,36)");
+      vectors, {"c0"}, {"max_data_size_for_stats(c1)"}, "VALUES (1,36),(2,36)");
 }
 
 TEST_F(MaxSizeForStatsTest, dictionaryEncodingTest) {
   auto columnOne = makeFlatVector<int64_t>({1, 2, 1});
-  auto columnTwo = makeRowVector(
-      {makeFlatVector<StringView>({
-           "{1, 2, 3, 4, 5}",
-           "{}",
-           "{1, 2, 3}",
-       }),
-       createMapOfArraysVector<int8_t, int64_t>(
-           {{{1, std::nullopt}},
-            {{2, {{4, 5, std::nullopt}}}},
-            {{std::nullopt, {{7, 8, 9}}}}})});
+  auto columnTwo = makeRowVector({
+      makeFlatVector<StringView>({
+          "{1, 2, 3, 4, 5}",
+          "{}",
+          "{1, 2, 3}",
+      }),
+      createMapOfArraysVector<int8_t, int64_t>({
+          {{1, std::nullopt}},
+          {{2, {{4, 5, std::nullopt}}}},
+          {{std::nullopt, {{7, 8, 9}}}},
+      }),
+  });
   vector_size_t size = 3;
   auto indices = AlignedBuffer::allocate<vector_size_t>(size, pool());
   auto rawIndices = indices->asMutable<vector_size_t>();
@@ -265,14 +271,30 @@ TEST_F(MaxSizeForStatsTest, dictionaryEncodingTest) {
       BaseVector::wrapInDictionary(nullptr, indices, size, columnTwo);
   auto vectors = {makeRowVector({columnOne, columnTwoDictionaryEncoded})};
 
-  testAggregations(
-      vectors, {}, {"\"max_data_size_for_stats\"(c1)"}, "SELECT 50");
+  testAggregations(vectors, {}, {"max_data_size_for_stats(c1)"}, "SELECT 50");
 
   testAggregations(
-      vectors,
-      {"c0"},
-      {"\"max_data_size_for_stats\"(c1)"},
-      "VALUES (1,50),(2,36)");
+      vectors, {"c0"}, {"max_data_size_for_stats(c1)"}, "VALUES (1,50),(2,36)");
+}
+
+TEST_F(MaxSizeForStatsTest, mask) {
+  auto data = makeRowVector(
+      {"m", "v"},
+      {
+          makeFlatVector<bool>({false, false, true, true}),
+          makeNullableArrayVector<int64_t>({
+              std::nullopt,
+              std::nullopt,
+              {{1, 2, 3, 4}},
+              {{1, 2, 3, 4, 5}},
+          }),
+      });
+
+  auto plan = PlanBuilder()
+                  .values({data})
+                  .singleAggregation({}, {"max_data_size_for_stats(v)"}, {"m"})
+                  .planNode();
+  assertQuery(plan, "SELECT 44");
 }
 
 } // namespace

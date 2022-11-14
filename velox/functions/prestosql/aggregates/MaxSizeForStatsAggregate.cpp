@@ -123,11 +123,9 @@ class MaxSizeForStatsAggregate
   }
 
  protected:
-  void updateOneAccumulator(
-      char* const group,
-      std::vector<vector_size_t>& rowSizes,
-      vector_size_t idx) {
-    if (decoded_.isNullAt(idx)) {
+  void
+  updateOneAccumulator(char* const group, vector_size_t row, int64_t rowSize) {
+    if (decoded_.isNullAt(row)) {
       return;
     }
 
@@ -135,28 +133,25 @@ class MaxSizeForStatsAggregate
     clearNull(group);
     // Set max(current, this).
     int64_t& current = *value<int64_t>(group);
-    current = std::max(current, (int64_t)rowSizes[idx]);
+    current = std::max(current, rowSize);
   }
 
   void
   doUpdate(char** groups, const SelectivityVector& rows, const VectorPtr& arg) {
     decoded_.decode(*arg, rows, true);
 
-    if (decoded_.isConstantMapping() && decoded_.isNullAt(0)) {
-      // There's nothing to do; all values are null.
-      return;
-    }
-
     if (decoded_.isConstantMapping()) {
-      estimateSerializedSizes(arg, rows, 1);
-      rows.applyToSelected([&](vector_size_t i) {
-        updateOneAccumulator(groups[i], elementSizes_, 0);
-      });
+      if (!decoded_.isNullAt(0)) {
+        estimateSerializedSizes(arg, rows, 1);
+        rows.applyToSelected([&](auto row) {
+          updateOneAccumulator(groups[row], row, elementSizes_[0]);
+        });
+      }
     } else {
       estimateSerializedSizes(arg, rows, rows.countSelected());
       vector_size_t sizeIndex = 0;
-      rows.applyToSelected([&](vector_size_t i) {
-        updateOneAccumulator(groups[i], elementSizes_, sizeIndex++);
+      rows.applyToSelected([&](auto row) {
+        updateOneAccumulator(groups[row], row, elementSizes_[sizeIndex++]);
       });
     }
   }
@@ -191,21 +186,18 @@ class MaxSizeForStatsAggregate
     decoded_.decode(*arg, rows, true);
 
     if (decoded_.isConstantMapping()) {
-      if (decoded_.isNullAt(0)) {
-        // There's nothing to do; all values are null.
-        return;
+      if (!decoded_.isNullAt(0)) {
+        // Estimate first element because it is constant mapping.
+        estimateSerializedSizes(arg, rows, 1);
+        updateOneAccumulator(group, 0, elementSizes_[0]);
       }
-      // Estimate first element because it is constant mapping.
-      estimateSerializedSizes(arg, rows, 1);
-      updateOneAccumulator(group, elementSizes_, 0);
-      return;
+    } else {
+      estimateSerializedSizes(arg, rows, rows.countSelected());
+      vector_size_t sizeIndex = 0;
+      rows.applyToSelected([&](auto row) {
+        updateOneAccumulator(group, row, elementSizes_[sizeIndex++]);
+      });
     }
-
-    estimateSerializedSizes(arg, rows, rows.countSelected());
-    vector_size_t sizeIndex = 0;
-    rows.applyToSelected([&](vector_size_t i) {
-      updateOneAccumulator(group, elementSizes_, sizeIndex++);
-    });
   }
 };
 
