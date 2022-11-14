@@ -422,6 +422,49 @@ TEST_F(ArraySortTest, dictionaryEncodedElements) {
           {{4, std::nullopt}, {1, std::nullopt, std::nullopt}}));
 }
 
+// Test arrays with dictionary-encoded elements of complex type.
+TEST_P(ArraySortTest, encodedElements) {
+  // Base vector: [0, 10, 20, 30, 40, 50].
+  // Dictionary reverses the order of rows, then repeats them:
+  // [50, 40, 30, 20, 10, 0, 50, 40, 30, 20, 10, 0]
+  // and adds nulls for even rows: [null, 40, null, 20, null, 0].
+  auto elements = BaseVector::wrapInDictionary(
+      makeNulls(12, nullEvery(2)),
+      makeIndices({5, 4, 3, 2, 1, 0, 5, 4, 3, 2, 1, 0}),
+      12,
+      makeRowVector({
+          makeFlatVector<int64_t>({0, 10, 20, 30, 40, 50}),
+          makeFlatVector<int32_t>({0, -10, -20, -30, -40, -50}),
+      }));
+
+  // Make an array vector with 3, 3, 6 elements per row:
+  // [[null, 40, null], [20, null, 0], [null, 40, null, 20, null, 0]].
+  auto array = makeArrayVector({0, 3, 6}, elements);
+
+  auto result = evaluate("array_sort(c0)", {makeRowVector({array})});
+
+  // After sorting we expect
+  //  [[40, null, null], [0, 20, null], [0, 20, 40, null, null, null]].
+  auto expected = makeArrayVector(
+      {0, 3, 6},
+      makeRowVector(
+          {
+              makeFlatVector<int64_t>(
+                  {40, -1, -1, 0, 20, -1, 0, 20, 40, -1, -1, -1}),
+              makeFlatVector<int32_t>(
+                  {-40, 1, 1, 0, -20, 1, 0, -20, -40, -1, -1, -1}),
+          },
+          // Nulls in rows 1, 2, 5, 9, 10, 11.
+          [](auto row) {
+            return row == 1 || row == 2 || row == 5 || row >= 9;
+          }));
+  assertEqualVectors(expected, result);
+
+  // Apply sort twice.
+  result = evaluate("array_sort(array_sort(c0))", {makeRowVector({array})});
+  assertEqualVectors(expected, result);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     ArraySortTest,
     ArraySortTest,

@@ -41,9 +41,12 @@ void applyComplexType(
   vector_size_t* rawIndices = indices->asMutable<vector_size_t>();
 
   const CompareFlags flags{.nullsFirst = false, .ascending = true};
+  auto decodedIndices = decodedElements->indices();
+
   rows.applyToSelected([&](vector_size_t row) {
     const auto size = inputArray->sizeAt(row);
     const auto offset = inputArray->offsetAt(row);
+
     for (auto i = offset; i < offset + size; ++i) {
       rawIndices[i] = i;
     }
@@ -51,8 +54,19 @@ void applyComplexType(
         rawIndices + offset,
         rawIndices + offset + size,
         [&](vector_size_t& a, vector_size_t& b) {
-          return baseElementsVector->compare(baseElementsVector, a, b, flags) <
-              0;
+          bool aNull = decodedElements->isNullAt(a);
+          bool bNull = decodedElements->isNullAt(b);
+          if (aNull) {
+            return false;
+          }
+          if (bNull) {
+            return true;
+          }
+          return baseElementsVector->compare(
+                     baseElementsVector,
+                     decodedIndices[a],
+                     decodedIndices[b],
+                     flags) < 0;
         });
   });
 
