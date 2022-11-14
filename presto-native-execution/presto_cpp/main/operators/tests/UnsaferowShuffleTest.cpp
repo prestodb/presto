@@ -78,6 +78,7 @@ class TestShuffle : public ShuffleInterface {
 
   void noMoreData(bool success) {
     VELOX_CHECK(success, "Unexpected error")
+    // Flush in-progress buffers.
     for (auto i = 0; i < numPartitions_; ++i) {
       if (inProgressSizes_[i] > 0) {
         auto& buffer = inProgressPartitions_[i];
@@ -111,7 +112,14 @@ class TestShuffle : public ShuffleInterface {
   bool readyForRead_ = false;
   const uint32_t numPartitions_;
   const uint32_t maxBytesPerPartition_;
+
+  /// Indexed by partition number. Each element represents currently being
+  /// accumulated buffer by shuffler for a certain partition. Internal layout:
+  /// | row-size | ..row-payload.. | row-size | ..row-payload.. | ..
   std::vector<BufferPtr> inProgressPartitions_;
+
+  /// Tracks the total size of each in-progress partition in
+  /// inProgressPartitions_
   std::vector<size_t> inProgressSizes_;
   std::vector<std::vector<BufferPtr>> readyPartitions_;
 };
