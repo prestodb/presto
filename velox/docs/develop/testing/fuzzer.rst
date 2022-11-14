@@ -18,8 +18,9 @@ expression fuzzer evaluates each expression twice and asserts the results to be
 the same: using regular evaluation path and using simplified evaluation that
 flattens all input vectors before evaluating an expression.
 
-The Aggregation Fuzzer tests the HashAggregation operator and UDAFs by
-generating random aggregations and evaluating these on random input vectors.
+The Aggregation Fuzzer tests the HashAggregation operator, the StreamingAggregation
+operator and UDAFs by generating random aggregations and evaluating these on
+random input vectors.
 
 The Aggregation Fuzzer tests global aggregations (no grouping keys), group-by
 aggregations (one or more grouping keys), distinct aggregations(no aggregates),
@@ -35,7 +36,18 @@ verifies that results match. These plans are:
 - Partial -> Final aggregation.
 - Partial -> Intermediate -> Final aggregation.
 - Partial -> LocalExchange(grouping keys) -> Final aggregation.
-- All the above using flattened input vectors.
+- All of the above using flattened input vectors.
+
+In addition, to test StreamingAggregation operator, Fuzzer generates plans
+using OrderBy and StreamingAggregation.
+
+- OrderBy(grouping keys) -> Single streaming aggregation (raw input, final result).
+- OrderBy(grouping keys) -> Partial streaming -> Final streaming aggregation.
+- OrderBy(grouping keys) -> Partial streaming -> Intermediate streaming
+  -> Final streaming aggregation.
+- OrderBy(grouping keys) -> Partial streaming -> LocalMerge(grouping keys)
+  -> Final streaming aggregation.
+- All of the above using flattened input vectors.
 
 When testing aggregate functions whose results depend on the order of inputs
 (e.g. map_agg, map_union, arbitrary, etc.), the Fuzzer verifies that all plans

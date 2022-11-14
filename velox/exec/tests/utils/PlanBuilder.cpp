@@ -488,12 +488,16 @@ const core::AggregationNode* findPartialAggregation(
   if (auto exchange = dynamic_cast<const core::LocalPartitionNode*>(planNode)) {
     aggNode = dynamic_cast<const core::AggregationNode*>(
         exchange->sources()[0].get());
+  } else if (auto merge = dynamic_cast<const core::LocalMergeNode*>(planNode)) {
+    aggNode =
+        dynamic_cast<const core::AggregationNode*>(merge->sources()[0].get());
   } else {
     aggNode = dynamic_cast<const core::AggregationNode*>(planNode);
   }
   VELOX_CHECK_NOT_NULL(
       aggNode,
-      "Current plan node must be a partial or intermediate aggregation or local exchange over the same. Got: {}",
+      "Current plan node must be one of: partial or intermediate aggregation, "
+      "local merge or exchange. Got: {}",
       planNode->toString());
   VELOX_CHECK(exec::isPartialOutput(aggNode->step()));
   return aggNode;
