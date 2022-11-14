@@ -85,7 +85,7 @@ class ReaderBase {
       memory::MemoryPool& pool,
       std::unique_ptr<dwio::common::InputStream> stream,
       std::unique_ptr<PostScript> ps,
-      proto::Footer* footer,
+      const proto::Footer* footer,
       std::unique_ptr<StripeMetadataCache> cache,
       std::unique_ptr<encryption::DecryptionHandler> handler = nullptr)
       : pool_{pool},

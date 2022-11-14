@@ -32,11 +32,12 @@ class StripeReaderBase {
   // for testing purpose
   StripeReaderBase(
       const std::shared_ptr<ReaderBase>& reader,
-      proto::StripeFooter* footer)
+      const proto::StripeFooter* footer)
       : reader_{reader},
-        footer_{footer},
+        footer_{const_cast<proto::StripeFooter*>(footer)},
         handler_{std::make_unique<encryption::DecryptionHandler>(
-            reader_->getDecryptionHandler())} {
+            reader_->getDecryptionHandler())},
+        canLoad_{false} {
     // The footer is expected to be arena allocated and to stay
     // live for the lifetime of 'this'.
     DWIO_ENSURE(footer->GetArena());
@@ -73,6 +74,7 @@ class StripeReaderBase {
   proto::StripeFooter* footer_ = nullptr;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
   std::optional<uint32_t> lastStripeIndex_;
+  bool canLoad_{true};
 
   void loadEncryptionKeys(uint32_t index);
 

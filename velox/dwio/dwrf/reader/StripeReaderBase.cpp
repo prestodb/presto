@@ -23,6 +23,7 @@ using dwio::common::LogType;
 StripeInformationWrapper StripeReaderBase::loadStripe(
     uint32_t index,
     bool& preload) {
+  DWIO_ENSURE(canLoad_);
   auto& footer = reader_->getFooter();
   DWIO_ENSURE_LT(index, footer.stripesSize(), "invalid stripe index");
   auto stripe = footer.stripes(index);

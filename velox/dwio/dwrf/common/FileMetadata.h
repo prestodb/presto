@@ -25,24 +25,25 @@
 
 namespace facebook::velox::dwrf {
 
-enum class DwrfFormat : uint8_t { kDwrf, kOrc };
+enum class DwrfFormat : uint8_t {
+  kDwrf = 0,
+  kOrc = 1,
+};
 
 class ProtoWrapperBase {
  protected:
-  DwrfFormat format_;
-  void* impl_;
-
- public:
-  ProtoWrapperBase() = delete;
-
-  ProtoWrapperBase(DwrfFormat format, void* impl)
+  ProtoWrapperBase(DwrfFormat format, const void* impl)
       : format_{format}, impl_{impl} {}
 
+  DwrfFormat format_;
+  const void* impl_;
+
+ public:
   DwrfFormat format() const {
     return format_;
   }
 
-  inline void* rawProtoPtr() const {
+  inline const void* rawProtoPtr() const {
     return impl_;
   }
 };
@@ -153,21 +154,21 @@ class PostScript {
   }
 
  private:
-  inline proto::PostScript* dwrfPtr() const {
+  inline const proto::PostScript* dwrfPtr() const {
     return reinterpret_cast<proto::PostScript*>(impl_.get());
   }
 
-  inline proto::orc::PostScript* orcPtr() const {
+  inline const proto::orc::PostScript* orcPtr() const {
     return reinterpret_cast<proto::orc::PostScript*>(impl_.get());
   }
 };
 
 class StripeInformationWrapper : public ProtoWrapperBase {
  public:
-  explicit StripeInformationWrapper(proto::StripeInformation* si)
+  explicit StripeInformationWrapper(const proto::StripeInformation* si)
       : ProtoWrapperBase(DwrfFormat::kDwrf, si) {}
 
-  explicit StripeInformationWrapper(proto::orc::StripeInformation* si)
+  explicit StripeInformationWrapper(const proto::orc::StripeInformation* si)
       : ProtoWrapperBase(DwrfFormat::kOrc, si) {}
 
   const proto::StripeInformation* getDwrfPtr() const {
@@ -239,19 +240,20 @@ class StripeInformationWrapper : public ProtoWrapperBase {
  private:
   // private helper with no format checking
   inline const proto::StripeInformation* dwrfPtr() const {
-    return reinterpret_cast<proto::StripeInformation*>(rawProtoPtr());
+    return reinterpret_cast<const proto::StripeInformation*>(rawProtoPtr());
   }
 
   inline const proto::orc::StripeInformation* orcPtr() const {
-    return reinterpret_cast<proto::orc::StripeInformation*>(rawProtoPtr());
+    return reinterpret_cast<const proto::orc::StripeInformation*>(
+        rawProtoPtr());
   }
 };
 
 class TypeWrapper : public ProtoWrapperBase {
  public:
-  explicit TypeWrapper(proto::Type* t)
+  explicit TypeWrapper(const proto::Type* t)
       : ProtoWrapperBase(DwrfFormat::kDwrf, t) {}
-  explicit TypeWrapper(proto::orc::Type* t)
+  explicit TypeWrapper(const proto::orc::Type* t)
       : ProtoWrapperBase(DwrfFormat::kOrc, t) {}
 
   const proto::Type* getDwrfPtr() const {
@@ -299,20 +301,20 @@ class TypeWrapper : public ProtoWrapperBase {
 
  private:
   // private helper with no format checking
-  inline proto::Type* dwrfPtr() const {
-    return reinterpret_cast<proto::Type*>(rawProtoPtr());
+  inline const proto::Type* dwrfPtr() const {
+    return reinterpret_cast<const proto::Type*>(rawProtoPtr());
   }
-  inline proto::orc::Type* orcPtr() const {
-    return reinterpret_cast<proto::orc::Type*>(rawProtoPtr());
+  inline const proto::orc::Type* orcPtr() const {
+    return reinterpret_cast<const proto::orc::Type*>(rawProtoPtr());
   }
 };
 
 class UserMetadataItemWrapper : public ProtoWrapperBase {
  public:
-  explicit UserMetadataItemWrapper(proto::UserMetadataItem* item)
+  explicit UserMetadataItemWrapper(const proto::UserMetadataItem* item)
       : ProtoWrapperBase(DwrfFormat::kDwrf, item) {}
 
-  explicit UserMetadataItemWrapper(proto::orc::UserMetadataItem* item)
+  explicit UserMetadataItemWrapper(const proto::orc::UserMetadataItem* item)
       : ProtoWrapperBase(DwrfFormat::kOrc, item) {}
 
   const std::string& name() const {
@@ -326,30 +328,30 @@ class UserMetadataItemWrapper : public ProtoWrapperBase {
 
  private:
   // private helper with no format checking
-  inline proto::UserMetadataItem* dwrfPtr() const {
-    return reinterpret_cast<proto::UserMetadataItem*>(rawProtoPtr());
+  inline const proto::UserMetadataItem* dwrfPtr() const {
+    return reinterpret_cast<const proto::UserMetadataItem*>(rawProtoPtr());
   }
-  inline proto::orc::UserMetadataItem* orcPtr() const {
-    return reinterpret_cast<proto::orc::UserMetadataItem*>(rawProtoPtr());
+  inline const proto::orc::UserMetadataItem* orcPtr() const {
+    return reinterpret_cast<const proto::orc::UserMetadataItem*>(rawProtoPtr());
   }
 };
 
 class FooterWrapper : public ProtoWrapperBase {
  public:
-  explicit FooterWrapper(proto::Footer* footer)
+  explicit FooterWrapper(const proto::Footer* footer)
       : ProtoWrapperBase(DwrfFormat::kDwrf, footer) {}
 
-  explicit FooterWrapper(proto::orc::Footer* footer)
+  explicit FooterWrapper(const proto::orc::Footer* footer)
       : ProtoWrapperBase(DwrfFormat::kOrc, footer) {}
 
   const proto::Footer* getDwrfPtr() const {
     VELOX_CHECK_EQ(format_, DwrfFormat::kDwrf);
-    return reinterpret_cast<proto::Footer*>(rawProtoPtr());
+    return reinterpret_cast<const proto::Footer*>(rawProtoPtr());
   }
 
   const proto::orc::Footer* getOrcPtr() const {
     VELOX_CHECK_EQ(format_, DwrfFormat::kOrc);
-    return reinterpret_cast<proto::orc::Footer*>(rawProtoPtr());
+    return reinterpret_cast<const proto::orc::Footer*>(rawProtoPtr());
   }
 
   bool hasHeaderLength() const {
@@ -456,8 +458,8 @@ class FooterWrapper : public ProtoWrapperBase {
 
   StripeInformationWrapper stripes(int index) const {
     return format_ == DwrfFormat::kDwrf
-        ? StripeInformationWrapper(dwrfPtr()->mutable_stripes(index))
-        : StripeInformationWrapper(orcPtr()->mutable_stripes(index));
+        ? StripeInformationWrapper(&dwrfPtr()->stripes(index))
+        : StripeInformationWrapper(&orcPtr()->stripes(index));
   }
 
   int typesSize() const {
@@ -466,9 +468,8 @@ class FooterWrapper : public ProtoWrapperBase {
   }
 
   TypeWrapper types(int index) const {
-    return format_ == DwrfFormat::kDwrf
-        ? TypeWrapper(dwrfPtr()->mutable_types(index))
-        : TypeWrapper(orcPtr()->mutable_types(index));
+    return format_ == DwrfFormat::kDwrf ? TypeWrapper(&dwrfPtr()->types(index))
+                                        : TypeWrapper(&orcPtr()->types(index));
   }
 
   int metadataSize() const {
@@ -478,17 +479,17 @@ class FooterWrapper : public ProtoWrapperBase {
 
   UserMetadataItemWrapper metadata(int index) const {
     return format_ == DwrfFormat::kDwrf
-        ? UserMetadataItemWrapper(dwrfPtr()->mutable_metadata(index))
-        : UserMetadataItemWrapper(orcPtr()->mutable_metadata(index));
+        ? UserMetadataItemWrapper(&dwrfPtr()->metadata(index))
+        : UserMetadataItemWrapper(&orcPtr()->metadata(index));
   }
 
  private:
   // private helper with no format checking
-  inline proto::Footer* dwrfPtr() const {
-    return reinterpret_cast<proto::Footer*>(rawProtoPtr());
+  inline const proto::Footer* dwrfPtr() const {
+    return reinterpret_cast<const proto::Footer*>(rawProtoPtr());
   }
-  inline proto::orc::Footer* orcPtr() const {
-    return reinterpret_cast<proto::orc::Footer*>(rawProtoPtr());
+  inline const proto::orc::Footer* orcPtr() const {
+    return reinterpret_cast<const proto::orc::Footer*>(rawProtoPtr());
   }
 };
 
