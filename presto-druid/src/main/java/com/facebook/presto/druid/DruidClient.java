@@ -33,7 +33,6 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import javax.inject.Inject;
 
@@ -118,7 +117,7 @@ public class DruidClient
             return Optional.of(RemoteTableObject.of(schemaTableName.getTableName()));
         }
 
-        @Nullable Optional<RemoteTableObject> remoteTable = remoteTables.getIfPresent(schemaTableName);
+        Optional<RemoteTableObject> remoteTable = remoteTables.getIfPresent(schemaTableName);
         if (remoteTable != null) {
             return remoteTable;
         }
