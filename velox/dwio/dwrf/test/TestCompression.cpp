@@ -160,38 +160,36 @@ class CompressionTest : public TestWithParam<TestParams> {
 };
 
 TEST_P(CompressionTest, compressOriginalString) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 128;
 
   // simple, short string which will result in the original being saved
   char testData[] = "hello world!";
   compressAndVerify(
-      kind_, memSink, block, pool, testData, sizeof(testData), encrypter_);
+      kind_, memSink, block, *pool, testData, sizeof(testData), encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, sizeof(testData), pool, decrypter_);
+      memSink, kind_, block, testData, sizeof(testData), *pool, decrypter_);
 }
 
 TEST_P(CompressionTest, compressSimpleRepeatedString) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   constexpr uint64_t block = 128;
 
   // simple repeated string (128 'a's) which should be compressed
   char testData[block];
   std::memset(testData, 'a', block);
-  compressAndVerify(kind_, memSink, block, pool, testData, block, encrypter_);
-  decompressAndVerify(memSink, kind_, block, testData, block, pool, decrypter_);
+  compressAndVerify(kind_, memSink, block, *pool, testData, block, encrypter_);
+  decompressAndVerify(
+      memSink, kind_, block, testData, block, *pool, decrypter_);
 }
 
 TEST_P(CompressionTest, compressTwoBlocks) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 128;
   constexpr size_t size = 170;
@@ -199,14 +197,13 @@ TEST_P(CompressionTest, compressTwoBlocks) {
   // testData will be compressed in two blocks
   char testData[size];
   std::memset(testData, 'a', size);
-  compressAndVerify(kind_, memSink, block, pool, testData, size, encrypter_);
-  decompressAndVerify(memSink, kind_, block, testData, size, pool, decrypter_);
+  compressAndVerify(kind_, memSink, block, *pool, testData, size, encrypter_);
+  decompressAndVerify(memSink, kind_, block, testData, size, *pool, decrypter_);
 }
 
 TEST_P(CompressionTest, compressRandomLetters) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -215,15 +212,14 @@ TEST_P(CompressionTest, compressRandomLetters) {
   char testData[dataSize];
   generateRandomData(testData, dataSize, true);
   compressAndVerify(
-      kind_, memSink, block, pool, testData, dataSize, encrypter_);
+      kind_, memSink, block, *pool, testData, dataSize, encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, dataSize, pool, decrypter_);
+      memSink, kind_, block, testData, dataSize, *pool, decrypter_);
 }
 
 TEST_P(CompressionTest, compressRandomBytes) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
   constexpr size_t dataSize = 1024 * 1024; // 1M
@@ -232,9 +228,9 @@ TEST_P(CompressionTest, compressRandomBytes) {
   char testData[dataSize];
   generateRandomData(testData, dataSize, false);
   compressAndVerify(
-      kind_, memSink, block, pool, testData, dataSize, encrypter_);
+      kind_, memSink, block, *pool, testData, dataSize, encrypter_);
   decompressAndVerify(
-      memSink, kind_, block, testData, dataSize, pool, decrypter_);
+      memSink, kind_, block, testData, dataSize, *pool, decrypter_);
 }
 
 void verifyProto(
@@ -259,9 +255,8 @@ void verifyProto(
 }
 
 TEST_P(CompressionTest, compressProtoBuf) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 256;
 
@@ -271,8 +266,8 @@ TEST_P(CompressionTest, compressProtoBuf) {
       static_cast<proto::CompressionKind>(static_cast<int32_t>(kind_)));
   ps.set_writerversion(789);
 
-  TestBufferPool bufferPool(pool, block);
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  TestBufferPool bufferPool(*pool, block);
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   Config config;
   std::unique_ptr<BufferedOutputStream> compressStream =
       createCompressor(kind_, bufferPool, holder, config, encrypter_);
@@ -280,7 +275,7 @@ TEST_P(CompressionTest, compressProtoBuf) {
   EXPECT_TRUE(ps.SerializeToZeroCopyStream(compressStream.get()));
   compressStream->flush();
 
-  verifyProto(memSink, kind_, block, pool, ps, decrypter_);
+  verifyProto(memSink, kind_, block, *pool, ps, decrypter_);
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
@@ -310,15 +305,14 @@ class RecordPositionTest : public TestWithParam<TestParams2> {
 };
 
 TEST_P(RecordPositionTest, testRecordPosition) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
   uint64_t block = 256;
   uint64_t initial = 128;
 
-  TestBufferPool bufferPool(pool, block);
+  TestBufferPool bufferPool(*pool, block);
   DataBufferHolder holder{
-      pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
+      *pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
   Config config;
   std::unique_ptr<BufferedOutputStream> stream =
       createCompressor(kind_, bufferPool, holder, config, encrypter_);

@@ -91,22 +91,21 @@ TEST(TestDictionaryEncodingUtils, StringGetSortedIndexLookupTable) {
           {0, 1, 2, 3}}};
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       stringDictEncoder.addKey(key, 0);
     }
 
-    dwio::common::DataBuffer<bool> inDict{pool};
-    dwio::common::DataBuffer<uint32_t> lookupTable{pool};
-    dwio::common::DataBuffer<uint32_t> strideDictCounts{pool};
+    dwio::common::DataBuffer<bool> inDict{*pool};
+    dwio::common::DataBuffer<uint32_t> lookupTable{*pool};
+    dwio::common::DataBuffer<uint32_t> strideDictCounts{*pool};
     size_t pos = 0;
     EXPECT_EQ(
         stringDictEncoder.size(),
         DictionaryEncodingUtils::getSortedIndexLookupTable(
             stringDictEncoder,
-            pool,
+            *pool,
             testCase.sort,
             testCase.ordering,
             false,
@@ -297,18 +296,17 @@ TEST(TestDictionaryEncodingUtils, StringStrideDictOptimization) {
   };
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     size_t rowCount = 0;
     for (const auto& key : testCase.addKeySequence) {
       stringDictEncoder.addKey(key, rowCount++ / kStrideSize);
     }
 
-    dwio::common::DataBuffer<bool> inDict{pool};
-    dwio::common::DataBuffer<uint32_t> lookupTable{pool};
+    dwio::common::DataBuffer<bool> inDict{*pool};
+    dwio::common::DataBuffer<uint32_t> lookupTable{*pool};
     dwio::common::DataBuffer<uint32_t> strideDictSizes{
-        pool, rowCount / kStrideSize + 1};
+        *pool, rowCount / kStrideSize + 1};
 
     std::vector<folly::StringPiece> expected{testCase.finalDictSize};
     std::vector<uint32_t> expectedSize(testCase.finalDictSize);
@@ -326,7 +324,7 @@ TEST(TestDictionaryEncodingUtils, StringStrideDictOptimization) {
         testCase.finalDictSize,
         DictionaryEncodingUtils::getSortedIndexLookupTable(
             stringDictEncoder,
-            pool,
+            *pool,
             testCase.sort,
             testCase.ordering,
             true,

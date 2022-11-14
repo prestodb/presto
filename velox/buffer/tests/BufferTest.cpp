@@ -41,12 +41,12 @@ static_assert(!Buffer::is_pod_like_v<std::shared_ptr<int>>, "");
 class BufferTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memoryManager_.getScopedPool();
+    pool_ = memoryManager_.getChild();
   }
 
   memory::MemoryManager<memory::MemoryAllocator, AlignedBuffer::kAlignment>
       memoryManager_;
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 TEST_F(BufferTest, testAlignedBuffer) {

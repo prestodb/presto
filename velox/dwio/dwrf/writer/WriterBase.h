@@ -66,12 +66,12 @@ class WriterBase {
     userMetadata_[key] = value;
   }
 
- protected:
+  // protected:
   void writeFooter(const Type& type);
 
   void initContext(
       const std::shared_ptr<const Config>& config,
-      std::unique_ptr<velox::memory::ScopedMemoryPool> pool,
+      std::shared_ptr<velox::memory::MemoryPool> pool,
       std::unique_ptr<encryption::EncryptionHandler> handler = nullptr) {
     context_ = std::make_unique<WriterContext>(
         config, std::move(pool), sink_->getMetricsLog(), std::move(handler));

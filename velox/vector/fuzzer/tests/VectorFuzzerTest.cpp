@@ -75,8 +75,7 @@ class VectorFuzzerTest : public testing::Test {
   }
 
  private:
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 };
 
 // TODO: add coverage for other VectorFuzzer methods.

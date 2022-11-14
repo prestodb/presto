@@ -162,8 +162,8 @@ Task::Task(
       planFragment_(std::move(planFragment)),
       destination_(destination),
       queryCtx_(std::move(queryCtx)),
-      pool_(queryCtx_->pool()->addScopedChild(
-          fmt::format("task.{}", taskId_.c_str()))),
+      pool_(
+          queryCtx_->pool()->addChild(fmt::format("task.{}", taskId_.c_str()))),
       splitPlanNodeIds_(collectSplitPlanNodeIds(planFragment_.planNode)),
       consumerSupplier_(std::move(consumerSupplier)),
       onError_(onError),
@@ -195,8 +195,7 @@ Task::getOrAddNodePool(const core::PlanNodeId& planNodeId) {
   if (nodePools_.count(planNodeId) == 1) {
     return nodePools_[planNodeId];
   }
-  childPools_.push_back(
-      pool_->addScopedChild(fmt::format("node.{}", planNodeId)));
+  childPools_.push_back(pool_->addChild(fmt::format("node.{}", planNodeId)));
   auto* nodePool = childPools_.back().get();
   auto parentTracker = pool_->getMemoryUsageTracker();
   if (parentTracker != nullptr) {
@@ -210,7 +209,7 @@ velox::memory::MemoryPool* FOLLY_NONNULL Task::addOperatorPool(
     int pipelineId,
     const std::string& operatorType) {
   auto* nodePool = getOrAddNodePool(planNodeId);
-  childPools_.push_back(nodePool->addScopedChild(
+  childPools_.push_back(nodePool->addChild(
       fmt::format("op.{}.{}.{}", planNodeId, pipelineId, operatorType)));
   return childPools_.back().get();
 }
@@ -1864,8 +1863,7 @@ void collectOperatorMemoryUsage(
   const auto numBytes =
       operatorPool->getMemoryUsageTracker()->getCurrentTotalBytes();
   nodeMemoryUsage.total.update(numBytes);
-  auto& operatorMemoryUsage =
-      nodeMemoryUsage.operators[operatorPool->getName()];
+  auto& operatorMemoryUsage = nodeMemoryUsage.operators[operatorPool->name()];
   operatorMemoryUsage.update(numBytes);
 }
 
@@ -1877,7 +1875,7 @@ void collectNodeMemoryUsage(
       nodePool->getMemoryUsageTracker()->getCurrentTotalBytes());
 
   // NOTE: we use a plan node id as the node memory pool's name.
-  const auto& poolName = nodePool->getName();
+  const auto& poolName = nodePool->name();
   auto& nodeMemoryUsage = taskMemoryUsage.nodes[poolName];
 
   // Run through the node's child operator pools and update the memory usage.
@@ -1889,7 +1887,7 @@ void collectNodeMemoryUsage(
 void collectTaskMemoryUsage(
     TaskMemoryUsage& taskMemoryUsage,
     memory::MemoryPool* taskPool) {
-  taskMemoryUsage.taskId = taskPool->getName();
+  taskMemoryUsage.taskId = taskPool->name();
   taskPool->visitChildren([&taskMemoryUsage](memory::MemoryPool* nodePool) {
     collectNodeMemoryUsage(taskMemoryUsage, nodePool);
   });
@@ -1915,7 +1913,7 @@ std::string getQueryMemoryUsageString(memory::MemoryPool* queryPool) {
   // Build the query memory use tree (task->node->operator).
   std::stringstream out;
   out << "\n";
-  out << queryPool->getName();
+  out << queryPool->name();
   out << ": total: ";
   out << succinctBytes(
       queryPool->getMemoryUsageTracker()->getCurrentTotalBytes());

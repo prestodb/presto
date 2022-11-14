@@ -30,10 +30,9 @@ using namespace facebook::velox::dwrf;
 
 template <typename T, bool isSigned, bool vInt>
 void testInts(std::function<T()> generator) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   constexpr size_t count = 10240;
-  DataBuffer<T> buffer{pool, count};
+  DataBuffer<T> buffer{*pool, count};
   std::array<uint64_t, count / 64> nulls;
   for (size_t i = 0; i < count; ++i) {
     buffer[i] = generator();
@@ -42,8 +41,8 @@ void testInts(std::function<T()> generator) {
 
   constexpr size_t capacity =
       count * (vInt ? folly::kMaxVarintLength64 : sizeof(T));
-  MemorySink sink{pool, capacity};
-  DataBufferHolder holder{pool, capacity, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
+  MemorySink sink{*pool, capacity};
+  DataBufferHolder holder{*pool, capacity, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
       createDirectEncoder<isSigned>(std::move(output), vInt, sizeof(T));

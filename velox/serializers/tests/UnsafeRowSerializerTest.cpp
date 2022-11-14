@@ -23,7 +23,7 @@ using namespace facebook::velox;
 class UnsafeRowSerializerTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
     serde_ = std::make_unique<serializer::spark::UnsafeRowVectorSerde>();
   }
 
@@ -74,7 +74,7 @@ class UnsafeRowSerializerTest : public ::testing::Test {
     test::assertEqualVectors(deserialized, rowVector);
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<VectorSerde> serde_;
 };
 

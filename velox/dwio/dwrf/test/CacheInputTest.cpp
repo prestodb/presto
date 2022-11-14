@@ -435,8 +435,7 @@ class CacheTest : public testing::Test {
   std::shared_ptr<AsyncDataCache> cache_;
   std::shared_ptr<IoStatistics> ioStats_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 
   // Id of simulated streams. Corresponds 1:1 to 'streamStarts_'.
   std::vector<std::unique_ptr<dwrf::DwrfStreamIdentifier>> streamIds_;

@@ -178,8 +178,7 @@ class AggregationFuzzer {
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   VectorFuzzer vectorFuzzer_;
 
   Stats stats_;

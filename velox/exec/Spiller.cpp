@@ -670,7 +670,7 @@ memory::MappedMemory& Spiller::spillMappedMemory() {
 
 // static
 memory::MemoryPool& Spiller::spillPool() {
-  static auto pool = memory::getDefaultScopedMemoryPool();
+  static auto pool = memory::getDefaultMemoryPool();
   return *pool;
 }
 

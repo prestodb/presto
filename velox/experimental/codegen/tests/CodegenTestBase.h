@@ -104,7 +104,7 @@ class CodegenTestCore {
             udfManager_,
             useSymbolForArithmetic_,
             eventSequence_);
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
     queryCtx_ = std::make_shared<core::QueryCtx>(executor_.get());
     execCtx_ = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx_.get());
 
@@ -285,7 +285,7 @@ class CodegenTestCore {
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
   std::unique_ptr<CodegenCompiledExpressionTransform> codegenTransformation_;
-  std::unique_ptr<facebook::velox::memory::MemoryPool> pool_;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> pool_;
   std::unique_ptr<core::ExecCtx> execCtx_;
   std::shared_ptr<core::QueryCtx> queryCtx_;
   UDFManager udfManager_;

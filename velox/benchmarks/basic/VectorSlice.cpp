@@ -30,7 +30,7 @@ namespace {
 constexpr int kVectorSize = 16 << 10;
 
 struct BenchmarkData {
-  BenchmarkData() : pool_(memory::getDefaultScopedMemoryPool()) {
+  BenchmarkData() : pool_(memory::getDefaultMemoryPool()) {
     VectorFuzzer::Options opts;
     opts.nullRatio = 0.01;
     opts.vectorSize = kVectorSize;
@@ -42,7 +42,7 @@ struct BenchmarkData {
   }
 
  private:
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 
  public:
   VectorPtr flatVector;

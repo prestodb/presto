@@ -42,7 +42,7 @@ class QueryCtx : public Context {
           connectorConfigs = {},
       memory::MappedMemory* FOLLY_NONNULL mappedMemory =
           memory::MappedMemory::getInstance(),
-      std::unique_ptr<memory::MemoryPool> pool = nullptr,
+      std::shared_ptr<memory::MemoryPool> pool = nullptr,
       std::shared_ptr<folly::Executor> spillExecutor = nullptr,
       const std::string& queryId = "")
       : Context{ContextScope::QUERY},
@@ -70,7 +70,7 @@ class QueryCtx : public Context {
           connectorConfigs = {},
       memory::MappedMemory* FOLLY_NONNULL mappedMemory =
           memory::MappedMemory::getInstance(),
-      std::unique_ptr<memory::MemoryPool> pool = nullptr,
+      std::shared_ptr<memory::MemoryPool> pool = nullptr,
       const std::string& queryId = "")
       : Context{ContextScope::QUERY},
         pool_(std::move(pool)),
@@ -143,14 +143,14 @@ class QueryCtx : public Context {
   }
 
   void initPool(const std::string& queryId) {
-    pool_ = memory::getProcessDefaultMemoryManager().getRoot().addScopedChild(
+    pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
         QueryCtx::generatePoolName(queryId));
     static const auto kUnlimited = std::numeric_limits<int64_t>::max();
     pool_->setMemoryUsageTracker(
         memory::MemoryUsageTracker::create(kUnlimited, kUnlimited, kUnlimited));
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
   folly::Executor* FOLLY_NULLABLE executor_;

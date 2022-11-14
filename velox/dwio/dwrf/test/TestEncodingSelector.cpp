@@ -23,22 +23,21 @@ using namespace facebook::velox::memory;
 namespace facebook::velox::dwrf {
 
 TEST(TestEntropyEncodingSelector, Ctor) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   float slightlyOver = 1.0f + std::numeric_limits<float>::epsilon() * 2;
   float slightlyUnder = -std::numeric_limits<float>::epsilon();
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, slightlyOver, 0.5f, 0, 0.01, 0));
+      EntropyEncodingSelector(*pool, slightlyOver, 0.5f, 0, 0.01, 0));
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, slightlyUnder, 0.5f, 0, 0.01, 0));
+      EntropyEncodingSelector(*pool, slightlyUnder, 0.5f, 0, 0.01, 0));
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, 0.5f, slightlyOver, 0, 0.01, 0));
+      EntropyEncodingSelector(*pool, 0.5f, slightlyOver, 0, 0.01, 0));
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, 0.5f, slightlyUnder, 0, 0.01, 0));
+      EntropyEncodingSelector(*pool, 0.5f, slightlyUnder, 0, 0.01, 0));
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, 0.5f, 0.5f, 0, slightlyOver, 0));
+      EntropyEncodingSelector(*pool, 0.5f, 0.5f, 0, slightlyOver, 0));
   EXPECT_ANY_THROW(
-      EntropyEncodingSelector(pool, 0.5f, 0.5f, 0, slightlyUnder, 0));
+      EntropyEncodingSelector(*pool, 0.5f, 0.5f, 0, slightlyUnder, 0));
 }
 
 class EntropyEncodingSelectorTest {
@@ -71,16 +70,15 @@ class EntropyEncodingSelectorTest {
         decision_{decision} {}
 
   void runTest() const {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
-    dwio::common::DataBuffer<uint32_t> rows{pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
+    dwio::common::DataBuffer<uint32_t> rows{*pool};
     rows.reserve(size_);
     for (size_t i = 0; i != size_; ++i) {
       rows.append(stringDictEncoder.addKey(genData_(i, size_), 0));
     }
     EntropyEncodingSelector selector{
-        pool,
+        *pool,
         dictionaryKeySizeThreshold_,
         entropyKeySizeThreshold_,
         entropyMinSamples_,

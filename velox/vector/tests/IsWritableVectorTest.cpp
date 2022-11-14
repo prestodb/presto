@@ -25,7 +25,7 @@ using namespace facebook::velox::test;
 class IsWritableVectorTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
     vectorMaker_ = std::make_unique<VectorMaker>(pool_.get());
   }
 
@@ -101,7 +101,7 @@ class IsWritableVectorTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<VectorMaker> vectorMaker_;
 };
 

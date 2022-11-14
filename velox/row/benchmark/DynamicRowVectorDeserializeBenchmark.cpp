@@ -51,9 +51,7 @@ class UnsaferowDeserializer : public Deserializer {
   }
 
  private:
-  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
-      memory::getDefaultScopedMemoryPool();
-  ;
+  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
 };
 
 class UnsaferowBatchDeserializer : public Deserializer {
@@ -68,8 +66,7 @@ class UnsaferowBatchDeserializer : public Deserializer {
   }
 
  private:
-  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
-      memory::getDefaultScopedMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
 };
 
 class BenchmarkHelper {
@@ -133,8 +130,7 @@ class BenchmarkHelper {
       MAP(VARCHAR(), ARRAY(INTEGER())),
       ROW({INTEGER()})};
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
-      memory::getDefaultScopedMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
 };
 
 int deserialize(

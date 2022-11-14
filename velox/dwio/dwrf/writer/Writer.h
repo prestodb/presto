@@ -143,11 +143,11 @@ class Writer : public WriterBase {
                                 : nullptr);
     initContext(
         options.config,
-        parentPool.addScopedChild(
+        parentPool.addChild(
             fmt::format(
                 "writer_node_{}",
                 folly::to<std::string>(folly::Random::rand64())),
-            std::min(options.memoryBudget, parentPool.getCap())),
+            std::min(options.memoryBudget, parentPool.cap())),
         std::move(handler));
     if (!options.flushPolicyFactory) {
       auto& context = getContext();
@@ -200,7 +200,7 @@ class Writer : public WriterBase {
         .setMemoryUsageTracker(tracker->addChild());
   }
 
- protected:
+  // protected:
   bool overMemoryBudget(const WriterContext& context, size_t writeLength) const;
 
   bool shouldFlush(const WriterContext& context, size_t nextWriteLength);

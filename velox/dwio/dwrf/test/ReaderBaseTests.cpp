@@ -50,8 +50,8 @@ void addStats(
 class EncryptedStatsTest : public Test {
  protected:
   void SetUp() override {
-    scopedPool_ = getDefaultScopedMemoryPool();
-    ProtoWriter writer{*scopedPool_};
+    pool_ = getDefaultMemoryPool();
+    ProtoWriter writer{*pool_};
     auto& context = const_cast<const ProtoWriter&>(writer).getContext();
 
     // fake post script
@@ -95,7 +95,7 @@ class EncryptedStatsTest : public Test {
     handler_ = handler.get();
 
     reader_ = std::make_unique<ReaderBase>(
-        *scopedPool_,
+        *pool_,
         std::make_unique<MemoryInputStream>(nullptr, 0),
         std::make_unique<PostScript>(std::move(ps)),
         footer,
@@ -113,7 +113,7 @@ class EncryptedStatsTest : public Test {
   google::protobuf::Arena arena_;
   std::unique_ptr<ReaderBase> reader_;
   DecryptionHandler* handler_;
-  std::unique_ptr<ScopedMemoryPool> scopedPool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 TEST_F(EncryptedStatsTest, getStatistics) {
@@ -167,13 +167,12 @@ TEST_F(EncryptedStatsTest, getColumnStatisticsKeyNotLoaded) {
 std::unique_ptr<ReaderBase> createCorruptedFileReader(
     uint64_t footerLen,
     uint32_t cacheLen) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink sink{pool, 1024};
-  DataBufferHolder holder{pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  MemorySink sink{*pool, 1024};
+  DataBufferHolder holder{*pool, 1024, 0, DEFAULT_PAGE_GROW_RATIO, &sink};
   BufferedOutputStream output{holder};
 
-  DataBuffer<char> header{pool, 3};
+  DataBuffer<char> header{*pool, 3};
   std::memcpy(header.data(), "ORC", 3);
   sink.write(std::move(header));
 
@@ -196,11 +195,12 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
   output.flush();
   auto psLen = static_cast<uint8_t>(sink.size() - actualFooterLen);
 
-  DataBuffer<char> buf{pool, 1};
+  DataBuffer<char> buf{*pool, 1};
   buf.data()[0] = psLen;
+
   sink.write(std::move(buf));
   auto input = std::make_unique<MemoryInputStream>(sink.getData(), sink.size());
-  return std::make_unique<ReaderBase>(scopedPool->getPool(), std::move(input));
+  return std::make_unique<ReaderBase>(*pool, std::move(input));
 }
 
 TEST(ReaderBaseTest, InvalidPostScriptThrows) {

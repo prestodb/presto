@@ -136,8 +136,7 @@ class HashJoinBridgeTest : public testing::Test,
   const uint32_t maxNumPartitions_{8};
   const uint32_t numSpillFilesPerPartition_{20};
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   memory::MappedMemory* mappedMemory_{memory::MappedMemory::getInstance()};
   std::shared_ptr<TempDirectoryPath> tempDir_;
 

@@ -23,14 +23,7 @@
 #include "velox/type/StringView.h"
 
 namespace facebook::velox {
-
-auto scopedPool = memory::getDefaultScopedMemoryPool();
-
 namespace {
-StringViewBufferHolder makeHolder() {
-  return StringViewBufferHolder(scopedPool.get());
-}
-
 std::string nonInlinedString() {
   return std::string(13, 'a');
 }
@@ -38,10 +31,18 @@ std::string nonInlinedString() {
 std::string inlinedString() {
   return "a";
 }
-
 } // namespace
 
-TEST(StringViewBufferHolderTest, inlinedStringViewDoesNotCopyToBuffer) {
+class StringViewBufferHolderTest : public testing::Test {
+ protected:
+  StringViewBufferHolder makeHolder() {
+    return StringViewBufferHolder(pool_.get());
+  }
+
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+};
+
+TEST_F(StringViewBufferHolderTest, inlinedStringViewDoesNotCopyToBuffer) {
   auto holder = makeHolder();
 
   std::string value = inlinedString();
@@ -57,7 +58,7 @@ TEST(StringViewBufferHolderTest, inlinedStringViewDoesNotCopyToBuffer) {
   ASSERT_EQ(0, buffers.size());
 }
 
-TEST(StringViewBufferHolderTest, nonInlinedStringViewCopiesToBuffer) {
+TEST_F(StringViewBufferHolderTest, nonInlinedStringViewCopiesToBuffer) {
   auto holder = makeHolder();
 
   std::string value = nonInlinedString();
@@ -75,7 +76,7 @@ TEST(StringViewBufferHolderTest, nonInlinedStringViewCopiesToBuffer) {
   ASSERT_EQ(ownedStringView.data(), buffers.at(0)->as<char>());
 }
 
-TEST(StringViewBufferHolderTest, moreBuffersAreUsedWhenCurrentBufferFills) {
+TEST_F(StringViewBufferHolderTest, moreBuffersAreUsedWhenCurrentBufferFills) {
   // We're setting this high enough such that a new buffer allocation should be
   // needed by the StringViewBufferHolder. The min allocation is set to 8KB, but
   // the memory allocator allocates more than the requested size, so just
@@ -120,7 +121,7 @@ TEST(StringViewBufferHolderTest, moreBuffersAreUsedWhenCurrentBufferFills) {
   }
 }
 
-TEST(StringViewBufferHolderTest, stateIsClearedAfterStringsAreMoved) {
+TEST_F(StringViewBufferHolderTest, stateIsClearedAfterStringsAreMoved) {
   auto holder = makeHolder();
   std::string value = nonInlinedString();
 
@@ -133,13 +134,13 @@ TEST(StringViewBufferHolderTest, stateIsClearedAfterStringsAreMoved) {
   ASSERT_EQ(0, secondMoved.size());
 }
 
-TEST(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithIntegerType) {
+TEST_F(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithIntegerType) {
   auto holder = makeHolder();
   ASSERT_EQ(42, holder.getOwnedValue(42));
   ASSERT_EQ(0, holder.moveBuffers().size());
 }
 
-TEST(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithStringType) {
+TEST_F(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithStringType) {
   const char* buf = "abcdefghijklmnopqrstuvxz";
   StringView result;
 
@@ -155,7 +156,9 @@ TEST(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithStringType) {
   ASSERT_EQ(1, holder.buffers().size());
 }
 
-TEST(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithStringPieceType) {
+TEST_F(
+    StringViewBufferHolderTest,
+    getOwnedValueCanBeCalledWithStringPieceType) {
   const char* buf = "abcdefghijklmnopqrstuvxz";
   StringView result;
   folly::StringPiece piece;
@@ -174,7 +177,7 @@ TEST(StringViewBufferHolderTest, getOwnedValueCanBeCalledWithStringPieceType) {
   ASSERT_EQ(1, holder.buffers().size());
 }
 
-TEST(StringViewBufferHolderTest, buffersCopy) {
+TEST_F(StringViewBufferHolderTest, buffersCopy) {
   auto holder = makeHolder();
   holder.getOwnedValue(StringView(nonInlinedString()));
 

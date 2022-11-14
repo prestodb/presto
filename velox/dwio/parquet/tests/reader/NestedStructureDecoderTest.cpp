@@ -30,7 +30,7 @@ class NestedStructureDecoderTest : public testing::Test {
 
  protected:
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
 
     dwio::common::ensureCapacity<bool>(
         nullsBuffer_, kMaxNumValues, pool_.get());
@@ -99,7 +99,7 @@ class NestedStructureDecoderTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   BufferPtr offsetsBuffer_;
   BufferPtr lengthsBuffer_;
   BufferPtr nullsBuffer_;

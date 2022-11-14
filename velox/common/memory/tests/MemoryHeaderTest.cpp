@@ -22,33 +22,33 @@ using namespace ::testing;
 using namespace facebook::velox::memory;
 
 TEST(MemoryHeaderTest, GetProcessDefaultMemoryManager) {
-  auto& manager_a = getProcessDefaultMemoryManager();
-  auto& manager_b = getProcessDefaultMemoryManager();
-  ASSERT_EQ(0, manager_a.getRoot().getChildCount());
-  ASSERT_EQ(0, manager_b.getRoot().getChildCount());
+  auto& managerA = getProcessDefaultMemoryManager();
+  auto& managerB = getProcessDefaultMemoryManager();
+  ASSERT_EQ(0, managerA.getRoot().getChildCount());
+  ASSERT_EQ(0, managerB.getRoot().getChildCount());
 
-  auto& child1 = manager_a.getRoot().addChild("child_1");
-  auto& child2 = manager_b.getRoot().addChild("child_2");
-  EXPECT_EQ(2, manager_a.getRoot().getChildCount());
-  EXPECT_EQ(2, manager_b.getRoot().getChildCount());
-  child1.removeSelf();
-  child2.removeSelf();
-  EXPECT_EQ(0, manager_b.getRoot().getChildCount());
+  auto child1 = managerA.getRoot().addChild("child_1");
+  auto child2 = managerB.getRoot().addChild("child_2");
+  EXPECT_EQ(2, managerA.getRoot().getChildCount());
+  EXPECT_EQ(2, managerB.getRoot().getChildCount());
+  child1.reset();
+  child2.reset();
+  EXPECT_EQ(0, managerB.getRoot().getChildCount());
 }
 
-TEST(MemoryHeaderTest, getDefaultScopedMemoryPool) {
+TEST(MemoryHeaderTest, getDefaultMemoryPool) {
   auto& manager = getProcessDefaultMemoryManager();
   ASSERT_EQ(0, manager.getRoot().getChildCount());
   {
-    auto pool_a = getDefaultScopedMemoryPool();
-    auto pool_b = getDefaultScopedMemoryPool(42);
+    auto poolA = getDefaultMemoryPool();
+    auto poolB = getDefaultMemoryPool(42);
     EXPECT_EQ(2, manager.getRoot().getChildCount());
-    EXPECT_EQ(42, pool_b->getPool().getCap());
+    EXPECT_EQ(42, poolB->cap());
     {
-      auto pool_c = getDefaultScopedMemoryPool();
+      auto poolC = getDefaultMemoryPool();
       EXPECT_EQ(3, manager.getRoot().getChildCount());
       {
-        auto pool_d = getDefaultScopedMemoryPool();
+        auto poolD = getDefaultMemoryPool();
         EXPECT_EQ(4, manager.getRoot().getChildCount());
       }
       EXPECT_EQ(3, manager.getRoot().getChildCount());

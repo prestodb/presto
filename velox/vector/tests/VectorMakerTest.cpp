@@ -25,8 +25,7 @@ using facebook::velox::test::VectorMaker;
 
 class VectorMakerTest : public ::testing::Test {
  protected:
-  std::unique_ptr<memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   VectorMaker maker_{pool_.get()};
 };
 

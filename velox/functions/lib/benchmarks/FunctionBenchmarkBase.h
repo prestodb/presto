@@ -61,8 +61,7 @@ class FunctionBenchmarkBase {
 
  protected:
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   facebook::velox::test::VectorMaker vectorMaker_{execCtx_.pool()};
   parse::ParseOptions options_;

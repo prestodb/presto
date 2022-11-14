@@ -89,10 +89,9 @@ TEST(TestConcat, EvalConcatFunction) {
   auto outRowType =
       ROW({"pl", "mi"},
           {std::make_shared<DoubleType>(), std::make_shared<DoubleType>()});
-  auto pool_ = memory::getDefaultScopedMemoryPool();
-  auto pool = pool_.get();
-  auto inRowVector = BaseVector::create(inRowType, rowLength, pool);
-  auto outRowVector = BaseVector::create(outRowType, rowLength, pool);
+  auto pool = memory::getDefaultMemoryPool();
+  auto inRowVector = BaseVector::create(inRowType, rowLength, pool.get());
+  auto outRowVector = BaseVector::create(outRowType, rowLength, pool.get());
 
   VectorPtr& in1 = inRowVector->as<RowVector>()->childAt(0);
   VectorPtr& in2 = inRowVector->as<RowVector>()->childAt(1);
@@ -104,7 +103,7 @@ TEST(TestConcat, EvalConcatFunction) {
 
   std::vector<VectorPtr> in{in1, in2};
   auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto execCtx = std::make_unique<core::ExecCtx>(pool_.get(), queryCtx.get());
+  auto execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx.get());
   exec::EvalCtx context(execCtx.get(), nullptr, inRowVector->as<RowVector>());
   GeneratedVectorFunction<GeneratedVectorFunctionConfigDouble> vectorFunction;
 
@@ -192,11 +191,10 @@ struct GeneratedVectorFunctionConfigBool {
 
 TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
   // TODO: Move those to test class
-  auto pool_ = memory::getDefaultScopedMemoryPool();
-  auto pool = pool_.get();
+  auto pool = memory::getDefaultMemoryPool();
   const size_t vectorSize = 1000;
   auto queryCtx = std::make_shared<core::QueryCtx>();
-  auto execCtx = std::make_unique<core::ExecCtx>(pool, queryCtx.get());
+  auto execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx.get());
 
   auto inRowType =
       ROW({"a", "b"},
@@ -206,8 +204,8 @@ TEST(TestBooEvalVectorFunction, EvalBoolExpression) {
           {std::make_shared<BooleanType>(), std::make_shared<BooleanType>()});
 
   // Initializing input vectors
-  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool);
-  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool);
+  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool.get());
+  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool.get());
 
   VectorPtr& inputVector1 = inRowVector->as<RowVector>()->childAt(0);
   VectorPtr& inputVector2 = inRowVector->as<RowVector>()->childAt(1);

@@ -581,8 +581,7 @@ class ExpressionCodegenTestBase : public testing::Test {
   }
 
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   std::unique_ptr<core::ExecCtx> execCtx_{
       std::make_unique<facebook::velox::core::ExecCtx>(
           pool_.get(),

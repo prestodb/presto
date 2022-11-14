@@ -111,12 +111,11 @@ void decodeAndVerifyBoolean(
 }
 
 TEST(ByteRleEncoder, random_chars) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = memory::getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto outStream = std::make_unique<BufferedOutputStream>(holder);
 
   std::unique_ptr<ByteRleEncoder> encoder =
@@ -132,12 +131,11 @@ TEST(ByteRleEncoder, random_chars) {
 }
 
 TEST(ByteRleEncoder, random_chars_with_null) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = memory::getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto outStream = std::make_unique<BufferedOutputStream>(holder);
 
   std::unique_ptr<ByteRleEncoder> encoder =
@@ -155,12 +153,11 @@ TEST(ByteRleEncoder, random_chars_with_null) {
 }
 
 TEST(BooleanRleEncoder, random_bits_not_aligned) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = memory::getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto outStream = std::make_unique<BufferedOutputStream>(holder);
 
   std::unique_ptr<ByteRleEncoder> encoder =
@@ -176,12 +173,11 @@ TEST(BooleanRleEncoder, random_bits_not_aligned) {
 }
 
 TEST(BooleanRleEncoder, random_bits_aligned) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = memory::getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto outStream = std::make_unique<BufferedOutputStream>(holder);
 
   std::unique_ptr<ByteRleEncoder> encoder =
@@ -197,12 +193,11 @@ TEST(BooleanRleEncoder, random_bits_aligned) {
 }
 
 TEST(BooleanRleEncoder, random_bits_aligned_with_null) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
-  MemorySink memSink(pool, DEFAULT_MEM_STREAM_SIZE);
+  auto pool = memory::getDefaultMemoryPool();
+  MemorySink memSink(*pool, DEFAULT_MEM_STREAM_SIZE);
 
   uint64_t block = 1024;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto outStream = std::make_unique<BufferedOutputStream>(holder);
 
   std::unique_ptr<ByteRleEncoder> encoder =

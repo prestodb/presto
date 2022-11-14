@@ -106,8 +106,7 @@ class OperatorUtilsTest
     }
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 };
 
 TEST_F(OperatorUtilsTest, wrapChildConstant) {

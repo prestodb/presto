@@ -22,9 +22,8 @@ using namespace facebook::velox::dwio::common;
 
 TEST(TestBufferedInput, ZeroLengthStream) {
   MemoryInputStream stream{nullptr, 0};
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  BufferedInput input{stream, pool};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  BufferedInput input{stream, *pool};
   auto ret = input.enqueue({0, 0});
   EXPECT_NE(ret, nullptr);
   const void* buf = nullptr;

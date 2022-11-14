@@ -128,103 +128,64 @@ void MemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t /* size */) {
   std::free(p);
 }
 
-MemoryPoolBase::MemoryPoolBase(
+MemoryPool::MemoryPool(
     const std::string& name,
-    std::weak_ptr<MemoryPool> parent)
-    : name_{name}, parent_{parent} {}
+    std::shared_ptr<MemoryPool> parent)
+    : name_(name), parent_(std::move(parent)) {}
 
-MemoryPoolBase::~MemoryPoolBase() {
-  // Destroy child pools first.
-  children_.clear();
+MemoryPool::~MemoryPool() {
+  VELOX_CHECK(children_.empty());
+  if (parent_ != nullptr) {
+    parent_->dropChild(this);
+  }
 }
 
-const std::string& MemoryPoolBase::getName() const {
+const std::string& MemoryPool::name() const {
   return name_;
 }
 
-std::weak_ptr<MemoryPool> MemoryPoolBase::getWeakPtr() {
-  return this->weak_from_this();
-}
-
-uint64_t MemoryPoolBase::getChildCount() const {
+uint64_t MemoryPool::getChildCount() const {
   folly::SharedMutex::ReadHolder guard{childrenMutex_};
   return children_.size();
 }
 
-MemoryPool& MemoryPoolBase::getChildByName(const std::string& name) {
-  folly::SharedMutex::ReadHolder guard{childrenMutex_};
-  // Implicitly synchronized in dtor of child so it's impossible for
-  // MemoryManager to access after destruction of child.
-  auto iter = std::find_if(
-      children_.begin(),
-      children_.end(),
-      [&name](const std::shared_ptr<MemoryPool>& e) {
-        return e->getName() == name;
-      });
-
-  VELOX_USER_CHECK(
-      iter != children_.end(),
-      "Failed to find child memory pool by name: {}",
-      name);
-
-  return **iter;
-}
-
-void MemoryPoolBase::visitChildren(
+void MemoryPool::visitChildren(
     std::function<void(MemoryPool* FOLLY_NONNULL)> visitor) const {
-  folly::SharedMutex::WriteHolder guard{childrenMutex_};
+  folly::SharedMutex::ReadHolder guard{childrenMutex_};
   for (const auto& child : children_) {
-    visitor(child.get());
+    visitor(child);
   }
 }
 
-MemoryPool& MemoryPoolBase::addChild(const std::string& name, int64_t cap) {
+std::shared_ptr<MemoryPool> MemoryPool::addChild(
+    const std::string& name,
+    int64_t cap) {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
   // Upon name collision we would throw and not modify the map.
-  auto child = genChild(getWeakPtr(), name, cap);
+  auto child = genChild(shared_from_this(), name, cap);
   if (isMemoryCapped()) {
     child->capMemoryAllocation();
   }
   if (auto usageTracker = getMemoryUsageTracker()) {
     child->setMemoryUsageTracker(usageTracker->addChild());
   }
-  children_.emplace_back(std::move(child));
-  return *children_.back();
+  children_.emplace_back(child.get());
+  return child;
 }
 
-std::unique_ptr<ScopedMemoryPool> MemoryPoolBase::addScopedChild(
-    const std::string& name,
-    int64_t cap) {
-  auto& pool = addChild(name, cap);
-  return std::make_unique<ScopedMemoryPool>(pool.getWeakPtr());
-}
-
-void MemoryPoolBase::dropChild(const MemoryPool* FOLLY_NONNULL child) {
+void MemoryPool::dropChild(const MemoryPool* FOLLY_NONNULL child) {
   folly::SharedMutex::WriteHolder guard{childrenMutex_};
   // Implicitly synchronized in dtor of child so it's impossible for
   // MemoryManager to access after destruction of child.
   auto iter = std::find_if(
-      children_.begin(),
-      children_.end(),
-      [child](const std::shared_ptr<MemoryPool>& e) {
-        return e.get() == child;
+      children_.begin(), children_.end(), [child](const MemoryPool* e) {
+        return e == child;
       });
-
-  if (iter != children_.end()) {
-    children_.erase(iter);
-  }
+  VELOX_CHECK(iter != children_.end());
+  children_.erase(iter);
 }
 
-void MemoryPoolBase::removeSelf() {
-  if (auto parentPtr = parent_.lock()) {
-    parentPtr->dropChild(this);
-  }
-}
-
-// Rounds up to a power of 2 >= size, or to a size halfway between
-// two consecutive powers of two, i.e 8, 12, 16, 24, 32, .... This
-// coincides with JEMalloc size classes.
-size_t MemoryPoolBase::getPreferredSize(size_t size) {
+size_t MemoryPool::getPreferredSize(size_t size) {
   if (size < 8) {
     return 8;
   }
@@ -249,9 +210,9 @@ IMemoryManager& getProcessDefaultMemoryManager() {
   return MemoryManager<MemoryAllocator>::getProcessDefaultManager();
 }
 
-std::unique_ptr<ScopedMemoryPool> getDefaultScopedMemoryPool(int64_t cap) {
+std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap) {
   auto& memoryManager = getProcessDefaultMemoryManager();
-  return memoryManager.getScopedPool(cap);
+  return memoryManager.getChild(cap);
 }
 } // namespace memory
 } // namespace velox

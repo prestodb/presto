@@ -42,8 +42,7 @@ class UnsafeRowFuzzTests : public ::testing::Test {
     std::memset(buffer_, 0, BUFFER_SIZE);
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
-      memory::getDefaultScopedMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
   BufferPtr bufferPtr_ =
       AlignedBuffer::allocate<char>(BUFFER_SIZE, pool_.get(), true);
   char* buffer_ = bufferPtr_->asMutable<char>();

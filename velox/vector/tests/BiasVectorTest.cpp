@@ -24,8 +24,8 @@ namespace facebook::velox::test {
 
 class BiasVectorTestBase : public testing::Test {
  protected:
-  std::unique_ptr<velox::memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<velox::memory::MemoryPool> pool_{
+      memory::getDefaultMemoryPool()};
   VectorMaker vectorMaker_{pool_.get()};
 };
 

@@ -26,8 +26,7 @@ using namespace facebook::velox;
 using facebook::velox::core::variantArrayToVector;
 
 class VariantToVectorTest : public testing::Test {
-  std::unique_ptr<memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 
  public:
   template <TypeKind KIND>

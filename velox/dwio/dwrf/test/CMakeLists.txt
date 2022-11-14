@@ -399,7 +399,7 @@ target_link_libraries(
   ${ZLIB_LIBRARIES}
   ${TEST_LINK_LIBS})
 
-add_executable(velox_dwrf_writer_flush_test TestWriterFlush.cpp)
+add_executable(velox_dwrf_writer_flush_test WriterFlushTest.cpp)
 add_test(velox_dwrf_writer_flush_test velox_dwrf_writer_flush_test)
 
 target_link_libraries(

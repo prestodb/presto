@@ -30,7 +30,7 @@ class NestedStructureDecoderBenchmark {
       : numValues_(numValues),
         definitionLevels_(new unsigned char[numValues]()),
         repetitionLevels_(new unsigned char[numValues]()),
-        pool_(memory::getDefaultScopedMemoryPool()) {}
+        pool_(memory::getDefaultMemoryPool()) {}
 
   void setUp(uint16_t maxDefinition, uint16_t maxRepetition) {
     dwio::common::ensureCapacity<uint64_t>(
@@ -47,7 +47,7 @@ class NestedStructureDecoderBenchmark {
 
   std::unique_ptr<uint8_t> definitionLevels_;
   std::unique_ptr<uint8_t> repetitionLevels_;
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 
   BufferPtr offsetsBuffer_;
   BufferPtr lengthsBuffer_;

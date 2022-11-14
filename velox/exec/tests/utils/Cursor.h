@@ -55,7 +55,7 @@ class TaskQueue {
   };
 
   explicit TaskQueue(uint64_t maxBytes)
-      : pool_(memory::getDefaultScopedMemoryPool()), maxBytes_(maxBytes) {}
+      : pool_(memory::getDefaultMemoryPool()), maxBytes_(maxBytes) {}
 
   void setNumProducers(int32_t n) {
     numProducers_ = n;
@@ -82,7 +82,7 @@ class TaskQueue {
 
  private:
   // Owns the vectors in 'queue_', hence must be declared first.
-  std::unique_ptr<velox::memory::MemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> pool_;
   std::deque<TaskQueueEntry> queue_;
   std::optional<int32_t> numProducers_;
   int32_t producersFinished_ = 0;

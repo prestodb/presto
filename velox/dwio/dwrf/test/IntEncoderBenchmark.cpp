@@ -30,8 +30,8 @@ using namespace facebook::velox::memory;
 
 static size_t generateAutoId(int64_t startId, int64_t count) {
   size_t capacity = count * folly::kMaxVarintLength64;
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  DataBufferHolder holder{*scopedPool, capacity};
+  auto pool = memory::getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
       createDirectEncoder<true>(std::move(output), true, sizeof(int64_t));
@@ -44,8 +44,8 @@ static size_t generateAutoId(int64_t startId, int64_t count) {
 
 static size_t generateAutoId2(int64_t startId, int64_t count) {
   size_t capacity = count * folly::kMaxVarintLength64;
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  DataBufferHolder holder{*scopedPool, capacity};
+  auto pool = memory::getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, capacity};
   auto output = std::make_unique<BufferedOutputStream>(holder);
   auto encoder =
       createDirectEncoder<true>(std::move(output), true, sizeof(int64_t));

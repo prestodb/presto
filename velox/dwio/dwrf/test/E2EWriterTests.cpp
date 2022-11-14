@@ -77,11 +77,10 @@ TEST(E2EWriterTests, DISABLED_TestFileCreation) {
   config->set(
       Config::MAP_FLAT_COLS, {12, 13}); /* this is the second and third map */
 
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   std::vector<VectorPtr> batches;
   for (size_t i = 0; i < batchCount; ++i) {
-    batches.push_back(BatchMaker::createBatch(type, size, pool, nullptr, i));
+    batches.push_back(BatchMaker::createBatch(type, size, *pool, nullptr, i));
   }
 
   auto sink = std::make_unique<FileSink>("/tmp/e2e_generated_file.orc");
@@ -112,8 +111,7 @@ TEST(E2EWriterTests, E2E) {
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
   size_t size = 1100;
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -143,11 +141,11 @@ TEST(E2EWriterTests, E2E) {
 
   std::vector<VectorPtr> batches;
   for (size_t i = 0; i < batchCount; ++i) {
-    batches.push_back(BatchMaker::createBatch(type, size, pool, nullptr, i));
+    batches.push_back(BatchMaker::createBatch(type, size, *pool, nullptr, i));
     size = 200;
   }
 
-  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
+  E2EWriterTestUtil::testWriter(*pool, type, batches, 1, 1, config);
 }
 
 TEST(E2EWriterTests, FlatMapDictionaryEncoding) {
@@ -155,8 +153,7 @@ TEST(E2EWriterTests, FlatMapDictionaryEncoding) {
   // Start with a size larger than stride to cover splitting into
   // strides. Continue with smaller size for faster test.
   size_t size = 1100;
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -181,11 +178,11 @@ TEST(E2EWriterTests, FlatMapDictionaryEncoding) {
   std::mt19937 gen;
   gen.seed(983871726);
   for (size_t i = 0; i < batchCount; ++i) {
-    batches.push_back(BatchMaker::createBatch(type, size, pool, gen));
+    batches.push_back(BatchMaker::createBatch(type, size, *pool, gen));
     size = 200;
   }
 
-  E2EWriterTestUtil::testWriter(pool, type, batches, 1, 1, config);
+  E2EWriterTestUtil::testWriter(*pool, type, batches, 1, 1, config);
 }
 
 TEST(E2EWriterTests, MaxFlatMapKeys) {
@@ -196,15 +193,15 @@ TEST(E2EWriterTests, MaxFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   b::row row;
   for (int32_t i = 0; i < keyLimit; ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
   }
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
-  auto batch = createRowVector(&pool, type, 1, b::create(pool, b::rows{row}));
+  auto batch =
+      createRowVector(pool.get(), type, 1, b::create(*pool, b::rows{row}));
 
   auto config = std::make_shared<Config>();
   config->set(Config::FLATTEN_MAP, true);
@@ -212,7 +209,7 @@ TEST(E2EWriterTests, MaxFlatMapKeys) {
   config->set(Config::MAP_FLAT_MAX_KEYS, keyLimit);
 
   E2EWriterTestUtil::testWriter(
-      pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config);
+      *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config);
 }
 
 TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
@@ -222,19 +219,19 @@ TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
 
   const auto randomStart = Random::rand32(100);
 
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
   b::row row;
   row.push_back(b::pair{randomStart, Random::rand64()});
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
-  auto batch = createRowVector(&pool, type, 1, b::create(pool, b::rows{row}));
+  auto batch =
+      createRowVector(pool.get(), type, 1, b::create(*pool, b::rows{row}));
 
   auto config = std::make_shared<Config>();
   config->set(Config::FLATTEN_MAP, true);
   config->set(Config::MAP_FLAT_COLS, {0});
 
-  auto sink = std::make_unique<MemorySink>(pool, 200 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(*pool, 200 * 1024 * 1024);
   auto sinkPtr = sink.get();
 
   auto writer = E2EWriterTestUtil::writeData(
@@ -273,15 +270,15 @@ TEST(E2EWriterTests, TooManyFlatMapKeys) {
   const uint32_t keyLimit = 2000;
   const auto randomStart = Random::rand32(100);
 
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   b::row row;
   for (int32_t i = 0; i < (keyLimit + 1); ++i) {
     row.push_back(b::pair{randomStart + i, Random::rand64()});
   }
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
-  auto batch = createRowVector(&pool, type, 1, b::create(pool, b::rows{row}));
+  auto batch =
+      createRowVector(pool.get(), type, 1, b::create(*pool, b::rows{row}));
 
   auto config = std::make_shared<Config>();
   config->set(Config::FLATTEN_MAP, true);
@@ -290,13 +287,12 @@ TEST(E2EWriterTests, TooManyFlatMapKeys) {
 
   EXPECT_THROW(
       E2EWriterTestUtil::testWriter(
-          pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config),
+          *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config),
       exception::LoggedException);
 }
 
 TEST(E2EWriterTests, FlatMapBackfill) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -326,14 +322,17 @@ TEST(E2EWriterTests, FlatMapBackfill) {
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
   auto rowCount = rows.size();
-  auto batch =
-      createRowVector(&pool, type, rowCount, b::create(pool, std::move(rows)));
+  auto batch = createRowVector(
+      pool.get(), type, rowCount, b::create(*pool, std::move(rows)));
   batches.push_back(batch);
 
   // This extra batch is forcing another write call in the same (partial)
   // stride. This tests the backfill of partial strides.
   batch = createRowVector(
-      &pool, type, 1, b::create(pool, {b::row{b::pair{4, Random::rand64()}}}));
+      pool.get(),
+      type,
+      1,
+      b::create(*pool, {b::row{b::pair{4, Random::rand64()}}}));
   batches.push_back(batch);
   // TODO: Add another batch inside last stride, to test for backfill in stride.
 
@@ -343,7 +342,7 @@ TEST(E2EWriterTests, FlatMapBackfill) {
   config->set(Config::ROW_INDEX_STRIDE, strideSize);
 
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       batches,
       1,
@@ -356,8 +355,7 @@ void testFlatMapWithNulls(
     bool firstRowNotNull,
     bool enableFlatmapDictionaryEncoding = false,
     bool shareDictionary = false) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -379,8 +377,8 @@ void testFlatMapWithNulls(
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
   auto rowCount = rows.size();
-  auto batch =
-      createRowVector(&pool, type, rowCount, b::create(pool, std::move(rows)));
+  auto batch = createRowVector(
+      pool.get(), type, rowCount, b::create(*pool, std::move(rows)));
   batches.push_back(batch);
 
   auto config = std::make_shared<Config>();
@@ -392,7 +390,7 @@ void testFlatMapWithNulls(
   config->set(Config::MAP_FLAT_DICT_SHARE, shareDictionary);
 
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       batches,
       1,
@@ -424,8 +422,7 @@ TEST(E2EWriterTests, FlatMapWithNullsSharedDict) {
 }
 
 TEST(E2EWriterTests, FlatMapEmpty) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
 
   using keyType = int32_t;
   using valueType = int32_t;
@@ -446,8 +443,8 @@ TEST(E2EWriterTests, FlatMapEmpty) {
 
   const auto type = CppToType<Row<Map<keyType, valueType>>>::create();
   auto rowCount = rows.size();
-  auto batch =
-      createRowVector(&pool, type, rowCount, b::create(pool, std::move(rows)));
+  auto batch = createRowVector(
+      pool.get(), type, rowCount, b::create(*pool, std::move(rows)));
   batches.push_back(batch);
 
   auto config = std::make_shared<Config>();
@@ -456,7 +453,7 @@ TEST(E2EWriterTests, FlatMapEmpty) {
   config->set(Config::ROW_INDEX_STRIDE, strideSize);
 
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       batches,
       1,
@@ -469,8 +466,7 @@ void testFlatMapConfig(
     std::shared_ptr<const Type> type,
     const std::vector<uint32_t>& mapColumnIds,
     const std::unordered_set<uint32_t>& expectedNodeIds) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   size_t size = 100;
   size_t stripes = 3;
 
@@ -480,16 +476,16 @@ void testFlatMapConfig(
   config->set<const std::vector<uint32_t>>(Config::MAP_FLAT_COLS, mapColumnIds);
   config->set(Config::MAP_STATISTICS, true);
 
-  auto sink = std::make_unique<MemorySink>(pool, 200 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(*pool, 200 * 1024 * 1024);
   auto sinkPtr = sink.get();
 
   WriterOptions options;
   options.config = config;
   options.schema = type;
-  Writer writer{options, std::move(sink), pool};
+  Writer writer{options, std::move(sink), *pool};
 
   for (size_t i = 0; i < stripes; ++i) {
-    writer.write(BatchMaker::createBatch(type, size, pool, nullptr, i));
+    writer.write(BatchMaker::createBatch(type, size, *pool, nullptr, i));
   }
 
   writer.close();
@@ -584,24 +580,23 @@ TEST(E2EWriterTests, PartialStride) {
   HiveTypeParser parser;
   auto type = parser.parse("struct<bool_val:int>");
 
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = *scopedPool;
+  auto pool = memory::getDefaultMemoryPool();
   size_t size = 1'000;
 
   auto config = std::make_shared<Config>();
-  auto sink = std::make_unique<MemorySink>(pool, 2 * 1024 * 1024);
+  auto sink = std::make_unique<MemorySink>(*pool, 2 * 1024 * 1024);
   auto sinkPtr = sink.get();
 
   WriterOptions options;
   options.config = config;
   options.schema = type;
-  Writer writer{options, std::move(sink), pool};
+  Writer writer{options, std::move(sink), *pool};
 
-  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), &pool);
+  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool.get());
   auto* nullsPtr = nulls->asMutable<uint64_t>();
   size_t nullCount = 0;
 
-  auto values = AlignedBuffer::allocate<int32_t>(size, &pool);
+  auto values = AlignedBuffer::allocate<int32_t>(size, pool.get());
   auto* valuesPtr = values->asMutable<int32_t>();
 
   for (size_t i = 0; i < size; ++i) {
@@ -615,11 +610,11 @@ TEST(E2EWriterTests, PartialStride) {
   }
 
   auto batch = createRowVector(
-      &pool,
+      pool.get(),
       type,
       size,
       std::make_shared<FlatVector<int32_t>>(
-          &pool, nulls, size, values, std::vector<BufferPtr>()));
+          pool.get(), nulls, size, values, std::vector<BufferPtr>()));
 
   writer.write(batch);
   writer.close();
@@ -636,8 +631,7 @@ TEST(E2EWriterTests, PartialStride) {
 }
 
 TEST(E2EWriterTests, OversizeRows) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -659,10 +653,10 @@ TEST(E2EWriterTests, OversizeRows) {
 
   // Retained bytes in vector: 44704
   auto singleBatch = E2EWriterTestUtil::generateBatches(
-      type, 1, 1, /* seed */ 1411367325, pool);
+      type, 1, 1, /* seed */ 1411367325, *pool);
 
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       singleBatch,
       1,
@@ -675,8 +669,7 @@ TEST(E2EWriterTests, OversizeRows) {
 }
 
 TEST(E2EWriterTests, OversizeBatches) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -692,10 +685,10 @@ TEST(E2EWriterTests, OversizeBatches) {
 
   // Test splitting a gigantic batch.
   auto singleBatch = E2EWriterTestUtil::generateBatches(
-      type, 1, 10000000, /* seed */ 1411367325, pool);
+      type, 1, 10000000, /* seed */ 1411367325, *pool);
   // A gigantic batch is split into 10 stripes.
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       singleBatch,
       10,
@@ -708,10 +701,10 @@ TEST(E2EWriterTests, OversizeBatches) {
 
   // Test splitting multiple huge batches.
   auto batches = E2EWriterTestUtil::generateBatches(
-      type, 3, 5000000, /* seed */ 1411367325, pool);
+      type, 3, 5000000, /* seed */ 1411367325, *pool);
   // 3 gigantic batches are split into 15~16 stripes.
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       batches,
       15,
@@ -724,8 +717,7 @@ TEST(E2EWriterTests, OversizeBatches) {
 }
 
 TEST(E2EWriterTests, OverflowLengthIncrements) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
 
   HiveTypeParser parser;
   auto type = parser.parse(
@@ -741,7 +733,7 @@ TEST(E2EWriterTests, OverflowLengthIncrements) {
 
   const size_t size = 1024;
 
-  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), &pool);
+  auto nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), pool.get());
   auto* nullsPtr = nulls->asMutable<uint64_t>();
   for (size_t i = 0; i < size; ++i) {
     // Only the first element is non-null
@@ -749,16 +741,21 @@ TEST(E2EWriterTests, OverflowLengthIncrements) {
   }
 
   // Bigint column
-  VectorMaker maker{&pool};
+  VectorMaker maker{pool.get()};
   auto child = maker.flatVector<int64_t>(std::vector<int64_t>{1UL});
 
   std::vector<VectorPtr> children{child};
   auto rowVec = std::make_shared<RowVector>(
-      &pool, type->childAt(0), nulls, size, children, /* nullCount */ size - 1);
+      pool.get(),
+      type->childAt(0),
+      nulls,
+      size,
+      children,
+      /* nullCount */ size - 1);
 
   // Retained bytes in vector: 192, which is much less than 1024
   auto vec = std::make_shared<RowVector>(
-      &pool,
+      pool.get(),
       type,
       BufferPtr{},
       size,
@@ -766,7 +763,7 @@ TEST(E2EWriterTests, OverflowLengthIncrements) {
       /* nullCount */ 0);
 
   E2EWriterTestUtil::testWriter(
-      pool,
+      *pool,
       type,
       {vec},
       1,
@@ -787,7 +784,7 @@ class E2EEncryptionTest : public Test {
       const std::shared_ptr<EncryptionSpecification>& spec,
       std::shared_ptr<DecrypterFactory> decrypterFactory =
           std::make_shared<TestDecrypterFactory>()) {
-    auto& pool = memory::getProcessDefaultMemoryManager().getRoot().addChild(
+    auto pool = memory::getProcessDefaultMemoryManager().getRoot().addChild(
         "encryption_test");
     HiveTypeParser parser;
     auto type = parser.parse(schema);
@@ -797,17 +794,17 @@ class E2EEncryptionTest : public Test {
     // make sure we always write dictionary to test stride index
     config->set(Config::DICTIONARY_STRING_KEY_SIZE_THRESHOLD, 1.0f);
     config->set(Config::ENTROPY_KEY_STRING_SIZE_THRESHOLD, 0.0f);
-    auto sink = std::make_unique<MemorySink>(pool, 16 * 1024 * 1024);
+    auto sink = std::make_unique<MemorySink>(*pool, 16 * 1024 * 1024);
     sink_ = sink.get();
     WriterOptions options;
     options.config = config;
     options.schema = type;
     options.encryptionSpec = spec;
     options.encrypterFactory = std::make_shared<TestEncrypterFactory>();
-    writer_ = std::make_unique<Writer>(options, std::move(sink), pool);
+    writer_ = std::make_unique<Writer>(options, std::move(sink), *pool);
 
     for (size_t i = 0; i < batchCount_; ++i) {
-      auto batch = BatchMaker::createBatch(type, batchSize_, pool, nullptr, i);
+      auto batch = BatchMaker::createBatch(type, batchSize_, *pool, nullptr, i);
       writer_->write(batch);
       batches_.push_back(std::move(batch));
       if (i % flushInterval_ == flushInterval_ - 1) {
@@ -1129,9 +1126,7 @@ VectorPtr createKeys(
 } // namespace
 
 TEST(E2EWriterTests, fuzzSimple) {
-  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
-      memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = memory::getDefaultMemoryPool();
   auto type = ROW({
       {"bool_val", BOOLEAN()},
       {"byte_val", TINYINT()},
@@ -1156,7 +1151,7 @@ TEST(E2EWriterTests, fuzzSimple) {
           .stringLength = 20,
           .stringVariableLength = true,
       },
-      &pool,
+      pool.get(),
       seed);
 
   VectorFuzzer hasNulls{
@@ -1166,23 +1161,21 @@ TEST(E2EWriterTests, fuzzSimple) {
           .stringLength = 10,
           .stringVariableLength = true,
       },
-      &pool,
+      pool.get(),
       seed};
 
   auto iterations = 20;
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
     testWriter(
-        pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
+        *pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
     testWriter(
-        pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
+        *pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
   }
 }
 
 TEST(E2EWriterTests, fuzzComplex) {
-  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
-      memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = memory::getDefaultMemoryPool();
   auto type = ROW({
       {"array", ARRAY(REAL())},
       {"map", MAP(INTEGER(), DOUBLE())},
@@ -1211,7 +1204,7 @@ TEST(E2EWriterTests, fuzzComplex) {
           .containerLength = 5,
           .containerVariableLength = true,
       },
-      &pool,
+      pool.get(),
       seed);
 
   VectorFuzzer hasNulls{
@@ -1223,23 +1216,21 @@ TEST(E2EWriterTests, fuzzComplex) {
           .containerLength = 5,
           .containerVariableLength = true,
       },
-      &pool,
+      pool.get(),
       seed};
 
   auto iterations = 20;
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
     testWriter(
-        pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
+        *pool, type, batches, [&]() { return noNulls.fuzzInputRow(type); });
     testWriter(
-        pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
+        *pool, type, batches, [&]() { return hasNulls.fuzzInputRow(type); });
   }
 }
 
 TEST(E2EWriterTests, fuzzFlatmap) {
-  std::unique_ptr<memory::ScopedMemoryPool> scopedPool =
-      memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = memory::getDefaultMemoryPool();
   auto type = ROW({
       {"flatmap1", MAP(INTEGER(), REAL())},
       {"flatmap2", MAP(VARCHAR(), ARRAY(REAL()))},
@@ -1263,13 +1254,13 @@ TEST(E2EWriterTests, fuzzFlatmap) {
           .containerLength = 5,
           .containerVariableLength = true,
       },
-      &pool,
+      pool.get(),
       seed);
 
   auto genMap = [&](auto type, auto size) {
-    auto offsets = allocateOffsets(size, &pool);
+    auto offsets = allocateOffsets(size, pool.get());
     auto rawOffsets = offsets->template asMutable<vector_size_t>();
-    auto sizes = allocateSizes(size, &pool);
+    auto sizes = allocateSizes(size, pool.get());
     auto rawSizes = sizes->template asMutable<vector_size_t>();
     vector_size_t childSize = 0;
     // flatmap doesn't like empty map
@@ -1289,18 +1280,18 @@ TEST(E2EWriterTests, fuzzFlatmap) {
             .containerLength = 5,
             .containerVariableLength = true,
         },
-        &pool,
+        pool.get(),
         seed);
 
     auto& mapType = type->asMap();
     VectorPtr vector = std::make_shared<MapVector>(
-        &pool,
+        pool.get(),
         type,
         nullptr,
         size,
         offsets,
         sizes,
-        createKeys(mapType.keyType(), pool, rng, childSize, 10),
+        createKeys(mapType.keyType(), *pool, rng, childSize, 10),
         valueFuzzer.fuzz(mapType.valueType()));
 
     if (folly::Random::oneIn(2, rng)) {
@@ -1316,12 +1307,12 @@ TEST(E2EWriterTests, fuzzFlatmap) {
     }
 
     return std::make_shared<RowVector>(
-        &pool, type, nullptr, batchSize, std::move(children));
+        pool.get(), type, nullptr, batchSize, std::move(children));
   };
 
   auto iterations = 20;
   auto batches = 20;
   for (auto i = 0; i < iterations; ++i) {
-    testWriter(pool, type, batches, gen, config);
+    testWriter(*pool, type, batches, gen, config);
   }
 }

@@ -126,13 +126,13 @@ class CodegenBenchmark : public CodegenTestCore {
   CodegenBenchmark() {
     CodegenTestCore::init();
     queryCtx = std::make_shared<core::QueryCtx>();
-    pool = memory::getDefaultScopedMemoryPool();
+    pool = memory::getDefaultMemoryPool();
     execCtx = std::make_unique<core::ExecCtx>(pool.get(), queryCtx_.get());
   }
 
   std::vector<BenchmarkInfo> templateBenchmarkInfo;
   std::shared_ptr<core::QueryCtx> queryCtx;
-  std::unique_ptr<memory::MemoryPool> pool;
+  std::shared_ptr<memory::MemoryPool> pool;
   std::unique_ptr<core::ExecCtx> execCtx;
   std::vector<BenchmarkInfo> benchmarkInfos;
   bool reusePlanNode = true;
@@ -605,4 +605,4 @@ class BenchmarkGTest : public CodegenTestBase {
     benchmark.compareResults();
   }
 };
-}
+} // namespace facebook::velox::codegen

@@ -64,10 +64,10 @@ class StripeLoadKeysTest : public Test {
 
     TestDecrypterFactory factory;
     auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
-    scopedPool_ = getDefaultScopedMemoryPool();
+    pool_ = getDefaultMemoryPool();
 
     reader_ = std::make_unique<ReaderBase>(
-        scopedPool_->getPool(),
+        *pool_,
         std::make_unique<MemoryInputStream>(nullptr, 0),
         nullptr,
         footer,
@@ -90,7 +90,7 @@ class StripeLoadKeysTest : public Test {
   std::shared_ptr<ReaderBase> reader_;
   std::unique_ptr<StripeReaderBase> stripeReader_;
   TestEncryption* enc_;
-  std::unique_ptr<ScopedMemoryPool> scopedPool_;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 } // namespace facebook::velox::dwrf

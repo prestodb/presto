@@ -187,8 +187,7 @@ class ArrowBridgeArrayExportTest : public testing::Test {
 
   // Boiler plate structures required by vectorMaker.
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   facebook::velox::test::VectorMaker vectorMaker_{execCtx_.pool()};
 };
@@ -1125,8 +1124,7 @@ class ArrowBridgeArrayImportTest : public ArrowBridgeArrayExportTest {
     EXPECT_NO_THROW(importFromArrow(arrowSchema, arrowArray, pool_.get()));
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 };
 
 class ArrowBridgeArrayImportAsViewerTest : public ArrowBridgeArrayImportTest {

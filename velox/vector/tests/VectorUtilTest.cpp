@@ -58,12 +58,12 @@ class VectorUtilTest : public testing::Test {
 
  protected:
   void SetUp() override {
-    pool_ = memoryManager_.getScopedPool();
+    pool_ = memoryManager_.getChild();
   }
 
   memory::MemoryManager<memory::MemoryAllocator, AlignedBuffer::kAlignment>
       memoryManager_;
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 using ScalarTypes =

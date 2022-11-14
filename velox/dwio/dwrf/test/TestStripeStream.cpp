@@ -102,8 +102,7 @@ StripeStreamsImpl createAndLoadStripeStreams(
 } // namespace
 
 TEST(StripeStream, planReads) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   footer->set_rowindexstride(100);
@@ -112,7 +111,7 @@ TEST(StripeStream, planReads) {
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::move(is),
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
@@ -145,8 +144,7 @@ TEST(StripeStream, planReads) {
 }
 
 TEST(StripeStream, filterSequences) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   footer->set_rowindexstride(100);
@@ -155,7 +153,7 @@ TEST(StripeStream, filterSequences) {
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::move(is),
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
@@ -202,8 +200,7 @@ TEST(StripeStream, filterSequences) {
 }
 
 TEST(StripeStream, zeroLength) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
   auto footer = google::protobuf::Arena::CreateMessage<proto::Footer>(&arena);
   footer->set_rowindexstride(100);
@@ -215,7 +212,7 @@ TEST(StripeStream, zeroLength) {
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::move(is),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
@@ -256,8 +253,7 @@ TEST(StripeStream, zeroLength) {
 }
 
 TEST(StripeStream, planReadsIndex) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
 
   // build ps
@@ -283,7 +279,7 @@ TEST(StripeStream, planReadsIndex) {
 
   // build cache
   std::string str(buffer.str());
-  auto cacheBuffer = std::make_shared<DataBuffer<char>>(pool, str.size());
+  auto cacheBuffer = std::make_shared<DataBuffer<char>>(*pool, str.size());
   memcpy(cacheBuffer->data(), str.data(), str.size());
   auto cache = std::make_unique<StripeMetadataCache>(
       StripeCacheMode::INDEX, FooterWrapper(footer), std::move(cacheBuffer));
@@ -291,7 +287,7 @@ TEST(StripeStream, planReadsIndex) {
   auto is = std::make_unique<RecordingInputStream>();
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::move(is),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
@@ -361,8 +357,7 @@ void addNode(T& t, uint32_t node, uint32_t offset = 0) {
 }
 
 TEST(StripeStream, readEncryptedStreams) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
   proto::PostScript ps;
   ps.set_compression(proto::CompressionKind::ZSTD);
@@ -389,7 +384,7 @@ TEST(StripeStream, readEncryptedStreams) {
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
   TestEncrypter encrypter;
 
-  ProtoWriter pw{pool};
+  ProtoWriter pw{*pool};
   auto stripeFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena);
   addNode(*stripeFooter, 1);
@@ -406,7 +401,7 @@ TEST(StripeStream, readEncryptedStreams) {
   *stripeFooter->add_encryptiongroups() = "";
 
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::make_unique<MemoryInputStream>(nullptr, 0),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
@@ -436,8 +431,7 @@ TEST(StripeStream, readEncryptedStreams) {
 }
 
 TEST(StripeStream, schemaMismatch) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = getDefaultMemoryPool();
   google::protobuf::Arena arena;
   proto::PostScript ps;
   ps.set_compression(proto::CompressionKind::ZSTD);
@@ -459,7 +453,7 @@ TEST(StripeStream, schemaMismatch) {
   auto handler = DecryptionHandler::create(FooterWrapper(footer), &factory);
   TestEncrypter encrypter;
 
-  ProtoWriter pw{pool};
+  ProtoWriter pw{*pool};
   auto stripeFooter =
       google::protobuf::Arena::CreateMessage<proto::StripeFooter>(&arena);
   addNode(*stripeFooter, 1);
@@ -471,7 +465,7 @@ TEST(StripeStream, schemaMismatch) {
   pw.writeProto(*stripeFooter->add_encryptiongroups(), group, encrypter);
 
   auto readerBase = std::make_shared<ReaderBase>(
-      pool,
+      *pool,
       std::make_unique<MemoryInputStream>(nullptr, 0),
       std::make_unique<PostScript>(std::move(ps)),
       footer,

@@ -117,8 +117,7 @@ void ExpressionRunner::run(
   VELOX_CHECK(!sql.empty());
 
   std::shared_ptr<core::QueryCtx> queryCtx{std::make_shared<core::QueryCtx>()};
-  std::unique_ptr<memory::MemoryPool> pool{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool{memory::getDefaultMemoryPool()};
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   RowVectorPtr inputVector;

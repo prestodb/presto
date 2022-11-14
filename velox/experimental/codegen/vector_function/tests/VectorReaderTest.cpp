@@ -26,10 +26,9 @@ TEST(VectorReader, ReadDoublesVectors) {
   auto inRowType = ROW({"columnA", "columnB"}, {DOUBLE(), DOUBLE()});
   auto outRowType = ROW({"expr1", "expr2"}, {DOUBLE(), DOUBLE()});
 
-  auto pool_ = memory::getDefaultScopedMemoryPool();
-  auto pool = pool_.get();
-  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool);
-  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool);
+  auto pool = memory::getDefaultMemoryPool();
+  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool.get());
+  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool.get());
 
   VectorPtr& in1 = inRowVector->as<RowVector>()->childAt(0);
 
@@ -55,15 +54,14 @@ TEST(VectorReader, ReadDoublesVectors) {
 
 TEST(VectorReader, ReadBoolVectors) {
   // TODO: Move those to test class
-  auto pool_ = memory::getDefaultScopedMemoryPool();
-  auto pool = pool_.get();
+  auto pool = memory::getDefaultMemoryPool();
   const size_t vectorSize = 1000;
 
   auto inRowType = ROW({"columnA", "columnB"}, {BOOLEAN(), BOOLEAN()});
   auto outRowType = ROW({"expr1", "expr2"}, {BOOLEAN(), BOOLEAN()});
 
-  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool);
-  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool);
+  auto inRowVector = BaseVector::create(inRowType, vectorSize, pool.get());
+  auto outRowVector = BaseVector::create(outRowType, vectorSize, pool.get());
 
   VectorPtr& inputVector = inRowVector->as<RowVector>()->childAt(0);
   inputVector->resize(vectorSize);

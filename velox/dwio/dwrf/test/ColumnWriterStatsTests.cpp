@@ -206,9 +206,9 @@ void verifyTypeStats(
 class ColumnWriterStatsTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    scopedPool = getDefaultScopedMemoryPool();
+    pool_ = getDefaultMemoryPool();
   }
-  std::unique_ptr<ScopedMemoryPool> scopedPool;
+  std::shared_ptr<MemoryPool> pool_;
 };
 
 template <typename T>
@@ -248,8 +248,7 @@ TEST_F(ColumnWriterStatsTest, Bool) {
     *vector = makeFlatVector<bool>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{size, size};
   };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<bool_val:boolean>", populateBoolBatch);
+  verifyTypeStats(*pool_, "struct<bool_val:boolean>", populateBoolBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, TinyInt) {
@@ -276,8 +275,7 @@ TEST_F(ColumnWriterStatsTest, TinyInt) {
     *vector = makeFlatVector<int8_t>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{size, size};
   };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<byte_val:tinyint>", populateTinyIntBatch);
+  verifyTypeStats(*pool_, "struct<byte_val:tinyint>", populateTinyIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, SmallInt) {
@@ -306,10 +304,7 @@ TEST_F(ColumnWriterStatsTest, SmallInt) {
     *vector = makeFlatVector<int16_t>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(
-      scopedPool->getPool(),
-      "struct<small_val:smallint>",
-      populateSmallIntBatch);
+  verifyTypeStats(*pool_, "struct<small_val:smallint>", populateSmallIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Int) {
@@ -336,8 +331,7 @@ TEST_F(ColumnWriterStatsTest, Int) {
     *vector = makeFlatVector<int32_t>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<int_val:int>", populateIntBatch);
+  verifyTypeStats(*pool_, "struct<int_val:int>", populateIntBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Long) {
@@ -366,8 +360,7 @@ TEST_F(ColumnWriterStatsTest, Long) {
     *vector = makeFlatVector<int64_t>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<long_val:bigint>", populateLongBatch);
+  verifyTypeStats(*pool_, "struct<long_val:bigint>", populateLongBatch);
 }
 
 auto populateFloatBatch = [](MemoryPool& pool, VectorPtr* vector, size_t size) {
@@ -394,8 +387,7 @@ auto populateFloatBatch = [](MemoryPool& pool, VectorPtr* vector, size_t size) {
 };
 
 TEST_F(ColumnWriterStatsTest, Float) {
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<float_val:float>", populateFloatBatch);
+  verifyTypeStats(*pool_, "struct<float_val:float>", populateFloatBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Double) {
@@ -424,12 +416,11 @@ TEST_F(ColumnWriterStatsTest, Double) {
     *vector = makeFlatVector<double>(pool, nulls, nullCount, size, values);
     return std::vector<size_t>{totalSize, totalSize};
   };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<long_val:double>", populateDoubleBatch);
+  verifyTypeStats(*pool_, "struct<long_val:double>", populateDoubleBatch);
 }
 
 TEST(ColumnWriterStats, String) {
-  auto scopedPool = getDefaultScopedMemoryPool();
+  auto pool = getDefaultMemoryPool();
   auto populateStringBatch =
       [](MemoryPool& pool, VectorPtr* vector, size_t size) {
         std::mt19937 gen{};
@@ -446,12 +437,11 @@ TEST(ColumnWriterStats, String) {
         }
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<string_val:string>", populateStringBatch);
+  verifyTypeStats(*pool, "struct<string_val:string>", populateStringBatch);
 }
 
 TEST(ColumnWriterStats, Binary) {
-  auto scopedPool = getDefaultScopedMemoryPool();
+  auto pool = getDefaultMemoryPool();
   auto populateBinaryBatch =
       [](MemoryPool& pool, VectorPtr* vector, size_t size) {
         std::mt19937 gen{};
@@ -468,8 +458,7 @@ TEST(ColumnWriterStats, Binary) {
         }
         return std::vector<size_t>{totalSize, totalSize};
       };
-  verifyTypeStats(
-      scopedPool->getPool(), "struct<binary_val:binary>", populateBinaryBatch);
+  verifyTypeStats(*pool, "struct<binary_val:binary>", populateBinaryBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Timestamp) {
@@ -499,9 +488,7 @@ TEST_F(ColumnWriterStatsTest, Timestamp) {
     return std::vector<size_t>{totalSize, totalSize};
   };
   verifyTypeStats(
-      scopedPool->getPool(),
-      "struct<timestamp_val:timestamp>",
-      populateTimestampBatch);
+      *pool_, "struct<timestamp_val:timestamp>", populateTimestampBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, List) {
@@ -547,10 +534,7 @@ TEST_F(ColumnWriterStatsTest, List) {
     size_t totalSize = nullCount * NULL_SIZE + nodeSizePerStride.at(0);
     return std::vector<size_t>{totalSize, totalSize, nodeSizePerStride.at(0)};
   };
-  verifyTypeStats(
-      scopedPool->getPool(),
-      "struct<array_val:array<float>>",
-      populateListBatch);
+  verifyTypeStats(*pool_, "struct<array_val:array<float>>", populateListBatch);
 }
 
 TEST_F(ColumnWriterStatsTest, Map) {
@@ -602,13 +586,10 @@ TEST_F(ColumnWriterStatsTest, Map) {
     size_t totalSize = nullCount * NULL_SIZE + keySize + valueSize;
     return std::vector<size_t>{totalSize, totalSize, keySize, valueSize};
   };
-  verifyTypeStats(
-      scopedPool->getPool(),
-      "struct<map_val:map<int,float>>",
-      populateMapBatch);
+  verifyTypeStats(*pool_, "struct<map_val:map<int,float>>", populateMapBatch);
   const uint32_t FLAT_MAP_COL_ID = 0;
   verifyTypeStats(
-      scopedPool->getPool(),
+      *pool_,
       "struct<map_val:map<int,float>>",
       populateMapBatch,
       FLAT_MAP_COL_ID);
@@ -664,7 +645,7 @@ TEST_F(ColumnWriterStatsTest, Struct) {
     return nodeSizePerStride;
   };
   verifyTypeStats(
-      scopedPool->getPool(),
+      *pool_,
       "struct<struct_val:struct<a:float,b:float>>",
       populateStructBatch);
 }

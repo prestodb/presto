@@ -24,7 +24,7 @@ using namespace facebook::velox::exec;
 class VectorHasherTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = facebook::velox::memory::getDefaultScopedMemoryPool();
+    pool_ = facebook::velox::memory::getDefaultMemoryPool();
     allRows_ = SelectivityVector(100);
 
     oddRows_ = VectorHasherTest::makeOddRows(100);
@@ -152,7 +152,7 @@ class VectorHasherTest : public testing::Test {
         base);
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   SelectivityVector allRows_;
   SelectivityVector oddRows_;
   std::unique_ptr<test::VectorMaker> vectorMaker_;

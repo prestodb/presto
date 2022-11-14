@@ -54,8 +54,7 @@ class QueryPlannerTest : public testing::Test {
         std::vector<VectorPtr>{});
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
 };
 
 TEST_F(QueryPlannerTest, values) {

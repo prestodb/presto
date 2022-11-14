@@ -24,11 +24,10 @@ using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 
 BENCHMARK(DataBufferOps, iters) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
   constexpr size_t size = 1024 * 1024 * 16;
   for (size_t i = 0; i < iters; ++i) {
-    DataBuffer<int32_t> buf{pool};
+    DataBuffer<int32_t> buf{*pool};
     buf.reserve(size);
     for (size_t j = 0; j < size; ++j) {
       buf.unsafeAppend(j);
@@ -40,11 +39,10 @@ BENCHMARK(DataBufferOps, iters) {
 }
 
 BENCHMARK(ChainedBufferOps, iters) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
   constexpr size_t size = 1024 * 1024 * 16;
   for (size_t i = 0; i < iters; ++i) {
-    ChainedBuffer<int32_t> buf{pool, size, size * 4};
+    ChainedBuffer<int32_t> buf{*pool, size, size * 4};
     for (size_t j = 0; j < size; ++j) {
       buf.unsafeAppend(j);
     }

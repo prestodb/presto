@@ -434,8 +434,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     topTable_->erase(folly::Range<char**>(toErase.data(), toErase.size()));
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   memory::MappedMemory* mappedMemory_{memory::MappedMemory::getInstance()};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};

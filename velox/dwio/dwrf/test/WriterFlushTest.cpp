@@ -31,13 +31,13 @@ constexpr size_t kSizeMB = 1024 * 1024;
 } // namespace
 
 namespace facebook::velox::dwrf {
-class MockMemoryPool : public velox::memory::MemoryPoolBase {
+class MockMemoryPool : public velox::memory::MemoryPool {
  public:
   explicit MockMemoryPool(
       const std::string& name,
-      std::weak_ptr<MemoryPool> parent,
+      std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPoolBase{name, parent}, cap_{cap} {}
+      : MemoryPool{name, parent}, cap_{cap} {}
 
   // Methods not usually exposed by MemoryPool interface to
   // allow for manipulation.
@@ -55,8 +55,7 @@ class MockMemoryPool : public velox::memory::MemoryPoolBase {
   }
 
   static std::shared_ptr<MockMemoryPool> create() {
-    return std::make_shared<MockMemoryPool>(
-        "standalone_pool", std::weak_ptr<MockMemoryPool>());
+    return std::make_shared<MockMemoryPool>("standalone_pool", nullptr);
   }
 
   void* allocate(int64_t size) override {
@@ -97,7 +96,7 @@ class MockMemoryPool : public velox::memory::MemoryPoolBase {
   }
 
   // Get the cap for the memory node and its subtree.
-  int64_t getCap() const override {
+  int64_t cap() const override {
     return cap_;
   }
 
@@ -108,7 +107,7 @@ class MockMemoryPool : public velox::memory::MemoryPoolBase {
   }
 
   std::shared_ptr<MemoryPool> genChild(
-      std::weak_ptr<MemoryPool> parent,
+      std::shared_ptr<MemoryPool> parent,
       const std::string& name,
       int64_t cap) override {
     return std::make_shared<MockMemoryPool>(name, parent, cap);
@@ -138,11 +137,11 @@ class MockMemoryPool : public velox::memory::MemoryPoolBase {
 // it.
 class DummyWriter : public velox::dwrf::Writer {
  public:
-  explicit DummyWriter(
+  DummyWriter(
       WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
-      memory::MemoryPool& pool)
-      : Writer{options, std::move(sink), pool} {}
+      std::shared_ptr<memory::MemoryPool> pool)
+      : Writer{options, std::move(sink), *pool}, pool_(std::move(pool)) {}
 
   MOCK_METHOD1(
       flushImpl,
@@ -156,6 +155,9 @@ class DummyWriter : public velox::dwrf::Writer {
 
   friend class WriterFlushTestHelper;
   VELOX_FRIEND_TEST(TestWriterFlush, CheckAgainstMemoryBudget);
+
+ private:
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 // Big idea is to directly manipulate context states (num rows) + memory pool

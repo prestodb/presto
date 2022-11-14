@@ -25,12 +25,11 @@ using namespace facebook::velox::memory;
 using namespace facebook::velox::dwrf;
 
 TEST(BufferedOutputStream, blockAligned) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
   for (int32_t i = 0; i < 100; ++i) {
     char* buf;
@@ -50,12 +49,11 @@ TEST(BufferedOutputStream, blockAligned) {
 }
 
 TEST(BufferedOutputStream, blockNotAligned) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   char* buf;
@@ -96,12 +94,11 @@ TEST(BufferedOutputStream, blockNotAligned) {
 }
 
 TEST(BufferedOutputStream, protoBufSerialization) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
 
   uint64_t block = 10;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   proto::PostScript ps;
@@ -122,13 +119,12 @@ TEST(BufferedOutputStream, protoBufSerialization) {
 }
 
 TEST(BufferedOutputStream, increaseSize) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
 
   uint64_t max = 512;
   uint64_t min = 16;
-  DataBufferHolder holder{pool, max, min, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, max, min, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   char* buf;
@@ -178,13 +174,12 @@ TEST(BufferedOutputStream, increaseSize) {
 }
 
 TEST(BufferedOutputStream, recordPosition) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
   uint64_t block = 256;
   uint64_t initial = 128;
   DataBufferHolder holder{
-      pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
+      *pool, block, initial, DEFAULT_PAGE_GROW_RATIO, &memSink};
   BufferedOutputStream bufStream(holder);
 
   TestPositionRecorder recorder;
@@ -239,11 +234,10 @@ TEST(BufferedOutputStream, recordPosition) {
 }
 
 TEST(AppendOnlyBufferedStream, Basic) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink memSink(pool, 1024);
+  auto pool = getDefaultMemoryPool();
+  MemorySink memSink(*pool, 1024);
   uint64_t block = 10;
-  DataBufferHolder holder{pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
+  DataBufferHolder holder{*pool, block, 0, DEFAULT_PAGE_GROW_RATIO, &memSink};
   auto bufStream = std::make_unique<BufferedOutputStream>(holder);
   AppendOnlyBufferedStream appendable(std::move(bufStream));
 

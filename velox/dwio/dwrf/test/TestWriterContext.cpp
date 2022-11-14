@@ -23,57 +23,57 @@ using namespace ::testing;
 namespace facebook::velox::dwrf {
 TEST(TestWriterContext, GetIntDictionaryEncoder) {
   auto config = std::make_shared<Config>();
-  WriterContext context{config, memory::getDefaultScopedMemoryPool()};
+  WriterContext context{config, memory::getDefaultMemoryPool()};
 
   EXPECT_EQ(0, context.dictEncoders_.size());
   auto& intEncoder_1_0 = context.getIntDictionaryEncoder<int32_t>(
-      {1, 0}, context.dictionaryPool_, context.generalPool_);
+      {1, 0}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(1, context.dictEncoders_.size());
   ASSERT_EQ(1, intEncoder_1_0.refCount_);
 
   auto& duplicateCallResult_1_0 = context.getIntDictionaryEncoder<int32_t>(
-      {1, 0}, context.dictionaryPool_, context.generalPool_);
+      {1, 0}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(1, context.dictEncoders_.size());
   EXPECT_EQ(&intEncoder_1_0, &duplicateCallResult_1_0);
   EXPECT_EQ(2, intEncoder_1_0.refCount_);
 
   for (size_t i = 0; i < 40; ++i) {
     context.getIntDictionaryEncoder<int32_t>(
-        {1, 0}, context.dictionaryPool_, context.generalPool_);
+        {1, 0}, *context.dictionaryPool_, *context.generalPool_);
   }
   EXPECT_EQ(42, intEncoder_1_0.refCount_);
 
   // Ignore the mismatched type request.
   context.getIntDictionaryEncoder<int64_t>(
-      {1, 0}, context.dictionaryPool_, context.generalPool_);
+      {1, 0}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(1, context.dictEncoders_.size());
 
   context.getIntDictionaryEncoder<int32_t>(
-      {2, 0}, context.dictionaryPool_, context.generalPool_);
+      {2, 0}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(2, context.dictEncoders_.size());
 }
 
 TEST(TestWriterContext, RemoveIntDictionaryEncoderForNode) {
   auto config = std::make_shared<Config>();
   config->set(Config::MAP_FLAT_DICT_SHARE, false);
-  WriterContext context{config, memory::getDefaultScopedMemoryPool()};
+  WriterContext context{config, memory::getDefaultMemoryPool()};
 
   context.getIntDictionaryEncoder<int32_t>(
-      {1, 1}, context.dictionaryPool_, context.generalPool_);
+      {1, 1}, *context.dictionaryPool_, *context.generalPool_);
   context.getIntDictionaryEncoder<int32_t>(
-      {1, 2}, context.dictionaryPool_, context.generalPool_);
+      {1, 2}, *context.dictionaryPool_, *context.generalPool_);
   context.getIntDictionaryEncoder<int32_t>(
-      {1, 4}, context.dictionaryPool_, context.generalPool_);
+      {1, 4}, *context.dictionaryPool_, *context.generalPool_);
   context.getIntDictionaryEncoder<int32_t>(
-      {1, 5}, context.dictionaryPool_, context.generalPool_);
+      {1, 5}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(4, context.dictEncoders_.size());
 
   context.getIntDictionaryEncoder<int32_t>(
-      {2, 0}, context.dictionaryPool_, context.generalPool_);
+      {2, 0}, *context.dictionaryPool_, *context.generalPool_);
   context.getIntDictionaryEncoder<int32_t>(
-      {3, 1}, context.dictionaryPool_, context.generalPool_);
+      {3, 1}, *context.dictionaryPool_, *context.generalPool_);
   context.getIntDictionaryEncoder<int32_t>(
-      {3, 3}, context.dictionaryPool_, context.generalPool_);
+      {3, 3}, *context.dictionaryPool_, *context.generalPool_);
   EXPECT_EQ(7, context.dictEncoders_.size());
 
   context.removeAllIntDictionaryEncodersOnNode(

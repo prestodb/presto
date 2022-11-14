@@ -232,7 +232,7 @@ TEST(RowsPerStripeFlushPolicyTest, InvalidCases) {
 // RowsPerStripeFlushPolicy has no dictionary flush criteria.
 TEST(RowsPerSTripeFlushPolicyTest, DictionaryCriteriaTest) {
   auto config = std::make_shared<Config>();
-  WriterContext context{config, getDefaultScopedMemoryPool()};
+  WriterContext context{config, getDefaultMemoryPool()};
 
   RowsPerStripeFlushPolicy policy({42});
   EXPECT_EQ(

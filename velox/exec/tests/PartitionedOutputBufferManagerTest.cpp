@@ -29,7 +29,7 @@ using facebook::velox::test::BatchMaker;
 class PartitionedOutputBufferManagerTest : public testing::Test {
  protected:
   void SetUp() override {
-    pool_ = facebook::velox::memory::getDefaultScopedMemoryPool();
+    pool_ = facebook::velox::memory::getDefaultMemoryPool();
     mappedMemory_ = memory::MappedMemory::getInstance();
     bufferManager_ = PartitionedOutputBufferManager::getInstance().lock();
     if (!isRegisteredVectorSerde()) {
@@ -230,7 +230,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
   std::shared_ptr<folly::Executor> executor_{
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
-  std::unique_ptr<facebook::velox::memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> pool_;
   memory::MappedMemory* mappedMemory_;
   std::shared_ptr<PartitionedOutputBufferManager> bufferManager_;
 };

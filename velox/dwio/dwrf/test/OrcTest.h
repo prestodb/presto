@@ -39,7 +39,7 @@ inline std::string getExampleFilePath(const std::string& fileName) {
 
 class MockStripeStreams : public StripeStreams {
  public:
-  MockStripeStreams() : scopedPool_{memory::getDefaultScopedMemoryPool()} {};
+  MockStripeStreams() : pool_{memory::getDefaultMemoryPool()} {};
   ~MockStripeStreams() = default;
 
   std::unique_ptr<dwio::common::SeekableInputStream> getStream(
@@ -105,7 +105,7 @@ class MockStripeStreams : public StripeStreams {
   }
 
   MemoryPool& getMemoryPool() const override {
-    return scopedPool_->getPool();
+    return *pool_;
   }
 
   const StrideIndexProvider& getStrideIndexProvider() const override {
@@ -118,7 +118,7 @@ class MockStripeStreams : public StripeStreams {
   }
 
  private:
-  std::unique_ptr<memory::ScopedMemoryPool> scopedPool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   dwio::common::RowReaderOptions options_;
 };
 
@@ -228,8 +228,7 @@ class ProtoWriter : public WriterBase {
  public:
   ProtoWriter(memory::MemoryPool& pool)
       : WriterBase{std::make_unique<dwio::common::MemorySink>(pool, 1024)} {
-    initContext(
-        std::make_shared<Config>(), pool.addScopedChild("proto_writer"));
+    initContext(std::make_shared<Config>(), pool.addChild("proto_writer"));
   }
 
   template <typename T>

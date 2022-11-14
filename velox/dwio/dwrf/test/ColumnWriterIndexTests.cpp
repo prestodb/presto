@@ -268,7 +268,7 @@ class WriterEncodingIndexTest2 {
  public:
   WriterEncodingIndexTest2()
       : config_{std::make_shared<Config>()},
-        scopedPool_{facebook::velox::memory::getDefaultScopedMemoryPool()} {}
+        pool_{facebook::velox::memory::getDefaultMemoryPool()} {}
 
   virtual ~WriterEncodingIndexTest2() = default;
 
@@ -295,7 +295,7 @@ class WriterEncodingIndexTest2 {
       size_t flatMapOffset = 0) {
     auto isFlatMap = isRoot && flatMapOffset > 0;
     ASSERT_EQ(recordPositionCount.size(), backfillPositionCount.size());
-    WriterContext context{config_, velox::memory::getDefaultScopedMemoryPool()};
+    WriterContext context{config_, velox::memory::getDefaultMemoryPool()};
     std::vector<StrictMock<MockIndexBuilder>*> mocks;
     for (auto i = 0; i < recordPositionCount.size(); ++i) {
       mocks.push_back(new StrictMock<MockIndexBuilder>());
@@ -318,7 +318,7 @@ class WriterEncodingIndexTest2 {
     };
     auto type = CppToType<Type>::create();
     auto typeWithId = TypeWithId::create(type, isRoot ? 0 : 1);
-    auto batch = prepBatch(1000, &scopedPool_->getPool(), isRoot);
+    auto batch = prepBatch(1000, pool_.get(), isRoot);
 
     // Creating a stream calls recordPosition.
     for (auto n = 0; n < mocks.size(); ++n) {
@@ -398,7 +398,7 @@ class WriterEncodingIndexTest2 {
   }
 
   std::shared_ptr<Config> config_;
-  std::unique_ptr<facebook::velox::memory::ScopedMemoryPool> scopedPool_;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> pool_;
 };
 
 class TimestampWriterIndexTest : public testing::Test,
@@ -410,7 +410,7 @@ class TimestampWriterIndexTest : public testing::Test,
   VectorPtr prepBatch(size_t size, MemoryPool* pool) override {
     return prepBatchImpl<Timestamp>(
         size,
-        &scopedPool_->getPool(),
+        pool_.get(),
         [](size_t i, size_t /*unused*/) -> Timestamp {
           return Timestamp(i, i);
         },
@@ -655,7 +655,7 @@ TYPED_TEST(FloatColumnWriterEncodingIndexTest, TestIndex) {
 class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
  public:
   explicit IntegerColumnWriterDirectEncodingIndexTest(bool abandonDict = false)
-      : pool_{memory::getDefaultScopedMemoryPool()},
+      : pool_{memory::getDefaultMemoryPool()},
         config_{std::make_shared<Config>()},
         abandonDict_{abandonDict} {
     config_->set(
@@ -694,7 +694,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
       size_t positionCount,
       size_t stripeCount,
       std::function<bool(size_t, size_t)> callAbandonDict) {
-    WriterContext context{config_, velox::memory::getDefaultScopedMemoryPool()};
+    WriterContext context{config_, velox::memory::getDefaultMemoryPool()};
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -819,7 +819,7 @@ class IntegerColumnWriterDirectEncodingIndexTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<Config> config_;
   bool abandonDict_;
 };
@@ -858,7 +858,7 @@ TEST_F(IntegerColumnWriterAbandonDictionaryIndexTest, AbandonDictionary) {
 class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
  public:
   explicit StringColumnWriterDictionaryEncodingIndexTest()
-      : pool_{memory::getDefaultScopedMemoryPool()},
+      : pool_{memory::getDefaultMemoryPool()},
         config_{std::make_shared<Config>()} {
     config_->set(
         Config::STRING_STATS_LIMIT, std::numeric_limits<uint32_t>::max());
@@ -881,7 +881,7 @@ class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
   }
 
   void runTest(size_t pageCount, size_t positionCount, size_t stripeCount) {
-    WriterContext context{config_, velox::memory::getDefaultScopedMemoryPool()};
+    WriterContext context{config_, velox::memory::getDefaultMemoryPool()};
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -934,7 +934,7 @@ class StringColumnWriterDictionaryEncodingIndexTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<Config> config_;
 };
 
@@ -957,7 +957,7 @@ TEST_F(StringColumnWriterDictionaryEncodingIndexTest, OmitInDictStream) {
 class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
  public:
   explicit StringColumnWriterDirectEncodingIndexTest(bool abandonDict = false)
-      : pool_{memory::getDefaultScopedMemoryPool()},
+      : pool_{memory::getDefaultMemoryPool()},
         config_{std::make_shared<Config>()},
         abandonDict_{abandonDict} {
     config_->set(
@@ -984,7 +984,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
       size_t positionCount,
       size_t stripeCount,
       std::function<bool(size_t, size_t)> callAbandonDict = neverAbandonDict) {
-    WriterContext context{config_, velox::memory::getDefaultScopedMemoryPool()};
+    WriterContext context{config_, velox::memory::getDefaultMemoryPool()};
     auto mockIndexBuilder = std::make_unique<StrictMock<MockIndexBuilder>>();
     auto mockIndexBuilderPtr = mockIndexBuilder.get();
     context.indexBuilderFactory_ = [&](auto /* unused */) {
@@ -1108,7 +1108,7 @@ class StringColumnWriterDirectEncodingIndexTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<Config> config_;
   bool abandonDict_;
 };

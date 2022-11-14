@@ -57,7 +57,7 @@ class GenerateAstTest : public CodegenTestBase {
     registerVeloxArithmeticUDFs(udfManager_);
     useBuiltInForArithmetic_ = false;
 
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
 
     rowType_ = ROW({"c0", "c1", "c2"}, {DOUBLE(), DOUBLE(), DOUBLE()});
 
@@ -78,7 +78,7 @@ class GenerateAstTest : public CodegenTestBase {
         valueNode);
   };
 
-  std::unique_ptr<facebook::velox::memory::MemoryPool> pool_;
+  std::shared_ptr<facebook::velox::memory::MemoryPool> pool_;
 
   std::shared_ptr<ProjectNode> project_;
   std::shared_ptr<const RowType> rowType_;

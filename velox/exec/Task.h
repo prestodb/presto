@@ -730,11 +730,11 @@ class Task : public std::enable_shared_from_this<Task> {
   // Root MemoryPool for this Task. All member variables that hold references
   // to pool_ must be defined after pool_, childPools_, and
   // childMappedMemories_
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 
   // Keep driver and operator memory pools alive for the duration of the task
   // to allow for sharing vectors across drivers without copy.
-  std::vector<std::unique_ptr<memory::MemoryPool>> childPools_;
+  std::vector<std::shared_ptr<memory::MemoryPool>> childPools_;
 
   // The map from plan node it to the corresponding memory pool object's raw
   // pointer.

@@ -24,7 +24,7 @@ TEST(LayoutPlannerTests, Basic) {
   config->set(
       Config::COMPRESSION, dwio::common::CompressionKind::CompressionKind_NONE);
   WriterContext context{
-      config, facebook::velox::memory::getDefaultScopedMemoryPool()};
+      config, facebook::velox::memory::getDefaultMemoryPool()};
   // fake streams
   std::vector<DwrfStreamIdentifier> streams;
   streams.reserve(10);

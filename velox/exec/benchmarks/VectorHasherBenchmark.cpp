@@ -52,8 +52,7 @@ class BenchmarkBase {
   }
 
  private:
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   VectorMaker vectorMaker_{pool_.get()};
 };
 

@@ -70,7 +70,7 @@ template <typename T>
 class UnsafeRowVectorDeserializerTest : public ::testing::Test {
  public:
   UnsafeRowVectorDeserializerTest()
-      : pool_(memory::getDefaultScopedMemoryPool()),
+      : pool_(memory::getDefaultMemoryPool()),
         bufferPtr(AlignedBuffer::allocate<char>(1024, pool_.get(), true)),
         buffer(bufferPtr->asMutable<char>()) {}
 
@@ -120,7 +120,7 @@ class UnsafeRowVectorDeserializerTest : public ::testing::Test {
     return testing::AssertionSuccess();
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 
   BufferPtr bufferPtr;
 
@@ -925,8 +925,7 @@ class UnsafeRowComplexDeserializerTests : public exec::test::OperatorTestBase {
         {intVector, stringVector, intArrayVector, stringArrayVector});
   }
 
-  std::unique_ptr<memory::ScopedMemoryPool> pool_ =
-      memory::getDefaultScopedMemoryPool();
+  std::shared_ptr<memory::MemoryPool> pool_ = memory::getDefaultMemoryPool();
   std::array<char[1024], kMaxBuffers> buffers_{};
 };
 

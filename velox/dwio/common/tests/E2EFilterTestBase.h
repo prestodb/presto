@@ -79,7 +79,7 @@ class E2EFilterTestBase : public testing::Test {
   static constexpr int32_t kRowsInGroup = 10'000;
 
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
   }
 
   static bool typeKindSupportsValueHook(TypeKind kind) {
@@ -277,7 +277,7 @@ class E2EFilterTestBase : public testing::Test {
 
   std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
   std::unique_ptr<common::FilterGenerator> filterGenerator_;
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<const RowType> rowType_;
   dwio::common::MemorySink* sinkPtr_;
   bool useVInts_ = true;

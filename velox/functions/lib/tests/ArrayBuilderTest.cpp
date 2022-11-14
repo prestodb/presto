@@ -26,7 +26,7 @@ namespace facebook::velox::functions::test {
 namespace {
 
 TEST(ArrayBuilder, zeroState) {
-  auto pool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   for (int arraySize : {0, 10, 100, 1000, 10000}) {
     auto arrays =
         ArrayBuilder<int32_t>(arraySize, 0, pool.get()).finish(pool.get());
@@ -43,7 +43,7 @@ TEST(ArrayBuilder, int32) {
   constexpr int kNumArrays = 100;
   for (int estimatedElementCount : {0, 10, 100, 1000}) {
     LOG(INFO) << "estimatedElementCount=" << estimatedElementCount;
-    auto pool = memory::getDefaultScopedMemoryPool();
+    auto pool = memory::getDefaultMemoryPool();
     ArrayBuilder<int32_t> builder(
         kNumArrays, estimatedElementCount, pool.get());
     int numElements = 0;
@@ -74,7 +74,7 @@ TEST(ArrayBuilder, bool) {
   constexpr int kNumArrays = 100;
   for (int estimatedElementCount : {0, 10, 100, 1000}) {
     LOG(INFO) << "estimatedElementCount=" << estimatedElementCount;
-    auto pool = memory::getDefaultScopedMemoryPool();
+    auto pool = memory::getDefaultMemoryPool();
     ArrayBuilder<bool> builder(kNumArrays, estimatedElementCount, pool.get());
     int numElements = 0;
     for (int i = 0; i < kNumArrays; ++i) {
@@ -104,7 +104,7 @@ TEST(ArrayBuilder, bool) {
 TEST(ArrayBuilder, Varchar) {
   constexpr int kNumArrays = 100;
   for (int estimatedElementCount : {0, 10, 100, 1000}) {
-    auto pool = memory::getDefaultScopedMemoryPool();
+    auto pool = memory::getDefaultMemoryPool();
     std::optional<StringViewBufferHolder> arena(pool.get());
     ArrayBuilder<Varchar> builder(
         kNumArrays, estimatedElementCount, pool.get());

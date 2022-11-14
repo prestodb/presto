@@ -64,8 +64,8 @@ int main(int argc, char** argv) {
   // pointer to this pool can be obtained using execCtx.pool().
   //
   // Optionally, one can control the per-thread memory cap by passing it as an
-  // argument to getDefaultScopedMemoryPool() - no limit by default.
-  auto pool = memory::getDefaultScopedMemoryPool();
+  // argument to getDefaultMemoryPool() - no limit by default.
+  auto pool = memory::getDefaultMemoryPool();
   core::ExecCtx execCtx{pool.get(), queryCtx.get()};
 
   // Next, let's create an expression tree to be executed in this example. On a

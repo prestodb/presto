@@ -22,25 +22,23 @@ using namespace facebook::velox::dwrf;
 using namespace facebook::velox::memory;
 
 TEST(DataBufferHolderTests, InputCheck) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ASSERT_THROW((DataBufferHolder{pool, 0}), exception::LoggedException);
+  auto pool = getDefaultMemoryPool();
+  ASSERT_THROW((DataBufferHolder{*pool, 0}), exception::LoggedException);
   ASSERT_THROW(
-      (DataBufferHolder{pool, 1024, 2048}), exception::LoggedException);
+      (DataBufferHolder{*pool, 1024, 2048}), exception::LoggedException);
   ASSERT_THROW(
-      (DataBufferHolder{pool, 1024, 1024, 1.1f}), exception::LoggedException);
+      (DataBufferHolder{*pool, 1024, 1024, 1.1f}), exception::LoggedException);
 
-  { DataBufferHolder holder{pool, 1024}; }
-  { DataBufferHolder holder{pool, 1024, 512}; }
-  { DataBufferHolder holder{pool, 1024, 512, 3.0f}; }
+  { DataBufferHolder holder{*pool, 1024}; }
+  { DataBufferHolder holder{*pool, 1024, 512}; }
+  { DataBufferHolder holder{*pool, 1024, 512, 3.0f}; }
 }
 
 TEST(DataBufferHolderTests, TakeAndGetBuffer) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  MemorySink sink{pool, 1024};
-  DataBufferHolder holder{pool, 1024, 0, 2.0f, &sink};
-  DataBuffer<char> buffer{pool, 512};
+  auto pool = getDefaultMemoryPool();
+  MemorySink sink{*pool, 1024};
+  DataBufferHolder holder{*pool, 1024, 0, 2.0f, &sink};
+  DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -60,11 +58,10 @@ TEST(DataBufferHolderTests, TakeAndGetBuffer) {
 }
 
 TEST(DataBufferHolderTests, TruncateBufferHolder) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  DataBufferHolder holder{pool, 1024};
+  auto pool = getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, 1024};
   constexpr size_t BUF_SIZE = 10;
-  DataBuffer<char> buffer{pool, BUF_SIZE};
+  DataBuffer<char> buffer{*pool, BUF_SIZE};
   std::memset(buffer.data(), 'a', BUF_SIZE);
   for (int32_t i = 0; i < 12; i++) {
     holder.take(buffer);
@@ -86,10 +83,9 @@ TEST(DataBufferHolderTests, TruncateBufferHolder) {
 }
 
 TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  DataBufferHolder holder{pool, 1024};
-  DataBuffer<char> buffer{pool, 512};
+  auto pool = getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, 1024};
+  DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -97,7 +93,7 @@ TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 1024);
 
-  DataBuffer<char> output{pool, 128};
+  DataBuffer<char> output{*pool, 128};
   holder.spill(output);
   ASSERT_EQ(output.size(), 1024);
   for (size_t i = 0; i < 512; ++i) {
@@ -117,10 +113,9 @@ TEST(DataBufferHolderTests, TakeAndGetBufferNoOutput) {
 }
 
 TEST(DataBufferHolderTests, Reset) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  DataBufferHolder holder{pool, 1024};
-  DataBuffer<char> buffer{pool, 512};
+  auto pool = getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, 1024};
+  DataBuffer<char> buffer{*pool, 512};
   std::memset(buffer.data(), 'a', 512);
   holder.take(buffer);
   ASSERT_EQ(holder.size(), 512);
@@ -132,9 +127,8 @@ TEST(DataBufferHolderTests, Reset) {
 }
 
 TEST(DataBufferHolderTests, TryResize) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  DataBufferHolder holder{pool, 1024, 128};
+  auto pool = getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, 1024, 128};
 
   auto runTest = [&pool, &holder](
                      uint64_t size,
@@ -143,7 +137,7 @@ TEST(DataBufferHolderTests, TryResize) {
                      uint64_t increment,
                      bool expected,
                      uint64_t expectedSize) {
-    DataBuffer<char> buffer{pool, size};
+    DataBuffer<char> buffer{*pool, size};
     ASSERT_EQ(size, buffer.size());
     if (capacity > size) {
       buffer.reserve(capacity);
@@ -248,10 +242,9 @@ TEST(DataBufferHolderTests, TryResize) {
 }
 
 TEST(DataBufferHolderTests, TestGrowRatio) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  DataBufferHolder holder{pool, 1024, 16, 4.0f};
-  DataBuffer<char> buffer{pool, 16};
+  auto pool = getDefaultMemoryPool();
+  DataBufferHolder holder{*pool, 1024, 16, 4.0f};
+  DataBuffer<char> buffer{*pool, 16};
   ASSERT_TRUE(holder.tryResize(buffer, 0, 1));
   ASSERT_EQ(buffer.size(), 64);
 }

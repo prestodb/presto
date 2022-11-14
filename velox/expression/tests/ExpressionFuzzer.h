@@ -137,8 +137,7 @@ class ExpressionFuzzer {
   std::unordered_map<std::string, ArgsOverrideFunc> funcArgOverrides_;
 
   std::shared_ptr<core::QueryCtx> queryCtx_{std::make_shared<core::QueryCtx>()};
-  std::unique_ptr<memory::MemoryPool> pool_{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   core::ExecCtx execCtx_{pool_.get(), queryCtx_.get()};
   test::ExpressionVerifier verifier_;
 

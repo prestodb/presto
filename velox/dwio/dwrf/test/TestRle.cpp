@@ -31,11 +31,11 @@ std::vector<int64_t> decodeRLEv2(
     size_t n,
     size_t count,
     const uint64_t* nulls = nullptr) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::make_unique<dwio::common::SeekableArrayInputStream>(bytes, l),
       RleVersion_2,
-      *scopedPool,
+      *pool,
       true /* doesn't matter */,
       dwio::common::INT_BYTE_SIZE /* doesn't matter */);
   std::vector<int64_t> results;
@@ -174,7 +174,7 @@ TEST(RLEv2, basicDelta4) {
 };
 
 TEST(RLEv2, delta0Width) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {
       0x4e, 0x2, 0x0, 0x1, 0x2, 0xc0, 0x2, 0x42, 0x0};
   std::unique_ptr<dwio::common::IntDecoder<false>> decoder =
@@ -183,7 +183,7 @@ TEST(RLEv2, delta0Width) {
               new dwio::common::SeekableArrayInputStream(
                   buffer, VELOX_ARRAY_SIZE(buffer))),
           RleVersion_2,
-          *scopedPool,
+          *pool,
           true /* doesn't matter */,
           dwio::common::INT_BYTE_SIZE /* doesn't matter */);
   int64_t values[6];
@@ -268,14 +268,14 @@ TEST(RLEv2, multiByteShortRepeats) {
 };
 
 TEST(RLEv2, 0to2Repeat1Direct) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0x46, 0x02, 0x02, 0x40};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
           new dwio::common::SeekableArrayInputStream(
               buffer, VELOX_ARRAY_SIZE(buffer))),
       RleVersion_2,
-      *scopedPool,
+      *pool,
       true /* doesn't matter */,
       dwio::common::INT_BYTE_SIZE /* doesn't matter */);
   std::vector<int64_t> data(3);
@@ -366,7 +366,7 @@ TEST(RLEv2, multipleRunsDirect) {
 };
 
 TEST(RLEv2, largeNegativesDirect) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {
       0x7e, 0x04, 0xcf, 0xca, 0xcc, 0x91, 0xba, 0x38, 0x93, 0xab, 0x00,
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -377,7 +377,7 @@ TEST(RLEv2, largeNegativesDirect) {
           new dwio::common::SeekableArrayInputStream(
               buffer, VELOX_ARRAY_SIZE(buffer))),
       RleVersion_2,
-      *scopedPool,
+      *pool,
       true /* doesn't matter */,
       dwio::common::INT_BYTE_SIZE /* doesn't matter */);
   std::vector<int64_t> data(5);
@@ -549,7 +549,7 @@ TEST(RLEv2, mixedPatchedAndShortRepeats) {
 };
 
 TEST(RLEv2, basicDirectSeek) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   // 0,1 repeated 10 times (signed ints) followed by
   // 0,2 repeated 10 times (signed ints)
   const unsigned char bytes[] = {
@@ -578,7 +578,7 @@ TEST(RLEv2, basicDirectSeek) {
       std::unique_ptr<dwio::common::SeekableInputStream>(
           new dwio::common::SeekableArrayInputStream(bytes, l)),
       RleVersion_2,
-      *scopedPool,
+      *pool,
       true /* doesn't matter */,
       dwio::common::INT_BYTE_SIZE /* doesn't matter */);
   std::vector<uint64_t> position;
@@ -601,7 +601,7 @@ TEST(RLEv2, basicDirectSeek) {
 };
 
 TEST(RLEv2, bitsLeftByPreviousStream) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   // test for #109
   // 118 DIRECT values, followed by PATHCED values
   const unsigned char bytes[] = {
@@ -654,7 +654,7 @@ TEST(RLEv2, bitsLeftByPreviousStream) {
       std::unique_ptr<dwio::common::SeekableInputStream>(
           new dwio::common::SeekableArrayInputStream(bytes, l)),
       RleVersion_2,
-      *scopedPool,
+      *pool,
       true /* doesn't matter */,
       dwio::common::INT_BYTE_SIZE /* doesn't matter */);
 
@@ -667,7 +667,7 @@ TEST(RLEv2, bitsLeftByPreviousStream) {
 };
 
 TEST(RLEv1, simpleTest) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {
       0x61, 0xff, 0x64, 0xfb, 0x02, 0x03, 0x5, 0x7, 0xb};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
@@ -676,7 +676,7 @@ TEST(RLEv1, simpleTest) {
               new dwio::common::SeekableArrayInputStream(
                   buffer, VELOX_ARRAY_SIZE(buffer))),
           RleVersion_1,
-          *scopedPool,
+          *pool,
           true,
           dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(105);
@@ -693,14 +693,14 @@ TEST(RLEv1, simpleTest) {
 };
 
 TEST(RLEv1, signedNullLiteralTest) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0xf8, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7};
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(
           new dwio::common::SeekableArrayInputStream(
               buffer, VELOX_ARRAY_SIZE(buffer))),
       RleVersion_1,
-      *scopedPool,
+      *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(8);
@@ -713,7 +713,7 @@ TEST(RLEv1, signedNullLiteralTest) {
 }
 
 TEST(RLEv1, splitHeader) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0x0, 0x00, 0xdc, 0xba, 0x98, 0x76};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(
@@ -721,7 +721,7 @@ TEST(RLEv1, splitHeader) {
               new dwio::common::SeekableArrayInputStream(
                   buffer, VELOX_ARRAY_SIZE(buffer), 4)),
           RleVersion_1,
-          *scopedPool,
+          *pool,
           true,
           dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(200);
@@ -733,7 +733,7 @@ TEST(RLEv1, splitHeader) {
 }
 
 TEST(RLEv1, splitRuns) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {
       0x7d, 0x01, 0xff, 0x01, 0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   dwio::common::SeekableInputStream* const stream =
@@ -743,7 +743,7 @@ TEST(RLEv1, splitRuns) {
       createRleDecoder<false>(
           std::unique_ptr<dwio::common::SeekableInputStream>(stream),
           RleVersion_1,
-          *scopedPool,
+          *pool,
           true,
           dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(200);
@@ -767,7 +767,7 @@ TEST(RLEv1, splitRuns) {
 }
 
 TEST(RLEv1, testSigned) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0x7f, 0xff, 0x20};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -775,7 +775,7 @@ TEST(RLEv1, testSigned) {
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(stream),
       RleVersion_1,
-      *scopedPool,
+      *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(100);
@@ -791,7 +791,7 @@ TEST(RLEv1, testSigned) {
 }
 
 TEST(RLEv1, testNull) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0x75, 0x02, 0x00};
   dwio::common::SeekableInputStream* const stream =
       new dwio::common::SeekableArrayInputStream(
@@ -799,7 +799,7 @@ TEST(RLEv1, testNull) {
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(stream),
       RleVersion_1,
-      *scopedPool,
+      *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(24);
@@ -823,7 +823,7 @@ TEST(RLEv1, testNull) {
 }
 
 TEST(RLEv1, testAllNulls) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0xf0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
                                   0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c,
                                   0x0d, 0x0e, 0x0f, 0x3d, 0x00, 0x12};
@@ -834,7 +834,7 @@ TEST(RLEv1, testAllNulls) {
       createRleDecoder<false>(
           std::unique_ptr<dwio::common::SeekableInputStream>(stream),
           RleVersion_1,
-          *scopedPool,
+          *pool,
           true,
           dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(16, -1);
@@ -863,7 +863,7 @@ TEST(RLEv1, testAllNulls) {
 }
 
 TEST(RLEv1, skipTest) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   // Create the RLE stream from Java's TestRunLengthIntegerEncoding.testSkips
   // for (size_t i = 0; i < 1024; ++i)
   //   out.write(i);
@@ -1086,7 +1086,7 @@ TEST(RLEv1, skipTest) {
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(stream),
       RleVersion_1,
-      *scopedPool,
+      *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(1);
@@ -1105,7 +1105,7 @@ TEST(RLEv1, skipTest) {
 }
 
 TEST(RLEv1, seekTest) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   // Create the RLE stream from Java's
   // TestRunLengthIntegerEncoding.testUncompressedSeek
   // for (size_t i = 0; i < 1024; ++i)
@@ -2966,7 +2966,7 @@ TEST(RLEv1, seekTest) {
   std::unique_ptr<dwio::common::IntDecoder<true>> rle = createRleDecoder<true>(
       std::unique_ptr<dwio::common::SeekableInputStream>(stream),
       RleVersion_1,
-      *scopedPool,
+      *pool,
       true,
       dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(2048);
@@ -3015,7 +3015,7 @@ TEST(RLEv1, seekTest) {
 }
 
 TEST(RLEv1, testLeadingNulls) {
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
   const unsigned char buffer[] = {0xfb, 0x01, 0x02, 0x03, 0x04, 0x05};
   std::unique_ptr<dwio::common::IntDecoder<false>> rle =
       createRleDecoder<false>(
@@ -3023,7 +3023,7 @@ TEST(RLEv1, testLeadingNulls) {
               new dwio::common::SeekableArrayInputStream(
                   buffer, VELOX_ARRAY_SIZE(buffer))),
           RleVersion_1,
-          *scopedPool,
+          *pool,
           true,
           dwio::common::INT_BYTE_SIZE);
   std::vector<int64_t> data(10);

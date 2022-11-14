@@ -117,8 +117,7 @@ TEST_F(Substrait2VeloxPlanConversionTest, q6) {
            VARCHAR(),
            VARCHAR(),
            VARCHAR()});
-  std::unique_ptr<memory::MemoryPool> pool{
-      memory::getDefaultScopedMemoryPool()};
+  std::shared_ptr<memory::MemoryPool> pool{memory::getDefaultMemoryPool()};
   std::vector<VectorPtr> vectors;
   // TPC-H lineitem table has 16 columns.
   int colNum = 16;

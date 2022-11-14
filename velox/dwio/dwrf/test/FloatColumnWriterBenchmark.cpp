@@ -41,18 +41,18 @@ void FloatColumnWriterBenchmarkbase() {
   auto type = CppToType<float>::create();
   auto typeWithId = TypeWithId::create(type, 1);
 
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = memory::getDefaultMemoryPool();
   folly::BenchmarkSuspender braces;
   VectorPtr vector;
 
   // Generate sample data
   {
     // Prepare input
-    BufferPtr values = AlignedBuffer::allocate<float>(size, &pool);
+    BufferPtr values = AlignedBuffer::allocate<float>(size, pool.get());
     auto valuesPtr = values->asMutable<float>();
 
-    BufferPtr nulls = AlignedBuffer::allocate<char>(bits::nbytes(size), &pool);
+    BufferPtr nulls =
+        AlignedBuffer::allocate<char>(bits::nbytes(size), pool.get());
     auto* nullsPtr = nulls->asMutable<uint64_t>();
 
     uint32_t nullCount = 0;
@@ -67,7 +67,7 @@ void FloatColumnWriterBenchmarkbase() {
     }
 
     vector = std::make_shared<FlatVector<float>>(
-        &pool,
+        pool.get(),
         nullCount == 0 ? nullptr : nulls,
         size,
         values,
@@ -78,7 +78,7 @@ void FloatColumnWriterBenchmarkbase() {
   {
     // write
     auto config = std::make_shared<Config>();
-    WriterContext context{config, memory::getDefaultScopedMemoryPool()};
+    WriterContext context{config, memory::getDefaultMemoryPool()};
     auto writer = BaseColumnWriter::create(context, *typeWithId, 0);
     braces.dismiss();
     writer->write(vector, common::Ranges::of(0, size));

@@ -40,9 +40,8 @@ TEST(TestStringDictionaryEncoder, AddKey) {
       TestCase{{"doe", "sow", "sow", "doe", "sow"}, {0, 1, 1, 0, 1}}};
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     std::vector<size_t> actualEncodedSequence{};
     for (const auto& key : testCase.addKeySequence) {
       actualEncodedSequence.push_back(stringDictEncoder.addKey(key, 0));
@@ -85,9 +84,8 @@ TEST(TestStringDictionaryEncoder, GetIndex) {
           {0, 3, 4, 2, 1, 3, 2, 4, 2, 0, 1, 0, 3}}};
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       stringDictEncoder.addKey(key, 0);
     }
@@ -135,9 +133,8 @@ TEST(TestStringDictionaryEncoder, GetCount) {
           {3, 2, 3, 3, 2}}};
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     for (const auto& key : testCase.addKeySequence) {
       stringDictEncoder.addKey(key, 0);
     }
@@ -190,9 +187,8 @@ TEST(TestStringDictionaryEncoder, GetStride) {
           {1, 1, 6, 3, 4}}};
 
   for (const auto& testCase : testCases) {
-    auto scopedPool = getDefaultScopedMemoryPool();
-    auto& pool = scopedPool->getPool();
-    StringDictionaryEncoder stringDictEncoder{pool, pool};
+    auto pool = getDefaultMemoryPool();
+    StringDictionaryEncoder stringDictEncoder{*pool, *pool};
     for (const auto& kv : testCase.addKeySequence) {
       stringDictEncoder.addKey(kv.first, kv.second);
     }
@@ -214,14 +210,13 @@ std::string genPaddedIntegerString(size_t integer, size_t length) {
 }
 
 TEST(TestStringDictionaryEncoder, Clear) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  StringDictionaryEncoder stringDictEncoder{pool, pool};
+  auto pool = getDefaultMemoryPool();
+  StringDictionaryEncoder stringDictEncoder{*pool, *pool};
   std::string baseString{"jjkkll"};
   for (size_t i = 0; i != 2500; ++i) {
     stringDictEncoder.addKey(baseString + genPaddedIntegerString(i, 4), 0);
   }
-  auto peakMemory = pool.getCurrentBytes();
+  auto peakMemory = pool->getCurrentBytes();
   stringDictEncoder.clear();
   EXPECT_EQ(0, stringDictEncoder.size());
   EXPECT_EQ(0, stringDictEncoder.keyIndex_.size());
@@ -233,27 +228,25 @@ TEST(TestStringDictionaryEncoder, Clear) {
   EXPECT_EQ(0, stringDictEncoder.counts_.capacity());
   EXPECT_EQ(0, stringDictEncoder.firstSeenStrideIndex_.size());
   EXPECT_EQ(0, stringDictEncoder.firstSeenStrideIndex_.capacity());
-  EXPECT_LT(pool.getCurrentBytes(), peakMemory);
+  EXPECT_LT(pool->getCurrentBytes(), peakMemory);
 }
 
 TEST(TestStringDictionaryEncoder, MemBenchmark) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  StringDictionaryEncoder stringDictEncoder{pool, pool};
+  auto pool = getDefaultMemoryPool();
+  StringDictionaryEncoder stringDictEncoder{*pool, *pool};
   std::string baseString{"jjkkll"};
   for (size_t i = 0; i != 10000; ++i) {
     stringDictEncoder.addKey(baseString + genPaddedIntegerString(i, 4), 0);
   }
 
-  LOG(INFO) << "Total memory bytes: " << pool.getCurrentBytes();
+  LOG(INFO) << "Total memory bytes: " << pool->getCurrentBytes();
 }
 
 TEST(TestStringDictionaryEncoder, Limit) {
-  auto scopedPool = getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  StringDictionaryEncoder encoder{pool, pool};
+  auto pool = getDefaultMemoryPool();
+  StringDictionaryEncoder encoder{*pool, *pool};
   encoder.addKey(folly::StringPiece{"abc"}, 0);
-  dwio::common::DataBuffer<char> buf{pool};
+  dwio::common::DataBuffer<char> buf{*pool};
   buf.resize(std::numeric_limits<uint32_t>::max());
 
   ASSERT_THROW(

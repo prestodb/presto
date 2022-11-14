@@ -26,26 +26,24 @@ namespace dwio {
 namespace common {
 
 TEST(ChainedBufferTests, testCreate) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int32_t> buf{pool, 128, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int32_t> buf{*pool, 128, 1024};
   ASSERT_EQ(buf.capacity(), 128);
   ASSERT_EQ(buf.pages_.size(), 1);
-  ChainedBuffer<int32_t> buf2{pool, 256, 1024};
+  ChainedBuffer<int32_t> buf2{*pool, 256, 1024};
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.pages_.size(), 1);
-  ChainedBuffer<int32_t> buf3{pool, 257, 1024};
+  ChainedBuffer<int32_t> buf3{*pool, 257, 1024};
   ASSERT_EQ(buf3.capacity(), 512);
   ASSERT_EQ(buf3.pages_.size(), 2);
 
   ASSERT_THROW(
-      (ChainedBuffer<int32_t>{pool, 256, 257}), exception::LoggedException);
+      (ChainedBuffer<int32_t>{*pool, 256, 257}), exception::LoggedException);
 }
 
 TEST(ChainedBufferTests, testReserve) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int32_t> buf{pool, 16, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int32_t> buf{*pool, 16, 1024};
   buf.reserve(16);
   buf.reserve(17);
   ASSERT_EQ(buf.capacity(), 32);
@@ -62,9 +60,8 @@ TEST(ChainedBufferTests, testReserve) {
 }
 
 TEST(ChainedBufferTests, testAppend) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int32_t> buf{pool, 16, 64};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int32_t> buf{*pool, 16, 64};
   for (size_t i = 0; i < 16; ++i) {
     buf.unsafeAppend(i);
     ASSERT_EQ(buf.capacity(), 16);
@@ -88,15 +85,14 @@ TEST(ChainedBufferTests, testAppend) {
 }
 
 TEST(ChainedBufferTests, testClear) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int32_t> buf{pool, 128, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int32_t> buf{*pool, 128, 1024};
   buf.clear();
   ASSERT_EQ(buf.capacity(), 128);
   ASSERT_EQ(buf.size(), 0);
   ASSERT_EQ(buf.pages_.size(), 1);
 
-  ChainedBuffer<int32_t> buf2{pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
   buf2.clear();
   ASSERT_EQ(buf2.capacity(), 256);
   ASSERT_EQ(buf2.size(), 0);
@@ -104,14 +100,13 @@ TEST(ChainedBufferTests, testClear) {
 }
 
 TEST(ChainedBufferTests, testApplyRange) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
   std::vector<std::tuple<uint64_t, uint64_t, int32_t>> result;
   auto fn = [&](auto ptr, auto begin, auto end) {
     result.push_back({begin, end, *ptr});
   };
 
-  ChainedBuffer<int32_t> buf{pool, 64, 64};
+  ChainedBuffer<int32_t> buf{*pool, 64, 64};
   for (size_t i = 0; i < 64 / 16; ++i) {
     for (size_t j = 0; j < 16; ++j) {
       buf.unsafeAppend(i);
@@ -159,9 +154,8 @@ TEST(ChainedBufferTests, testApplyRange) {
 }
 
 TEST(ChainedBufferTests, testGetPage) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int32_t> buf{pool, 1024, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int32_t> buf{*pool, 1024, 1024};
   ASSERT_EQ(
       std::addressof(buf.getPageUnsafe(0)), std::addressof(buf.pages_.at(0)));
   ASSERT_EQ(
@@ -172,7 +166,7 @@ TEST(ChainedBufferTests, testGetPage) {
       std::addressof(buf.getPageUnsafe(1023)),
       std::addressof(buf.pages_.at(3)));
 
-  ChainedBuffer<int64_t> buf2{pool, 1024, 1024};
+  ChainedBuffer<int64_t> buf2{*pool, 1024, 1024};
   ASSERT_EQ(
       std::addressof(buf2.getPageUnsafe(0)), std::addressof(buf2.pages_.at(0)));
   ASSERT_EQ(
@@ -187,9 +181,8 @@ TEST(ChainedBufferTests, testGetPage) {
 }
 
 TEST(ChainedBufferTests, testGetPageIndex) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int8_t> buf{pool, 1024, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int8_t> buf{*pool, 1024, 1024};
   ASSERT_EQ(buf.getPageIndex(0), 0);
   ASSERT_EQ(buf.getPageIndex(256), 0);
   ASSERT_EQ(buf.getPageIndex(1023), 0);
@@ -197,7 +190,7 @@ TEST(ChainedBufferTests, testGetPageIndex) {
   ASSERT_EQ(buf.getPageIndex(4095), 3);
   ASSERT_EQ(buf.getPageIndex(4096), 4);
 
-  ChainedBuffer<int32_t> buf2{pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
   ASSERT_EQ(buf2.getPageIndex(0), 0);
   ASSERT_EQ(buf2.getPageIndex(255), 0);
   ASSERT_EQ(buf2.getPageIndex(256), 1);
@@ -206,9 +199,8 @@ TEST(ChainedBufferTests, testGetPageIndex) {
 }
 
 TEST(ChainedBufferTests, testGetPageOffset) {
-  auto scopedPool = facebook::velox::memory::getDefaultScopedMemoryPool();
-  auto& pool = scopedPool->getPool();
-  ChainedBuffer<int8_t> buf{pool, 1024, 1024};
+  auto pool = facebook::velox::memory::getDefaultMemoryPool();
+  ChainedBuffer<int8_t> buf{*pool, 1024, 1024};
   ASSERT_EQ(buf.getPageOffset(0), 0);
   ASSERT_EQ(buf.getPageOffset(256), 256);
   ASSERT_EQ(buf.getPageOffset(1023), 1023);
@@ -216,7 +208,7 @@ TEST(ChainedBufferTests, testGetPageOffset) {
   ASSERT_EQ(buf.getPageOffset(4095), 1023);
   ASSERT_EQ(buf.getPageOffset(4096), 0);
 
-  ChainedBuffer<int32_t> buf2{pool, 1024, 1024};
+  ChainedBuffer<int32_t> buf2{*pool, 1024, 1024};
   ASSERT_EQ(buf2.getPageOffset(0), 0);
   ASSERT_EQ(buf2.getPageOffset(255), 255);
   ASSERT_EQ(buf2.getPageOffset(256), 0);

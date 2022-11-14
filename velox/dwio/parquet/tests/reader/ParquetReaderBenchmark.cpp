@@ -42,7 +42,7 @@ const uint32_t kNumRowsPerRowGroup = 10000;
 class ParquetReaderBenchmark {
  public:
   ParquetReaderBenchmark() {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_.get(), 0);
 
     auto sink = std::make_unique<FileSink>("test.parquet");
@@ -161,7 +161,7 @@ class ParquetReaderBenchmark {
 
  private:
   std::unique_ptr<test::DataSetBuilder> dataSetBuilder_;
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   dwio::common::DataSink* sinkPtr_;
   std::unique_ptr<facebook::velox::parquet::Writer> writer_;
   RuntimeStatistics runtimeStats_;
