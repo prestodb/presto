@@ -15,10 +15,10 @@ package com.facebook.presto.catalogserver;
 
 import com.facebook.airlift.json.JsonModule;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.ViewDefinition;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
 import com.facebook.presto.metadata.HandleJsonModule;
-import com.facebook.presto.metadata.ViewDefinition;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableHandle;

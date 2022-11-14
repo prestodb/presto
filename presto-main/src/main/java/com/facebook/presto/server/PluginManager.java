@@ -94,6 +94,7 @@ public class PluginManager
             .add("com.facebook.drift.annotations.")
             .add("com.facebook.drift.TException")
             .add("com.facebook.drift.TApplicationException")
+            .add("com.google.common.collect")
             .build();
 
     private static final Logger log = Logger.get(PluginManager.class);
