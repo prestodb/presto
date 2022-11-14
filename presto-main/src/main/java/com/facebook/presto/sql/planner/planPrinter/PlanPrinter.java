@@ -417,7 +417,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, Session session, FunctionAndTypeManager functionAndTypeManager)
+    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session, FunctionAndTypeManager functionAndTypeManager)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
@@ -429,7 +429,7 @@ public class PlanPrinter
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputVariables()),
                 StageExecutionDescriptor.ungroupedExecution(),
                 false,
-                StatsAndCosts.empty(),
+                estimatedStatsAndCosts,
                 Optional.empty());
         return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session, functionAndTypeManager);
     }
