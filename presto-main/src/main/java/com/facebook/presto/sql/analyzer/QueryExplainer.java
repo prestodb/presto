@@ -153,7 +153,7 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), session, metadata.getFunctionAndTypeManager());
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), session, metadata.getFunctionAndTypeManager());
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return graphvizDistributedPlan(subPlan, session, metadata.getFunctionAndTypeManager());
