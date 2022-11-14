@@ -265,7 +265,7 @@ void ExpressionVerifier::persistReproInfo(
   }
 
   // Create a new directory
-  auto dirPath = generateFolderPath(basePath, "expressionVerifier");
+  auto dirPath = common::generateTempFolderPath(basePath, "expressionVerifier");
   if (!dirPath.has_value()) {
     LOG(INFO) << "Failed to create directory for persisting repro info.";
     return;

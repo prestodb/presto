@@ -243,14 +243,19 @@ jobs:
           # Run fuzzer using the built executable - we do this instead of make
           # since currently make fuzzertest tends to rebuild the project.
           command: |
+            mkdir -p /tmp/fuzzer_repro/
+            chmod -R 777 /tmp/fuzzer_repro
             _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
                 --seed 123456 \
                 --enable_variadic_signatures \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
+                --repro_persist_path=/tmp/fuzzer_repro \
             && echo -e "\n\nFuzzer run finished successfully."
           no_output_timeout: 5m
+      - store_artifacts:
+          path: '/tmp/fuzzer_repro'
       - run:
          name: "Run Example Binaries"
          command: |

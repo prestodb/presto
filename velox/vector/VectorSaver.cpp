@@ -764,17 +764,6 @@ std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath) {
   return result;
 }
 
-std::optional<std::string> generateFilePath(
-    const char* basePath,
-    const char* prefix) {
-  auto path = fmt::format("{}/velox_{}_XXXXXX", basePath, prefix);
-  auto fd = mkstemp(path.data());
-  if (fd == -1) {
-    return std::nullopt;
-  }
-  return path;
-}
-
 std::optional<std::string> generateFolderPath(
     const char* basePath,
     const char* prefix) {

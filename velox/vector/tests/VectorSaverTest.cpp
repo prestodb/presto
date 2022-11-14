@@ -15,6 +15,7 @@
  */
 #include "velox/vector/VectorSaver.h"
 #include <fstream>
+#include "velox/common/base/Fs.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/exec/tests/utils/TempFilePath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -547,7 +548,7 @@ TEST_F(VectorSaverTest, exceptionContext) {
   auto messageFunction = [](VeloxException::Type /*exceptionType*/,
                             auto* arg) -> std::string {
     auto* info = static_cast<VectorSaverInfo*>(arg);
-    auto filePath = generateFilePath(info->path, "vector");
+    auto filePath = common::generateTempFilePath(info->path, "vector");
     if (!filePath.has_value()) {
       return "Cannot generate file path to store the vector.";
     }

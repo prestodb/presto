@@ -19,6 +19,7 @@
 #include <fstream>
 
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Fs.h"
 #include "velox/common/base/SuccinctPrinter.h"
 #include "velox/core/Expressions.h"
 #include "velox/expression/ConstantExpr.h"
@@ -342,7 +343,7 @@ class ExprExceptionContext {
 
     // Persist vector to disk
     try {
-      auto dataPathOpt = generateFilePath(basePath, "vector");
+      auto dataPathOpt = common::generateTempFilePath(basePath, "vector");
       if (!dataPathOpt.has_value()) {
         dataPath_ = "Failed to create file for saving input vector.";
         return;
@@ -357,7 +358,7 @@ class ExprExceptionContext {
     // Persist sql to disk
     auto sql = expr_->toSql();
     try {
-      auto sqlPathOpt = generateFilePath(basePath, "sql");
+      auto sqlPathOpt = common::generateTempFilePath(basePath, "sql");
       if (!sqlPathOpt.has_value()) {
         sqlPath_ = "Failed to create file for saving SQL.";
         return;

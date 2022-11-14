@@ -108,6 +108,7 @@ fuzzertest: debug
 	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
 		--seed $(FUZZER_SEED) \
 		--duration_sec $(FUZZER_DURATION_SEC) \
+		--repro_persist_path $(FUZZER_REPRO_PERSIST_PATH) \
 		--logtostderr=1 \
 		--minloglevel=0
 
