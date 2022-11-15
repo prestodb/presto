@@ -711,7 +711,7 @@ TypePtr VectorFuzzer::randType(int maxDepth) {
 }
 
 RowTypePtr VectorFuzzer::randRowType(int maxDepth) {
-  int numFields = rand<uint32_t>(rng_) % 7;
+  int numFields = 1 + rand<uint32_t>(rng_) % 7;
   std::vector<std::string> names;
   std::vector<TypePtr> fields;
   for (int i = 0; i < numFields; ++i) {
