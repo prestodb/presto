@@ -22,7 +22,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.transaction.TransactionInfo;
@@ -137,7 +137,7 @@ public class CatalogServer
     public String getMaterializedView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ConnectorMaterializedViewDefinition> connectorMaterializedViewDefinition =
+        Optional<MaterializedViewDefinition> connectorMaterializedViewDefinition =
                 metadataProvider.getMaterializedView(session.toSession(sessionPropertyManager), viewName);
         return connectorMaterializedViewDefinition.map(materializedView -> writeValueAsString(materializedView, objectMapper))
                 .orElse(EMPTY_STRING);

@@ -24,7 +24,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
@@ -357,7 +357,7 @@ public class MaterializedViewQueryOptimizer
 
     private QuerySpecification getRewrittenQuerySpecification(Metadata metadata, QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
     {
-        ConnectorMaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
+        MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
         Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
