@@ -694,11 +694,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
     {
-        Table table = getTableOrElseThrow(metastoreContext, databaseName, tableName);
-        List<Partition> partitions = getPartitions(table, WILDCARD_EXPRESSION);
-        return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
+        if (!table.isPresent()) {
+            throw new PrestoException(HIVE_METASTORE_ERROR, "Unable to get table from metastore with provided database name and table name");
+        }
+        List<Partition> partitions = getPartitions(table.get(), WILDCARD_EXPRESSION);
+        return Optional.of(buildPartitionNames(table.get().getPartitionColumns(), partitions));
     }
 
     /**

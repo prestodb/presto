@@ -627,7 +627,7 @@ public class SemiTransactionalHiveMetastore
                     partitionNameResult = Optional.of(delegate.getPartitionNamesByFilter(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), partitionPredicates));
                 }
                 else {
-                    partitionNameResult = delegate.getPartitionNames(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
+                    partitionNameResult = delegate.getPartitionNames(metastoreContext, table);
                 }
                 if (!partitionNameResult.isPresent()) {
                     throw new PrestoException(TRANSACTION_CONFLICT, format("Table %s.%s was dropped by another transaction", hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()));
@@ -1860,7 +1860,7 @@ public class SemiTransactionalHiveMetastore
                     if (table.isPresent()) {
                         // check every existing partition that is outside for the base directory
                         if (!table.get().getPartitionColumns().isEmpty()) {
-                            List<String> partitionNames = delegate.getPartitionNames(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                            List<String> partitionNames = delegate.getPartitionNames(metastoreContext, table)
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
                                 Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(metastoreContext, table.get(), partitionNameBatch).values();

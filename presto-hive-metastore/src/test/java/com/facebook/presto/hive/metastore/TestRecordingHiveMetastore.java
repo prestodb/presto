@@ -167,13 +167,13 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getPartitionStatistics(TEST_METASTORE_CONTEXT, "database", "table", ImmutableSet.of("value")), ImmutableMap.of("value", PARTITION_STATISTICS));
         assertEquals(hiveMetastore.getAllTables(TEST_METASTORE_CONTEXT, "database"), Optional.of(ImmutableList.of("table")));
         assertEquals(hiveMetastore.getAllViews(TEST_METASTORE_CONTEXT, "database"), Optional.empty());
-        assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, table.get(), ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getPartition(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(PARTITION));
+        assertEquals(hiveMetastore.getPartitionNames(TEST_METASTORE_CONTEXT, table), Optional.of(ImmutableList.of("value")));
         Map<Column, Domain> map = new HashMap<>();
         Column column = new Column("column", HiveType.HIVE_STRING, Optional.empty(), Optional.empty());
         map.put(column, Domain.singleValue(VARCHAR, utf8Slice("value")));
         assertEquals(hiveMetastore.getPartitionNamesByFilter(TEST_METASTORE_CONTEXT, "database", "table", map), ImmutableList.of("value"));
-        assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, table.get(), ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
+        assertEquals(hiveMetastore.getPartitionsByNames(TEST_METASTORE_CONTEXT, "database", "table", ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges(TEST_METASTORE_CONTEXT, "database", "table", new PrestoPrincipal(USER, "user")), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(TEST_METASTORE_CONTEXT), ImmutableSet.of("role"));
         assertEquals(hiveMetastore.listRoleGrants(TEST_METASTORE_CONTEXT, new PrestoPrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
@@ -262,9 +262,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<Partition> getPartition(MetastoreContext metastoreContext, Table table, List<String> partitionValues)
+        public Optional<Partition> getPartition(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionValues)
         {
-            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
+            if (databaseName.equals("database") && tableName.equals("table") && partitionValues.equals(ImmutableList.of("value"))) {
                 return Optional.of(PARTITION);
             }
 
@@ -272,9 +272,12 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+        public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
         {
-            if (databaseName.equals("database") && tableName.equals("table")) {
+            if (!table.isPresent()) {
+                return Optional.empty();
+            }
+            if (table.get().getDatabaseName().equals("database") && table.get().getTableName().equals("table")) {
                 return Optional.of(ImmutableList.of("value"));
             }
 
@@ -297,9 +300,9 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, Table table, List<String> partitionNames)
+        public Map<String, Optional<Partition>> getPartitionsByNames(MetastoreContext metastoreContext, String databaseName, String tableName, List<String> partitionNames)
         {
-            if (table.getDatabaseName().equals("database") && table.getTableName().equals("table") && partitionNames.contains("value")) {
+            if (databaseName.equals("database") && tableName.equals("table") && partitionNames.contains("value")) {
                 return ImmutableMap.of("value", Optional.of(PARTITION));
             }
 

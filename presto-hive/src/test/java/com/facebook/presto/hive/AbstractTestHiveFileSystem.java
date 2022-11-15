@@ -570,20 +570,20 @@ public abstract class AbstractTestHiveFileSystem
         private List<String> listAllDataPaths(MetastoreContext metastoreContext, String schemaName, String tableName)
         {
             ImmutableList.Builder<String> locations = ImmutableList.builder();
-            Table table = getTable(metastoreContext, schemaName, tableName).get();
-            if (table.getStorage().getLocation() != null) {
+            Optional<Table> table = getTable(metastoreContext, schemaName, tableName);
+            if (table.get().getStorage().getLocation() != null) {
                 // For partitioned table, there should be nothing directly under this directory.
                 // But including this location in the set makes the directory content assert more
                 // extensive, which is desirable.
-                locations.add(table.getStorage().getLocation());
+                locations.add(table.get().getStorage().getLocation());
             }
 
-            Optional<List<String>> partitionNames = getPartitionNames(metastoreContext, schemaName, tableName);
+            Optional<List<String>> partitionNames = getPartitionNames(metastoreContext, table);
             if (partitionNames.isPresent()) {
-                getPartitionsByNames(metastoreContext, table, partitionNames.get()).values().stream()
+                getPartitionsByNames(metastoreContext, table.get(), partitionNames.get()).values().stream()
                         .map(Optional::get)
                         .map(partition -> partition.getStorage().getLocation())
-                        .filter(location -> !location.startsWith(table.getStorage().getLocation()))
+                        .filter(location -> !location.startsWith(table.get().getStorage().getLocation()))
                         .forEach(locations::add);
             }
 

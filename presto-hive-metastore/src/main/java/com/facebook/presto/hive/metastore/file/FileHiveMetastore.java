@@ -855,23 +855,18 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, Optional<Table> table)
     {
-        requireNonNull(databaseName, "databaseName is null");
-        requireNonNull(tableName, "tableName is null");
-
-        Optional<Table> tableReference = getTable(metastoreContext, databaseName, tableName);
-        if (!tableReference.isPresent()) {
+        if (!table.isPresent()) {
             return Optional.empty();
         }
-        Table table = tableReference.get();
 
-        Path tableMetadataDirectory = getTableMetadataDirectory(table);
+        Path tableMetadataDirectory = getTableMetadataDirectory(table.get());
 
-        List<ArrayDeque<String>> partitions = listPartitions(tableMetadataDirectory, table.getPartitionColumns());
+        List<ArrayDeque<String>> partitions = listPartitions(tableMetadataDirectory, table.get().getPartitionColumns());
 
         List<String> partitionNames = partitions.stream()
-                .map(partitionValues -> makePartName(table.getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
+                .map(partitionValues -> makePartName(table.get().getPartitionColumns(), ImmutableList.copyOf(partitionValues)))
                 .collect(toList());
 
         return Optional.of(ImmutableList.copyOf(partitionNames));
@@ -935,8 +930,9 @@ public class FileHiveMetastore
             Map<Column, Domain> partitionPredicates)
     {
         List<String> parts = convertPredicateToParts(partitionPredicates);
+        Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
         // todo this should be more efficient by selectively walking the directory tree
-        return getPartitionNames(metastoreContext, databaseName, tableName).map(partitionNames -> partitionNames.stream()
+        return getPartitionNames(metastoreContext, table).map(partitionNames -> partitionNames.stream()
                         .filter(partitionName -> partitionMatches(partitionName, parts))
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
