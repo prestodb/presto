@@ -127,3 +127,44 @@ TEST(DuckConversionTest, types) {
   testRoundTrip(ROW(
       {"a", "b", "c"}, {BIGINT(), ARRAY(DOUBLE()), MAP(BIGINT(), VARCHAR())}));
 }
+
+TEST(DuckConversionTest, createTable) {
+  ::duckdb::DuckDB db_;
+  ::duckdb::Connection con(db_);
+
+  auto testCreateTable = [&](const RowTypePtr& rowType) {
+    auto result = con.Query("DROP TABLE IF EXISTS t");
+    VELOX_CHECK(result->success, "{}", result->error);
+
+    result = con.Query(makeCreateTableSql("t", *rowType));
+    VELOX_CHECK(result->success, "{}", result->error);
+  };
+
+  testCreateTable(
+      ROW({"b", "i8", "i16", "i32", "i64", "r", "d"},
+          {BOOLEAN(),
+           TINYINT(),
+           INTEGER(),
+           SMALLINT(),
+           BIGINT(),
+           REAL(),
+           DOUBLE()}));
+
+  testCreateTable(
+      ROW({"a", "b", "c"}, {TIMESTAMP(), DATE(), INTERVAL_DAY_TIME()}));
+
+  testCreateTable(ROW({"a", "b"}, {DECIMAL(7, 5), DECIMAL(30, 10)}));
+
+  testCreateTable(ROW({"a", "b"}, {ARRAY(BIGINT()), ARRAY(ARRAY(DOUBLE()))}));
+
+  testCreateTable(ROW(
+      {"a", "b"}, {MAP(BIGINT(), DOUBLE()), MAP(VARCHAR(), ARRAY(BIGINT()))}));
+
+  testCreateTable(
+      ROW({"a", "b"},
+          {
+              ROW({"x", "y"}, {BIGINT(), ARRAY(DOUBLE())}),
+              ROW({"x", "y", "z"},
+                  {ARRAY(INTEGER()), MAP(INTEGER(), VARCHAR()), TIMESTAMP()}),
+          }));
+}

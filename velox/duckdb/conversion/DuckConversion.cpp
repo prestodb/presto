@@ -210,18 +210,7 @@ std::string makeCreateTableSql(
       sql << ", ";
     }
     sql << rowType.nameOf(i) << " ";
-    auto child = rowType.childAt(i);
-    if (child->isArray()) {
-      sql << child->asArray().elementType()->kindName() << "[]";
-    } else if (child->isMap()) {
-      sql << "MAP(" << child->asMap().keyType()->kindName() << ", "
-          << child->asMap().valueType()->kindName() << ")";
-    } else if (child->isShortDecimal() || child->isLongDecimal()) {
-      const auto& [precision, scale] = getDecimalPrecisionScale(*child);
-      sql << "DECIMAL(" << precision << ", " << scale << ")";
-    } else {
-      sql << child->kindName();
-    }
+    toTypeSql(rowType.childAt(i), sql);
   }
   sql << ")";
   return sql.str();

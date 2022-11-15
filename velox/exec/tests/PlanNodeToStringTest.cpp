@@ -546,7 +546,7 @@ TEST_F(PlanNodeToStringTest, decimalConstant) {
                   .planNode();
 
   ASSERT_EQ(
-      "-- Project[expressions: (a:VARCHAR, ROW[\"a\"]), (p1:SHORT_DECIMAL(4,3), 1.234)] -> a:VARCHAR, p1:SHORT_DECIMAL(4,3)\n",
+      "-- Project[expressions: (a:VARCHAR, ROW[\"a\"]), (p1:DECIMAL(4,3), 1.234)] -> a:VARCHAR, p1:DECIMAL(4,3)\n",
       plan->toString(true));
 }
 

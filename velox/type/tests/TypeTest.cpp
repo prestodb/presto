@@ -134,7 +134,7 @@ TEST(TypeTest, intervalDayTime) {
 
 TEST(TypeTest, shortDecimal) {
   auto shortDecimal = SHORT_DECIMAL(10, 5);
-  EXPECT_EQ(shortDecimal->toString(), "SHORT_DECIMAL(10,5)");
+  EXPECT_EQ(shortDecimal->toString(), "DECIMAL(10,5)");
   EXPECT_EQ(shortDecimal->size(), 0);
   EXPECT_THROW(shortDecimal->childAt(0), std::invalid_argument);
   EXPECT_EQ(shortDecimal->kind(), TypeKind::SHORT_DECIMAL);
@@ -153,7 +153,7 @@ TEST(TypeTest, shortDecimal) {
 
 TEST(TypeTest, longDecimal) {
   auto longDecimal = LONG_DECIMAL(30, 5);
-  EXPECT_EQ(longDecimal->toString(), "LONG_DECIMAL(30,5)");
+  EXPECT_EQ(longDecimal->toString(), "DECIMAL(30,5)");
   EXPECT_EQ(longDecimal->size(), 0);
   EXPECT_THROW(longDecimal->childAt(0), std::invalid_argument);
   EXPECT_EQ(longDecimal->kind(), TypeKind::LONG_DECIMAL);

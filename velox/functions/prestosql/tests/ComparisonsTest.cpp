@@ -123,7 +123,8 @@ TEST_F(ComparisonsTest, betweenDecimal) {
   // Comparing LONG_DECIMAL and SHORT_DECIMAL must throw error.
   VELOX_ASSERT_THROW(
       runAndCompare("c0 between 2.00 and 3.00", longFlat, expectedResult),
-      "Scalar function signature is not supported: between(LONG_DECIMAL(20,2), SHORT_DECIMAL(3,2), SHORT_DECIMAL(3,2)).");
+      "Scalar function signature is not supported: "
+      "between(DECIMAL(20,2), DECIMAL(3,2), DECIMAL(3,2)).");
 }
 
 TEST_F(ComparisonsTest, eqDecimal) {
@@ -149,8 +150,8 @@ TEST_F(ComparisonsTest, eqDecimal) {
       makeShortDecimalFlatVector({1}, DECIMAL(10, 4))};
   VELOX_ASSERT_THROW(
       runAndCompare(inputs, expected),
-      "Scalar function signature is not supported: eq(SHORT_DECIMAL(10,5),"
-      " SHORT_DECIMAL(10,4))");
+      "Scalar function signature is not supported: "
+      "eq(DECIMAL(10,5), DECIMAL(10,4))");
 }
 
 TEST_F(ComparisonsTest, gtLtDecimal) {

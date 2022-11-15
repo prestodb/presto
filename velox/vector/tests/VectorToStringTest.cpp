@@ -107,7 +107,7 @@ TEST_F(VectorToStringTest, decimals) {
       {1000265, 35610, -314159, 7, 0}, DECIMAL(10, 3));
   ASSERT_EQ(
       shortDecimalFlatVector->toString(),
-      "[FLAT SHORT_DECIMAL(10,3): 5 elements, no nulls]");
+      "[FLAT DECIMAL(10,3): 5 elements, no nulls]");
   ASSERT_EQ(
       shortDecimalFlatVector->toString(0, 5),
       "0: 1000.265\n"
@@ -120,7 +120,7 @@ TEST_F(VectorToStringTest, decimals) {
       {1000265, 35610, -314159, 7, 0}, DECIMAL(20, 4));
   ASSERT_EQ(
       longDecimalFlatVector->toString(),
-      "[FLAT LONG_DECIMAL(20,4): 5 elements, no nulls]");
+      "[FLAT DECIMAL(20,4): 5 elements, no nulls]");
   ASSERT_EQ(
       longDecimalFlatVector->toString(0, 5),
       "0: 100.0265\n"
@@ -135,7 +135,7 @@ TEST_F(VectorToStringTest, nullableDecimals) {
       {1000265, 35610, -314159, 7, std::nullopt}, DECIMAL(10, 3));
   ASSERT_EQ(
       shortDecimalFlatVector->toString(),
-      "[FLAT SHORT_DECIMAL(10,3): 5 elements, 1 nulls]");
+      "[FLAT DECIMAL(10,3): 5 elements, 1 nulls]");
   ASSERT_EQ(
       shortDecimalFlatVector->toString(0, 5),
       "0: 1000.265\n"
@@ -148,7 +148,7 @@ TEST_F(VectorToStringTest, nullableDecimals) {
       {1000265, 35610, -314159, 7, std::nullopt}, DECIMAL(20, 4));
   ASSERT_EQ(
       longDecimalFlatVector->toString(),
-      "[FLAT LONG_DECIMAL(20,4): 5 elements, 1 nulls]");
+      "[FLAT DECIMAL(20,4): 5 elements, 1 nulls]");
   ASSERT_EQ(
       longDecimalFlatVector->toString(0, 5),
       "0: 100.0265\n"

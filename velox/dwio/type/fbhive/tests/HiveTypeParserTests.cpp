@@ -64,7 +64,7 @@ TEST(FbHive, shortDecimal) {
   auto type = t->asShortDecimal();
   ASSERT_EQ(type.precision(), 10);
   ASSERT_EQ(type.scale(), 5);
-  ASSERT_EQ(t->toString(), "SHORT_DECIMAL(10,5)");
+  ASSERT_EQ(t->toString(), "DECIMAL(10,5)");
 }
 
 TEST(FbHive, longDecimal) {
@@ -74,7 +74,7 @@ TEST(FbHive, longDecimal) {
   auto type = t->asLongDecimal();
   ASSERT_EQ(type.precision(), 20);
   ASSERT_EQ(type.scale(), 5);
-  ASSERT_EQ(t->toString(), "LONG_DECIMAL(20,5)");
+  ASSERT_EQ(t->toString(), "DECIMAL(20,5)");
 }
 
 TEST(FbHive, list) {
