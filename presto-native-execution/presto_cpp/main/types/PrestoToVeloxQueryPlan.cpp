@@ -1496,16 +1496,17 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
     groupingSets.emplace_back(std::move(groupingKeys));
   }
 
-  std::map<std::string, core::FieldAccessTypedExprPtr> outputGroupingKeyNames;
+  std::vector<core::GroupIdNode::GroupingKeyInfo> groupingKeys;
+  groupingKeys.reserve(node->groupingColumns.size());
   for (const auto& [output, input] : node->groupingColumns) {
-    outputGroupingKeyNames.emplace(
-        output.name, exprConverter_.toVeloxExpr(input));
+    groupingKeys.emplace_back(core::GroupIdNode::GroupingKeyInfo{
+        output.name, exprConverter_.toVeloxExpr(input)});
   }
 
   return std::make_shared<core::GroupIdNode>(
       node->id,
       std::move(groupingSets),
-      std::move(outputGroupingKeyNames),
+      std::move(groupingKeys),
       toVeloxExprs(node->aggregationArguments),
       node->groupIdVariable.name,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));

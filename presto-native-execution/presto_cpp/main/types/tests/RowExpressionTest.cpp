@@ -25,7 +25,7 @@ using namespace facebook::velox::core;
 class RowExpressionTest : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
     converter_ = std::make_unique<VeloxExprConverter>(pool_.get());
   }
 
@@ -43,7 +43,7 @@ class RowExpressionTest : public ::testing::Test {
     ASSERT_EQ(cexpr->value().toJson(), value);
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<VeloxExprConverter> converter_;
 };
 
