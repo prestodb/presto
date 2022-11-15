@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/operators/TestingPersistentShuffle.h"
+#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -33,7 +33,7 @@ inline std::string createShuffleFileName(
 const static std::string kReadyForReadFilename = "readyForRead";
 }; // namespace
 
-void TestingPersistentShuffle::initialize(
+void LocalPersistentShuffle::initialize(
     velox::memory::MemoryPool* pool,
     uint32_t numPartitions,
     std::string rootPath) {
@@ -55,7 +55,7 @@ void TestingPersistentShuffle::initialize(
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-std::unique_ptr<velox::WriteFile> TestingPersistentShuffle::getNextOutputFile(
+std::unique_ptr<velox::WriteFile> LocalPersistentShuffle::getNextOutputFile(
     int32_t partition) {
   auto fileCount = getWritePartitionFilesCount(partition);
   const std::string filename =
@@ -63,7 +63,7 @@ std::unique_ptr<velox::WriteFile> TestingPersistentShuffle::getNextOutputFile(
   return fileSystem_->openFileForWrite(filename);
 }
 
-int TestingPersistentShuffle::getWritePartitionFilesCount(
+int LocalPersistentShuffle::getWritePartitionFilesCount(
     int32_t partition) const {
   int fileCount = 0;
   // TODO: consider to maintain the next to create file count in memory as we
@@ -79,7 +79,7 @@ int TestingPersistentShuffle::getWritePartitionFilesCount(
   return fileCount;
 }
 
-std::vector<std::string> TestingPersistentShuffle::getReadPartitionFiles(
+std::vector<std::string> LocalPersistentShuffle::getReadPartitionFiles(
     int32_t partition) const {
   // Get rid of excess '/' characters in the path.
   auto trimmedRootPath = rootPath_;
@@ -100,7 +100,7 @@ std::vector<std::string> TestingPersistentShuffle::getReadPartitionFiles(
   return partitionFiles;
 }
 
-void TestingPersistentShuffle::storePartitionBlock(int32_t partition) {
+void LocalPersistentShuffle::storePartitionBlock(int32_t partition) {
   auto& buffer = inProgressPartitions_[partition];
   auto file = getNextOutputFile(partition);
   file->append(
@@ -110,7 +110,7 @@ void TestingPersistentShuffle::storePartitionBlock(int32_t partition) {
   inProgressSizes_[partition] = 0;
 }
 
-void TestingPersistentShuffle::collect(
+void LocalPersistentShuffle::collect(
     int32_t partition,
     std::string_view data) {
   auto& buffer = inProgressPartitions_[partition];
@@ -142,7 +142,7 @@ void TestingPersistentShuffle::collect(
   inProgressSizes_[partition] += sizeof(size_t) + data.size();
 }
 
-void TestingPersistentShuffle::noMoreData(bool success) {
+void LocalPersistentShuffle::noMoreData(bool success) {
   // Delete all shuffle files on failure.
   if (!success) {
     cleanup();
@@ -158,7 +158,7 @@ void TestingPersistentShuffle::noMoreData(bool success) {
   readyToRead->close();
 }
 
-bool TestingPersistentShuffle::hasNext(int32_t partition) const {
+bool LocalPersistentShuffle::hasNext(int32_t partition) const {
   while (!readyForRead()) {
     // This sleep is only for testing purposes.
     // For the test cases in which the shuffle reader tasks run before shuffle
@@ -169,7 +169,7 @@ bool TestingPersistentShuffle::hasNext(int32_t partition) const {
       getReadPartitionFiles(partition).size();
 }
 
-BufferPtr TestingPersistentShuffle::next(int32_t partition, bool success) {
+BufferPtr LocalPersistentShuffle::next(int32_t partition, bool success) {
   // On failure, reset the index of the files to be read for that partition
   if (!success) {
     readPartitionsFileIndex_[partition] = 0;
@@ -187,12 +187,12 @@ BufferPtr TestingPersistentShuffle::next(int32_t partition, bool success) {
   return buffer;
 }
 
-bool TestingPersistentShuffle::readyForRead() const {
+bool LocalPersistentShuffle::readyForRead() const {
   return fileSystem_->openFileForRead(
              fmt::format("{}/{}", rootPath_, kReadyForReadFilename)) != nullptr;
 }
 
-void TestingPersistentShuffle::cleanup() {
+void LocalPersistentShuffle::cleanup() {
   auto files = fileSystem_->list(rootPath_);
   for (auto& file : files) {
     fileSystem_->remove(file);
