@@ -24,10 +24,10 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
@@ -375,7 +375,7 @@ public interface Metadata
     /**
      * Returns the materialized view definition for the specified materialized view name.
      */
-    Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
+    Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName);
 
     /**
      * Is the specified table a materialized view.
@@ -388,7 +388,7 @@ public interface Metadata
     /**
      * Creates the specified materialized view with the specified view definition.
      */
-    void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting);
+    void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting);
 
     /**
      * Drops the specified materialized view.

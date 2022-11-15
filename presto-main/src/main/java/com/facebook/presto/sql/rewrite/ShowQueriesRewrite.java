@@ -21,8 +21,8 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.SessionPropertyManager.SessionPropertyValue;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
@@ -449,7 +449,7 @@ final class ShowQueriesRewrite
         {
             QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
             Optional<ViewDefinition> viewDefinition = metadata.getView(session, objectName);
-            Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, objectName);
+            Optional<MaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, objectName);
 
             if (node.getType() == VIEW) {
                 if (!viewDefinition.isPresent()) {

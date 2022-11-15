@@ -21,7 +21,7 @@ import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedTablePrefix;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.transaction.TransactionManager;
@@ -162,7 +162,7 @@ public class RemoteMetadataManager
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         String connectorMaterializedViewDefinitionJson = catalogServerClient.get().getMaterializedView(
                 transactionManager.getTransactionInfo(session.getRequiredTransactionId()),
@@ -170,7 +170,7 @@ public class RemoteMetadataManager
                 viewName);
         return connectorMaterializedViewDefinitionJson.isEmpty()
                 ? Optional.empty()
-                : Optional.of(readValue(connectorMaterializedViewDefinitionJson, new TypeReference<ConnectorMaterializedViewDefinition>() {}));
+                : Optional.of(readValue(connectorMaterializedViewDefinitionJson, new TypeReference<MaterializedViewDefinition>() {}));
     }
 
     @Override

@@ -18,7 +18,6 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -29,6 +28,7 @@ import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -68,7 +68,7 @@ public class TestingMetadata
 {
     private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
     private final Map<SchemaTableName, String> views = new ConcurrentHashMap<>();
-    private final Map<SchemaTableName, ConnectorMaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
@@ -312,7 +312,7 @@ public class TestingMetadata
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
         tables.put(viewName, new ConnectorTableMetadata(viewName, ImmutableList.of()));
@@ -320,7 +320,7 @@ public class TestingMetadata
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.ofNullable(materializedViews.get(viewName));
     }

@@ -17,7 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -57,7 +57,7 @@ public class RenameTableTask
             return immediateFuture(null);
         }
 
-        Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and rename is not supported", tableName);

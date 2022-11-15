@@ -37,7 +37,7 @@ import com.facebook.presto.security.ViewAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
@@ -716,7 +716,7 @@ class StatementAnalyzer
 
             QualifiedObjectName viewName = createQualifiedObjectName(session, node.getTarget(), node.getTarget().getName());
 
-            ConnectorMaterializedViewDefinition view = metadata.getMaterializedView(session, viewName)
+            MaterializedViewDefinition view = metadata.getMaterializedView(session, viewName)
                     .orElseThrow(() -> new SemanticException(MISSING_MATERIALIZED_VIEW, node, "Materialized view '%s' does not exist", viewName));
 
             // the original refresh statement will always be one line
@@ -1068,7 +1068,7 @@ class StatementAnalyzer
             for (Table baseTable : baseTables) {
                 QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName());
 
-                Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, baseName);
+                Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, baseName);
                 if (optionalMaterializedView.isPresent()) {
                     throw new SemanticException(
                             NOT_SUPPORTED,
@@ -1240,7 +1240,7 @@ class StatementAnalyzer
                 return processView(table, scope, name, optionalView);
             }
 
-            Optional<ConnectorMaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
+            Optional<MaterializedViewDefinition> optionalMaterializedView = session.getRuntimeStats().profileNanos(
                     GET_MATERIALIZED_VIEW_TIME_NANOS,
                     () -> metadata.getMaterializedView(session, name));
             // Prevent INSERT and CREATE TABLE when selecting from a materialized view.
@@ -1405,7 +1405,7 @@ class StatementAnalyzer
                 Table materializedView,
                 QualifiedObjectName materializedViewName,
                 Optional<Scope> scope,
-                ConnectorMaterializedViewDefinition materializedViewDefinition)
+                MaterializedViewDefinition materializedViewDefinition)
         {
             MaterializedViewPlanValidator.validate((Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session, warningCollector)));
 
@@ -1425,12 +1425,12 @@ class StatementAnalyzer
         private String getMaterializedViewSQL(
                 Table materializedView,
                 QualifiedObjectName materializedViewName,
-                ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition,
+                MaterializedViewDefinition materializedViewDefinition,
                 Optional<Scope> scope)
         {
             MaterializedViewStatus materializedViewStatus = getMaterializedViewStatus(materializedViewName, scope, materializedView);
 
-            String materializedViewCreateSql = connectorMaterializedViewDefinition.getOriginalSql();
+            String materializedViewCreateSql = materializedViewDefinition.getOriginalSql();
 
             if (materializedViewStatus.isNotMaterialized() || materializedViewStatus.isTooManyPartitionsMissing()) {
                 session.getRuntimeStats().addMetricValue(SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT, NONE, 1);
@@ -1443,7 +1443,7 @@ class StatementAnalyzer
             if (materializedViewStatus.isFullyMaterialized()) {
                 // We need to include base table queries by Union in order to add required access control for the base tables and utilized columns during visit.
                 // Here we stitch with the predicate WHERE FALSE, and the optimizer will then prune the FALSE branch with no extra overhead introduced.
-                baseTablePredicates = generateFalsePredicates(connectorMaterializedViewDefinition.getBaseTables());
+                baseTablePredicates = generateFalsePredicates(materializedViewDefinition.getBaseTables());
             }
             else if (materializedViewStatus.isPartiallyMaterialized()) {
                 baseTablePredicates = generateBaseTablePredicates(materializedViewStatus.getPartitionsFromBaseTables(), metadata);
@@ -1487,7 +1487,7 @@ class StatementAnalyzer
             QuerySpecification currentSubquery = analysis.getCurrentQuerySpecification().get();
 
             if (currentSubquery.getWhere().isPresent() && isMaterializedViewPartitionFilteringEnabled(session)) {
-                Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName);
+                Optional<MaterializedViewDefinition> materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName);
                 if (!materializedViewDefinition.isPresent()) {
                     log.warn("Materialized view definition not present as expected when fetching materialized view status");
                     return metadata.getMaterializedViewStatus(session, materializedViewName, baseQueryDomain);
