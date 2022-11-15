@@ -36,9 +36,9 @@ namespace facebook::presto::operators {
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
 /// this class (pointing to the same root path) to read and write shuffle data.
-class TestingPersistentShuffle : public ShuffleInterface {
+class LocalPersistentShuffle : public ShuffleInterface {
  public:
-  TestingPersistentShuffle(uint32_t maxBytesPerPartition)
+  LocalPersistentShuffle(uint32_t maxBytesPerPartition)
       : maxBytesPerPartition_(maxBytesPerPartition),
         threadId_(std::this_thread::get_id()) {}
 
@@ -61,13 +61,6 @@ class TestingPersistentShuffle : public ShuffleInterface {
   velox::BufferPtr next(int32_t partition, bool success) override;
 
   bool readyForRead() const override;
-
-  static TestingPersistentShuffle* FOLLY_NONNULL instance() {
-    // Singleton always-alive object to be used for the purpose of testing.
-    const uint32_t kMaxBytesPerPartition = 1 << 15;
-    static TestingPersistentShuffle instance{kMaxBytesPerPartition};
-    return &instance;
-  }
 
  private:
   // Finds and creates the next file for writing the next block of the

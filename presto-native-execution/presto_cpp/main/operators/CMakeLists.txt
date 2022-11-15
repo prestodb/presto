@@ -13,7 +13,7 @@
 # limitations under the License.
 add_library(
   presto_operators PartitionAndSerialize.cpp ShuffleWrite.cpp
-                   UnsafeRowExchangeSource.cpp TestingPersistentShuffle.cpp)
+                   UnsafeRowExchangeSource.cpp LocalPersistentShuffle.cpp)
 
 target_link_libraries(presto_operators velox_core velox_exec velox_expression
                       velox_hive_partition_function velox_vector)
