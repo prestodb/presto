@@ -1,0 +1,13 @@
+apiVersion: v2
+name: presto
+description: The official Helm chart for Presto
+type: application
+version: 0.1.0
+appVersion: "0.277"
+home: https://prestodb.io
+icon: https://prestodb.io/docs/current/_static/logo.png
+keywords:
+  - presto
+  - prestodb
+sources:
+  - https://github.com/prestodb/presto

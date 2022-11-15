@@ -1,0 +1,23 @@
+{{- if not (eq .Values.mode "single") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  node.properties: |-
+    node.environment={{ .Values.node.environment }}
+    node.data-dir={{ .Values.node.dataDir }}
+  jvm.config: |-
+    {{- .Values.worker.jvm | default .Values.jvm | nindent 4 }}
+  config.properties: |-
+    coordinator=false
+    http-server.http.port={{ .Values.service.port }}
+    discovery.uri=http://{{ .Release.Name }}:{{ .Values.service.port }}
+    {{- .Values.config | nindent 4 }}
+{{- end }}

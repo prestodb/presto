@@ -1,0 +1,116 @@
+{{- $env := concat .Values.env .Values.coordinator.env }}
+{{- $envFrom := concat .Values.envFrom .Values.coordinator.envFrom }}
+{{- $volumes := concat .Values.volumes .Values.coordinator.volumes }}
+{{- $volumeMounts := concat .Values.volumeMounts .Values.coordinator.volumeMounts }}
+{{- $nodeSelector := or .Values.coordinator.nodeSelector .Values.nodeSelector }}
+{{- $affinity := or .Values.coordinator.affinity .Values.affinity }}
+{{- $tolerations := or .Values.coordinator.tolerations .Values.tolerations }}
+{{- $securityContext := or .Values.coordinator.securityContext .Values.securityContext }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-coordinator
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: coordinator
+    app.kubernetes.io/version: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: coordinator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: coordinator
+      annotations:
+        checksum/catalog: {{ include (print $.Template.BasePath "/configmap-catalog.yaml") . | sha256sum }}
+        checksum/coordinator: {{ include (print $.Template.BasePath "/configmap-coordinator.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.serviceAccount.create }}
+      serviceAccountName: {{ .Release.Name }}
+      {{- end }}
+      containers:
+        - name: coordinator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.coordinator.command }}
+          command: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.coordinator.args }}
+          args: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $env }}
+          env: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $envFrom }}
+          envFrom: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /v1/status
+              port: http
+            initialDelaySeconds: {{ .Values.coordinator.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.coordinator.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.coordinator.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.coordinator.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.coordinator.livenessProbe.successThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /v1/status
+              port: http
+            initialDelaySeconds: {{ .Values.coordinator.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.coordinator.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.coordinator.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.coordinator.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.coordinator.readinessProbe.successThreshold }}
+          {{- with .Values.coordinator.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - mountPath: {{ .Values.home }}/etc
+              name: config
+            - mountPath: {{ .Values.home }}/etc/catalog
+              name: catalog
+            {{- with $volumeMounts }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-coordinator
+        - name: catalog
+          configMap:
+            name: {{ .Release.Name }}-catalog
+        {{- with $volumes }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

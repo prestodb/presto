@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-coordinator
+  labels:
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  node.properties: |-
+    node.environment={{ .Values.node.environment }}
+    node.data-dir={{ .Values.node.dataDir }}
+  jvm.config: |-
+    {{- .Values.coordinator.jvm | default .Values.jvm | nindent 4 }}
+  config.properties: |-
+    coordinator=true
+    http-server.http.port={{ .Values.service.port }}
+    discovery.uri=http://localhost:{{ .Values.service.port }}
+    discovery-server.enabled=true
+    node-scheduler.include-coordinator={{ eq .Values.mode "single" }}
+    {{- .Values.config | nindent 4 }}
