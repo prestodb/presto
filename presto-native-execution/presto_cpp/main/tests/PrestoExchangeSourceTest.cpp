@@ -184,7 +184,7 @@ class Producer {
       future = std::move(f);
     }
 
-    std::move(future).get(std::chrono::microseconds(10'000));
+    std::move(future).get(std::chrono::microseconds(120'000));
   }
 
  private:
