@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 #include "folly/init/Init.h"
+#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "presto_cpp/main/operators/TestingPersistentShuffle.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
@@ -384,7 +384,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   auto rootPath = rootDirectory->path;
 
   // Initialize persistent shuffle.
-  TestingPersistentShuffle shuffle(1 << 20 /* 1MB */);
+  LocalPersistentShuffle shuffle(1 << 20 /* 1MB */);
   shuffle.initialize(pool(), numPartitions, rootPath);
 
   auto data = vectorMaker_.rowVector({
@@ -444,7 +444,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->path;
-  auto shuffle = TestingPersistentShuffle::instance();
+  auto shuffle = std::make_unique<LocalPersistentShuffle>(1 << 15);
   for (int it = 0; it < numIterations; it++) {
     shuffle->initialize(pool(), numPartitions, rootPath);
 
@@ -456,7 +456,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
       auto input = fuzzer.fuzzRow(rowType);
       inputVectors.push_back(input);
     }
-    runShuffleTest(shuffle, numPartitions, numMapDrivers, inputVectors);
+    runShuffleTest(shuffle.get(), numPartitions, numMapDrivers, inputVectors);
   }
 }
 
