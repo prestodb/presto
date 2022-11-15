@@ -386,26 +386,6 @@ class TableWriteNode : public PlanNode {
     }
   }
 
-  // TODO(gaoge): remove after presto_cpp is migrated to use the above
-  // constructor
-#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
-  TableWriteNode(
-      const PlanNodeId& id,
-      const RowTypePtr& columns,
-      const std::vector<std::string>& columnNames,
-      const std::shared_ptr<InsertTableHandle>& insertTableHandle,
-      const RowTypePtr& outputType,
-      const PlanNodePtr& source)
-      : TableWriteNode(
-            id,
-            columns,
-            columnNames,
-            insertTableHandle,
-            outputType,
-            connector::WriteProtocol::CommitStrategy::kNoCommit,
-            source) {}
-#endif
-
   const std::vector<PlanNodePtr>& sources() const override {
     return sources_;
   }

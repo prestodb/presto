@@ -130,10 +130,18 @@ std::unique_ptr<velox::dwrf::Writer> HiveDataSink::createWriter() {
   // Without explicitly setting flush policy, the default memory based flush
   // policy is used.
 
-  auto fileName =
-      boost::lexical_cast<std::string>(boost::uuids::random_generator()());
-  auto sink = dwio::common::DataSink::create(
-      fs::path(insertTableHandle_->locationHandle()->writePath()) / fileName);
+  auto hiveWriterParameters =
+      std::dynamic_pointer_cast<const HiveWriterParameters>(
+          writeProtocol_->getWriterParameters(
+              insertTableHandle_, connectorQueryCtx_));
+  VELOX_CHECK_NOT_NULL(
+      hiveWriterParameters,
+      "Hive data sink expects write parameters for Hive.");
+  writerParameters_.emplace_back(hiveWriterParameters);
+
+  auto writePath = fs::path(hiveWriterParameters->writeDirectory()) /
+      hiveWriterParameters->writeFileName();
+  auto sink = dwio::common::DataSink::create(writePath);
   return std::make_unique<Writer>(
       options, std::move(sink), *connectorQueryCtx_->memoryPool());
 }
