@@ -96,7 +96,7 @@ public final class InternalResourceGroupManager<C>
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
     private final AtomicBoolean taskLimitExceeded = new AtomicBoolean();
     private final int maxTotalRunningTaskCountToNotExecuteNewQuery;
-    private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(currentTimeMillis());
+    private final AtomicLong lastSchedulingCycleRunTimeMs = new AtomicLong(0L);
     private final ResourceGroupService resourceGroupService;
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfos = new AtomicReference<>(ImmutableMap.of());
     private final AtomicReference<Map<ResourceGroupId, ResourceGroupRuntimeInfo>> resourceGroupRuntimeInfosSnapshot = new AtomicReference<>(ImmutableMap.of());
@@ -414,7 +414,9 @@ public final class InternalResourceGroupManager<C>
     @Managed
     public long getLastSchedulingCycleRuntimeDelayMs()
     {
-        return currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
+        // When coordinator restarts/deploy, the initial 0 value make sure the metric won't spike. Without it, the first metric published will have larger value
+        // due to the delay from the initialization to the actual successful run of refreshAndStartQueries method
+        return lastSchedulingCycleRunTimeMs.get() == 0L ? lastSchedulingCycleRunTimeMs.get() : currentTimeMillis() - lastSchedulingCycleRunTimeMs.get();
     }
 
     private int getQueriesQueuedOnInternal(InternalResourceGroup resourceGroup)
