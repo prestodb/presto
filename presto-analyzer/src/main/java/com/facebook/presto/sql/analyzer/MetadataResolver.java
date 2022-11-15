@@ -18,17 +18,27 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.ViewDefinition;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public interface MetadataResolver
 {
+    boolean catalogExists(String catalogName);
+
+    boolean schemaExists(CatalogSchemaName schema);
+
+    boolean tableExists(QualifiedObjectName tableName);
+
+    List<ColumnMetadata> getColumns(QualifiedObjectName tableName);
+
     Optional<TableHandle> getTableHandle(QualifiedObjectName tableName);
 
     Map<String, ColumnHandle> getColumnHandles(TableHandle tableHandle);
@@ -36,8 +46,6 @@ public interface MetadataResolver
     TableMetadata getTableMetadata(TableHandle tableHandle);
 
     Optional<ConnectorId> getCatalogHandle(String catalogName);
-
-    boolean schemaExists(CatalogSchemaName schema);
 
     Optional<ViewDefinition> getView(QualifiedObjectName viewName);
 

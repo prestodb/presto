@@ -19,6 +19,7 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.ViewDefinition;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
@@ -26,8 +27,11 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.sql.analyzer.MetadataResolver;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class BuiltInMetadataResolver
         implements MetadataResolver
@@ -42,6 +46,34 @@ public class BuiltInMetadataResolver
     }
 
     @Override
+    public boolean tableExists(QualifiedObjectName tableName)
+    {
+        return metadata.getTableHandle(session, tableName).isPresent();
+    }
+
+    @Override
+    public List<ColumnMetadata> getColumns(QualifiedObjectName tableName)
+    {
+        Optional<TableHandle> tableHandle = getTableHandle(tableName);
+        checkState(tableHandle.isPresent(), "Table: (%s) is not present!", tableName);
+
+        return getTableMetadata(tableHandle.get()).getColumns();
+    }
+
+    @Override
+    public boolean catalogExists(String catalogName)
+    {
+        return metadata.getCatalogHandle(session, catalogName).isPresent();
+    }
+
+    @Override
+    public boolean schemaExists(CatalogSchemaName schema)
+    {
+        return metadata.schemaExists(session, schema);
+    }
+
+    //TODO: Make it private
+    @Override
     public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
     {
         return metadata.getTableHandle(session, tableName);
@@ -53,6 +85,7 @@ public class BuiltInMetadataResolver
         return metadata.getColumnHandles(session, tableHandle);
     }
 
+    //TODO: Make it private
     @Override
     public TableMetadata getTableMetadata(TableHandle tableHandle)
     {
@@ -63,12 +96,6 @@ public class BuiltInMetadataResolver
     public Optional<ConnectorId> getCatalogHandle(String catalogName)
     {
         return metadata.getCatalogHandle(session, catalogName);
-    }
-
-    @Override
-    public boolean schemaExists(CatalogSchemaName schema)
-    {
-        return metadata.schemaExists(session, schema);
     }
 
     @Override

@@ -189,6 +189,7 @@ import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_HANDLE_TIME
 import static com.facebook.presto.common.RuntimeMetricName.GET_TABLE_METADATA_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.GET_VIEW_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
+import static com.facebook.presto.common.RuntimeMetricName.TABLE_EXISTS_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -1332,32 +1333,28 @@ class StatementAnalyzer
 
         private Scope getScopeFromTable(Table table, Optional<Scope> scope)
         {
-            QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
-            Optional<TableHandle> tableHandle = session.getRuntimeStats().profileNanos(GET_TABLE_HANDLE_TIME_NANOS, () -> metadataResolver.getTableHandle(name));
-            if (!tableHandle.isPresent()) {
-                if (!metadataResolver.getCatalogHandle(name.getCatalogName()).isPresent()) {
-                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", name.getCatalogName());
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            boolean tableExists = session.getRuntimeStats().profileNanos(TABLE_EXISTS_TIME_NANOS, () -> metadataResolver.tableExists(tableName));
+            if (!tableExists) {
+                if (!metadataResolver.catalogExists(tableName.getCatalogName())) {
+                    throw new SemanticException(MISSING_CATALOG, table, "Catalog %s does not exist", tableName.getCatalogName());
                 }
-                if (!metadataResolver.schemaExists(new CatalogSchemaName(name.getCatalogName(), name.getSchemaName()))) {
-                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", name.getSchemaName());
+                if (!metadataResolver.schemaExists(new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
+                    throw new SemanticException(MISSING_SCHEMA, table, "Schema %s does not exist", tableName.getSchemaName());
                 }
-                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", name);
+                throw new SemanticException(MISSING_TABLE, table, "Table %s does not exist", tableName);
             }
-
-            TableMetadata tableMetadata = session.getRuntimeStats().profileNanos(
-                    GET_TABLE_METADATA_TIME_NANOS,
-                    () -> metadataResolver.getTableMetadata(tableHandle.get()));
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            for (ColumnMetadata column : metadataResolver.getColumns(tableName)) {
                 Field field = Field.newQualified(
                         Optional.empty(),
                         table.getName(),
                         Optional.of(column.getName()),
                         column.getType(),
                         column.isHidden(),
-                        Optional.of(name),
+                        Optional.of(tableName),
                         Optional.of(column.getName()),
                         false);
                 fields.add(field);
