@@ -16,6 +16,7 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/BaseVector.h"
@@ -1912,6 +1913,42 @@ TEST_F(VectorTest, selectiveLoadingOfLazyDictionaryNested) {
 
   dict->loadedVector();
   ASSERT_EQ(loaderPtr->rowCount(), 1 + size / 4);
+}
+
+TEST_F(VectorTest, nestedLazy) {
+  // Verify that explicit checks are triggered that ensure lazy vectors cannot
+  // be nested within two different top level vectors.
+  vector_size_t size = 10;
+  auto indexAt = [](vector_size_t) { return 0; };
+  auto makeLazy = [&]() {
+    return std::make_shared<LazyVector>(
+        pool_.get(),
+        INTEGER(),
+        size,
+        std::make_unique<TestingLoader>(
+            makeFlatVector<int64_t>(size, [](auto row) { return row; })));
+  };
+  auto lazy = makeLazy();
+  auto dict = BaseVector::wrapInDictionary(
+      nullptr, makeIndices(size, indexAt), size, lazy);
+
+  VELOX_ASSERT_THROW(
+      BaseVector::wrapInDictionary(
+          nullptr, makeIndices(size, indexAt), size, lazy),
+      "An unloaded lazy vector cannot be wrapped by two different top level"
+      " vectors.");
+
+  // Verify that the unloaded dictionary can be nested as long as it has one top
+  // level vector.
+  EXPECT_NO_THROW(BaseVector::wrapInDictionary(
+      nullptr, makeIndices(size, indexAt), size, dict));
+
+  // Limitation: Current checks cannot prevent existing references of the lazy
+  // vector to load rows. For example, the following would succeed even though
+  // it was wrapped under 2 layer of dictionary above:
+  EXPECT_FALSE(lazy->isLoaded());
+  EXPECT_NO_THROW(lazy->loadedVector());
+  EXPECT_TRUE(lazy->isLoaded());
 }
 
 TEST_F(VectorTest, dictionaryResize) {

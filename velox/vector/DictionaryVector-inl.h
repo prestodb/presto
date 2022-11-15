@@ -52,6 +52,10 @@ void DictionaryVector<T>::setInternalState() {
 #endif
 
   if (isLazyNotLoaded(*dictionaryValues_)) {
+    VELOX_CHECK(
+        dictionaryValues_->markAsContainingLazyAndWrapped(),
+        "An unloaded lazy vector cannot be wrapped by two different"
+        " top level vectors.");
     // Do not load Lazy vector
     return;
   }

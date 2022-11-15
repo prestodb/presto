@@ -336,6 +336,10 @@ class ConstantVector final : public SimpleVector<T> {
  private:
   void setInternalState() {
     if (isLazyNotLoaded(*valueVector_)) {
+      VELOX_CHECK(
+          valueVector_->markAsContainingLazyAndWrapped(),
+          "An unloaded lazy vector cannot be wrapped by two different "
+          "top level vectors.");
       // Do not load Lazy vector
       return;
     }
