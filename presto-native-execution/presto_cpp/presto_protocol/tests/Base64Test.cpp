@@ -24,10 +24,10 @@ using namespace facebook::velox;
 class Base64Test : public ::testing::Test {
  public:
   void SetUp() override {
-    pool_ = memory::getDefaultScopedMemoryPool();
+    pool_ = memory::getDefaultMemoryPool();
   }
 
-  std::unique_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 TEST_F(Base64Test, singleInt) {
