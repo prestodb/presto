@@ -14,14 +14,23 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.airlift.json.JsonCodecFactory;
+import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.spi.SourceLocation;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.Serialization;
 import com.facebook.presto.sql.planner.plan.PlanFragmentId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRawValue;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -30,21 +39,33 @@ import static java.util.Objects.requireNonNull;
 public class JsonRenderer
         implements Renderer<String>
 {
-    private static final JsonCodec<JsonRenderedNode> CODEC = JsonCodec.jsonCodec(JsonRenderedNode.class);
-    private static final JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> PLAN_MAP_CODEC = JsonCodec.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
+    private static JsonCodec<JsonRenderedNode> codec = JsonCodec.jsonCodec(JsonRenderedNode.class);
+    private static JsonCodec<Map<PlanFragmentId, JsonPlanFragment>> planMapCodec = JsonCodec.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
+
+    public JsonRenderer(FunctionAndTypeManager functionAndTypeManager)
+    {
+        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
+        provider.setJsonSerializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionSerializer()));
+        provider.setKeyDeserializers(ImmutableMap.of(VariableReferenceExpression.class, new Serialization.VariableReferenceExpressionDeserializer(functionAndTypeManager)));
+
+        JsonCodecFactory codecFactory = new JsonCodecFactory(provider, true);
+        this.codec = codecFactory.jsonCodec(JsonRenderedNode.class);
+        this.planMapCodec = codecFactory.mapJsonCodec(PlanFragmentId.class, JsonPlanFragment.class);
+    }
 
     @Override
     public String render(PlanRepresentation plan)
     {
-        return CODEC.toJson(renderJson(plan, plan.getRoot()));
+        return codec.toJson(renderJson(plan, plan.getRoot()));
     }
 
     public String render(Map<PlanFragmentId, JsonPlanFragment> fragmentJsonMap)
     {
-        return PLAN_MAP_CODEC.toJson(fragmentJsonMap);
+        return planMapCodec.toJson(fragmentJsonMap);
     }
 
-    private JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
+    @VisibleForTesting
+    public JsonRenderedNode renderJson(PlanRepresentation plan, NodeRepresentation node)
     {
         List<JsonRenderedNode> children = node.getChildren().stream()
                 .map(plan::getNode)
@@ -62,7 +83,8 @@ public class JsonRenderer
                 children,
                 node.getRemoteSources().stream()
                         .map(PlanFragmentId::toString)
-                        .collect(toImmutableList()));
+                        .collect(toImmutableList()),
+                node.getEstimatedStats());
     }
 
     public static class JsonRenderedNode
@@ -74,9 +96,10 @@ public class JsonRenderer
         private final String details;
         private final List<JsonRenderedNode> children;
         private final List<String> remoteSources;
+        private final List<PlanNodeStatsEstimate> estimates;
 
         @JsonCreator
-        public JsonRenderedNode(Optional<SourceLocation> sourceLocation, String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources)
+        public JsonRenderedNode(Optional<SourceLocation> sourceLocation, String id, String name, String identifier, String details, List<JsonRenderedNode> children, List<String> remoteSources, List<PlanNodeStatsEstimate> estimates)
         {
             this.sourceLocation = sourceLocation;
             this.id = requireNonNull(id, "id is null");
@@ -85,6 +108,7 @@ public class JsonRenderer
             this.details = requireNonNull(details, "details is null");
             this.children = requireNonNull(children, "children is null");
             this.remoteSources = requireNonNull(remoteSources, "id is null");
+            this.estimates = requireNonNull(estimates, "estimate is null");
         }
 
         @JsonProperty
@@ -127,6 +151,38 @@ public class JsonRenderer
         public List<String> getRemoteSources()
         {
             return remoteSources;
+        }
+
+        @JsonProperty
+        public List<PlanNodeStatsEstimate> getEstimates()
+        {
+            return estimates;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            JsonRenderedNode other = (JsonRenderedNode) obj;
+            return Objects.equals(this.name, other.name) &&
+                    Objects.equals(this.id, other.id) &&
+                    Objects.equals(this.sourceLocation, other.sourceLocation) &&
+                    Objects.equals(this.identifier, other.identifier) &&
+                    Objects.equals(this.details, other.details) &&
+                    Objects.equals(this.children, other.children) &&
+                    Objects.equals(this.estimates, other.estimates) &&
+                    Objects.equals(this.remoteSources, other.remoteSources);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, id, sourceLocation, identifier, details, children, estimates, remoteSources);
         }
     }
 

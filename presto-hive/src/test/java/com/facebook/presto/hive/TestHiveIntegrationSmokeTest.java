@@ -4302,7 +4302,7 @@ public class TestHiveIntegrationSmokeTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = queryRunner.getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), StatsAndCosts.empty(), session, 0);
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), StatsAndCosts.empty(), metadata.getFunctionAndTypeManager(), session, 0);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
