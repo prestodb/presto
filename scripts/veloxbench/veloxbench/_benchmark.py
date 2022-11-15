@@ -31,8 +31,12 @@ def _now_formatted() -> str:
 
 
 def github_info(velox_info: Dict[str, Any]) -> Dict[str, Any]:
+    pr_number_env = os.getenv("CIRCLE_PR_NUMBER", "")
+    pr_number = int(pr_number_env) if pr_number_env else None
+
     return {
         "repository": "https://github.com/facebookincubator/velox",
+        "pr_number": pr_number,
         "commit": velox_info["velox_git_revision"],
     }
 
