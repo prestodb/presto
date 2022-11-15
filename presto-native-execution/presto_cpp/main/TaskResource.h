@@ -23,11 +23,11 @@ class TaskResource {
  public:
   explicit TaskResource(TaskManager& taskManager)
       : taskManager_(taskManager),
-        pool_(velox::memory::getDefaultScopedMemoryPool()) {}
+        pool_(velox::memory::getDefaultMemoryPool()) {}
 
   void registerUris(http::HttpServer& server);
 
-  velox::memory::ScopedMemoryPool* getPool() const {
+  velox::memory::MemoryPool* getPool() const {
     return pool_.get();
   }
 
@@ -65,7 +65,7 @@ class TaskResource {
       const std::vector<std::string>& pathMatch);
 
   TaskManager& taskManager_;
-  std::unique_ptr<velox::memory::ScopedMemoryPool> pool_;
+  std::shared_ptr<velox::memory::MemoryPool> pool_;
 };
 
 } // namespace facebook::presto

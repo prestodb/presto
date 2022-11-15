@@ -54,9 +54,9 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
   std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto scopedPool = memory::getDefaultScopedMemoryPool();
+  auto pool = memory::getDefaultMemoryPool();
 
-  VeloxQueryPlanConverter converter(scopedPool.get());
+  VeloxQueryPlanConverter converter(pool.get());
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
