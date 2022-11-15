@@ -450,7 +450,7 @@ jobs:
           command: |
             echo -e "The logs will be saved to \"/tmp/aggregate_fuzzer.log\" and uploaded" \
                     "as a job artifact (check the \"Artifacts\" tab above)."
-            _build/debug/velox/expression/tests/velox_aggregation_fuzzer_test \
+            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
                 --seed ${RANDOM} \
                 --duration_sec 3600 \
                 --logtostderr=1 \
