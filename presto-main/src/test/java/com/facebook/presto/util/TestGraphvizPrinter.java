@@ -39,10 +39,10 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Optional;
 
-import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.StageExecutionDescriptor.ungroupedExecution;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.GraphvizPrinter.printDistributed;
 import static com.facebook.presto.util.GraphvizPrinter.printLogical;
@@ -74,8 +74,8 @@ public class TestGraphvizPrinter
     {
         String actual = printLogical(
                 ImmutableList.of(createTestPlanFragment(0, TEST_TABLE_SCAN_NODE)),
-                testSessionBuilder().build(),
-                createTestFunctionAndTypeManager());
+                FUNCTION_AND_TYPE_MANAGER,
+                testSessionBuilder().build());
         String expected = join(
                 System.lineSeparator(),
                 "digraph logical_plan {",
@@ -99,8 +99,8 @@ public class TestGraphvizPrinter
                 ImmutableList.of(tableScanNodeSubPlan));
         String actualNestedSubPlan = printDistributed(
                 nestedSubPlan,
-                testSessionBuilder().build(),
-                createTestFunctionAndTypeManager());
+                FUNCTION_AND_TYPE_MANAGER,
+                testSessionBuilder().build());
         String expectedNestedSubPlan = join(
                 System.lineSeparator(),
                 "digraph distributed_plan {",
@@ -141,8 +141,8 @@ public class TestGraphvizPrinter
 
         String actual = printLogical(
                 ImmutableList.of(createTestPlanFragment(0, node)),
-                testSessionBuilder().build(),
-                createTestFunctionAndTypeManager());
+                FUNCTION_AND_TYPE_MANAGER,
+                testSessionBuilder().build());
 
         String expected = "digraph logical_plan {\n" +
                 "subgraph cluster_0 {\n" +

@@ -24,8 +24,10 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.facebook.presto.spi.statistics.PlanStatisticsWithSourceInfo;
 import com.facebook.presto.spi.statistics.SourceInfo;
+import com.facebook.presto.sql.Serialization;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableMap;
 import org.pcollections.HashTreePMap;
 import org.pcollections.PMap;
@@ -194,6 +196,7 @@ public class PlanNodeStatsEstimate
         return variableStatistics.getOrDefault(variable, VariableStatsEstimate.unknown());
     }
 
+    @JsonSerialize(keyUsing = Serialization.VariableReferenceExpressionSerializer.class)
     @JsonProperty
     public Map<VariableReferenceExpression, VariableStatsEstimate> getVariableStatistics()
     {

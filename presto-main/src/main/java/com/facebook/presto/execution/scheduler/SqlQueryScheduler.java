@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.TimeStat;
 import com.facebook.presto.Session;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.LocationFactory;
@@ -497,6 +498,7 @@ public class SqlQueryScheduler
             newRoot = optimizer.optimize(newRoot, session, variableAllocator.getTypes(), variableAllocator, idAllocator, warningCollector);
         }
         if (newRoot != fragment.getRoot()) {
+            StatsAndCosts estimatedStatsAndCosts = fragment.getStatsAndCosts();
             return Optional.of(
                     // The partitioningScheme should stay the same
                     // even if the root's outputVariable layout is changed.
@@ -509,8 +511,8 @@ public class SqlQueryScheduler
                             fragment.getPartitioningScheme(),
                             fragment.getStageExecutionDescriptor(),
                             fragment.isOutputTableWriterFragment(),
-                            fragment.getStatsAndCosts(),
-                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), functionAndTypeManager, session))));
+                            estimatedStatsAndCosts,
+                            Optional.of(jsonFragmentPlan(newRoot, fragment.getVariables(), estimatedStatsAndCosts, functionAndTypeManager, session))));
         }
         return Optional.empty();
     }

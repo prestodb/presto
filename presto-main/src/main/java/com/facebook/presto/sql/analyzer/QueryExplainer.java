@@ -127,7 +127,7 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session, 0, verbose);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session, 0, verbose);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionAndTypeManager(), session, verbose);
@@ -153,10 +153,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), session, metadata.getFunctionAndTypeManager());
+                return graphvizLogicalPlan(plan.getRoot(), plan.getTypes(), plan.getStatsAndCosts(), metadata.getFunctionAndTypeManager(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return graphvizDistributedPlan(subPlan, session, metadata.getFunctionAndTypeManager());
+                return graphvizDistributedPlan(subPlan, metadata.getFunctionAndTypeManager(), session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -179,7 +179,7 @@ public class QueryExplainer
                 return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return jsonDistributedPlan(subPlan);
+                return jsonDistributedPlan(subPlan, metadata.getFunctionAndTypeManager());
             default:
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }
