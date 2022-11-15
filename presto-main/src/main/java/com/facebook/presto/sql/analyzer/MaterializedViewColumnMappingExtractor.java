@@ -34,7 +34,7 @@ import java.util.Set;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
-import static com.facebook.presto.spi.ConnectorMaterializedViewDefinition.TableColumn;
+import static com.facebook.presto.spi.MaterializedViewDefinition.TableColumn;
 import static com.facebook.presto.sql.MaterializedViewUtils.transitiveClosure;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;

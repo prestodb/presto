@@ -30,9 +30,9 @@ import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
@@ -206,7 +206,7 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+        public void createMaterializedView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
         {
             if (!ignoreExisting) {
                 throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists");
@@ -280,7 +280,7 @@ public class TestCreateMaterializedViewTask
         }
 
         @Override
-        public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+        public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return Optional.empty();
         }

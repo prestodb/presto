@@ -19,8 +19,8 @@ import com.facebook.presto.connector.informationSchema.InformationSchemaTableHan
 import com.facebook.presto.connector.informationSchema.InformationSchemaTransactionHandle;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -186,27 +186,27 @@ public class TestCatalogServerResponse
             throws Exception
     {
         String connectorMaterializedViewDefinitionJson = testingCatalogServerClient.getMaterializedView(null, null, null);
-        ConnectorMaterializedViewDefinition connectorMaterializedViewDefinition = objectMapper.readValue(
+        MaterializedViewDefinition materializedViewDefinition = objectMapper.readValue(
                 connectorMaterializedViewDefinitionJson,
-                ConnectorMaterializedViewDefinition.class);
+                MaterializedViewDefinition.class);
         String originalSql = "SELECT\n  name\n, nationkey\nFROM\n  test_customer_base\n";
         String schema = "tpch";
         String table = "eric";
         List<SchemaTableName> baseTables = new ArrayList<>(Arrays.asList(new SchemaTableName("tpch", "test_customer_base")));
         Optional<String> owner = Optional.of("ericn576");
-        List<ConnectorMaterializedViewDefinition.ColumnMapping> columnMappings = new ArrayList<>();
-        ConnectorMaterializedViewDefinition.TableColumn tableColumn = new ConnectorMaterializedViewDefinition.TableColumn(
+        List<MaterializedViewDefinition.ColumnMapping> columnMappings = new ArrayList<>();
+        MaterializedViewDefinition.TableColumn tableColumn = new MaterializedViewDefinition.TableColumn(
                 new SchemaTableName("tpch", "eric"),
                 "name",
                 true);
-        ConnectorMaterializedViewDefinition.TableColumn listTableColumn = new ConnectorMaterializedViewDefinition.TableColumn(
+        MaterializedViewDefinition.TableColumn listTableColumn = new MaterializedViewDefinition.TableColumn(
                 new SchemaTableName("tpch", "test_customer_base"),
                 "name",
                 true);
-        columnMappings.add(new ConnectorMaterializedViewDefinition.ColumnMapping(tableColumn, new ArrayList<>(Arrays.asList(listTableColumn))));
+        columnMappings.add(new MaterializedViewDefinition.ColumnMapping(tableColumn, new ArrayList<>(Arrays.asList(listTableColumn))));
         List<SchemaTableName> baseTablesOnOuterJoinSide = new ArrayList<>();
         Optional<List<String>> validRefreshColumns = Optional.of(new ArrayList<>(Arrays.asList("nationkey")));
-        ConnectorMaterializedViewDefinition actualConnectorMaterializedViewDefinition = new ConnectorMaterializedViewDefinition(
+        MaterializedViewDefinition actualMaterializedViewDefinition = new MaterializedViewDefinition(
                 originalSql,
                 schema,
                 table,
@@ -216,14 +216,14 @@ public class TestCatalogServerResponse
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns);
 
-        assertEquals(connectorMaterializedViewDefinition.getOriginalSql(), actualConnectorMaterializedViewDefinition.getOriginalSql());
-        assertEquals(connectorMaterializedViewDefinition.getSchema(), actualConnectorMaterializedViewDefinition.getSchema());
-        assertEquals(connectorMaterializedViewDefinition.getTable(), actualConnectorMaterializedViewDefinition.getTable());
-        assertEquals(connectorMaterializedViewDefinition.getBaseTables(), actualConnectorMaterializedViewDefinition.getBaseTables());
-        assertEquals(connectorMaterializedViewDefinition.getOwner(), actualConnectorMaterializedViewDefinition.getOwner());
-        assertEquals(connectorMaterializedViewDefinition.getColumnMappingsAsMap(), actualConnectorMaterializedViewDefinition.getColumnMappingsAsMap());
-        assertEquals(connectorMaterializedViewDefinition.getBaseTablesOnOuterJoinSide(), actualConnectorMaterializedViewDefinition.getBaseTablesOnOuterJoinSide());
-        assertEquals(connectorMaterializedViewDefinition.getValidRefreshColumns(), actualConnectorMaterializedViewDefinition.getValidRefreshColumns());
+        assertEquals(materializedViewDefinition.getOriginalSql(), actualMaterializedViewDefinition.getOriginalSql());
+        assertEquals(materializedViewDefinition.getSchema(), actualMaterializedViewDefinition.getSchema());
+        assertEquals(materializedViewDefinition.getTable(), actualMaterializedViewDefinition.getTable());
+        assertEquals(materializedViewDefinition.getBaseTables(), actualMaterializedViewDefinition.getBaseTables());
+        assertEquals(materializedViewDefinition.getOwner(), actualMaterializedViewDefinition.getOwner());
+        assertEquals(materializedViewDefinition.getColumnMappingsAsMap(), actualMaterializedViewDefinition.getColumnMappingsAsMap());
+        assertEquals(materializedViewDefinition.getBaseTablesOnOuterJoinSide(), actualMaterializedViewDefinition.getBaseTablesOnOuterJoinSide());
+        assertEquals(materializedViewDefinition.getValidRefreshColumns(), actualMaterializedViewDefinition.getValidRefreshColumns());
     }
 
     @Test

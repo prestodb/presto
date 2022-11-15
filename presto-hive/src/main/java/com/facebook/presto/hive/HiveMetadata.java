@@ -48,7 +48,6 @@ import com.facebook.presto.hive.statistics.HiveStatisticsProvider;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -64,6 +63,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.InMemoryRecordSet;
 import com.facebook.presto.spi.LocalProperty;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.PrestoException;
@@ -396,7 +396,7 @@ public class HiveMetadata
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
     private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
 
-    private static final JsonCodec<ConnectorMaterializedViewDefinition> MATERIALIZED_VIEW_JSON_CODEC = jsonCodec(ConnectorMaterializedViewDefinition.class);
+    private static final JsonCodec<MaterializedViewDefinition> MATERIALIZED_VIEW_JSON_CODEC = jsonCodec(MaterializedViewDefinition.class);
 
     private final boolean allowCorruptWritesForTesting;
     private final SemiTransactionalHiveMetastore metastore;
@@ -2392,7 +2392,7 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         requireNonNull(viewName, "viewName is null");
 
@@ -2415,7 +2415,7 @@ public class HiveMetadata
     public MaterializedViewStatus getMaterializedViewStatus(ConnectorSession session, SchemaTableName materializedViewName, TupleDomain<String> baseQueryDomain)
     {
         MetastoreContext metastoreContext = getMetastoreContext(session);
-        ConnectorMaterializedViewDefinition viewDefinition = getMaterializedView(session, materializedViewName)
+        MaterializedViewDefinition viewDefinition = getMaterializedView(session, materializedViewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(materializedViewName));
 
         List<Table> baseTables = viewDefinition.getBaseTables().stream()
@@ -2482,14 +2482,14 @@ public class HiveMetadata
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, ConnectorMaterializedViewDefinition viewDefinition, boolean ignoreExisting)
+    public void createMaterializedView(ConnectorSession session, ConnectorTableMetadata viewMetadata, MaterializedViewDefinition viewDefinition, boolean ignoreExisting)
     {
         if (isExternalTable(viewMetadata.getProperties())) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, "Specifying external location for materialized view is not supported.");
         }
 
         Table basicTable = prepareTable(session, viewMetadata, MATERIALIZED_VIEW);
-        viewDefinition = new ConnectorMaterializedViewDefinition(
+        viewDefinition = new MaterializedViewDefinition(
                 viewDefinition.getOriginalSql(),
                 viewDefinition.getSchema(),
                 viewDefinition.getTable(),
@@ -2529,7 +2529,7 @@ public class HiveMetadata
     @Override
     public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<ConnectorMaterializedViewDefinition> view = getMaterializedView(session, viewName);
+        Optional<MaterializedViewDefinition> view = getMaterializedView(session, viewName);
         if (!view.isPresent()) {
             throw new MaterializedViewNotFoundException(viewName);
         }

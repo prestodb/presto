@@ -24,9 +24,9 @@ import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorMaterializedViewDefinition;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SystemTable;
@@ -443,7 +443,7 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         return delegate.getMaterializedView(session, viewName);
     }
@@ -453,7 +453,7 @@ public abstract class DelegatingMetadataManager
             Session session,
             String catalogName,
             ConnectorTableMetadata viewMetadata,
-            ConnectorMaterializedViewDefinition viewDefinition,
+            MaterializedViewDefinition viewDefinition,
             boolean ignoreExisting)
     {
         delegate.createMaterializedView(session, catalogName, viewMetadata, viewDefinition, ignoreExisting);

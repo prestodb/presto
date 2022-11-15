@@ -27,7 +27,7 @@ import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
-public final class ConnectorMaterializedViewDefinition
+public final class MaterializedViewDefinition
 {
     private final String originalSql;
     private final String schema;
@@ -39,7 +39,7 @@ public final class ConnectorMaterializedViewDefinition
     private final Optional<List<String>> validRefreshColumns;
 
     @JsonCreator
-    public ConnectorMaterializedViewDefinition(
+    public MaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
@@ -60,7 +60,7 @@ public final class ConnectorMaterializedViewDefinition
     }
 
     @JsonIgnore
-    public ConnectorMaterializedViewDefinition(
+    public MaterializedViewDefinition(
             String originalSql,
             String schema,
             String table,
