@@ -112,6 +112,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,7 @@ import static com.facebook.presto.sql.planner.planPrinter.PlanNodeStatsSummarize
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatDouble;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.formatPositions;
 import static com.facebook.presto.sql.planner.planPrinter.TextRenderer.indentString;
+import static com.facebook.presto.util.GraphvizPrinter.printDistributedFromFragments;
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -153,10 +155,10 @@ public class PlanPrinter
             PlanNode planRoot,
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
-            FunctionAndTypeManager functionAndTypeManager,
             StatsAndCosts estimatedStatsAndCosts,
-            Session session,
-            Optional<Map<PlanNodeId, PlanNodeStats>> stats)
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
@@ -195,45 +197,45 @@ public class PlanPrinter
 
     public String toJson()
     {
-        return new JsonRenderer().render(representation);
+        return new JsonRenderer(functionAndTypeManager).render(representation);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Set<VariableReferenceExpression> variables, FunctionAndTypeManager functionAndTypeManager, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Set<VariableReferenceExpression> variables, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         TypeProvider typeProvider = TypeProvider.fromVariables(variables);
 
-        return new PlanPrinter(root, typeProvider, Optional.empty(), functionAndTypeManager, StatsAndCosts.empty(), session, Optional.empty()).toJson();
+        return new PlanPrinter(root, typeProvider, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session).toJson();
     }
 
-    public static String textLogicalPlan(PlanNode plan, TypeProvider types, FunctionAndTypeManager functionAndTypeManager, StatsAndCosts estimatedStatsAndCosts, Session session, int level)
+    public static String textLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session, int level)
     {
-        return new PlanPrinter(plan, types, Optional.empty(), functionAndTypeManager, estimatedStatsAndCosts, session, Optional.empty()).toText(false, level);
+        return new PlanPrinter(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session).toText(false, level);
     }
 
     public static String textLogicalPlan(
             PlanNode plan,
             TypeProvider types,
-            FunctionAndTypeManager functionAndTypeManager,
             StatsAndCosts estimatedStatsAndCosts,
+            FunctionAndTypeManager functionAndTypeManager,
             Session session,
             int level,
             boolean verbose)
     {
-        return textLogicalPlan(plan, types, Optional.empty(), functionAndTypeManager, estimatedStatsAndCosts, session, Optional.empty(), level, verbose);
+        return textLogicalPlan(plan, types, Optional.empty(), estimatedStatsAndCosts, Optional.empty(), functionAndTypeManager, session, level, verbose);
     }
 
     public static String textLogicalPlan(
             PlanNode plan,
             TypeProvider types,
             Optional<StageExecutionDescriptor> stageExecutionStrategy,
-            FunctionAndTypeManager functionAndTypeManager,
             StatsAndCosts estimatedStatsAndCosts,
-            Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            FunctionAndTypeManager functionAndTypeManager,
+            Session session,
             int level,
             boolean verbose)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionAndTypeManager, estimatedStatsAndCosts, session, stats).toText(verbose, level);
+        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toText(verbose, level);
     }
 
     public static String textDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager, Session session, boolean verbose)
@@ -300,21 +302,21 @@ public class PlanPrinter
             Session session,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats)
     {
-        return new PlanPrinter(plan, types, stageExecutionStrategy, functionAndTypeManager, estimatedStatsAndCosts, session, stats).toJson();
+        return new PlanPrinter(plan, types, stageExecutionStrategy, estimatedStatsAndCosts, stats, functionAndTypeManager, session).toJson();
     }
 
-    public static String jsonDistributedPlan(StageInfo outputStageInfo)
+    public static String jsonDistributedPlan(StageInfo outputStageInfo, FunctionAndTypeManager functionAndTypeManager)
     {
         List<PlanFragment> allFragments = getAllStages(Optional.of(outputStageInfo)).stream()
                 .map(StageInfo::getPlan)
                 .map(Optional::get)
                 .collect(toImmutableList());
-        return formatJsonFragmentList(allFragments);
+        return formatJsonFragmentList(allFragments, functionAndTypeManager);
     }
 
-    public static String jsonDistributedPlan(SubPlan plan)
+    public static String jsonDistributedPlan(SubPlan plan, FunctionAndTypeManager functionAndTypeManager)
     {
-        return formatJsonFragmentList(plan.getAllFragments());
+        return formatJsonFragmentList(plan.getAllFragments(), functionAndTypeManager);
     }
 
     private String formatSourceLocation(Optional<SourceLocation> sourceLocation1, Optional<SourceLocation> sourceLocation2)
@@ -335,7 +337,7 @@ public class PlanPrinter
         return "";
     }
 
-    private static String formatJsonFragmentList(List<PlanFragment> fragments)
+    private static String formatJsonFragmentList(List<PlanFragment> fragments, FunctionAndTypeManager functionAndTypeManager)
     {
         ImmutableSortedMap.Builder<PlanFragmentId, JsonPlanFragment> fragmentJsonMap = ImmutableSortedMap.naturalOrder();
         for (PlanFragment fragment : fragments) {
@@ -343,7 +345,7 @@ public class PlanPrinter
             JsonPlanFragment jsonPlanFragment = new JsonPlanFragment(fragment.getJsonRepresentation().get());
             fragmentJsonMap.put(fragmentId, jsonPlanFragment);
         }
-        return new JsonRenderer().render(fragmentJsonMap.build());
+        return new JsonRenderer(functionAndTypeManager).render(fragmentJsonMap.build());
     }
 
     private static String formatFragment(
@@ -406,10 +408,10 @@ public class PlanPrinter
                         fragment.getRoot(),
                         typeProvider,
                         Optional.of(fragment.getStageExecutionDescriptor()),
-                        functionAndTypeManager,
                         fragment.getStatsAndCosts(),
-                        session,
                         planNodeStats,
+                        functionAndTypeManager,
+                        session,
                         1,
                         verbose))
                 .append("\n");
@@ -417,7 +419,7 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, Session session, FunctionAndTypeManager functionAndTypeManager)
+    public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types, StatsAndCosts estimatedStatsAndCosts, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
         // TODO: This should move to something like GraphvizRenderer
         PlanFragment fragment = new PlanFragment(
@@ -431,12 +433,22 @@ public class PlanPrinter
                 false,
                 estimatedStatsAndCosts,
                 Optional.empty());
-        return GraphvizPrinter.printLogical(ImmutableList.of(fragment), session, functionAndTypeManager);
+        return GraphvizPrinter.printLogical(ImmutableList.of(fragment), functionAndTypeManager, session);
     }
 
-    public static String graphvizDistributedPlan(SubPlan plan, Session session, FunctionAndTypeManager functionAndTypeManager)
+    public static String graphvizDistributedPlan(SubPlan plan, FunctionAndTypeManager functionAndTypeManager, Session session)
     {
-        return GraphvizPrinter.printDistributed(plan, session, functionAndTypeManager);
+        return GraphvizPrinter.printDistributed(plan, functionAndTypeManager, session);
+    }
+
+    public static String graphvizDistributedPlan(StageInfo stageInfo, FunctionAndTypeManager functionAndTypeManager, Session session)
+    {
+        List<PlanFragment> allFragments = getAllStages(Optional.of(stageInfo)).stream()
+                .map(StageInfo::getPlan)
+                .map(Optional::get)
+                .sorted(Comparator.comparing(PlanFragment::getId))
+                .collect(toImmutableList());
+        return printDistributedFromFragments(allFragments, functionAndTypeManager, session);
     }
 
     private class Visitor

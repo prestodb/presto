@@ -193,7 +193,7 @@ public abstract class BasePlanFragmenter
                 StageExecutionDescriptor.ungroupedExecution(),
                 outputTableWriterFragment,
                 statsAndCosts.getForSubplan(root),
-                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, metadata.getFunctionAndTypeManager(), session)));
+                Optional.of(jsonFragmentPlan(root, fragmentVariableTypes, statsAndCosts.getForSubplan(root), metadata.getFunctionAndTypeManager(), session)));
 
         return new SubPlan(fragment, properties.getChildren());
     }
