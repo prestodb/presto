@@ -139,6 +139,7 @@ class FuzzerRunner {
     appendSpecialForms(specialForms, signatures);
     facebook::velox::test::expressionFuzzer(
         filterSignatures(signatures, onlyFunctions, skipFunctions), seed);
+    // Calling gtest here so that it can be recognized as tests in CI systems.
     return RUN_ALL_TESTS();
   }
 };

@@ -342,5 +342,15 @@ TEST_F(AverageAggregationTest, avgDecimal) {
       {},
       {makeRowVector({makeShortDecimalFlatVector({3'000}, DECIMAL(10, 1))})});
 }
+
+TEST_F(AverageAggregationTest, constantVectorOverflow) {
+  auto rows = makeRowVector({makeConstant<int32_t>(1073741824, 100)});
+  auto plan = PlanBuilder()
+                  .values({rows})
+                  .singleAggregation({}, {"avg(c0)"})
+                  .planNode();
+  assertQuery(plan, "SELECT 1073741824");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

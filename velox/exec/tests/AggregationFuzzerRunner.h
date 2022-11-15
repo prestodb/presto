@@ -87,6 +87,7 @@ class AggregationFuzzerRunner {
 
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures, seed, orderDependentFunctions);
+    // Calling gtest here so that it can be recognized as tests in CI systems.
     return RUN_ALL_TESTS();
   }
 

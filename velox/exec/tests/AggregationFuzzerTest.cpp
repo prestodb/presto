@@ -53,9 +53,6 @@ int main(int argc, char** argv) {
       // approx_most_frequent crashes:
       // https://github.com/facebookincubator/velox/issues/3101
       "approx_most_frequent",
-      // avg crashes under UBSAN:
-      // https://github.com/facebookincubator/velox/issues/3103
-      "avg",
   };
 
   // The results of the following functions depend on the order of input
