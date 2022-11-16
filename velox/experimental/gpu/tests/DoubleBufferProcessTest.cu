@@ -20,51 +20,16 @@
 #include <numeric>
 #include "velox/experimental/gpu/Common.h"
 
-DEFINE_int64(buffer_size, 24 << 20, "");
+DEFINE_int64(buffer_size, 32 << 20, "");
 DEFINE_int32(repeat, 100, "");
 DEFINE_string(devices, "0", "Comma-separate list of device ids");
 DEFINE_bool(validate, false, "");
 DEFINE_int32(num_strides, 32, "");
 
 constexpr int kBlockSize = 256;
-constexpr int kItemsPerThread = 32;
-constexpr int kItemsPerBlock = kBlockSize * kItemsPerThread;
 
 namespace facebook::velox::gpu {
 namespace {
-
-struct BlockStorage {
-  using Load = cub::BlockLoad<
-      int64_t,
-      kBlockSize,
-      kItemsPerThread,
-      cub::BLOCK_LOAD_TRANSPOSE>;
-
-  using Store = cub::BlockStore<
-      int64_t,
-      kBlockSize,
-      kItemsPerThread,
-      cub::BLOCK_STORE_TRANSPOSE>;
-
-  using Sort = cub::BlockRadixSort<int64_t, kBlockSize, kItemsPerThread>;
-
-  union {
-    Load::TempStorage load;
-    Store::TempStorage store;
-    Sort::TempStorage sort;
-  };
-};
-
-__global__ void sortBlock(int64_t* data) {
-  extern __shared__ BlockStorage sharedStorage[];
-  int64_t threadKeys[kItemsPerThread];
-  int offset = blockIdx.x * kItemsPerBlock;
-  BlockStorage::Load(sharedStorage[0].load).Load(data + offset, threadKeys);
-  __syncthreads();
-  BlockStorage::Sort(sharedStorage[0].sort).Sort(threadKeys);
-  __syncthreads();
-  BlockStorage::Store(sharedStorage[0].store).Store(data + offset, threadKeys);
-}
 
 __device__ uint64_t hashMix(uint64_t upper, uint64_t lower) {
   constexpr uint64_t kMul = 0x9ddfea08eb382d69ULL;
@@ -76,27 +41,21 @@ __device__ uint64_t hashMix(uint64_t upper, uint64_t lower) {
   return b;
 }
 
-__global__ void
-strideMemory(const int64_t* data, int64_t count, int strides, int64_t* out) {
+__global__ void strideMemory(const int64_t* data, int strides, int64_t* out) {
   using Reduce = cub::BlockReduce<int64_t, kBlockSize>;
   __shared__ Reduce::TempStorage tmp;
-  auto i = threadIdx.x + blockIdx.x * blockDim.x;
-  int64_t ans = 0;
-  for (int j = 0; j < strides; ++j) {
+  int64_t i = threadIdx.x + 1ll * blockIdx.x * blockDim.x;
+  auto ans = i;
+  for (int j = 0; j < strides; ++j, i = data[i]) {
     ans = hashMix(ans, data[i]);
-    i = (i + data[i]) % count;
   }
   out[blockIdx.x] = Reduce(tmp).Reduce(ans, hashMix);
 }
 
 void testCudaEvent(int deviceId) {
   CUDA_CHECK_FATAL(cudaSetDevice(deviceId));
-  CUDA_CHECK_FATAL(cudaFuncSetAttribute(
-      sortBlock,
-      cudaFuncAttributeMaxDynamicSharedMemorySize,
-      sizeof(BlockStorage)));
   auto elementCount = FLAGS_buffer_size / sizeof(int64_t);
-  if (!(elementCount >= kItemsPerBlock && elementCount % kItemsPerBlock == 0)) {
+  if (__builtin_popcount(elementCount) != 1) {
     abort();
   }
   int64_t* hostBuffer;
@@ -107,8 +66,10 @@ void testCudaEvent(int deviceId) {
   CUDA_CHECK_FATAL(cudaMalloc(&deviceBuffer[1], FLAGS_buffer_size));
   CUDA_CHECK_FATAL(
       cudaMalloc(&outputBuffer, sizeof(int64_t) * elementCount / kBlockSize));
-  std::iota(hostBuffer, hostBuffer + elementCount, 0);
-  std::reverse(hostBuffer, hostBuffer + elementCount);
+  for (int64_t i = 0, j = 1; j <= elementCount; ++j) {
+    hostBuffer[i] = (i + j) % elementCount;
+    i = hostBuffer[i];
+  }
   CudaStream streams[] = {
       createCudaStream(),
       createCudaStream(),
@@ -121,6 +82,7 @@ void testCudaEvent(int deviceId) {
       createCudaEvent(),
       createCudaEvent(),
   };
+
   auto startEvent = createCudaEvent();
   CUDA_CHECK_FATAL(cudaEventRecord(startEvent.get()));
   int loading = 0;
@@ -140,17 +102,8 @@ void testCudaEvent(int deviceId) {
         cudaEventRecord(bufferReady[loading].get(), streams[loading].get()));
     if (i > 0) {
       CUDA_CHECK_FATAL(cudaEventSynchronize(bufferReady[processing].get()));
-      sortBlock<<<
-          elementCount / kItemsPerBlock,
-          kBlockSize,
-          sizeof(BlockStorage),
-          streams[processing].get()>>>(deviceBuffer[processing]);
-      CUDA_CHECK_FATAL(cudaGetLastError());
       strideMemory<<<elementCount / kBlockSize, kBlockSize>>>(
-          deviceBuffer[processing],
-          elementCount,
-          FLAGS_num_strides,
-          outputBuffer);
+          deviceBuffer[processing], FLAGS_num_strides, outputBuffer);
       CUDA_CHECK_FATAL(cudaGetLastError());
     }
     CUDA_CHECK_FATAL(cudaEventRecord(
@@ -163,31 +116,24 @@ void testCudaEvent(int deviceId) {
   CUDA_CHECK_FATAL(
       cudaEventElapsedTime(&time, startEvent.get(), stopEvent.get()));
   printf(
-      "Device %d throughput: %.2f GB/s\n",
+      "Device %d memcpy throughput: %.2f GB/s\n",
       deviceId,
       FLAGS_buffer_size * FLAGS_repeat * 1e-6 / time);
-  if (FLAGS_validate) {
-    CUDA_CHECK_FATAL(cudaMemcpy(
-        hostBuffer,
-        deviceBuffer[processing],
-        FLAGS_buffer_size,
-        cudaMemcpyDeviceToHost));
-    for (int64_t i = 0; i < elementCount; i += kItemsPerBlock) {
-      for (int64_t j = elementCount - i - kItemsPerBlock, di = 0;
-           j < elementCount - i;
-           ++j, ++di) {
-        if (hostBuffer[i + di] != j) {
-          fprintf(
-              stderr,
-              "hostBuffer[%ld]: %ld != %ld\n",
-              i + di,
-              hostBuffer[i + di],
-              j);
-          abort();
-        }
-      }
-    }
+
+  CUDA_CHECK_FATAL(cudaEventRecord(startEvent.get()));
+  for (int i = 0; i < FLAGS_repeat; ++i) {
+    strideMemory<<<elementCount / kBlockSize, kBlockSize>>>(
+        deviceBuffer[processing], FLAGS_num_strides, outputBuffer);
   }
+  CUDA_CHECK_FATAL(cudaEventRecord(stopEvent.get()));
+  CUDA_CHECK_FATAL(cudaEventSynchronize(stopEvent.get()));
+  CUDA_CHECK_FATAL(
+      cudaEventElapsedTime(&time, startEvent.get(), stopEvent.get()));
+  printf(
+      "Device %d device memory random read throughput: %.2f GB/s\n",
+      deviceId,
+      FLAGS_buffer_size * FLAGS_num_strides * FLAGS_repeat * 1e-6 / time);
+
   CUDA_CHECK_LOG(cudaFree(outputBuffer));
   CUDA_CHECK_LOG(cudaFree(deviceBuffer[0]));
   CUDA_CHECK_LOG(cudaFree(deviceBuffer[1]));
