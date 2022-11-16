@@ -549,8 +549,10 @@ public class TestHiveSplitManager
                 .transform(HiveColumnHandle.class::cast)
                 .transform(column -> new Subfield(column.getName(), ImmutableList.of()));
 
+        SchemaTableName schemaTableName = new SchemaTableName("test_schema", "test_table");
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         HiveTableLayoutHandle layoutHandle = new HiveTableLayoutHandle.Builder()
-                .setSchemaTableName(new SchemaTableName("test_schema", "test_table"))
+                .setSchemaTableName(schemaTableName)
                 .setTablePath("test_path")
                 .setPartitionColumns(ImmutableList.of(partitionColumn))
                 .setDataColumns(COLUMNS)
@@ -567,6 +569,7 @@ public class TestHiveSplitManager
                 .setRequestedColumns(Optional.empty())
                 .setPartialAggregationsPushedDown(false)
                 .setAppendRowNumberEnabled(false)
+                .setHiveTableHandle(hiveTableHandle)
                 .build();
 
         ConnectorSplitSource splitSource = splitManager.getSplits(
