@@ -21,6 +21,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.HiveViewNotSupportedException;
 import com.facebook.presto.hive.MetastoreClientConfig;
@@ -355,15 +356,22 @@ public class ThriftHiveMetastore
     @Override
     public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(databaseName, tableName);
+        return getTable(metastoreContext, hiveTableHandle);
+    }
+
+    @Override
+    public Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
+    {
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class, HiveViewNotSupportedException.class)
                     .stopOnIllegalExceptions()
                     .run("getTable", stats.getGetTable().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client -> {
-                                Table table = client.getTable(databaseName, tableName);
+                                Table table = client.getTable(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
                                 if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name()) && !isPrestoView(table)) {
-                                    throw new HiveViewNotSupportedException(new SchemaTableName(databaseName, tableName));
+                                    throw new HiveViewNotSupportedException(hiveTableHandle.getSchemaTableName());
                                 }
                                 return Optional.of(table);
                             })));

@@ -87,15 +87,16 @@ public class HiveTableHandle
             return false;
         }
         HiveTableHandle that = (HiveTableHandle) o;
+        // Do not include analyzePartitionValues in hashCode and equals comparison
         return Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName) &&
-                Objects.equals(analyzePartitionValues, that.analyzePartitionValues);
+                Objects.equals(tableName, that.tableName);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, analyzePartitionValues);
+        // Do not include analyzePartitionValues in hashCode and equals comparison
+        return Objects.hash(schemaName, tableName);
     }
 
     @Override

@@ -288,7 +288,8 @@ public class HiveFilterPushdown
         RowExpression remainingExpression = logicalRowExpressions.combineConjuncts(staticConjuncts.build());
         remainingExpression = removeNestedDynamicFilters(remainingExpression);
 
-        Table table = metastore.getTable(new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider()), tableName.getSchemaName(), tableName.getTableName())
+        MetastoreContext context = new MetastoreContext(session.getIdentity(), session.getQueryId(), session.getClientInfo(), session.getSource(), getMetastoreHeaders(session), isUserDefinedTypeEncodingEnabled(session), metastore.getColumnConverterProvider());
+        Table table = metastore.getTable(context, hiveTableHandle)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         String layoutString = createTableLayoutString(
                 session,
