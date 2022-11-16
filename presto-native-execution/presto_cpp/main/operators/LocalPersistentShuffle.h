@@ -21,9 +21,20 @@
 
 namespace facebook::presto::operators {
 
-/// This class is a persistent shuffle server that implements ShuffleInterface
-/// for read and write and persists the shuffle state on local storage through
-/// Velox file system interface.
+/// LocalShuffleInfo can be used for both READ and WRITE.
+struct LocalShuffleInfo {
+  std::string rootPath;
+  uint32_t numPartitions;
+
+  /// Deserializes shuffle information that is used by LocalPersistentShuffle.
+  /// Structures are assumed to be encoded in JSON format.
+  static LocalShuffleInfo deserialize(
+      const std::string& info);
+};
+
+/// This class is a persistent shuffle server that implements
+/// ShuffleInterface for read and write and also uses generalized Velox
+/// file system to maintain its state and data.
 ///
 /// Except for in-progress blocks of current output vectors in the writer,
 /// each produced vector is stored as a binary file of unsafe rows. Each block
@@ -40,16 +51,23 @@ class LocalPersistentShuffle : public ShuffleInterface {
  public:
   static constexpr folly::StringPiece kShuffleName{"local"};
 
-  LocalPersistentShuffle(uint32_t maxBytesPerPartition)
+  LocalPersistentShuffle(
+      const std::string& rootPath,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool,
+      uint32_t numPartitions,
+      uint64_t maxBytesPerPartition)
       : maxBytesPerPartition_(maxBytesPerPartition),
-        threadId_(std::this_thread::get_id()) {}
+        threadId_(std::this_thread::get_id()) {
+    reset(pool, numPartitions, rootPath);
+  }
 
-  /// Resets the shuffle state with the specified 'numPartitions'
-  /// partitions and the root directory path 'rootPath'. This function can be
-  /// called multiple times. If the current 'rootPath_' is not empty, the
-  /// function also cleans up all the data files underneath it (but does not
-  /// delete the old root director itself).
-  void initialize(
+  /// This method is mainly for testing use only. It resets the state of the
+  /// shuffle using a specific number of partitions and a rootPath.
+  /// This can be used in tests multiple times on the same shuffle object for
+  /// efficiency. If the current rootPath is not an empty string, the method
+  /// also cleans up the its previous root path folder (does not delete the
+  /// folder itself).
+  void reset(
       velox::memory::MemoryPool* FOLLY_NONNULL pool,
       uint32_t numPartitions,
       std::string rootPath);
@@ -63,6 +81,11 @@ class LocalPersistentShuffle : public ShuffleInterface {
   velox::BufferPtr next(int32_t partition, bool success) override;
 
   bool readyForRead() const override;
+
+  static std::shared_ptr<ShuffleInterface> create(
+      const std::string& serializedStr,
+      operators::ShuffleInterface::Type type,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   // Finds and creates the next file for writing the next block of the
@@ -81,7 +104,7 @@ class LocalPersistentShuffle : public ShuffleInterface {
   // Deletes all the files in the root directory.
   void cleanup();
 
-  const uint32_t maxBytesPerPartition_;
+  const uint64_t maxBytesPerPartition_;
 
   velox::memory::MemoryPool* FOLLY_NONNULL pool_;
   uint32_t numPartitions_;
