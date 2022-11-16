@@ -265,6 +265,21 @@ public class TestEventListener
         assertEquals(1L, queryCompletedEvent.getStatistics().getOutputRows());
     }
 
+    @Test
+    public void testGraphvizQueryPlanOutput()
+            throws Exception
+    {
+        int expectedEvents = 1 + 1 + SPLITS_PER_NODE + 1 + 1;
+        String query = "EXPLAIN (type distributed, format graphviz) SELECT * FROM LINEITEM limit 1";
+        Session sessionForEventLoggingWithStats = Session.builder(session)
+                .setSystemProperty("print_stats_for_non_join_query", "true")
+                .build();
+        runQueryAndWaitForEvents("SELECT * FROM lineitem limit 1", expectedEvents, sessionForEventLoggingWithStats);
+        QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        MaterializedResult expected = runQueryAndWaitForEvents(query, expectedEvents);
+        assertEquals(queryCompletedEvent.getMetadata().getGraphvizPlan().get(), getOnlyElement(expected.getOnlyColumnAsSet()));
+    }
+
     static class EventsBuilder
     {
         private ImmutableList.Builder<QueryCreatedEvent> queryCreatedEvents;
