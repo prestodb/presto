@@ -17,6 +17,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/exec/Exchange.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
@@ -147,14 +148,21 @@ auto addPartitionAndSerializeNode(uint32_t numPartitions) {
   return [numPartitions](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
-    auto outputType = ROW({"p", "d"}, {INTEGER(), VARBINARY()});
-
     std::vector<core::TypedExprPtr> keys;
     keys.push_back(
         std::make_shared<core::FieldAccessTypedExpr>(INTEGER(), "c0"));
-
+    auto outputType = source->outputType();
     return std::make_shared<PartitionAndSerializeNode>(
-        nodeId, keys, numPartitions, outputType, std::move(source));
+        nodeId,
+        keys,
+        numPartitions,
+        ROW({"p", "d"}, {INTEGER(), VARBINARY()}),
+        std::move(source),
+        [outputType, keys](int numPartitions) {
+          auto keyChannels = exec::toChannels(outputType, keys);
+          return std::make_unique<connector::hive::HivePartitionFunction>(
+              numPartitions, std::vector<int>(numPartitions), keyChannels);
+        });
   };
 }
 
