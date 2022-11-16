@@ -526,6 +526,33 @@ void ArrayVectorBase::copyRangesImpl(
   }
 }
 
+void ArrayVectorBase::checkRanges() const {
+  std::unordered_map<vector_size_t, vector_size_t> seenElements;
+  seenElements.reserve(size());
+
+  for (vector_size_t i = 0; i < size(); ++i) {
+    auto size = sizeAt(i);
+    auto offset = offsetAt(i);
+
+    for (vector_size_t j = 0; j < size; ++j) {
+      auto it = seenElements.find(offset + j);
+      if (it != seenElements.end()) {
+        VELOX_FAIL(
+            "checkRanges() found overlap at idx {}: element {} has offset {} "
+            "and size {}, and element {} has offset {} and size {}.",
+            offset + j,
+            it->second,
+            offsetAt(it->second),
+            sizeAt(it->second),
+            i,
+            offset,
+            size);
+      }
+      seenElements.emplace(offset + j, i);
+    }
+  }
+}
+
 namespace {
 
 struct IndexRange {

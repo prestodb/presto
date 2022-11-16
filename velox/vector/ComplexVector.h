@@ -251,6 +251,10 @@ struct ArrayVectorBase : BaseVector {
     sizes_->asMutable<vector_size_t>()[i] = size;
   }
 
+  /// Verify that an ArrayVector/MapVector does not contain overlapping [offset,
+  /// size] ranges. Throws in case overlaps are found.
+  void checkRanges() const;
+
  protected:
   ArrayVectorBase(
       velox::memory::MemoryPool* pool,

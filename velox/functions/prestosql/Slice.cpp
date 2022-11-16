@@ -69,6 +69,14 @@ class SliceFunction : public exec::VectorFunction {
         args[2]->typeKind(),
         "Function slice() requires start and length to be the same type");
 
+    // If the 2nd and 3rd parameters are not constants, we need to ensure that
+    // the 1st parameter is not a constant, so slice() doesn't generate
+    // overlapping ranges. To prevent this, we flatten the first parameter in
+    // these cases.
+    if (!args[1]->isConstantEncoding() || !args[2]->isConstantEncoding()) {
+      BaseVector::flattenVector(args[0], args[0]->size());
+    }
+
     VectorPtr localResult =
         applyArray<int64_t>(rows, args, context, outputType);
     context.moveOrCopyResult(localResult, rows, result);
