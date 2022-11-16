@@ -570,12 +570,12 @@ public final class SqlStageExecution
                 // no matter if it is possible to recover - the task is failed
                 failedTasks.add(taskId);
 
-                RuntimeException failure = taskStatus.getFailures().stream()
+                List<ExecutionFailureInfo> rewrittenFailures = taskStatus.getFailures().stream().map(this::rewriteTransportFailure).collect(toImmutableList());
+                RuntimeException failure = rewrittenFailures.stream()
                         .findFirst()
-                        .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                if (isRecoverable(taskStatus.getFailures())) {
+                if (isRecoverable(rewrittenFailures)) {
                     try {
                         stageTaskRecoveryCallback.get().recover(taskId);
                         finishedTasks.add(taskId);
