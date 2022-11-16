@@ -297,7 +297,10 @@ ExpressionFuzzer::ExpressionFuzzer(
           useTypeName(*signature, "long_decimal") ||
           useTypeName(*signature, "short_decimal") ||
           useTypeName(*signature, "decimal") ||
-          useTypeName(*signature, "timestamp with time zone")) {
+          useTypeName(*signature, "timestamp with time zone") ||
+          useTypeName(*signature, "interval day to second") ||
+          (FLAGS_velox_fuzzer_enable_complex_types &&
+           useTypeName(*signature, "unknown"))) {
         continue;
       }
 
