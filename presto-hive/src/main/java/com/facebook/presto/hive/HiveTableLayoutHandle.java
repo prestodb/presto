@@ -360,7 +360,14 @@ public class HiveTableLayoutHandle
 
     public Table getTable(SemiTransactionalHiveMetastore metastore, MetastoreContext metastoreContext)
     {
-        return metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName()).orElseThrow(() -> new TableNotFoundException(schemaTableName));
+        Optional<Table> table;
+        if (hiveTableHandle.isPresent()) {
+            table = metastore.getTable(metastoreContext, hiveTableHandle.get());
+        }
+        else {
+            table = metastore.getTable(metastoreContext, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        }
+        return table.orElseThrow(() -> new TableNotFoundException(schemaTableName));
     }
 
     public Builder builder()

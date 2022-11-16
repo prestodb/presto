@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.ForCachingHiveMetastore;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.spi.PrestoException;
@@ -89,7 +90,7 @@ public class CachingHiveMetastore
 
     private final LoadingCache<KeyAndContext<String>, Optional<Database>> databaseCache;
     private final LoadingCache<KeyAndContext<String>, List<String>> databaseNamesCache;
-    private final LoadingCache<KeyAndContext<HiveTableName>, Optional<Table>> tableCache;
+    private final LoadingCache<KeyAndContext<HiveTableHandle>, Optional<Table>> tableCache;
     private final LoadingCache<KeyAndContext<String>, Optional<List<String>>> tableNamesCache;
     private final LoadingCache<KeyAndContext<HiveTableName>, PartitionStatistics> tableStatisticsCache;
     private final LoadingCache<KeyAndContext<HiveTableName>, List<TableConstraint<String>>> tableConstraintsCache;
@@ -367,7 +368,13 @@ public class CachingHiveMetastore
     @Override
     public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return get(tableCache, getCachingKey(metastoreContext, hiveTableName(databaseName, tableName)));
+        return getTable(metastoreContext, new HiveTableHandle(databaseName, tableName));
+    }
+
+    @Override
+    public Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
+    {
+        return get(tableCache, getCachingKey(metastoreContext, hiveTableHandle));
     }
 
     @Override
@@ -382,9 +389,9 @@ public class CachingHiveMetastore
         return delegate.getSupportedColumnStatistics(metastoreContext, type);
     }
 
-    private Optional<Table> loadTable(KeyAndContext<HiveTableName> hiveTableName)
+    private Optional<Table> loadTable(KeyAndContext<HiveTableHandle> hiveTableHandle)
     {
-        return delegate.getTable(hiveTableName.getContext(), hiveTableName.getKey().getDatabaseName(), hiveTableName.getKey().getTableName());
+        return delegate.getTable(hiveTableHandle.getContext(), hiveTableHandle.getKey());
     }
 
     private List<TableConstraint<String>> loadTableConstraints(KeyAndContext<HiveTableName> hiveTableName)
@@ -618,12 +625,18 @@ public class CachingHiveMetastore
         }
     }
 
+    private static boolean isSameTable(HiveTableHandle hiveTableHandle, HiveTableName hiveTableName)
+    {
+        return hiveTableHandle.getSchemaName().equals(hiveTableName.getDatabaseName()) &&
+                hiveTableHandle.getTableName().equals(hiveTableName.getTableName());
+    }
+
     protected void invalidateTable(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
 
         tableCache.asMap().keySet().stream()
-                .filter(hiveTableNameKey -> hiveTableNameKey.getKey().equals(hiveTableName))
+                .filter(hiveTableHandle -> isSameTable(hiveTableHandle.getKey(), hiveTableName))
                 .forEach(tableCache::invalidate);
 
         tableConstraintsCache.asMap().keySet().stream()
@@ -993,7 +1006,7 @@ public class CachingHiveMetastore
     @Override
     public long lock(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        tableCache.invalidate(getCachingKey(metastoreContext, hiveTableName(databaseName, tableName)));
+        tableCache.invalidate(getCachingKey(metastoreContext, new HiveTableHandle(databaseName, tableName)));
         return delegate.lock(metastoreContext, databaseName, tableName);
     }
 
