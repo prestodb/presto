@@ -41,6 +41,7 @@ import com.facebook.presto.sql.planner.plan.ApplyNode;
 import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
+import com.facebook.presto.sql.planner.plan.ExplainAnalyzeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.IndexJoinNode;
 import com.facebook.presto.sql.planner.plan.IndexSourceNode;
@@ -116,6 +117,7 @@ public final class GraphvizPrinter
         INDEX_SOURCE,
         UNNEST,
         ANALYZE_FINISH,
+        EXPLAIN_ANALYZE,
     }
 
     private static final Map<NodeType, String> NODE_COLORS = immutableEnumMap(ImmutableMap.<NodeType, String>builder()
@@ -141,6 +143,7 @@ public final class GraphvizPrinter
             .put(NodeType.UNNEST, "crimson")
             .put(NodeType.SAMPLE, "goldenrod4")
             .put(NodeType.ANALYZE_FINISH, "plum")
+            .put(NodeType.EXPLAIN_ANALYZE, "cadetblue1")
             .build());
 
     static {
@@ -291,6 +294,13 @@ public final class GraphvizPrinter
         public Void visitTableFinish(TableFinishNode node, Void context)
         {
             printNode(node, format("TableFinish[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.TABLE_FINISH));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitExplainAnalyze(ExplainAnalyzeNode node, Void context)
+        {
+            printNode(node, format("ExplainAnalyze[%s]", Joiner.on(", ").join(node.getOutputVariables())), NODE_COLORS.get(NodeType.EXPLAIN_ANALYZE));
             return node.getSource().accept(this, context);
         }
 
