@@ -2081,3 +2081,16 @@ TEST_F(StringFunctionsTest, lpad) {
   EXPECT_EQ("x" + invalidString, lpad(invalidString, 8, "x"));
   EXPECT_EQ(invalidPadString + "abc", lpad("abc", 6, invalidPadString));
 }
+
+TEST_F(StringFunctionsTest, concatInSwitchExpr) {
+  auto data = makeRowVector(
+      {makeFlatVector<bool>({true, false}),
+       makeFlatVector<StringView>(
+           {"This is a long sentence"_sv, "This is some other sentence"_sv})});
+
+  auto result =
+      evaluate("if(c0, concat(c1, '-zzz'), concat('aaa-', c1))", data);
+  auto expected = makeFlatVector<StringView>(
+      {"This is a long sentence-zzz"_sv, "aaa-This is some other sentence"_sv});
+  test::assertEqualVectors(expected, result);
+}
