@@ -64,7 +64,7 @@ class ShuffleWriteOperator : public Operator {
   }
 
  private:
-  ShuffleInterface* const FOLLY_NONNULL shuffle_;
+  const std::shared_ptr<ShuffleInterface> shuffle_;
 };
 } // namespace
 

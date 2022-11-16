@@ -128,7 +128,7 @@ class TestShuffle : public ShuffleInterface {
   std::vector<std::vector<BufferPtr>> readyPartitions_;
 };
 
-void registerExchangeSource(ShuffleInterface* shuffle) {
+void registerExchangeSource(const std::shared_ptr<ShuffleInterface>& shuffle) {
   exec::ExchangeSource::registerFactory(
       [shuffle](
           const std::string& taskId,
@@ -166,7 +166,7 @@ auto addPartitionAndSerializeNode(uint32_t numPartitions) {
   };
 }
 
-auto addShuffleWriteNode(ShuffleInterface* shuffle) {
+auto addShuffleWriteNode(const std::shared_ptr<ShuffleInterface>& shuffle) {
   return [shuffle](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {
@@ -267,7 +267,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   }
 
   void runShuffleTest(
-      ShuffleInterface* shuffle,
+      const std::shared_ptr<ShuffleInterface>& shuffle,
       size_t numPartitions,
       size_t numMapDrivers,
       const std::vector<RowVectorPtr>& data) {
@@ -348,7 +348,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
       std::make_unique<PartitionAndSerializeTranslator>());
   exec::Operator::registerOperator(std::make_unique<ShuffleWriteTranslator>());
 
-  TestShuffle shuffle(pool(), 4, 1 << 20 /* 1MB */);
+  auto shuffle = std::make_shared<TestShuffle>(pool(), 4, 1 << 20 /* 1MB */);
 
   auto data = makeRowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4}),
@@ -359,7 +359,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
                   .values({data}, true)
                   .addNode(addPartitionAndSerializeNode(4))
                   .localPartition({})
-                  .addNode(addShuffleWriteNode(&shuffle))
+                  .addNode(addShuffleWriteNode(shuffle))
                   .planNode();
 
   exec::test::CursorParameters params;
@@ -375,12 +375,13 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   size_t numPartitions = 5;
   size_t numMapDrivers = 2;
 
-  TestShuffle shuffle(pool(), numPartitions, 1 << 20 /* 1MB */);
+  auto shuffle =
+      std::make_shared<TestShuffle>(pool(), numPartitions, 1 << 20 /* 1MB */);
   auto data = vectorMaker_.rowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
-  runShuffleTest(&shuffle, numPartitions, numMapDrivers, {data});
+  runShuffleTest(shuffle, numPartitions, numMapDrivers, {data});
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffleDeser) {
@@ -432,14 +433,14 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   auto rootPath = rootDirectory->path;
 
   // Initialize persistent shuffle.
-  LocalPersistentShuffle shuffle(
+  auto shuffle = std::make_shared<LocalPersistentShuffle>(
       rootPath, pool(), numPartitions, 1 << 20 /* 1MB */);
 
   auto data = vectorMaker_.rowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
       makeFlatVector<int64_t>({10, 20, 30, 40, 50, 60}),
   });
-  runShuffleTest(&shuffle, numPartitions, numMapDrivers, {data});
+  runShuffleTest(shuffle, numPartitions, numMapDrivers, {data});
 }
 
 TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
@@ -492,7 +493,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->path;
-  auto shuffle = std::make_unique<LocalPersistentShuffle>(
+  auto shuffle = std::make_shared<LocalPersistentShuffle>(
       rootPath, pool(), numPartitions, 1 << 15);
   for (int it = 0; it < numIterations; it++) {
     shuffle->reset(pool(), numPartitions, rootPath);
@@ -505,7 +506,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
       auto input = fuzzer.fuzzRow(rowType);
       inputVectors.push_back(input);
     }
-    runShuffleTest(shuffle.get(), numPartitions, numMapDrivers, inputVectors);
+    runShuffleTest(shuffle, numPartitions, numMapDrivers, inputVectors);
   }
 }
 
