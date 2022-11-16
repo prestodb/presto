@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/vector/DecodedVector.h"
 #include "velox/vector/SimpleVector.h"
 
@@ -98,21 +97,6 @@ class VectorLoader {
       ValueHook* hook,
       VectorPtr* result);
 };
-
-// Simple interface to implement logging runtime stats to Velox operators.
-// Inherit a concrete class from this with operator pointer.
-class BaseRuntimeStatWriter {
- public:
-  virtual ~BaseRuntimeStatWriter() = default;
-
-  virtual void addRuntimeStat(
-      const std::string& /* name */,
-      const RuntimeCounter& /* value */) {}
-};
-
-// Setting a concrete runtime stats writer on the thread will ensure that lazy
-// vectors will add time spent on loading data using that writer.
-void setRunTimeStatWriter(std::unique_ptr<BaseRuntimeStatWriter>&& ptr);
 
 // Vector class which produces values on first use. This is used for
 // loading columns on demand. This allows eliding load of

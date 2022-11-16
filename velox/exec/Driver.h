@@ -302,9 +302,15 @@ class Driver : public std::enable_shared_from_this<Driver> {
   // position in the pipeline.
   void pushdownFilters(int operatorIndex);
 
-  std::unique_ptr<CpuWallTimer> cpuWallTimer(CpuWallTiming& timing) {
-    return trackOperatorCpuUsage_ ? std::make_unique<CpuWallTimer>(timing)
-                                  : nullptr;
+  /// If 'trackOperatorCpuUsage_' is true, returns initialized timer object to
+  /// track cpu and wall time of an operation. Returns null otherwise.
+  /// The delta CpuWallTiming object would be passes to 'func' upon destruction
+  /// of the timer.
+  template <typename F>
+  std::unique_ptr<DeltaCpuWallTimer<F>> createDeltaCpuWallTimer(F&& func) {
+    return trackOperatorCpuUsage_
+        ? std::make_unique<DeltaCpuWallTimer<F>>(std::move(func))
+        : nullptr;
   }
 
   std::unique_ptr<DriverCtx> ctx_;

@@ -203,7 +203,6 @@ void HashBuild::setupSpiller(SpillPartition* spillPartition) {
       spillConfig.maxFileSize,
       spillConfig.minSpillRunSize,
       Spiller::spillPool(),
-      stats().runtimeStats,
       spillConfig.executor);
 
   const int32_t numPartitions = spiller_->hashBits().numPartitions();
@@ -718,9 +717,12 @@ bool HashBuild::finishHashBuild() {
       if (spiller_ != nullptr) {
         spillStats += spiller_->stats();
 
-        stats_.spilledBytes += spillStats.spilledBytes;
-        stats_.spilledRows += spillStats.spilledRows;
-        stats_.spilledPartitions += spillStats.spilledPartitions;
+        {
+          auto lockedStats = stats_.wlock();
+          lockedStats->spilledBytes += spillStats.spilledBytes;
+          lockedStats->spilledRows += spillStats.spilledRows;
+          lockedStats->spilledPartitions += spillStats.spilledPartitions;
+        }
 
         spiller_->finishSpill(spillPartitions);
 
@@ -820,20 +822,21 @@ void HashBuild::addRuntimeStats() {
   const auto& hashers = table_->hashers();
   uint64_t asRange;
   uint64_t asDistinct;
+  auto lockedStats = stats_.wlock();
   for (auto i = 0; i < hashers.size(); i++) {
     hashers[i]->cardinality(0, asRange, asDistinct);
     if (asRange != VectorHasher::kRangeTooLarge) {
-      stats_.addRuntimeStat(
+      lockedStats->addRuntimeStat(
           fmt::format("rangeKey{}", i), RuntimeCounter(asRange));
     }
     if (asDistinct != VectorHasher::kRangeTooLarge) {
-      stats_.addRuntimeStat(
+      lockedStats->addRuntimeStat(
           fmt::format("distinctKey{}", i), RuntimeCounter(asDistinct));
     }
   }
   // Add max spilling level stats if spilling has been triggered.
   if (spiller_ != nullptr && spiller_->isAnySpilled()) {
-    stats_.addRuntimeStat(
+    lockedStats->addRuntimeStat(
         "maxSpillLevel",
         RuntimeCounter(
             spillConfig()->spillLevel(spiller_->hashBits().begin())));

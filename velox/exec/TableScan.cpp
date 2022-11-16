@@ -55,14 +55,16 @@ RowVectorPtr TableScan::getOutput() {
 
         if (dataSource_) {
           auto connectorStats = dataSource_->runtimeStats();
+          auto lockedStats = stats_.wlock();
           for (const auto& [name, counter] : connectorStats) {
-            if (UNLIKELY(stats_.runtimeStats.count(name) == 0)) {
-              stats_.runtimeStats.insert(
+            if (UNLIKELY(lockedStats->runtimeStats.count(name) == 0)) {
+              lockedStats->runtimeStats.insert(
                   std::make_pair(name, RuntimeMetric(counter.unit)));
             } else {
-              VELOX_CHECK_EQ(stats_.runtimeStats.at(name).unit, counter.unit);
+              VELOX_CHECK_EQ(
+                  lockedStats->runtimeStats.at(name).unit, counter.unit);
             }
-            stats_.runtimeStats.at(name).addValue(counter.value);
+            lockedStats->runtimeStats.at(name).addValue(counter.value);
           }
         }
         return nullptr;
@@ -95,7 +97,7 @@ RowVectorPtr TableScan::getOutput() {
           connectorSplit->toString(),
           operatorCtx_->task()->taskId());
       dataSource_->addSplit(connectorSplit);
-      ++stats_.numSplits;
+      ++stats_.wlock()->numSplits;
       setBatchSize();
     }
 
@@ -112,21 +114,24 @@ RowVectorPtr TableScan::getOutput() {
       return nullptr;
     }
 
-    stats().addRuntimeStat(
-        "dataSourceWallNanos",
-        RuntimeCounter(
-            (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
-            RuntimeCounter::Unit::kNanos));
-    stats_.rawInputPositions = dataSource_->getCompletedRows();
-    stats_.rawInputBytes = dataSource_->getCompletedBytes();
-    auto data = dataOptional.value();
-    if (data) {
-      if (data->size() > 0) {
-        stats_.inputPositions += data->size();
-        stats_.inputBytes += data->retainedSize();
-        return data;
+    {
+      auto lockedStats = stats_.wlock();
+      lockedStats->addRuntimeStat(
+          "dataSourceWallNanos",
+          RuntimeCounter(
+              (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
+              RuntimeCounter::Unit::kNanos));
+      lockedStats->rawInputPositions = dataSource_->getCompletedRows();
+      lockedStats->rawInputBytes = dataSource_->getCompletedBytes();
+      auto data = dataOptional.value();
+      if (data) {
+        if (data->size() > 0) {
+          lockedStats->inputPositions += data->size();
+          lockedStats->inputBytes += data->retainedSize();
+          return data;
+        }
+        continue;
       }
-      continue;
     }
 
     driverCtx_->task->splitFinished();

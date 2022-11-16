@@ -160,8 +160,11 @@ void PartitionedOutput::estimateRowSizes() {
 
 void PartitionedOutput::addInput(RowVectorPtr input) {
   // TODO Report outputBytes as bytes after serialization
-  stats_.outputBytes += input->retainedSize();
-  stats_.outputPositions += input->size();
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->outputBytes += input->retainedSize();
+    lockedStats->outputPositions += input->size();
+  }
 
   initializeInput(std::move(input));
 

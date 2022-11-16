@@ -160,8 +160,7 @@ HashAggregation::HashAggregation(
       isPartialOutput_,
       isRawInput(aggregationNode->step()),
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
-      operatorCtx_.get(),
-      stats_);
+      operatorCtx_.get());
 }
 
 void HashAggregation::addInput(RowVectorPtr input) {
@@ -172,9 +171,12 @@ void HashAggregation::addInput(RowVectorPtr input) {
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
   auto spilledStats = groupingSet_->spilledStats();
-  stats_.spilledBytes = spilledStats.spilledBytes;
-  stats_.spilledRows = spilledStats.spilledRows;
-  stats_.spilledPartitions = spilledStats.spilledPartitions;
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->spilledBytes = spilledStats.spilledBytes;
+    lockedStats->spilledRows = spilledStats.spilledRows;
+    lockedStats->spilledPartitions = spilledStats.spilledPartitions;
+  }
 
   // NOTE: we should not trigger partial output flush in case of global
   // aggregation as the final aggregator will handle it the same way as the
@@ -210,11 +212,15 @@ void HashAggregation::resetPartialOutputIfNeed() {
     return;
   }
   VELOX_DCHECK(!isGlobal_);
-  stats().addRuntimeStat("flushRowCount", RuntimeCounter(numOutputRows_));
   const double aggregationPct =
       numOutputRows_ == 0 ? 0 : (numOutputRows_ * 1.0) / numInputRows_ * 100;
-  stats().addRuntimeStat(
-      "partialAggregationPct", RuntimeCounter(aggregationPct));
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->addRuntimeStat(
+        "flushRowCount", RuntimeCounter(numOutputRows_));
+    lockedStats->addRuntimeStat(
+        "partialAggregationPct", RuntimeCounter(aggregationPct));
+  }
   groupingSet_->resetPartial();
   partialFull_ = false;
   numOutputRows_ = 0;
@@ -249,7 +255,7 @@ void HashAggregation::maybeIncreasePartialAggregationMemoryUsage(
   // Update the aggregation memory usage size limit on memory reservation
   // success.
   maxPartialAggregationMemoryUsage_ = extendedPartialAggregationMemoryUsage;
-  stats().addRuntimeStat(
+  addRuntimeStat(
       "maxExtendedPartialAggregationMemoryUsage",
       RuntimeCounter(
           maxPartialAggregationMemoryUsage_, RuntimeCounter::Unit::kBytes));

@@ -15,10 +15,8 @@
  */
 
 #include "velox/exec/Spiller.h"
-
-#include "velox/common/base/AsyncSource.h"
-
 #include <folly/ScopeGuard.h>
+#include "velox/common/base/AsyncSource.h"
 #include "velox/common/testutil/TestValue.h"
 
 using facebook::velox::common::testutil::TestValue;
@@ -38,7 +36,6 @@ Spiller::Spiller(
     uint64_t targetFileSize,
     uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
-    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : Spiller(
           type,
@@ -52,7 +49,6 @@ Spiller::Spiller(
           targetFileSize,
           minSpillRunSize,
           pool,
-          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kOrderBy);
 }
@@ -65,7 +61,6 @@ Spiller::Spiller(
     uint64_t targetFileSize,
     uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
-    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* FOLLY_NULLABLE executor)
     : Spiller(
           type,
@@ -79,7 +74,6 @@ Spiller::Spiller(
           targetFileSize,
           minSpillRunSize,
           pool,
-          stats,
           executor) {
   VELOX_CHECK_EQ(type_, Type::kHashJoinProbe);
 }
@@ -96,7 +90,6 @@ Spiller::Spiller(
     uint64_t targetFileSize,
     uint64_t minSpillRunSize,
     memory::MemoryPool& pool,
-    std::unordered_map<std::string, RuntimeMetric>& stats,
     folly::Executor* executor)
     : type_(type),
       container_(container),
@@ -111,10 +104,8 @@ Spiller::Spiller(
           sortCompareFlags,
           targetFileSize,
           pool,
-          spillMappedMemory(),
-          stats),
+          spillMappedMemory()),
       pool_(pool),
-      stats_(stats),
       executor_(executor) {
   TestValue::adjust(
       "facebook::velox::exec::Spiller", const_cast<HashBitRange*>(&bits_));

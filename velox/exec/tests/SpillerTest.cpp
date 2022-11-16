@@ -17,6 +17,7 @@
 #include "velox/exec/Spiller.h"
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <unordered_set>
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/HashPartitionFunction.h"
@@ -31,6 +32,22 @@ using namespace facebook::velox::common::testutil;
 using facebook::velox::filesystems::FileSystem;
 
 namespace {
+// Class to write runtime stats in the tests to the stats container.
+class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
+ public:
+  explicit TestRuntimeStatWriter(
+      std::unordered_map<std::string, RuntimeMetric>& stats)
+      : stats_{stats} {}
+
+  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
+      override {
+    addOperatorRuntimeStats(name, value, stats_);
+  }
+
+ private:
+  std::unordered_map<std::string, RuntimeMetric>& stats_;
+};
+
 struct TestParam {
   Spiller::Type type;
   // Specifies the spill executor pool size. If the size is zero, then spill
@@ -93,7 +110,14 @@ class SpillerTest : public exec::test::RowContainerTestBase {
         type_(param.type),
         executorPoolSize_(param.poolSize),
         hashBits_(0, type_ == Spiller::Type::kOrderBy ? 0 : 2),
-        numPartitions_(hashBits_.numPartitions()) {}
+        numPartitions_(hashBits_.numPartitions()),
+        statWriter_(std::make_unique<TestRuntimeStatWriter>(stats_)) {
+    setThreadLocalRunTimeStatWriter(statWriter_.get());
+  }
+
+  ~SpillerTest() {
+    setThreadLocalRunTimeStatWriter(nullptr);
+  }
 
   void SetUp() override {
     RowContainerTestBase::SetUp();
@@ -365,6 +389,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       uint64_t minSpillRunSize,
       bool makeError) {
     stats_.clear();
+
     if (type_ == Spiller::Type::kHashJoinProbe) {
       // kHashJoinProbe doesn't have associated row container.
       spiller_ = std::make_unique<Spiller>(
@@ -375,7 +400,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           *pool_,
-          stats_,
           executor());
     } else if (type_ == Spiller::Type::kOrderBy) {
       // We spill 'data' in one partition in type of kOrderBy, otherwise in 4
@@ -391,7 +415,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           *pool_,
-          stats_,
           executor());
     } else {
       spiller_ = std::make_unique<Spiller>(
@@ -406,7 +429,6 @@ class SpillerTest : public exec::test::RowContainerTestBase {
           targetFileSize,
           minSpillRunSize,
           *pool_,
-          stats_,
           executor());
     }
     if (type_ == Spiller::Type::kOrderBy) {
@@ -754,6 +776,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
   const HashBitRange hashBits_;
   const int32_t numPartitions_;
   std::unordered_map<std::string, RuntimeMetric> stats_;
+  std::unique_ptr<TestRuntimeStatWriter> statWriter_;
   folly::Random::DefaultGenerator rng_;
   std::unique_ptr<folly::IOThreadPoolExecutor> executor_;
   std::shared_ptr<TempDirectoryPath> tempDirPath_;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/Synchronized.h>
 #include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/core/PlanNode.h"
@@ -181,6 +182,18 @@ class OperatorCtx {
     return pool_;
   }
 
+  const core::PlanNodeId& planNodeId() const {
+    return planNodeId_;
+  }
+
+  const int32_t operatorId() const {
+    return operatorId_;
+  }
+
+  const std::string& operatorType() const {
+    return operatorType_;
+  }
+
   memory::MappedMemory* FOLLY_NONNULL mappedMemory() const;
 
   core::ExecCtx* FOLLY_NONNULL execCtx() const;
@@ -198,7 +211,9 @@ class OperatorCtx {
 
  private:
   DriverCtx* const FOLLY_NONNULL driverCtx_;
+  const core::PlanNodeId planNodeId_;
   const int32_t operatorId_;
+  const std::string operatorType_;
   velox::memory::MemoryPool* const FOLLY_NONNULL pool_;
 
   // These members are created on demand.
@@ -208,7 +223,7 @@ class OperatorCtx {
 };
 
 // Query operator
-class Operator {
+class Operator : public BaseRuntimeStatWriter {
  public:
   // Factory class for mapping a user-registered PlanNode into the corresponding
   // Operator.
@@ -254,13 +269,6 @@ class Operator {
       DriverCtx* FOLLY_NONNULL driverCtx,
       RowTypePtr outputType,
       int32_t operatorId,
-      std::string planNodeId,
-      std::string operatorType);
-
-  /// This is only used by test to create mock operator.
-  Operator(
-      int32_t operatorId,
-      int32_t pipelineId,
       std::string planNodeId,
       std::string operatorType);
 
@@ -361,7 +369,20 @@ class Operator {
     return false;
   }
 
-  OperatorStats& stats() {
+  /// Returns copy of operator stats. If 'clear' is true, the function also
+  /// clears the operator stats after retrieval.
+  OperatorStats stats(bool clear);
+
+  /// Add a single runtime stat to the operator stats under the write lock.
+  /// This member overrides BaseRuntimeStatWriter's member.
+  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
+      override {
+    stats_.wlock()->addRuntimeStat(name, value);
+  }
+
+  /// Returns reference to the operator stats synchronized object to gain bulck
+  /// read/write access to the stats.
+  folly::Synchronized<OperatorStats>& stats() {
     return stats_;
   }
 
@@ -374,7 +395,15 @@ class Operator {
   }
 
   const core::PlanNodeId& planNodeId() const {
-    return stats_.planNodeId;
+    return operatorCtx_->planNodeId();
+  }
+
+  const int32_t operatorId() const {
+    return operatorCtx_->operatorId();
+  }
+
+  const std::string& operatorType() const {
+    return operatorCtx_->operatorType();
   }
 
   // Registers 'translator' for mapping user defined PlanNode subclass instances
@@ -413,7 +442,7 @@ class Operator {
   RowVectorPtr fillOutput(vector_size_t size, BufferPtr mapping);
 
   std::unique_ptr<OperatorCtx> operatorCtx_;
-  OperatorStats stats_;
+  folly::Synchronized<OperatorStats> stats_;
   const RowTypePtr outputType_;
 
   // Holds the last data from addInput until it is processed. Reset after the
@@ -481,25 +510,6 @@ class SourceOperator : public Operator {
   void noMoreInput() override {
     VELOX_FAIL("SourceOperator does not support noMoreInput()");
   }
-};
-
-// Concrete class implementing the base runtime stats writer. Wraps around
-// operator pointer to be called at any time to updated runtime stats.
-// Used for reporting IO wall time from lazy vectors, for example.
-class OperatorRuntimeStatWriter : public BaseRuntimeStatWriter {
- public:
-  explicit OperatorRuntimeStatWriter(Operator* FOLLY_NULLABLE op)
-      : operator_{op} {}
-
-  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
-      override {
-    if (operator_) {
-      operator_->stats().addRuntimeStat(name, value);
-    }
-  }
-
- private:
-  Operator* FOLLY_NULLABLE operator_;
 };
 
 } // namespace facebook::velox::exec

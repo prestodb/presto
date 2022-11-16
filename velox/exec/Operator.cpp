@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 #include "velox/exec/Operator.h"
+#include "velox/common/base/SuccinctPrinter.h"
+#include "velox/common/process/ProcessBase.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/OperatorUtils.h"
 #include "velox/exec/Task.h"
-
-#include "velox/common/base/SuccinctPrinter.h"
-#include "velox/common/process/ProcessBase.h"
 #include "velox/expression/Expr.h"
 
 namespace facebook::velox::exec {
@@ -60,7 +59,9 @@ OperatorCtx::OperatorCtx(
     int32_t operatorId,
     const std::string& operatorType)
     : driverCtx_(driverCtx),
+      planNodeId_(planNodeId),
       operatorId_(operatorId),
+      operatorType_(operatorType),
       pool_(driverCtx_->addOperatorPool(planNodeId, operatorType)) {}
 
 core::ExecCtx* OperatorCtx::execCtx() const {
@@ -150,11 +151,11 @@ Operator::Operator(
           planNodeId,
           operatorId,
           operatorType)),
-      stats_(
+      stats_(OperatorStats{
           operatorId,
           driverCtx->pipelineId,
           std::move(planNodeId),
-          std::move(operatorType)),
+          std::move(operatorType)}),
       outputType_(std::move(outputType)) {
   auto memoryUsageTracker = pool()->getMemoryUsageTracker();
   if (memoryUsageTracker) {
@@ -162,24 +163,13 @@ Operator::Operator(
         [&](memory::MemoryUsageTracker& tracker) {
           VELOX_DCHECK(pool()->getMemoryUsageTracker().get() == &tracker);
           std::stringstream out;
-          out << "\nFailed Operator: " << stats_.operatorType << "."
-              << stats_.operatorId << ": "
+          out << "\nFailed Operator: " << this->operatorType() << "."
+              << this->operatorId() << ": "
               << succinctBytes(tracker.getCurrentTotalBytes());
           return out.str();
         });
   }
 }
-
-Operator::Operator(
-    int32_t operatorId,
-    int32_t pipelineId,
-    std::string planNodeId,
-    std::string operatorType)
-    : stats_(
-          operatorId,
-          pipelineId,
-          std::move(planNodeId),
-          std::move(operatorType)) {}
 
 std::vector<std::unique_ptr<Operator::PlanNodeTranslator>>&
 Operator::translators() {
@@ -299,21 +289,32 @@ RowVectorPtr Operator::fillOutput(vector_size_t size, BufferPtr mapping) {
       std::move(columns));
 }
 
+OperatorStats Operator::stats(bool clear) {
+  if (!clear) {
+    return *stats_.rlock();
+  }
+
+  auto lockedStats = stats_.wlock();
+  OperatorStats ret{*lockedStats};
+  lockedStats->clear();
+  return ret;
+}
+
 void Operator::recordBlockingTime(uint64_t start) {
   uint64_t now =
       std::chrono::duration_cast<std::chrono::microseconds>(
           std::chrono::high_resolution_clock::now().time_since_epoch())
           .count();
-  stats_.blockedWallNanos += (now - start) * 1000;
+  stats_.wlock()->blockedWallNanos += (now - start) * 1000;
 }
 
 std::string Operator::toString() const {
   std::stringstream out;
   if (auto task = operatorCtx_->task()) {
     auto driverCtx = operatorCtx_->driverCtx();
-    out << stats_.operatorType << "(" << stats_.operatorId << ")<"
-        << task->taskId() << ":" << driverCtx->pipelineId << "."
-        << driverCtx->driverId << " " << this;
+    out << operatorType() << "(" << operatorId() << ")<" << task->taskId()
+        << ":" << driverCtx->pipelineId << "." << driverCtx->driverId << " "
+        << this;
   } else {
     out << "<Terminated, no task>";
   }

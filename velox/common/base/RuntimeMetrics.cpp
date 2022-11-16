@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-#include "velox/common/base/RuntimeMetrics.h"
+#include <folly/ThreadLocal.h>
+
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/base/SuccinctPrinter.h"
 
 namespace facebook::velox {
@@ -53,4 +55,24 @@ void RuntimeMetric::printMetric(std::stringstream& stream) const {
              << ", max: " << max;
   }
 }
+
+// Thread local runtime stat writers.
+static thread_local BaseRuntimeStatWriter* localRuntimeStatWriter;
+
+void setThreadLocalRunTimeStatWriter(BaseRuntimeStatWriter* writer) {
+  localRuntimeStatWriter = writer;
+}
+
+BaseRuntimeStatWriter* getThreadLocalRunTimeStatWriter() {
+  return localRuntimeStatWriter;
+}
+
+void addThreadLocalRuntimeStat(
+    const std::string& name,
+    const RuntimeCounter& value) {
+  if (localRuntimeStatWriter) {
+    localRuntimeStatWriter->addRuntimeStat(name, value);
+  }
+}
+
 } // namespace facebook::velox

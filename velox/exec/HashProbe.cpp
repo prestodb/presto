@@ -262,7 +262,6 @@ void HashProbe::maybeSetupSpillInput(
       spillConfig.maxFileSize,
       spillConfig.minSpillRunSize,
       Spiller::spillPool(),
-      stats().runtimeStats,
       spillConfig.executor);
   // Set the spill partitions to the corresponding ones at the build side. The
   // hash probe operator itself won't trigger any spilling.
@@ -825,8 +824,7 @@ RowVectorPtr HashProbe::getOutput() {
   const auto inputSize = input_->size();
 
   if (replacedWithDynamicFilter_) {
-    stats_.addRuntimeStat(
-        "replacedWithDynamicFilterRows", RuntimeCounter(inputSize));
+    addRuntimeStat("replacedWithDynamicFilterRows", RuntimeCounter(inputSize));
     auto output = Operator::fillOutput(inputSize, nullptr);
     input_ = nullptr;
     return output;

@@ -253,8 +253,9 @@ RowVectorPtr LocalExchange::getOutput() {
     return nullptr;
   }
   if (data != nullptr) {
-    stats().inputPositions += data->size();
-    stats().inputBytes += data->estimateFlatSize();
+    auto lockedStats = stats_.wlock();
+    lockedStats->inputPositions += data->size();
+    lockedStats->inputBytes += data->estimateFlatSize();
   }
   return data;
 }
@@ -331,8 +332,11 @@ wrapChildren(const RowVectorPtr& input, vector_size_t size, BufferPtr indices) {
 } // namespace
 
 void LocalPartition::addInput(RowVectorPtr input) {
-  stats_.outputBytes += input->estimateFlatSize();
-  stats_.outputPositions += input->size();
+  {
+    auto lockedStats = stats_.wlock();
+    lockedStats->outputBytes += input->estimateFlatSize();
+    lockedStats->outputPositions += input->size();
+  }
 
   // Lazy vectors must be loaded or processed.
   for (auto& child : input->children()) {

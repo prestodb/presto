@@ -17,7 +17,9 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <memory>
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/exec/OperatorUtils.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/serializers/PrestoSerializer.h"
 #include "velox/vector/tests/utils/VectorTestBase.h"
@@ -29,10 +31,36 @@ using facebook::velox::exec::test::TempDirectoryPath;
 
 namespace {
 static const int64_t kGB = 1'000'000'000;
-}
+
+// Class to write runtime stats in the tests to the stats container.
+class TestRuntimeStatWriter : public BaseRuntimeStatWriter {
+ public:
+  explicit TestRuntimeStatWriter(
+      std::unordered_map<std::string, RuntimeMetric>& stats)
+      : stats_{stats} {}
+
+  void addRuntimeStat(const std::string& name, const RuntimeCounter& value)
+      override {
+    addOperatorRuntimeStats(name, value, stats_);
+  }
+
+ private:
+  std::unordered_map<std::string, RuntimeMetric>& stats_;
+};
+} // namespace
 
 class SpillTest : public testing::Test,
                   public facebook::velox::test::VectorTestBase {
+ public:
+  explicit SpillTest()
+      : statWriter_(std::make_unique<TestRuntimeStatWriter>(stats_)) {
+    setThreadLocalRunTimeStatWriter(statWriter_.get());
+  }
+
+  ~SpillTest() {
+    setThreadLocalRunTimeStatWriter(nullptr);
+  }
+
  protected:
   void SetUp() override {
     mappedMemory_ = memory::MappedMemory::getInstance();
@@ -122,8 +150,7 @@ class SpillTest : public testing::Test,
         compareFlags,
         targetFileSize,
         *pool(),
-        *mappedMemory_,
-        stats_);
+        *mappedMemory_);
     EXPECT_EQ(targetFileSize, state_->targetFileSize());
     EXPECT_EQ(numPartitions, state_->maxPartitions());
     EXPECT_EQ(0, state_->spilledPartitions());
@@ -284,6 +311,7 @@ class SpillTest : public testing::Test,
   std::string spillPath_;
   std::unique_ptr<SpillState> state_;
   std::unordered_map<std::string, RuntimeMetric> stats_;
+  std::unique_ptr<TestRuntimeStatWriter> statWriter_;
 };
 
 TEST_F(SpillTest, spillState) {
@@ -317,15 +345,9 @@ TEST_F(SpillTest, spillTimestamp) {
       Timestamp{0, 17'123'456},
       Timestamp{1, 17'123'456},
       Timestamp{-1, 17'123'456}};
+
   SpillState state(
-      spillPath,
-      1,
-      1,
-      emptyCompareFlags,
-      1024,
-      *pool(),
-      *mappedMemory_,
-      stats_);
+      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
   int partitionIndex = 0;
   state.setPartitionSpilled(partitionIndex);
   EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));

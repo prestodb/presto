@@ -1410,7 +1410,31 @@ void Task::addOperatorStats(OperatorStats& stats) {
   taskStats_.pipelineStats[stats.pipelineId]
       .operatorStats[stats.operatorId]
       .add(stats);
-  stats.clear();
+}
+
+TaskStats Task::taskStats() const {
+  std::lock_guard<std::mutex> l(mutex_);
+
+  // 'taskStats_' contains task stats plus stats for the completed drivers
+  // (their operators).
+  TaskStats taskStats = taskStats_;
+
+  // Add stats of the drivers (their operators) that are still running.
+  for (const auto& driver : drivers_) {
+    // Driver can be null.
+    if (driver == nullptr) {
+      continue;
+    }
+
+    for (auto& op : driver->operators()) {
+      auto statsCopy = op->stats(false);
+      taskStats.pipelineStats[statsCopy.pipelineId]
+          .operatorStats[statsCopy.operatorId]
+          .add(statsCopy);
+    }
+  }
+
+  return taskStats;
 }
 
 uint64_t Task::timeSinceStartMs() const {

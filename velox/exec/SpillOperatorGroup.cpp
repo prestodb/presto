@@ -162,7 +162,7 @@ bool SpillOperatorGroup::waitSpillLocked(
       taskId_,
       planNodeId_,
       splitGroupId_,
-      op.stats().operatorId)));
+      op.operatorId())));
   future = promises_.back().getSemiFuture();
   return true;
 }

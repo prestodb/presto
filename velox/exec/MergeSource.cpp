@@ -146,7 +146,7 @@ class MergeExchangeSource : public MergeSource {
     }
     if (!inputStream_) {
       inputStream_ = std::make_unique<ByteStream>();
-      mergeExchange_->stats().rawInputBytes += currentPage_->size();
+      mergeExchange_->stats().wlock()->rawInputBytes += currentPage_->size();
       currentPage_->prepareStreamForDeserialize(inputStream_.get());
     }
 
@@ -157,8 +157,9 @@ class MergeExchangeSource : public MergeSource {
           mergeExchange_->outputType(),
           &data);
 
-      mergeExchange_->stats().inputPositions += data->size();
-      mergeExchange_->stats().inputBytes += data->retainedSize();
+      auto lockedStats = mergeExchange_->stats().wlock();
+      lockedStats->inputPositions += data->size();
+      lockedStats->inputBytes += data->retainedSize();
     }
 
     // Since VectorStreamGroup::read() may cause inputStream to be at end,

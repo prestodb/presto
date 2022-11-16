@@ -14,17 +14,38 @@
  * limitations under the License.
  */
 #include "velox/exec/SpillOperatorGroup.h"
+#include <memory>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/core/PlanFragment.h"
 #include "velox/exec/Driver.h"
 #include "velox/exec/Operator.h"
+#include "velox/exec/Task.h"
+#include "velox/vector/tests/utils/VectorMaker.h"
 
 using namespace facebook::velox;
+using namespace facebook::velox::test;
 using namespace facebook::velox::exec;
 
 class SpillOperatorGroupTest : public testing::Test {
  protected:
   SpillOperatorGroupTest(int32_t numOperators = 1)
-      : numOperators_(numOperators) {}
+      : numOperators_(numOperators), pool_(memory::getDefaultMemoryPool()) {
+    // All this is to prepare valid driver context for our mock operators.
+    VectorMaker vectorMaker{pool_.get()};
+    std::vector<RowVectorPtr> values = {vectorMaker.rowVector(
+        {vectorMaker.flatVector<int32_t>(1, [](auto row) { return row; })})};
+    core::PlanFragment planFragment;
+    const core::PlanNodeId id{"0"};
+    planFragment.planNode = std::make_shared<core::ValuesNode>(id, values);
+
+    task_ = std::make_shared<exec::Task>(
+        "SpillOperatorGroupTest_task",
+        std::move(planFragment),
+        0,
+        std::make_shared<core::QueryCtx>());
+    driverCtx_ = std::make_unique<DriverCtx>(task_, 0, 0, 0, 0);
+  }
 
   void SetUp() override {
     rng_.seed(1245);
@@ -39,19 +60,25 @@ class SpillOperatorGroupTest : public testing::Test {
   class MockOperator : public Operator {
    public:
     explicit MockOperator(
+        DriverCtx* FOLLY_NONNULL driverCtx,
         int32_t operatorId,
         SpillOperatorGroup* FOLLY_NONNULL spillGroup)
-        : Operator(operatorId, 0, "SpillNode", "SpillOperator"),
+        : Operator(
+              driverCtx,
+              nullptr,
+              operatorId,
+              "SpillNode",
+              "SpillOperator"),
           spillGroup_(spillGroup),
           spillFuture_(ContinueFuture::makeEmpty()) {
       spillGroup_->addOperator(*this, [&](const std::vector<Operator*>& ops) {
         std::unordered_set<uint32_t> opIds;
         for (const auto& op : ops) {
-          opIds.insert(op->stats().operatorId);
+          opIds.insert(op->stats().rlock()->operatorId);
         }
         ASSERT_EQ(opIds.size(), ops.size());
         for (auto& op : ops) {
-          MockOperator* spillOp = dynamic_cast<MockOperator*>(op);
+          auto* spillOp = dynamic_cast<MockOperator*>(op);
           ++spillOp->numSpillRuns_;
         }
       });
@@ -119,7 +146,8 @@ class SpillOperatorGroupTest : public testing::Test {
 
   std::unique_ptr<MockOperator> newSpillOperator(
       SpillOperatorGroup* FOLLY_NONNULL spillGroup) {
-    return std::make_unique<MockOperator>(operatorId_++, spillGroup);
+    return std::make_unique<MockOperator>(
+        driverCtx_.get(), operatorId_++, spillGroup);
   }
 
   void setupSpillOperators() {
@@ -277,6 +305,9 @@ class SpillOperatorGroupTest : public testing::Test {
   int32_t numSpillRuns_{0};
   std::unique_ptr<SpillOperatorGroup> spillGroup_;
   std::vector<std::unique_ptr<MockOperator>> spillOps_;
+  std::shared_ptr<memory::MemoryPool> pool_;
+  std::shared_ptr<Task> task_;
+  std::unique_ptr<DriverCtx> driverCtx_;
 };
 
 class MultiSpillOperatorGroupTest

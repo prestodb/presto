@@ -15,29 +15,19 @@
  */
 
 #include "velox/vector/LazyVector.h"
-#include <folly/ThreadLocal.h>
 #include "velox/common/base/RawVector.h"
+#include "velox/common/base/RuntimeMetrics.h"
 #include "velox/common/time/Timer.h"
 #include "velox/vector/DecodedVector.h"
 
 namespace facebook::velox {
 
-// Thread local stat writer, if set (not null) are used here to record how much
-// time was spent on IO in lazy vectors.
-static folly::ThreadLocalPtr<BaseRuntimeStatWriter> sRunTimeStatWriters;
-
-void setRunTimeStatWriter(std::unique_ptr<BaseRuntimeStatWriter>&& ptr) {
-  sRunTimeStatWriters.reset(std::move(ptr));
-}
-
 static void writeIOWallTimeStat(size_t ioTimeStartMicros) {
-  if (BaseRuntimeStatWriter* pWriter = sRunTimeStatWriters.get()) {
-    pWriter->addRuntimeStat(
-        "dataSourceLazyWallNanos",
-        RuntimeCounter(
-            (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
-            RuntimeCounter::Unit::kNanos));
-  }
+  addThreadLocalRuntimeStat(
+      "dataSourceLazyWallNanos",
+      RuntimeCounter(
+          (getCurrentTimeMicro() - ioTimeStartMicros) * 1'000,
+          RuntimeCounter::Unit::kNanos));
 }
 
 void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
@@ -49,9 +39,7 @@ void VectorLoader::load(RowSet rows, ValueHook* hook, VectorPtr* result) {
     // Record number of rows loaded directly into ValueHook bypassing
     // materialization into vector. This counter can be used to understand
     // whether aggregation pushdown is happening or not.
-    if (auto* pWriter = sRunTimeStatWriters.get()) {
-      pWriter->addRuntimeStat("loadedToValueHook", RuntimeCounter(rows.size()));
-    }
+    addThreadLocalRuntimeStat("loadedToValueHook", RuntimeCounter(rows.size()));
   }
 }
 

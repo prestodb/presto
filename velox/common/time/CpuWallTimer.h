@@ -45,7 +45,7 @@ struct CpuWallTiming {
   }
 };
 
-// Adds elapsed CPU and wall time to an CpuWallTiming.
+// Adds elapsed CPU and wall time to a CpuWallTiming.
 class CpuWallTimer {
  public:
   explicit CpuWallTimer(CpuWallTiming& timing);
@@ -55,6 +55,34 @@ class CpuWallTimer {
   uint64_t cpuTimeStart_;
   std::chrono::steady_clock::time_point wallTimeStart_;
   CpuWallTiming& timing_;
+};
+
+// Keeps track of elapsed CPU and wall time from construction time.
+// Composes delta CpuWallTiming upon destruction and passes it to the user
+// callback, where it can be added to the user's CpuWallTiming using
+// CpuWallTiming::add().
+template <typename F>
+class DeltaCpuWallTimer {
+ public:
+  explicit DeltaCpuWallTimer(F&& func)
+      : cpuTimeStart_(process::threadCpuNanos()),
+        wallTimeStart_(std::chrono::steady_clock::now()),
+        func_(std::move(func)) {}
+
+  ~DeltaCpuWallTimer() {
+    const CpuWallTiming deltaTiming{
+        1,
+        uint64_t(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                     std::chrono::steady_clock::now() - wallTimeStart_)
+                     .count()),
+        process::threadCpuNanos() - cpuTimeStart_};
+    func_(deltaTiming);
+  }
+
+ private:
+  const uint64_t cpuTimeStart_;
+  const std::chrono::steady_clock::time_point wallTimeStart_;
+  F func_;
 };
 
 } // namespace facebook::velox

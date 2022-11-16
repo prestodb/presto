@@ -219,11 +219,9 @@ class Task : public std::enable_shared_from_this<Task> {
   /// occurred.
   std::string errorMessage() const;
 
-  // Returns by copy as other threads might be updating the structure.
-  TaskStats taskStats() const {
-    std::lock_guard<std::mutex> l(mutex_);
-    return taskStats_;
-  }
+  /// Returns Task Stats by copy as other threads might be updating the
+  /// structure.
+  TaskStats taskStats() const;
 
   /// Returns time (ms) since the task execution started or zero, if not
   /// started.

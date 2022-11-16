@@ -121,7 +121,6 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   Spiller(
@@ -132,7 +131,6 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   Spiller(
@@ -147,7 +145,6 @@ class Spiller {
       uint64_t targetFileSize,
       uint64_t minSpillRunSize,
       memory::MemoryPool& pool,
-      std::unordered_map<std::string, RuntimeMetric>& stats,
       folly::Executor* FOLLY_NULLABLE executor);
 
   /// Spills rows from 'this' until there are under 'targetRows' rows
@@ -423,8 +420,6 @@ class Spiller {
   bool spillFinalized_{false};
 
   memory::MemoryPool& pool_;
-
-  std::unordered_map<std::string, RuntimeMetric>& stats_;
 
   folly::Executor* FOLLY_NULLABLE const executor_;
 

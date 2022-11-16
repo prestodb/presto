@@ -697,4 +697,57 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
   // Wait for Values driver to complete.
   driverFuture.wait();
 }
+
+/// Test that we export operator stats for unfinished (running) operators.
+DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
+  constexpr int32_t numBatches = 10;
+  std::vector<RowVectorPtr> dataBatches;
+  dataBatches.reserve(numBatches);
+  for (int32_t i = 0; i < numBatches; ++i) {
+    dataBatches.push_back(makeRowVector({makeFlatVector<int64_t>({0, 1, 10})}));
+  }
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  auto plan = PlanBuilder(planNodeIdGenerator).values(dataBatches).planNode();
+
+  Task* task = nullptr;
+  std::array<TaskStats, numBatches + 1> liveStats; // [0, 10].
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Values::getOutput",
+      std::function<void(const int32_t*)>(([&](const int32_t* outputIdx) {
+        liveStats[*outputIdx] = task->taskStats();
+      })));
+
+  CursorParameters params;
+  params.planNode = plan;
+  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  params.queryCtx->setConfigOverridesUnsafe(
+      {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
+
+  auto cursor = std::make_unique<TaskCursor>(params);
+  std::vector<RowVectorPtr> result;
+  task = cursor->task().get();
+  while (cursor->moveNext()) {
+    result.push_back(cursor->current());
+  }
+  EXPECT_TRUE(waitForTaskCompletion(task)) << task->taskId();
+  TaskStats finishStats = task->taskStats();
+
+  for (auto i = 0; i < numBatches; ++i) {
+    const auto& operatorStats = liveStats[i].pipelineStats[0].operatorStats[0];
+    EXPECT_EQ(i, operatorStats.getOutputTiming.count);
+    EXPECT_EQ(32 * i, operatorStats.outputBytes);
+    EXPECT_EQ(3 * i, operatorStats.outputPositions);
+    EXPECT_EQ(i, operatorStats.outputVectors);
+    EXPECT_EQ(0, operatorStats.finishTiming.count);
+  }
+
+  const auto& operatorStats = finishStats.pipelineStats[0].operatorStats[0];
+  EXPECT_EQ(numBatches + 1, operatorStats.getOutputTiming.count);
+  EXPECT_EQ(32 * numBatches, operatorStats.outputBytes);
+  EXPECT_EQ(3 * numBatches, operatorStats.outputPositions);
+  EXPECT_EQ(numBatches, operatorStats.outputVectors);
+  EXPECT_EQ(1, operatorStats.finishTiming.count);
+}
+
 } // namespace facebook::velox::exec::test
