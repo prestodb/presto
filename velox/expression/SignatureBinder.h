@@ -93,7 +93,7 @@ class SignatureBinder : private SignatureBinderBase {
   // possible.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+      const std::unordered_map<std::string, SignatureVariable>& variables,
       const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
     std::unordered_map<std::string, int> dummyEmpty = {};
     return tryResolveType(
@@ -105,7 +105,7 @@ class SignatureBinder : private SignatureBinderBase {
   // updated with the bound value.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+      const std::unordered_map<std::string, SignatureVariable>& variables,
       const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
       std::unordered_map<std::string, int>& integerVariablesBindings);
 

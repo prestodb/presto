@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
+
 #include "velox/expression/FunctionSignature.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 

@@ -16,7 +16,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
-#include "FunctionSignature.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/type/Type.h"
@@ -134,10 +133,10 @@ bool isPositiveInteger(const std::string& str) {
 }
 
 void validateBaseTypeAndCollectTypeParams(
-    const std::unordered_map<std::string, TypeVariableConstraint>& typeParams,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
     const TypeSignature& arg,
     std::unordered_set<std::string>& collectedTypeVariables) {
-  if (!typeParams.count(arg.baseName())) {
+  if (!variables.count(arg.baseName())) {
     auto typeName = boost::algorithm::to_upper_copy(arg.baseName());
 
     if (typeName == "ANY") {
@@ -155,7 +154,7 @@ void validateBaseTypeAndCollectTypeParams(
     // Ensure all params are similarly supported.
     for (auto& param : arg.parameters()) {
       validateBaseTypeAndCollectTypeParams(
-          typeParams, param, collectedTypeVariables);
+          variables, param, collectedTypeVariables);
     }
 
   } else {
@@ -170,8 +169,7 @@ void validateBaseTypeAndCollectTypeParams(
 }
 
 void validate(
-    const std::unordered_map<std::string, TypeVariableConstraint>&
-        typeVariableConstraints,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
     const TypeSignature& returnType,
     const std::vector<TypeSignature>& argumentTypes) {
   // Validate that the type params are unique.
@@ -180,23 +178,22 @@ void validate(
   // Validate the argument types.
   for (const auto& arg : argumentTypes) {
     // Is base type a type parameter or a built in type ?
-    validateBaseTypeAndCollectTypeParams(
-        typeVariableConstraints, arg, usedTypeVariables);
+    validateBaseTypeAndCollectTypeParams(variables, arg, usedTypeVariables);
   }
 
   // Similarly validate for return type.
   validateBaseTypeAndCollectTypeParams(
-      typeVariableConstraints, returnType, usedTypeVariables);
+      variables, returnType, usedTypeVariables);
 
   VELOX_USER_CHECK_EQ(
       usedTypeVariables.size(),
-      typeVariableConstraints.size(),
+      variables.size(),
       "Not all type parameters used");
 }
 
 } // namespace
 
-TypeVariableConstraint::TypeVariableConstraint(
+SignatureVariable::SignatureVariable(
     std::string name,
     std::optional<std::string> constraint,
     ParameterType type,
@@ -215,22 +212,21 @@ TypeVariableConstraint::TypeVariableConstraint(
 }
 
 FunctionSignature::FunctionSignature(
-    std::unordered_map<std::string, TypeVariableConstraint>
-        typeVariableConstraints,
+    std::unordered_map<std::string, SignatureVariable> variables,
     TypeSignature returnType,
     std::vector<TypeSignature> argumentTypes,
     bool variableArity)
-    : typeVariableConstraints_{std::move(typeVariableConstraints)},
+    : variables_{std::move(variables)},
       returnType_{std::move(returnType)},
       argumentTypes_{std::move(argumentTypes)},
       variableArity_{variableArity} {
-  validate(typeVariableConstraints_, returnType_, argumentTypes_);
+  validate(variables_, returnType_, argumentTypes_);
 }
 
 FunctionSignaturePtr FunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
   return std::make_shared<FunctionSignature>(
-      std::move(typeVariableConstraints_),
+      std::move(variables_),
       returnType_.value(),
       std::move(argumentTypes_),
       variableArity_);
@@ -241,7 +237,7 @@ AggregateFunctionSignatureBuilder::build() {
   VELOX_CHECK(returnType_.has_value());
   VELOX_CHECK(intermediateType_.has_value());
   return std::make_shared<AggregateFunctionSignature>(
-      std::move(typeVariableConstraints_),
+      std::move(variables_),
       returnType_.value(),
       intermediateType_.value(),
       std::move(argumentTypes_),

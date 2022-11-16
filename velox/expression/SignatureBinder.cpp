@@ -43,7 +43,7 @@ std::string buildCalculation(
 
 TypePtr inferDecimalType(
     const exec::TypeSignature& typeSignature,
-    const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
     std::unordered_map<std::string, int>& integerVariablesBindings) {
   if (typeSignature.parameters().size() != 2) {
     return nullptr;
@@ -242,7 +242,7 @@ bool SignatureBinderBase::tryBind(
 
 TypePtr SignatureBinder::tryResolveType(
     const exec::TypeSignature& typeSignature,
-    const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+    const std::unordered_map<std::string, SignatureVariable>& variables,
     const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
     std::unordered_map<std::string, int>& integerVariablesBindings) {
   const auto baseName = typeSignature.baseName();
