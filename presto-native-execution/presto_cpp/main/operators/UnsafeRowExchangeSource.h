@@ -26,7 +26,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       const std::string& taskId,
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
-      ShuffleInterface* shuffle,
+      const std::shared_ptr<ShuffleInterface>& shuffle,
       velox::memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
 
@@ -39,6 +39,6 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
   void close() override {}
 
  private:
-  ShuffleInterface* shuffle_;
+  const std::shared_ptr<ShuffleInterface> shuffle_;
 };
 } // namespace facebook::presto::operators
