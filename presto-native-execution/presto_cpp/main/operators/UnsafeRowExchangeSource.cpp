@@ -35,4 +35,5 @@ void UnsafeRowExchangeSource::request() {
   queue_->enqueue(std::make_unique<velox::exec::SerializedPage>(
       std::move(ioBuf), pool_, [buffer](auto&) {}));
 }
+
 }; // namespace facebook::presto::operators

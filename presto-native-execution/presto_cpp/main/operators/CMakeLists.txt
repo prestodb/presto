@@ -15,8 +15,14 @@ add_library(
   presto_operators PartitionAndSerialize.cpp ShuffleWrite.cpp
                    UnsafeRowExchangeSource.cpp LocalPersistentShuffle.cpp)
 
-target_link_libraries(presto_operators velox_core velox_exec velox_expression
-                      velox_hive_partition_function velox_vector)
+target_link_libraries(
+  presto_operators
+  presto_common
+  velox_core
+  velox_exec
+  velox_expression
+  velox_hive_partition_function
+  velox_vector)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
