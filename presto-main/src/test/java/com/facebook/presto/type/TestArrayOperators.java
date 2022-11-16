@@ -1105,6 +1105,7 @@ public class TestArrayOperators
     public void testSlice()
     {
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3, 4));
+        assertFunction("SLICE(ARRAY [1, 2, 3], 1, 3)", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
         assertFunction("SLICE(ARRAY [1, 2], 1, 4)", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("SLICE(ARRAY [1, 2, 3, 4, 5], 3, 2)", new ArrayType(INTEGER), ImmutableList.of(3, 4));
         assertFunction("SLICE(ARRAY ['1', '2', '3', '4'], 2, 1)", new ArrayType(createVarcharType(1)), ImmutableList.of("2"));
