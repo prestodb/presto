@@ -281,6 +281,7 @@ public class TestHivePageSink
                 .setPartialAggregationsPushedDown(false)
                 .setAppendRowNumberEnabled(false)
                 .setPartitions(Optional.empty())
+                .setHiveTableHandle(Optional.empty())
                 .build();
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),

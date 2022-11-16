@@ -738,7 +738,7 @@ public abstract class AbstractTestHiveClient
     Map<SchemaTableName, List<TableConstraint<String>>> tableConstraintsMap;
 
     protected String invalidClientId;
-    protected ConnectorTableHandle invalidTableHandle;
+    protected HiveTableHandle invalidTableHandle;
 
     protected HiveColumnHandle dsColumn;
     protected HiveColumnHandle fileFormatColumn;
@@ -834,6 +834,7 @@ public abstract class AbstractTestHiveClient
                 .setRequestedColumns(Optional.empty())
                 .setPartialAggregationsPushedDown(false)
                 .setAppendRowNumberEnabled(false)
+                .setHiveTableHandle(invalidTableHandle)
                 .build();
 
         int partitionColumnIndex = MAX_PARTITION_KEY_COLUMN_INDEX;
