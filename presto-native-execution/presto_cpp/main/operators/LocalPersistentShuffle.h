@@ -38,6 +38,8 @@ namespace facebook::presto::operators {
 /// this class (pointing to the same root path) to read and write shuffle data.
 class LocalPersistentShuffle : public ShuffleInterface {
  public:
+  static constexpr folly::StringPiece kShuffleName{"local"};
+
   LocalPersistentShuffle(uint32_t maxBytesPerPartition)
       : maxBytesPerPartition_(maxBytesPerPartition),
         threadId_(std::this_thread::get_id()) {}

@@ -13,12 +13,27 @@
  */
 #pragma once
 
+#include <fmt/format.h>
 #include "velox/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
 class ShuffleInterface {
  public:
+  /// Indicates the type of ShuffleInterface. This common interface could be
+  /// used for both READ and WRITE. This enum is used to differenciate the usage
+  /// of the ShuffleInterface
+  enum class Type {
+    kRead,
+    kWrite,
+  };
+
+  using ShuffleInterfaceFactory =
+      std::function<std::shared_ptr<ShuffleInterface>(
+          const std::string& serializedShuffleInfo,
+          Type type,
+          velox::memory::MemoryPool* pool)>;
+
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
@@ -38,6 +53,35 @@ class ShuffleInterface {
   /// to be read while noMoreData signals the shuffle service that there
   /// is no more data to be writen.
   virtual bool readyForRead() const = 0;
+
+  /// Register ShuffleInterfaceFactory to its registry. It returns true if the
+  /// registration is successful, false if a factory with the name already
+  /// exists.
+  /// This method is not thread safe.
+  static bool registerFactory(
+      const std::string& name,
+      ShuffleInterfaceFactory shuffleInterfaceFactory) {
+    std::unordered_map<std::string, ShuffleInterfaceFactory>& factoryMap =
+        factories();
+    return factoryMap.emplace(name, shuffleInterfaceFactory).second;
+  }
+
+  /// Get a ShuffleInterfaceFactory with provided name. Throws if not found.
+  /// This method is not thread safe.
+  static ShuffleInterfaceFactory& factory(const std::string& name) {
+    auto factoryIter = factories().find(name);
+    if (factoryIter == factories().end()) {
+      VELOX_FAIL(fmt::format(
+          "ShuffleInterface with name '{}' is not registered.", name));
+    }
+    return factoryIter->second;
+  }
+
+ private:
+  static std::unordered_map<std::string, ShuffleInterfaceFactory>& factories() {
+    static std::unordered_map<std::string, ShuffleInterfaceFactory> factories;
+    return factories;
+  }
 };
 
 } // namespace facebook::presto::operators
