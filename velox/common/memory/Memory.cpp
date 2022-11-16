@@ -144,6 +144,10 @@ const std::string& MemoryPool::name() const {
   return name_;
 }
 
+MemoryPool* MemoryPool::parent() const {
+  return parent_.get();
+}
+
 uint64_t MemoryPool::getChildCount() const {
   folly::SharedMutex::ReadHolder guard{childrenMutex_};
   return children_.size();

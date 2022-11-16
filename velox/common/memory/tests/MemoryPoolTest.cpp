@@ -68,34 +68,38 @@ TEST(MemoryPoolTest, Ctor) {
   auto& root =
       dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(manager.getRoot());
 
-  EXPECT_EQ(8 * GB, root.cap_);
-  EXPECT_EQ(0, root.getCurrentBytes());
+  ASSERT_EQ(8 * GB, root.cap_);
+  ASSERT_EQ(0, root.getCurrentBytes());
+  ASSERT_EQ(root.parent(), nullptr);
 
   {
     auto fakeRoot = std::make_shared<MemoryPoolImpl<MemoryAllocator, 64>>(
         manager, "fake_root", nullptr, 4 * GB);
-    EXPECT_EQ("fake_root", fakeRoot->name());
-    EXPECT_EQ(4 * GB, fakeRoot->cap_);
-    EXPECT_EQ(&root.allocator_, &fakeRoot->allocator_);
-    EXPECT_EQ(0, fakeRoot->getCurrentBytes());
+    ASSERT_EQ("fake_root", fakeRoot->name());
+    ASSERT_EQ(4 * GB, fakeRoot->cap_);
+    ASSERT_EQ(&root.allocator_, &fakeRoot->allocator_);
+    ASSERT_EQ(0, fakeRoot->getCurrentBytes());
+    ASSERT_EQ(fakeRoot->parent(), nullptr);
   }
   {
     auto child = root.addChild("favorite_child");
+    ASSERT_EQ(child->parent(), &root);
     auto& favoriteChild =
         dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(*child);
-    EXPECT_EQ("favorite_child", favoriteChild.name());
-    EXPECT_EQ(std::numeric_limits<int64_t>::max(), favoriteChild.cap_);
-    EXPECT_EQ(&root.allocator_, &favoriteChild.allocator_);
-    EXPECT_EQ(0, favoriteChild.getCurrentBytes());
+    ASSERT_EQ("favorite_child", favoriteChild.name());
+    ASSERT_EQ(std::numeric_limits<int64_t>::max(), favoriteChild.cap_);
+    ASSERT_EQ(&root.allocator_, &favoriteChild.allocator_);
+    ASSERT_EQ(0, favoriteChild.getCurrentBytes());
   }
   {
     auto child = root.addChild("naughty_child", 3 * GB);
+    ASSERT_EQ(child->parent(), &root);
     auto& naughtyChild =
         dynamic_cast<MemoryPoolImpl<MemoryAllocator, 64>&>(*child);
-    EXPECT_EQ("naughty_child", naughtyChild.name());
-    EXPECT_EQ(3 * GB, naughtyChild.cap_);
-    EXPECT_EQ(&root.allocator_, &naughtyChild.allocator_);
-    EXPECT_EQ(0, naughtyChild.getCurrentBytes());
+    ASSERT_EQ("naughty_child", naughtyChild.name());
+    ASSERT_EQ(3 * GB, naughtyChild.cap_);
+    ASSERT_EQ(&root.allocator_, &naughtyChild.allocator_);
+    ASSERT_EQ(0, naughtyChild.getCurrentBytes());
   }
 }
 
@@ -127,10 +131,13 @@ TEST(MemoryPoolTest, AddChild) {
 TEST_P(MemoryPoolTest, dropChild) {
   MemoryManager<MemoryAllocator> manager{};
   auto& root = manager.getRoot();
+  ASSERT_EQ(root.parent(), nullptr);
 
   ASSERT_EQ(0, root.getChildCount());
   auto childOne = root.addChild("child_one");
+  ASSERT_EQ(childOne->parent(), &root);
   auto childTwo = root.addChild("child_two", 4L * 1024L * 1024L);
+  ASSERT_EQ(childTwo->parent(), &root);
   ASSERT_EQ(2, root.getChildCount());
 
   childOne.reset();
@@ -142,9 +149,12 @@ TEST_P(MemoryPoolTest, dropChild) {
 
   // Check parent pool is alive until all the children has been destroyed.
   auto child = root.addChild("child");
+  ASSERT_EQ(child->parent(), &root);
   auto* rawChild = child.get();
   auto grandChild1 = child->addChild("grandChild1");
+  ASSERT_EQ(grandChild1->parent(), child.get());
   auto grandChild2 = child->addChild("grandChild1");
+  ASSERT_EQ(grandChild2->parent(), child.get());
   ASSERT_EQ(1, root.getChildCount());
   ASSERT_EQ(2, child->getChildCount());
   ASSERT_EQ(0, grandChild1->getChildCount());

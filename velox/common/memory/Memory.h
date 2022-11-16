@@ -72,8 +72,9 @@ constexpr uint16_t kDefaultAlignment = 64;
 ///
 /// The top level is a single root pool object (query pool) associated with the
 /// query. The query pool is created on the first executed query task and owned
-/// by QueryCtx. Note that not all the engines use memory pool are creating
-/// multiple tasks for the same query in the same process.
+/// by QueryCtx. Note that the query pool is optional as not all the engines
+/// using memory pool are creating multiple tasks for the same query in the same
+/// process.
 ///
 /// The second level is a number of intermediate pool objects (task pool) with
 /// one per each query task. The query pool is the parent of all the task pools
@@ -105,6 +106,13 @@ constexpr uint16_t kDefaultAlignment = 64;
 /// its raw pointer from its parent through dropChild() and then drops the
 /// shared reference on the parent.
 ///
+/// NOTE: for the users that integrate at expression evaluation level, we don't
+/// need to build the memory pool hierarchy as described above. Users can either
+/// create a single memory pool from IMemoryManager::getChild() to share with
+/// all the concurrent expression evaluations or create one dedicated memory
+/// pool for each expression evaluation if they need per-expression memory quota
+/// enforcement.
+///
 /// In addition to providing memory allocation functions, the memory pool object
 /// also provides the memory usage counting through MemoryUsageTracker which
 /// will be merged into memory pool object implementation later.
@@ -123,6 +131,14 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Tree methods used to access and manage the memory hierarchy.
   /// Returns the name of this memory pool.
   virtual const std::string& name() const;
+
+  /// Returns the raw pointer to the parent pool. The root memory pool has
+  /// no parent.
+  ///
+  /// NOTE: users are only safe to access the returned parent pool pointer while
+  /// they hold the shared reference on this child memory pool. Otherwise, the
+  /// parent memory pool might have been destroyed.
+  virtual MemoryPool* FOLLY_NULLABLE parent() const;
 
   /// Returns the number of child memory pools.
   virtual uint64_t getChildCount() const;
