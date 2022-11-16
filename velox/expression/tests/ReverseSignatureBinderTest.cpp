@@ -61,17 +61,6 @@ TEST_F(ReverseSignatureBinderTest, concreteSignature) {
   testBindingFailure(signature, VARCHAR());
 }
 
-TEST_F(ReverseSignatureBinderTest, any) {
-  auto signature = exec::FunctionSignatureBuilder()
-                       .returnType("array(any)")
-                       .argumentType("varchar")
-                       .argumentType("bigint")
-                       .build();
-
-  testBindingSuccess(signature, ARRAY(VARCHAR()), {});
-  testBindingFailure(signature, VARCHAR());
-}
-
 TEST_F(ReverseSignatureBinderTest, signatureTemplateFullBinding) {
   auto signature = exec::FunctionSignatureBuilder()
                        .knownTypeVariable("K")

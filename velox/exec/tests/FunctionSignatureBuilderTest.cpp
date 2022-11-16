@@ -125,3 +125,25 @@ TEST_F(FunctionSignatureBuilderTest, typeParamTests) {
       },
       "Named type cannot have parameters : T(M)");
 }
+
+TEST_F(FunctionSignatureBuilderTest, anyInReturn) {
+  assertUserInvalidArgument(
+      [=]() {
+        FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("Any")
+            .argumentType("T")
+            .build();
+      },
+      "Type 'Any' cannot appear in return type");
+
+  assertUserInvalidArgument(
+      [=]() {
+        FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("row(any, T)")
+            .argumentType("T")
+            .build();
+      },
+      "Type 'Any' cannot appear in return type");
+}

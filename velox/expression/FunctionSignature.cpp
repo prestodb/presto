@@ -135,11 +135,15 @@ bool isPositiveInteger(const std::string& str) {
 void validateBaseTypeAndCollectTypeParams(
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const TypeSignature& arg,
-    std::unordered_set<std::string>& collectedTypeVariables) {
+    std::unordered_set<std::string>& collectedTypeVariables,
+    bool isReturnType) {
   if (!variables.count(arg.baseName())) {
     auto typeName = boost::algorithm::to_upper_copy(arg.baseName());
 
     if (typeName == "ANY") {
+      VELOX_USER_CHECK(
+          !isReturnType, "Type 'Any' cannot appear in return type");
+
       VELOX_USER_CHECK(
           arg.parameters().empty(), "Type 'Any' cannot have parameters")
       return;
@@ -154,7 +158,7 @@ void validateBaseTypeAndCollectTypeParams(
     // Ensure all params are similarly supported.
     for (auto& param : arg.parameters()) {
       validateBaseTypeAndCollectTypeParams(
-          variables, param, collectedTypeVariables);
+          variables, param, collectedTypeVariables, isReturnType);
     }
 
   } else {
@@ -178,12 +182,12 @@ void validate(
   // Validate the argument types.
   for (const auto& arg : argumentTypes) {
     // Is base type a type parameter or a built in type ?
-    validateBaseTypeAndCollectTypeParams(variables, arg, usedTypeVariables);
+    validateBaseTypeAndCollectTypeParams(
+        variables, arg, usedTypeVariables, false);
   }
 
-  // Similarly validate for return type.
   validateBaseTypeAndCollectTypeParams(
-      variables, returnType, usedTypeVariables);
+      variables, returnType, usedTypeVariables, true);
 
   VELOX_USER_CHECK_EQ(
       usedTypeVariables.size(),
