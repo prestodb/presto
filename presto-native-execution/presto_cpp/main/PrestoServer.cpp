@@ -473,15 +473,7 @@ std::vector<std::string> PrestoServer::registerConnectors(
 void PrestoServer::registerShuffleInterfaceFactories() {
   operators::ShuffleInterface::registerFactory(
       operators::LocalPersistentShuffle::kShuffleName.toString(),
-      [](const std::string& /* serializedShuffleInfo */,
-         operators::ShuffleInterface::Type /* type */,
-         velox::memory::MemoryPool* /* pool */) {
-        // TODO: Any impl of ShuffleInterface should have a constructor,
-        // accepting a serialized shuffle info. Then the way of picking a
-        // shuffle interface factory is through config.properties. We can create
-        // an entry called shuffle.name
-        return std::make_shared<operators::LocalPersistentShuffle>(1 << 15);
-      });
+      operators::LocalPersistentShuffle::create);
 }
 
 void PrestoServer::registerFileSystems() {

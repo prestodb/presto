@@ -99,6 +99,8 @@ class SystemConfig : public ConfigBase {
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
       "enable_velox_expression_logging"};
+  static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
+      "shuffle.local.max-partition-bytes"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -109,6 +111,7 @@ class SystemConfig : public ConfigBase {
   static constexpr int32_t kShutdownOnsetSecDefault = 10;
   static constexpr int32_t kSystemMemoryGbDefault = 40;
   static constexpr int32_t kMmapArenaCapacityRatioDefault = 10;
+  static constexpr uint64_t kLocalShuffleMaxPartitionBytesDefault = 1 << 15;
   static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
@@ -142,6 +145,8 @@ class SystemConfig : public ConfigBase {
   int32_t systemMemoryGb() const;
 
   uint64_t asyncCacheSsdGb() const;
+
+  uint64_t localShuffleMaxPartitionBytes() const;
 
   std::string asyncCacheSsdPath() const;
 

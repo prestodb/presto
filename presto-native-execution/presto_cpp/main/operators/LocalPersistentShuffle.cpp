@@ -12,6 +12,8 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/main/common/Configs.h"
 
 using namespace facebook::velox::exec;
 using namespace facebook::velox;
@@ -33,7 +35,7 @@ inline std::string createShuffleFileName(
 const static std::string kReadyForReadFilename = "readyForRead";
 }; // namespace
 
-void LocalPersistentShuffle::initialize(
+void LocalPersistentShuffle::reset(
     velox::memory::MemoryPool* pool,
     uint32_t numPartitions,
     std::string rootPath) {
@@ -125,7 +127,7 @@ void LocalPersistentShuffle::collect(
   // Allocate buffer if needed.
   if (buffer == nullptr) {
     buffer = AlignedBuffer::allocate<char>(
-        std::max(uint32_t(data.size()), maxBytesPerPartition_), pool_);
+        std::max((uint64_t)data.size(), maxBytesPerPartition_), pool_);
     inProgressSizes_[partition] = 0;
     inProgressPartitions_[partition] = buffer;
   }
@@ -198,4 +200,46 @@ void LocalPersistentShuffle::cleanup() {
     fileSystem_->remove(file);
   }
 }
+
+using json = nlohmann::json;
+
+// static
+LocalShuffleInfo LocalShuffleInfo::deserialize(
+    const std::string& info) {
+  const auto jsonReadInfo = json::parse(info);
+  LocalShuffleInfo readInfo;
+  jsonReadInfo.at("rootPath").get_to(readInfo.rootPath);
+  jsonReadInfo.at("numPartitions").get_to(readInfo.numPartitions);
+  return readInfo;
+}
+
+// static
+std::shared_ptr<ShuffleInterface> LocalPersistentShuffle::create(
+    const std::string& serializedStr,
+    operators::ShuffleInterface::Type type,
+    velox::memory::MemoryPool* pool) {
+  static const uint64_t maxBytesPerPartition =
+      SystemConfig::instance()->localShuffleMaxPartitionBytes();
+  if (type == operators::ShuffleInterface::Type::kRead) {
+    const operators::LocalShuffleInfo readInfo =
+        operators::LocalShuffleInfo::deserialize(
+            serializedStr);
+    return std::make_shared<operators::LocalPersistentShuffle>(
+        readInfo.rootPath, pool, readInfo.numPartitions, maxBytesPerPartition);
+  } else if (type == operators::ShuffleInterface::Type::kWrite) {
+    const operators::LocalShuffleInfo writeInfo =
+        operators::LocalShuffleInfo::deserialize(
+            serializedStr);
+    return std::make_shared<operators::LocalPersistentShuffle>(
+        writeInfo.rootPath,
+        pool,
+        writeInfo.numPartitions,
+        maxBytesPerPartition);
+  } else {
+    VELOX_FAIL(fmt::format(
+        "Unknown shuffle interface type '{}'.",
+        static_cast<ShuffleInterface::Type>(type)));
+  }
+}
+
 } // namespace facebook::presto::operators

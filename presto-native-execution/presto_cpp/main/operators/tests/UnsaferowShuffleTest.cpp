@@ -12,6 +12,7 @@
  * limitations under the License.
  */
 #include "folly/init/Init.h"
+#include "presto_cpp/external/json/json.hpp"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
@@ -374,6 +375,45 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   runShuffleTest(&shuffle, numPartitions, numMapDrivers, {data});
 }
 
+TEST_F(UnsafeRowShuffleTest, persistentShuffleDeser) {
+  std::string serializedInfo =
+      "{\n"
+      "  \"rootPath\": \"abc\",\n"
+      "  \"numPartitions\": 11\n"
+      "}";
+  LocalShuffleInfo shuffleInfo =
+      LocalShuffleInfo::deserialize(serializedInfo);
+  EXPECT_EQ(shuffleInfo.rootPath, "abc");
+  EXPECT_EQ(shuffleInfo.numPartitions, 11);
+
+  serializedInfo =
+      "{\n"
+      "  \"rootPath\": \"efg\",\n"
+      "  \"numPartitions\": 12\n"
+      "}";
+  shuffleInfo = LocalShuffleInfo::deserialize(serializedInfo);
+  EXPECT_EQ(shuffleInfo.rootPath, "efg");
+  EXPECT_EQ(shuffleInfo.numPartitions, 12);
+
+  std::string badSerializedInfo =
+      "{\n"
+      "  \"rootpath\": \"efg\",\n"
+      "  \"numpartitions\": 12\n"
+      "}";
+  EXPECT_THROW(
+      LocalShuffleInfo::deserialize(badSerializedInfo),
+      nlohmann::detail::out_of_range);
+
+  badSerializedInfo =
+      "{\n"
+      "  \"rootPath\": \"abc\",\n"
+      "  \"numPartitions\": \"hey-wrong-type\"\n"
+      "}";
+  EXPECT_THROW(
+      LocalShuffleInfo::deserialize(badSerializedInfo),
+      nlohmann::detail::type_error);
+}
+
 TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   size_t numPartitions = 5;
   size_t numMapDrivers = 2;
@@ -384,8 +424,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   auto rootPath = rootDirectory->path;
 
   // Initialize persistent shuffle.
-  LocalPersistentShuffle shuffle(1 << 20 /* 1MB */);
-  shuffle.initialize(pool(), numPartitions, rootPath);
+  LocalPersistentShuffle shuffle(
+      rootPath, pool(), numPartitions, 1 << 20 /* 1MB */);
 
   auto data = vectorMaker_.rowVector({
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6}),
@@ -444,9 +484,10 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
   velox::filesystems::registerLocalFileSystem();
   auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->path;
-  auto shuffle = std::make_unique<LocalPersistentShuffle>(1 << 15);
+  auto shuffle = std::make_unique<LocalPersistentShuffle>(
+      rootPath, pool(), numPartitions, 1 << 15);
   for (int it = 0; it < numIterations; it++) {
-    shuffle->initialize(pool(), numPartitions, rootPath);
+    shuffle->reset(pool(), numPartitions, rootPath);
 
     auto seed = folly::Random::rand32();
     VectorFuzzer fuzzer(opts, pool_.get(), seed);
