@@ -36,7 +36,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.operator.StageExecutionDescriptor.ungroupedExecution;
@@ -45,6 +47,7 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DI
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.util.GraphvizPrinter.printDistributed;
+import static com.facebook.presto.util.GraphvizPrinter.printDistributedFromFragments;
 import static com.facebook.presto.util.GraphvizPrinter.printLogical;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -115,6 +118,31 @@ public class TestGraphvizPrinter
                 "}",
                 "");
         assertEquals(actualNestedSubPlan, expectedNestedSubPlan);
+    }
+
+    @Test
+    public void testPrintDistributedFromFragments()
+    {
+        List<PlanFragment> allFragments = new ArrayList<>();
+        allFragments.add(createTestPlanFragment(0, TEST_TABLE_SCAN_NODE));
+        allFragments.add(createTestPlanFragment(1, TEST_TABLE_SCAN_NODE));
+        String actual = printDistributedFromFragments(
+                allFragments,
+                FUNCTION_AND_TYPE_MANAGER,
+                testSessionBuilder().build());
+        String expected = "digraph distributed_plan {\n" +
+                "subgraph cluster_0 {\n" +
+                "label = \"SOURCE\"\n" +
+                "plannode_1[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "}\n" +
+                "subgraph cluster_1 {\n" +
+                "label = \"SOURCE\"\n" +
+                "plannode_1[label=\"{TableScan | [TableHandle \\{connectorId='connector_id', connectorHandle='com.facebook.presto.testing.TestingMetadata$TestingTableHandle@1af56f7', layout='Optional.empty'\\}]|Estimates: \\{rows: ? (0B), cpu: ?, memory: ?, network: ?\\}\n" +
+                "}\", style=\"rounded, filled\", shape=record, fillcolor=deepskyblue];\n" +
+                "}\n" +
+                "}\n";
+        assertEquals(actual, expected);
     }
 
     @Test
