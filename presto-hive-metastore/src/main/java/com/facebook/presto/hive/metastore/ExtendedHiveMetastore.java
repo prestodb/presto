@@ -16,6 +16,7 @@ package com.facebook.presto.hive.metastore;
 import com.facebook.presto.common.NotSupportedException;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.spi.constraints.TableConstraint;
 import com.facebook.presto.spi.security.PrestoPrincipal;
@@ -37,6 +38,15 @@ public interface ExtendedHiveMetastore
     List<String> getAllDatabases(MetastoreContext metastoreContext);
 
     Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName);
+
+    /*
+    If some extended hiveMetastore wants to get additional information available in the HiveTableHandle
+    they can override this method to get the additional information.
+     */
+    default Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
+    {
+        return getTable(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
+    }
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type);
 

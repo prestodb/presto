@@ -20,6 +20,7 @@ import com.facebook.presto.hive.ColumnConverterProvider;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveBasicStatistics;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.LocationHandle.WriteMode;
 import com.facebook.presto.hive.PartitionNotFoundException;
@@ -186,12 +187,18 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllTables(metastoreContext, databaseName);
     }
 
-    public synchronized Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<Table> getTable(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(databaseName, tableName);
+        return getTable(metastoreContext, hiveTableHandle);
+    }
+
+    public synchronized Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
     {
         checkReadable();
-        Action<TableAndMore> tableAction = tableActions.get(new SchemaTableName(databaseName, tableName));
+        Action<TableAndMore> tableAction = tableActions.get(hiveTableHandle.getSchemaTableName());
         if (tableAction == null) {
-            return delegate.getTable(metastoreContext, databaseName, tableName);
+            return delegate.getTable(metastoreContext, hiveTableHandle);
         }
         switch (tableAction.getType()) {
             case ADD:
@@ -601,47 +608,51 @@ public class SemiTransactionalHiveMetastore
         });
     }
 
-    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, String databaseName, String tableName)
     {
-        return doGetPartitionNames(metastoreContext, databaseName, tableName, ImmutableMap.of());
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(databaseName, tableName);
+        return getPartitionNames(metastoreContext, hiveTableHandle);
     }
 
-    public synchronized Optional<List<String>> getPartitionNamesByFilter(MetastoreContext metastoreContext, String databaseName, String tableName, Map<Column, Domain> effectivePredicate)
+    public synchronized Optional<List<String>> getPartitionNames(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle)
     {
-        return doGetPartitionNames(metastoreContext, databaseName, tableName, effectivePredicate);
+        return doGetPartitionNames(metastoreContext, hiveTableHandle, ImmutableMap.of());
+    }
+
+    public synchronized Optional<List<String>> getPartitionNamesByFilter(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle, Map<Column, Domain> effectivePredicate)
+    {
+        return doGetPartitionNames(metastoreContext, hiveTableHandle, effectivePredicate);
     }
 
     @GuardedBy("this")
     private Optional<List<String>> doGetPartitionNames(
             MetastoreContext metastoreContext,
-            String databaseName,
-            String tableName,
+            HiveTableHandle hiveTableHandle,
             Map<Column, Domain> partitionPredicates)
     {
         checkHoldsLock();
 
         checkReadable();
-        Optional<Table> table = getTable(metastoreContext, databaseName, tableName);
+        Optional<Table> table = getTable(metastoreContext, hiveTableHandle);
         if (!table.isPresent()) {
             return Optional.empty();
         }
         List<String> partitionNames;
-        TableSource tableSource = getTableSource(databaseName, tableName);
+        TableSource tableSource = getTableSource(hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
         switch (tableSource) {
             case CREATED_IN_THIS_TRANSACTION:
                 partitionNames = ImmutableList.of();
                 break;
             case PRE_EXISTING_TABLE: {
                 Optional<List<String>> partitionNameResult;
-                List<Column> partitionColumns = table.get().getPartitionColumns();
                 if (!partitionPredicates.isEmpty()) {
-                    partitionNameResult = Optional.of(delegate.getPartitionNamesByFilter(metastoreContext, databaseName, tableName, partitionPredicates));
+                    partitionNameResult = Optional.of(delegate.getPartitionNamesByFilter(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName(), partitionPredicates));
                 }
                 else {
-                    partitionNameResult = delegate.getPartitionNames(metastoreContext, databaseName, tableName);
+                    partitionNameResult = delegate.getPartitionNames(metastoreContext, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName());
                 }
                 if (!partitionNameResult.isPresent()) {
-                    throw new PrestoException(TRANSACTION_CONFLICT, format("Table %s.%s was dropped by another transaction", databaseName, tableName));
+                    throw new PrestoException(TRANSACTION_CONFLICT, format("Table %s.%s was dropped by another transaction", hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()));
                 }
                 partitionNames = partitionNameResult.get();
                 break;
@@ -661,7 +672,8 @@ public class SemiTransactionalHiveMetastore
             }
             switch (partitionAction.getType()) {
                 case ADD:
-                    throw new PrestoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
+                    throw new PrestoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s",
+                            partitionValues, hiveTableHandle.getSchemaName(), hiveTableHandle.getTableName()));
                 case DROP:
                     // do nothing
                     break;

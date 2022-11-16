@@ -15,6 +15,7 @@ package com.facebook.presto.hive.metastore.thrift;
 
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.hive.HiveTableHandle;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.HivePrivilegeInfo;
 import com.facebook.presto.hive.metastore.MetastoreContext;
@@ -108,6 +109,8 @@ public interface HiveMetastore
             MetastoreContext metastoreContext,
             String databaseName,
             String tableName);
+
+    Optional<Table> getTable(MetastoreContext metastoreContext, HiveTableHandle hiveTableHandle);
 
     Set<ColumnStatisticType> getSupportedColumnStatistics(MetastoreContext metastoreContext, Type type);
 
