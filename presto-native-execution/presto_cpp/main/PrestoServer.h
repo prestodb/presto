@@ -86,6 +86,8 @@ class PrestoServer {
   virtual std::vector<std::string> registerConnectors(
       const fs::path& configDirectoryPath);
 
+  virtual void registerShuffleInterfaceFactories();
+
   virtual void registerFileSystems();
 
   void initializeAsyncCache();

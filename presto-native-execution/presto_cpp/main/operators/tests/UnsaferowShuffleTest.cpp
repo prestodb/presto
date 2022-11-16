@@ -533,6 +533,19 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
       "  -- Values[1000 rows in 1 vectors] -> c0:INTEGER, c1:BIGINT\n");
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
 }
+
+TEST_F(UnsafeRowShuffleTest, shuffleInterfaceRegistration) {
+  const std::string kShuffleName = "dummy-shuffle";
+  auto dummyShuffleInterface =
+      [](const std::string& /* serializedShuffleInfo */,
+         ShuffleInterface::Type /* type */,
+         velox::memory::MemoryPool* /* pool */) { return nullptr; };
+  EXPECT_TRUE(
+      ShuffleInterface::registerFactory(kShuffleName, dummyShuffleInterface));
+  EXPECT_NO_THROW(ShuffleInterface::factory(kShuffleName));
+  EXPECT_FALSE(
+      ShuffleInterface::registerFactory(kShuffleName, dummyShuffleInterface));
+}
 } // namespace facebook::presto::operators::test
 
 int main(int argc, char** argv) {

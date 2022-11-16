@@ -27,6 +27,8 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/connectors/hive/storage_adapters/FileSystems.h"
 #include "presto_cpp/main/http/HttpServer.h"
+#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/WriteProtocol.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
@@ -146,6 +148,7 @@ void PrestoServer::run() {
   registerPrestoCppCounters();
   registerFileSystems();
   registerOptionalHiveStorageAdapters();
+  registerShuffleInterfaceFactories();
   protocol::registerHiveConnectors();
   protocol::registerTpchConnector();
   protocol::HiveNoCommitWriteProtocol::registerProtocol();
@@ -465,6 +468,20 @@ std::vector<std::string> PrestoServer::registerConnectors(
     }
   }
   return catalogNames;
+}
+
+void PrestoServer::registerShuffleInterfaceFactories() {
+  operators::ShuffleInterface::registerFactory(
+      operators::LocalPersistentShuffle::kShuffleName.toString(),
+      [](const std::string& /* serializedShuffleInfo */,
+         operators::ShuffleInterface::Type /* type */,
+         velox::memory::MemoryPool* /* pool */) {
+        // TODO: Any impl of ShuffleInterface should have a constructor,
+        // accepting a serialized shuffle info. Then the way of picking a
+        // shuffle interface factory is through config.properties. We can create
+        // an entry called shuffle.name
+        return std::make_shared<operators::LocalPersistentShuffle>(1 << 15);
+      });
 }
 
 void PrestoServer::registerFileSystems() {
