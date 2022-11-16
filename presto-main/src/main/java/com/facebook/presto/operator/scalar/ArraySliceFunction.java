@@ -43,7 +43,7 @@ public final class ArraySliceFunction
         checkCondition(fromIndex != 0, INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
 
         int size = array.getPositionCount();
-        if (size == 0) {
+        if (size == 0 || (fromIndex == 1 && size <= length)) {
             return array;
         }
 
