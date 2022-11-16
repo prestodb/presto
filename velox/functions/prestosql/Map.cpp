@@ -194,7 +194,7 @@ class MapFunction : public exec::VectorFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // array(K), array(V) -> map(K,V)
     return {exec::FunctionSignatureBuilder()
-                .typeVariable("K")
+                .knownTypeVariable("K")
                 .typeVariable("V")
                 .returnType("map(K,V)")
                 .argumentType("array(K)")

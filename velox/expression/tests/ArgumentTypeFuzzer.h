@@ -16,6 +16,8 @@
 #pragma once
 
 #include <random>
+#include <unordered_map>
+
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/type/Type.h"
@@ -31,15 +33,13 @@ class ArgumentTypeFuzzer {
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
       std::mt19937& rng)
-      : signature_{signature}, rng_{rng} {}
+      : ArgumentTypeFuzzer(signature, nullptr, rng) {}
 
   ArgumentTypeFuzzer(
       const exec::FunctionSignature& signature,
       const TypePtr& returnType,
       std::mt19937& rng)
-      : signature_{signature}, returnType_{returnType}, rng_{rng} {
-    VELOX_CHECK_NOT_NULL(returnType);
-  }
+      : signature_{signature}, returnType_{returnType}, rng_{rng} {}
 
   /// Generate random argument types. If the desired returnType has been
   /// specified, checks that it can be bound to the return type of signature_.
@@ -54,6 +54,10 @@ class ArgumentTypeFuzzer {
   }
 
  private:
+  /// Return the variables in the signature.
+  auto& variables() const {
+    return signature_.variables();
+  }
   /// Bind each type variable that is not determined by the return type to a
   /// randomly generated type.
   void determineUnboundedTypeVariables();

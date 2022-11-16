@@ -18,7 +18,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
+
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::exec {
 
@@ -41,7 +44,8 @@ class TypeVariableConstraint {
   explicit TypeVariableConstraint(
       std::string name,
       std::optional<std::string> constraint,
-      ParameterType type);
+      ParameterType type,
+      bool knownTypesOnly = false);
 
   const std::string& name() const {
     return name_;
@@ -49,6 +53,11 @@ class TypeVariableConstraint {
 
   const std::string& constraint() const {
     return constraint_;
+  }
+
+  bool knownTypesOnly() const {
+    VELOX_USER_CHECK(isTypeParameter());
+    return knownTypesOnly_;
   }
 
   bool isTypeParameter() const {
@@ -61,13 +70,17 @@ class TypeVariableConstraint {
 
   bool operator==(const TypeVariableConstraint& rhs) const {
     return type_ == rhs.type_ && name_ == rhs.name_ &&
-        constraint_ == rhs.constraint_;
+        constraint_ == rhs.constraint_ &&
+        knownTypesOnly_ == rhs.knownTypesOnly_;
   }
 
  private:
   const std::string name_;
   const std::string constraint_;
   const ParameterType type_;
+  // This property only applies to type variables and indicates if the type
+  // can bind to unknown or not.
+  bool knownTypesOnly_ = false;
 };
 
 // Base type (e.g. map) and optional parameters (e.g. K, V).
@@ -98,27 +111,25 @@ class TypeSignature {
 
 class FunctionSignature {
  public:
-  /// @param typeVariableConstraints Generic type names used in return type and
-  /// argument types (and constraints if necessary).
-  /// @param returnType Return type. May use generic type names, e.g. array(T).
+  /// @param typeVariableConstraints Generic type names used in return type
+  /// and argument types (and constraints if necessary).
+  /// @param returnType Return type. May use generic type names, e.g.
+  /// array(T).
   /// @param argumentTypes Argument types. May use generic type names, e.g.
-  /// map(K,V). The type of the last argument of a function with variable number
-  /// of arguments can be "any", which means that arguments of any type are
-  /// accepted.
+  /// map(K,V). The type of the last argument of a function with variable
+  /// number of arguments can be "any", which means that arguments of any type
+  /// are accepted.
   /// @param variableArity True if function accepts variable number of
   /// arguments, e.g. concat(varchar...). Variable arity arguments can appear
   /// only at the end of the argument list and their types must match the type
   /// specified in the last entry of 'argumentTypes'. Variable arity arguments
   /// can appear zero or more times.
   FunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstraints,
+      std::unordered_map<std::string, TypeVariableConstraint>
+          typeVariableConstraints,
       TypeSignature returnType,
       std::vector<TypeSignature> argumentTypes,
       bool variableArity);
-
-  const std::vector<TypeVariableConstraint>& typeVariableConstraints() const {
-    return typeVariableConstraints_;
-  }
 
   const TypeSignature& returnType() const {
     return returnType_;
@@ -134,6 +145,10 @@ class FunctionSignature {
 
   std::string toString() const;
 
+  const auto& variables() const {
+    return typeVariableConstraints_;
+  }
+
   // This tests syntactic equality not semantic equality
   // For example, even if only the names of the typeVariableConstraints are
   // different the signatures are considered not equal (array(K) != array(V))
@@ -145,7 +160,8 @@ class FunctionSignature {
   }
 
  private:
-  const std::vector<TypeVariableConstraint> typeVariableConstraints_;
+  const std::unordered_map<std::string, TypeVariableConstraint>
+      typeVariableConstraints_;
   const TypeSignature returnType_;
   const std::vector<TypeSignature> argumentTypes_;
   const bool variableArity_;
@@ -156,7 +172,8 @@ using FunctionSignaturePtr = std::shared_ptr<FunctionSignature>;
 class AggregateFunctionSignature : public FunctionSignature {
  public:
   AggregateFunctionSignature(
-      std::vector<TypeVariableConstraint> typeVariableConstraints,
+      std::unordered_map<std::string, TypeVariableConstraint>
+          typeVariableConstraints,
       TypeSignature returnType,
       TypeSignature intermediateType,
       std::vector<TypeSignature> argumentTypes,
@@ -175,6 +192,21 @@ class AggregateFunctionSignature : public FunctionSignature {
  private:
   const TypeSignature intermediateType_;
 };
+
+namespace {
+
+void addVariable(
+    std::unordered_map<std::string, TypeVariableConstraint>& variables,
+    const TypeVariableConstraint& variable) {
+  VELOX_USER_CHECK(
+      !variables.count(variable.name()),
+      "Variable {} declared twice",
+      variable.name());
+
+  variables.emplace(variable.name(), variable);
+}
+
+} // namespace
 
 /// Parses a string into TypeSignature. The format of the string is type name,
 /// optionally followed by type parameters enclosed in parenthesis.
@@ -200,24 +232,34 @@ TypeSignature parseTypeSignature(const std::string& signature);
 ///     - signature of map_keys function: map(K,V) -> array(K)
 ///
 ///     exec::FunctionSignatureBuilder()
-///                .typeVariable("K")
+///                .knownTypeVariable("K")
 ///                .typeVariable("V")
 ///                .returnType("array(K)")
 ///                .argumentType("map(K,V)")
 ///                .build()
 class FunctionSignatureBuilder {
  public:
-  FunctionSignatureBuilder& typeVariable(std::string name) {
-    typeVariableConstraints_.emplace_back(
-        name, "", ParameterType::kTypeParameter);
+  FunctionSignatureBuilder& typeVariable(const std::string& name) {
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(name, "", ParameterType::kTypeParameter));
+    return *this;
+  }
+
+  FunctionSignatureBuilder& knownTypeVariable(const std::string& name) {
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(name, "", ParameterType::kTypeParameter, true));
     return *this;
   }
 
   FunctionSignatureBuilder& integerVariable(
-      std::string name,
+      const std::string& name,
       std::optional<std::string> constraint = std::nullopt) {
-    typeVariableConstraints_.emplace_back(
-        name, constraint, ParameterType::kIntegerParameter);
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(
+            name, constraint, ParameterType::kIntegerParameter));
     return *this;
   }
 
@@ -239,7 +281,8 @@ class FunctionSignatureBuilder {
   FunctionSignaturePtr build();
 
  private:
-  std::vector<TypeVariableConstraint> typeVariableConstraints_;
+  std::unordered_map<std::string, TypeVariableConstraint>
+      typeVariableConstraints_;
   std::optional<TypeSignature> returnType_;
   std::vector<TypeSignature> argumentTypes_;
   bool variableArity_{false};
@@ -248,7 +291,8 @@ class FunctionSignatureBuilder {
 /// Convenience class for creating AggregageFunctionSignature instances.
 /// Example of usage:
 ///
-///     - signature of covar_samp aggregate function: (double, double) -> double
+///     - signature of covar_samp aggregate function: (double, double) ->
+///     double
 ///
 ///     exec::AggregateFunctionSignatureBuilder()
 ///                .returnType("double")
@@ -258,17 +302,28 @@ class FunctionSignatureBuilder {
 ///                .build()
 class AggregateFunctionSignatureBuilder {
  public:
-  AggregateFunctionSignatureBuilder& typeVariable(std::string name) {
-    typeVariableConstraints_.emplace_back(
-        name, "", ParameterType::kTypeParameter);
+  AggregateFunctionSignatureBuilder& typeVariable(const std::string& name) {
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(name, "", ParameterType::kTypeParameter));
+    return *this;
+  }
+
+  AggregateFunctionSignatureBuilder& knownTypeVariable(
+      const std::string& name) {
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(name, "", ParameterType::kTypeParameter, true));
     return *this;
   }
 
   AggregateFunctionSignatureBuilder& integerVariable(
-      std::string name,
+      const std::string& name,
       std::optional<std::string> constraint = std::nullopt) {
-    typeVariableConstraints_.emplace_back(
-        name, constraint, ParameterType::kIntegerParameter);
+    addVariable(
+        typeVariableConstraints_,
+        TypeVariableConstraint(
+            name, constraint, ParameterType::kIntegerParameter));
     return *this;
   }
 
@@ -295,7 +350,8 @@ class AggregateFunctionSignatureBuilder {
   std::shared_ptr<AggregateFunctionSignature> build();
 
  private:
-  std::vector<TypeVariableConstraint> typeVariableConstraints_;
+  std::unordered_map<std::string, TypeVariableConstraint>
+      typeVariableConstraints_;
   std::optional<TypeSignature> returnType_;
   std::optional<TypeSignature> intermediateType_;
   std::vector<TypeSignature> argumentTypes_;
@@ -342,8 +398,9 @@ struct hash<facebook::velox::exec::FunctionSignature> {
         std::hash<facebook::velox::exec::TypeSignature>{};
 
     size_t val = 0;
-    for (const auto& constraint : key.typeVariableConstraints()) {
-      val = val * 31 + typeVariableConstraintHasher(constraint);
+    // No need to hash keys, since they are also a field in the value.
+    for (const auto& [_, variable] : key.variables()) {
+      val = val * 31 + typeVariableConstraintHasher(variable);
     }
 
     val = val * 31 + typeSignatureHasher(key.returnType());

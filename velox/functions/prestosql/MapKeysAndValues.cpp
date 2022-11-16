@@ -92,7 +92,7 @@ class MapKeysFunction : public MapKeyValueFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // map(K,V) -> array(K)
     return {exec::FunctionSignatureBuilder()
-                .typeVariable("K")
+                .knownTypeVariable("K")
                 .typeVariable("V")
                 .returnType("array(K)")
                 .argumentType("map(K,V)")
@@ -129,7 +129,7 @@ class MapValuesFunction : public MapKeyValueFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // map(K,V) -> array(V)
     return {exec::FunctionSignatureBuilder()
-                .typeVariable("K")
+                .knownTypeVariable("K")
                 .typeVariable("V")
                 .returnType("array(V)")
                 .argumentType("map(K,V)")

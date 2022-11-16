@@ -74,7 +74,7 @@ TEST_F(ReverseSignatureBinderTest, any) {
 
 TEST_F(ReverseSignatureBinderTest, signatureTemplateFullBinding) {
   auto signature = exec::FunctionSignatureBuilder()
-                       .typeVariable("K")
+                       .knownTypeVariable("K")
                        .typeVariable("V")
                        .returnType("map(K, V)")
                        .argumentType("K")
@@ -84,19 +84,19 @@ TEST_F(ReverseSignatureBinderTest, signatureTemplateFullBinding) {
   testBindingSuccess(
       signature, MAP(VARCHAR(), BIGINT()), {{"K", VARCHAR()}, {"V", BIGINT()}});
   testBindingFailure(signature, VARCHAR());
+  testBindingFailure(signature, MAP(UNKNOWN(), INTEGER()));
 }
 
 TEST_F(ReverseSignatureBinderTest, signatureTemplatePartialBinding) {
   auto signature = exec::FunctionSignatureBuilder()
-                       .typeVariable("K")
+                       .knownTypeVariable("K")
                        .typeVariable("V")
                        .returnType("array(K)")
                        .argumentType("K")
                        .argumentType("V")
                        .build();
 
-  testBindingSuccess(
-      signature, ARRAY(VARCHAR()), {{"K", VARCHAR()}, {"V", nullptr}});
+  testBindingSuccess(signature, ARRAY(VARCHAR()), {{"K", VARCHAR()}});
   testBindingFailure(signature, VARCHAR());
 }
 

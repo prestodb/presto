@@ -23,19 +23,7 @@ namespace facebook::velox::exec {
 class SignatureBinderBase {
  protected:
   explicit SignatureBinderBase(const exec::FunctionSignature& signature)
-      : signature_{signature} {
-    for (auto& variable : signature.typeVariableConstraints()) {
-      // Integer parameters are updated during bind.
-      if (variable.isTypeParameter()) {
-        typeParameters_.insert({variable.name(), nullptr});
-      } else if (variable.isIntegerParameter()) {
-        integerParameters_.insert({variable.name(), {}});
-      }
-      if (!variable.constraint().empty()) {
-        constraints_.insert({variable.name(), variable.constraint()});
-      }
-    }
-  }
+      : signature_{signature} {}
 
   /// Return true if actualType can bind to typeSignature and update bindings_
   /// accordingly. The number of parameters in typeSignature and actualType must
@@ -44,10 +32,19 @@ class SignatureBinderBase {
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType);
 
+  // Return the variables of the signature.
+  auto& variables() const {
+    return signature_.variables();
+  }
+
+  /// The funcion signature we are trying to bind.
   const exec::FunctionSignature& signature_;
-  std::unordered_map<std::string, TypePtr> typeParameters_;
-  std::unordered_map<std::string, std::optional<int>> integerParameters_;
-  std::unordered_map<std::string, std::string> constraints_;
+
+  /// Record concrete types that are bound to type variables.
+  std::unordered_map<std::string, TypePtr> typeVariablesBindings_;
+
+  /// Record concrete values that are bound to integer variables.
+  std::unordered_map<std::string, int> integerVariablesBindings_;
 
  private:
   /// If the integer parameter is set, then it must match with value.
@@ -70,6 +67,7 @@ class SignatureBinderBase {
 /// corresponding to lambda inputs).
 class SignatureBinder : private SignatureBinderBase {
  public:
+  // Requires that signature and actualTypes are not r-values.
   SignatureBinder(
       const exec::FunctionSignature& signature,
       const std::vector<TypePtr>& actualTypes)
@@ -83,23 +81,33 @@ class SignatureBinder : private SignatureBinderBase {
     return tryResolveType(signature_.returnType());
   }
 
-  TypePtr tryResolveType(const exec::TypeSignature& typeSignature);
-
-  static TypePtr tryResolveType(
-      const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypePtr>& typeParameters) {
-    const std::unordered_map<std::string, std::string> constraints;
-    std::unordered_map<std::string, std::optional<int>> integerParameters;
+  TypePtr tryResolveType(const exec::TypeSignature& typeSignature) {
     return tryResolveType(
-        typeSignature, typeParameters, constraints, integerParameters);
+        typeSignature,
+        variables(),
+        typeVariablesBindings_,
+        integerVariablesBindings_);
   }
 
-  /// Returns concrete return type or null if couldn't fully resolve.
+  // Given a pre-computed binding for type variables resolve typeSignature if
+  // possible.
   static TypePtr tryResolveType(
       const exec::TypeSignature& typeSignature,
-      const std::unordered_map<std::string, TypePtr>& typeParameters,
-      const std::unordered_map<std::string, std::string>& constraints,
-      std::unordered_map<std::string, std::optional<int>>& integerParameters);
+      const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+      const std::unordered_map<std::string, TypePtr>& resolvedTypeVariables) {
+    std::unordered_map<std::string, int> dummyEmpty = {};
+    return tryResolveType(
+        typeSignature, variables, resolvedTypeVariables, dummyEmpty);
+  }
+
+  // Given a pre-computed binding for type variables and integer variables,
+  // resolve typeSignature if possible. integerVariablesBindings might will be
+  // updated with the bound value.
+  static TypePtr tryResolveType(
+      const exec::TypeSignature& typeSignature,
+      const std::unordered_map<std::string, TypeVariableConstraint>& variables,
+      const std::unordered_map<std::string, TypePtr>& typeVariablesBindings,
+      std::unordered_map<std::string, int>& integerVariablesBindings);
 
  private:
   const std::vector<TypePtr>& actualTypes_;

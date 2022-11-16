@@ -44,7 +44,18 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
             .argumentType("array(T)")
             .build();
       },
-      "Type parameter declared twice");
+      "Variable T declared twice");
+
+  assertUserInvalidArgument(
+      [=]() {
+        FunctionSignatureBuilder()
+            .typeVariable("T")
+            .knownTypeVariable("T")
+            .returnType("integer")
+            .argumentType("array(T)")
+            .build();
+      },
+      "Variable T declared twice");
 
   // Unspecified type params.
   assertUserInvalidArgument(

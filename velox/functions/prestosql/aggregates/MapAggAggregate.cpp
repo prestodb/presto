@@ -71,7 +71,7 @@ class MapAggAggregate : public aggregate::MapAggregateBase {
 bool registerMapAggAggregate(const std::string& name) {
   std::vector<std::shared_ptr<exec::AggregateFunctionSignature>> signatures{
       exec::AggregateFunctionSignatureBuilder()
-          .typeVariable("K")
+          .knownTypeVariable("K")
           .typeVariable("V")
           .returnType("map(K,V)")
           .intermediateType("map(K,V)")

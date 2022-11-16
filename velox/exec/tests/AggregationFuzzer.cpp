@@ -275,18 +275,18 @@ AggregationFuzzer::AggregationFuzzer(
         continue;
       }
 
-      if (!signature->typeVariableConstraints().empty()) {
+      if (!signature->variables().empty()) {
         bool skip = false;
         std::unordered_set<std::string> typeVariables;
-        for (auto& constraint : signature->typeVariableConstraints()) {
-          if (constraint.isIntegerParameter()) {
+        for (auto& [name, variable] : signature->variables()) {
+          if (variable.isIntegerParameter()) {
             LOG(WARNING) << "Skipping generic function signature: " << name
                          << signature->toString();
             skip = true;
             break;
           }
 
-          typeVariables.insert(constraint.name());
+          typeVariables.insert(name);
         }
         if (skip) {
           continue;
@@ -298,13 +298,13 @@ AggregationFuzzer::AggregationFuzzer(
         CallableSignature callable{
             .name = name,
             .args = {},
-            .returnType =
-                SignatureBinder::tryResolveType(signature->returnType(), {})};
+            .returnType = SignatureBinder::tryResolveType(
+                signature->returnType(), {}, {})};
         VELOX_CHECK_NOT_NULL(callable.returnType);
 
         // Process each argument and figure out its type.
         for (const auto& arg : signature->argumentTypes()) {
-          auto resolvedType = SignatureBinder::tryResolveType(arg, {});
+          auto resolvedType = SignatureBinder::tryResolveType(arg, {}, {});
           VELOX_CHECK_NOT_NULL(resolvedType);
 
           callable.args.emplace_back(resolvedType);

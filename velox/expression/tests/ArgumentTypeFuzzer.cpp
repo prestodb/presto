@@ -60,10 +60,19 @@ std::optional<TypeKind> baseNameToTypeKind(const std::string& typeName) {
 }
 
 void ArgumentTypeFuzzer::determineUnboundedTypeVariables() {
-  for (auto& binding : bindings_) {
-    if (!binding.second) {
-      binding.second = randomType(rng_);
+  for (auto& [variableName, variableInfo] : variables()) {
+    if (!variableInfo.isTypeParameter()) {
+      continue;
     }
+
+    if (bindings_[variableName] != nullptr) {
+      continue;
+    }
+
+    // Random randomType() never generates unknown here.
+    // TODO: we should extend randomType types and exclude unknown based
+    // on variableInfo.
+    bindings_[variableName] = randomType(rng_);
   }
 }
 
@@ -78,8 +87,8 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
     }
     bindings_ = binder.bindings();
   } else {
-    for (const auto& constraint : signature_.typeVariableConstraints()) {
-      bindings_.insert({constraint.name(), nullptr});
+    for (const auto& [name, _] : signature_.variables()) {
+      bindings_.insert({name, nullptr});
     }
   }
 
@@ -89,8 +98,8 @@ bool ArgumentTypeFuzzer::fuzzArgumentTypes(uint32_t maxVariadicArgs) {
     if (formalArgs[i].baseName() == "any") {
       actualArg = randomType(rng_);
     } else {
-      actualArg =
-          exec::SignatureBinder::tryResolveType(formalArgs[i], bindings_);
+      actualArg = exec::SignatureBinder::tryResolveType(
+          formalArgs[i], variables(), bindings_);
       VELOX_CHECK(actualArg != nullptr);
     }
     argumentTypes_.push_back(actualArg);

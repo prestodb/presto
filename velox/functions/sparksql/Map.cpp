@@ -161,7 +161,7 @@ class MapFunction : public exec::VectorFunction {
     signatures.reserve(kNumberOfSignatures);
     for (int i = 1; i <= kNumberOfSignatures; i++) {
       auto builder = exec::FunctionSignatureBuilder()
-                         .typeVariable("K")
+                         .knownTypeVariable("K")
                          .typeVariable("V")
                          .returnType("map(K,V)");
       for (int arg = 0; arg < i; arg++) {

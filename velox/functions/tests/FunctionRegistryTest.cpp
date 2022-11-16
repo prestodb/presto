@@ -164,7 +164,7 @@ class VectorFuncFour : public velox::exec::VectorFunction {
   signatures() {
     // map(K,V) -> array(K)
     return {velox::exec::FunctionSignatureBuilder()
-                .typeVariable("K")
+                .knownTypeVariable("K")
                 .typeVariable("V")
                 .returnType("array(K)")
                 .argumentType("map(K,V)")
@@ -372,7 +372,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   ASSERT_EQ(
       functionSignatures["vector_func_four"].at(0)->toString(),
       exec::FunctionSignatureBuilder()
-          .typeVariable("K")
+          .knownTypeVariable("K")
           .typeVariable("V")
           .returnType("array(K)")
           .argumentType("map(K,V)")

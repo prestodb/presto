@@ -168,7 +168,7 @@ std::optional<CallableSignature> processSignature(
     const std::string& functionName,
     const exec::FunctionSignature& signature) {
   // Don't support functions with parameterized signatures.
-  if (!signature.typeVariableConstraints().empty()) {
+  if (!signature.variables().empty()) {
     LOG(WARNING) << "Skipping unsupported signature: " << functionName
                  << signature.toString();
     return std::nullopt;
@@ -184,14 +184,14 @@ std::optional<CallableSignature> processSignature(
       .args = {},
       .variableArity = signature.variableArity(),
       .returnType =
-          SignatureBinder::tryResolveType(signature.returnType(), {})};
+          SignatureBinder::tryResolveType(signature.returnType(), {}, {})};
   VELOX_CHECK_NOT_NULL(callable.returnType);
 
   bool onlyPrimitiveTypes = callable.returnType->isPrimitiveType();
 
   // Process each argument and figure out its type.
   for (const auto& arg : signature.argumentTypes()) {
-    auto resolvedType = SignatureBinder::tryResolveType(arg, {});
+    auto resolvedType = SignatureBinder::tryResolveType(arg, {}, {});
 
     // TODO: Check if any input is Generic and substitute all
     // possible primitive types, creating a list of signatures to fuzz.
@@ -301,15 +301,15 @@ ExpressionFuzzer::ExpressionFuzzer(
         continue;
       }
 
-      if (!signature->typeVariableConstraints().empty()) {
+      if (!signature->variables().empty()) {
         // Avoid building signatureTemplates_ if the feature is not enabled.
         if (!FLAGS_velox_fuzzer_enable_complex_types) {
           continue;
         }
 
         std::unordered_set<std::string> typeVariables;
-        for (const auto& variable : signature->typeVariableConstraints()) {
-          typeVariables.insert(variable.name());
+        for (const auto& [name, _] : signature->variables()) {
+          typeVariables.insert(name);
         }
         atLeastOneSupported = true;
         ++supportedFunctionSignatures;

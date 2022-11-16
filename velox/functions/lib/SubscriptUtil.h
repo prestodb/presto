@@ -82,7 +82,7 @@ class SubscriptImpl : public exec::VectorFunction {
             .build(),
         // map(K,V), K -> V
         exec::FunctionSignatureBuilder()
-            .typeVariable("K")
+            .knownTypeVariable("K")
             .typeVariable("V")
             .returnType("V")
             .argumentType("map(K,V)")

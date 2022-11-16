@@ -210,7 +210,7 @@ class MapZipWithFunction : public exec::VectorFunction {
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
     // map(K, V1), map(K, V2), function(K, V1, V2, V3) -> map(K, V3)
     return {exec::FunctionSignatureBuilder()
-                .typeVariable("K")
+                .knownTypeVariable("K")
                 .typeVariable("V1")
                 .typeVariable("V2")
                 .typeVariable("V3")

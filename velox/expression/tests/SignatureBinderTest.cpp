@@ -15,6 +15,7 @@
  */
 #include "velox/expression/SignatureBinder.h"
 #include <gtest/gtest.h>
+#include <vector>
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
@@ -241,22 +242,22 @@ TEST(SignatureBinderTest, decimals) {
       // Missing constraints.
       const auto typeSignature = shortSignature->argumentTypes()[0];
       ASSERT_EQ(
-          exec::SignatureBinder::tryResolveType(typeSignature, {}), nullptr);
+          exec::SignatureBinder::tryResolveType(typeSignature, {}, {}),
+          nullptr);
       ASSERT_EQ(
           exec::SignatureBinder::tryResolveType(
-              longSignature->argumentTypes()[0], {}),
+              longSignature->argumentTypes()[0], {}, {}),
           nullptr);
       // Missing parameters.
       ASSERT_EQ(
           exec::SignatureBinder::tryResolveType(
-              exec::TypeSignature("DECIMAL", {}), {}),
+              exec::TypeSignature("DECIMAL", {}), {}, {}),
           nullptr);
       // Missing constraint value.
-      std::unordered_map<std::string, std::optional<int>> integerVariable;
-      integerVariable[typeSignature.parameters()[0].baseName()] = {};
+      std::unordered_map<std::string, int> integerVariables;
       ASSERT_EQ(
           exec::SignatureBinder::tryResolveType(
-              typeSignature, {}, {}, integerVariable),
+              typeSignature, {}, {}, integerVariables),
           nullptr);
     }
     // Type parameter + constraint = error.
@@ -264,8 +265,30 @@ TEST(SignatureBinderTest, decimals) {
       VELOX_ASSERT_THROW(
           exec::TypeVariableConstraint(
               "TypeName", "a = b", exec::ParameterType::kTypeParameter),
-          "Type parameters cannot have constraints");
+          "Type variables cannot have constraints");
     }
+  }
+}
+
+TEST(SignatureBinderTest, knownOnly) {
+  // map(K,V) -> array(K)
+
+  auto signature = exec::FunctionSignatureBuilder()
+                       .knownTypeVariable("K")
+                       .typeVariable("V")
+                       .argumentType("map(K,V)")
+                       .returnType("array(K)")
+                       .build();
+  {
+    auto actualTypes = std::vector<TypePtr>{MAP(UNKNOWN(), UNKNOWN())};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_FALSE(binder.tryBind());
+  }
+
+  {
+    auto actualTypes = std::vector<TypePtr>{MAP(INTEGER(), UNKNOWN())};
+    exec::SignatureBinder binder(*signature, actualTypes);
+    ASSERT_TRUE(binder.tryBind());
   }
 }
 
@@ -309,7 +332,7 @@ TEST(SignatureBinderTest, generics) {
   // map(K,V) -> array(K)
   {
     auto signature = exec::FunctionSignatureBuilder()
-                         .typeVariable("K")
+                         .knownTypeVariable("K")
                          .typeVariable("V")
                          .returnType("array(K)")
                          .argumentType("map(K,V)")
@@ -321,7 +344,7 @@ TEST(SignatureBinderTest, generics) {
   // map(K,V) -> array(V)
   {
     auto signature = exec::FunctionSignatureBuilder()
-                         .typeVariable("K")
+                         .knownTypeVariable("K")
                          .typeVariable("V")
                          .returnType("array(V)")
                          .argumentType("map(K,V)")
@@ -475,7 +498,7 @@ TEST(SignatureBinderTest, tryResolveTypeNullOutput) {
   auto assertNullResult = [&](const std::string& argument) {
     ASSERT_EQ(
         exec::SignatureBinder::tryResolveType(
-            exec::parseTypeSignature(argument), {}),
+            exec::parseTypeSignature(argument), {}, {}),
         nullptr);
   };
 

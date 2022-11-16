@@ -274,7 +274,7 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
     facebook::velox::exec::registerVectorFunction(
         "nested_map_sum_vector",
         {exec::FunctionSignatureBuilder()
-             .typeVariable("K")
+             .knownTypeVariable("K")
              .typeVariable("V")
              .returnType("bigint")
              .argumentType("map(K,V)")
@@ -284,7 +284,7 @@ class MapInputBenchmark : public functions::test::FunctionBenchmarkBase {
     facebook::velox::exec::registerVectorFunction(
         "nested_map_sum_vector_mapview",
         {exec::FunctionSignatureBuilder()
-             .typeVariable("K")
+             .knownTypeVariable("K")
              .typeVariable("V")
              .returnType("bigint")
              .argumentType("map(K,V)")

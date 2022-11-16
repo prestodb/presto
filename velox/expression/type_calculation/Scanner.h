@@ -30,7 +30,7 @@ class Scanner : public yyFlexLexer {
   Scanner(
       std::istream& arg_yyin,
       std::ostream& arg_yyout,
-      std::unordered_map<std::string, std::optional<int>>& values)
+      std::unordered_map<std::string, int>& values)
       : yyFlexLexer(&arg_yyin, &arg_yyout), values_(values){};
   int lex(Parser::semantic_type* yylval);
 
@@ -39,13 +39,12 @@ class Scanner : public yyFlexLexer {
   }
 
   int getValue(const std::string& varName) const {
-    VELOX_CHECK(
-        values_.at(varName).has_value(), "Variable {} is not defined", varName);
-    return values_.at(varName).value();
+    VELOX_CHECK(values_.count(varName), "Variable {} is not defined", varName);
+    return values_.at(varName);
   }
 
  private:
-  std::unordered_map<std::string, std::optional<int>>& values_;
+  std::unordered_map<std::string, int>& values_;
 };
 
 } // namespace facebook::velox::expression::calculate

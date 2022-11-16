@@ -40,13 +40,13 @@ class ReverseSignatureBinder : private SignatureBinderBase {
   /// tryBind() and only if tryBind() returns true. If a type variable is not
   /// determined by tryBind(), it maps to a nullptr.
   const std::unordered_map<std::string, TypePtr>& bindings() const {
-    return typeParameters_;
+    return typeVariablesBindings_;
   }
 
  private:
-  /// Return whether there is a constraint on the type in the function
+  /// Return whether there is a constraint on an integer variable in type
   /// signature.
-  bool isConstrainedType(const TypeSignature& type) const;
+  bool hasConstrainedIntegerVariable(const TypeSignature& type) const;
 
   const TypePtr returnType_;
 };
