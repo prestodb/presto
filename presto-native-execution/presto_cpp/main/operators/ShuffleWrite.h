@@ -23,7 +23,7 @@ class ShuffleWriteNode : public velox::core::PlanNode {
  public:
   ShuffleWriteNode(
       const velox::core::PlanNodeId& id,
-      ShuffleInterface* shuffle,
+      const std::shared_ptr<ShuffleInterface>& shuffle,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
         shuffle_{shuffle},
@@ -37,7 +37,7 @@ class ShuffleWriteNode : public velox::core::PlanNode {
     return sources_;
   }
 
-  ShuffleInterface* shuffle() const {
+  const std::shared_ptr<ShuffleInterface>& shuffle() const {
     return shuffle_;
   }
 
@@ -48,7 +48,7 @@ class ShuffleWriteNode : public velox::core::PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override {}
 
-  ShuffleInterface* shuffle_;
+  const std::shared_ptr<ShuffleInterface> shuffle_;
   const std::vector<velox::core::PlanNodePtr> sources_;
 };
 
