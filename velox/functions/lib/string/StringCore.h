@@ -71,7 +71,7 @@ reverseUnicode(char* output, const char* input, size_t length) {
   auto inputIdx = 0;
   auto outputIdx = length;
   while (inputIdx < length) {
-    int size;
+    int size = 1;
     utf8proc_codepoint(&input[inputIdx], size);
     // invalid utf8 gets byte sequence with nextCodePoint==-1 and size==1,
     // continue reverse invalid sequence byte by byte.
