@@ -57,20 +57,9 @@ class PartitionAndSerializeOperator : public Operator {
             planNode->outputType(),
             operatorId,
             planNode->id(),
-            "PartitionAndSerialize") {
-    auto inputType = planNode->sources()[0]->outputType();
-    auto keyChannels = toChannels(inputType, planNode->keys());
-
-    // Initialize the hive partition function.
-    const auto numPartitions = planNode->numPartitions();
-    std::vector<int> bucketToPartition(numPartitions);
-    std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
-    partitionFunction_ =
-        std::make_unique<connector::hive::HivePartitionFunction>(
-            planNode->numPartitions(),
-            std::move(bucketToPartition),
-            keyChannels);
-  }
+            "PartitionAndSerialize"),
+        partitionFunction_(
+            planNode->partitionFunctionFactory()(planNode->numPartitions())) {}
 
   bool needsInput() const override {
     return !input_;
@@ -155,7 +144,7 @@ class PartitionAndSerializeOperator : public Operator {
     }
   }
 
-  std::unique_ptr<connector::hive::HivePartitionFunction> partitionFunction_;
+  std::unique_ptr<core::PartitionFunction> partitionFunction_;
   std::vector<uint32_t> partitions_;
   std::vector<size_t> rowSizes_;
 };
