@@ -772,7 +772,7 @@ public class TaskContext
     public LongSet getCompletedSplitSequenceIds()
     {
         LongSet list = LongArraySet.of();
-        completedSplitSequenceIds.drainTo(list);
+        list.addAll(completedSplitSequenceIds);
         return list;
     }
 

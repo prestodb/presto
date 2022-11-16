@@ -492,7 +492,7 @@ public class ExchangeClient
         // TODO: properly handle the failed vs closed state
         // it is important not to treat failures as a successful close
         if (!isClosed()) {
-            failure.compareAndSet(null, cause);
+            //failure.compareAndSet(null, cause);
             notifyBlockedCallers();
         }
     }

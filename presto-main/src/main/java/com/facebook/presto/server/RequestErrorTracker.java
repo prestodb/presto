@@ -59,10 +59,10 @@ public class RequestErrorTracker
     private final ScheduledExecutorService scheduledExecutor;
     private final String jobDescription;
     private final Backoff backoff;
-
+    public boolean isLeaf;
     private final Queue<Throwable> errorsSinceLastSuccess = new ConcurrentLinkedQueue<>();
 
-    public RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    private RequestErrorTracker(Object id, URI uri, ErrorCodeSupplier errorCode, String nodeErrorMessage, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription, boolean isLeaf)
     {
         this.id = requireNonNull(id, "id is null");
         this.uri = requireNonNull(uri, "uri is null");
@@ -71,11 +71,12 @@ public class RequestErrorTracker
         this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         this.backoff = new Backoff(requireNonNull(maxErrorDuration, "maxErrorDuration is null"));
         this.jobDescription = requireNonNull(jobDescription, "jobDescription is null");
+        this.isLeaf = isLeaf;
     }
 
-    public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription)
+    public static RequestErrorTracker taskRequestErrorTracker(TaskId taskId, URI taskUri, Duration maxErrorDuration, ScheduledExecutorService scheduledExecutor, String jobDescription, boolean isLeaf)
     {
-        return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription);
+        return new RequestErrorTracker(taskId, taskUri, REMOTE_TASK_ERROR, WORKER_NODE_ERROR, maxErrorDuration, scheduledExecutor, jobDescription, isLeaf);
     }
 
     public ListenableFuture<?> acquireRequestPermit()

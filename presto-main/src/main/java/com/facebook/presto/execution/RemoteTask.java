@@ -45,6 +45,8 @@ public interface RemoteTask
 
     void noMoreSplits(PlanNodeId sourceId, Lifespan lifespan);
 
+    boolean isNoMoreSplits(PlanNodeId sourceId);
+
     void setOutputBuffers(OutputBuffers outputBuffers);
 
     ListenableFuture<?> removeRemoteSource(TaskId remoteSourceTaskId);

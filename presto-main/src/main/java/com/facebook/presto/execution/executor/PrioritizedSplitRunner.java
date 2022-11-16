@@ -16,6 +16,7 @@ package com.facebook.presto.execution.executor;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.stats.TimeStat;
+import com.facebook.presto.execution.ScheduledSplit;
 import com.facebook.presto.execution.SplitRunner;
 import com.google.common.base.Ticker;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -131,7 +132,13 @@ public class PrioritizedSplitRunner
     {
         boolean finished = split.isFinished();
         if (finished) {
-            finishedFuture.set(split.getScheduledSplit().getSequenceId());
+            ScheduledSplit scheduledSplit = split.getScheduledSplit();
+            if (scheduledSplit != null) {
+                finishedFuture.set(scheduledSplit.getSequenceId());
+            }
+            else {
+                finishedFuture.set(null);
+            }
         }
         return finished || destroyed.get() || taskHandle.isDestroyed();
     }
