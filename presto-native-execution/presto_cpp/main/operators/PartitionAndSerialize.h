@@ -27,17 +27,24 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
       std::vector<velox::core::TypedExprPtr> keys,
       uint32_t numPartitions,
       velox::RowTypePtr outputType,
-      velox::core::PlanNodePtr source)
+      velox::core::PlanNodePtr source,
+      velox::core::PartitionFunctionFactory partitionFunctionFactory)
       : velox::core::PlanNode(id),
-        keys_{std::move(keys)},
-        numPartitions_{numPartitions},
+        keys_(std::move(keys)),
+        numPartitions_(numPartitions),
         outputType_{std::move(outputType)},
-        sources_{std::move(source)} {
+        sources_({std::move(source)}),
+        partitionFunctionFactory_(std::move(partitionFunctionFactory)) {
+    // Only verify output types are correct. Note column names are not enforced
+    // in the following check.
     VELOX_USER_CHECK(
         velox::ROW(
             {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
             ->equivalent(*outputType_));
-    VELOX_USER_CHECK(!keys_.empty(), "Empty keys for hive partition");
+    VELOX_USER_CHECK(!keys_.empty(), "Empty partition keys");
+    VELOX_USER_CHECK_NOT_NULL(
+        partitionFunctionFactory_,
+        "Partition function factory cannot be null.");
   }
 
   const velox::RowTypePtr& outputType() const override {
@@ -56,6 +63,11 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return numPartitions_;
   }
 
+  const velox::core::PartitionFunctionFactory& partitionFunctionFactory()
+      const {
+    return partitionFunctionFactory_;
+  }
+
   std::string_view name() const override {
     return "PartitionAndSerialize";
   }
@@ -67,6 +79,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   const uint32_t numPartitions_;
   const velox::RowTypePtr outputType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
+  const velox::core::PartitionFunctionFactory partitionFunctionFactory_;
 };
 
 class PartitionAndSerializeTranslator
