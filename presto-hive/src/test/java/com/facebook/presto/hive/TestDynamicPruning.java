@@ -161,6 +161,7 @@ public class TestDynamicPruning
                 ImmutableSet.of(),
                 SplitWeight.standard());
 
+        HiveTableHandle hiveTableHandle = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME);
         HiveTableLayoutHandle tableLayoutHandle = new HiveTableLayoutHandle.Builder()
                 .setSchemaTableName(new SchemaTableName(SCHEMA_NAME, TABLE_NAME))
                 .setTablePath("path")
@@ -179,10 +180,11 @@ public class TestDynamicPruning
                 .setPartialAggregationsPushedDown(false)
                 .setAppendRowNumberEnabled(false)
                 .setPartitions(Optional.empty())
+                .setHiveTableHandle(hiveTableHandle)
                 .build();
         TableHandle tableHandle = new TableHandle(
                 new ConnectorId(HIVE_CATALOG),
-                new HiveTableHandle(SCHEMA_NAME, TABLE_NAME),
+                hiveTableHandle,
                 transaction,
                 Optional.of(tableLayoutHandle));
         HivePageSourceProvider provider = new HivePageSourceProvider(config, createTestHdfsEnvironment(config, metastoreClientConfig), getDefaultHiveRecordCursorProvider(config, metastoreClientConfig), getDefaultHiveBatchPageSourceFactories(config, metastoreClientConfig), getDefaultHiveSelectivePageSourceFactories(config, metastoreClientConfig), FUNCTION_AND_TYPE_MANAGER, ROW_EXPRESSION_SERVICE);

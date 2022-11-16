@@ -2738,6 +2738,7 @@ public class HiveMetadata
                                 .setRequestedColumns(requestedColumns)
                                 .setPartialAggregationsPushedDown(false)
                                 .setAppendRowNumberEnabled(false)
+                                .setHiveTableHandle(handle)
                                 .build()),
                 hivePartitionResult.getUnenforcedConstraint()));
     }
