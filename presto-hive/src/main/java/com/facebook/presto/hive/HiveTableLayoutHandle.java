@@ -109,11 +109,8 @@ public class HiveTableLayoutHandle
                 partialAggregationsPushedDown,
                 appendRowNumberEnabled,
                 Optional.empty(),
-<<<<<<< HEAD
-                footerStatsUnreliable);
-=======
+                footerStatsUnreliable,
                 Optional.empty());
->>>>>>> 49b3f5a5b7 (Add HiveTableHandle to HiveTableLayoutHandle)
     }
 
     protected HiveTableLayoutHandle(
@@ -134,11 +131,8 @@ public class HiveTableLayoutHandle
             boolean partialAggregationsPushedDown,
             boolean appendRowNumberEnabled,
             Optional<List<HivePartition>> partitions,
-<<<<<<< HEAD
-            boolean footerStatsUnreliable)
-=======
+            boolean footerStatsUnreliable,
             Optional<HiveTableHandle> hiveTableHandle)
->>>>>>> 49b3f5a5b7 (Add HiveTableHandle to HiveTableLayoutHandle)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "table is null");
         this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -157,11 +151,8 @@ public class HiveTableLayoutHandle
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
         this.appendRowNumberEnabled = appendRowNumberEnabled;
         this.partitions = requireNonNull(partitions, "partitions is null");
-<<<<<<< HEAD
         this.footerStatsUnreliable = footerStatsUnreliable;
-=======
         this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
->>>>>>> 49b3f5a5b7 (Add HiveTableHandle to HiveTableLayoutHandle)
     }
 
     @JsonProperty
@@ -528,11 +519,11 @@ public class HiveTableLayoutHandle
             return this;
         }
 
-<<<<<<< HEAD
         public Builder setFooterStatsUnreliable(boolean footerStatsUnreliable)
         {
             this.footerStatsUnreliable = footerStatsUnreliable;
-=======
+            return this;
+        }
         public Builder setHiveTableHandle(Optional<HiveTableHandle> hiveTableHandle)
         {
             this.hiveTableHandle = requireNonNull(hiveTableHandle, "hiveTableHandle is null");
@@ -543,7 +534,6 @@ public class HiveTableLayoutHandle
         {
             requireNonNull(hiveTableHandle, "hiveTableHandle is null");
             this.hiveTableHandle = Optional.of(hiveTableHandle);
->>>>>>> 49b3f5a5b7 (Add HiveTableHandle to HiveTableLayoutHandle)
             return this;
         }
 
