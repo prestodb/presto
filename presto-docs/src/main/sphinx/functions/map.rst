@@ -67,6 +67,10 @@ Map Functions
         SELECT map_filter(MAP(ARRAY[10, 20, 30], ARRAY['a', NULL, 'c']), (k, v) -> v IS NOT NULL); -- {10 -> a, 30 -> c}
         SELECT map_filter(MAP(ARRAY['k1', 'k2', 'k3'], ARRAY[20, 3, 15]), (k, v) -> v > 10); -- {k1 -> 20, k3 -> 15}
 
+.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
+
+    Removes all the entries where the value is null from the map ``x``.
+
 .. function:: map_subset(map(K,V), array(k)) -> map(K,V)
 
     Constructs a map from those entries of ``map`` for which the key is in the array given::
@@ -98,9 +102,12 @@ Map Functions
 
         SELECT map_top_n_keys(map(ARRAY['a', 'b', 'c'], ARRAY[1, 2, 3]), 2, (x, y) -> IF(x < y, -1, IF(x = y, 0, 1))) --- ['c', 'b']
 
-.. function:: map_remove_null_values(x(K,V)) -> map(K, V)
+.. function:: map_top_n(x(K,V), n) -> map(K, V)
 
-    Removes all the entries where the value is null from the map ``x``.
+    Truncates map items. Keeps only the top N elements by value.
+    ``n`` must be a non-negative integer
+
+        SELECT map_top_n(map(ARRAY['a', 'b', 'c'], ARRAY[2, 3, 1]), 2) --- {'b' -> 3, 'a' -> 2}
 
 .. function:: map_normalize(x(varchar,double)) -> map(varchar,double)
 

@@ -24,6 +24,17 @@ public class MapSqlFunctions
 {
     private MapSqlFunctions() {}
 
+    @SqlInvokedScalarFunction(value = "map_top_n", deterministic = true, calledOnNullInput = true)
+    @Description("Truncates map items. Keeps only the top N elements by value.")
+    @TypeParameter("K")
+    @TypeParameter("V")
+    @SqlParameters({@SqlParameter(name = "input", type = "map(K, V)"), @SqlParameter(name = "n", type = "bigint")})
+    @SqlType("map(K, V)")
+    public static String mapTopN()
+    {
+        return "RETURN IF(n < 0, fail('n must be greater than or equal to 0'), map_from_entries(slice(array_sort(map_entries(map_filter(input, (k, v) -> v is not null)), (x, y) -> IF(x[2] < y[2], 1, IF(x[2] = y[2], 0, -1))) || map_entries(map_filter(input, (k, v) -> v is null)), 1, n)))";
+    }
+
     @SqlInvokedScalarFunction(value = "map_top_n_keys", deterministic = true, calledOnNullInput = false)
     @Description("Returns the top N keys of the given map in descending order according to the natural ordering of its values.")
     @TypeParameter("K")
