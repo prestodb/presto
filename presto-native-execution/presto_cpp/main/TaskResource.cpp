@@ -204,13 +204,18 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
       });
 }
 
-proxygen::RequestHandler* TaskResource::createOrUpdateTask(
+proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
     proxygen::HTTPMessage* /*message*/,
-    const std::vector<std::string>& pathMatch) {
+    const std::vector<std::string>& pathMatch,
+    const std::function<void(
+        const protocol::TaskId&,
+        const std::string&,
+        protocol::TaskUpdateRequest&,
+        velox::core::PlanFragment&)>& parseFunc) {
   protocol::TaskId taskId = pathMatch[1];
 
   return new http::CallbackRequestHandler(
-      [this, taskId](
+      [this, taskId, parseFunc](
           proxygen::HTTPMessage* /*message*/,
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) {
@@ -226,14 +231,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           protocol::TaskUpdateRequest taskUpdateRequest =
               json::parse(updateJson);
           velox::core::PlanFragment planFragment;
-          if (taskUpdateRequest.fragment) {
-            auto fragment =
-                velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
-            protocol::PlanFragment prestoPlan = json::parse(fragment);
-            VeloxQueryPlanConverter converter(pool_.get());
-            planFragment = converter.toVeloxQueryPlan(
-                prestoPlan, taskUpdateRequest.tableWriteInfo, taskId);
-          }
+          parseFunc(taskId, updateJson, taskUpdateRequest, planFragment);
           const auto& session = taskUpdateRequest.session;
           auto configs = std::unordered_map<std::string, std::string>(
               session.systemProperties.begin(), session.systemProperties.end());
@@ -282,6 +280,76 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
 
         json taskInfoJson = *taskInfo;
         sendOkResponse(downstream, taskInfoJson);
+      });
+}
+
+proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::string>& pathMatch) {
+  return createOrUpdateTaskImpl(
+      message,
+      pathMatch,
+      [this](
+          const protocol::TaskId& taskId,
+          const std::string& updateJson,
+          protocol::TaskUpdateRequest& taskUpdateRequest,
+          velox::core::PlanFragment& planFragment) {
+        if (taskUpdateRequest.fragment == nullptr) {
+          return;
+        }
+        protocol::BatchTaskUpdateRequest batchTaskUpdateRequest =
+            json::parse(updateJson);
+        std::shared_ptr<protocol::String> serializedShuffleWriteInfo =
+            batchTaskUpdateRequest.shuffleWriteInfo;
+        std::shared_ptr<operators::ShuffleInterface> shuffleInterface;
+        if (serializedShuffleWriteInfo) {
+          auto shuffleName = SystemConfig::instance()->shuffleName();
+          VELOX_USER_CHECK(
+              !shuffleName.empty(),
+              "Shuffle name not provided from 'shuffle.name' property in "
+              "config.properties");
+          auto& shuffleFactory =
+              operators::ShuffleInterface::factory(shuffleName);
+          // For shuffle write we will leave memory pool assignment to
+          // operator, passing nullptr here.
+          shuffleInterface = shuffleFactory(
+              *serializedShuffleWriteInfo,
+              operators::ShuffleInterface::Type::kWrite,
+              nullptr);
+        }
+        taskUpdateRequest = batchTaskUpdateRequest.taskUpdateRequest;
+        auto fragment =
+            velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
+        protocol::PlanFragment prestoPlan = json::parse(fragment);
+        VeloxQueryPlanConverter converter(pool_.get());
+        planFragment = converter.toBatchVeloxQueryPlan(
+            prestoPlan,
+            taskUpdateRequest.tableWriteInfo,
+            taskId,
+            shuffleInterface);
+      });
+}
+
+proxygen::RequestHandler* TaskResource::createOrUpdateTask(
+    proxygen::HTTPMessage* message,
+    const std::vector<std::string>& pathMatch) {
+  protocol::TaskId taskId = pathMatch[1];
+  return createOrUpdateTaskImpl(
+      message,
+      pathMatch,
+      [this](const protocol::TaskId& taskId,
+         const std::string& updateJson,
+         protocol::TaskUpdateRequest& taskUpdateRequest,
+         velox::core::PlanFragment& planFragment) {
+        taskUpdateRequest = json::parse(updateJson);
+        if (taskUpdateRequest.fragment != nullptr) {
+          auto fragment =
+              velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
+          protocol::PlanFragment prestoPlan = json::parse(fragment);
+          VeloxQueryPlanConverter converter(pool_.get());
+          planFragment = converter.toVeloxQueryPlan(
+              prestoPlan, taskUpdateRequest.tableWriteInfo, taskId);
+        }
       });
 }
 

@@ -101,6 +101,7 @@ class SystemConfig : public ConfigBase {
       "enable_velox_expression_logging"};
   static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
       "shuffle.local.max-partition-bytes"};
+  static constexpr std::string_view kShuffleName{"shuffle.name"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -115,6 +116,7 @@ class SystemConfig : public ConfigBase {
   static constexpr uint64_t kAsyncCacheSsdGbDefault = 0;
   static constexpr std::string_view kAsyncCacheSsdPathDefault{
       "/mnt/flash/async_cache."};
+  static constexpr std::string_view kShuffleNameDefault{""};
   static constexpr bool kEnableSerializedPageChecksumDefault = true;
   static constexpr bool kEnableVeloxTaskLoggingDefault = false;
   static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
@@ -149,6 +151,8 @@ class SystemConfig : public ConfigBase {
   uint64_t localShuffleMaxPartitionBytes() const;
 
   std::string asyncCacheSsdPath() const;
+
+  std::string shuffleName() const;
 
   bool enableSerializedPageChecksum() const;
 
