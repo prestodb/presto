@@ -117,6 +117,11 @@ std::string SystemConfig::asyncCacheSsdPath() const {
   return opt.hasValue() ? opt.value() : std::string(kAsyncCacheSsdPathDefault);
 }
 
+std::string SystemConfig::shuffleName() const {
+  auto opt = optionalProperty<std::string>(std::string(kShuffleName));
+  return opt.hasValue() ? opt.value() : std::string(kShuffleNameDefault);
+}
+
 bool SystemConfig::enableSerializedPageChecksum() const {
   auto opt = optionalProperty<bool>(std::string(kEnableSerializedPageChecksum));
   return opt.hasValue() ? opt.value() : kEnableSerializedPageChecksumDefault;

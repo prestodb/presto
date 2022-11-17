@@ -61,6 +61,12 @@ class LocalPersistentShuffle : public ShuffleInterface {
     reset(pool, numPartitions, rootPath);
   }
 
+  void initialize(velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
+    if (pool_ == nullptr) {
+      pool_ = pool;
+    }
+  }
+
   /// This method is mainly for testing use only. It resets the state of the
   /// shuffle using a specific number of partitions and a rootPath.
   /// This can be used in tests multiple times on the same shuffle object for
@@ -106,9 +112,9 @@ class LocalPersistentShuffle : public ShuffleInterface {
 
   const uint64_t maxBytesPerPartition_;
 
-  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+  velox::memory::MemoryPool* pool_{nullptr};
   uint32_t numPartitions_;
-  // The latest written block buffers and sizes.
+  /// The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
   // The latest read block index of each partition.

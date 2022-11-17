@@ -30,7 +30,9 @@ class ShuffleWriteOperator : public Operator {
             operatorId,
             planNode->id(),
             "ShuffleWrite"),
-        shuffle_{planNode->shuffle()} {}
+        shuffle_{planNode->shuffle()} {
+    shuffle_->initialize(operatorCtx_->pool());
+  }
 
   bool needsInput() const override {
     return !noMoreInput_;
