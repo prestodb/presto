@@ -49,11 +49,7 @@ int main(int argc, char** argv) {
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
-  std::unordered_set<std::string> skipFunctions = {
-      // approx_most_frequent crashes:
-      // https://github.com/facebookincubator/velox/issues/3101
-      "approx_most_frequent",
-  };
+  std::unordered_set<std::string> skipFunctions = {};
 
   // The results of the following functions depend on the order of input
   // rows. For some functions, the result can be transformed to a value that

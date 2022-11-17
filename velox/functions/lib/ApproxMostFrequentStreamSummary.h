@@ -52,8 +52,8 @@ struct ApproxMostFrequentStreamSummary {
   std::vector<std::pair<T, int64_t>> topK(int k) const;
 
   /// Same as topK(int), but write the result (up to k pairs) to pre-allocated
-  /// memory `out`.
-  void topK(int k, std::pair<T, int64_t>* out) const;
+  /// memory `values` and `counts`.
+  void topK(int k, T* values, int64_t* counts) const;
 
   /// Calculate the size needed for serialization.
   size_t serializedByteSize() const;
@@ -222,7 +222,8 @@ void ApproxMostFrequentStreamSummary<T, A>::percolateDown(int pos) {
 template <typename T, typename A>
 void ApproxMostFrequentStreamSummary<T, A>::topK(
     int k,
-    std::pair<T, int64_t>* out) const {
+    T* values,
+    int64_t* counts) const {
   VELOX_CHECK(k >= 0);
   k = std::min(k, size());
   if (k == 0) {
@@ -230,9 +231,8 @@ void ApproxMostFrequentStreamSummary<T, A>::topK(
   }
   // Reuse memory provided by user, building a second heap to track `k` greatest
   // elements.
-  auto posEnd = reinterpret_cast<int32_t*>(out + k);
+  auto posEnd = reinterpret_cast<int32_t*>(counts + k);
   auto posBeg = posEnd - k;
-  static_assert(sizeof(std::pair<T, int64_t>) >= sizeof(int32_t));
   auto gt = [&](auto i, auto j) { return heapCompare(i, j) > 0; };
   for (int i = 0; i < size(); ++i) {
     if (i < k) {
@@ -247,9 +247,8 @@ void ApproxMostFrequentStreamSummary<T, A>::topK(
   std::sort(posBeg, posEnd, gt);
   for (auto it = posBeg; it != posEnd; ++it) {
     auto i = *it;
-    out->first = values_[i];
-    out->second = counts_[i];
-    ++out;
+    *values++ = values_[i];
+    *counts++ = counts_[i];
   }
 }
 
@@ -258,8 +257,13 @@ std::vector<std::pair<T, int64_t>> ApproxMostFrequentStreamSummary<T, A>::topK(
     int k) const {
   VELOX_CHECK(k >= 0);
   k = std::min(k, size());
+  std::vector<T> values(k);
+  std::vector<int64_t> counts(k);
+  topK(k, values.data(), counts.data());
   std::vector<std::pair<T, int64_t>> ans(k);
-  topK(k, ans.data());
+  for (int i = 0; i < k; ++i) {
+    ans[i] = {values[i], counts[i]};
+  }
   return ans;
 }
 

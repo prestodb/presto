@@ -105,22 +105,27 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
       }
       return;
     }
+    VELOX_USER_CHECK_LE(buckets_, std::numeric_limits<int>::max());
     auto mapVector = (*result)->as<MapVector>();
     auto [keys, values] = prepareFinalResult(groups, numGroups, mapVector);
     vector_size_t entryCount = 0;
-    std::vector<std::pair<T, int64_t>> tmp(buckets_);
     for (int i = 0; i < numGroups; ++i) {
       auto summary = value<StreamSummary>(groups[i]);
       int size = std::min<int>(buckets_, summary->size());
       if (size == 0) {
         mapVector->setNull(i, true);
       } else {
-        summary->topK(buckets_, tmp.data());
-        for (int j = 0; j < size; ++j) {
-          keys->set(entryCount, tmp[j].first);
-          values->set(entryCount, tmp[j].second);
-          ++entryCount;
+        summary->topK(
+            buckets_,
+            keys->mutableRawValues() + entryCount,
+            values->mutableRawValues() + entryCount);
+        if constexpr (std::is_same_v<T, StringView>) {
+          // Populate the string buffers.
+          for (int j = 0; j < size; ++j) {
+            keys->set(entryCount + j, keys->valueAtFast(entryCount + j));
+          }
         }
+        entryCount += size;
       }
       mapVector->setOffsetAndSize(i, entryCount - size, size);
     }
@@ -209,7 +214,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
       const char* name,
       int64_t& val,
       const DecodedVector& vec) {
-    VELOX_CHECK(
+    VELOX_USER_CHECK(
         vec.isConstantMapping(),
         "{} argument must be constant for all input rows",
         name);
@@ -218,6 +223,7 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
 
   StreamSummary* initSummary(char* group) {
     auto summary = value<StreamSummary>(group);
+    VELOX_USER_CHECK_LE(capacity_, std::numeric_limits<int>::max());
     summary->setCapacity(capacity_);
     return summary;
   }
