@@ -11,9 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-if(${VELOX_BUILD_TESTING})
-  add_subdirectory(tests)
-endif()
+include(GoogleTest)
 
-add_library(velox_time Timer.cpp CpuWallTimer.cpp)
-target_link_libraries(velox_time ${FOLLY_WITH_DEPENDENCIES})
+add_executable(velox_time_test CpuWallTimerTest.cpp)
+
+target_link_libraries(
+  velox_time_test
+  velox_process
+  velox_time
+  gtest
+  gtest_main
+  ${gflags_LIBRARIES}
+  glog::glog)
+
+gtest_add_tests(velox_time_test "" AUTO)
