@@ -383,17 +383,19 @@ TEST_F(HdfsFileSystemTest, missingFileForWrite) {
 }
 
 TEST_F(HdfsFileSystemTest, writeDataFailures) {
-  const std::string errorMsg = "Write failure in HDFSWriteFile::append";
   auto writeFile = openFileForWrite("/a.txt");
   writeFile->close();
-  VELOX_ASSERT_THROW(writeFile->append("abcde"), errorMsg);
+  VELOX_ASSERT_THROW(
+      writeFile->append("abcde"),
+      "Cannot append to HDFS file because file is not opened for write: /a.txt");
 }
 
 TEST_F(HdfsFileSystemTest, writeFlushFailures) {
-  const std::string errorMsg = "Hdfs flush error";
   auto writeFile = openFileForWrite("/a.txt");
   writeFile->close();
-  VELOX_ASSERT_THROW(writeFile->flush(), errorMsg);
+  VELOX_ASSERT_THROW(
+      writeFile->flush(),
+      "Cannot flush HDFS file because file is not opened for write: /a.txt");
 }
 
 TEST_F(HdfsFileSystemTest, readFailures) {
