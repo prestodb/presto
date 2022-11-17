@@ -56,11 +56,6 @@ public class HudiPredicates
         this.regularColumnPredicates = regularColumnPredicates;
     }
 
-    public TupleDomain<HudiColumnHandle> getPartitionColumnPredicates()
-    {
-        return partitionColumnPredicates;
-    }
-
     public TupleDomain<HudiColumnHandle> getRegularColumnPredicates()
     {
         return regularColumnPredicates;

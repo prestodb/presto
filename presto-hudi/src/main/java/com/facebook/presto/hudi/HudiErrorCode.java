@@ -30,6 +30,7 @@ public enum HudiErrorCode
     HUDI_FILESYSTEM_ERROR(0x40, EXTERNAL),
     HUDI_CANNOT_OPEN_SPLIT(0x41, EXTERNAL),
     HUDI_CURSOR_ERROR(0x42, EXTERNAL),
+    HUDI_SCHEMA_MISMATCH(0x43, EXTERNAL)
     /**/;
 
     private final ErrorCode errorCode;

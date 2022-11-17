@@ -22,15 +22,12 @@ import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.ConnectorSession;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.Path;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
+import org.apache.hudi.common.config.HoodieCommonConfig;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieEngineContext;
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieTableQueryType;
@@ -38,14 +35,15 @@ import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
-import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.table.view.FileSystemViewManager;
+import org.apache.hudi.common.table.view.FileSystemViewStorageConfig;
+import org.apache.hudi.common.table.view.SyncableFileSystemView;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -84,15 +82,12 @@ public class HudiFileSkippingManager
     private final HoodieTableQueryType queryType;
     private final Option<String> specifiedQueryInstant;
     private final HoodieTableMetaClient metaClient;
-    private final HoodieEngineContext engineContext;
-    private final String spillableDir;
     private final HoodieTableType tableType;
-    protected final HoodieMetadataConfig metadataConfig;
     private final HoodieTableMetadata metadataTable;
 
     protected transient volatile Map<String, List<FileSlice>> allInputFileSlices;
 
-    private transient volatile HoodieTableFileSystemView fileSystemView;
+    private transient volatile SyncableFileSystemView fileSystemView;
 
     public HudiFileSkippingManager(
             List<String> partitions,
@@ -105,33 +100,25 @@ public class HudiFileSkippingManager
         this.queryType = queryType;
         this.specifiedQueryInstant = specifiedQueryInstant;
         this.metaClient = metaClient;
-        this.engineContext = engineContext;
-        this.spillableDir = spillableDir;
-        this.metadataConfig = HoodieMetadataConfig.newBuilder().withMetadataIndexBloomFilter(true).enable(true).build();
+        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
         this.tableType = metaClient.getTableConfig().getTableType();
         this.metadataTable = HoodieTableMetadata
-                .create(engineContext, this.metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
-        prepareAllInputFileSlices(partitions);
+                .create(engineContext, metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
+        prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
     }
 
-    private void prepareAllInputFileSlices(List<String> partitions)
+    private void prepareAllInputFileSlices(List<String> partitions, HoodieEngineContext engineContext, HoodieMetadataConfig metadataConfig, String spillableDir)
     {
         long startTime = System.currentTimeMillis();
-        Path tablePath = metaClient.getBasePathV2();
-        List<String> fullPartitionPath = partitions.stream().map(p ->
-                p.isEmpty() ? tablePath.toString() : new Path(tablePath, p).toString()).collect(Collectors.toList());
-        Map<String, FileStatus[]> fetchedPartitionToFiles = FSUtils.getFilesInPartitions(
-                engineContext,
-                metadataConfig,
-                metaClient.getBasePathV2().toString(),
-                fullPartitionPath.toArray(new String[0]),
-                spillableDir);
-        FileStatus[] allFiles = fetchedPartitionToFiles.values().stream().flatMap(Arrays::stream).toArray(FileStatus[]::new);
-
         HoodieTimeline activeTimeline = metaClient.reloadActiveTimeline();
         Option<HoodieInstant> latestInstant = activeTimeline.lastInstant();
         // build system view.
-        fileSystemView = new HoodieTableFileSystemView(metaClient, activeTimeline, allFiles);
+        fileSystemView = FileSystemViewManager
+                .createViewManager(engineContext, metadataConfig,
+                        FileSystemViewStorageConfig.newBuilder().withBaseStoreDir(spillableDir).build(),
+                        HoodieCommonConfig.newBuilder().build(),
+                        () -> metadataTable)
+                .getFileSystemView(metaClient);
         Option<String> queryInstant = specifiedQueryInstant.or(() -> latestInstant.map(HoodieInstant::getTimestamp));
         if (tableType.equals(HoodieTableType.MERGE_ON_READ) && queryType.equals(HoodieTableQueryType.SNAPSHOT)) {
             allInputFileSlices = partitions.stream().collect(Collectors.toMap(Function.identity(),
@@ -154,23 +141,6 @@ public class HudiFileSkippingManager
         log.info(String.format("prepare query files for table %s, spent: %d ms", metaClient.getTableConfig().getTableName(), duration));
     }
 
-    public static HoodieTableQueryType getQueryType(ConnectorSession session, String inputFormat)
-    {
-        // TODO support incremental query
-        switch (inputFormat) {
-            case "org.apache.hudi.hadoop.HoodieParquetInputFormat":
-            case "com.uber.hoodie.hadoop.HoodieInputFormat":
-                // cow table/ mor ro table
-                return HoodieTableQueryType.READ_OPTIMIZED;
-            case "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat":
-            case "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat":
-                // mor rt table
-                return HoodieTableQueryType.SNAPSHOT;
-            default:
-                throw new IllegalArgumentException(String.format("failed to infer query type for current inputFormat: %s", inputFormat));
-        }
-    }
-
     public Map<String, List<FileSlice>> listQueryFiles(TupleDomain<ColumnHandle> tupleDomain)
     {
         // do file skipping by MetadataTable
@@ -185,20 +155,21 @@ public class HudiFileSkippingManager
             log.warn(String.format("failed to do data skipping for table: %s, fallback to all files scan", metaClient.getBasePathV2().toString()), e);
             candidateFileSlices = allInputFileSlices;
         }
-        int candidateFileSize = candidateFileSlices.entrySet().stream().map(entry -> entry.getValue().size()).reduce(0, (n1, n2) -> n1 + n2);
-        int totalFiles = allInputFileSlices.entrySet().stream().map(entry -> entry.getValue().size()).reduce(0, (n1, n2) -> n1 + n2);
-        double skippingPercent = totalFiles == 0 ? 0.0d : (totalFiles - candidateFileSize) / (totalFiles + 0.0d);
-        log.info(String.format("Total files: %s; candidate files after data skipping: %s; skipping percent %s",
-                totalFiles, candidateFileSize, skippingPercent));
+        if (log.isDebugEnabled()) {
+            int candidateFileSize = candidateFileSlices.values().stream().map(List::size).reduce(0, Integer::sum);
+            int totalFiles = allInputFileSlices.values().stream().map(List::size).reduce(0, Integer::sum);
+            double skippingPercent = totalFiles == 0 ? 0.0d : (totalFiles - candidateFileSize) / (totalFiles + 0.0d);
+            log.debug(String.format("Total files: %s; candidate files after data skipping: %s; skipping percent %s", totalFiles, candidateFileSize, skippingPercent));
+        }
         return candidateFileSlices;
     }
 
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(Map<String, List<FileSlice>> inputFileSlices, TupleDomain<ColumnHandle> tupleDomain)
+    private Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(Map<String, List<FileSlice>> inputFileSlices, TupleDomain<ColumnHandle> tupleDomain)
     {
         // split regular column predicates
         TupleDomain<HudiColumnHandle> regularTupleDomain = HudiPredicates.from(tupleDomain).getRegularColumnPredicates();
         TupleDomain<String> regularColumnPredicates = regularTupleDomain.transform(HudiColumnHandle::getName);
-        if (regularColumnPredicates.isAll()) {
+        if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
             return inputFileSlices;
         }
         List<String> regularColumns = regularColumnPredicates.getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
@@ -222,17 +193,14 @@ public class HudiFileSkippingManager
                     return true;
                 }
                 List<HoodieMetadataColumnStats> stats = statsByFileName.get(fileSliceName);
-                if (!evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns)) {
-                    return false;
-                }
-                return true;
+                return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
             }).collect(Collectors.toList());
         }));
     }
 
     private boolean evaluateStatisticPredicate(TupleDomain<String> regularColumnPredicates, List<HoodieMetadataColumnStats> stats, List<String> regularColumns)
     {
-        if (regularColumnPredicates.isNone()) {
+        if (regularColumnPredicates.isNone() || !regularColumnPredicates.getDomains().isPresent()) {
             return true;
         }
         for (String regularColumn : regularColumns) {

@@ -98,15 +98,13 @@ public class HudiPartitionManager
 
         boolean metaTableEnabled = isHudiMetadataTableEnabled(connectorSession);
 
-        return metaTableEnabled ? prunePartitionByMetaDataTable(connectorSession, metaClient, schemaName, tableName, partitionColumns, tupleDomain) :
+        return metaTableEnabled ? prunePartitionByMetaDataTable(connectorSession, metaClient, partitionColumns, tupleDomain) :
                 prunePartitionByMetaStore(metastore, metastoreContext, schemaName, tableName, partitionColumns, tupleDomain);
     }
 
     private List<String> prunePartitionByMetaDataTable(
             ConnectorSession connectorSession,
             HoodieTableMetaClient metaClient,
-            String schemaName,
-            String tableName,
             List<Column> partitionColumns,
             TupleDomain<ColumnHandle> tupleDomain)
     {
@@ -192,15 +190,18 @@ public class HudiPartitionManager
     {
         return candidatePartitionPaths.entrySet().stream().filter(f -> {
             Map<String, String> partitionMapping = f.getValue();
-            return partitionMapping.entrySet().stream().allMatch(p -> evaluatePartitionPredice(partitionPredicate, partitionColumnHandles, p.getValue(), p.getKey()));
+            return partitionMapping.entrySet().stream().allMatch(p -> evaluatePartitionPredicate(partitionPredicate, partitionColumnHandles, p.getValue(), p.getKey()));
         }).map(entry -> entry.getKey()).collect(Collectors.toList());
     }
 
-    private boolean evaluatePartitionPredice(TupleDomain<String> partitionPredicate, List<HudiColumnHandle> partitionColumnHandles, String partitionPathValue, String partitionName)
+    private boolean evaluatePartitionPredicate(TupleDomain<String> partitionPredicate, List<HudiColumnHandle> partitionColumnHandles, String partitionPathValue, String partitionName)
     {
         Optional<HudiColumnHandle> columnHandleOpt = partitionColumnHandles.stream().filter(f -> f.getName().equals(partitionName)).findFirst();
         if (columnHandleOpt.isPresent()) {
             Domain domain = getDomain(columnHandleOpt.get(), partitionPathValue);
+            if (!partitionPredicate.getDomains().isPresent()) {
+                return true;
+            }
             Domain columnPredicate = partitionPredicate.getDomains().get().get(partitionName);
             // no predicate on current partitionName
             if (columnPredicate == null) {
@@ -209,7 +210,7 @@ public class HudiPartitionManager
 
             // For null partition, hive will produce a default value for current partition.
             if (partitionPathValue.equals("default")) {
-                return false;
+                return true;
             }
 
             if (columnPredicate.intersect(domain).isNone()) {

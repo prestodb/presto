@@ -22,36 +22,36 @@ import static java.util.Objects.requireNonNull;
 
 public class SchemaEvolutionContext
 {
-    private final String requiredSchema;
-    private final String validCommits;
+    private final String latestSchema;
+    private final String validCommitFiles;
 
     @JsonCreator
     public SchemaEvolutionContext(
-            @JsonProperty("requiredSchema") String requiredSchema,
-            @JsonProperty("validCommits") String validCommits)
+            @JsonProperty("latestSchema") String latestSchema,
+            @JsonProperty("validCommitFiles") String validCommitFiles)
     {
-        this.requiredSchema = requireNonNull(requiredSchema, "requiredSchema is null");
-        this.validCommits = requireNonNull(validCommits, "validCommits is null");
+        this.latestSchema = requireNonNull(latestSchema, "latestSchema is null");
+        this.validCommitFiles = requireNonNull(validCommitFiles, "validCommitFiles is null");
     }
 
     @JsonProperty
-    public String getRequiredSchema()
+    public String getLatestSchema()
     {
-        return requiredSchema;
+        return latestSchema;
     }
 
     @JsonProperty
-    public String getValidCommits()
+    public String getValidCommitFiles()
     {
-        return validCommits;
+        return validCommitFiles;
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("requiredSchema", requiredSchema)
-                .add("validCommits", validCommits)
+                .add("latestSchema", latestSchema)
+                .add("validCommitFiles", validCommitFiles)
                 .toString();
     }
 }

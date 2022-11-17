@@ -43,6 +43,7 @@ import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieTableQueryType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
@@ -127,7 +128,7 @@ public class HudiSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
         // prepare schema evolution
-        SchemaEvolutionContext schemaEvolutionContext = HudiSchemaEvolutionUtils.createSchemaEvolutionContext(metaClient);
+        SchemaEvolutionContext schemaEvolutionContext = HudiSchemaEvolutionUtils.createSchemaEvolutionContext(Optional.of(metaClient));
         // prepare splits
         HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
         // if metadata table enabled, support dataskipping
@@ -140,7 +141,7 @@ public class HudiSplitManager
                     HudiSessionProperties.getHoodieFilesystemViewSpillableDir(session),
                     engineContext,
                     metaClient,
-                    HudiFileSkippingManager.getQueryType(session, hiveTableOpt.get().getStorage().getStorageFormat().getInputFormat()),
+                    getQueryType(hiveTableOpt.get().getStorage().getStorageFormat().getInputFormat()),
                     Option.empty());
             ImmutableList.Builder<HudiSplit> splitsBuilder = ImmutableList.builder();
             Map<String, HudiPartition> hudiPartitionMap = getHudiPartitions(hiveTableOpt.get(), layout, partitions);
@@ -227,7 +228,7 @@ public class HudiSplitManager
         Map<String, Map<String, String>> partitionMap = HudiPartitionManager
                 .getPartitions(partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()), partitions);
         if (partitions.size() == 1 && partitions.get(0).isEmpty()) {
-            // non-non-partitioned
+            // non-partitioned
             return ImmutableMap.of(partitions.get(0), new HudiPartition(partitions.get(0), ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns()));
         }
         ImmutableMap.Builder<String, HudiPartition> builder = ImmutableMap.builder();
@@ -278,5 +279,22 @@ public class HudiSplitManager
             return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
         }
         return HudiSplitWeightProvider.uniformStandardWeightProvider();
+    }
+
+    private static HoodieTableQueryType getQueryType(String inputFormat)
+    {
+        // TODO support incremental query
+        switch (inputFormat) {
+            case "org.apache.hudi.hadoop.HoodieParquetInputFormat":
+            case "com.uber.hoodie.hadoop.HoodieInputFormat":
+                // cow table/ mor ro table
+                return HoodieTableQueryType.READ_OPTIMIZED;
+            case "org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat":
+            case "com.uber.hoodie.hadoop.realtime.HoodieRealtimeInputFormat":
+                // mor rt table
+                return HoodieTableQueryType.SNAPSHOT;
+            default:
+                throw new IllegalArgumentException(String.format("failed to infer query type for current inputFormat: %s", inputFormat));
+        }
     }
 }

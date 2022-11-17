@@ -16,6 +16,7 @@ package com.facebook.presto.hudi;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.HiveType;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
@@ -44,9 +45,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveType.toHiveType;
+import static java.lang.String.format;
 
 public final class HudiSchemaEvolutionUtils
 {
@@ -56,22 +59,22 @@ public final class HudiSchemaEvolutionUtils
     {
     }
 
-    public static SchemaEvolutionContext createSchemaEvolutionContext(HoodieTableMetaClient metaClient)
+    public static SchemaEvolutionContext createSchemaEvolutionContext(Optional<HoodieTableMetaClient> metaClientOpt)
     {
         // no need to do schema evolution for mor table, since hudi kernel will do it.
-        if (metaClient.getTableType() == HoodieTableType.MERGE_ON_READ || metaClient == null) {
+        if (!metaClientOpt.isPresent() || metaClientOpt.get().getTableType() == HoodieTableType.MERGE_ON_READ) {
             return new SchemaEvolutionContext("", "");
         }
 
         try {
-            TableSchemaResolver schemaUtil = new TableSchemaResolver(metaClient);
+            TableSchemaResolver schemaUtil = new TableSchemaResolver(metaClientOpt.get());
             String internalSchema = schemaUtil.getTableInternalSchemaFromCommitMetadata().map(SerDeHelper::toJson).orElse("");
-            HoodieTimeline hoodieTimeline = metaClient.getCommitsAndCompactionTimeline().filterCompletedInstants();
+            HoodieTimeline hoodieTimeline = metaClientOpt.get().getCommitsAndCompactionTimeline().filterCompletedInstants();
             String validCommits = hoodieTimeline.getInstants().map(HoodieInstant::getFileName).collect(Collectors.joining(","));
             return new SchemaEvolutionContext(internalSchema, validCommits);
         }
         catch (Exception e) {
-            log.warn(String.format("failed to get internal Schema from hudi table：%s , fallback to original logical", metaClient.getBasePathV2()), e);
+            log.warn(String.format("failed to get internal Schema from hudi table：%s , fallback to original logical", metaClientOpt.get().getBasePathV2()), e);
         }
         return new SchemaEvolutionContext("", "");
     }
@@ -79,7 +82,7 @@ public final class HudiSchemaEvolutionUtils
     public static Pair<List<HudiColumnHandle>, Map<String, HiveType>> doEvolution(HudiSplit hudiSplit, List<HudiColumnHandle> oldColumnHandle, String tablePath, Configuration hadoopConf)
     {
         SchemaEvolutionContext schemaEvolutionContext = hudiSplit.getSchemaEvolutionContext();
-        InternalSchema internalSchema = SerDeHelper.fromJson(schemaEvolutionContext.getRequiredSchema()).orElse(InternalSchema.getEmptyInternalSchema());
+        InternalSchema internalSchema = SerDeHelper.fromJson(schemaEvolutionContext.getLatestSchema()).orElse(InternalSchema.getEmptyInternalSchema());
         if (internalSchema.isEmptySchema() || !hudiSplit.getBaseFile().isPresent()) {
             return Pair.of(oldColumnHandle, ImmutableMap.of());
         }
@@ -88,10 +91,15 @@ public final class HudiSchemaEvolutionUtils
 
         Path baseFilePath = new Path(hudiSplit.getBaseFile().get().getPath());
         String commitTime = FSUtils.getCommitTime(baseFilePath.getName());
-        InternalSchema fileSchema = InternalSchemaCache.getInternalSchemaByVersionId(Long.parseUnsignedLong(commitTime), tablePath, hadoopConf, schemaEvolutionContext.getValidCommits());
+        InternalSchema fileSchema = InternalSchemaCache.getInternalSchemaByVersionId(Long.parseUnsignedLong(commitTime), tablePath, hadoopConf, schemaEvolutionContext.getValidCommitFiles());
         log.debug(String.format(Locale.ENGLISH, "File schema from hudi base file is %s", fileSchema));
-        //
+
         InternalSchema mergedSchema = new InternalSchemaMerger(fileSchema, prunedSchema, true, true).mergeSchema();
+
+        if (mergedSchema.columns().size() != oldColumnHandle.size()) {
+            throw new PrestoException(HudiErrorCode.HUDI_SCHEMA_MISMATCH, format("Found mismatch schema, pls sync latest hudi meta to hive"));
+        }
+
         ImmutableList.Builder<HudiColumnHandle> builder = ImmutableList.builder();
         for (int i = 0; i < oldColumnHandle.size(); i++) {
             HiveType hiveType = constructPrestoTypeFromType(mergedSchema.columns().get(i).type());
@@ -101,13 +109,20 @@ public final class HudiSchemaEvolutionUtils
         return Pair.of(builder.build(), collectTypeChangedCols(prunedSchema, mergedSchema));
     }
 
-    private static Map<String, HiveType> collectTypeChangedCols(InternalSchema schema, InternalSchema oldSchema)
+    /**
+     * Collect all type changed columns
+     *
+     * @param schema schema hold latest column type.
+     * @param querySchema schema hold old column type.
+     * @return a map: (columnName -> oldColumnType)
+     */
+    private static Map<String, HiveType> collectTypeChangedCols(InternalSchema schema, InternalSchema querySchema)
     {
         return InternalSchemaUtils
-                .collectTypeChangedCols(schema, oldSchema)
+                .collectTypeChangedCols(schema, querySchema)
                 .entrySet()
                 .stream()
-                .collect(Collectors.toMap(e -> oldSchema.columns().get(e.getKey()).name(), e -> constructPrestoTypeFromType(e.getValue().getRight())));
+                .collect(Collectors.toMap(e -> querySchema.columns().get(e.getKey()).name(), e -> constructPrestoTypeFromType(e.getValue().getRight())));
     }
 
     private static HiveType constructPrestoTypeFromType(Type type)
