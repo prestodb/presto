@@ -57,24 +57,20 @@ TEST(FbHive, map) {
   ASSERT_EQ(t->toString(), "MAP<INTEGER,BIGINT>");
 }
 
-TEST(FbHive, shortDecimal) {
+TEST(FbHive, decimal) {
   HiveTypeParser parser;
-  auto t = parser.parse("short_decimal(10, 5)");
+  auto t = parser.parse("decimal(10,5)");
   ASSERT_EQ(t->kind(), TypeKind::SHORT_DECIMAL);
-  auto type = t->asShortDecimal();
-  ASSERT_EQ(type.precision(), 10);
-  ASSERT_EQ(type.scale(), 5);
+  auto shortType = t->asShortDecimal();
+  ASSERT_EQ(shortType.precision(), 10);
+  ASSERT_EQ(shortType.scale(), 5);
   ASSERT_EQ(t->toString(), "DECIMAL(10,5)");
-}
-
-TEST(FbHive, longDecimal) {
-  HiveTypeParser parser;
-  auto t = parser.parse("long_decimal(20, 5)");
+  t = parser.parse("decimal(21, 3)");
   ASSERT_EQ(t->kind(), TypeKind::LONG_DECIMAL);
-  auto type = t->asLongDecimal();
-  ASSERT_EQ(type.precision(), 20);
-  ASSERT_EQ(type.scale(), 5);
-  ASSERT_EQ(t->toString(), "DECIMAL(20,5)");
+  auto longType = t->asLongDecimal();
+  ASSERT_EQ(longType.precision(), 21);
+  ASSERT_EQ(longType.scale(), 3);
+  ASSERT_EQ(t->toString(), "DECIMAL(21,3)");
 }
 
 TEST(FbHive, list) {
@@ -135,14 +131,13 @@ TEST(FbHive, badParse) {
   VELOX_ASSERT_THROW(
       parser.parse("map<int>"), "wrong param count for map type def");
   VELOX_ASSERT_THROW(
-      parser.parse("short_decimal<20, 10>"), "Unexpected token 20, 10>");
+      parser.parse("decimal<20, 10>"), "Unexpected token 20, 10>");
+  VELOX_ASSERT_THROW(parser.parse("decimal(20, 10>"), "Unexpected token ");
   VELOX_ASSERT_THROW(
-      parser.parse("short_decimal(20, 10>"), "Unexpected token ");
-  VELOX_ASSERT_THROW(
-      parser.parse("short_decimal(a, 10)"),
+      parser.parse("decimal(a, 10)"),
       "Decimal precision must be a positive integer");
   VELOX_ASSERT_THROW(
-      parser.parse("long_decimal(20, b)"),
+      parser.parse("decimal(20, b)"),
       "Decimal scale must be a positive integer");
 }
 

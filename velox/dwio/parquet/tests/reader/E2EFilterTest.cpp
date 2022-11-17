@@ -214,8 +214,8 @@ TEST_F(E2EFilterTest, shortDecimalDictionary) {
   // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
   // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
   for (const auto& type : {
-           "shortdecimal_val:short_decimal(10, 5)",
-           "shortdecimal_val:short_decimal(17, 5)",
+           "shortdecimal_val:decimal(10, 5)",
+           "shortdecimal_val:decimal(17, 5)",
        }) {
     testWithTypes(
         type,
@@ -244,8 +244,8 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
   // decimal(10, 5) maps to 5 bytes FLBA in Parquet.
   // decimal(17, 5) maps to 8 bytes FLBA in Parquet.
   for (const auto& type : {
-           "shortdecimal_val:short_decimal(10, 5)",
-           "shortdecimal_val:short_decimal(17, 5)",
+           "shortdecimal_val:decimal(10, 5)",
+           "shortdecimal_val:decimal(17, 5)",
        }) {
     testWithTypes(
         type,
@@ -266,7 +266,7 @@ TEST_F(E2EFilterTest, shortDecimalDirect) {
   }
 
   testWithTypes(
-      "shortdecimal_val:short_decimal(10, 5)",
+      "shortdecimal_val:decimal(10, 5)",
       [&]() {
         useSuppliedValues<UnscaledShortDecimal>(
             "shortdecimal_val",
@@ -282,8 +282,8 @@ TEST_F(E2EFilterTest, longDecimalDictionary) {
   // decimal(30, 10) maps to 13 bytes FLBA in Parquet.
   // decimal(37, 15) maps to 16 bytes FLBA in Parquet.
   for (const auto& type : {
-           "longdecimal_val:long_decimal(30, 10)",
-           "longdecimal_val:long_decimal(37, 15)",
+           "longdecimal_val:decimal(30, 10)",
+           "longdecimal_val:decimal(37, 15)",
        }) {
     testWithTypes(
         type,
@@ -312,8 +312,8 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
   // decimal(30, 10) maps to 13 bytes FLBA in Parquet.
   // decimal(37, 15) maps to 16 bytes FLBA in Parquet.
   for (const auto& type : {
-           "longdecimal_val:long_decimal(30, 10)",
-           "longdecimal_val:long_decimal(37, 15)",
+           "longdecimal_val:decimal(30, 10)",
+           "longdecimal_val:decimal(37, 15)",
        }) {
     testWithTypes(
         type,
@@ -334,7 +334,7 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
   }
 
   testWithTypes(
-      "longdecimal_val:long_decimal(30, 10)",
+      "longdecimal_val:decimal(30, 10)",
       [&]() {
         useSuppliedValues<UnscaledLongDecimal>(
             "longdecimal_val",

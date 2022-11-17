@@ -44,7 +44,7 @@ bool isSupportedSpecialChar(char c) {
 namespace facebook::velox::dwio::type::fbhive {
 
 HiveTypeParser::HiveTypeParser() {
-  metadata_.resize(static_cast<size_t>(TokenType::MaxTokenType) + 1);
+  metadata_.resize(static_cast<size_t>(TokenType::MaxTokenType));
   setupMetadata<TokenType::Boolean, TypeKind::BOOLEAN>("boolean");
   setupMetadata<TokenType::Byte, TypeKind::TINYINT>("tinyint");
   setupMetadata<TokenType::Short, TypeKind::SMALLINT>("smallint");
@@ -52,9 +52,7 @@ HiveTypeParser::HiveTypeParser() {
   setupMetadata<TokenType::Long, TypeKind::BIGINT>("bigint");
   setupMetadata<TokenType::Float, TypeKind::REAL>({"float", "real"});
   setupMetadata<TokenType::Double, TypeKind::DOUBLE>("double");
-  setupMetadata<TokenType::ShortDecimal, TypeKind::SHORT_DECIMAL>(
-      "short_decimal");
-  setupMetadata<TokenType::LongDecimal, TypeKind::LONG_DECIMAL>("long_decimal");
+  setupMetadata<TokenType::ShortDecimal, TypeKind::SHORT_DECIMAL>("decimal");
   setupMetadata<TokenType::String, TypeKind::VARCHAR>({"string", "varchar"});
   setupMetadata<TokenType::Binary, TypeKind::VARBINARY>(
       {"binary", "varbinary"});
