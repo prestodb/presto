@@ -58,17 +58,26 @@ class SimdUtilTest : public testing::Test {
     std::vector<int32_t> reference(kWords * 64);
     std::vector<int32_t> test(kWords * 64);
     randomBits(bits, onesPer1000);
+    auto run = [&](int begin, int end) {
+      auto numReference =
+          simpleIndicesOfSetBits(bits.data(), begin, end, reference.data());
+      auto numTest =
+          simd::indicesOfSetBits(bits.data(), begin, end, test.data());
+      ASSERT_EQ(numReference, numTest);
+      ASSERT_EQ(
+          memcmp(
+              reference.data(),
+              test.data(),
+              numReference * sizeof(reference[0])),
+          0);
+    };
     int32_t begin = folly::Random::rand32(rng_) % 100;
     int32_t end = kWords * 64 - folly::Random::rand32(rng_) % 100;
-
-    auto numReference =
-        simpleIndicesOfSetBits(bits.data(), begin, end, reference.data());
-    auto numTest = simd::indicesOfSetBits(bits.data(), begin, end, test.data());
-    ASSERT_EQ(numReference, numTest);
-    ASSERT_EQ(
-        memcmp(
-            reference.data(), test.data(), numReference * sizeof(reference[0])),
-        0);
+    for (int offset = 0; offset < 64; ++offset) {
+      run(begin + offset, end);
+      run(begin, end - offset);
+      run(begin + offset, end - offset);
+    }
   }
 
   void testMemsetAndMemcpy(int32_t size) {

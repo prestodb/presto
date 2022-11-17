@@ -186,7 +186,7 @@ int32_t indicesOfSetBits(
       row += 64;
       continue;
     }
-    if (wordIndex == firstWord && begin) {
+    if (wordIndex == firstWord && begin != firstWord * 64) {
       word &= bits::highMask(64 - (begin - firstWord * 64));
       if (!word) {
         row += 64;
