@@ -250,6 +250,7 @@ jobs:
                 --seed 123456 \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
+                --lazy_vector_generation_ratio 0.2 \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
@@ -418,6 +419,7 @@ jobs:
                     "as a job artifact (check the \"Artifacts\" tab above)."
             _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
                 --seed ${RANDOM} \
+                --lazy_vector_generation_ratio 0.2 \
                 --duration_sec 600 \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
