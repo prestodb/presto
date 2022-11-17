@@ -40,6 +40,7 @@ workflows:
       - doc-gen-job
       - linux-fuzzer-run
       - linux-aggregate-fuzzer-run
+      - docker-compose-ubuntu-cpp
 
   # Hourly build on weekdays
   weekday:
@@ -56,6 +57,7 @@ workflows:
       - linux-build-options
       - linux-adapters
       - macos-build
+      - docker-compose-ubuntu-cpp
 
 commands:
   update-submodules:
@@ -525,3 +527,17 @@ jobs:
               git commit -m "Update documentation"
               git push
             fi
+
+  docker-compose-ubuntu-cpp:
+    machine: # Use machine executor type to use docker-compose
+      image: ubuntu-2204:2022.10.1 # Ubuntu 22.04
+    resource_class: 2xlarge
+    steps:
+      - checkout
+      - update-submodules
+      - run:
+          name: "Build images for ubuntu-CPP declared in docker-compose.yml"
+          command: docker-compose build ubuntu-cpp
+      - run:
+          name: "Run ubuntu-cpp image"
+          command: docker-compose run -e NUM_THREADS=16 --rm ubuntu-cpp

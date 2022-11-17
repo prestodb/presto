@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -eu
 # Compilation and testing
 make
 cd _build/release && ctest -j${NUM_THREADS} -VV --output-on-failure
