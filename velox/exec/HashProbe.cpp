@@ -522,6 +522,10 @@ void HashProbe::decodeAndDetectNonNullKeys() {
 void HashProbe::addInput(RowVectorPtr input) {
   input_ = std::move(input);
 
+  if (input_->size() > 0) {
+    noInput_ = false;
+  }
+
   if (canReplaceWithDynamicFilter_) {
     replacedWithDynamicFilter_ = true;
     return;
@@ -654,19 +658,24 @@ void HashProbe::fillOutput(vector_size_t size) {
 
   if (isLeftSemiProjectJoin(joinType_)) {
     // Populate 'match' column.
-    auto match = output_->childAt(outputType_->size() - 1);
-    match->resize(size);
-    auto flatMatch = match->as<FlatVector<bool>>();
-    auto rawValues = flatMatch->mutableRawValues<uint64_t>();
-    for (auto i = 0; i < size; ++i) {
-      if (!nonNullInputRows_.isValid(i)) {
-        flatMatch->setNull(i, true);
-      } else {
-        bool hasMatch = outputTableRows_[i] != nullptr;
-        if (!hasMatch && buildSideHasNullKeys_) {
+    if (emptyBuildSide()) {
+      // Build side is empty. All rows should return 'match = false', even ones
+      // with a null join key.
+      matchColumn() = BaseVector::createConstant(false, size, pool());
+    } else {
+      auto flatMatch = matchColumn()->as<FlatVector<bool>>();
+      flatMatch->resize(size);
+      auto rawValues = flatMatch->mutableRawValues<uint64_t>();
+      for (auto i = 0; i < size; ++i) {
+        if (!nonNullInputRows_.isValid(i)) {
           flatMatch->setNull(i, true);
         } else {
-          bits::setBit(rawValues, i, hasMatch);
+          bool hasMatch = outputTableRows_[i] != nullptr;
+          if (!hasMatch && buildSideHasNullKeys_) {
+            flatMatch->setNull(i, true);
+          } else {
+            bits::setBit(rawValues, i, hasMatch);
+          }
         }
       }
     }
@@ -724,9 +733,17 @@ RowVectorPtr HashProbe::getBuildSideOutput() {
 
   if (isRightSemiProjectJoin(joinType_)) {
     // Populate 'match' column.
-    auto match = output_->childAt(outputType_->size() - 1);
-    table_->rows()->extractProbedFlags(
-        outputTableRows_.data(), numOut, probeSideHasNullKeys_, match);
+    if (noInput_) {
+      // Probe side is empty. All rows should return 'match = false', even ones
+      // with a null join key.
+      matchColumn() = BaseVector::createConstant(false, numOut, pool());
+    } else {
+      table_->rows()->extractProbedFlags(
+          outputTableRows_.data(),
+          numOut,
+          probeSideHasNullKeys_,
+          matchColumn());
+    }
   }
 
   return output_;
