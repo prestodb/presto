@@ -73,7 +73,8 @@ class BaseRuntimeStatWriter {
 /// thread.
 /// NOTE: This is only used by the Velox Driver at the moment, which ensures the
 /// active Operator is being used by the writer.
-void setThreadLocalRunTimeStatWriter(BaseRuntimeStatWriter* writer);
+void setThreadLocalRunTimeStatWriter(
+    BaseRuntimeStatWriter* FOLLY_NULLABLE writer);
 
 /// Retrives the current runtime stats writer.
 BaseRuntimeStatWriter* getThreadLocalRunTimeStatWriter();
