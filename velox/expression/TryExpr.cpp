@@ -126,4 +126,26 @@ void TryExpr::nullOutErrors(
     }
   }
 }
+
+TypePtr TryCallToSpecialForm::resolveType(
+    const std::vector<TypePtr>& argTypes) {
+  VELOX_CHECK_EQ(
+      argTypes.size(),
+      1,
+      "TRY expressions expect exactly 1 argument, received: {}",
+      argTypes.size());
+  return argTypes[0];
+}
+
+ExprPtr TryCallToSpecialForm::constructSpecialForm(
+    const TypePtr& type,
+    std::vector<ExprPtr>&& compiledChildren,
+    bool /* trackCpuUsage */) {
+  VELOX_CHECK_EQ(
+      compiledChildren.size(),
+      1,
+      "TRY expressions expect exactly 1 argument, received: {}",
+      compiledChildren.size());
+  return std::make_shared<TryExpr>(type, std::move(compiledChildren[0]));
+}
 } // namespace facebook::velox::exec

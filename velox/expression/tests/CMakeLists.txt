@@ -35,6 +35,7 @@ add_executable(
   ReverseSignatureBinderTest.cpp
   RowWriterTest.cpp
   EvalSimplifiedTest.cpp
+  FunctionCallToSpecialFormTest.cpp
   SignatureBinderTest.cpp
   SimpleFunctionTest.cpp
   SimpleFunctionInitTest.cpp

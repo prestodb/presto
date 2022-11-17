@@ -27,12 +27,16 @@ CoalesceExpr::CoalesceExpr(
           kCoalesce,
           inputsSupportFlatNoNullsFastPath,
           false /* trackCpuUsage */) {
-  for (auto i = 1; i < inputs_.size(); i++) {
-    VELOX_USER_CHECK_EQ(
-        inputs_[0]->type()->kind(),
-        inputs_[i]->type()->kind(),
-        "Inputs to coalesce must have the same type");
-  }
+  std::vector<TypePtr> inputTypes;
+  inputTypes.reserve(inputs_.size());
+  std::transform(
+      inputs_.begin(),
+      inputs_.end(),
+      std::back_inserter(inputTypes),
+      [](const ExprPtr& expr) { return expr->type(); });
+
+  // Apply type checks.
+  resolveType(inputTypes);
 }
 
 void CoalesceExpr::evalSpecialForm(
@@ -69,5 +73,38 @@ void CoalesceExpr::evalSpecialForm(
       return;
     }
   }
+}
+
+// static
+TypePtr CoalesceExpr::resolveType(const std::vector<TypePtr>& argTypes) {
+  VELOX_CHECK_GT(
+      argTypes.size(),
+      0,
+      "COALESCE statements expect to receive at least 1 argument, but did not receive any.");
+  for (auto i = 1; i < argTypes.size(); i++) {
+    VELOX_USER_CHECK(
+        argTypes[0]->equivalent(*argTypes[i]),
+        "Inputs to coalesce must have the same type. ",
+        "Expected {}, but got {}.",
+        argTypes[0]->toString(),
+        argTypes[i]->toString());
+  }
+
+  return argTypes[0];
+}
+
+TypePtr CoalesceCallToSpecialForm::resolveType(
+    const std::vector<TypePtr>& argTypes) {
+  return CoalesceExpr::resolveType(argTypes);
+}
+
+ExprPtr CoalesceCallToSpecialForm::constructSpecialForm(
+    const TypePtr& type,
+    std::vector<ExprPtr>&& compiledChildren,
+    bool /* trackCpuUsage */) {
+  bool inputsSupportFlatNoNullsFastPath =
+      Expr::allSupportFlatNoNullsFastPath(compiledChildren);
+  return std::make_shared<CoalesceExpr>(
+      type, std::move(compiledChildren), inputsSupportFlatNoNullsFastPath);
 }
 } // namespace facebook::velox::exec

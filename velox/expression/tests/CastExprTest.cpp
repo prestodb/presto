@@ -849,3 +849,20 @@ TEST_F(CastExprTest, primitiveWithDictionaryIntroducedNulls) {
     assertEqualVectors(expected, result);
   }
 }
+
+TEST_F(CastExprTest, castAsCall) {
+  // Invoking cast through a CallExpr instead of a CastExpr
+  const std::vector<std::optional<int32_t>> inputValues = {1, 2, 3, 100, -100};
+  const std::vector<std::optional<double>> outputValues = {
+      1.0, 2.0, 3.0, 100.0, -100.0};
+
+  auto input = makeRowVector({makeNullableFlatVector(inputValues)});
+  core::TypedExprPtr inputField =
+      std::make_shared<const core::FieldAccessTypedExpr>(INTEGER(), "c0");
+  core::TypedExprPtr callExpr = std::make_shared<const core::CallTypedExpr>(
+      DOUBLE(), std::vector<core::TypedExprPtr>{inputField}, "cast");
+
+  auto result = evaluate(callExpr, input);
+  auto expected = makeNullableFlatVector(outputValues);
+  assertEqualVectors(expected, result);
+}

@@ -16,6 +16,7 @@
 #pragma once
 
 #include "velox/common/base/SelectivityInfo.h"
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SpecialForm.h"
 
 namespace facebook::velox::exec {
@@ -37,6 +38,17 @@ class ConjunctExpr : public SpecialForm {
     selectivity_.resize(inputs_.size());
     inputOrder_.resize(inputs_.size());
     std::iota(inputOrder_.begin(), inputOrder_.end(), 0);
+
+    std::vector<TypePtr> inputTypes;
+    inputTypes.reserve(inputs_.size());
+    std::transform(
+        inputs_.begin(),
+        inputs_.end(),
+        std::back_inserter(inputTypes),
+        [](const ExprPtr& expr) { return expr->type(); });
+
+    // Apply type checking.
+    resolveType(inputTypes);
   }
 
   void evalSpecialForm(
@@ -60,6 +72,8 @@ class ConjunctExpr : public SpecialForm {
       std::vector<VectorPtr>* complexConstants = nullptr) const override;
 
  private:
+  static TypePtr resolveType(const std::vector<TypePtr>& argTypes);
+
   void maybeReorderInputs();
   void updateResult(
       BaseVector* inputResult,
@@ -79,5 +93,24 @@ class ConjunctExpr : public SpecialForm {
   bool reorderEnabled_;
   std::vector<SelectivityInfo> selectivity_;
   std::vector<int32_t> inputOrder_;
+
+  friend class ConjunctCallToSpecialForm;
 };
+
+class ConjunctCallToSpecialForm : public FunctionCallToSpecialForm {
+ public:
+  explicit ConjunctCallToSpecialForm(bool isAnd)
+      : FunctionCallToSpecialForm(), isAnd_(isAnd) {}
+
+  TypePtr resolveType(const std::vector<TypePtr>& argTypes) override;
+
+  ExprPtr constructSpecialForm(
+      const TypePtr& type,
+      std::vector<ExprPtr>&& compiledChildren,
+      bool trackCpuUsage) override;
+
+ private:
+  bool isAnd_;
+};
+
 } // namespace facebook::velox::exec

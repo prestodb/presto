@@ -31,6 +31,7 @@ add_library(
   ExprCompiler.cpp
   ExprToSubfieldFilter.cpp
   FieldReference.cpp
+  FunctionCallToSpecialForm.cpp
   LambdaExpr.cpp
   VectorFunction.cpp
   SimpleFunctionRegistry.cpp

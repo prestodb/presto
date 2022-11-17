@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SpecialForm.h"
 
 namespace facebook::velox::exec {
@@ -201,6 +202,16 @@ class CastExpr : public SpecialForm {
   // Custom cast operator for the to-type. Nullptr if the type is native or
   // doesn't support cast-to.
   CastOperatorPtr castToOperator_;
+};
+
+class CastCallToSpecialForm : public FunctionCallToSpecialForm {
+ public:
+  TypePtr resolveType(const std::vector<TypePtr>& argTypes) override;
+
+  ExprPtr constructSpecialForm(
+      const TypePtr& type,
+      std::vector<ExprPtr>&& compiledChildren,
+      bool trackCpuUsage) override;
 };
 
 } // namespace facebook::velox::exec

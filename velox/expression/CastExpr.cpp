@@ -703,4 +703,25 @@ std::string CastExpr::toSql(std::vector<VectorPtr>* complexConstants) const {
   out << ")";
   return out.str();
 }
+
+TypePtr CastCallToSpecialForm::resolveType(
+    const std::vector<TypePtr>& /* argTypes */) {
+  VELOX_FAIL("CAST expressions do not support type resolution.");
+}
+
+ExprPtr CastCallToSpecialForm::constructSpecialForm(
+    const TypePtr& type,
+    std::vector<ExprPtr>&& compiledChildren,
+    bool trackCpuUsage) {
+  VELOX_CHECK_EQ(
+      compiledChildren.size(),
+      1,
+      "CAST statements expect exactly 1 argument, received {}",
+      compiledChildren.size());
+  return std::make_shared<CastExpr>(
+      type,
+      std::move(compiledChildren[0]),
+      trackCpuUsage,
+      false /* nullOnFailure */);
+}
 } // namespace facebook::velox::exec

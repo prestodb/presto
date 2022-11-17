@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SpecialForm.h"
 
 namespace facebook::velox::exec {
@@ -49,4 +50,15 @@ class TryExpr : public SpecialForm {
       EvalCtx& context,
       VectorPtr& result);
 };
+
+class TryCallToSpecialForm : public FunctionCallToSpecialForm {
+ public:
+  TypePtr resolveType(const std::vector<TypePtr>& argTypes) override;
+
+  ExprPtr constructSpecialForm(
+      const TypePtr& type,
+      std::vector<ExprPtr>&& compiledChildren,
+      bool trackCpuUsage) override;
+};
+
 } // namespace facebook::velox::exec

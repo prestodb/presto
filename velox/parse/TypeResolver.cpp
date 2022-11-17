@@ -16,6 +16,7 @@
 
 #include "velox/parse/TypeResolver.h"
 #include "velox/core/ITypedExpr.h"
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/functions/FunctionRegistry.h"
 #include "velox/parse/Expressions.h"
@@ -55,33 +56,6 @@ TypePtr resolveType(
     const std::vector<std::shared_ptr<const core::ITypedExpr>>& inputs,
     const std::shared_ptr<const core::CallExpr>& expr,
     bool nullOnFailure) {
-  if (expr->getFunctionName() == "if") {
-    return !inputs[1]->type()->containsUnknown() ? inputs[1]->type()
-                                                 : inputs[2]->type();
-  }
-
-  if (expr->getFunctionName() == "switch") {
-    auto numInput = inputs.size();
-    for (auto i = 1; i < numInput; i += 2) {
-      if (!inputs[i]->type()->containsUnknown()) {
-        return inputs[i]->type();
-      }
-    }
-    // If all contain unknown, return the type of the else or the last when
-    // clause.
-    return inputs.back()->type();
-  }
-
-  if (expr->getFunctionName() == "and" || expr->getFunctionName() == "or") {
-    return BOOLEAN();
-  }
-
-  if (expr->getFunctionName() == "try" ||
-      expr->getFunctionName() == "coalesce") {
-    VELOX_CHECK(!inputs.empty());
-    return inputs.front()->type();
-  }
-
   // TODO Replace with struct_pack
   if (expr->getFunctionName() == "row_constructor") {
     auto numInput = inputs.size();
@@ -98,6 +72,11 @@ TypePtr resolveType(
   inputTypes.reserve(inputs.size());
   for (auto& input : inputs) {
     inputTypes.emplace_back(input->type());
+  }
+
+  if (auto resolvedType = exec::resolveTypeForSpecialForm(
+          expr->getFunctionName(), inputTypes)) {
+    return resolvedType;
   }
 
   return resolveScalarFunctionType(

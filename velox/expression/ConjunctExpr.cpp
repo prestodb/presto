@@ -276,4 +276,42 @@ std::string ConjunctExpr::toSql(
   }
   return out.str();
 }
+
+// static
+TypePtr ConjunctExpr::resolveType(const std::vector<TypePtr>& argTypes) {
+  VELOX_CHECK_GT(
+      argTypes.size(),
+      0,
+      "Conjunct expressions expect at least one argument, received: {}",
+      argTypes.size());
+
+  for (const auto& argType : argTypes) {
+    VELOX_CHECK(
+        argType->kind() == TypeKind::BOOLEAN ||
+            argType->kind() == TypeKind::UNKNOWN,
+        "Conjunct expressions expect BOOLEAN or UNKNOWN arguments, received: {}",
+        argType->toString());
+  }
+
+  return BOOLEAN();
+}
+
+TypePtr ConjunctCallToSpecialForm::resolveType(
+    const std::vector<TypePtr>& argTypes) {
+  return ConjunctExpr::resolveType(argTypes);
+}
+
+ExprPtr ConjunctCallToSpecialForm::constructSpecialForm(
+    const TypePtr& type,
+    std::vector<ExprPtr>&& compiledChildren,
+    bool /* trackCpuUsage */) {
+  bool inputsSupportFlatNoNullsFastPath =
+      Expr::allSupportFlatNoNullsFastPath(compiledChildren);
+
+  return std::make_shared<ConjunctExpr>(
+      type,
+      std::move(compiledChildren),
+      isAnd_,
+      inputsSupportFlatNoNullsFastPath);
+}
 } // namespace facebook::velox::exec

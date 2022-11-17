@@ -36,9 +36,6 @@ using core::TypedExprPtr;
 
 const char* const kAnd = "and";
 const char* const kOr = "or";
-const char* const kTry = "try";
-const char* const kSwitch = "switch";
-const char* const kIf = "if";
 const char* const kRowConstructor = "row_constructor";
 
 struct ITypedExprHasher {
@@ -220,52 +217,19 @@ ExprPtr getSpecialForm(
     const TypePtr& type,
     std::vector<ExprPtr>&& compiledChildren,
     bool trackCpuUsage) {
-  if (name == kIf || name == kSwitch) {
-    bool inputsSupportFlatNoNullsFastPath =
-        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
-    return std::make_shared<SwitchExpr>(
-        type, std::move(compiledChildren), inputsSupportFlatNoNullsFastPath);
-  }
-  if (name == kCast) {
-    VELOX_CHECK_EQ(compiledChildren.size(), 1);
-    return std::make_shared<CastExpr>(
-        type,
-        std::move(compiledChildren[0]),
-        trackCpuUsage,
-        false /* nullOnFailure */);
-  }
-  if (name == kAnd) {
-    bool inputsSupportFlatNoNullsFastPath =
-        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
-    return std::make_shared<ConjunctExpr>(
-        type,
-        std::move(compiledChildren),
-        true /* isAnd */,
-        inputsSupportFlatNoNullsFastPath);
-  }
-  if (name == kOr) {
-    bool inputsSupportFlatNoNullsFastPath =
-        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
-    return std::make_shared<ConjunctExpr>(
-        type,
-        std::move(compiledChildren),
-        false /* isAnd */,
-        inputsSupportFlatNoNullsFastPath);
-  }
-  if (name == kTry) {
-    VELOX_CHECK_EQ(compiledChildren.size(), 1);
-    return std::make_shared<TryExpr>(type, std::move(compiledChildren[0]));
-  }
-  if (name == kCoalesce) {
-    bool inputsSupportFlatNoNullsFastPath =
-        Expr::allSupportFlatNoNullsFastPath(compiledChildren);
-    return std::make_shared<CoalesceExpr>(
-        type, std::move(compiledChildren), inputsSupportFlatNoNullsFastPath);
-  }
   if (name == kRowConstructor) {
     return getRowConstructorExpr(
         type, std::move(compiledChildren), trackCpuUsage);
   }
+
+  // If we just check the output of constructSpecialForm we'll have moved
+  // compiledChildren, and if the function isn't a special form we'll still need
+  // compiledChildren. Splitting the check in two avoids this use after move.
+  if (isFunctionCallToSpecialFormRegistered(name)) {
+    return constructSpecialForm(
+        name, type, std::move(compiledChildren), trackCpuUsage);
+  }
+
   return nullptr;
 }
 
