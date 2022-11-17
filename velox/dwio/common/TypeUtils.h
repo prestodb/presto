@@ -122,7 +122,7 @@ class CompatChecker {
       bool recurse,
       const std::function<std::string()>& exceptionMessageCreator) const {
     if (!compat(from.kind(), to.kind())) {
-      VELOX_SCHMEA_MISMATCH_ERROR(fmt::format(
+      VELOX_SCHEMA_MISMATCH_ERROR(fmt::format(
           "{}, From Kind: {}, To Kind: {}",
           exceptionMessageCreator ? exceptionMessageCreator() : "",
           velox::mapTypeKindToName(from.kind()),

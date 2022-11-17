@@ -270,7 +270,7 @@ DECLARE_CHECK_FAIL_TEMPLATES(::facebook::velox::VeloxRuntimeError);
       /* isRetriable */ false,                                   \
       ##__VA_ARGS__)
 
-#define VELOX_SCHMEA_MISMATCH_ERROR(...)                         \
+#define VELOX_SCHEMA_MISMATCH_ERROR(...)                         \
   _VELOX_THROW(                                                  \
       ::facebook::velox::VeloxUserError,                         \
       ::facebook::velox::error_source::kErrorSourceUser.c_str(), \
