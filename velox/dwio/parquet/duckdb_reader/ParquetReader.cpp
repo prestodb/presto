@@ -261,7 +261,9 @@ uint64_t ParquetRowReader::next(uint64_t /*size*/, velox::VectorPtr& result) {
   ::duckdb::DataChunk output;
   // TODO: We are using the default duckdb allocator which uses Velox's default
   // memory manager, not the one specified in the ReaderOptions.
-  output.Initialize(duckdb::getDefaultAllocator(), duckdbRowType_);
+  if (!duckdbRowType_.empty()) {
+    output.Initialize(duckdb::getDefaultAllocator(), duckdbRowType_);
+  }
 
   reader_->Scan(state_, output);
 
