@@ -155,30 +155,30 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
   // vector (if already loaded).
   void assertEqualLazyVectors(
       const VectorPtr& expected,
-      const VectorPtr& actual) {
+      const VectorPtr& actual,
+      const SelectivityVector& rows) {
     // Verify encoding of Lazy.
     ASSERT_EQ(expected->encoding(), actual->encoding());
     ASSERT_EQ(*expected->type(), *actual->type());
     ASSERT_EQ(expected->size(), actual->size());
 
-    auto lazy = expected->as<LazyVector>();
-    auto lazyCopy = actual->as<LazyVector>();
-    // Verify the loaded vector is present.
-    ASSERT_EQ(lazy->isLoaded(), lazyCopy->isLoaded());
-    if (lazy->isLoaded()) {
-      assertEqualEncodings(
-          lazy->loadedVectorShared(), lazyCopy->loadedVectorShared());
+    // Verify whether the loaded vector is present.
+    ASSERT_EQ(isLazyNotLoaded(*expected), isLazyNotLoaded(*actual));
+    if (!isLazyNotLoaded(*actual)) {
+      // Check only the rows loaded.
+      assertEqualVectors(expected, actual, rows);
     }
   }
 
   // Test round trip of lazy vector both with and without loading. The vector
   // gets loaded with a randomly generated selectivity vector.
   void testRoundTripOfLazy(VectorPtr vector, VectorFuzzer& fuzzer) {
-    auto copy = takeRoundTrip(vector);
-    assertEqualLazyVectors(vector, copy);
-
-    // Verify loaded lazy vector makes the round trip
     SelectivityVector rows(vector->size());
+    auto copy = takeRoundTrip(vector);
+    assertEqualLazyVectors(vector, copy, rows);
+
+    // Verify loaded lazy vector makes the round trip by loading it for a
+    // random set of rows.
     for (int i = 0; i < vector->size(); ++i) {
       if (fuzzer.coinToss(0.3)) {
         rows.setValid(i, false);
@@ -188,7 +188,7 @@ class VectorSaverTest : public testing::Test, public VectorTestBase {
     LazyVector::ensureLoadedRows(vector, rows);
     copy = takeRoundTrip(vector);
     LazyVector::ensureLoadedRows(copy, rows);
-    assertEqualLazyVectors(vector, copy);
+    assertEqualLazyVectors(vector, copy, rows);
   }
 
   const uint32_t seed_{folly::Random::rand32()};

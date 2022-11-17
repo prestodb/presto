@@ -232,7 +232,8 @@ class VectorFuzzer {
     return boost::random::uniform_01<double>()(rng_) < n;
   }
 
-  // Wraps the given vector in a LazyVector.
+  // Wraps the given vector in a LazyVector. If there are multiple dictionary
+  // layers then the lazy wrap is applied over the innermost dictionary layer.
   static VectorPtr wrapInLazyVector(VectorPtr baseVector);
 
   // Randomly applies wrapInLazyVector() to the children of the given input row

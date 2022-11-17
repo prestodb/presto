@@ -110,6 +110,23 @@ void assertEqualVectors(const VectorPtr& expected, const VectorPtr& actual) {
   }
 }
 
+void assertEqualVectors(
+    const VectorPtr& expected,
+    const VectorPtr& actual,
+    const SelectivityVector& rowsToCompare) {
+  ASSERT_LE(rowsToCompare.end(), actual->size())
+      << "Vectors should at least have the required amount of rows that need "
+         "to be verified.";
+  ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
+      << "Expected " << expected->type()->toString() << ", but got "
+      << actual->type()->toString();
+  rowsToCompare.applyToSelected([&](vector_size_t i) {
+    ASSERT_TRUE(expected->equalValueAt(actual.get(), i, i))
+        << "at " << i << ": expected " << expected->toString(i) << ", but got "
+        << actual->toString(i);
+  });
+}
+
 void assertCopyableVector(const VectorPtr& vector) {
   auto copy =
       BaseVector::create(vector->type(), vector->size(), vector->pool());

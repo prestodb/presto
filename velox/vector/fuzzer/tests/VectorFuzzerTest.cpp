@@ -447,7 +447,9 @@ void assertEqualVectors(
     SelectivityVector* rowsToCompare,
     const VectorPtr& expected,
     const VectorPtr& actual) {
-  ASSERT_EQ(expected->size(), actual->size());
+  ASSERT_LE(rowsToCompare->end(), actual->size())
+      << "Vectors should at least have the required amount of rows that need "
+         "to be verified.";
   ASSERT_TRUE(expected->type()->equivalent(*actual->type()))
       << "Expected " << expected->type()->toString() << ", but got "
       << actual->type()->toString();
@@ -549,11 +551,18 @@ TEST_F(VectorFuzzerTest, lazyOverDictionary) {
     }
   });
 
-  // Case 2: Applying a multiple dictionary layers.
+  // Case 2: Applying multiple (3 layers) dictionary layers.
   dict = fuzzer.fuzzDictionary(vector);
+  dict = fuzzer.fuzzDictionary(dict);
   dict = fuzzer.fuzzDictionary(dict);
   lazy = VectorFuzzer::wrapInLazyVector(dict);
 
+  // Also verify that the lazy layer is applied on the innermost dictionary
+  // layer. Should look like Dict(Dict(Dict(Lazy(Base)))))
+  ASSERT_TRUE(VectorEncoding::isDictionary(lazy->encoding()));
+  ASSERT_TRUE(VectorEncoding::isDictionary(lazy->valueVector()->encoding()));
+  ASSERT_TRUE(
+      VectorEncoding::isLazy(lazy->valueVector()->valueVector()->encoding()));
   LazyVector::ensureLoadedRows(lazy, partialRows);
   ASSERT_TRUE(VectorEncoding::isDictionary(lazy->loadedVector()->encoding()));
   assertEqualVectors(&partialRows, dict, lazy);
