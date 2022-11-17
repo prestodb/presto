@@ -18,7 +18,7 @@ target_link_libraries(presto_type_converter velox_type)
 
 add_library(presto_types OBJECT PrestoToVeloxQueryPlan.cpp
                                 PrestoToVeloxExpr.cpp PrestoToVeloxSplit.cpp)
-add_dependencies(presto_types presto_type_converter velox_type
+add_dependencies(presto_types presto_operators presto_type_converter velox_type
                  velox_dwio_dwrf_proto)
 
 target_link_libraries(presto_types presto_type_converter
