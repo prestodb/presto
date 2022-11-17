@@ -208,8 +208,10 @@ void copyRow(
 }
 } // namespace
 
-void MergeJoin::addOutputRowForLeftJoin() {
-  copyRow(input_, index_, output_, outputSize_, leftProjections_);
+void MergeJoin::addOutputRowForLeftJoin(
+    const RowVectorPtr& left,
+    vector_size_t leftIndex) {
+  copyRow(left, leftIndex, output_, outputSize_, leftProjections_);
 
   for (const auto& projection : rightProjections_) {
     const auto& target = output_->childAt(projection.outputChannel);
@@ -352,6 +354,28 @@ bool MergeJoin::addToOutput() {
   return outputSize_ == outputBatchSize_;
 }
 
+namespace {
+vector_size_t firstNonNull(
+    const RowVectorPtr& rowVector,
+    const std::vector<column_index_t>& keys,
+    vector_size_t start = 0) {
+  for (auto i = start; i < rowVector->size(); ++i) {
+    bool hasNull = false;
+    for (auto key : keys) {
+      if (rowVector->childAt(key)->isNullAt(i)) {
+        hasNull = true;
+        break;
+      }
+    }
+    if (!hasNull) {
+      return i;
+    }
+  }
+
+  return rowVector->size();
+}
+} // namespace
+
 RowVectorPtr MergeJoin::getOutput() {
   // Make sure to have is-blocked or needs-input as true if returning null
   // output. Otherwise, Driver assumes the operator is finished.
@@ -363,7 +387,7 @@ RowVectorPtr MergeJoin::getOutput() {
 
   for (;;) {
     auto output = doGetOutput();
-    if (output != nullptr) {
+    if (output != nullptr && output->size() > 0) {
       if (filter_) {
         output = applyFilter(output);
         if (output != nullptr) {
@@ -383,15 +407,22 @@ RowVectorPtr MergeJoin::getOutput() {
         rightSource_ = operatorCtx_->task()->getMergeJoinSource(
             operatorCtx_->driverCtx()->splitGroupId, planNodeId());
       }
-      auto blockingReason = rightSource_->next(&future_, &rightInput_);
-      if (blockingReason != BlockingReason::kNotBlocked) {
-        return nullptr;
-      }
 
-      if (rightInput_) {
-        rightIndex_ = 0;
-      } else {
-        noMoreRightInput_ = true;
+      while (!noMoreRightInput_ && !rightInput_) {
+        auto blockingReason = rightSource_->next(&future_, &rightInput_);
+        if (blockingReason != BlockingReason::kNotBlocked) {
+          return nullptr;
+        }
+
+        if (rightInput_) {
+          rightIndex_ = firstNonNull(rightInput_, rightKeys_);
+          if (rightIndex_ == rightInput_->size()) {
+            // Ran out of rows on the right side.
+            rightInput_ = nullptr;
+          }
+        } else {
+          noMoreRightInput_ = true;
+        }
       }
       continue;
     }
@@ -443,7 +474,11 @@ RowVectorPtr MergeJoin::doGetOutput() {
         return nullptr;
       }
       if (rightMatch_->inputs.back() == rightInput_) {
-        rightIndex_ = rightMatch_->endIndex;
+        rightIndex_ =
+            firstNonNull(rightInput_, rightKeys_, rightMatch_->endIndex);
+        if (rightIndex_ == rightInput_->size()) {
+          rightInput_ = nullptr;
+        }
       }
     } else if (noMoreRightInput_) {
       rightMatch_->complete = true;
@@ -473,7 +508,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
             return std::move(output_);
           }
 
-          addOutputRowForLeftJoin();
+          addOutputRowForLeftJoin(input_, index_);
 
           ++index_;
           if (index_ == input_->size()) {
@@ -515,7 +550,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
           return std::move(output_);
         }
 
-        addOutputRowForLeftJoin();
+        addOutputRowForLeftJoin(input_, index_);
       }
 
       ++index_;
@@ -529,7 +564,7 @@ RowVectorPtr MergeJoin::doGetOutput() {
 
     // Catch up rightInput_ with input_.
     while (compareResult > 0) {
-      ++rightIndex_;
+      rightIndex_ = firstNonNull(rightInput_, rightKeys_, rightIndex_ + 1);
       if (rightIndex_ == rightInput_->size()) {
         // Ran out of rows on the right side.
         rightInput_ = nullptr;
@@ -580,10 +615,18 @@ RowVectorPtr MergeJoin::doGetOutput() {
       }
 
       index_ = endIndex;
-      rightIndex_ = endRightIndex;
+      rightIndex_ = firstNonNull(rightInput_, rightKeys_, endRightIndex);
+      if (rightIndex_ == rightInput_->size()) {
+        // Ran out of rows on the right side.
+        rightInput_ = nullptr;
+      }
 
       if (addToOutput()) {
         return std::move(output_);
+      }
+
+      if (!rightInput_) {
+        return nullptr;
       }
 
       compareResult = compare();

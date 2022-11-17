@@ -174,9 +174,11 @@ class MergeJoin : public Operator {
       vector_size_t rightIndex);
 
   /// Adds one row of output for a left-side row with no right-side match.
-  /// Copies values from the 'index_' row on the left side and fills in nulls
+  /// Copies values from the 'leftIndex' row of 'left' and fills in nulls
   /// for columns that correspond to the right side.
-  void addOutputRowForLeftJoin();
+  void addOutputRowForLeftJoin(
+      const RowVectorPtr& left,
+      vector_size_t leftIndex);
 
   /// Evaluates join filter on 'filterInput_' and returns 'output' that contains
   /// a subset of rows on which the filter passed. Returns nullptr if no rows
