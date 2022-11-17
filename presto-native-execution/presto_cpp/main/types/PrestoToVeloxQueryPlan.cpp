@@ -23,6 +23,8 @@
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 #include "presto_cpp/main/types/TypeSignatureTypeConverter.h"
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleWrite.h"
 // clang-format on
 
 #include <folly/container/F14Set.h>
@@ -2125,4 +2127,63 @@ core::PlanFragment VeloxQueryPlanConverter::toVeloxQueryPlan(
         toJsonString(partitioningHandle));
   }
 }
+
+velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
+    const protocol::PlanFragment& fragment,
+    const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
+    const protocol::TaskId& taskId,
+    const std::shared_ptr<operators::ShuffleInterface>& writerShuffle) {
+  auto planFragment = toVeloxQueryPlan(fragment, tableWriteInfo, taskId);
+
+  // If the last node is a PartitionedOutputNode, it means this fragment ends
+  // with a shuffle stage. We convert the PartitionedOutputNode to a chain of
+  // following nodes:
+  // (1) A PartitionAndSerializeNode.
+  // (2) A "gather" LocalPartitionNode that gathers results from multiple
+  //     threads to one thread.
+  // (3) A ShuffleWriteNode.
+  auto partitionedOutputNode =
+      std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
+          planFragment.planNode);
+  VELOX_CHECK_EQ(
+      partitionedOutputNode == nullptr,
+      writerShuffle == nullptr,
+      "Writer shuffle info and PartitionedOutputNode should be set together");
+  if (partitionedOutputNode == nullptr) {
+    return planFragment;
+  }
+  if (partitionedOutputNode->isBroadcast()) {
+    VELOX_UNSUPPORTED(
+        "Broadcast partitioned output node in batch is currently not "
+        "supported.");
+  }
+  auto partitionAndSerializeNode = std::make_shared<
+      operators::PartitionAndSerializeNode>(
+      "shuffle-partition-serialize",
+      partitionedOutputNode->keys(),
+      partitionedOutputNode->numPartitions(),
+      ROW({std::string(operators::PartitionAndSerializeNode::
+                           kPartitionColumnNameDefault),
+           std::string(
+               operators::PartitionAndSerializeNode::kDataColumnNameDefault)},
+          {INTEGER(), VARBINARY()}),
+      partitionedOutputNode->sources().back(),
+      partitionedOutputNode->partitionFunctionFactory());
+
+  auto localPartitionNode = std::make_shared<core::LocalPartitionNode>(
+      "shuffle-gather",
+      core::LocalPartitionNode::Type::kGather,
+      nullptr,
+  std::vector<core::PlanNodePtr>{partitionAndSerializeNode});
+
+  auto shuffleWriteNode = std::make_shared<operators::ShuffleWriteNode>(
+      "root",
+      writerShuffle,
+      std::move(localPartitionNode)
+      );
+
+  planFragment.planNode = shuffleWriteNode;
+  return planFragment;
+}
+
 } // namespace facebook::presto

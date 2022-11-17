@@ -18,6 +18,7 @@ target_link_libraries(
   presto_velox_split_test
   gtest
   gtest_main
+  presto_operators
   presto_protocol
   velox_hive_connector
   velox_tpch_connector
@@ -53,10 +54,12 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
+  presto_operators
   velox_core
   velox_dwio_common_exception
   velox_encode
   velox_exec
+  velox_exec_test_lib
   velox_functions_prestosql
   velox_functions_lib
   velox_hive_connector

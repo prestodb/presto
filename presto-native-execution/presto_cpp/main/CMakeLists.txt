@@ -29,7 +29,7 @@ add_library(
   TaskManager.cpp
   TaskResource.cpp)
 
-add_dependencies(presto_server_lib presto_protocol presto_types
+add_dependencies(presto_server_lib presto_operators presto_protocol presto_types
                  presto_thrift-cpp2 presto_thrift_extra)
 
 target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES})
@@ -44,6 +44,7 @@ target_link_libraries(
   presto_thrift_extra
   presto_exception
   presto_http
+  presto_operators
   presto_write_protocol
   velox_core
   velox_vector

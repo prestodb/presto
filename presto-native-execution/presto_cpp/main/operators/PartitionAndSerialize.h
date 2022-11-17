@@ -22,6 +22,9 @@ namespace facebook::presto::operators {
 /// entire row.
 class PartitionAndSerializeNode : public velox::core::PlanNode {
  public:
+  static constexpr std::string_view kPartitionColumnNameDefault = "partition";
+  static constexpr std::string_view kDataColumnNameDefault = "data";
+
   PartitionAndSerializeNode(
       const velox::core::PlanNodeId& id,
       std::vector<velox::core::TypedExprPtr> keys,
