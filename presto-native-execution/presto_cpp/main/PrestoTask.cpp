@@ -64,6 +64,21 @@ protocol::RuntimeUnit toPrestoRuntimeUnit(RuntimeCounter::Unit unit) {
   }
 }
 
+// Presto has certain query stats logic depending on the operator names.
+// To leverage this logic we need to supply Presto's operator names.
+std::string toPrestoOperatorType(const std::string& operatorType) {
+  if (operatorType == "MergeExchange") {
+    return "MergeOperator";
+  }
+  if (operatorType == "Exchange") {
+    return "ExchangeOperator";
+  }
+  if (operatorType == "TableScan") {
+    return "TableScanOperator";
+  }
+  return operatorType;
+}
+
 void setTiming(
     const CpuWallTiming& timing,
     int64_t& count,
@@ -260,7 +275,7 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
       opOut.pipelineId = i;
       opOut.planNodeId = op.planNodeId;
       opOut.operatorId = op.operatorId;
-      opOut.operatorType = op.operatorType;
+      opOut.operatorType = toPrestoOperatorType(op.operatorType);
 
       opOut.totalDrivers = op.numDrivers;
       opOut.inputPositions = op.inputPositions;
