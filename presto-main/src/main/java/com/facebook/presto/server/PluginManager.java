@@ -24,6 +24,7 @@ import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
+import com.facebook.presto.features.config.FeatureToggleConfigurationManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
@@ -32,6 +33,7 @@ import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
+import com.facebook.presto.spi.features.ConfigurationSourceFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
@@ -125,6 +127,7 @@ public class PluginManager
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
     private final NodeStatusNotificationManager nodeStatusNotificationManager;
+    private final FeatureToggleConfigurationManager featureToggleConfigurationManager;
 
     @Inject
     public PluginManager(
@@ -145,7 +148,8 @@ public class PluginManager
             ClusterTtlProviderManager clusterTtlProviderManager,
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             TracerProviderManager tracerProviderManager,
-            NodeStatusNotificationManager nodeStatusNotificationManager)
+            NodeStatusNotificationManager nodeStatusNotificationManager,
+            FeatureToggleConfigurationManager featureToggleConfigurationManager)
     {
         requireNonNull(nodeInfo, "nodeInfo is null");
         requireNonNull(config, "config is null");
@@ -176,6 +180,7 @@ public class PluginManager
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.nodeStatusNotificationManager = requireNonNull(nodeStatusNotificationManager, "nodeStatusNotificationManager is null");
+        this.featureToggleConfigurationManager = requireNonNull(featureToggleConfigurationManager, "featureToggleConfigurationManager is null");
     }
 
     public void loadPlugins()
@@ -325,6 +330,11 @@ public class PluginManager
         for (NodeStatusNotificationProviderFactory nodeStatusNotificationProviderFactory : plugin.getNodeStatusNotificationProviderFactory()) {
             log.info("Registering node status notification provider %s", nodeStatusNotificationProviderFactory.getName());
             nodeStatusNotificationManager.addNodeStatusNotificationProviderFactory(nodeStatusNotificationProviderFactory);
+        }
+
+        for (ConfigurationSourceFactory configurationSourceFactory : plugin.getConfigurationSourceFactories()) {
+            log.info("Registering Feature Toggle Configuration source factory %s", configurationSourceFactory.getName());
+            featureToggleConfigurationManager.addConfigurationSourceFactory(configurationSourceFactory);
         }
     }
 

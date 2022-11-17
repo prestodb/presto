@@ -61,6 +61,8 @@ import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
 import com.facebook.presto.execution.warnings.WarningCollectorConfig;
+import com.facebook.presto.features.config.FeatureToggleConfig;
+import com.facebook.presto.features.config.FeatureToggleModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
@@ -219,6 +221,7 @@ import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonBinder.jsonBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static com.facebook.airlift.json.smile.SmileCodecBinder.smileCodecBinder;
+import static com.facebook.presto.features.binder.FeatureToggleBinder.featureToggleBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
@@ -532,6 +535,11 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkBroadcastTableCacheManager.class).in(Scopes.SINGLETON);
         newSetBinder(binder, PrestoSparkServiceWaitTimeMetrics.class);
         newOptionalBinder(binder, ErrorClassifier.class);
+
+        // Feature Toggle
+        configBinder(binder).bindConfig(FeatureToggleConfig.class);
+        install(new FeatureToggleModule());
+        featureToggleBinder(binder).init();
 
         // extra credentials and authenticator for Presto-on-Spark
         newSetBinder(binder, PrestoSparkCredentialsProvider.class);

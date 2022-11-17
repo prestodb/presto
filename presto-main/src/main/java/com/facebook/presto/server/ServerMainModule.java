@@ -77,6 +77,8 @@ import com.facebook.presto.execution.scheduler.NodeSchedulerExporter;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelectionStats;
 import com.facebook.presto.execution.scheduler.nodeSelection.SimpleTtlNodeSelectorConfig;
+import com.facebook.presto.features.config.FeatureToggleConfig;
+import com.facebook.presto.features.config.FeatureToggleModule;
 import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManagerExporter;
@@ -253,6 +255,7 @@ import static com.facebook.drift.codec.guice.ThriftCodecBinder.thriftCodecBinder
 import static com.facebook.drift.server.guice.DriftServerBinder.driftServerBinder;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.FLAT;
 import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.NetworkTopologyType.LEGACY;
+import static com.facebook.presto.features.binder.FeatureToggleBinder.featureToggleBinder;
 import static com.facebook.presto.server.ServerConfig.POOL_TYPE;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -753,6 +756,11 @@ public class ServerMainModule
                         .bind(SingleStreamSpillerFactory.class)
                         .to(TempStorageSingleStreamSpillerFactory.class)
                         .in(Scopes.SINGLETON)));
+
+        // Feature Toggle
+        configBinder(binder).bindConfig(FeatureToggleConfig.class);
+        install(new FeatureToggleModule());
+        featureToggleBinder(binder).init();
 
         // Thrift RPC
         binder.install(new DriftNettyServerModule());
