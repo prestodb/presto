@@ -45,6 +45,7 @@ add_library(
   ScanSpec.cpp
   ColumnLoader.cpp
   SelectiveColumnReader.cpp
+  SelectiveRepeatedColumnReader.cpp
   SelectiveStructColumnReader.cpp
   SeekableInputStream.cpp
   TypeWithId.cpp)
