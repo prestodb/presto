@@ -48,6 +48,12 @@ class TestShuffle : public ShuffleInterface {
     readyPartitions_.resize(numPartitions_);
   }
 
+  void initialize(velox::memory::MemoryPool* pool) {
+    if (pool_ == nullptr) {
+      pool_ = pool;
+    }
+  }
+
   void collect(int32_t partition, std::string_view data) {
     auto& buffer = inProgressPartitions_[partition];
 
@@ -112,7 +118,7 @@ class TestShuffle : public ShuffleInterface {
   }
 
  private:
-  memory::MemoryPool* pool_;
+  memory::MemoryPool* pool_{nullptr};
   bool readyForRead_ = false;
   const uint32_t numPartitions_;
   const uint32_t maxBytesPerPartition_;
