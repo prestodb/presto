@@ -99,6 +99,8 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
   void resetPartition(const exec::WindowPartition* partition) override {
     partition_ = partition;
+
+    previousFrameMetadata_.reset();
   }
 
   void apply(
@@ -113,16 +115,36 @@ class AggregateWindowFunction : public exec::WindowFunction {
     auto rawFrameEnds = frameEnds->as<vector_size_t>();
 
     FrameMetadata frameMetadata =
-        fillArgVectors(rawFrameStarts, rawFrameEnds, numRows);
-    if (frameMetadata.fixedFirstRow && frameMetadata.nonDecreasingFrameEnd) {
-      fixedStartAggregation(
+        analyzeFrameValues(rawFrameStarts, rawFrameEnds, numRows);
+
+    if (frameMetadata.incrementalAggregation) {
+      vector_size_t startRow;
+      if (frameMetadata.usePreviousAggregate) {
+        // If incremental aggregation can be resumed from the previous block,
+        // then the argument vectors also can be populated from the previous
+        // frameEnd to the current frameEnd. Only the new values are
+        // required for computing aggregates.
+        startRow = previousFrameMetadata_->lastRow + 1;
+      } else {
+        startRow = frameMetadata.firstRow;
+
+        // This is the start of a new incremental aggregation. So the
+        // aggregate_ function object should be initialized.
+        auto singleGroup = std::vector<vector_size_t>{0};
+        aggregate_->clear();
+        aggregate_->initializeNewGroups(&rawSingleGroupRow_, singleGroup);
+      }
+
+      fillArgVectors(startRow, frameMetadata.lastRow);
+      incrementalAggregation(
           numRows,
-          frameMetadata.firstRow,
+          startRow,
           frameMetadata.lastRow,
           rawFrameEnds,
           resultOffset,
           result);
     } else {
+      fillArgVectors(frameMetadata.firstRow, frameMetadata.lastRow);
       simpleAggregation(
           numRows,
           frameMetadata.firstRow,
@@ -132,44 +154,67 @@ class AggregateWindowFunction : public exec::WindowFunction {
           resultOffset,
           result);
     }
+    previousFrameMetadata_ = frameMetadata;
   }
 
  private:
   struct FrameMetadata {
     // Min frame start row required for aggregation.
     vector_size_t firstRow;
+
     // Max frame end required for the aggregation.
     vector_size_t lastRow;
-    // Set to indicate if all rows require the same start row.
-    bool fixedFirstRow;
-    // Indicates if the frame end values are non-decreasing. If they are
-    // then we can perform optimizations to do incremental aggregation.
-    bool nonDecreasingFrameEnd;
+
+    // If all the rows in the block have the same start row, and the
+    // end frame rows are non-decreasing, then the aggregation can be done
+    // incrementally. With incremental aggregation new frame rows are
+    // accumulated over the previous result to obtain the new result.
+    bool incrementalAggregation;
+
+    // Resume incremental aggregation from the prior block.
+    bool usePreviousAggregate;
   };
 
-  FrameMetadata fillArgVectors(
+  FrameMetadata analyzeFrameValues(
       const vector_size_t* rawFrameStarts,
       const vector_size_t* rawFrameEnds,
       vector_size_t numRows) {
-    // Argument values are needed to compute the aggregate. The aggregate
-    // computation for each row needs the values from its frameStart to frameEnd
-    // indices. So for each apply() we read arguments from the least
-    // frameStart to the highest frameEnd value in the row block.
     vector_size_t firstRow = rawFrameStarts[0];
+    vector_size_t fixedFrameStartRow = firstRow;
     vector_size_t lastRow = rawFrameEnds[0];
 
-    bool nonDecreasingFrameEnd = true;
-    bool fixedFirstRow = true;
+    bool incrementalAggregation = true;
     for (int i = 1; i < numRows; i++) {
       firstRow = std::min(firstRow, rawFrameStarts[i]);
       lastRow = std::max(lastRow, rawFrameEnds[i]);
-      fixedFirstRow &= rawFrameStarts[i] == firstRow;
-      nonDecreasingFrameEnd &= rawFrameEnds[i] >= rawFrameEnds[i - 1];
+      // Incremental aggregation can be done if :
+      // i) All rows have the same frameStart value.
+      // ii) The frame end values are non-decreasing.
+      incrementalAggregation &= (rawFrameStarts[i] == fixedFrameStartRow);
+      incrementalAggregation &= rawFrameEnds[i] >= rawFrameEnds[i - 1];
     }
 
+    bool usePreviousAggregate = false;
+    if (previousFrameMetadata_.has_value()) {
+      auto previousFrame = previousFrameMetadata_.value();
+      // Incremental aggregation continues between blocks if :
+      // i) Their starting firstRow values are the same.
+      // ii) The nonDecreasing frameEnd property is also applicable between the
+      // lastRow of the first block and the first row of the current block.
+      if (incrementalAggregation && previousFrame.incrementalAggregation &&
+          previousFrame.firstRow == firstRow &&
+          previousFrame.lastRow <= rawFrameEnds[0]) {
+        usePreviousAggregate = true;
+      }
+    }
+
+    return {firstRow, lastRow, incrementalAggregation, usePreviousAggregate};
+  }
+
+  void fillArgVectors(vector_size_t firstRow, vector_size_t lastRow) {
     vector_size_t numFrameRows = lastRow + 1 - firstRow;
     for (int i = 0; i < argIndices_.size(); i++) {
-      argVectors_[i]->resize(numRows);
+      argVectors_[i]->resize(numFrameRows);
       // Only non-constant field argument vectors need to be populated. The
       // constant vectors are correctly set during aggregate initialization
       // itself.
@@ -178,8 +223,6 @@ class AggregateWindowFunction : public exec::WindowFunction {
             argIndices_[i], firstRow, numFrameRows, 0, argVectors_[i]);
       }
     }
-
-    return {firstRow, lastRow, fixedFirstRow, nonDecreasingFrameEnd};
   }
 
   void computeAggregate(
@@ -195,7 +238,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     aggregate_->extractValues(&rawSingleGroupRow_, 1, &aggregateResultVector_);
   }
 
-  void fixedStartAggregation(
+  void incrementalAggregation(
       vector_size_t numRows,
       vector_size_t startFrame,
       vector_size_t endFrame,
@@ -205,12 +248,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
     SelectivityVector rows;
     rows.resize(endFrame + 1 - startFrame);
 
-    auto singleGroup = std::vector<vector_size_t>{0};
-    // Initialize the aggregate at the beginning of the output block.
-    aggregate_->clear();
-    aggregate_->initializeNewGroups(&rawSingleGroupRow_, singleGroup);
     auto prevFrameEnd = 0;
-
     // This is a simple optimization for frames that have a fixed startFrame
     // and increasing frameEnd values. In that case, we can
     // incrementally aggregate over the new rows seen in the frame between
@@ -236,7 +274,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
       const VectorPtr& result) {
     SelectivityVector rows;
     rows.resize(maxFrame + 1 - minFrame);
-    auto singleGroup = std::vector<vector_size_t>{0};
+    static auto kSingleGroup = std::vector<vector_size_t>{0};
     for (int i = 0; i < numRows; i++) {
       // This is a very naive algorithm.
       // It evaluates the entire aggregation for each row by iterating over
@@ -245,7 +283,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
       // the aggregation based on the frame changes with each row. This would
       // require adding new APIs to the Aggregate framework.
       aggregate_->clear();
-      aggregate_->initializeNewGroups(&rawSingleGroupRow_, singleGroup);
+      aggregate_->initializeNewGroups(&rawSingleGroupRow_, kSingleGroup);
 
       auto frameStartIndex = frameStartsVector[i] - minFrame;
       auto frameEndIndex = frameEndsVector[i] - minFrame + 1;
@@ -278,6 +316,10 @@ class AggregateWindowFunction : public exec::WindowFunction {
   // Used for per-row aggregate computations.
   // This vector is used to copy from the aggregate to the result.
   VectorPtr aggregateResultVector_;
+
+  // Stores metadata about the previous output block of the partition
+  // to optimize aggregate computation and reading argument vectors.
+  std::optional<FrameMetadata> previousFrameMetadata_;
 };
 
 } // namespace
