@@ -98,13 +98,18 @@ void ValueList::appendRange(
   }
 }
 
-ValueListReader::ValueListReader(ValueList& values) : values_(values) {
-  HashStringAllocator::prepareRead(values_.dataBegin(), dataStream_);
-  HashStringAllocator::prepareRead(values_.nullsBegin(), nullsStream_);
+ValueListReader::ValueListReader(ValueList& values)
+    : size_{values.size()},
+      lastNullsStart_{size_ % 64 == 0 ? size_ - 64 : size_ - size_ % 64},
+      lastNulls_{values.lastNulls()} {
+  HashStringAllocator::prepareRead(values.dataBegin(), dataStream_);
+  HashStringAllocator::prepareRead(values.nullsBegin(), nullsStream_);
 }
 
 bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {
-  if (pos_ % 64 == 0) {
+  if (pos_ == lastNullsStart_) {
+    nulls_ = lastNulls_;
+  } else if (pos_ % 64 == 0) {
     nulls_ = nullsStream_.read<uint64_t>();
   }
 
@@ -116,6 +121,6 @@ bool ValueListReader::next(BaseVector& output, vector_size_t outputIndex) {
   }
 
   pos_++;
-  return pos_ < values_.size();
+  return pos_ < size_;
 }
 } // namespace facebook::velox::aggregate

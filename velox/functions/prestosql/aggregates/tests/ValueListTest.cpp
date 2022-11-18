@@ -49,7 +49,6 @@ class ValueListTest : public functions::test::FunctionBaseTest {
       for (auto i = 0; i < size; i++) {
         values.appendValue(decoded, i, allocator());
       }
-      values.finalize(allocator());
 
       ASSERT_EQ(size, values.size());
       auto result = read(values, data->type(), size);
@@ -61,7 +60,6 @@ class ValueListTest : public functions::test::FunctionBaseTest {
     {
       aggregate::ValueList values;
       values.appendRange(data, 0, size, allocator());
-      values.finalize(allocator());
 
       ASSERT_EQ(size, values.size());
       auto result = read(values, data->type(), size);
@@ -81,8 +79,6 @@ class ValueListTest : public functions::test::FunctionBaseTest {
 
 TEST_F(ValueListTest, empty) {
   aggregate::ValueList values;
-  values.finalize(allocator());
-
   ASSERT_EQ(0, values.size());
 }
 

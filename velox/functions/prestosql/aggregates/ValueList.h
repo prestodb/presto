@@ -43,13 +43,6 @@ class ValueList {
     return size_;
   }
 
-  // Called after all data has been appended.
-  void finalize(HashStringAllocator* allocator) {
-    if (size_ != 0) {
-      writeLastNulls(allocator);
-    }
-  }
-
   // Called after 'finalize()' to get access to 'data' allocation.
   HashStringAllocator::Header* dataBegin() {
     return dataBegin_;
@@ -58,6 +51,10 @@ class ValueList {
   // Called after 'finalize()' to get access to 'nulls' allocation.
   HashStringAllocator::Header* nullsBegin() {
     return nullsBegin_;
+  }
+
+  uint64_t lastNulls() const {
+    return lastNulls_;
   }
 
   void free(HashStringAllocator* allocator) {
@@ -113,7 +110,9 @@ class ValueListReader {
   bool next(BaseVector& output, vector_size_t outputIndex);
 
  private:
-  ValueList& values_;
+  const vector_size_t size_;
+  const vector_size_t lastNullsStart_;
+  const uint64_t lastNulls_;
   ByteStream dataStream_;
   ByteStream nullsStream_;
   uint64_t nulls_;
