@@ -18,6 +18,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 #include "velox/expression/tests/ArgumentTypeFuzzer.h"
@@ -159,10 +160,24 @@ class AggregationFuzzer {
       const std::vector<RowVectorPtr>& input,
       const core::PlanNodePtr& plan);
 
-  ResultOrError execute(const core::PlanNodePtr& plan);
+  ResultOrError execute(const core::PlanNodePtr& plan, bool injectSpill);
 
   void testPlans(
       const std::vector<core::PlanNodePtr>& plans,
+      bool verifyResults,
+      const ResultOrError& expected) {
+    for (auto i = 0; i < plans.size(); ++i) {
+      LOG(INFO) << "Testing plan #" << i;
+      testPlan(plans[i], false /*injectSpill*/, verifyResults, expected);
+
+      LOG(INFO) << "Testing plan #" << i << " with spilling";
+      testPlan(plans[i], true /*injectSpill*/, verifyResults, expected);
+    }
+  }
+
+  void testPlan(
+      const core::PlanNodePtr& plan,
+      bool injectSpill,
       bool verifyResults,
       const ResultOrError& expected);
 
@@ -540,14 +555,24 @@ void AggregationFuzzer::go() {
   stats_.print(iteration);
 }
 
-ResultOrError AggregationFuzzer::execute(const core::PlanNodePtr& plan) {
+ResultOrError AggregationFuzzer::execute(
+    const core::PlanNodePtr& plan,
+    bool injectSpill) {
   LOG(INFO) << "Executing query plan: " << std::endl
             << plan->toString(true, true);
 
   ResultOrError resultOrError;
   try {
-    resultOrError.result =
-        AssertQueryBuilder(plan).maxDrivers(2).copyResults(pool_.get());
+    std::shared_ptr<TempDirectoryPath> spillDirectory;
+    AssertQueryBuilder builder(plan);
+    if (injectSpill) {
+      spillDirectory = exec::test::TempDirectoryPath::create();
+      builder.config(core::QueryConfig::kSpillEnabled, "true")
+          .config(core::QueryConfig::kAggregationSpillEnabled, "true")
+          .config(core::QueryConfig::kTestingSpillPct, "100")
+          .config(core::QueryConfig::kSpillPath, spillDirectory->path);
+    }
+    resultOrError.result = builder.maxDrivers(2).copyResults(pool_.get());
     LOG(INFO) << resultOrError.result->toString();
   } catch (VeloxUserError& e) {
     // NOTE: velox user exception is accepted as it is caused by the invalid
@@ -635,14 +660,13 @@ std::optional<MaterializedRowMultiset> AggregationFuzzer::computeDuckDbResult(
       makeDuckDbSql(groupingKeys, aggregates, masks, projections), outputType);
 }
 
-std::vector<core::PlanNodePtr> makeAlternativePlans(
+void makeAlternativePlans(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     const std::vector<std::string>& projections,
-    const std::vector<RowVectorPtr>& inputVectors) {
-  std::vector<core::PlanNodePtr> plans;
-
+    const std::vector<RowVectorPtr>& inputVectors,
+    std::vector<core::PlanNodePtr>& plans) {
   // Partial -> final aggregation plan.
   plans.push_back(PlanBuilder()
                       .values(inputVectors)
@@ -680,18 +704,15 @@ std::vector<core::PlanNodePtr> makeAlternativePlans(
                       .finalAggregation()
                       .optionalProject(projections)
                       .planNode());
-
-  return plans;
 }
 
-std::vector<core::PlanNodePtr> makeStreamingPlans(
+void makeStreamingPlans(
     const std::vector<std::string>& groupingKeys,
     const std::vector<std::string>& aggregates,
     const std::vector<std::string>& masks,
     const std::vector<std::string>& projections,
-    const std::vector<RowVectorPtr>& inputVectors) {
-  std::vector<core::PlanNodePtr> plans;
-
+    const std::vector<RowVectorPtr>& inputVectors,
+    std::vector<core::PlanNodePtr>& plans) {
   // Single aggregation.
   plans.push_back(PlanBuilder()
                       .values(inputVectors)
@@ -748,32 +769,28 @@ std::vector<core::PlanNodePtr> makeStreamingPlans(
                       .finalAggregation()
                       .optionalProject(projections)
                       .planNode());
-
-  return plans;
 }
 
-void AggregationFuzzer::testPlans(
-    const std::vector<core::PlanNodePtr>& plans,
+void AggregationFuzzer::testPlan(
+    const core::PlanNodePtr& plan,
+    bool injectSpill,
     bool verifyResults,
     const ResultOrError& expected) {
-  for (const auto& plan : plans) {
-    auto actual = execute(plan);
+  auto actual = execute(plan, injectSpill);
 
-    // Compare results or exceptions (if any). Fail is anything is different.
-    if (expected.exceptionPtr || actual.exceptionPtr) {
-      // Throws in case exceptions are not compatible.
-      velox::test::compareExceptions(
-          expected.exceptionPtr, actual.exceptionPtr);
-    } else if (verifyResults) {
-      VELOX_CHECK(
-          assertEqualResults({expected.result}, {actual.result}),
-          "Logically equivalent plans produced different results");
-    } else {
-      VELOX_CHECK_EQ(
-          expected.result->size(),
-          actual.result->size(),
-          "Logically equivalent plans produced different number of rows");
-    }
+  // Compare results or exceptions (if any). Fail is anything is different.
+  if (expected.exceptionPtr || actual.exceptionPtr) {
+    // Throws in case exceptions are not compatible.
+    velox::test::compareExceptions(expected.exceptionPtr, actual.exceptionPtr);
+  } else if (verifyResults) {
+    VELOX_CHECK(
+        assertEqualResults({expected.result}, {actual.result}),
+        "Logically equivalent plans produced different results");
+  } else {
+    VELOX_CHECK_EQ(
+        expected.result->size(),
+        actual.result->size(),
+        "Logically equivalent plans produced different number of rows");
   }
 }
 
@@ -795,7 +812,7 @@ void AggregationFuzzer::verify(
   }
 
   try {
-    auto resultOrError = execute(plan);
+    auto resultOrError = execute(plan, false);
     if (resultOrError.exceptionPtr) {
       ++stats_.numFailed;
     }
@@ -819,9 +836,9 @@ void AggregationFuzzer::verify(
           "Velox and DuckDB results don't match");
     }
 
-    auto altPlans = makeAlternativePlans(
-        groupingKeys, aggregates, masks, projections, input);
-    testPlans(altPlans, verifyResults, resultOrError);
+    std::vector<core::PlanNodePtr> plans;
+    makeAlternativePlans(
+        groupingKeys, aggregates, masks, projections, input, plans);
 
     // Evaluate same plans on flat inputs.
     std::vector<RowVectorPtr> flatInput;
@@ -832,21 +849,20 @@ void AggregationFuzzer::verify(
       flatInput.push_back(flat);
     }
 
-    altPlans = makeAlternativePlans(
-        groupingKeys, aggregates, masks, projections, flatInput);
-    testPlans(altPlans, verifyResults, resultOrError);
+    makeAlternativePlans(
+        groupingKeys, aggregates, masks, projections, flatInput, plans);
 
     if (!groupingKeys.empty()) {
       // Use OrderBy + StreamingAggregation on original input.
-      altPlans = makeStreamingPlans(
-          groupingKeys, aggregates, masks, projections, input);
-      testPlans(altPlans, verifyResults, resultOrError);
+      makeStreamingPlans(
+          groupingKeys, aggregates, masks, projections, input, plans);
 
       // Use OrderBy + StreamingAggregation on flattened input.
-      altPlans = makeStreamingPlans(
-          groupingKeys, aggregates, masks, projections, flatInput);
-      testPlans(altPlans, verifyResults, resultOrError);
+      makeStreamingPlans(
+          groupingKeys, aggregates, masks, projections, flatInput, plans);
     }
+
+    testPlans(plans, verifyResults, resultOrError);
 
   } catch (...) {
     if (!reproPersistPath_.empty()) {

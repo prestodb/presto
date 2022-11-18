@@ -22,9 +22,11 @@
 #include <unordered_set>
 #include <vector>
 
+#include "velox/common/file/FileSystems.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/tests/AggregationFuzzer.h"
 #include "velox/parse/TypeResolver.h"
+#include "velox/serializers/PrestoSerializer.h"
 
 /// AggregationFuzzerRunner leverages AggregationFuzzer and VectorFuzzer to
 /// automatically generate and execute aggregation tests. It works by:
@@ -84,6 +86,9 @@ class AggregationFuzzerRunner {
     }
 
     facebook::velox::parse::registerTypeResolver();
+    facebook::velox::serializer::presto::PrestoVectorSerde::
+        registerVectorSerde();
+    facebook::velox::filesystems::registerLocalFileSystem();
 
     facebook::velox::exec::test::aggregateFuzzer(
         filteredSignatures, seed, orderDependentFunctions);

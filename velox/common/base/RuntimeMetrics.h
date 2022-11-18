@@ -87,10 +87,12 @@ void addThreadLocalRuntimeStat(
 /// Scope guard to conveniently set and revert back the current stat writer.
 class RuntimeStatWriterScopeGuard {
  public:
-  RuntimeStatWriterScopeGuard(BaseRuntimeStatWriter* FOLLY_NULLABLE writer)
+  explicit RuntimeStatWriterScopeGuard(
+      BaseRuntimeStatWriter* FOLLY_NULLABLE writer)
       : prevWriter_(getThreadLocalRunTimeStatWriter()) {
     setThreadLocalRunTimeStatWriter(writer);
   }
+
   ~RuntimeStatWriterScopeGuard() {
     setThreadLocalRunTimeStatWriter(prevWriter_);
   }
