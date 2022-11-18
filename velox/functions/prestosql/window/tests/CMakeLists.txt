@@ -13,8 +13,14 @@
 # limitations under the License.
 
 add_executable(
-  velox_windows_test Main.cpp NthValueTest.cpp RankTest.cpp RowNumberTest.cpp
-                     SimpleAggregatesTest.cpp WindowTestBase.cpp)
+  velox_windows_test
+  Main.cpp
+  NthValueTest.cpp
+  NtileTest.cpp
+  RankTest.cpp
+  RowNumberTest.cpp
+  SimpleAggregatesTest.cpp
+  WindowTestBase.cpp)
 
 add_test(
   NAME velox_windows_test

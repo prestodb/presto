@@ -23,6 +23,7 @@ extern void registerRank(const std::string& name);
 extern void registerDenseRank(const std::string& name);
 extern void registerPercentRank(const std::string& name);
 extern void registerCumeDist(const std::string& name);
+extern void registerNtile(const std::string& name);
 extern void registerNthValue(const std::string& name);
 extern void registerAggregateWindowFunction(const std::string& name);
 
@@ -32,6 +33,7 @@ void registerWindowFunctions() {
   window::registerDenseRank("dense_rank");
   window::registerPercentRank("percent_rank");
   window::registerCumeDist("cume_dist");
+  window::registerNtile("ntile");
   window::registerNthValue("nth_value");
 
   // Register all aggregate functions as window functions.
