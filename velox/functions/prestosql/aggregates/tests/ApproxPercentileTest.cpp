@@ -319,7 +319,7 @@ TEST_F(ApproxPercentileTest, invalidEncoding) {
       AlignedBuffer::allocate<vector_size_t>(1, pool(), 0),
       AlignedBuffer::allocate<vector_size_t>(1, pool(), 3),
       BaseVector::wrapInDictionary(
-          nullptr, indices, 1, makeFlatVector<double>({0, 0.5, 1})));
+          nullptr, indices, 3, makeFlatVector<double>({0, 0.5, 1})));
   auto rows = makeRowVector({
       makeFlatVector<int32_t>(10, folly::identity),
       BaseVector::wrapInConstant(1, 0, percentiles),
