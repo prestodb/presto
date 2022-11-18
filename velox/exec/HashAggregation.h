@@ -52,19 +52,27 @@ class HashAggregation : public Operator {
   }
 
  private:
+  // Checks if the spilling is allowed for this hash aggregation. As for now, we
+  // don't allow spilling for distinct aggregation
+  // (https://github.com/facebookincubator/velox/issues/3263) and pre-grouped
+  // aggregation (https://github.com/facebookincubator/velox/issues/3264). We
+  // will add support later to re-enable.
+  bool isSpillAllowed(
+      const std::shared_ptr<const core::AggregationNode>& node) const;
+
   void prepareOutput(vector_size_t size);
 
-  /// Invoked to reset partial aggregation state if it was full and has been
-  /// flushed.
+  // Invoked to reset partial aggregation state if it was full and has been
+  // flushed.
   void resetPartialOutputIfNeed();
 
-  /// Invoked on partial output flush to try to bump up the partial aggregation
-  /// memory usage if it needs. 'aggregationPct' is the ratio between the number
-  /// of output rows and the number of input rows as a percentage. It is a
-  /// measure of the effectiveness of the partial aggregation.
+  // Invoked on partial output flush to try to bump up the partial aggregation
+  // memory usage if it needs. 'aggregationPct' is the ratio between the number
+  // of output rows and the number of input rows as a percentage. It is a
+  // measure of the effectiveness of the partial aggregation.
   void maybeIncreasePartialAggregationMemoryUsage(double aggregationPct);
 
-  /// Maximum number of rows in the output batch.
+  // Maximum number of rows in the output batch.
   const uint32_t outputBatchSize_;
 
   const bool isPartialOutput_;

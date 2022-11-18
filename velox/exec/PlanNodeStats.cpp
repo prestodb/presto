@@ -70,6 +70,10 @@ void PlanNodeStats::addTotals(const OperatorStats& stats) {
   }
 
   numSplits += stats.numSplits;
+
+  spilledBytes += stats.spilledBytes;
+  spilledRows += stats.spilledRows;
+  spilledPartitions += stats.spilledPartitions;
 }
 
 std::string PlanNodeStats::toString(bool includeInputStats) const {

@@ -215,8 +215,8 @@ class GroupingSet {
   /// First row in remainingInput_ that needs to be processed.
   vector_size_t firstRemainingRow_;
 
-  /// The value of mayPushdown flag specified in addInput() for the
-  /// 'remainingInput_'.
+  // The value of mayPushdown flag specified in addInput() for the
+  // 'remainingInput_'.
   bool remainingMayPushdown_;
 
   std::unique_ptr<Spiller> spiller_;

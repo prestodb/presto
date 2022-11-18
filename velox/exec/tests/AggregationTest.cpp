@@ -1351,5 +1351,62 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
   }
 }
 
+TEST_F(AggregationTest, distinctWithSpilling) {
+  auto vectors = makeVectors(rowType_, 10, 100);
+  createDuckDbTable(vectors);
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  core::PlanNodeId aggrNodeId;
+  auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .config(QueryConfig::kSpillEnabled, "true")
+                  .config(QueryConfig::kAggregationSpillEnabled, "true")
+                  .config(QueryConfig::kSpillPath, spillDirectory->path)
+                  .config(QueryConfig::kTestingSpillPct, "100")
+                  .plan(PlanBuilder()
+                            .values(vectors)
+                            .singleAggregation({"c0"}, {}, {})
+                            .capturePlanNodeId(aggrNodeId)
+                            .planNode())
+                  .assertResults("SELECT distinct c0 FROM tmp");
+  // Verify that spilling is not triggered.
+  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
+}
+
+TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
+  std::vector<RowVectorPtr> vectors;
+  int64_t val = 0;
+  for (int32_t i = 0; i < 4; ++i) {
+    vectors.push_back(makeRowVector(
+        {// Pre-grouped key.
+         makeFlatVector<int64_t>(10, [&](auto /*row*/) { return val++ / 5; }),
+         // Payload.
+         makeFlatVector<int64_t>(10, [](auto row) { return row; }),
+         makeFlatVector<int64_t>(10, [](auto row) { return row; })}));
+  }
+  createDuckDbTable(vectors);
+  auto spillDirectory = exec::test::TempDirectoryPath::create();
+  core::PlanNodeId aggrNodeId;
+  auto task =
+      AssertQueryBuilder(duckDbQueryRunner_)
+          .config(QueryConfig::kSpillEnabled, "true")
+          .config(QueryConfig::kAggregationSpillEnabled, "true")
+          .config(QueryConfig::kSpillPath, spillDirectory->path)
+          .config(QueryConfig::kTestingSpillPct, "100")
+          .plan(PlanBuilder()
+                    .values(vectors)
+                    .aggregation(
+                        {"c0", "c1"},
+                        {"c0"},
+                        {"sum(c2)"},
+                        {},
+                        core::AggregationNode::Step::kSingle,
+                        false)
+                    .capturePlanNodeId(aggrNodeId)
+                    .planNode())
+          .assertResults("SELECT c0, c1, sum(c2) FROM tmp GROUP BY c0, c1");
+  auto stats = task->taskStats().pipelineStats;
+  // Verify that spilling is not triggered.
+  ASSERT_EQ(toPlanStats(task->taskStats()).at(aggrNodeId).spilledBytes, 0);
+}
+
 } // namespace
 } // namespace facebook::velox::exec::test
