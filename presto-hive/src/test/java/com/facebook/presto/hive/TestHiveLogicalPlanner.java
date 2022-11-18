@@ -64,6 +64,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hadoop.fs.Path;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -81,6 +82,7 @@ import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUER
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_CALL_THRESHOLD;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_METADATA_QUERIES_IGNORE_STATS;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.predicate.Domain.create;
 import static com.facebook.presto.common.predicate.Domain.multipleValues;
@@ -822,13 +824,25 @@ public class TestHiveLogicalPlanner
         }
     }
 
-    @Test
-    public void testMetadataAggregationFoldingWithFilters()
+    @DataProvider(name = "optimize_metadata_filter_properties")
+    public static Object[][] optimizeMetadataFilterProperties()
+    {
+        return new Object[][] {
+                {true, true},
+                {true, false},
+                {false, true},
+                {false, false}
+        };
+    }
+
+    @Test(dataProvider = "optimize_metadata_filter_properties")
+    public void testMetadataAggregationFoldingWithFilters(boolean pushdownSubfieldsEnabled, boolean pushdownFilterEnabled)
     {
         QueryRunner queryRunner = getQueryRunner();
         Session optimizeMetadataQueries = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.toString(true))
-                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, Boolean.toString(true))
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, Boolean.toString(pushdownSubfieldsEnabled))
+                .setCatalogSessionProperty(HIVE_CATALOG, PUSHDOWN_FILTER_ENABLED, Boolean.toString(pushdownFilterEnabled))
                 .build();
         Session shufflePartitionColumns = Session.builder(this.getQueryRunner().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG, SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.toString(true))
@@ -837,13 +851,22 @@ public class TestHiveLogicalPlanner
         queryRunner.execute(
                 shufflePartitionColumns,
                 "CREATE TABLE test_metadata_aggregation_folding_with_filters WITH (partitioned_by = ARRAY['ds']) AS " +
-                        "SELECT orderkey, ARRAY[orderstatus] AS orderstatus, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
+                        "SELECT orderkey, ARRAY[orderstatus] AS orderstatus, CAST (ROW (orderkey) as ROW(subfield BIGINT)) AS struct, CAST(to_iso8601(date_add('DAY', orderkey % 2, date('2020-07-01'))) AS VARCHAR) AS ds FROM orders WHERE orderkey < 1000");
 
         try {
             // There is a filter on non-partition column which can be pushed down to the connector. Disable the rewrite.
             assertPlan(
                     optimizeMetadataQueries,
                     "SELECT max(ds) from test_metadata_aggregation_folding_with_filters WHERE contains(orderstatus, 'F')",
+                    anyTree(
+                            tableScanWithConstraint(
+                                    "test_metadata_aggregation_folding_with_filters",
+                                    ImmutableMap.of("ds", multipleValues(VARCHAR, utf8Slices("2020-07-01", "2020-07-02"))))));
+
+            // There is a filter on a subfield of non-partition column which can be pushed down to the connector. Disable the rewrite.
+            assertPlan(
+                    optimizeMetadataQueries,
+                    "SELECT max(ds) from test_metadata_aggregation_folding_with_filters WHERE struct.subfield is null",
                     anyTree(
                             tableScanWithConstraint(
                                     "test_metadata_aggregation_folding_with_filters",
