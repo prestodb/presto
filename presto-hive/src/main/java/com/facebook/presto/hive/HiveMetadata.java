@@ -2840,15 +2840,28 @@ public class HiveMetadata
         }
 
         TupleDomain<ColumnHandle> predicate;
+        RowExpression subfieldPredicate;
         if (hiveLayoutHandle.isPushdownFilterEnabled()) {
             predicate = hiveLayoutHandle.getDomainPredicate()
                     .transform(subfield -> isEntireColumn(subfield) ? subfield.getRootName() : null)
                     .transform(hiveLayoutHandle.getPredicateColumns()::get)
                     .transform(ColumnHandle.class::cast)
                     .intersect(createPredicate(partitionColumns, partitions));
+
+            // capture subfields from domainPredicate to add to remainingPredicate
+            // so those filters don't get lost
+            Map<String, Type> columnTypes = hiveColumnHandles(table).stream()
+                    .collect(toImmutableMap(HiveColumnHandle::getName, columnHandle -> columnHandle.getColumnMetadata(typeManager).getType()));
+            SubfieldExtractor subfieldExtractor = new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(), session);
+
+            subfieldPredicate = rowExpressionService.getDomainTranslator().toPredicate(
+                    hiveLayoutHandle.getDomainPredicate()
+                            .transform(subfield -> !isEntireColumn(subfield) ? subfield : null)
+                            .transform(subfield -> subfieldExtractor.toRowExpression(subfield, columnTypes.get(subfield.getRootName()))));
         }
         else {
             predicate = createPredicate(partitionColumns, partitions);
+            subfieldPredicate = TRUE_CONSTANT;
         }
 
         // Expose ordering property of the table when order based execution is enabled.
@@ -2880,6 +2893,12 @@ public class HiveMetadata
             streamPartitionColumns = Optional.of(streamPartitionColumnsBuilder.build());
         }
 
+        // combine subfieldPredicate with remainingPredicate
+        List<RowExpression> predicatesToCombine = ImmutableList.of(subfieldPredicate, hiveLayoutHandle.getRemainingPredicate()).stream()
+                .filter(p -> !p.equals(TRUE_CONSTANT))
+                .collect(toImmutableList());
+        RowExpression combinedRemainingPredicate = binaryExpression(SpecialFormExpression.Form.AND, predicatesToCombine);
+
         return new ConnectorTableLayout(
                 hiveLayoutHandle,
                 Optional.empty(),
@@ -2888,7 +2907,7 @@ public class HiveMetadata
                 streamPartitionColumns,
                 discretePredicates,
                 localPropertyBuilder.build(),
-                Optional.of(hiveLayoutHandle.getRemainingPredicate()));
+                Optional.of(combinedRemainingPredicate));
     }
 
     @Override
