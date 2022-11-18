@@ -15,7 +15,9 @@
  */
 #pragma once
 
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <gtest/gtest.h>
+
 #include "velox/common/caching/SsdCache.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanNode.h"
@@ -135,5 +137,11 @@ class OperatorTestBase : public testing::Test,
 
   // Used as default MappedMemory. Created on first use.
   static std::shared_ptr<cache::AsyncDataCache> asyncDataCache_;
+
+  // Used for driver thread execution.
+  std::unique_ptr<folly::CPUThreadPoolExecutor> driverExecutor_;
+
+  // Used for IO prefetch and spilling.
+  std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
 };
 } // namespace facebook::velox::exec::test

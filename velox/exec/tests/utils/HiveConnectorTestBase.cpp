@@ -31,19 +31,15 @@ HiveConnectorTestBase::HiveConnectorTestBase() {
 
 void HiveConnectorTestBase::SetUp() {
   OperatorTestBase::SetUp();
-  executor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
   auto hiveConnector =
       connector::getConnectorFactory(
           connector::hive::HiveConnectorFactory::kHiveConnectorName)
-          ->newConnector(kHiveConnectorId, nullptr, executor_.get());
+          ->newConnector(kHiveConnectorId, nullptr, ioExecutor_.get());
   connector::registerConnector(hiveConnector);
   dwrf::registerDwrfReaderFactory();
 }
 
 void HiveConnectorTestBase::TearDown() {
-  if (executor_) {
-    executor_->join();
-  }
   dwrf::unregisterDwrfReaderFactory();
   connector::unregisterConnector(kHiveConnectorId);
   OperatorTestBase::TearDown();

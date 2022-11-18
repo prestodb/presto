@@ -65,6 +65,8 @@ void OperatorTestBase::SetUp() {
   if (!isRegisteredVectorSerde()) {
     this->registerVectorSerde();
   }
+  driverExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(3);
+  ioExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(3);
 }
 
 void OperatorTestBase::SetUpTestCase() {

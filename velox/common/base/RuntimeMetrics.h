@@ -77,7 +77,7 @@ void setThreadLocalRunTimeStatWriter(
     BaseRuntimeStatWriter* FOLLY_NULLABLE writer);
 
 /// Retrives the current runtime stats writer.
-BaseRuntimeStatWriter* getThreadLocalRunTimeStatWriter();
+BaseRuntimeStatWriter* FOLLY_NULLABLE getThreadLocalRunTimeStatWriter();
 
 /// Writes runtime counter to the current Operator running on that thread.
 void addThreadLocalRuntimeStat(
@@ -87,7 +87,7 @@ void addThreadLocalRuntimeStat(
 /// Scope guard to conveniently set and revert back the current stat writer.
 class RuntimeStatWriterScopeGuard {
  public:
-  RuntimeStatWriterScopeGuard(BaseRuntimeStatWriter* writer)
+  RuntimeStatWriterScopeGuard(BaseRuntimeStatWriter* FOLLY_NULLABLE writer)
       : prevWriter_(getThreadLocalRunTimeStatWriter()) {
     setThreadLocalRunTimeStatWriter(writer);
   }

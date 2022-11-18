@@ -90,7 +90,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
       "task-1",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(executor_.get()));
+      std::make_shared<core::QueryCtx>(driverExecutor_.get()));
 
   // Add split for the source node.
   task.addSplit("0", exec::Split(folly::copy(connectorSplit)));
@@ -142,7 +142,7 @@ TEST_F(TaskTest, wrongPlanNodeForSplit) {
       "task-2",
       std::move(plan),
       0,
-      std::make_shared<core::QueryCtx>(executor_.get()));
+      std::make_shared<core::QueryCtx>(driverExecutor_.get()));
   errorMessage =
       "Splits can be associated only with leaf plan nodes which require splits. Plan node ID 0 doesn't refer to such plan node.";
   VELOX_ASSERT_THROW(
@@ -168,7 +168,7 @@ TEST_F(TaskTest, duplicatePlanNodeIds) {
           "task-1",
           std::move(plan),
           0,
-          std::make_shared<core::QueryCtx>(executor_.get())),
+          std::make_shared<core::QueryCtx>(driverExecutor_.get())),
       "Plan node IDs must be unique. Found duplicate ID: 0.")
 }
 
@@ -646,7 +646,7 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
           .limit(0, 1, false)
           .planNode();
 
-  // Setup the test value to generate the race condition that the output
+  // Set up the test value to generate the race condition that the output
   // pipeline finishes early and terminate the task while the input pipeline
   // driver is running on thread.
   ContinuePromise mergePromise("mergePromise");
@@ -687,11 +687,11 @@ DEBUG_ONLY_TEST_F(TaskTest, outputDriverFinishEarly) {
 
   CursorParameters params;
   params.planNode = plan;
-  params.queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
+  params.queryCtx = std::make_shared<core::QueryCtx>(driverExecutor_.get());
   params.queryCtx->setConfigOverridesUnsafe(
       {{core::QueryConfig::kPreferredOutputBatchSize, "1"}});
   auto task = assertQueryOrdered(params, "VALUES (0)", {0});
-  waitForTaskCompletion(task.get(), 1'000'000);
+  ASSERT_TRUE(waitForTaskCompletion(task.get(), 1'000'000));
   task.reset();
   valuePromise.setValue();
   // Wait for Values driver to complete.
