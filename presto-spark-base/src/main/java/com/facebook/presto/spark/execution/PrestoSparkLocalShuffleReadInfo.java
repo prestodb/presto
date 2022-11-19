@@ -22,14 +22,14 @@ import static java.util.Objects.requireNonNull;
 public class PrestoSparkLocalShuffleReadInfo
         implements PrestoSparkShuffleReadInfo
 {
-    private final int maxBytesPerPartition;
+    private final long maxBytesPerPartition;
     private final int numPartitions;
     private final int partitionId;
     private final String rootPath;
 
     @JsonCreator
     public PrestoSparkLocalShuffleReadInfo(
-            @JsonProperty("maxBytesPerPartition") int maxBytesPerPartition,
+            @JsonProperty("maxBytesPerPartition") long maxBytesPerPartition,
             @JsonProperty("numPartitions") int numPartitions,
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("rootPath") String rootPath)
@@ -41,7 +41,7 @@ public class PrestoSparkLocalShuffleReadInfo
     }
 
     @JsonProperty
-    public int getMaxBytesPerPartition()
+    public long getMaxBytesPerPartition()
     {
         return maxBytesPerPartition;
     }
