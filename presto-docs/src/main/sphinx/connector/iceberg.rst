@@ -18,11 +18,82 @@ To configure the Iceberg connector, create a catalog properties file
 ``etc/catalog/iceberg.properties`` with the following contents,
 replacing the properties as appropriate:
 
+Hive Metastore catalog
+^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg connector supports the same configuration for
+`HMS <https://prestodb.io/docs/current/connector/hive.html#metastore-configuration-properties>`_
+as Hive connector.
+
 .. code-block:: none
 
     connector.name=iceberg
     hive.metastore.uri=hostname:port
     iceberg.catalog.type=hive
+
+Glue catalog
+^^^^^^^^^^^^
+
+Iceberg connector supports the same configuration for
+`Glue <https://prestodb.io/docs/current/connector/hive.html#aws-glue-catalog-configuration-properties>`_
+as Hive connector.
+
+.. code-block:: none
+
+    connector.name=iceberg
+    hive.metastore=glue
+    iceberg.catalog.type=hive
+
+Nessie catalog
+^^^^^^^^^^^^^^
+
+In order to use a Nessie catalog, ensure to configure the catalog type with
+``iceberg.catalog.type=nessie`` and provide further details with the following
+properties:
+
+==================================================== ============================================================
+Property Name                                        Description
+==================================================== ============================================================
+``iceberg.nessie.ref``                               The branch/tag to use for Nessie, defaults to ``main``.
+
+``iceberg.nessie.uri``                               Nessie API endpoint URI (required).
+                                                     Example: ``https://localhost:19120/api/v1``
+
+``iceberg.nessie.auth.type``                         The authentication type to use.
+                                                     Available values are ``BASIC`` or ``BEARER``.
+                                                     Example: ``BEARER``
+
+``iceberg.nessie.auth.basic.username``               The username to use with ``BASIC`` authentication.
+                                                     Example: ``test_user``
+
+``iceberg.nessie.auth.basic.password``               The password to use with ``BASIC`` authentication.
+                                                     Example: ``my$ecretPass``
+
+``iceberg.nessie.auth.bearer.token``                 The token to use with ``BEARER`` authentication.
+                                                     Example: ``SXVLUXUhIExFQ0tFUiEK``
+
+``iceberg.nessie.read-timeout-ms``                   The read timeout in milliseconds for requests
+                                                     to the Nessie server.
+                                                     Example: ``5000``
+
+``iceberg.nessie.connect-timeout-ms``                The connection timeout in milliseconds for connection
+                                                     requests to the Nessie server.
+                                                     Example: ``10000``
+
+``iceberg.nessie.compression-enabled``               Configuration of whether compression should be enabled or
+                                                     not for requests to the Nessie server, defaults to ``true``.
+
+``iceberg.nessie.client-builder-impl``               Configuration of the custom ClientBuilder implementation
+                                                     class to be used.
+
+==================================================== ============================================================
+
+.. code-block:: none
+
+    connector.name=iceberg
+    iceberg.catalog.type=nessie
+    iceberg.catalog.warehouse=/tmp
+    iceberg.nessie.uri=https://localhost:19120/api/v1
 
 Configuration Properties
 ------------------------
@@ -125,58 +196,6 @@ A low value may improve performance on tables with small files. A higher value m
 performance for queries with highly skewed aggregations or joins.
 
 The default is 0.05.
-
-Nessie catalog
-^^^^^^^^^^^^^^
-
-In order to use a Nessie catalog, ensure to configure the catalog type with
-``iceberg.catalog.type=nessie`` and provide further details with the following
-properties:
-
-==================================================== ============================================================
-Property Name                                        Description
-==================================================== ============================================================
-``iceberg.nessie.ref``                               The branch/tag to use for Nessie, defaults to ``main``.
-
-``iceberg.nessie.uri``                               Nessie API endpoint URI (required).
-                                                     Example: ``https://localhost:19120/api/v1``
-
-``iceberg.nessie.auth.type``                         The authentication type to use.
-                                                     Available values are ``BASIC`` or ``BEARER``.
-                                                     Example: ``BEARER``
-
-``iceberg.nessie.auth.basic.username``               The username to use with ``BASIC`` authentication.
-                                                     Example: ``test_user``
-
-``iceberg.nessie.auth.basic.password``               The password to use with ``BASIC`` authentication.
-                                                     Example: ``my$ecretPass``
-
-``iceberg.nessie.auth.bearer.token``                 The token to use with ``BEARER`` authentication.
-                                                     Example: ``SXVLUXUhIExFQ0tFUiEK``
-
-``iceberg.nessie.read-timeout-ms``                   The read timeout in milliseconds for requests
-                                                     to the Nessie server.
-                                                     Example: ``5000``
-
-``iceberg.nessie.connect-timeout-ms``                The connection timeout in milliseconds for connection
-                                                     requests to the Nessie server.
-                                                     Example: ``10000``
-
-``iceberg.nessie.compression-enabled``               Configuration of whether compression should be enabled or
-                                                     not for requests to the Nessie server, defaults to ``true``.
-
-``iceberg.nessie.client-builder-impl``               Configuration of the custom ClientBuilder implementation
-                                                     class to be used.
-
-==================================================== ============================================================
-
-.. code-block:: none
-
-    connector.name=iceberg
-    iceberg.catalog.type=nessie
-    iceberg.catalog.warehouse=/tmp
-    iceberg.nessie.uri=https://localhost:19120/api/v1
-
 
 Schema Evolution
 ------------------------
