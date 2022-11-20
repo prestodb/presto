@@ -61,6 +61,7 @@ public class ClickHouseComputePushdown
     private final ClickHouseFilterToSqlTranslator clickHouseFilterToSqlTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
     private final ClickHouseQueryGenerator clickhouseQueryGenerator;
+    private static final String PushdownException = "avg";
 
     public ClickHouseComputePushdown(
             FunctionMetadataManager functionMetadataManager,
@@ -145,15 +146,12 @@ public class ClickHouseComputePushdown
 
     private class Visitor
             extends PlanVisitor<PlanNode, Void>
-//    private class Rewriter
-//            extends ConnectorPlanRewriter<Void>
     {
         private final ConnectorSession session;
         private final PlanNodeIdAllocator idAllocator;
         private final Map<PlanNodeId, TableScanNode> tableScanNodes;
 
         public Visitor(Map<PlanNodeId, TableScanNode> tableScanNodes, ConnectorSession session, PlanNodeIdAllocator idAllocator)
-//        public Rewriter(Map<PlanNodeId, TableScanNode> tableScanNodes, ConnectorSession session, PlanNodeIdAllocator idAllocator)
         {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
@@ -163,11 +161,11 @@ public class ClickHouseComputePushdown
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
         {
-            Optional<ClickHouseQueryGenerator.ClickHouseQueryGeneratorResult> ckql = clickhouseQueryGenerator.generate(plan, session);
-            if (!ckql.isPresent()) {
+            Optional<ClickHouseQueryGenerator.ClickHouseQueryGeneratorResult> clickhouseSQL = clickhouseQueryGenerator.generate(plan, session);
+            if (!clickhouseSQL.isPresent()) {
                 return Optional.empty();
             }
-            ClickHouseQueryGeneratorContext context = ckql.get().getContext();
+            ClickHouseQueryGeneratorContext context = clickhouseSQL.get().getContext();
             final PlanNodeId tableScanNodeId = context.getTableScanNodeId().orElseThrow(() -> new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table scan node id"));
             if (!tableScanNodes.containsKey(tableScanNodeId)) {
                 throw new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table scan node");
@@ -183,7 +181,7 @@ public class ClickHouseComputePushdown
             ClickHouseTableLayoutHandle newTableLayoutHandle = new ClickHouseTableLayoutHandle(
                     oldConnectorTable,
                     oldTableLayoutHandle.getTupleDomain(),
-                    Optional.empty(), Optional.empty(), Optional.of(ckql.get().getGeneratedCkql()));
+                    Optional.empty(), Optional.empty(), Optional.of(clickhouseSQL.get().getGeneratedClickhouseSQL()));
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
@@ -200,52 +198,30 @@ public class ClickHouseComputePushdown
                             tableScanNode.getSourceLocation(),
                             idAllocator.getNextId(),
                             newTableHandle,
-//                            tableScanNode.getOutputVariables(),
-//                            tableScanNode.getAssignments(),
                             ImmutableList.copyOf(assignments.keySet()),
                             assignments.entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, (e) -> (ColumnHandle) (e.getValue()))),
                             tableScanNode.getCurrentConstraint(),
                             tableScanNode.getEnforcedConstraint()));
         }
 
-//        @Override
-//        public PlanNode visitPlan(PlanNode node, Void context)
-//        {
-//            ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
-//            boolean changed = false;
-//            for (PlanNode child : node.getSources()) {
-//                PlanNode newChild = child.accept(this, null);
-//                if (newChild != child) {
-//                    changed = true;
-//                }
-//                children.add(newChild);
-//            }
-//
-//            if (!changed) {
-//                return node;
-//            }
-//            return node.replaceChildren(children.build());
-//        }
-
         @Override
         public PlanNode visitPlan(PlanNode node, Void context)
-//        public PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             Optional<PlanNode> pushedDownPlan = tryCreatingNewScanNode(node);
 
-            int avgFlag = 0;
+            boolean hasAvg = false;
             if (pushedDownPlan.isPresent()) {
                 for (int var = 0; var < pushedDownPlan.get().getOutputVariables().size(); var++) {
                     if (pushedDownPlan.get().getOutputVariables().get(var).getName().length() > 3) {
-                        if (pushedDownPlan.get().getOutputVariables().get(var).getName().substring(0, 3).equals("avg")) {
-                            avgFlag = 1;
+                        if (pushedDownPlan.get().getOutputVariables().get(var).getName().substring(0, 3).equals(PushdownException)) {
+                            hasAvg = true;
                             break;
                         }
                     }
                 }
             }
 
-            if (!pushedDownPlan.isPresent() || avgFlag == 1) {
+            if (!pushedDownPlan.isPresent() || hasAvg) {
                 ImmutableList.Builder<PlanNode> children = ImmutableList.builder();
                 boolean changed = false;
                 for (PlanNode child : node.getSources()) {
@@ -261,7 +237,6 @@ public class ClickHouseComputePushdown
                 }
                 return node.replaceChildren(children.build());
             }
-//            node = pushedDownPlan.get();
             return pushedDownPlan.orElseGet(() -> replaceChildren(
                     node,
                     node.getSources().stream().map(source -> source.accept(this, null)).collect(toImmutableList())));
@@ -269,7 +244,6 @@ public class ClickHouseComputePushdown
 
         @Override
         public PlanNode visitFilter(FilterNode node, Void context)
-//        public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             if (!(node.getSource() instanceof TableScanNode)) {
                 return node;

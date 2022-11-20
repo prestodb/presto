@@ -99,7 +99,6 @@ public final class ClickHouseColumnHandle
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.type = type;
-        //this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
@@ -218,9 +217,6 @@ public final class ClickHouseColumnHandle
         if (type == TIMESTAMP) {
             return new ClickHouseTypeHandle(Types.TIMESTAMP, Optional.of("timestamp"), 8, 0, Optional.empty(), Optional.empty());
         }
-//        if (type instanceof RowType) {
-//            return new ClickHouseTypeHandle(Types.JAVA_OBJECT, Optional.of("java_object"), 2000, 0, Optional.empty(), Optional.empty());
-//        }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
 }

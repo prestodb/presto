@@ -193,7 +193,7 @@ public class ClickHouseClient
                 layoutHandle.getTupleDomain(),
                 layoutHandle.getAdditionalPredicate(),
                 layoutHandle.getSimpleExpression(),
-                layoutHandle.getCkql());
+                layoutHandle.getClickhouseSQL());
         return new FixedSplitSource(ImmutableList.of(clickHouseSplit));
     }
 
@@ -246,7 +246,7 @@ public class ClickHouseClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, ClickHouseSplit split, List<ClickHouseColumnHandle> columnHandles)
             throws SQLException
     {
-        if (split.getCkql().isPresent()) {
+        if (split.getClickhouseSQL().isPresent()) {
             return new QueryBuilder(identifierQuote).buildSql2(
                     this,
                     session,
@@ -258,7 +258,7 @@ public class ClickHouseClient
                     split.getTupleDomain(),
                     split.getAdditionalPredicate(),
                     split.getSimpleExpression(),
-                    split.getCkql().get().getCkql());
+                    split.getClickhouseSQL().get().getClickhouseSQL());
         }
         else {
             return new QueryBuilder(identifierQuote).buildSql(

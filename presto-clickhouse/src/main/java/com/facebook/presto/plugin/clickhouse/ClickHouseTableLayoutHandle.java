@@ -33,7 +33,7 @@ public class ClickHouseTableLayoutHandle
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
     private Optional<String> simpleExpression;
-    private Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql;
+    private Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL;
 
     @JsonCreator
     public ClickHouseTableLayoutHandle(
@@ -41,13 +41,13 @@ public class ClickHouseTableLayoutHandle
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> domain,
             @JsonProperty("additionalPredicate") Optional<ClickHouseExpression> additionalPredicate,
             @JsonProperty("simpleExpression") Optional<String> simpleExpression,
-            @JsonProperty("ckql") Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql)
+            @JsonProperty("clickhouseSQL") Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL)
     {
         this.table = requireNonNull(table, "table is null");
         this.tupleDomain = requireNonNull(domain, "tupleDomain is null");
         this.additionalPredicate = additionalPredicate;
         this.simpleExpression = simpleExpression;
-        this.ckql = ckql;
+        this.clickhouseSQL = clickhouseSQL;
     }
     @JsonProperty
     public Optional<String> getSimpleExpression()
@@ -56,9 +56,9 @@ public class ClickHouseTableLayoutHandle
     }
 
     @JsonProperty
-    public Optional<ClickHouseQueryGenerator.GeneratedCkql> getCkql()
+    public Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> getClickhouseSQL()
     {
-        return ckql;
+        return clickhouseSQL;
     }
 
     @JsonProperty
@@ -93,13 +93,13 @@ public class ClickHouseTableLayoutHandle
                 Objects.equals(tupleDomain, that.tupleDomain) &&
                 Objects.equals(additionalPredicate, that.additionalPredicate) &&
                 Objects.equals(simpleExpression, that.simpleExpression) &&
-                Objects.equals(ckql, that.ckql);
+                Objects.equals(clickhouseSQL, that.clickhouseSQL);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(table, tupleDomain, additionalPredicate, simpleExpression, ckql);
+        return Objects.hash(table, tupleDomain, additionalPredicate, simpleExpression, clickhouseSQL);
     }
 
     @Override

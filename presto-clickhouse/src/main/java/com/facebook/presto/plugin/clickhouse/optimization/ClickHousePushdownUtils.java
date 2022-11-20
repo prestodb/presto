@@ -138,8 +138,6 @@ public class ClickHousePushdownUtils
 
     private static String getTimestampLiteralAsString(ConnectorSession session, long millisUtc)
     {
-//        SqlTimestamp sqlTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp() ?
-//                new SqlTimestamp(millisUtc, session.getSqlFunctionProperties().getTimeZoneKey()) : new SqlTimestamp(millisUtc);
         SqlTimestamp sqlTimestamp = new SqlTimestamp(millisUtc, MILLISECONDS);
         return "TIMESTAMP '" + sqlTimestamp.toString() + "'";
     }

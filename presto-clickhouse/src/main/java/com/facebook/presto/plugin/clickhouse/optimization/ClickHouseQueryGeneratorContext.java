@@ -258,7 +258,7 @@ public class ClickHouseQueryGeneratorContext
         return tableScanNodeId;
     }
 
-    public ClickHouseQueryGenerator.GeneratedCkql toQuery()
+    public ClickHouseQueryGenerator.GeneratedClickhouseSQL toQuery()
     {
         if (hasLimit() && aggregations > 1 && !groupByColumns.isEmpty()) {
             throw new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Could not pushdown multiple aggregates in the presence of group by and limit");
@@ -293,7 +293,7 @@ public class ClickHouseQueryGeneratorContext
             query += " LIMIT " + limit.getAsLong();
             pushdown = true;
         }
-        return new ClickHouseQueryGenerator.GeneratedCkql(tableName, query, pushdown);
+        return new ClickHouseQueryGenerator.GeneratedClickhouseSQL(tableName, query, pushdown);
     }
 
     public Map<VariableReferenceExpression, ClickHouseColumnHandle> getAssignments()
@@ -302,9 +302,6 @@ public class ClickHouseQueryGeneratorContext
 
         selections.entrySet().stream().filter(e -> !hiddenColumnSet.contains(e.getKey())).forEach(entry -> {
             VariableReferenceExpression variable = entry.getKey();
-//            if (variable.getName().substring(0, 3).equals("avg")) {
-//                variable = new VariableReferenceExpression(variable.getSourceLocation(), variable.getName(), DoubleType.DOUBLE);
-//            }
             Selection selection = entry.getValue();
 
             ClickHouseColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ?
@@ -313,16 +310,6 @@ public class ClickHouseQueryGeneratorContext
             result.put(variable, handle);
         });
         return result;
-//        LinkedHashMap<VariableReferenceExpression, ClickHouseColumnHandle> result = new LinkedHashMap<>();
-//        LinkedHashSet<VariableReferenceExpression> outputFields = new LinkedHashSet<>();
-//        Set<VariableReferenceExpression> outputs = selections.keySet();
-//        outputFields.addAll(outputs.stream().filter(variable -> !hiddenColumnSet.contains(variable)).collect(Collectors.toList()));
-//        outputFields.stream().forEach(variable -> {
-//            Selection selection = selections.get(variable);
-//            ClickHouseColumnHandle handle = selection.getOrigin() == Origin.TABLE_COLUMN ? new ClickHouseColumnHandle(selection.getDefinition(), variable.getType(), ClickHouseColumnHandle.ClickHouseColumnType.REGULAR) : new ClickHouseColumnHandle(variable, ClickHouseColumnHandle.ClickHouseColumnType.DERIVED);
-//            result.put(variable, handle);
-//        });
-//        return result;
     }
 
     public ClickHouseQueryGeneratorContext withOutputColumns(List<VariableReferenceExpression> outputColumns)

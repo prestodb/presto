@@ -106,7 +106,7 @@ public class QueryBuilder
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<ClickHouseExpression> additionalPredicate,
             Optional<String> simpleExpression,
-            String ckql)
+            String clickhouseSQL)
             throws SQLException
     {
         List<TypeAndValue> accumulator = new ArrayList<>();
@@ -122,7 +122,7 @@ public class QueryBuilder
                     .collect(ImmutableList.toImmutableList()));
         }
 
-        PreparedStatement statement = client.getPreparedStatement(connection, ckql);
+        PreparedStatement statement = client.getPreparedStatement(connection, clickhouseSQL);
 
         for (int i = 0; i < accumulator.size(); i++) {
             TypeAndValue typeAndValue = accumulator.get(i);
@@ -149,7 +149,6 @@ public class QueryBuilder
             }
             else if (typeAndValue.getType().equals(DATE)) {
                 long millis = DAYS.toMillis((long) typeAndValue.getValue());
-//                statement.setDate(i + 1, new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
                 statement.setDate(i + 1, new java.sql.Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis)));
             }
             else if (typeAndValue.getType().equals(TIME)) {

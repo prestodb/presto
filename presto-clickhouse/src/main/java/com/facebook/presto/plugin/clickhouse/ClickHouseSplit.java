@@ -16,7 +16,7 @@ package com.facebook.presto.plugin.clickhouse;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseExpression;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
-import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator.GeneratedCkql;
+import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator.GeneratedClickhouseSQL;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
@@ -46,7 +46,7 @@ public class ClickHouseSplit
     private final TupleDomain<ColumnHandle> tupleDomain;
     private final Optional<ClickHouseExpression> additionalPredicate;
     private Optional<String> simpleExpression;
-    private Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql;
+    private Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL;
 
     @JsonCreator
     public ClickHouseSplit(
@@ -57,7 +57,7 @@ public class ClickHouseSplit
             @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain,
             @JsonProperty("additionalProperty") Optional<ClickHouseExpression> additionalPredicate,
             @JsonProperty("simpleExpression") Optional<String> simpleExpression,
-            @JsonProperty("ckql") Optional<ClickHouseQueryGenerator.GeneratedCkql> ckql)
+            @JsonProperty("clickhouseSQL") Optional<ClickHouseQueryGenerator.GeneratedClickhouseSQL> clickhouseSQL)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.catalogName = catalogName;
@@ -66,7 +66,7 @@ public class ClickHouseSplit
         this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
         this.additionalPredicate = requireNonNull(additionalPredicate, "additionalPredicate is null");
         this.simpleExpression = simpleExpression;
-        this.ckql = ckql;
+        this.clickhouseSQL = clickhouseSQL;
     }
 
     @JsonProperty
@@ -76,9 +76,9 @@ public class ClickHouseSplit
     }
 
     @JsonProperty
-    public Optional<GeneratedCkql> getCkql()
+    public Optional<GeneratedClickhouseSQL> getClickhouseSQL()
     {
-        return ckql;
+        return clickhouseSQL;
     }
 
     @JsonProperty

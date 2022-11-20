@@ -90,20 +90,20 @@ public class ClickHouseQueryGenerator
 
     public static class ClickHouseQueryGeneratorResult
     {
-        private final GeneratedCkql generatedckql;
+        private final GeneratedClickhouseSQL generatedClickhouseSQL;
         private final ClickHouseQueryGeneratorContext context;
 
         public ClickHouseQueryGeneratorResult(
-                GeneratedCkql generatedckql,
+                GeneratedClickhouseSQL generatedClickhouseSQL,
                 ClickHouseQueryGeneratorContext context)
         {
-            this.generatedckql = requireNonNull(generatedckql, "generatedckql is null");
+            this.generatedClickhouseSQL = requireNonNull(generatedClickhouseSQL, "generatedClickhouseSQL is null");
             this.context = requireNonNull(context, "context is null");
         }
 
-        public GeneratedCkql getGeneratedCkql()
+        public GeneratedClickhouseSQL getGeneratedClickhouseSQL()
         {
-            return generatedckql;
+            return generatedClickhouseSQL;
         }
 
         public ClickHouseQueryGeneratorContext getContext()
@@ -128,27 +128,27 @@ public class ClickHouseQueryGenerator
         }
     }
 
-    public static class GeneratedCkql
+    public static class GeneratedClickhouseSQL
     {
         final String table;
-        final String ckql;
+        final String clickhouseSQL;
         final boolean pushdown;
 
         @JsonCreator
-        public GeneratedCkql(
+        public GeneratedClickhouseSQL(
                 @JsonProperty("table") String table,
-                @JsonProperty("ckql") String ckql,
+                @JsonProperty("clickhouseSQL") String clickhouseSQL,
                 @JsonProperty("pushdown") boolean pushdown)
         {
             this.table = table;
-            this.ckql = ckql;
+            this.clickhouseSQL = clickhouseSQL;
             this.pushdown = pushdown;
         }
 
-        @JsonProperty("ckql")
-        public String getCkql()
+        @JsonProperty("clickhouseSQL")
+        public String getClickhouseSQL()
         {
-            return ckql;
+            return clickhouseSQL;
         }
 
         @JsonProperty("table")
@@ -167,7 +167,7 @@ public class ClickHouseQueryGenerator
         public String toString()
         {
             return toStringHelper(this)
-                    .add("ckql", ckql)
+                    .add("clickhouseSQL", clickhouseSQL)
                     .add("table", table)
                     .add("pushdown", pushdown)
                     .toString();
@@ -248,14 +248,13 @@ public class ClickHouseQueryGenerator
         public ClickHouseQueryGeneratorContext visitTableScan(TableScanNode node, ClickHouseQueryGeneratorContext contextIn)
         {
             ClickHouseTableHandle tableHandle = (ClickHouseTableHandle) node.getTable().getConnectorHandle();
-            //checkArgument(!tableHandle.getCkql().isPresent(), "ClickHouse tableHandle should not have ckql before pushdown");
+            //checkArgument(!tableHandle.getClickhouseSQL().isPresent(), "ClickHouse tableHandle should not have clickhouseSQL before pushdown");
             Map<VariableReferenceExpression, Selection> selections = new LinkedHashMap<>();
             node.getOutputVariables().forEach(outputColumn -> {
                 ClickHouseColumnHandle clickHouseColumn = (ClickHouseColumnHandle) (node.getAssignments().get(outputColumn));
                 checkArgument(clickHouseColumn.getType().equals(ClickHouseColumnHandle.ClickHouseColumnType.REGULAR), "Unexpected clickhouse column handle that is not regular: " + clickHouseColumn);
                 selections.put(outputColumn, new Selection(clickHouseColumn.getColumnName(), TABLE_COLUMN));
             });
-            //return new ClickHouseQueryGeneratorContext(selections, tableHandle.getSchemaName() + "." + tableHandle.getTableName(), node.getId());
             return new ClickHouseQueryGeneratorContext(selections, tableHandle.getTableName(), tableHandle.getSchemaName(), node.getId());
         }
 
@@ -315,14 +314,6 @@ public class ClickHouseQueryGenerator
                     case AGGREGATE: {
                         AggregationFunctionColumnNode aggregationNode = (AggregationFunctionColumnNode) expression;
                         String clickhouseAggregationFunction = handleAggregationFunction(aggregationNode.getCallExpression(), context.getSelections());
-//                        if (aggregationNode.getCallExpression().getDisplayName().equals("avg")) {
-//                            newSelections.put(new VariableReferenceExpression(aggregationNode.getOutputColumn().getSourceLocation(), aggregationNode.getOutputColumn().getName(), DoubleType.DOUBLE),
-//                                    new Selection(clickhouseAggregationFunction, DERIVED));
-//                        }
-//                        else {
-//                            newSelections.put(getVariableReference(aggregationNode.getOutputColumn()),
-//                                    new Selection(clickhouseAggregationFunction, DERIVED));
-//                        }
                         newSelections.put(getVariableReference(aggregationNode.getOutputColumn()),
                                     new Selection(clickhouseAggregationFunction, DERIVED));
                         aggregations++;
