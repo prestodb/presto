@@ -95,7 +95,7 @@ class ComparisonBenchmark : public functions::test::FunctionBenchmarkBase {
   }
 
   // Runs `expression` `times` times.
-  size_t run(const std::string& expression, size_t times) {
+  size_t run(const std::string& expression, size_t times = 100) {
     folly::BenchmarkSuspender suspender;
     auto exprSet = compileExpression(expression, inputType_);
     suspender.dismiss();
@@ -114,61 +114,60 @@ class ComparisonBenchmark : public functions::test::FunctionBenchmarkBase {
 
 std::unique_ptr<ComparisonBenchmark> benchmark;
 
-BENCHMARK_MULTI(plus, n) {
-  return benchmark->run("plus(a, b)", n);
+BENCHMARK(plus) {
+  benchmark->run("plus(a, b)");
 }
 
-BENCHMARK_MULTI(eq, n) {
-  return benchmark->run("eq(a, b)", n);
+BENCHMARK(eq) {
+  benchmark->run("eq(a, b)");
 }
 
-BENCHMARK_MULTI(neq, n) {
-  return benchmark->run("neq(a, b)", n);
+BENCHMARK(neq) {
+  benchmark->run("neq(a, b)");
 }
 
-BENCHMARK_MULTI(gt, n) {
-  return benchmark->run("gt(a, b)", n);
+BENCHMARK(gt) {
+  benchmark->run("gt(a, b)");
 }
 
-BENCHMARK_MULTI(lt, n) {
-  return benchmark->run("lt(a, b)", n);
+BENCHMARK(lt) {
+  benchmark->run("lt(a, b)");
 }
 
-BENCHMARK_MULTI(between, n) {
-  return benchmark->run("btw(a, b, c)", n);
-}
-
-BENCHMARK_DRAW_LINE();
-
-BENCHMARK_MULTI(eqToConstant, n) {
-  return benchmark->run("eq(a, constant)", n);
-}
-
-BENCHMARK_RELATIVE_MULTI(eqHalfNull, n) {
-  return benchmark->run("eq(a, half_null)", n);
+BENCHMARK(between) {
+  benchmark->run("btw(a, b, c)");
 }
 
 BENCHMARK_DRAW_LINE();
 
-BENCHMARK_MULTI(eqBools, n) {
-  return benchmark->run("eq(d, e)", n);
+BENCHMARK(eqToConstant) {
+  benchmark->run("eq(a, constant)");
 }
 
-BENCHMARK_MULTI(andConjunct, n) {
-  return benchmark->run("d AND e", n);
+BENCHMARK_RELATIVE(eqHalfNull) {
+  benchmark->run("eq(a, half_null)");
 }
 
-BENCHMARK_MULTI(orConjunct, n) {
-  return benchmark->run("d OR e", n);
+BENCHMARK_DRAW_LINE();
+
+BENCHMARK(eqBools) {
+  benchmark->run("eq(d, e)");
 }
 
-BENCHMARK_MULTI(andHalfNull, n) {
-  return benchmark->run("d AND bool_half_null", n);
+BENCHMARK(andConjunct) {
+  benchmark->run("d AND e");
 }
 
-BENCHMARK_MULTI(conjunctsNested, n) {
-  return benchmark->run(
-      "(d OR e) AND ((d AND (neq(d, (d OR e)))) OR (eq(a, b)))", n);
+BENCHMARK(orConjunct) {
+  benchmark->run("d OR e");
+}
+
+BENCHMARK(andHalfNull) {
+  benchmark->run("d AND bool_half_null");
+}
+
+BENCHMARK(conjunctsNested) {
+  benchmark->run("(d OR e) AND ((d AND (neq(d, (d OR e)))) OR (eq(a, b)))");
 }
 
 } // namespace
@@ -177,7 +176,7 @@ int main(int argc, char* argv[]) {
   folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  benchmark = std::make_unique<ComparisonBenchmark>(1'000'000);
+  benchmark = std::make_unique<ComparisonBenchmark>(1'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;
