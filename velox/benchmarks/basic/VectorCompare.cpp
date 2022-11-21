@@ -16,7 +16,6 @@
 
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-
 #include <gflags/gflags.h>
 
 #include "velox/common/base/CompareFlags.h"
@@ -86,24 +85,24 @@ class VectorCompareBenchmark : public functions::test::FunctionBenchmarkBase {
 
 std::unique_ptr<VectorCompareBenchmark> benchmark;
 
-BENCHMARK_MULTI(compareSimilarSimpleFlat) {
-  return benchmark->run(benchmark->flatVector_);
+BENCHMARK(compareSimilarSimpleFlat) {
+  benchmark->run(benchmark->flatVector_);
 }
 
-BENCHMARK_MULTI(compareSimilarSimpleFlatNoDispatch) {
-  return benchmark->runFastFlat();
+BENCHMARK(compareSimilarSimpleFlatNoDispatch) {
+  benchmark->runFastFlat();
 }
 
-BENCHMARK_MULTI(compareSimilarArray) {
-  return benchmark->run(benchmark->arrayVector_);
+BENCHMARK(compareSimilarArray) {
+  benchmark->run(benchmark->arrayVector_);
 }
 
-BENCHMARK_MULTI(compareSimilarMap) {
-  return benchmark->run(benchmark->mapVector_);
+BENCHMARK(compareSimilarMap) {
+  benchmark->run(benchmark->mapVector_);
 }
 
-BENCHMARK_MULTI(compareSimilarRow) {
-  return benchmark->run(benchmark->rowVector_);
+BENCHMARK(compareSimilarRow) {
+  benchmark->run(benchmark->rowVector_);
 }
 
 BENCHMARK_DRAW_LINE();
