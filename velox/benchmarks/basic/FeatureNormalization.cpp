@@ -73,13 +73,13 @@ class FeatureNormailzationBenchmark
   }
 
   // Runs `expression` `times` thousand times.
-  size_t run(const std::string& expression, size_t times) {
+  size_t run(const std::string& expression, size_t times = 1'000) {
     folly::BenchmarkSuspender suspender;
     auto exprSet = compileExpression(expression, inputType_);
     suspender.dismiss();
 
     size_t count = 0;
-    for (auto i = 0; i < times * 1'000; i++) {
+    for (auto i = 0; i < times; i++) {
       auto result = evaluate(exprSet, rowVector_);
       count += result->size();
     }
@@ -95,18 +95,16 @@ std::unique_ptr<FeatureNormailzationBenchmark> benchmark;
 
 // Benchmark a common calculation used in machine learning to normalize floating
 // point features.
-BENCHMARK_MULTI(normalize, n) {
+BENCHMARK(normalize) {
   // floor(a) = 1 will return both true and false on some of the rows.
-  return benchmark->run(
-      "clamp(0.05::REAL * (20.5::REAL + if(floor(a) = 1::REAL, 1.0::REAL, 0.0::REAL)), (-10.0)::REAL, 10.0::REAL)",
-      n);
+  benchmark->run(
+      "clamp(0.05::REAL * (20.5::REAL + if(floor(a) = 1::REAL, 1.0::REAL, 0.0::REAL)), (-10.0)::REAL, 10.0::REAL)");
 }
 
-BENCHMARK_MULTI(normalizeConstant, n) {
+BENCHMARK(normalizeConstant) {
   // floor(a) = 2 will always return false.
-  return benchmark->run(
-      "clamp(0.05::REAL * (20.5::REAL + if(floor(a) = 2::REAL, 1.0::REAL, 0.0::REAL)), (-10.0)::REAL, 10.0::REAL)",
-      n);
+  benchmark->run(
+      "clamp(0.05::REAL * (20.5::REAL + if(floor(a) = 2::REAL, 1.0::REAL, 0.0::REAL)), (-10.0)::REAL, 10.0::REAL)");
 }
 
 } // namespace
