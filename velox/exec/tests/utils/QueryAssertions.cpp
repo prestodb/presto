@@ -548,9 +548,8 @@ std::string generateUserFriendlyDiff(
 }
 
 void verifyDuckDBResult(const DuckDBQueryResult& result, std::string_view sql) {
-  ASSERT_TRUE(result->success)
-      << "DuckDB query failed: " << result->error << std::endl
-      << sql;
+  VELOX_CHECK(
+      result->success, "DuckDB query failed: {} \n {}", result->error, sql);
 }
 
 } // namespace
@@ -563,10 +562,9 @@ void DuckDbQueryRunner::createTable(
 
   auto rowType = data[0]->type()->as<TypeKind::ROW>();
   ::duckdb::Connection con(db_);
-  auto res = con.Query(duckdb::makeCreateTableSql(name, rowType));
-  if (!res->success) {
-    VELOX_FAIL(res->error);
-  }
+  auto sql = duckdb::makeCreateTableSql(name, rowType);
+  auto res = con.Query(sql);
+  verifyDuckDBResult(res, sql);
 
   for (auto& vector : data) {
     for (int32_t row = 0; row < vector->size(); row++) {
