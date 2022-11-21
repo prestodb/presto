@@ -16,7 +16,6 @@
 
 #include <folly/Benchmark.h>
 #include <folly/init/Init.h>
-
 #include <gflags/gflags.h>
 
 #include "velox/functions/lib/benchmarks/FunctionBenchmarkBase.h"
@@ -140,42 +139,50 @@ class DecodedVectorBenchmark : public functions::test::FunctionBenchmarkBase {
 
 std::unique_ptr<DecodedVectorBenchmark> benchmark;
 
-BENCHMARK_MULTI(scanFlat) {
-  return benchmark->runFlat();
+template <typename Func>
+void run(Func&& func, size_t iterations = 100) {
+  for (auto i = 0; i < iterations; i++) {
+    func();
+  }
 }
 
-BENCHMARK_MULTI(scanDecodedFlat) {
-  return benchmark->decodedRunFlat();
+BENCHMARK(scanFlat) {
+  run([&] { benchmark->runFlat(); });
 }
 
-BENCHMARK_MULTI(scanDecodedConstant) {
-  return benchmark->decodedRunConstant();
+BENCHMARK(scanDecodedFlat) {
+  run([&] { benchmark->decodedRunFlat(); });
 }
 
-BENCHMARK_MULTI(scanDecodedDict) {
-  return benchmark->decodedRunDict();
+BENCHMARK(scanDecodedConstant) {
+  run([&] { benchmark->decodedRunConstant(); });
 }
 
-BENCHMARK_MULTI(scanDecodedDict5Nested) {
-  return benchmark->decodedRunDict5Nested();
+BENCHMARK(scanDecodedDict) {
+  run([&] { benchmark->decodedRunDict(); });
+}
+
+BENCHMARK(scanDecodedDict5Nested) {
+  run([&] { benchmark->decodedRunDict5Nested(); });
 }
 
 BENCHMARK_DRAW_LINE();
 
+// For those we alwast report total runtime.
 BENCHMARK(decodeFlat) {
-  benchmark->decodeFlat();
+  run([&] { benchmark->decodeFlat(); });
 }
 
 BENCHMARK(decodeConstant) {
-  benchmark->decodeConstant();
+  run([&] { benchmark->decodeConstant(); });
 }
 
 BENCHMARK(decodeDictionary) {
-  benchmark->decodeDictionary();
+  run([&] { benchmark->decodeDictionary(); });
 }
 
 BENCHMARK(decodeDictionary5Nested) {
-  benchmark->decodeDictionary5Nested();
+  run([&] { benchmark->decodeDictionary5Nested(); });
 }
 
 } // namespace
@@ -184,7 +191,7 @@ int main(int argc, char* argv[]) {
   folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  benchmark = std::make_unique<DecodedVectorBenchmark>(10'000'000);
+  benchmark = std::make_unique<DecodedVectorBenchmark>(10'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;
