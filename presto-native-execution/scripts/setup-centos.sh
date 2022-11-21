@@ -62,7 +62,7 @@ export COMPILER_FLAGS=$(echo -n $(get_cxx_flags $CPU_TARGET))
   ln -s /usr/local/gperf/3_1/bin/gperf /usr/local/bin/
 )
 
-! (
+(
   git clone https://github.com/facebook/folly &&
   cd folly &&
   git checkout $FB_OS_VERSION &&
