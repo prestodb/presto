@@ -125,6 +125,7 @@ public class MaterializedViewQueryOptimizer
     private final AccessControl accessControl;
     private final RowExpressionDomainTranslator domainTranslator;
     private final LogicalRowExpressions logicalRowExpressions;
+    private final MetadataResolver metadataResolver;
 
     public MaterializedViewQueryOptimizer(
             Metadata metadata,
@@ -138,6 +139,7 @@ public class MaterializedViewQueryOptimizer
         this.sqlParser = requireNonNull(sqlParser, "sql parser is null");
         this.accessControl = requireNonNull(accessControl, "access control is null");
         this.domainTranslator = requireNonNull(domainTranslator, "row expression domain translator is null");
+        this.metadataResolver = requireNonNull(metadata.getMetadataResolver(session), "metadataResolver is null");
         FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
         logicalRowExpressions = new LogicalRowExpressions(
                 new RowExpressionDeterminismEvaluator(functionAndTypeManager),
@@ -347,7 +349,7 @@ public class MaterializedViewQueryOptimizer
         // TODO: Refactor query optimization code https://github.com/prestodb/presto/issues/16759
 
         for (QualifiedObjectName materializedViewName : referencedMaterializedViews) {
-            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(metadata, materializedViewName, querySpecification);
+            QuerySpecification rewrittenQuerySpecification = getRewrittenQuerySpecification(materializedViewName, querySpecification);
             if (rewrittenQuerySpecification != querySpecification) {
                 return rewrittenQuerySpecification;
             }
@@ -355,9 +357,9 @@ public class MaterializedViewQueryOptimizer
         return querySpecification;
     }
 
-    private QuerySpecification getRewrittenQuerySpecification(Metadata metadata, QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
+    private QuerySpecification getRewrittenQuerySpecification(QualifiedObjectName materializedViewName, QuerySpecification originalQuerySpecification)
     {
-        MaterializedViewDefinition materializedViewDefinition = metadata.getMaterializedView(session, materializedViewName).orElseThrow(() ->
+        MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
         Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));

@@ -61,7 +61,7 @@ public class CreateSchemaTask
 
         accessControl.checkCanCreateSchema(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), schema);
 
-        if (metadata.schemaExists(session, schema)) {
+        if (metadata.getMetadataResolver(session).schemaExists(schema)) {
             if (!statement.isNotExists()) {
                 throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Schema '%s' already exists", schema);
             }

@@ -39,7 +39,6 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
-import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
@@ -271,18 +270,6 @@ public class TestCreateMaterializedViewTask
             return new TableMetadata(
                     catalogHandle,
                     new ConnectorTableMetadata(new SchemaTableName(SCHEMA_NAME, TABLE_A), emptyList()));
-        }
-
-        @Override
-        public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
-        {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
-        {
-            return Optional.empty();
         }
 
         @Override
