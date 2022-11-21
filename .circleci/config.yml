@@ -157,6 +157,7 @@ executors:
     environment:
         CC:  /opt/rh/gcc-toolset-9/root/bin/gcc
         CXX: /opt/rh/gcc-toolset-9/root/bin/g++
+        VELOX_DEPENDENCY_SOURCE: BUNDLED
   check:
     docker:
       - image : ghcr.io/facebookincubator/velox-dev:check-avx
@@ -289,6 +290,7 @@ jobs:
       CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
       CONBENCH_HOST: "CircleCI-runner"
       LINUX_DISTRO: "centos"
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
       - pre-steps
       - build-benchmarks
@@ -315,6 +317,7 @@ jobs:
       CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
       CONBENCH_HOST: "CircleCI-runner-dedicated"
       LINUX_DISTRO: "ubuntu"
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
       - checkout
       - update-submodules
@@ -359,6 +362,8 @@ jobs:
 
   linux-adapters:
     executor: build
+    environment:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
       - pre-steps
       - run:
@@ -401,6 +406,8 @@ jobs:
 
   linux-fuzzer-run:
     executor: build
+    environment:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
       - pre-steps
       - run:
