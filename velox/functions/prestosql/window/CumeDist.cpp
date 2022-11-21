@@ -18,7 +18,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window {
+namespace facebook::velox::window::prestosql {
 
 namespace {
 
@@ -82,4 +82,4 @@ void registerCumeDist(const std::string& name) {
         return std::make_unique<CumeDistFunction>();
       });
 }
-} // namespace facebook::velox::window
+} // namespace facebook::velox::window::prestosql

@@ -19,7 +19,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window {
+namespace facebook::velox::window::prestosql {
 
 namespace {
 
@@ -243,4 +243,4 @@ void registerNtile(const std::string& name) {
         return std::make_unique<NtileFunction>(args, pool);
       });
 }
-} // namespace facebook::velox::window
+} // namespace facebook::velox::window::prestosql

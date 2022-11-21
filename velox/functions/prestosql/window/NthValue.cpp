@@ -19,7 +19,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window {
+namespace facebook::velox::window::prestosql {
 
 namespace {
 
@@ -198,4 +198,4 @@ void registerNthValue(const std::string& name) {
             createNthValueFunction, typeKind, args, resultType, pool);
       });
 }
-} // namespace facebook::velox::window
+} // namespace facebook::velox::window::prestosql

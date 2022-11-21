@@ -19,7 +19,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window {
+namespace facebook::velox::window::prestosql {
 
 // Types of rank functions.
 enum class RankType {
@@ -119,4 +119,4 @@ void registerPercentRank(const std::string& name) {
   registerRankInternal<RankType::kPercentRank, double>(name, "double");
 }
 
-} // namespace facebook::velox::window
+} // namespace facebook::velox::window::prestosql

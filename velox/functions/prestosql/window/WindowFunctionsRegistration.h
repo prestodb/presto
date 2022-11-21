@@ -15,8 +15,17 @@
  */
 #include "velox/expression/FunctionSignature.h"
 
+namespace facebook::velox::window::prestosql {
+
+void registerAllWindowFunctions();
+
+} // namespace facebook::velox::window::prestosql
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+/// TODO Remove after updating Prestissimo.
 namespace facebook::velox::window {
-
-void registerWindowFunctions();
-
+void registerWindowFunctions() {
+  prestosql::registerAllWindowFunctions();
+}
 } // namespace facebook::velox::window
+#endif

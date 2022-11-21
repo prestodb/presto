@@ -86,7 +86,7 @@ class WindowTestBase : public exec::test::OperatorTestBase {
  protected:
   void SetUp() override {
     exec::test::OperatorTestBase::SetUp();
-    velox::window::registerWindowFunctions();
+    velox::window::prestosql::registerAllWindowFunctions();
   }
 
   /// This function generates a simple two integer column RowVector for tests.

@@ -19,7 +19,7 @@
 #include "velox/expression/FunctionSignature.h"
 #include "velox/vector/FlatVector.h"
 
-namespace facebook::velox::window {
+namespace facebook::velox::window::prestosql {
 
 namespace {
 
@@ -69,4 +69,4 @@ void registerRowNumber(const std::string& name) {
         return std::make_unique<RowNumberFunction>();
       });
 }
-} // namespace facebook::velox::window
+} // namespace facebook::velox::window::prestosql
