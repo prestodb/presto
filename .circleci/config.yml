@@ -57,7 +57,6 @@ workflows:
       - linux-build-options
       - linux-adapters
       - macos-build
-      - docker-compose-ubuntu-cpp
 
 commands:
   update-submodules:
