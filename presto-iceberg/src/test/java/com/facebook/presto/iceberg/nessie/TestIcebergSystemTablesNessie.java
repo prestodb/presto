@@ -90,15 +90,16 @@ public class TestIcebergSystemTablesNessie
     {
         assertQuery("SHOW COLUMNS FROM test_schema.\"test_table$properties\"",
                 "VALUES ('key', 'varchar', '', '')," + "('value', 'varchar', '', '')");
-        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 2");
+        assertQuery("SELECT COUNT(*) FROM test_schema.\"test_table$properties\"", "VALUES 3");
         List<MaterializedRow> materializedRows = computeActual(getSession(),
                 "SELECT * FROM test_schema.\"test_table$properties\"").getMaterializedRows();
 
-        // nessie writes a "nessie.commit.id" to the table properties
-        assertThat(materializedRows).hasSize(2);
+        // nessie writes a "nessie.commit.id" + "gc.enabled=false" to the table properties
+        assertThat(materializedRows).hasSize(3);
         assertThat(materializedRows)
-            .anySatisfy(row -> assertThat(row)
-                .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
-            .anySatisfy(row -> assertThat(row.getField(0)).isEqualTo("nessie.commit.id"));
+                .anySatisfy(row -> assertThat(row)
+                        .isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "write.format.default", "PARQUET")))
+                .anySatisfy(row -> assertThat(row.getField(0)).isEqualTo("nessie.commit.id"))
+                .anySatisfy(row -> assertThat(row).isEqualTo(new MaterializedRow(MaterializedResult.DEFAULT_PRECISION, "gc.enabled", "false")));
     }
 }

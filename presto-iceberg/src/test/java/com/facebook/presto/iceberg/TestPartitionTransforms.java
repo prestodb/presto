@@ -14,9 +14,6 @@
 package com.facebook.presto.iceberg;
 
 import org.apache.iceberg.transforms.Transforms;
-import org.apache.iceberg.types.Types.DateType;
-import org.apache.iceberg.types.Types.StringType;
-import org.apache.iceberg.types.Types.TimestampType;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
@@ -26,12 +23,12 @@ public class TestPartitionTransforms
     @Test
     public void testToStringMatchesSpecification()
     {
-        assertEquals(Transforms.identity(StringType.get()).toString(), "identity");
-        assertEquals(Transforms.bucket(StringType.get(), 13).toString(), "bucket[13]");
-        assertEquals(Transforms.truncate(StringType.get(), 19).toString(), "truncate[19]");
-        assertEquals(Transforms.year(DateType.get()).toString(), "year");
-        assertEquals(Transforms.month(DateType.get()).toString(), "month");
-        assertEquals(Transforms.day(DateType.get()).toString(), "day");
-        assertEquals(Transforms.hour(TimestampType.withoutZone()).toString(), "hour");
+        assertEquals(Transforms.identity().toString(), "identity");
+        assertEquals(Transforms.bucket(13).toString(), "bucket[13]");
+        assertEquals(Transforms.truncate(19).toString(), "truncate[19]");
+        assertEquals(Transforms.year().toString(), "year");
+        assertEquals(Transforms.month().toString(), "month");
+        assertEquals(Transforms.day().toString(), "day");
+        assertEquals(Transforms.hour().toString(), "hour");
     }
 }
