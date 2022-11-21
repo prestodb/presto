@@ -58,7 +58,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
             Metadata metadata,
             Session session)
     {
-        MaterializedViewDefinition viewDefinition = metadata.getMaterializedView(session, viewName)
+        MaterializedViewDefinition viewDefinition = metadata.getMetadataResolver(session).getMaterializedView(viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(toSchemaTableName(viewName)));
 
         Visitor visitor = new Visitor(viewDefinition, viewScope);

@@ -18,6 +18,7 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.RenameSchema;
@@ -46,12 +47,13 @@ public class RenameSchemaTask
     {
         CatalogSchemaName source = createCatalogSchemaName(session, statement, Optional.of(statement.getSource()));
         CatalogSchemaName target = new CatalogSchemaName(source.getCatalogName(), statement.getTarget().getValue());
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
-        if (!metadata.schemaExists(session, source)) {
+        if (!metadataResolver.schemaExists(source)) {
             throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", source);
         }
 
-        if (metadata.schemaExists(session, target)) {
+        if (metadataResolver.schemaExists(target)) {
             throw new SemanticException(SCHEMA_ALREADY_EXISTS, statement, "Target schema '%s' already exists", target);
         }
 
