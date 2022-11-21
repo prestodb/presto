@@ -130,28 +130,35 @@ class SelectivityVectorBenchmark
 
 std::unique_ptr<SelectivityVectorBenchmark> benchmark;
 
-BENCHMARK_MULTI(sumBaselineAll) {
-  return benchmark->runBaseline();
+template <typename Func>
+void run(Func&& func, size_t iterations = 100) {
+  for (auto i = 0; i < iterations; i++) {
+    func();
+  }
 }
 
-BENCHMARK_MULTI(sumSelectivityAll) {
-  return benchmark->runSelectivityAll();
+BENCHMARK(sumBaselineAll) {
+  run([] { benchmark->runBaseline(); });
 }
 
-BENCHMARK_MULTI(sumSelectivity99PerCent) {
-  return benchmark->runSelectivity99PerCent();
+BENCHMARK(sumSelectivityAll) {
+  run([] { benchmark->runSelectivityAll(); });
 }
 
-BENCHMARK_MULTI(sumSelectivity50PerCent) {
-  return benchmark->runSelectivity50PerCent();
+BENCHMARK(sumSelectivity99PerCent) {
+  run([] { benchmark->runSelectivity99PerCent(); });
 }
 
-BENCHMARK_MULTI(sumSelectivity10PerCent) {
-  return benchmark->runSelectivity10PerCent();
+BENCHMARK(sumSelectivity50PerCent) {
+  run([] { benchmark->runSelectivity50PerCent(); });
 }
 
-BENCHMARK_MULTI(sumSelectivity1PerCent) {
-  return benchmark->runSelectivity1PerCent();
+BENCHMARK(sumSelectivity10PerCent) {
+  run([] { benchmark->runSelectivity10PerCent(); });
+}
+
+BENCHMARK(sumSelectivity1PerCent) {
+  run([] { benchmark->runSelectivity1PerCent(); });
 }
 
 } // namespace
@@ -160,7 +167,7 @@ int main(int argc, char* argv[]) {
   folly::init(&argc, &argv);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  benchmark = std::make_unique<SelectivityVectorBenchmark>(10'000'000);
+  benchmark = std::make_unique<SelectivityVectorBenchmark>(10'000);
   folly::runBenchmarks();
   benchmark.reset();
   return 0;
