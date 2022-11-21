@@ -67,6 +67,7 @@ RUN --mount=type=ssh \
 WORKDIR ${DEPENDENCY_DIR}
 RUN --mount=type=ssh \
     set -exu && \
+    sed -i 's/\(.*folly.*\)/# \1/g' "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/velox/scripts/setup-circleci.sh" && \
     bash "${PRESTODB_HOME}/_repo/presto-native-execution/scripts/setup-centos.sh" && \
     python3 -m pip install six && \
