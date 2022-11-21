@@ -146,7 +146,7 @@ public class FilesTable
                         .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMap.get(entry.getKey())).toHumanString(
+                                entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
                                         Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
             }
             if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
@@ -154,7 +154,7 @@ public class FilesTable
                         .filter(entry -> idToTypeMap.containsKey(entry.getKey()))
                         .collect(toImmutableMap(
                                 Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMap.get(entry.getKey())).toHumanString(
+                                entry -> Transforms.identity().toHumanString(idToTypeMap.get(entry.getKey()),
                                         Conversions.fromByteBuffer(idToTypeMap.get(entry.getKey()), entry.getValue())))));
             }
             if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
