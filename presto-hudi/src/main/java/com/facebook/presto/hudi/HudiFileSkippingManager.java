@@ -31,7 +31,6 @@ import org.apache.hudi.common.engine.HoodieEngineContext;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieTableQueryType;
-import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
@@ -39,16 +38,15 @@ import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.FileSystemViewStorageConfig;
 import org.apache.hudi.common.table.view.SyncableFileSystemView;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -82,7 +80,6 @@ public class HudiFileSkippingManager
     private final HoodieTableQueryType queryType;
     private final Option<String> specifiedQueryInstant;
     private final HoodieTableMetaClient metaClient;
-    private final HoodieTableType tableType;
     private final HoodieTableMetadata metadataTable;
 
     protected transient volatile Map<String, List<FileSlice>> allInputFileSlices;
@@ -101,7 +98,6 @@ public class HudiFileSkippingManager
         this.specifiedQueryInstant = specifiedQueryInstant;
         this.metaClient = metaClient;
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
-        this.tableType = metaClient.getTableConfig().getTableType();
         this.metadataTable = HoodieTableMetadata
                 .create(engineContext, metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
         prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
@@ -120,21 +116,11 @@ public class HudiFileSkippingManager
                         () -> metadataTable)
                 .getFileSystemView(metaClient);
         Option<String> queryInstant = specifiedQueryInstant.or(() -> latestInstant.map(HoodieInstant::getTimestamp));
-        if (tableType.equals(HoodieTableType.MERGE_ON_READ) && queryType.equals(HoodieTableQueryType.SNAPSHOT)) {
-            allInputFileSlices = partitions.stream().collect(Collectors.toMap(Function.identity(),
-                    partitionPath ->
-                            queryInstant.map(instant ->
-                                    fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get())
-                                            .collect(Collectors.toList()))
-                                    .orElse(Collections.emptyList())));
-        }
-        else {
-            allInputFileSlices = partitions.stream().collect(Collectors.toMap(Function.identity(), partition ->
-                    queryInstant.map(instant ->
-                            fileSystemView.getLatestFileSlicesBeforeOrOn(partition, instant, true))
-                            .orElse(fileSystemView.getLatestFileSlices(partition))
-                            .collect(Collectors.toList())));
-        }
+
+        allInputFileSlices = engineContext.mapToPair(partitions, partitionPath -> Pair.of(partitionPath, queryInstant.map(instant ->
+                fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get()))
+                .orElse(fileSystemView.getLatestFileSlices(partitionPath))
+                .collect(Collectors.toList())), partitions.size());
 
         long duration = System.currentTimeMillis() - startTime;
 

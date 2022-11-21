@@ -114,10 +114,10 @@ public class HudiPartitionManager
         }
         Configuration conf = metaClient.getHadoopConf();
         HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
-        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(isHudiMetadataTableEnabled(connectorSession)).build();
+        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
 
         // Load all the partition path from the basePath
-        List<String> matchedPartitionPaths = FSUtils.getAllPartitionPaths(engineContext, metadataConfig, metaClient.getBasePathV2().toString());
+        List<String> allPartitions = FSUtils.getAllPartitionPaths(engineContext, metadataConfig, metaClient.getBasePathV2().toString());
 
         // Extract partition columns predicate
         TupleDomain<String> partitionPredicate = tupleDomain.transform(hudiColumnHandle -> {
@@ -128,7 +128,7 @@ public class HudiPartitionManager
         });
 
         if (partitionPredicate.isAll()) {
-            return matchedPartitionPaths;
+            return allPartitions;
         }
 
         if (partitionPredicate.isNone()) {
@@ -137,9 +137,9 @@ public class HudiPartitionManager
 
         List<HudiColumnHandle> partitionColumnHandles = fromPartitionColumns(partitionColumns);
 
-        List<String> result = prunePartitions(partitionPredicate, partitionColumnHandles, getPartitions(partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()), matchedPartitionPaths));
-        log.info(format("Total partition size is %s, after partition prune size is %s.", matchedPartitionPaths.size(), result.size()));
-        return result;
+        List<String> matchedPartitionPaths = prunePartitions(partitionPredicate, partitionColumnHandles, getPartitions(partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()), allPartitions));
+        log.info(format("Total partition size is %s, after partition prune size is %s.", allPartitions.size(), matchedPartitionPaths.size()));
+        return matchedPartitionPaths;
     }
 
     /**
