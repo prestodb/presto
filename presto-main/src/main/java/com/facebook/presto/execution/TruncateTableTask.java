@@ -19,6 +19,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.TruncateTable;
@@ -45,13 +46,14 @@ public class TruncateTableTask
     @Override
     public ListenableFuture<?> execute(TruncateTable statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, WarningCollector warningCollector)
     {
+        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
 
-        if (metadata.isMaterializedView(session, tableName)) {
+        if (metadataResolver.isMaterializedView(tableName)) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Cannot truncate a materialized view");
         }
 
-        if (metadata.isView(session, tableName)) {
+        if (metadataResolver.isView(tableName)) {
             throw new SemanticException(NOT_SUPPORTED, statement, "Cannot truncate a view");
         }
 

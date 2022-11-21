@@ -41,6 +41,7 @@ import com.facebook.presto.spi.security.RoleGrant;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.planner.PartitioningHandle;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -80,9 +81,46 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean schemaExists(Session session, CatalogSchemaName schema)
+    public MetadataResolver getMetadataResolver(Session session)
     {
-        throw new UnsupportedOperationException();
+        return new MetadataResolver()
+        {
+            @Override
+            public boolean catalogExists(String catalogName)
+            {
+                return false;
+            }
+
+            @Override
+            public boolean schemaExists(CatalogSchemaName schema)
+            {
+                return false;
+            }
+
+            @Override
+            public boolean tableExists(QualifiedObjectName tableName)
+            {
+                return false;
+            }
+
+            @Override
+            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
+            {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<ViewDefinition> getView(QualifiedObjectName viewName)
+            {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
+            {
+                return Optional.empty();
+            }
+        };
     }
 
     @Override
@@ -398,12 +436,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         throw new UnsupportedOperationException();
@@ -411,12 +443,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropView(Session session, QualifiedObjectName viewName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();
     }
@@ -597,12 +623,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean catalogExists(Session session, String catalogName)
     {
         throw new UnsupportedOperationException();
     }

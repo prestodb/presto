@@ -46,7 +46,7 @@ public class DropViewTask
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<ViewDefinition> view = metadata.getView(session, name);
+        Optional<ViewDefinition> view = metadata.getMetadataResolver(session).getView(name);
         if (!view.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_TABLE, statement, "View '%s' does not exist", name);

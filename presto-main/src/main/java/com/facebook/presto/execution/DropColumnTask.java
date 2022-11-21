@@ -59,7 +59,7 @@ public class DropColumnTask
             return immediateFuture(null);
         }
 
-        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isTableExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and drop column is not supported", tableName);
