@@ -25,6 +25,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
+import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.buffer.OutputBuffers;
 import com.facebook.presto.execution.scheduler.nodeSelection.NodeSelector;
@@ -315,7 +316,14 @@ public class SectionExecutionFactory
                             .filter(task -> !task.getTaskId().equals(taskId))
                             .filter(task -> task instanceof HttpRemoteTask)
                             .map(task -> (HttpRemoteTask) task)
+                            .filter(task -> task.getTaskStatus().getState() != TaskState.FAILED)
                             .collect(toList());
+
+                    if (httpRemoteTasks.isEmpty()) {
+                        log.info("No healthy tasks to retry with");
+                        return;
+                    }
+
                     Collections.shuffle(httpRemoteTasks);
 
                     checkState(remoteTask.getUnprocessedSplits().keySet().size() == 1
