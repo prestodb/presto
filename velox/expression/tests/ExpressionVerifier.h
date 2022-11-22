@@ -33,6 +33,17 @@ struct ExpressionVerifierOptions {
 
 class ExpressionVerifier {
  public:
+  // File names used to persist data required for reproducing a failed test
+  // case.
+  static constexpr const std::string_view kInputVectorFileName = "input_vector";
+  static constexpr const std::string_view kIndicesOfLazyColumnsFileName =
+      "indices_of_lazy_columns";
+  static constexpr const std::string_view kResultVectorFileName =
+      "result_vector";
+  static constexpr const std::string_view kExpressionSqlFileName = "sql";
+  static constexpr const std::string_view kComplexConstantsFileName =
+      "complex_constants";
+
   ExpressionVerifier(
       core::ExecCtx* FOLLY_NONNULL execCtx,
       ExpressionVerifierOptions options)

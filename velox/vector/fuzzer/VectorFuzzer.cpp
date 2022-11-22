@@ -762,6 +762,39 @@ RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(RowVectorPtr rowVector) {
       std::move(children));
 }
 
+RowVectorPtr VectorFuzzer::fuzzRowChildrenToLazy(
+    RowVectorPtr rowVector,
+    const std::vector<column_index_t>& columnsToWrapInLazy) {
+  if (columnsToWrapInLazy.empty()) {
+    return rowVector;
+  }
+  std::vector<VectorPtr> children;
+  int listIndex = 0;
+  for (column_index_t i = 0; i < rowVector->childrenSize(); i++) {
+    auto child = rowVector->childAt(i);
+    VELOX_USER_CHECK_NOT_NULL(child);
+    VELOX_USER_CHECK(!child->isLazy());
+    if (listIndex < columnsToWrapInLazy.size() &&
+        i == columnsToWrapInLazy[listIndex]) {
+      listIndex++;
+      child = VectorFuzzer::wrapInLazyVector(child);
+    }
+    children.push_back(child);
+  }
+
+  BufferPtr newNulls = nullptr;
+  if (rowVector->nulls()) {
+    newNulls = AlignedBuffer::copy(rowVector->pool(), rowVector->nulls());
+  }
+
+  return std::make_shared<RowVector>(
+      rowVector->pool(),
+      rowVector->type(),
+      newNulls,
+      rowVector->size(),
+      std::move(children));
+}
+
 VectorPtr VectorLoaderWrap::makeEncodingPreservedCopy(SelectivityVector& rows) {
   VectorPtr result;
   DecodedVector decoded;

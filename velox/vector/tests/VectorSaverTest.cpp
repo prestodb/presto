@@ -530,6 +530,14 @@ TEST_F(VectorSaverTest, LazyVector) {
       fuzzer);
 }
 
+TEST_F(VectorSaverTest, stdVector) {
+  std::vector<column_index_t> intVector = {1, 2, 3, 4, 5};
+  auto path = exec::test::TempFilePath::create();
+  saveStdVectorToFile<column_index_t>(intVector, path->path.c_str());
+  auto copy = restoreStdVectorFromFile<column_index_t>(path->path.c_str());
+  ASSERT_EQ(intVector, copy);
+}
+
 namespace {
 struct VectorSaverInfo {
   // Path to directory where to store the vector.

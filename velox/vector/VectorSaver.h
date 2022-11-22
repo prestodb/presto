@@ -64,7 +64,12 @@ std::string restoreStringFromFile(const char* FOLLY_NONNULL filePath);
 // Write the vector to a file. Contents would include the size of the list
 // followed by all the values.
 template <typename T>
-void saveVectorTofile(
+void saveStdVectorToFile(
     const std::vector<T>& list,
     const char* FOLLY_NONNULL filePath);
+
+// Reads a std::vector from a file stored by saveStdVectorToFile() method.
+template <typename T>
+std::vector<T> restoreStdVectorFromFile(const char* FOLLY_NONNULL filePath);
+
 } // namespace facebook::velox

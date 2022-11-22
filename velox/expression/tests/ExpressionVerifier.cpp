@@ -23,18 +23,8 @@
 #include "velox/vector/tests/utils/VectorMaker.h"
 
 namespace facebook::velox::test {
+
 namespace {
-
-// File names used to persist data required for reproducing a failed test
-// case.
-static constexpr std::string_view kInputVectorFileName = "input_vector";
-static constexpr std::string_view kIndicesOfLazyColumnsFileName =
-    "indices_of_lazy_columns";
-static constexpr std::string_view kResultVectorFileName = "result_vector";
-static constexpr std::string_view kExpressionInSqlFileName = "sql";
-static constexpr std::string_view kComplexConstantsFileName =
-    "complex_constants";
-
 void logRowVector(const RowVectorPtr& rowVector) {
   if (rowVector == nullptr) {
     return;
@@ -77,45 +67,6 @@ void compareVectors(const VectorPtr& left, const VectorPtr& right) {
         right->toString(i));
   }
   LOG(INFO) << "All results match.";
-}
-
-// Returns a copy of 'rowVector' but with the columns having indices listed in
-// 'columnsToWrapInLazy' wrapped in lazy encoding. 'columnsToWrapInLazy'
-// should be a sorted list of column indices.
-RowVectorPtr wrapColumnsInLazy(
-    RowVectorPtr rowVector,
-    const std::vector<column_index_t>& columnsToWrapInLazy) {
-  if (columnsToWrapInLazy.empty()) {
-    return rowVector;
-  }
-  std::vector<VectorPtr> children;
-  int listIndex = 0;
-  for (column_index_t i = 0; i < rowVector->childrenSize(); i++) {
-    auto child = rowVector->childAt(i);
-    VELOX_USER_CHECK_NOT_NULL(child);
-    VELOX_USER_CHECK(!child->isLazy());
-    if (listIndex < columnsToWrapInLazy.size() &&
-        i == columnsToWrapInLazy[listIndex]) {
-      listIndex++;
-      child = VectorFuzzer::wrapInLazyVector(child);
-    }
-    children.push_back(child);
-  }
-
-  BufferPtr newNulls = nullptr;
-  if (rowVector->nulls()) {
-    newNulls = AlignedBuffer::copy(rowVector->pool(), rowVector->nulls());
-  }
-
-  auto lazyRowVector = std::make_shared<RowVector>(
-      rowVector->pool(),
-      rowVector->type(),
-      newNulls,
-      rowVector->size(),
-      std::move(children));
-  LOG(INFO) << "Modified inputs for common eval path: ";
-  logRowVector(lazyRowVector);
-  return lazyRowVector;
 }
 
 } // namespace
@@ -175,7 +126,13 @@ bool ExpressionVerifier::verify(
   try {
     exec::ExprSet exprSetCommon(
         {plan}, execCtx_, !options_.disableConstantFolding);
-    auto inputRowVector = wrapColumnsInLazy(rowVector, columnsToWrapInLazy);
+    auto inputRowVector = rowVector;
+    if (!columnsToWrapInLazy.empty()) {
+      inputRowVector =
+          VectorFuzzer::fuzzRowChildrenToLazy(rowVector, columnsToWrapInLazy);
+      LOG(INFO) << "Modified inputs for common eval path: ";
+      logRowVector(inputRowVector);
+    }
     exec::EvalCtx evalCtxCommon(execCtx_, &exprSetCommon, inputRowVector.get());
 
     try {
@@ -283,7 +240,7 @@ void ExpressionVerifier::persistReproInfo(
     lazyListPath =
         fmt::format("{}/{}", dirPath->c_str(), kIndicesOfLazyColumnsFileName);
     try {
-      saveVectorTofile<column_index_t>(
+      saveStdVectorToFile<column_index_t>(
           columnsToWrapInLazy, lazyListPath.c_str());
     } catch (std::exception& e) {
       lazyListPath = e.what();
@@ -301,7 +258,7 @@ void ExpressionVerifier::persistReproInfo(
   }
 
   // Saving sql
-  sqlPath = fmt::format("{}/{}", dirPath->c_str(), kExpressionInSqlFileName);
+  sqlPath = fmt::format("{}/{}", dirPath->c_str(), kExpressionSqlFileName);
   try {
     saveStringToFile(sql, sqlPath.c_str());
   } catch (std::exception& e) {
@@ -323,13 +280,13 @@ void ExpressionVerifier::persistReproInfo(
   }
 
   std::stringstream ss;
-  ss << "Persisted input: --input_path " << inputPath;
+  ss << "Persisted input: --fuzzer_repro_path " << dirPath.value();
+  ss << " --input_path " << inputPath;
   if (resultVector) {
     ss << " --result_path " << resultPath;
   }
   ss << " --sql_path " << sqlPath;
   if (!columnsToWrapInLazy.empty()) {
-    // TODO: add support for consuming this in ExpressionRunner
     ss << " --lazy_column_list_path " << lazyListPath;
   }
   if (!complexConstants.empty()) {

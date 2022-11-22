@@ -242,6 +242,14 @@ class VectorFuzzer {
   // re-used between multiple evaluations.
   RowVectorPtr fuzzRowChildrenToLazy(RowVectorPtr rowVector);
 
+  // Returns a copy of 'rowVector' but with the columns having indices listed in
+  // 'columnsToWrapInLazy' wrapped in lazy encoding. Must only be used for input
+  // row vectors where all children are non-null and non-lazy.
+  // 'columnsToWrapInLazy' should be a sorted list of column indices.
+  static RowVectorPtr fuzzRowChildrenToLazy(
+      RowVectorPtr rowVector,
+      const std::vector<column_index_t>& columnsToWrapInLazy);
+
  private:
   // Generates a flat vector for primitive types.
   VectorPtr fuzzFlatPrimitive(const TypePtr& type, vector_size_t size);

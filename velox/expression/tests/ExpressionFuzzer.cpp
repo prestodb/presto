@@ -256,8 +256,8 @@ std::vector<column_index_t> generateLazyColumnIds(
   std::vector<column_index_t> columnsToWrapInLazy;
   if (FLAGS_lazy_vector_generation_ratio > 0) {
     for (column_index_t idx = 0; idx < rowVector->childrenSize(); idx++) {
-      if (rowVector->childAt(idx) &&
-          vectorFuzzer.coinToss(FLAGS_lazy_vector_generation_ratio)) {
+      VELOX_CHECK_NOT_NULL(rowVector->childAt(idx));
+      if (vectorFuzzer.coinToss(FLAGS_lazy_vector_generation_ratio)) {
         columnsToWrapInLazy.push_back(idx);
       }
     }
@@ -413,7 +413,7 @@ void ExpressionFuzzer::reSeed() {
 }
 
 RowVectorPtr ExpressionFuzzer::generateRowVector() {
-  return vectorFuzzer_.fuzzRow(
+  return vectorFuzzer_.fuzzInputRow(
       ROW(std::move(inputRowNames_), std::move(inputRowTypes_)));
 }
 

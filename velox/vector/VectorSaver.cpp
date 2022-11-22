@@ -776,18 +776,32 @@ std::optional<std::string> generateFolderPath(
 }
 
 template <typename T>
-void saveVectorTofile(const std::vector<T>& list, const char* filePath) {
+void saveStdVectorToFile(const std::vector<T>& list, const char* filePath) {
   std::ofstream outputFile(filePath, std::ofstream::binary);
   // Size of the vector
   write<int32_t>(list.size(), outputFile);
 
-  for (auto element : list) {
-    write<T>(element, outputFile);
-  }
+  outputFile.write(
+      reinterpret_cast<const char*>(list.data()), list.size() * sizeof(T));
   outputFile.close();
 }
 
-template void saveVectorTofile<column_index_t>(
+template void saveStdVectorToFile<column_index_t>(
     const std::vector<column_index_t>& list,
     const char* filePath);
+
+template <typename T>
+std::vector<T> restoreStdVectorFromFile(const char* filePath) {
+  std::ifstream in(filePath, std::ifstream::binary);
+  auto size = read<int32_t>(in);
+  std::vector<T> vec(size);
+
+  in.read(reinterpret_cast<char*>(vec.data()), size * sizeof(T));
+  in.close();
+  return vec;
+}
+
+template std::vector<column_index_t> restoreStdVectorFromFile<column_index_t>(
+    const char* filePath);
+
 } // namespace facebook::velox

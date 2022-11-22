@@ -43,6 +43,12 @@ class ExpressionRunner {
   ///        "simplified"]
   /// @param numRows Maximum number of rows to process. 0 means 'all' rows.
   ///         Applies to "common" and "simplified" modes only.
+  /// @param storeResultPath The path to a directory on disk where the results
+  /// of expression or query evaluation will be stored. If empty, the results
+  /// will not be stored.
+  /// @param lazyColumnListPath The path to on-disk vector of column indices
+  /// that specify which columns of the input row vector should be wrapped in
+  /// lazy.
   ///
   /// User can refer to 'VectorSaver' class to see how to serialize/preserve
   /// vectors to disk.
@@ -53,7 +59,8 @@ class ExpressionRunner {
       const std::string& resultPath,
       const std::string& mode,
       vector_size_t numRows,
-      const std::string& storeResultPath);
+      const std::string& storeResultPath,
+      const std::string& lazyColumnListPath);
 
   /// Parse comma-separated SQL expressions. This should be treated as private
   /// except for tests.

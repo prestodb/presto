@@ -45,7 +45,6 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   auto sqlFile = exec::test::TempFilePath::create();
   auto resultFile = exec::test::TempFilePath::create();
   const char* inputPath = inputFile->path.data();
-  const char* sqlPath = sqlFile->path.data();
   const char* resultPath = resultFile->path.data();
   const int vectorSize = 100;
 
@@ -60,7 +59,7 @@ TEST_F(ExpressionRunnerUnitTest, run) {
   saveVectorToFile(resultVector.get(), resultPath);
 
   EXPECT_NO_THROW(ExpressionRunner::run(
-      inputPath, "length(c0)", "", resultPath, "verify", 0, ""));
+      inputPath, "length(c0)", "", resultPath, "verify", 0, "", ""));
 }
 
 TEST_F(ExpressionRunnerUnitTest, persistAndReproComplexSql) {
