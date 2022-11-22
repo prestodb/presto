@@ -317,7 +317,7 @@ jobs:
       CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
       CONBENCH_HOST: "CircleCI-runner-dedicated"
       LINUX_DISTRO: "ubuntu"
-      VELOX_DEPENDENCY_SOURCE: SYSTEM
+      VELOX_DEPENDENCY_SOURCE: BUNDLED
     steps:
       - checkout
       - update-submodules
