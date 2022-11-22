@@ -1419,10 +1419,13 @@ TaskStats Task::taskStats() const {
   // (their operators).
   TaskStats taskStats = taskStats_;
 
+  taskStats.numTotalDrivers = drivers_.size();
+
   // Add stats of the drivers (their operators) that are still running.
   for (const auto& driver : drivers_) {
     // Driver can be null.
     if (driver == nullptr) {
+      ++taskStats.numCompletedDrivers;
       continue;
     }
 
@@ -1431,6 +1434,13 @@ TaskStats Task::taskStats() const {
       taskStats.pipelineStats[statsCopy.pipelineId]
           .operatorStats[statsCopy.operatorId]
           .add(statsCopy);
+    }
+    if (driver->isOnThread()) {
+      ++taskStats.numRunningDrivers;
+    } else if (driver->isTerminated()) {
+      ++taskStats.numTerminatedDrivers;
+    } else {
+      ++taskStats.numBlockedDrivers[driver->blockingReason()];
     }
   }
 

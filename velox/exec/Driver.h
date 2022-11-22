@@ -286,6 +286,10 @@ class Driver : public std::enable_shared_from_this<Driver> {
   // closing non-running Drivers.
   void closeByTask();
 
+  BlockingReason blockingReason() const {
+    return blockingReason_;
+  }
+
  private:
   void enqueueInternal();
 

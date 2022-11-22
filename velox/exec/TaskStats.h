@@ -15,7 +15,12 @@
  */
 #pragma once
 
+#include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
+
+#include "velox/exec/Driver.h"
 
 namespace facebook::velox::exec {
 
@@ -46,26 +51,40 @@ struct TaskStats {
   int32_t numQueuedSplits{0};
   std::unordered_set<int32_t> completedSplitGroups;
 
-  // The subscript is given by each Operator's
-  // DriverCtx::pipelineId. This is a sum total reflecting fully
-  // processed Splits for Drivers of this pipeline.
+  /// The subscript is given by each Operator's
+  /// DriverCtx::pipelineId. This is a sum total reflecting fully
+  /// processed Splits for Drivers of this pipeline.
   std::vector<PipelineStats> pipelineStats;
 
-  // Epoch time (ms) when task starts to run
+  /// Epoch time (ms) when task starts to run
   uint64_t executionStartTimeMs{0};
 
-  // Epoch time (ms) when last split is processed. For some tasks there might be
-  // some additional time to send buffered results before the task finishes.
+  /// Epoch time (ms) when last split is processed. For some tasks there might
+  /// be some additional time to send buffered results before the task finishes.
   uint64_t executionEndTimeMs{0};
 
-  // Epoch time (ms) when first split is fetched from the task by an operator.
+  /// Epoch time (ms) when first split is fetched from the task by an operator.
   uint64_t firstSplitStartTimeMs{0};
 
-  // Epoch time (ms) when last split is fetched from the task by an operator.
+  /// Epoch time (ms) when last split is fetched from the task by an operator.
   uint64_t lastSplitStartTimeMs{0};
 
-  // Epoch time (ms) when the task completed, e.g. all splits were processed and
-  // results have been consumed.
+  /// Epoch time (ms) when the task completed, e.g. all splits were processed
+  /// and results have been consumed.
   uint64_t endTimeMs{0};
+
+  /// Total number of drivers.
+  uint64_t numTotalDrivers{0};
+  /// The number of completed drivers (which slots are null in Task 'drivers_'
+  /// list).
+  uint64_t numCompletedDrivers{0};
+  /// The number of drivers that are terminating or terminated (isTerminated()
+  /// returns true).
+  uint64_t numTerminatedDrivers{0};
+  /// The number of drivers that are currently running on driver thread.
+  uint64_t numRunningDrivers{0};
+  /// Drivers blocked for various reasons. Based on enum BlockingReason.
+  std::unordered_map<BlockingReason, uint64_t> numBlockedDrivers;
 };
+
 } // namespace facebook::velox::exec

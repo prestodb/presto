@@ -731,6 +731,7 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     result.push_back(cursor->current());
   }
   EXPECT_TRUE(waitForTaskCompletion(task)) << task->taskId();
+
   TaskStats finishStats = task->taskStats();
 
   for (auto i = 0; i < numBatches; ++i) {
@@ -740,7 +741,19 @@ DEBUG_ONLY_TEST_F(TaskTest, liveStats) {
     EXPECT_EQ(3 * i, operatorStats.outputPositions);
     EXPECT_EQ(i, operatorStats.outputVectors);
     EXPECT_EQ(0, operatorStats.finishTiming.count);
+
+    EXPECT_EQ(1, liveStats[i].numTotalDrivers);
+    EXPECT_EQ(0, liveStats[i].numCompletedDrivers);
+    EXPECT_EQ(0, liveStats[i].numTerminatedDrivers);
+    EXPECT_EQ(1, liveStats[i].numRunningDrivers);
+    EXPECT_EQ(0, liveStats[i].numBlockedDrivers.size());
   }
+
+  EXPECT_EQ(1, finishStats.numTotalDrivers);
+  EXPECT_EQ(1, finishStats.numCompletedDrivers);
+  EXPECT_EQ(0, finishStats.numTerminatedDrivers);
+  EXPECT_EQ(0, finishStats.numRunningDrivers);
+  EXPECT_EQ(0, finishStats.numBlockedDrivers.size());
 
   const auto& operatorStats = finishStats.pipelineStats[0].operatorStats[0];
   EXPECT_EQ(numBatches + 1, operatorStats.getOutputTiming.count);
