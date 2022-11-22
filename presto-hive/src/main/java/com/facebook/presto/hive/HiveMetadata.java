@@ -2739,7 +2739,7 @@ public class HiveMetadata
                                 .setPartitions(hivePartitionResult.getPartitions())
                                 .setBucketHandle(hiveBucketHandle)
                                 .setBucketFilter(hivePartitionResult.getBucketFilter())
-                                .setPushdownFilterEnabled(false)
+                                .setPushdownFilterEnabled(isPushdownFilterEnabled(session, tableHandle))
                                 .setLayoutString(layoutString)
                                 .setRequestedColumns(requestedColumns)
                                 .setPartialAggregationsPushedDown(false)
