@@ -1,0 +1,46 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build problem
+description: Report an issue when building Velox.
+labels: ["build", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please add as much relevant information to the form below as you can.
+        This will help us replicate and solve the issue. Thank you!
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: Please describe the problem.
+      value: "Please describe how you were trying to build velox and what issue occured"
+    validations:
+      required: true
+  - type: textarea
+    id: info
+    attributes:
+      label: System information
+      description: Please run `scripts/info.sh` and paste the output here.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: CMake log
+      description: |
+        Please copy and paste the relevant part of the CMake log here.
+        This will be automatically formatted into code, so no need for backticks.
+      render: bash
