@@ -29,8 +29,9 @@ DEFINE_int32(
 namespace facebook::presto {
 namespace {
 static std::shared_ptr<folly::CPUThreadPoolExecutor>& executor() {
-  static auto executor =
-      std::make_shared<folly::CPUThreadPoolExecutor>(FLAGS_num_query_threads);
+  static auto executor = std::make_shared<folly::CPUThreadPoolExecutor>(
+      FLAGS_num_query_threads,
+      std::make_shared<folly::NamedThreadFactory>("Driver"));
   return executor;
 }
 
@@ -41,7 +42,7 @@ std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
   }
   static auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
       numSpillThreads,
-      std::make_shared<folly::NamedThreadFactory>("SpillerExec"));
+      std::make_shared<folly::NamedThreadFactory>("Spiller"));
   return executor;
 }
 } // namespace
