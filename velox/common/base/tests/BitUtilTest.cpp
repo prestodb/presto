@@ -746,6 +746,33 @@ TEST_F(BitUtilTest, forBatches) {
   test(0, sizeof(bits) * 8);
 }
 
+TEST_F(BitUtilTest, rotateLeft64) {
+  uint64_t data[] = {
+      0xff00ff00ffff00ff,
+      0x0f0f0f0f0f0f0f0f,
+      0xfedcba9876543210,
+      0xf0f0f0f0f0f0f0f0,
+      0x0123456789abcdef};
+  // The expected result was obtained by running with java standard library
+  // System.out.println(Long.toHexString(Long.rotateLeft(0x0f0f0f0f0f0f0f0fL,
+  // 2)));
+  uint64_t expectedShift2[] = {
+      0xfc03fc03fffc03ff,
+      0x3c3c3c3c3c3c3c3c,
+      0xfb72ea61d950c843,
+      0xc3c3c3c3c3c3c3c3,
+      0x48d159e26af37bc};
+  uint64_t expectedShift33[] = {
+      0xfffe01fffe01fe01,
+      0x1e1e1e1e1e1e1e1e,
+      0xeca86421fdb97530,
+      0xe1e1e1e1e1e1e1e1,
+      0x13579bde02468acf};
+  for (int32_t i = 0; i < 5; i++) {
+    EXPECT_EQ(rotateLeft64(data[i], 2), expectedShift2[i]);
+    EXPECT_EQ(rotateLeft64(data[i], 33), expectedShift33[i]);
+  }
+}
 } // namespace bits
 } // namespace velox
 } // namespace facebook

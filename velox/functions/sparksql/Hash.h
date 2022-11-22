@@ -18,6 +18,27 @@
 namespace facebook::velox::functions::sparksql {
 
 // Supported types:
+//   - Boolean
+//   - Integer types (tinyint, smallint, integer, bigint)
+//   - Varchar, varbinary
+//   - Real, double
+//
+// TODO:
+//   - Decimal
+//   - Date
+//   - Timestamp
+//   - Row, Array: hash the elements in order
+//   - Map: iterate over map, hashing key then value. Since map ordering is
+//        unspecified, hashing logically equivalent maps may result in
+//        different hash values.
+
+std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures();
+
+std::shared_ptr<exec::VectorFunction> makeHash(
+    const std::string& name,
+    const std::vector<exec::VectorFunctionArg>& inputArgs);
+
+// Supported types:
 //   - Bools
 //   - Integer types (byte, short, int, long)
 //   - String, Binary
@@ -31,9 +52,9 @@ namespace facebook::velox::functions::sparksql {
 //        unspecified, hashing logically equivalent maps may result in
 //        different hash values.
 
-std::vector<std::shared_ptr<exec::FunctionSignature>> hashSignatures();
+std::vector<std::shared_ptr<exec::FunctionSignature>> xxhash64Signatures();
 
-std::shared_ptr<exec::VectorFunction> makeHash(
+std::shared_ptr<exec::VectorFunction> makeXxHash64(
     const std::string& name,
     const std::vector<exec::VectorFunctionArg>& inputArgs);
 
