@@ -159,7 +159,10 @@ std::shared_ptr<Task> AssertQueryBuilder::assertResults(
 RowVectorPtr AssertQueryBuilder::copyResults(memory::MemoryPool* pool) {
   auto [cursor, results] = readCursor();
 
-  VELOX_CHECK(!results.empty());
+  if (results.empty()) {
+    return BaseVector::create<RowVector>(
+        params_.planNode->outputType(), 0, pool);
+  }
 
   auto totalCount = 0;
   for (const auto& result : results) {

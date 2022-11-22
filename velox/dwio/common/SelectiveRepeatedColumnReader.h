@@ -148,7 +148,9 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   }
 
   // Creates a struct if '*result' is empty and 'type' is a row.
-  void prepareStructResult(const TypePtr& type, VectorPtr* result) {
+  void prepareStructResult(
+      const TypePtr& type,
+      VectorPtr* FOLLY_NULLABLE result) {
     if (!*result && type->kind() == TypeKind::ROW) {
       *result = BaseVector::create(type, 0, &memoryPool_);
     }
@@ -180,10 +182,12 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
     return std::vector<SelectiveColumnReader*>{child_.get()};
   }
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE incomingNulls) override;
 
-  void getValues(RowSet rows, VectorPtr* result) override;
+  void getValues(RowSet rows, VectorPtr* FOLLY_NULLABLE result) override;
 
  protected:
   std::unique_ptr<SelectiveColumnReader> child_;
@@ -210,10 +214,12 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
         keyReader_.get(), elementReader_.get()};
   }
 
-  void read(vector_size_t offset, RowSet rows, const uint64_t* incomingNulls)
-      override;
+  void read(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE incomingNulls) override;
 
-  void getValues(RowSet rows, VectorPtr* result) override;
+  void getValues(RowSet rows, VectorPtr* FOLLY_NULLABLE result) override;
 
   std::unique_ptr<SelectiveColumnReader> keyReader_;
   std::unique_ptr<SelectiveColumnReader> elementReader_;
