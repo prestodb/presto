@@ -96,7 +96,7 @@ BUILD_LOGS_FILEPATH="${SCRIPT_DIR}/$(date +%Y%m%d%H%M%S)-${USER}-${CPU_TARGET}-b
     if [ "$DOCKER_BUILDKIT" == "1" ]; then
         eval $(ssh-agent) 2>1 &&
         ! ssh-add $HOME/.ssh/* 2>1 &&
-        export USER_FLAGS="${USER_FLAGS} --ssh default=${SSH_AUTH_SOCK} " ||
+        export USER_FLAGS="${USER_FLAGS} --progress tty --ssh default=${SSH_AUTH_SOCK} " ||
         export DOCKER_BUILDKIT=0
     fi
     if [ "$DOCKER_BUILDKIT" == "0" ]; then
