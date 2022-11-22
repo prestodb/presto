@@ -39,6 +39,7 @@ Spiller::Stats spilledStats(const exec::Task& task) {
       spilledStats.spilledBytes += op.spilledBytes;
       spilledStats.spilledRows += op.spilledRows;
       spilledStats.spilledPartitions += op.spilledPartitions;
+      spilledStats.spilledFiles += op.spilledFiles;
     }
   }
   return spilledStats;
@@ -179,6 +180,7 @@ class OrderByTest : public OperatorTestBase {
       if (inputRows > 0) {
         EXPECT_LT(0, spilledStats(*task).spilledBytes);
         EXPECT_EQ(1, spilledStats(*task).spilledPartitions);
+        EXPECT_LT(0, spilledStats(*task).spilledFiles);
         // NOTE: the last input batch won't go spilling.
         EXPECT_GT(inputRows, spilledStats(*task).spilledRows);
       } else {
@@ -445,6 +447,7 @@ TEST_F(OrderByTest, spill) {
   EXPECT_GT(kNumBatches * kNumRows, stats[0].operatorStats[1].spilledRows);
   EXPECT_LT(0, stats[0].operatorStats[1].spilledBytes);
   EXPECT_EQ(1, stats[0].operatorStats[1].spilledPartitions);
+  EXPECT_EQ(2, stats[0].operatorStats[1].spilledFiles);
 }
 
 TEST_F(OrderByTest, spillWithMemoryLimit) {

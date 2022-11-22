@@ -239,8 +239,8 @@ const SpillPartitionNumSet& SpillState::spilledPartitionSet() const {
   return spilledPartitionSet_;
 }
 
-int64_t SpillState::spilledFiles() const {
-  int64_t numFiles = 0;
+uint64_t SpillState::spilledFiles() const {
+  uint64_t numFiles = 0;
   for (const auto& list : files_) {
     if (list != nullptr) {
       numFiles += list->spilledFiles();

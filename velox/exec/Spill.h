@@ -207,7 +207,7 @@ class SpillFileList {
 
   uint64_t spilledBytes() const;
 
-  int64_t spilledFiles() const {
+  uint64_t spilledFiles() const {
     return files_.size();
   }
 
@@ -638,7 +638,8 @@ class SpillState {
   /// Return the spilled partition number set.
   const SpillPartitionNumSet& spilledPartitionSet() const;
 
-  int64_t spilledFiles() const;
+  /// Returns the number of spilled files we have.
+  uint64_t spilledFiles() const;
 
   std::vector<std::string> testingSpilledFilePaths() const;
 

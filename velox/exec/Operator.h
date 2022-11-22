@@ -137,6 +137,9 @@ struct OperatorStats {
   // Total spilled partitions.
   uint32_t spilledPartitions{0};
 
+  // Total current spilled files.
+  uint32_t spilledFiles{0};
+
   std::unordered_map<std::string, RuntimeMetric> runtimeStats;
 
   int numDrivers = 0;

@@ -179,7 +179,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       return;
     }
     // Verify the spilled file exist on file system.
-    const int numSpilledFiles = spiller_->spilledFiles();
+    const auto numSpilledFiles = spiller_->spilledFiles();
     EXPECT_GT(numSpilledFiles, 0);
     const auto spilledFileSet = spiller_->state().testingSpilledFilePaths();
     EXPECT_EQ(numSpilledFiles, spilledFileSet.size());
@@ -199,6 +199,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
       EXPECT_TRUE(unspilledPartitionRows.empty());
       EXPECT_EQ(0, rowContainer_->numRows());
       EXPECT_EQ(numPartitions_, spiller_->stats().spilledPartitions);
+      EXPECT_EQ(numSpilledFiles, spiller_->stats().spilledFiles);
       for (int i = 0; i < numPartitions_; ++i) {
         expectedSpillPartitions.insert(i);
       }
@@ -207,6 +208,7 @@ class SpillerTest : public exec::test::RowContainerTestBase {
     } else {
       EXPECT_GE(numPartitions_, spiller_->stats().spilledPartitions);
       EXPECT_GE(numPartitions_, spiller_->state().spilledPartitionSet().size());
+      EXPECT_GE(numSpilledFiles, spiller_->stats().spilledFiles);
     }
     // Assert we can't call any spill function after the spiller has been
     // finalized.
@@ -929,8 +931,8 @@ TEST_P(NoHashJoinNoOrderBy, spillWithEmptyPartitions) {
     ASSERT_TRUE(spiller_->isAnySpilled());
     ASSERT_FALSE(spiller_->isAllSpilled());
 
-    int32_t numNonEmptyPartitions = 0;
-    for (int partition = 0; partition < numPartitions_; ++partition) {
+    uint64_t numNonEmptyPartitions = 0;
+    for (auto partition = 0; partition < numPartitions_; ++partition) {
       if (testData.rowsPerPartition[partition] != 0) {
         ASSERT_TRUE(spiller_->state().isPartitionSpilled(partition));
         ++numNonEmptyPartitions;
@@ -939,7 +941,7 @@ TEST_P(NoHashJoinNoOrderBy, spillWithEmptyPartitions) {
             << partition;
       }
     }
-    const int numSpilledFiles = spiller_->spilledFiles();
+    const auto numSpilledFiles = spiller_->spilledFiles();
     ASSERT_EQ(numNonEmptyPartitions, numSpilledFiles);
     // Expect no non-spilling partitions.
     EXPECT_TRUE(spiller_->finishSpill().empty());
@@ -1104,26 +1106,31 @@ TEST(SpillerTest, stats) {
   EXPECT_EQ(0, sumStats.spilledRows);
   EXPECT_EQ(0, sumStats.spilledBytes);
   EXPECT_EQ(0, sumStats.spilledPartitions);
+  EXPECT_EQ(0, sumStats.spilledFiles);
 
   Spiller::Stats stats;
   stats.spilledRows = 10;
   stats.spilledBytes = 100;
   stats.spilledPartitions = 2;
+  stats.spilledFiles = 3;
 
   sumStats += stats;
   EXPECT_EQ(stats.spilledRows, sumStats.spilledRows);
   EXPECT_EQ(stats.spilledBytes, sumStats.spilledBytes);
   EXPECT_EQ(stats.spilledPartitions, sumStats.spilledPartitions);
+  EXPECT_EQ(stats.spilledFiles, sumStats.spilledFiles);
 
   sumStats += stats;
   EXPECT_EQ(2 * stats.spilledRows, sumStats.spilledRows);
   EXPECT_EQ(2 * stats.spilledBytes, sumStats.spilledBytes);
   EXPECT_EQ(2 * stats.spilledPartitions, sumStats.spilledPartitions);
+  EXPECT_EQ(2 * stats.spilledFiles, sumStats.spilledFiles);
 
   sumStats += stats;
   EXPECT_EQ(3 * stats.spilledRows, sumStats.spilledRows);
   EXPECT_EQ(3 * stats.spilledBytes, sumStats.spilledBytes);
   EXPECT_EQ(3 * stats.spilledPartitions, sumStats.spilledPartitions);
+  EXPECT_EQ(3 * stats.spilledFiles, sumStats.spilledFiles);
 }
 
 TEST(SpillerTest, spillLevel) {

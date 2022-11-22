@@ -113,11 +113,12 @@ void OrderBy::addInput(RowVectorPtr input) {
 
   numRows_ += allRows.size();
   if (spiller_ != nullptr) {
-    const auto spillerStats = spiller_->stats();
+    const auto spillStats = spiller_->stats();
     auto lockedStats = stats_.wlock();
-    lockedStats->spilledBytes = spillerStats.spilledBytes;
-    lockedStats->spilledRows = spillerStats.spilledRows;
-    lockedStats->spilledPartitions = spillerStats.spilledPartitions;
+    lockedStats->spilledBytes = spillStats.spilledBytes;
+    lockedStats->spilledRows = spillStats.spilledRows;
+    lockedStats->spilledPartitions = spillStats.spilledPartitions;
+    lockedStats->spilledFiles = spillStats.spilledFiles;
     VELOX_DCHECK_LE(lockedStats->spilledPartitions, 1);
   }
 }

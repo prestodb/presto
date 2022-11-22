@@ -178,12 +178,13 @@ void HashAggregation::addInput(RowVectorPtr input) {
   }
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
-  auto spilledStats = groupingSet_->spilledStats();
   {
+    auto spillStats = groupingSet_->spilledStats();
     auto lockedStats = stats_.wlock();
-    lockedStats->spilledBytes = spilledStats.spilledBytes;
-    lockedStats->spilledRows = spilledStats.spilledRows;
-    lockedStats->spilledPartitions = spilledStats.spilledPartitions;
+    lockedStats->spilledBytes = spillStats.spilledBytes;
+    lockedStats->spilledRows = spillStats.spilledRows;
+    lockedStats->spilledPartitions = spillStats.spilledPartitions;
+    lockedStats->spilledFiles = spillStats.spilledFiles;
   }
 
   // NOTE: we should not trigger partial output flush in case of global

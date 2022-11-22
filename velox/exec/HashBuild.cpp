@@ -722,6 +722,7 @@ bool HashBuild::finishHashBuild() {
           lockedStats->spilledBytes += spillStats.spilledBytes;
           lockedStats->spilledRows += spillStats.spilledRows;
           lockedStats->spilledPartitions += spillStats.spilledPartitions;
+          lockedStats->spilledFiles += spillStats.spilledFiles;
         }
 
         spiller_->finishSpill(spillPartitions);

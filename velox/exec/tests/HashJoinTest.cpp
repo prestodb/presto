@@ -150,6 +150,7 @@ Spiller::Stats taskSpilledStats(const exec::Task& task) {
       spilledStats.spilledBytes += op.spilledBytes;
       spilledStats.spilledRows += op.spilledRows;
       spilledStats.spilledPartitions += op.spilledPartitions;
+      spilledStats.spilledFiles += op.spilledFiles;
     }
   }
   return spilledStats;
@@ -613,6 +614,7 @@ class HashJoinBuilder {
         ASSERT_GT(spillStats.spilledRows, 0);
         ASSERT_GT(spillStats.spilledBytes, 0);
         ASSERT_GT(spillStats.spilledPartitions, 0);
+        ASSERT_GT(spillStats.spilledFiles, 0);
         if (maxSpillLevel != -1) {
           ASSERT_EQ(maxHashBuildSpillLevel(*task), maxSpillLevel);
         }
@@ -621,6 +623,7 @@ class HashJoinBuilder {
       ASSERT_EQ(spillStats.spilledRows, 0);
       ASSERT_EQ(spillStats.spilledBytes, 0);
       ASSERT_EQ(spillStats.spilledPartitions, 0);
+      ASSERT_EQ(spillStats.spilledFiles, 0);
     }
     // Customized test verification.
     if (testVerifier_ != nullptr) {
@@ -847,6 +850,7 @@ TEST_P(MultiThreadedHashJoinTest, emptyBuild) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
       })
       .run();
 }
@@ -1156,6 +1160,7 @@ TEST_P(MultiThreadedHashJoinTest, innerJoinWithEmptyBuild) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();
@@ -1319,6 +1324,7 @@ TEST_P(MultiThreadedHashJoinTest, rightSemiJoinFilterWithEmptyBuild) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();
@@ -1658,6 +1664,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilter) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();
@@ -1700,6 +1707,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndEmptyBuild) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();
@@ -1749,6 +1757,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterAndNullKey) {
           ASSERT_EQ(spillStats.spilledRows, 0);
           ASSERT_EQ(spillStats.spilledBytes, 0);
           ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1795,6 +1804,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
           ASSERT_EQ(spillStats.spilledRows, 0);
           ASSERT_EQ(spillStats.spilledBytes, 0);
           ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1838,6 +1848,7 @@ TEST_P(MultiThreadedHashJoinTest, nullAwareAntiJoinWithFilterOnNullableColumn) {
           ASSERT_EQ(spillStats.spilledRows, 0);
           ASSERT_EQ(spillStats.spilledBytes, 0);
           ASSERT_EQ(spillStats.spilledPartitions, 0);
+          ASSERT_EQ(spillStats.spilledFiles, 0);
           ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
         })
         .run();
@@ -1926,6 +1937,7 @@ TEST_P(MultiThreadedHashJoinTest, antiJoinWithFilterAndEmptyBuild) {
         ASSERT_EQ(spillStats.spilledRows, 0);
         ASSERT_EQ(spillStats.spilledBytes, 0);
         ASSERT_EQ(spillStats.spilledPartitions, 0);
+        ASSERT_EQ(spillStats.spilledFiles, 0);
         ASSERT_EQ(maxHashBuildSpillLevel(*task), -1);
       })
       .run();

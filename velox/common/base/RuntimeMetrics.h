@@ -44,6 +44,11 @@ struct RuntimeMetric {
       RuntimeCounter::Unit _unit = RuntimeCounter::Unit::kNone)
       : unit(_unit) {}
 
+  explicit RuntimeMetric(
+      int64_t value,
+      RuntimeCounter::Unit _unit = RuntimeCounter::Unit::kNone)
+      : unit(_unit), sum{value}, count{1}, min{value}, max{value} {}
+
   void addValue(int64_t value);
 
   void printMetric(std::stringstream& stream) const;

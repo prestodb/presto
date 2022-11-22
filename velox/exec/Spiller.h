@@ -260,14 +260,17 @@ class Spiller {
     /// NOTE: when we sum up the stats from a group of spill operators, it is
     /// the total number of spilled partitions X number of operators.
     uint32_t spilledPartitions{0};
+    uint64_t spilledFiles{0};
 
     Stats(
         uint64_t _spilledBytes,
         uint64_t _spilledRows,
-        uint32_t _spilledPartitions)
+        uint32_t _spilledPartitions,
+        uint64_t _spilledFiles)
         : spilledBytes(_spilledBytes),
           spilledRows(_spilledRows),
-          spilledPartitions(_spilledPartitions) {}
+          spilledPartitions(_spilledPartitions),
+          spilledFiles(_spilledFiles) {}
 
     Stats() = default;
 
@@ -275,16 +278,21 @@ class Spiller {
       spilledBytes += other.spilledBytes;
       spilledRows += other.spilledRows;
       spilledPartitions += other.spilledPartitions;
+      spilledFiles += other.spilledFiles;
       return *this;
     }
   };
 
   Stats stats() const {
     return Stats{
-        state_.spilledBytes(), spilledRows_, state_.spilledPartitions()};
+        state_.spilledBytes(),
+        spilledRows_,
+        state_.spilledPartitions(),
+        spilledFiles()};
   }
 
-  int64_t spilledFiles() const {
+  /// Return the number of spilled files we have.
+  uint64_t spilledFiles() const {
     return state_.spilledFiles();
   }
 

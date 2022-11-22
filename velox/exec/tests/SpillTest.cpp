@@ -155,6 +155,7 @@ class SpillTest : public testing::Test,
     EXPECT_EQ(numPartitions, state_->maxPartitions());
     EXPECT_EQ(0, state_->spilledPartitions());
     EXPECT_TRUE(state_->spilledPartitionSet().empty());
+    EXPECT_EQ(0, state_->spilledFiles());
 
     for (auto partition = 0; partition < state_->maxPartitions(); ++partition) {
       EXPECT_FALSE(state_->isPartitionSpilled(partition));
@@ -210,6 +211,16 @@ class SpillTest : public testing::Test,
     for (int i = 0; i < numPartitions; ++i) {
       EXPECT_TRUE(state_->spilledPartitionSet().contains(i));
     }
+    // NOTE: we write numBatches for each partition. If the target file size is
+    // 1, we will end up with 'numPartitions * numBatches' spilled files as each
+    // batch will generate one spill file. If not, the target file size is set
+    // to vary large and only finishWrite() generates a new spill file which is
+    // called every two batches.
+    auto expectedFiles = numPartitions * numBatches;
+    if (targetFileSize > 1) {
+      expectedFiles /= 2;
+    }
+    EXPECT_EQ(expectedFiles, state_->spilledFiles());
     EXPECT_LT(
         numPartitions * numBatches * sizeof(int64_t), state_->spilledBytes());
   }
@@ -222,7 +233,7 @@ class SpillTest : public testing::Test,
       int numBatches,
       int numDuplicates,
       const std::vector<CompareFlags>& compareFlags,
-      int64_t expectedNumSpilledFiles) {
+      uint64_t expectedNumSpilledFiles) {
     const int numRowsPerBatch = 20'000;
     SCOPED_TRACE(fmt::format(
         "targetFileSize: {}, numPartitions: {}, numBatches: {}, numDuplicates: {}, nullsFirst: {}, ascending: {}",

@@ -414,6 +414,7 @@ void OperatorStats::add(const OperatorStats& other) {
   spilledBytes += other.spilledBytes;
   spilledRows += other.spilledRows;
   spilledPartitions += other.spilledPartitions;
+  spilledFiles += other.spilledFiles;
 }
 
 void OperatorStats::clear() {
