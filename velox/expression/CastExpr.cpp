@@ -298,8 +298,6 @@ VectorPtr CastExpr::applyMap(
     const MapType& toType) {
   // Cast input keys/values vector to output keys/values vector using their
   // element selectivity vector
-  auto rawSizes = input->rawSizes();
-  auto rawOffsets = input->rawOffsets();
 
   // Initialize nested rows
   auto mapKeys = input->mapKeys();
@@ -367,9 +365,6 @@ VectorPtr CastExpr::applyArray(
     exec::EvalCtx& context,
     const ArrayType& fromType,
     const ArrayType& toType) {
-  auto inputRawSizes = input->rawSizes();
-  auto inputOffsets = input->rawOffsets();
-
   // Cast input array elements to output array elements based on their types
   // using their linear selectivity vector
   auto arrayElements = input->elements();

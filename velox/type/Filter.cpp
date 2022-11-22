@@ -27,7 +27,7 @@
 namespace facebook::velox::common {
 
 std::string Filter::toString() const {
-  const char* strKind = "<unknown>";
+  std::string strKind;
   switch (kind_) {
     case FilterKind::kAlwaysFalse:
       strKind = "AlwaysFalse";
