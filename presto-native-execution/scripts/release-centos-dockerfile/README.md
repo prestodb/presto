@@ -175,6 +175,8 @@ Release image build - mostly with only the must-have runtime files, including pr
 
 # Prestissimo - runtime configuration and settings
 
+⚠️ _Notice: Presto-native-execution binary requires 32Gb of RAM at runtime to start (default settings). To override this and overcome runtime error add node.memory_gb=8 line in node.properties._
+
 Presto server with all dependencies can be found inside `/opt/presto/`, runtime name is `presto_server`. There are 2 ways of starting PrestoCpp using provided entry point `/opt/entrypoint.sh`.
 
 ## 1) Quick start - pass parameters to entrypoint
@@ -199,6 +201,8 @@ node.environment=test-environment
 node.data-dir=/var/presto/data
 catalog.config-dir=/opt/presto/catalog
 plugin.dir=/opt/presto/plugin
+# For nodes with less than 32Gb free memory uncomment bellow
+# node.memory_gb=8
 # node.id is generated and filled during machine startup if not specified
 ```
 
