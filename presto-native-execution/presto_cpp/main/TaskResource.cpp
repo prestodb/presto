@@ -119,6 +119,13 @@ void TaskResource::registerUris(http::HttpServer& server) {
         return createOrUpdateTask(message, pathMatch);
       });
 
+  server.registerPost(
+      R"(/v1/task/(.+)/batch)",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return createOrUpdateBatchTask(message, pathMatch);
+      });
+
   server.registerDelete(
       R"(/v1/task/(.+))",
       [&](proxygen::HTTPMessage* message,
