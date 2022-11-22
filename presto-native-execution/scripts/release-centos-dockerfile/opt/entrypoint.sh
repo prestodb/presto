@@ -24,15 +24,16 @@ trap 'failure "LINENO" "BASH_LINENO" "${BASH_COMMAND}" "${?}"; [ -z "${DEBUG}" ]
 
 if [[ "${DEBUG}" == "0" || "${DEBUG}" == "false" || "${DEBUG}" == "False" ]]; then DEBUG=""; fi
 
-http_server_port=8080
-discovery_uri="http://127.0.0.1:${http_server_port}"
+HTTP_SERVER_PORT="${HTTP_SERVER_PORT:-"8080"}"
+DISCOVERY_URI="${HTTP_SERVER_PORT:-"http://127.0.0.1:${HTTP_SERVER_PORT}"}"
 
 while getopts ':-:' optchar; do
   case "$optchar" in
     -)
       case "$OPTARG" in
-        discovery-uri=*) discovery_uri="${OPTARG#*=}" ;;
-        http-server-port=*) http_server_port="${OPTARG#*=}" ;;
+        discovery-uri=*) DISCOVERY_URI="${OPTARG#*=}" ;;
+        http-server-port=*) HTTP_SERVER_PORT="${OPTARG#*=}" ;;
+        node-memory-gb=*) NODE_MEMORY_GB="${OPTARG#*=}" ;;
         use-env-params) USE_ENV_PARAMS=1 ;;
         *)
           presto_args+=($optchar)
@@ -45,46 +46,37 @@ while getopts ':-:' optchar; do
   esac
 done
 
+
 function node_command_line_config()
 {
   printf "presto.version=0.273.3\n"                    >  "${PRESTO_HOME}/config.properties"
-  printf "discovery.uri=${discovery_uri}\n"            >> "${PRESTO_HOME}/config.properties"
-  printf "http-server.http.port=${http_server_port}\n" >> "${PRESTO_HOME}/config.properties"
+  printf "discovery.uri=${DISCOVERY_URI}\n"            >> "${PRESTO_HOME}/config.properties"
+  printf "http-server.http.port=${HTTP_SERVER_PORT}\n" >> "${PRESTO_HOME}/config.properties"
 
-  printf "node.environment=intel-poland\n" >  "${PRESTO_HOME}/node.properties"
-  printf "node.location=torun-cluster\n"  >> "${PRESTO_HOME}/node.properties"
-  printf "node.id=${NODE_UUID}\n"        >> "${PRESTO_HOME}/node.properties"
-  printf "node.ip=$(hostname -I)\n"      >> "${PRESTO_HOME}/node.properties"
+  printf "node.environment=intel-poland\n"    >  "${PRESTO_HOME}/node.properties"
+  printf "node.location=torun-cluster\n"      >> "${PRESTO_HOME}/node.properties"
+  printf "node.id=${NODE_UUID}\n"             >> "${PRESTO_HOME}/node.properties"
+  printf "node.ip=$(hostname -I)\n"           >> "${PRESTO_HOME}/node.properties"
+  printf "node.memory_gb=${NODE_MEMORY_GB}\n" >> "${PRESTO_HOME}/node.properties"
 }
 
 function node_configuration()
 {
-  if [ -f "${PRESTO_HOME}/config.properties.template" ]
-  then
-    prompt "Using user provided config.properties.template"
-    cat "${PRESTO_HOME}/config.properties.template" > "${PRESTO_HOME}/config.properties"
-  else
-    prompt "Using default config.properties.template. No user config found."
-    cat "${PRESTO_HOME}/etc/config.properties.template" > "${PRESTO_HOME}/config.properties"
-  fi
-
-  if [ -f "${PRESTO_HOME}/node.properties.template" ]
-  then
-    prompt "Using user provided node.properties.template"
-    cat "${PRESTO_HOME}/node.properties.template" > "${PRESTO_HOME}/node.properties"
-  else
-    prompt "Using default node.properties.template. No user config found."
-    cat "${PRESTO_HOME}/etc/node.properties.template" > "${PRESTO_HOME}/node.properties"
-  fi
+  render_node_configuration_files
 
   [ -z "$NODE_UUID" ] && NODE_UUID=$(uuid) || return -2
 
-  if [[ -z "$(grep -E '^ *node\.id=' "${PRESTO_HOME}/node.properties" | cut -d'=' -f2)" ]]
-  then
+  if [[ -z "$(grep -E '^ *node\.id=' "${PRESTO_HOME}/node.properties" | cut -d'=' -f2)" ]]; then
     printf "node.id=${NODE_UUID}\n" >> "${PRESTO_HOME}/node.properties"
   fi
   printf "node.ip=$(hostname -I)\n" >> "${PRESTO_HOME}/node.properties"
+
+  if [[ -z "$(grep -E '^ *node\.memory_gb=' "${PRESTO_HOME}/node.properties")" ]]; then
+    printf "node.memory_gb=${NODE_MEMORY_GB}\n" >> "${PRESTO_HOME}/node.properties"
+  fi
 }
+
+NODE_MEMORY_GB="$(memory_gb_preflight_check ${NODE_MEMORY_GB})"
 
 [ $USE_ENV_PARAMS == "1" ] && node_command_line_config || node_configuration
 
