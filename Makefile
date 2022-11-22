@@ -62,6 +62,8 @@ CPU_TARGET ?= "avx"
 FUZZER_SEED ?= 123456
 FUZZER_DURATION_SEC ?= 60
 
+PYTHON_EXECUTABLE ?= $(shell which python)
+
 all: release			#: Build the release version
 
 clean:					#: Delete all build artifacts
@@ -145,3 +147,12 @@ help:					#: Show the help messages
 	@cat $(firstword $(MAKEFILE_LIST)) | \
 	awk '/^[-a-z]+:/' | \
 	awk -F: '{ printf("%-20s   %s\n", $$1, $$NF) }'
+
+python-clean:
+	DEBUG=1 ${PYTHON_EXECUTABLE} setup.py clean
+
+python-build:
+	DEBUG=1 ${PYTHON_EXECUTABLE} setup.py develop
+
+python-test: python-build
+	DEBUG=1 ${PYTHON_EXECUTABLE} -m unittest -v
