@@ -11,6 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <fmt/format.h>
+#include <folly/Uri.h>
+
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 
 namespace facebook::presto::operators {
@@ -36,4 +40,45 @@ void UnsafeRowExchangeSource::request() {
       std::move(ioBuf), pool_, [buffer](auto&) {}));
 }
 
+namespace {
+std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
+  for (auto& pair : uri.getQueryParams()) {
+    if (pair.first == "shuffleInfo") {
+      return std::make_optional(pair.second);
+    }
+  }
+  return std::nullopt;
+}
+} // namespace
+
+// static
+std::unique_ptr<velox::exec::ExchangeSource>
+UnsafeRowExchangeSource::createExchangeSource(
+    const std::string& url,
+    int32_t destination,
+    std::shared_ptr<velox::exec::ExchangeQueue> queue,
+    velox::memory::MemoryPool* FOLLY_NONNULL pool) {
+  if (::strncmp(url.c_str(), "batch://", 8) != 0) {
+    return nullptr;
+  }
+  auto shuffleName = SystemConfig::instance()->shuffleName();
+  VELOX_CHECK(
+      !shuffleName.empty(),
+      "shuffle.name is not provided in config.properties to create a shuffle "
+      "interface.");
+  auto& shuffleFactory = ShuffleInterface::factory(shuffleName);
+  auto uri = folly::Uri(url);
+  auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
+  VELOX_USER_CHECK(
+      serializedShuffleInfo.has_value(),
+      "Cannot find shuffleInfo parameter in split url '{}'",
+      url);
+  return std::make_unique<UnsafeRowExchangeSource>(
+      uri.host(),
+      destination,
+      std::move(queue),
+      shuffleFactory(
+          serializedShuffleInfo.value(), ShuffleInterface::Type::kRead, pool),
+      pool);
+}
 }; // namespace facebook::presto::operators

@@ -142,7 +142,7 @@ void registerExchangeSource(const std::shared_ptr<ShuffleInterface>& shuffle) {
           std::shared_ptr<exec::ExchangeQueue> queue,
           memory::MemoryPool* FOLLY_NONNULL pool)
           -> std::unique_ptr<exec::ExchangeSource> {
-        if (strncmp(taskId.c_str(), "spark://", 8) == 0) {
+        if (strncmp(taskId.c_str(), "batch://", 8) == 0) {
           return std::make_unique<UnsafeRowExchangeSource>(
               taskId, destination, std::move(queue), shuffle, pool);
         }
@@ -189,7 +189,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   }
 
   static std::string makeTaskId(const std::string& prefix, int num) {
-    return fmt::format("spark://{}-{}", prefix, num);
+    return fmt::format("batch://{}-{}", prefix, num);
   }
 
   std::shared_ptr<exec::Task> makeTask(
