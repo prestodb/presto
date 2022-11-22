@@ -38,6 +38,14 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   void close() override {}
 
+  /// url needs to follow below format:
+  /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
+  static std::unique_ptr<velox::exec::ExchangeSource> createExchangeSource(
+      const std::string& url,
+      int32_t destination,
+      std::shared_ptr<velox::exec::ExchangeQueue> queue,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+
  private:
   const std::shared_ptr<ShuffleInterface> shuffle_;
 };

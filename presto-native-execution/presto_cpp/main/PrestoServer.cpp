@@ -29,6 +29,7 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/ShuffleInterface.h"
+#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/presto_protocol/Connectors.h"
 #include "presto_cpp/presto_protocol/WriteProtocol.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
@@ -242,6 +243,8 @@ void PrestoServer::run() {
 
   facebook::velox::exec::ExchangeSource::registerFactory(
       PrestoExchangeSource::createExchangeSource);
+  facebook::velox::exec::ExchangeSource::registerFactory(
+      operators::UnsafeRowExchangeSource::createExchangeSource);
 
   velox::dwrf::registerDwrfReaderFactory();
 #ifdef PRESTO_ENABLE_PARQUET
