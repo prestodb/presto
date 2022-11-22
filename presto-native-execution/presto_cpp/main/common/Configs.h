@@ -97,6 +97,7 @@ class SystemConfig : public ConfigBase {
       "enable_velox_task_logging"};
   static constexpr std::string_view kEnableVeloxExprSetLogging{
       "enable_velox_expression_logging"};
+  static constexpr std::string_view kParquetReaderType{"parquet-reader-type"};
   // Most server nodes today (May 2022) have at least 16 cores.
   // Setting the default maximum drivers per task to this value will
   // provide a better off-shelf experience.
@@ -114,6 +115,7 @@ class SystemConfig : public ConfigBase {
   static constexpr bool kEnableVeloxTaskLoggingDefault = false;
   static constexpr bool kEnableVeloxExprSetLoggingDefault = false;
   static constexpr bool kUseMmapArenaDefault = false;
+  static constexpr std::string_view kParquetReaderTypeDefault{"native"};
 
   static SystemConfig* instance();
 
@@ -150,6 +152,8 @@ class SystemConfig : public ConfigBase {
   bool useMmapArena() const;
 
   int32_t mmapArenaCapacityRatio() const;
+
+  std::string parquetReaderType() const;
 };
 
 /// Provides access to node properties defined in node.properties file.

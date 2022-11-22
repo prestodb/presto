@@ -135,6 +135,11 @@ int32_t SystemConfig::mmapArenaCapacityRatio() const {
   return opt.hasValue() ? opt.value() : kMmapArenaCapacityRatioDefault;
 }
 
+std::string SystemConfig::parquetReaderType() const {
+  auto opt = optionalProperty<std::string>(std::string(kParquetReaderType));
+  return opt.hasValue() ? opt.value() : std::string(kParquetReaderTypeDefault);
+}
+
 NodeConfig* NodeConfig::instance() {
   static std::unique_ptr<NodeConfig> instance = std::make_unique<NodeConfig>();
   return instance.get();
