@@ -89,6 +89,46 @@ void setTiming(
   cpu = protocol::Duration(timing.cpuNanos, protocol::TimeUnit::NANOSECONDS);
 }
 
+// Creates a protocol runtime metric object from a raw value.
+static protocol::RuntimeMetric createProtocolRuntimeMetric(
+    const std::string& name,
+    int64_t value,
+    protocol::RuntimeUnit unit) {
+  return protocol::RuntimeMetric{name, unit, value, 1, value, value};
+}
+
+// Creates a Velox runtime metric object from a raw value.
+static RuntimeMetric createVeloxRuntimeMetric(
+    int64_t value,
+    RuntimeCounter::Unit unit) {
+  return RuntimeMetric{value, unit};
+}
+
+// Updates a Velox runtime metric in the unordered map.
+static void addRuntimeMetric(
+    std::unordered_map<std::string, RuntimeMetric>& runtimeMetrics,
+    const std::string& name,
+    const RuntimeMetric& metric) {
+  auto it = runtimeMetrics.find(name);
+  if (it != runtimeMetrics.end()) {
+    it->second.merge(metric);
+  } else {
+    runtimeMetrics.emplace(name, metric);
+  }
+}
+
+// Updates a Velox runtime metric in the unordered map if the value is not 0.
+static void addRuntimeMetricIfNotZero(
+    std::unordered_map<std::string, RuntimeMetric>& runtimeMetrics,
+    const std::string& name,
+    uint64_t value) {
+  if (value > 0) {
+    auto veloxMetric =
+        createVeloxRuntimeMetric(value, RuntimeCounter::Unit::kNone);
+    addRuntimeMetric(runtimeMetrics, name, veloxMetric);
+  }
+}
+
 } // namespace
 
 PrestoTask::PrestoTask(const std::string& taskId) : id(taskId) {
@@ -360,6 +400,38 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
                 op.numSplits});
       }
 
+      // If Velox's operator has spilling stats, then add them to the protocol
+      // operator stats and the task stats as runtime stats.
+      if (op.spilledBytes > 0) {
+        std::string statName =
+            fmt::format("{}.{}.spilledBytes", op.operatorType, op.planNodeId);
+        auto protocolMetric = createProtocolRuntimeMetric(
+            statName, op.spilledBytes, protocol::RuntimeUnit::BYTE);
+        opOut.runtimeStats.emplace(statName, protocolMetric);
+        prestoTaskStats.runtimeStats[statName] = protocolMetric;
+
+        statName =
+            fmt::format("{}.{}.spilledRows", op.operatorType, op.planNodeId);
+        protocolMetric = createProtocolRuntimeMetric(
+            statName, op.spilledRows, protocol::RuntimeUnit::NONE);
+        opOut.runtimeStats.emplace(statName, protocolMetric);
+        prestoTaskStats.runtimeStats[statName] = protocolMetric;
+
+        statName = fmt::format(
+            "{}.{}.spilledPartitions", op.operatorType, op.planNodeId);
+        protocolMetric = createProtocolRuntimeMetric(
+            statName, op.spilledPartitions, protocol::RuntimeUnit::NONE);
+        opOut.runtimeStats.emplace(statName, protocolMetric);
+        prestoTaskStats.runtimeStats[statName] = protocolMetric;
+
+        statName =
+            fmt::format("{}.{}.spilledFiles", op.operatorType, op.planNodeId);
+        protocolMetric = createProtocolRuntimeMetric(
+            statName, op.spilledFiles, protocol::RuntimeUnit::NONE);
+        opOut.runtimeStats.emplace(statName, protocolMetric);
+        prestoTaskStats.runtimeStats[statName] = protocolMetric;
+      }
+
       auto wallNanos = op.addInputTiming.wallNanos +
           op.getOutputTiming.wallNanos + op.finishTiming.wallNanos;
       auto cpuNanos = op.addInputTiming.cpuNanos + op.getOutputTiming.cpuNanos +
@@ -381,6 +453,23 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
     } // pipeline's operators loop
   } // task's pipelines loop
 
+  // Task runtime metrics for driver counters.
+  addRuntimeMetricIfNotZero(
+      taskRuntimeStats, "drivers.total", taskStats.numTotalDrivers);
+  addRuntimeMetricIfNotZero(
+      taskRuntimeStats, "drivers.running", taskStats.numRunningDrivers);
+  addRuntimeMetricIfNotZero(
+      taskRuntimeStats, "drivers.completed", taskStats.numCompletedDrivers);
+  addRuntimeMetricIfNotZero(
+      taskRuntimeStats, "drivers.terminated", taskStats.numTerminatedDrivers);
+  for (const auto it : taskStats.numBlockedDrivers) {
+    addRuntimeMetricIfNotZero(
+        taskRuntimeStats,
+        fmt::format("drivers.{}", exec::blockingReasonToString(it.first)),
+        it.second);
+  }
+
+  prestoTaskStats.runtimeStats.clear();
   for (const auto& stat : taskRuntimeStats) {
     prestoTaskStats.runtimeStats[stat.first] =
         toRuntimeMetric(stat.first, stat.second);

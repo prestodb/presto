@@ -232,7 +232,7 @@ void PrestoServer::run() {
 
   velox::functions::prestosql::registerAllScalarFunctions();
   velox::aggregate::prestosql::registerAllAggregateFunctions();
-  velox::window::registerWindowFunctions();
+  velox::window::prestosql::registerAllWindowFunctions();
   if (!velox::isRegisteredVectorSerde()) {
     velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
