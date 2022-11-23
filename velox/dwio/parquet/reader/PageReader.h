@@ -43,12 +43,35 @@ class PageReader {
         type_(std::move(nodeType)),
         maxRepeat_(type_->maxRepeat_),
         maxDefine_(type_->maxDefine_),
+        isTopLevel_(maxRepeat_ == 0 && maxDefine_ <= 1),
         codec_(codec),
         chunkSize_(chunkSize),
-        nullConcatenation_(pool_) {}
+        nullConcatenation_(pool_) {
+    type_->makeLevelInfo(leafInfo_);
+  }
 
   /// Advances 'numRows' top level rows.
   void skip(int64_t numRows);
+
+  /// Decodes repdefs for 'numTopLevelRows'. Use getLengthsAndNulls()
+  /// to access the lengths and nulls for the different nesting
+  /// levels.
+  void decodeRepDefs(int32_t numTopLevelRows);
+
+  /// Returns lengths and/or nulls   from 'begin' to 'end' for the level of
+  /// 'info' using 'mode'. 'maxItems' is the maximum number of nulls and lengths
+  /// to produce. 'lengths' is only filled for mode kList. 'nulls' is filled
+  /// from bit position 'nullsStartIndex'. Returns the number of lengths/nulls
+  /// filled.
+  int32_t getLengthsAndNulls(
+      LevelMode mode,
+      const ::parquet::internal::LevelInfo& info,
+      int32_t begin,
+      int32_t end,
+      int32_t maxItems,
+      int32_t* FOLLY_NULLABLE lengths,
+      uint64_t* FOLLY_NULLABLE nulls,
+      int32_t nullsStartIndex) const;
 
   /// Applies 'visitor' to values in the ColumnChunk of 'this'. The
   /// operation to perform and The operand rows are given by
@@ -81,7 +104,17 @@ class PageReader {
     dictionaryValues_.reset();
   }
 
+  /// Returns the range of repdefs for the top level rows covered by the last
+  /// decoderepDefs().
+  std::pair<int32_t, int32_t> repDefRange() const {
+    return {repDefBegin_, repDefEnd_};
+  }
+
  private:
+  // Indicates that we only want the repdefs for the next page. Used when
+  // prereading repdefs with seekToPage.
+  static constexpr int64_t kRepDefOnly = -1;
+
   // If the current page has nulls, returns a nulls bitmap owned by 'this'. This
   // is filled for 'numRows' bits.
   const uint64_t* FOLLY_NULLABLE readNulls(int32_t numRows, BufferPtr& buffer);
@@ -98,10 +131,31 @@ class PageReader {
   // 'pageData_' + 'encodedDataSize_'.
   void makedecoder();
 
-  // Reads and skips pages until finding a data page that contains 'row'. Reads
-  // and sets 'rowOfPage_' and 'numRowsInPage_' and initializes a decoder for
-  // the found page.
-  void readNextPage(int64_t row);
+  // Reads and skips pages until finding a data page that contains
+  // 'row'. Reads and sets 'rowOfPage_' and 'numRowsInPage_' and
+  // initializes a decoder for the found page. row kRepDefOnly means
+  // getting repdefs for the next page. If non-top level column, 'row'
+  // is interpreted in terms of leaf rows, including leaf
+  // nulls. Seeking ahead of pages covered by decodeRepDefs is not
+  // allowed for non-top level columns.
+  void seekToPage(int64_t row);
+
+  // Preloads the repdefs for the column chunk. To avoid preloading,
+  // would need a way too clone the input stream so that one stream
+  // reads ahead for repdefs and the other tracks the data. This is
+  // supported by CacheInputStream but not the other
+  // SeekableInputStreams.
+  void preloadRepDefs();
+
+  // Sets row number info after reading a page header. If 'forRepDef',
+  // does not set non-top level row numbers by repdefs. This is on
+  // when seeking a non-top level page for the first time, i.e. for
+  // getting the repdefs.
+  void setPageRowInfo(bool forRepDef);
+
+  // Updates row position / rep defs consumed info to refer to the first of the
+  // next page.
+  void updateRowInfoAfterPageSkipped();
 
   // Parses the PageHeader at 'inputStream_'. Will not read more than
   // 'remainingBytes' since there could be less data left in the
@@ -242,6 +296,8 @@ class PageReader {
   ParquetTypeWithIdPtr type_;
   const int32_t maxRepeat_;
   const int32_t maxDefine_;
+  const bool isTopLevel_;
+
   const thrift::CompressionCodec::type codec_;
   const int64_t chunkSize_;
   const char* FOLLY_NULLABLE bufferStart_{nullptr};
@@ -249,8 +305,39 @@ class PageReader {
   BufferPtr tempNulls_;
   BufferPtr nullsInReadRange_;
   BufferPtr multiPageNulls_;
-  std::unique_ptr<RleBpDecoder> repeatDecoder_;
+  // Decoder for single bit definition levels. the arrow decoders are used for
+  // multibit levels pending fixing RleBpDecoder for the case.
   std::unique_ptr<RleBpDecoder> defineDecoder_;
+  std::unique_ptr<arrow::util::RleDecoder> repeatDecoder_;
+  std::unique_ptr<arrow::util::RleDecoder> wideDefineDecoder_;
+
+  // index of current page in 'numLeavesInPage_' -1 means before first page.
+  int32_t pageIndex_{-1};
+
+  // Number of leaf values in each data page of column chunk.
+  std::vector<int32_t> numLeavesInPage_;
+
+  // First position in '*levels_' for the range of last decodeRepDefs().
+  int32_t repDefBegin_{0};
+
+  // First position in '*levels_' after the range covered in last
+  // decodeRepDefs().
+  int32_t repDefEnd_{0};
+
+  // Definition levels for the column chunk.
+  raw_vector<int16_t> definitionLevels_;
+
+  // Repetition levels for the column chunk.
+  raw_vector<int16_t> repetitionLevels_;
+
+  // Number of valid bits in 'leafNulls_'
+  int32_t leafNullsSize_{0};
+
+  // Number of leaf nulls read.
+  int32_t numLeafNullsConsumed_{0};
+
+  // Leaf nulls extracted from 'repetitionLevels_/definitionLevels_'
+  raw_vector<uint64_t> leafNulls_;
 
   // Encoding of current page.
   thrift::Encoding::type encoding_;
@@ -260,6 +347,10 @@ class PageReader {
 
   // Number of rows in current page.
   int32_t numRowsInPage_{0};
+
+  // Number of repdefs in page. Not the same as number of rows for a non-top
+  // level column.
+  int32_t numRepDefsInPage_{0};
 
   // Copy of data if data straddles buffer boundary.
   BufferPtr pageBuffer_;
@@ -319,6 +410,9 @@ class PageReader {
   // some without nulls, we must make a a concatenated null flags to
   // return to the caller.
   dwio::common::BitConcatenation nullConcatenation_;
+
+  // LevelInfo for reading nulls for the leaf column 'this' represents.
+  ::parquet::internal::LevelInfo leafInfo_;
 
   // Base values of dictionary when reading a string dictionary.
   VectorPtr dictionaryValues_;

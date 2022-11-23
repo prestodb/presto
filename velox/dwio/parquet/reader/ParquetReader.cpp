@@ -170,7 +170,7 @@ std::shared_ptr<const ParquetTypeWithId> ReaderBase::getParquetColumnInfo(
               ParquetTypeWithId::kNonLeaf, // columnIdx,
               schemaElement.name,
               std::nullopt,
-              maxRepeat,
+              maxRepeat + 1,
               maxDefine);
         }
         case thrift::ConvertedType::MAP_KEY_VALUE: {
@@ -337,7 +337,7 @@ TypePtr ReaderBase::convertType(
             schemaElement.type,
             thrift::Type::INT64,
             "UINT_64 converted type can only be set for value of thrift::Type::INT64");
-        return TINYINT();
+        return BIGINT();
 
       case thrift::ConvertedType::DATE:
         VELOX_CHECK_EQ(

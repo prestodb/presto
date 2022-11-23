@@ -22,6 +22,7 @@
 #include "velox/dwio/common/SelectiveColumnReaderInternal.h"
 #include "velox/dwio/parquet/reader/FloatingPointColumnReader.h"
 #include "velox/dwio/parquet/reader/IntegerColumnReader.h"
+#include "velox/dwio/parquet/reader/RepeatedColumnReader.h"
 #include "velox/dwio/parquet/reader/StringColumnReader.h"
 #include "velox/dwio/parquet/reader/StructColumnReader.h"
 
@@ -62,8 +63,10 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     case TypeKind::VARCHAR:
       return std::make_unique<StringColumnReader>(dataType, params, scanSpec);
 
-    case TypeKind::BOOLEAN:
     case TypeKind::ARRAY:
+      return std::make_unique<ListColumnReader>(dataType, params, scanSpec);
+
+    case TypeKind::BOOLEAN:
     case TypeKind::MAP:
 
       VELOX_UNSUPPORTED("Type is not supported: ", dataType->type->kind());

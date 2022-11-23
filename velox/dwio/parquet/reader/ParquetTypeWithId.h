@@ -16,10 +16,17 @@
 
 #pragma once
 
+#include <parquet/level_conversion.h>
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/parquet/thrift/ParquetThriftTypes.h"
 
 namespace facebook::velox::parquet {
+
+/// Describes what to extract from leaf repetition / definition
+/// levels for a particular level. Selects between using
+/// DefLevelsToBitmap, DefRepLevelsToList or DefRepLevelsToBitmap
+/// respectively.
+enum class LevelMode { kList, kNulls, kStructOverLists };
 
 // Describes a Parquet column.
 class ParquetTypeWithId : public dwio::common::TypeWithId {
@@ -57,6 +64,13 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
   const ParquetTypeWithId& parquetChildAt(uint32_t index) const {
     return *reinterpret_cast<const ParquetTypeWithId*>(childAt(index).get());
   }
+
+  const ParquetTypeWithId* FOLLY_NULLABLE parquetParent() const {
+    return reinterpret_cast<const ParquetTypeWithId*>(parent);
+  }
+
+  /// Fills 'info' and returns the mode for interpreting levels.
+  LevelMode makeLevelInfo(::parquet::internal::LevelInfo& info) const;
 
   const std::string name_;
   const std::optional<thrift::Type::type> parquetType_;

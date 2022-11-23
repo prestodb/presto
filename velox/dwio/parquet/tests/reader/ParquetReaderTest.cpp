@@ -56,7 +56,7 @@ TEST_F(ParquetReaderTest, parseDate) {
   const std::string sample(getExampleFilePath("date.parquet"));
 
   ReaderOptions readerOptions;
-  parquet::ParquetReader reader(
+  facebook::velox::parquet::ParquetReader reader(
       std::make_unique<FileInputStream>(sample), readerOptions);
 
   EXPECT_EQ(reader.numberOfRows(), 25ULL);
@@ -74,7 +74,7 @@ TEST_F(ParquetReaderTest, parseRowMapArray) {
   const std::string sample(getExampleFilePath("row_map_array.parquet"));
 
   ReaderOptions readerOptions;
-  parquet::ParquetReader reader(
+  facebook::velox::parquet::ParquetReader reader(
       std::make_unique<FileInputStream>(sample), readerOptions);
 
   EXPECT_EQ(reader.numberOfRows(), 1ULL);
