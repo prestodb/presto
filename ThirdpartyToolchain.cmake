@@ -37,12 +37,12 @@ include(CheckCXXCompilerFlag)
 if(DEFINED ENV{VELOX_FOLLY_URL})
   set(FOLLY_SOURCE_URL "$ENV{VELOX_FOLLY_URL}")
 else()
-  set(VELOX_FOLLY_BUILD_VERSION v2022.07.11.00)
+  set(VELOX_FOLLY_BUILD_VERSION v2022.11.14.00)
   set(FOLLY_SOURCE_URL
       "https://github.com/facebook/folly/archive/${VELOX_FOLLY_BUILD_VERSION}.tar.gz"
   )
   set(VELOX_FOLLY_BUILD_SHA256_CHECKSUM
-      b6cc4082afd1530fdb8d759bc3878c1ea8588f6d5bc9eddf8e1e8abe63f41735)
+      b249436cb61b6dfd5288093565438d8da642b07ae021191a4042b221bc1bdc0e)
 endif()
 
 macro(build_folly)
