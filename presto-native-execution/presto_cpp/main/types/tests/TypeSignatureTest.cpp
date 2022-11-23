@@ -395,8 +395,8 @@ TEST_F(TestTypeSignature, functionType) {
 }
 
 TEST_F(TestTypeSignature, decimalType) {
-  assertSignature("decimal(10, 5)", "SHORT_DECIMAL(10,5)");
-  assertSignature("decimal(20,10)", "LONG_DECIMAL(20,10)");
+  assertSignature("decimal(10, 5)", "DECIMAL(10,5)");
+  assertSignature("decimal(20,10)", "DECIMAL(20,10)");
   ASSERT_THROWS_CONTAINS_MESSAGE(
       parseTypeSignature("decimal");
       , VeloxUserError, "Failed to parse type [decimal]");
