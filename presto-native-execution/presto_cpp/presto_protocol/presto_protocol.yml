@@ -221,7 +221,7 @@ JavaClasses:
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitionKey.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitioningHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveSplit.java
-  - presto-hive/src/main/java/com/facebook/presto/hive/HiveTableHandle.java
+  - presto-hive-metastore/src/main/java/com/facebook/presto/hive/HiveTableHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTableLayoutHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HiveTransactionHandle.java
   - presto-tpch/src/main/java/com/facebook/presto/tpch/TpchSplit.java
