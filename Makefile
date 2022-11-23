@@ -99,7 +99,7 @@ benchmarks-basic-build:
 
 benchmarks-basic-run:
 	$(MAKE) benchmarks-basic-build
-	scripts/veloxbench/veloxbench/cpp_micro_benchmarks.py
+	scripts/veloxbench/veloxbench/cpp_micro_benchmarks.py --bm_max_secs 10 --bm_max_trials 1000000
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure

@@ -27,7 +27,9 @@ class RecordCppMicroBenchmarks(LocalCppMicroBenchmarks, Benchmark):
     def run(self, **kwargs):
         with tempfile.TemporaryDirectory() as result_dir:
             # run benchmarks and save to a tempdir
-            super().run(result_dir=result_dir, **kwargs)
+            super().run(
+                result_dir=result_dir, bm_max_secs=10, bm_max_trials=1000000, **kwargs
+            )
 
             # iterate through files to make the suites
             with os.scandir(result_dir) as result_files:

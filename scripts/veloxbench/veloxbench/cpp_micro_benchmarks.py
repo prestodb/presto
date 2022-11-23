@@ -62,7 +62,15 @@ class LocalCppMicroBenchmarks:
     flags = {"language": "C++"}
 
     def run(
-        self, result_dir, binary_path=None, binary_filter=None, bm_filter=None, **kwargs
+        self,
+        result_dir,
+        binary_path=None,
+        binary_filter=None,
+        bm_filter=None,
+        bm_max_secs=None,
+        bm_max_trials=None,
+        bm_estimate_time=False,
+        **kwargs,
     ):
         if binary_path:
             binary_path = self._normalize_path(binary_path)
@@ -80,19 +88,24 @@ class LocalCppMicroBenchmarks:
             print(f"Executing and dumping results for '{binary_path}' to '{out_path}':")
             run_command = [
                 binary_path,
-                "--bm_max_secs",
-                "10",
-                "--bm_max_trials",
-                "1000000",
                 "--bm_json_verbose",
                 out_path,
             ]
+
+            if bm_max_secs:
+                run_command.extend(["--bm_max_secs", str(bm_max_secs)])
+
+            if bm_max_trials:
+                run_command.extend(["--bm_max_trials", str(bm_max_trials)])
+
             if bm_filter:
                 run_command.extend(["--bm_regex", bm_filter])
 
-            # TODO: extend cpp micro benchmarks to allow for iterations
-            iterations = kwargs.get("iterations", None)
-            if iterations:
+            if bm_estimate_time:
+                run_command.append("--bm_estimate_time")
+
+            # TODO: Extend cpp micro benchmarks to allow for iterations.
+            if kwargs.get("iterations", None):
                 raise NotImplementedError()
 
             try:
@@ -179,6 +192,24 @@ def parse_arguments():
         help="Filter applied to benchmark names within binaries. "
         "By default execute all benchmarks.",
     )
+    parser.add_argument(
+        "--bm_max_secs",
+        default=None,
+        type=int,
+        help="For how many second to run each benchmark in a binary.",
+    )
+    parser.add_argument(
+        "--bm_max_trials",
+        default=None,
+        type=int,
+        help="Maximum number of trials (iterations) executed for each benchmark.",
+    )
+    parser.add_argument(
+        "--bm_estimate_time",
+        default=False,
+        action="store_true",
+        help="Use folly benchmark --bm_estimate_time flag.",
+    )
     return parser.parse_args()
 
 
@@ -191,6 +222,9 @@ def main():
             binary_path=args.binary_path,
             binary_filter=args.binary_filter,
             bm_filter=args.bm_filter,
+            bm_max_secs=args.bm_max_secs,
+            bm_max_trials=args.bm_max_trials,
+            bm_estimate_time=args.bm_estimate_time,
         )
     return 0
 
