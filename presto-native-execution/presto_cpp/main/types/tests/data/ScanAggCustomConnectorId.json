@@ -90,7 +90,8 @@
               }
             ],
             "partialAggregationsPushedDown":false,
-            "appendRowNumber":false
+            "appendRowNumber":false,
+            "footerStatsUnreliable":false
           }
         },
         "outputVariables":[
