@@ -68,12 +68,12 @@ struct ResultRequest {
 struct PrestoTask {
   const PrestoTaskId id;
   std::shared_ptr<velox::exec::Task> task;
-  bool taskStarted = false;
+  bool taskStarted{false};
   uint64_t lastHeartbeatMs{0};
   mutable std::mutex mutex;
 
   // Error before task is created or when task is being created.
-  std::exception_ptr error = nullptr;
+  std::exception_ptr error{nullptr};
 
   // Contains state info but is never returned.
   protocol::TaskInfo info;
