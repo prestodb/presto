@@ -400,13 +400,16 @@ class MemoryUsageTracker
 // used.
 class SimpleMemoryTracker : public MemoryUsageTracker {
  public:
-  explicit SimpleMemoryTracker(const MemoryUsageConfig& config);
+  explicit SimpleMemoryTracker(
+      const std::shared_ptr<MemoryUsageTracker>& parent,
+      const MemoryUsageConfig& config);
   virtual ~SimpleMemoryTracker() override = default;
 
   virtual void update(int64_t size, bool mock = false) override;
   virtual int64_t getCurrentUserBytes() const override;
 
   static std::shared_ptr<SimpleMemoryTracker> create(
+      const std::shared_ptr<MemoryUsageTracker>& parent = nullptr,
       const MemoryUsageConfig& config = MemoryUsageConfig());
 
  private:

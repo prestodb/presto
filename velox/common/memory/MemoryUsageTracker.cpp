@@ -232,8 +232,10 @@ std::string MemoryUsageTracker::toString() const {
   return out.str();
 }
 
-SimpleMemoryTracker::SimpleMemoryTracker(const MemoryUsageConfig& config)
-    : MemoryUsageTracker{nullptr, UsageType::kUserMem, config},
+SimpleMemoryTracker::SimpleMemoryTracker(
+    const std::shared_ptr<MemoryUsageTracker>& parent,
+    const MemoryUsageConfig& config)
+    : MemoryUsageTracker{parent, UsageType::kUserMem, config},
       userMemoryQuota_{config.maxUserMemory.value_or(kMaxMemory)} {}
 
 // Simple memory tracker wants to be accurate for its memory accounting, so
@@ -250,6 +252,9 @@ void SimpleMemoryTracker::update(int64_t size, bool mock) {
         succinctBytes(userMemoryQuota_),
         succinctBytes(size)));
   }
+  if (parent_) {
+    parent_->update(size, mock);
+  }
 }
 
 int64_t SimpleMemoryTracker::getCurrentUserBytes() const {
@@ -257,7 +262,8 @@ int64_t SimpleMemoryTracker::getCurrentUserBytes() const {
 }
 
 /* static */ std::shared_ptr<SimpleMemoryTracker> SimpleMemoryTracker::create(
+    const std::shared_ptr<MemoryUsageTracker>& parent,
     const MemoryUsageConfig& config) {
-  return std::make_shared<SimpleMemoryTracker>(config);
+  return std::make_shared<SimpleMemoryTracker>(parent, config);
 }
 } // namespace facebook::velox::memory
