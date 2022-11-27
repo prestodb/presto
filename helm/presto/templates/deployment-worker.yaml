@@ -2,6 +2,8 @@
 {{- $envFrom := concat .Values.envFrom .Values.worker.envFrom }}
 {{- $volumes := concat .Values.volumes .Values.worker.volumes }}
 {{- $volumeMounts := concat .Values.volumeMounts .Values.worker.volumeMounts }}
+{{- $containers := concat .Values.containers .Values.worker.containers }}
+{{- $initContainers := concat .Values.initContainers .Values.worker.initContainers }}
 {{- $nodeSelector := or .Values.worker.nodeSelector .Values.nodeSelector }}
 {{- $affinity := or .Values.worker.affinity .Values.affinity }}
 {{- $tolerations := or .Values.worker.tolerations .Values.tolerations }}
@@ -40,6 +42,9 @@ spec:
       {{- end }}
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ .Release.Name }}
+      {{- end }}
+      {{- with $initContainers }}
+      initContainers: {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: worker
@@ -89,6 +94,9 @@ spec:
             {{- with $volumeMounts }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+        {{- with $containers }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
@@ -97,19 +105,15 @@ spec:
           configMap:
             name: {{ .Release.Name }}-catalog
       {{- with $nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
+      affinity: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
+      tolerations: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $securityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
+      securityContext: {{- toYaml . | nindent 8 }}
       {{- end }}
 {{- end }}

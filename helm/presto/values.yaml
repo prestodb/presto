@@ -36,6 +36,10 @@ envFrom: []
 volumes: []
 volumeMounts: []
 
+# Common extra and init containers
+containers: []
+initContainers: []
+
 # Constrain all presto pods to specific nodes
 nodeSelector: {}
 tolerations: []
@@ -85,6 +89,9 @@ coordinator:
   # Additional coordinator volumes
   volumes: []
   volumeMounts: []
+  # Additional coordinator extra and init containers
+  containers: []
+  initContainers: []
   # Coordinator liveness and readiness probes
   livenessProbe:
     initialDelaySeconds: 45
@@ -120,6 +127,9 @@ worker:
   # Additional worker volumes
   volumes: []
   volumeMounts: []
+  # Additional worker extra and init containers
+  containers: []
+  initContainers: []
   # Worker liveness and readiness probes
   livenessProbe:
     initialDelaySeconds: 45

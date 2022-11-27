@@ -2,6 +2,8 @@
 {{- $envFrom := concat .Values.envFrom .Values.coordinator.envFrom }}
 {{- $volumes := concat .Values.volumes .Values.coordinator.volumes }}
 {{- $volumeMounts := concat .Values.volumeMounts .Values.coordinator.volumeMounts }}
+{{- $containers := concat .Values.containers .Values.coordinator.containers }}
+{{- $initContainers := concat .Values.initContainers .Values.coordinator.initContainers }}
 {{- $nodeSelector := or .Values.coordinator.nodeSelector .Values.nodeSelector }}
 {{- $affinity := or .Values.coordinator.affinity .Values.affinity }}
 {{- $tolerations := or .Values.coordinator.tolerations .Values.tolerations }}
@@ -39,6 +41,9 @@ spec:
       {{- end }}
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ .Release.Name }}
+      {{- end }}
+      {{- with $initContainers }}
+      initContainers: {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: coordinator
@@ -88,6 +93,9 @@ spec:
             {{- with $volumeMounts }}
               {{- toYaml . | nindent 12 }}
             {{- end }}
+        {{- with $containers }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
@@ -99,18 +107,14 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
       {{- with $nodeSelector }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
+      affinity: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $tolerations }}
-      tolerations:
-        {{- toYaml . | nindent 8 }}
+      tolerations: {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with $securityContext }}
-      securityContext:
-        {{- toYaml . | nindent 8 }}
+      securityContext: {{- toYaml . | nindent 8 }}
       {{- end }}
