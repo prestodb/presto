@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.GenericHiveRecordCursor;
+import com.facebook.presto.hive.HiveColumnHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;

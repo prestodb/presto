@@ -11,11 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.HiveColumnHandle;
+import com.facebook.presto.hive.HiveType;
 import com.google.common.collect.ImmutableList;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -34,7 +36,7 @@ import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.PARTITION_KEY
 import static com.facebook.presto.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveType.HIVE_INT;
 import static com.facebook.presto.hive.HiveType.HIVE_STRING;
-import static com.facebook.presto.hive.S3SelectRecordCursor.updateSplitSchema;
+import static com.facebook.presto.hive.s3select.S3SelectRecordCursor.updateSplitSchema;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.joining;

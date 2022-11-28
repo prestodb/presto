@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.amazonaws.services.s3.model.CSVInput;
 import com.amazonaws.services.s3.model.CSVOutput;
@@ -20,6 +20,7 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.hive.s3.PrestoS3FileSystem;
 import com.facebook.presto.spi.PrestoException;
