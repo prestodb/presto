@@ -331,7 +331,7 @@ class PreprocBenchmark : public functions::test::FunctionBenchmarkBase {
     checkResult(allFused);
   }
 
-  size_t run(RunConfig config, size_t times = 100) {
+  size_t run(RunConfig config, size_t times = 1000) {
     folly::BenchmarkSuspender suspender;
 
     auto scaledData = std::vector<float>();
