@@ -28,6 +28,7 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.DiscretePredicates;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.eventlistener.PlanOptimizerInformation;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.AggregationNode;
 import com.facebook.presto.spi.plan.AggregationNode.Aggregation;
@@ -243,6 +244,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
+            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty()));
             return SimplePlanRewriter.rewriteWith(new Replacer(new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), inputs, rowsBuilder.build(), Optional.empty())), node);
         }
 
@@ -322,6 +324,7 @@ public class MetadataQueryOptimizer
                     return context.defaultRewrite(node);
                 }
             }
+            session.getOptimizerInformationCollector().addInformation(new PlanOptimizerInformation(MetadataQueryOptimizer.class.getSimpleName(), true, Optional.empty()));
             Assignments assignments = assignmentsBuilder.build();
             ValuesNode valuesNode = new ValuesNode(node.getSourceLocation(), idAllocator.getNextId(), node.getOutputVariables(), ImmutableList.of(new ArrayList<>(assignments.getExpressions())), Optional.empty());
             return new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(), valuesNode, assignments, LOCAL);
