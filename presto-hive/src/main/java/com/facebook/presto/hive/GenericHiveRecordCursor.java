@@ -84,7 +84,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-class GenericHiveRecordCursor<K, V extends Writable>
+public class GenericHiveRecordCursor<K, V extends Writable>
         implements RecordCursor
 {
     private static final DateTimeZone JVM_TIME_ZONE = DateTimeZone.getDefault();

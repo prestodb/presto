@@ -375,7 +375,7 @@ public final class HiveUtil
         return (Class<? extends InputFormat<?, ?>>) clazz.asSubclass(InputFormat.class);
     }
 
-    static String getInputFormatName(Properties schema)
+    public static String getInputFormatName(Properties schema)
     {
         String name = schema.getProperty(FILE_INPUT_FORMAT);
         checkCondition(name != null, HIVE_INVALID_METADATA, "Table or partition is missing Hive input format property: %s", FILE_INPUT_FORMAT);
