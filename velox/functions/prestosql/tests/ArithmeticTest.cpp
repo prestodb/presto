@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cmath>
 #include <optional>
 
 #include <gmock/gmock.h>
@@ -31,6 +32,10 @@ constexpr float kNanF = std::numeric_limits<float>::quiet_NaN();
 
 MATCHER(IsNan, "is NaN") {
   return arg && std::isnan(*arg);
+}
+
+MATCHER(IsInf, "is Infinity") {
+  return arg && std::isinf(*arg);
 }
 
 class ArithmeticTest : public functions::test::FunctionBaseTest {
@@ -631,8 +636,9 @@ TEST_F(ArithmeticTest, clamp) {
 }
 
 TEST_F(ArithmeticTest, truncate) {
-  const auto truncate = [&](std::optional<double> a) {
-    return evaluateOnce<double>("truncate(c0)", a);
+  const auto truncate = [&](std::optional<double> a,
+                            std::optional<int32_t> n = 0) {
+    return evaluateOnce<double>("truncate(c0,c1)", a, n);
   };
 
   EXPECT_EQ(truncate(0), 0);
@@ -640,6 +646,39 @@ TEST_F(ArithmeticTest, truncate) {
   EXPECT_EQ(truncate(-1.5), -1);
   EXPECT_EQ(truncate(std::nullopt), std::nullopt);
   EXPECT_THAT(truncate(kNan), IsNan());
+  EXPECT_THAT(truncate(kInf), IsInf());
+
+  EXPECT_EQ(truncate(0, 0), 0);
+  EXPECT_EQ(truncate(1.5, 0), 1);
+  EXPECT_EQ(truncate(-1.5, 0), -1);
+  EXPECT_EQ(truncate(std::nullopt, 0), std::nullopt);
+  EXPECT_EQ(truncate(1.5, std::nullopt), std::nullopt);
+  EXPECT_THAT(truncate(kNan, 0), IsNan());
+  EXPECT_THAT(truncate(kNan, 1), IsNan());
+  EXPECT_THAT(truncate(kInf, 0), IsInf());
+  EXPECT_THAT(truncate(kInf, 1), IsInf());
+
+  EXPECT_DOUBLE_EQ(truncate(1.5678, 2).value(), 1.56);
+  EXPECT_DOUBLE_EQ(truncate(-1.5678, 2).value(), -1.56);
+  EXPECT_DOUBLE_EQ(truncate(1.333, -1).value(), 0);
+  EXPECT_DOUBLE_EQ(truncate(3.54555, 2).value(), 3.54);
+  EXPECT_DOUBLE_EQ(truncate(1234, 1).value(), 1234);
+  EXPECT_DOUBLE_EQ(truncate(1234, -1).value(), 1230);
+  EXPECT_DOUBLE_EQ(truncate(1234.56, 1).value(), 1234.5);
+  EXPECT_DOUBLE_EQ(truncate(1234.56, -1).value(), 1230.0);
+  EXPECT_DOUBLE_EQ(truncate(1239.999, 2).value(), 1239.99);
+  EXPECT_DOUBLE_EQ(truncate(1239.999, -2).value(), 1200.0);
+  EXPECT_DOUBLE_EQ(
+      truncate(123456789012345678901.23, 3).value(), 123456789012345678901.23);
+  EXPECT_DOUBLE_EQ(
+      truncate(-123456789012345678901.23, 3).value(),
+      -123456789012345678901.23);
+  EXPECT_DOUBLE_EQ(
+      truncate(123456789123456.999, 2).value(), 123456789123456.99);
+  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.0, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.0, -21).value(), 0.0);
+  EXPECT_DOUBLE_EQ(truncate(123456789012345678901.23, -21).value(), 0.0);
 }
 
 } // namespace

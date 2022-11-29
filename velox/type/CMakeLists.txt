@@ -20,6 +20,7 @@ add_library(
   velox_type
   Date.cpp
   DecimalUtil.cpp
+  DoubleUtil.cpp
   Filter.cpp
   IntervalDayTime.cpp
   UnscaledLongDecimal.cpp

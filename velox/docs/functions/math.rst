@@ -134,6 +134,10 @@ Mathematical Functions
 
     Returns x rounded to integer by dropping digits after decimal point.
 
+.. function:: truncate(x, n) -> double
+
+    Returns x truncated to n decimal places. n can be negative to truncate n digits left of the decimal point.
+
 .. function:: width_bucket(x, bound1, bound2, n) -> bigint
 
     Returns the bin number of ``x`` in an equi-width histogram with the

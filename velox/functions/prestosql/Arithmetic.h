@@ -486,9 +486,12 @@ struct EulerConstantFunction {
 
 template <typename T>
 struct TruncateFunction {
-  template <typename TInput>
-  FOLLY_ALWAYS_INLINE void call(TInput& result, TInput a) {
+  FOLLY_ALWAYS_INLINE void call(double& result, double a) {
     result = std::trunc(a);
+  }
+
+  FOLLY_ALWAYS_INLINE void call(double& result, double a, int32_t n) {
+    result = truncate(a, n);
   }
 };
 
