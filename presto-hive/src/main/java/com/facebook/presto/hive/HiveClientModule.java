@@ -40,6 +40,7 @@ import com.facebook.presto.hive.parquet.ParquetSelectivePageSourceFactory;
 import com.facebook.presto.hive.rcfile.RcFilePageSourceFactory;
 import com.facebook.presto.hive.rule.HivePlanOptimizerProvider;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
+import com.facebook.presto.hive.s3select.S3SelectRecordCursorProvider;
 import com.facebook.presto.orc.CachingStripeMetadataSource;
 import com.facebook.presto.orc.DwrfAwareStripeMetadataSourceFactory;
 import com.facebook.presto.orc.EncryptionLibrary;

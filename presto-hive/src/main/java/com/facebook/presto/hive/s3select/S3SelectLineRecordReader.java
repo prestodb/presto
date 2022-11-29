@@ -11,10 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
+import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.s3.HiveS3Config;
 import com.facebook.presto.hive.s3.PrestoS3ClientFactory;
 import com.facebook.presto.hive.s3.PrestoS3SelectClient;
@@ -217,7 +218,7 @@ public abstract class S3SelectLineRecordReader
      * For example, "Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden (Service: Amazon S3; Status Code: 403 ..."
      */
     @VisibleForTesting
-    static class UnrecoverableS3OperationException
+    public static class UnrecoverableS3OperationException
             extends RuntimeException
     {
         public UnrecoverableS3OperationException(String bucket, String key, Throwable cause)
