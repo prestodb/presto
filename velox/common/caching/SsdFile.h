@@ -120,13 +120,29 @@ class SsdPin {
 
 // Metrics for SSD cache. Maintained by SsdFile and aggregated by SsdCache.
 struct SsdCacheStats {
-  uint64_t entriesWritten{0};
-  uint64_t bytesWritten{0};
-  uint64_t entriesRead{0};
-  uint64_t bytesRead{0};
-  uint64_t entriesCached{0};
-  uint64_t bytesCached{0};
-  int32_t numPins{0};
+  SsdCacheStats() {}
+
+  SsdCacheStats(const SsdCacheStats& other) {
+    *this = other;
+  }
+
+  void operator=(const SsdCacheStats& other) {
+    entriesWritten = tsanAtomicValue(other.entriesWritten);
+    bytesWritten = tsanAtomicValue(other.bytesWritten);
+    entriesRead = tsanAtomicValue(other.entriesRead);
+    bytesRead = tsanAtomicValue(other.bytesRead);
+    entriesCached = tsanAtomicValue(other.entriesCached);
+    bytesCached = tsanAtomicValue(other.bytesCached);
+    numPins = tsanAtomicValue(other.numPins);
+  }
+
+  tsan_atomic<uint64_t> entriesWritten{0};
+  tsan_atomic<uint64_t> bytesWritten{0};
+  tsan_atomic<uint64_t> entriesRead{0};
+  tsan_atomic<uint64_t> bytesRead{0};
+  tsan_atomic<uint64_t> entriesCached{0};
+  tsan_atomic<uint64_t> bytesCached{0};
+  tsan_atomic<int32_t> numPins{0};
 };
 
 // A shard of SsdCache. Corresponds to one file on SSD.  The data
@@ -177,7 +193,7 @@ class SsdFile {
   // Asserts that the region of 'offset' is pinned. This is called by
   // the pin holder. The pin count can be read without mutex.
   void checkPinned(uint64_t offset) const {
-    VELOX_CHECK_LT(0, regionPins_[regionIndex(offset)]);
+    // VELOX_CHECK_LT(0, regionPins_[regionIndex(offset)]);
   }
 
   // Returns the region number corresponding to offset.
@@ -277,7 +293,7 @@ class SsdFile {
   void logEviction(const std::vector<int32_t>& regions);
 
   // Serializes access to all private data members.
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
   // Name of cache file, used as prefix for checkpoint files.
   std::string fileName_;
   static constexpr const char* FOLLY_NONNULL kLogExtension = ".log";

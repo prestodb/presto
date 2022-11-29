@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/caching/SsdCache.h"
 #include <folly/Executor.h>
 #include <folly/portability/SysUio.h>
 #include <numeric>
 #include "velox/common/caching/FileIds.h"
-
-#include "velox/common/caching/SsdCache.h"
 #include "velox/common/time/Timer.h"
 
 namespace facebook::velox::cache {

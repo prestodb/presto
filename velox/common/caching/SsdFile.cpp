@@ -424,6 +424,9 @@ void SsdFile::verifyWrite(AsyncDataCacheEntry& entry, SsdRun ssdRun) {
 }
 
 void SsdFile::updateStats(SsdCacheStats& stats) const {
+  // Lock only in tsan build. Incrementing the counters has no synchronized
+  // emantics.
+  tsan_lock_guard<std::mutex> l(mutex_);
   stats.entriesWritten += stats_.entriesWritten;
   stats.bytesWritten += stats_.bytesWritten;
   stats.entriesRead += stats_.entriesRead;
@@ -545,8 +548,10 @@ void SsdFile::checkpoint(bool force) {
     state.write(kCheckpointMagic, sizeof(int32_t));
     state.write(asChar(&maxRegions_), sizeof(maxRegions_));
     state.write(asChar(&numRegions_), sizeof(numRegions_));
-    state.write(
-        asChar(tracker_.regionScores().data()), maxRegions_ * sizeof(uint64_t));
+
+    // Copy the region scores before writing out for tsan.
+    auto scoresCopy = tracker_.copyScores();
+    state.write(asChar(scoresCopy.data()), maxRegions_ * sizeof(uint64_t));
     std::unordered_set<uint64_t> fileNums;
     for (auto pair : entries_) {
       auto fileNum = pair.first.fileNum.id();
@@ -703,7 +708,7 @@ void SsdFile::readCheckpoint(std::ifstream& state) {
   for (auto region : evictedMap) {
     writableRegions_.push_back(region);
   }
-  tracker_.regionScores() = scores;
+  tracker_.setRegionScores(scores);
   LOG(INFO) << fmt::format(
       "Starting shard {} from checkpoint with {} entries, {} regions with {} free.",
       shardId_,

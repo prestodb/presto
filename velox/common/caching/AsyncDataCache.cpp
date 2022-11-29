@@ -69,14 +69,12 @@ void AsyncDataCacheEntry::release() {
     // Dereferencing an exclusive entry without converting to shared
     // means that the content could not be shared, e.g. error in
     // loading.
-    shard_->removeEntry(this);
-    // After the entry is removed from the hash table, a promise can no longer
-    // be made. It is safe to move the promise and realize it.
-    auto promise = std::move(promise_);
-    numPins_ = 0;
+    auto promise = shard_->removeEntry(this);
+    // Realize the promise outside of the shard mutex.
     if (promise) {
       promise->setValue(true);
     }
+    numPins_ = 0;
   } else {
     auto oldPins = numPins_.fetch_add(-1);
     VELOX_CHECK_LE(1, oldPins, "pin count goes negative");
@@ -289,9 +287,14 @@ void CoalescedLoad::setEndState(LoadState endState) {
   }
 }
 
-void CacheShard::removeEntry(AsyncDataCacheEntry* entry) {
+std::unique_ptr<folly::SharedPromise<bool>> CacheShard::removeEntry(
+    AsyncDataCacheEntry* entry) {
   std::lock_guard<std::mutex> l(mutex_);
   removeEntryLocked(entry);
+  // After the entry is removed from the hash table, a promise can no longer
+  // be made. It is safe to move the promise and realize it.
+
+  return entry->movePromise();
 }
 
 void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {

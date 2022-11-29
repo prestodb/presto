@@ -19,6 +19,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "velox/common/base/Exceptions.h"
+#include "velox/common/base/Portability.h"
+
 namespace facebook::velox::cache {
 
 // Tracks reads on an SsdFile. Reads are counted for fixed size regions and
@@ -27,7 +30,7 @@ namespace facebook::velox::cache {
 class SsdFileTracker {
  public:
   void resize(int32_t numRegions) {
-    regionScores_.resize(numRegions);
+    resizeTsanAtomic(regionScores_, numRegions);
   }
 
   void regionRead(int32_t region, int32_t bytes) {
@@ -59,14 +62,32 @@ class SsdFileTracker {
       const std::vector<int32_t>& regionPins);
 
   // Expose the region access data. Used in checkpointing cache state.
-  std::vector<int64_t>& regionScores() {
+  std::vector<tsan_atomic<uint64_t>>& regionScores() {
     return regionScores_;
+  }
+
+  void setRegionScores(const std::vector<int64_t>& scores) {
+    VELOX_CHECK_EQ(scores.size(), regionScores_.size());
+    for (auto i = 0; i < scores.size(); ++i) {
+      regionScores_[i] = scores[i];
+    }
+  }
+
+  /// Exports a copy of the scores. Tsan will report an error if a
+  /// pointer to atomics is passed to write(). Therefore copy the
+  /// atomics into non-atomics before writing.
+  std::vector<uint64_t> copyScores() {
+    std::vector<uint64_t> scores(regionScores_.size());
+    for (auto i = 0; i < scores.size(); ++i) {
+      scores[i] = tsanAtomicValue(regionScores_[i]);
+    }
+    return scores;
   }
 
  private:
   static constexpr int32_t kDecayInterval = 1000;
 
-  std::vector<int64_t> regionScores_;
+  std::vector<tsan_atomic<uint64_t>> regionScores_;
 
   // Count of lookups. The scores are decayed every time the count goes
   // over kDecayInterval or half count of cache entries, whichever comes first.
