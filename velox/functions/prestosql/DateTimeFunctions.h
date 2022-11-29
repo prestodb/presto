@@ -19,7 +19,6 @@
 #include "velox/external/date/tz.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
-#include "velox/functions/lib/JodaDateTime.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/type/Type.h"

@@ -25,7 +25,6 @@ add_library(
   velox_functions_lib
   DateTimeFormatter.cpp
   DateTimeFormatterBuilder.cpp
-  JodaDateTime.cpp
   KllSketch.cpp
   LambdaFunctionUtil.cpp
   MapConcat.cpp

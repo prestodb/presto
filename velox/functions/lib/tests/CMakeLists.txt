@@ -18,7 +18,6 @@ add_executable(
   DateTimeFormatterTest.cpp
   IsNullTest.cpp
   IsNotNullTest.cpp
-  JodaDateTimeTest.cpp
   KllSketchTest.cpp
   MapConcatTest.cpp
   Re2FunctionsTest.cpp
