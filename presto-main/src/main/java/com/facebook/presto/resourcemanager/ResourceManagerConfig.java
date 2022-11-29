@@ -44,6 +44,8 @@ public class ResourceManagerConfig
     private Duration resourceGroupServiceCacheExpireInterval = new Duration(10, SECONDS);
     private Duration resourceGroupServiceCacheRefreshInterval = new Duration(1, SECONDS);
 
+    private Duration runningTaskCountFetchInterval = new Duration(1, SECONDS);
+
     @MinDuration("1ms")
     public Duration getQueryExpirationTimeout()
     {
@@ -249,6 +251,17 @@ public class ResourceManagerConfig
     public ResourceManagerConfig setResourceGroupServiceCacheRefreshInterval(Duration resourceGroupServiceCacheRefreshInterval)
     {
         this.resourceGroupServiceCacheRefreshInterval = resourceGroupServiceCacheRefreshInterval;
+        return this;
+    }
+
+    public Duration getRunningTaskCountFetchInterval()
+    {
+        return runningTaskCountFetchInterval;
+    }
+    @Config("resource-manager.running-task-count-fetch-interval")
+    public ResourceManagerConfig setRunningTaskCountFetchInterval(Duration runningTaskCountFetchInterval)
+    {
+        this.runningTaskCountFetchInterval = runningTaskCountFetchInterval;
         return this;
     }
 }

@@ -13,9 +13,15 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
+import com.facebook.presto.resourcemanager.ResourceManagerClient;
+import com.facebook.presto.resourcemanager.ResourceManagerConfig;
+import com.facebook.presto.resourcemanager.TestingClusterQueryTrackerService;
+import com.facebook.presto.resourcemanager.TestingResourceManagerClient;
 import com.facebook.presto.spi.PrestoException;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.presto.spi.StandardErrorCode.QUERY_HAS_TOO_MANY_STAGES;
@@ -34,7 +40,7 @@ public class TestQueryTrackerHighTaskCountKill
                 .setMaxTotalRunningTaskCountToKillQuery(200);
         ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor();
         try {
-            QueryTracker<MockQueryExecution> queryTracker = new QueryTracker<>(config, scheduledExecutorService);
+            QueryTracker<MockQueryExecution> queryTracker = new QueryTracker<>(config, scheduledExecutorService, Optional.empty());
             MockQueryExecution smallQuery1 = MockQueryExecution.withRunningTaskCount(50);
             MockQueryExecution largeQueryButNotKilled = MockQueryExecution.withRunningTaskCount(101);
             MockQueryExecution largeQueryToBeKilled1 = MockQueryExecution.withRunningTaskCount(200);
@@ -59,6 +65,35 @@ public class TestQueryTrackerHighTaskCountKill
             Throwable failureReason2 = largeQueryToBeKilled2.getFailureReason().get();
             assertTrue(failureReason2 instanceof PrestoException);
             assertEquals(((PrestoException) failureReason2).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
+        }
+        finally {
+            scheduledExecutorService.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testLargeQueryKilledDueToTaskCount_withClusterQueryTracker()
+    {
+        QueryManagerConfig config = new QueryManagerConfig()
+                .setMaxQueryRunningTaskCount(100)
+                .setMaxTotalRunningTaskCountToKillQuery(200);
+        ScheduledExecutorService scheduledExecutorService = newSingleThreadScheduledExecutor();
+        ResourceManagerClient resourceManagerClient = new TestingResourceManagerClient();
+        ClusterQueryTrackerService clusterQueryTrackerService = new TestingClusterQueryTrackerService((addressSelectionContext, headers) -> resourceManagerClient, newSingleThreadScheduledExecutor(), new ResourceManagerConfig(), 201);
+        try {
+            QueryTracker<MockQueryExecution> queryTracker = new QueryTracker<>(config, scheduledExecutorService, Optional.of(clusterQueryTrackerService));
+            MockQueryExecution smallQuery = MockQueryExecution.withRunningTaskCount(50);
+            MockQueryExecution largeQueryToBeKilled = MockQueryExecution.withRunningTaskCount(101);
+
+            queryTracker.addQuery(smallQuery);
+            queryTracker.addQuery(largeQueryToBeKilled);
+
+            queryTracker.enforceTaskLimits();
+
+            assertFalse(smallQuery.getFailureReason().isPresent(), "small query should not be killed");
+            Throwable failureReason = largeQueryToBeKilled.getFailureReason().get();
+            assertTrue(failureReason instanceof PrestoException);
+            assertEquals(((PrestoException) failureReason).getErrorCode(), QUERY_HAS_TOO_MANY_STAGES.toErrorCode());
         }
         finally {
             scheduledExecutorService.shutdownNow();
