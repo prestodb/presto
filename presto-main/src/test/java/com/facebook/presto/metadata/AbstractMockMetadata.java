@@ -54,6 +54,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static java.util.Collections.emptyList;
+
 public abstract class AbstractMockMetadata
         implements Metadata
 {
@@ -119,6 +121,12 @@ public abstract class AbstractMockMetadata
             public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
             {
                 return Optional.empty();
+            }
+
+            @Override
+            public List<Type> getTypes()
+            {
+                return emptyList();
             }
         };
     }

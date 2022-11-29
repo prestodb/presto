@@ -17,6 +17,7 @@ import com.facebook.drift.client.DriftClient;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.CatalogMetadata;
 import com.facebook.presto.metadata.DelegatingMetadataManager;
 import com.facebook.presto.metadata.MetadataManager;
@@ -210,6 +211,12 @@ public class RemoteMetadataManager
                 return materializedViewDefinitionJson.isEmpty()
                         ? Optional.empty()
                         : Optional.of(readValue(materializedViewDefinitionJson, new TypeReference<MaterializedViewDefinition>() {}));
+            }
+
+            @Override
+            public List<Type> getTypes()
+            {
+                return getFunctionAndTypeManager().getTypes();
             }
         };
     }
