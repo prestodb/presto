@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.hive.metastore.Column;
@@ -125,7 +125,7 @@ public class S3SelectPushdown
         return SUPPORTED_S3_PREFIXES.stream().anyMatch(path::startsWith);
     }
 
-    static boolean shouldEnablePushdownForTable(ConnectorSession session, Table table, String path, Optional<Partition> optionalPartition)
+    public static boolean shouldEnablePushdownForTable(ConnectorSession session, Table table, String path, Optional<Partition> optionalPartition)
     {
         if (!isS3SelectPushdownEnabled(session)) {
             return false;

@@ -11,9 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.hive;
+package com.facebook.presto.hive.s3select;
 
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.GenericHiveRecordCursor;
+import com.facebook.presto.hive.HiveColumnHandle;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -35,7 +37,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_DDL;
 
-class S3SelectRecordCursor<K, V extends Writable>
+public class S3SelectRecordCursor<K, V extends Writable>
         extends GenericHiveRecordCursor<K, V>
 {
     private static final String THRIFT_STRUCT = "struct";
@@ -59,7 +61,7 @@ class S3SelectRecordCursor<K, V extends Writable>
     // since s3select only returns the required column, not the whole columns
     // we need to update the split schema to include only the required columns
     // otherwise, Serde could not deserialize output from s3select to row data correctly
-    static Properties updateSplitSchema(Properties splitSchema, List<HiveColumnHandle> columns)
+    public static Properties updateSplitSchema(Properties splitSchema, List<HiveColumnHandle> columns)
     {
         requireNonNull(splitSchema, "splitSchema is null");
         requireNonNull(columns, "columns is null");
