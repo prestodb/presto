@@ -19,7 +19,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.Properties;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
 
 /**
  * A utility class that helps with properties and its materialization.
@@ -33,13 +35,15 @@ public class WorkerProperty
     public static void populateProperty(Map<String, String> properties, Path path)
             throws IOException
     {
-        Properties workerProperties = new Properties();
-        workerProperties.putAll(properties);
         File file = new File(path.toString());
         file.getParentFile().mkdirs();
         try {
+            // We're not using Java's Properties here because colon is a reserved character in Properties but our configs contains colon in certain config values (e.g http://)
             FileWriter fileWriter = new FileWriter(file);
-            workerProperties.store(fileWriter, "");
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                checkArgument(!entry.getKey().contains("="), format("Config key %s contains invalid character: =", entry.getKey()));
+                fileWriter.write(entry.getKey() + "=" + entry.getValue() + "\n");
+            }
             fileWriter.close();
         }
         catch (IOException e) {

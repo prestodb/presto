@@ -97,15 +97,18 @@ public class TestProperties
         // Test defaults
         assertRecordedDefaults(ConfigAssertions.recordDefaults(NativeExecutionConnectorConfig.class)
                 .setCacheEnabled(false)
-                .setMaxCacheSize(new DataSize(0, DataSize.Unit.GIGABYTE))
+                .setMaxCacheSize(new DataSize(0, DataSize.Unit.MEGABYTE))
                 .setConnectorName("hive"));
 
         // Test explicit property mapping. Also makes sure properties returned by getAllProperties() covers full property list.
         NativeExecutionConnectorConfig expected = new NativeExecutionConnectorConfig()
                 .setConnectorName("custom")
-                .setMaxCacheSize(new DataSize(32, DataSize.Unit.GIGABYTE))
+                .setMaxCacheSize(new DataSize(32, DataSize.Unit.MEGABYTE))
                 .setCacheEnabled(true);
-        Map<String, String> properties = expected.getAllProperties();
+        Map<String, String> properties = new java.util.HashMap<>(expected.getAllProperties());
+        // Since the cache.max-cache-size requires to be size without the unit which to be compatible with the C++,
+        // here we convert the size from Long type (in string format) back to DataSize for comparison
+        properties.put("cache.max-cache-size", String.valueOf(new DataSize(Double.parseDouble(properties.get("cache.max-cache-size")), DataSize.Unit.MEGABYTE)));
         assertFullMapping(properties, expected);
     }
 

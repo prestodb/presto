@@ -19,10 +19,7 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.execution.TaskSource;
-import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
@@ -31,7 +28,6 @@ import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.PlanFragment;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,7 +42,6 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -83,21 +78,15 @@ public class NativeExecutionProcess
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
-    private final NativeExecutionTask nativeExecutionTask;
 
     private Process process;
 
     public NativeExecutionProcess(
             Session session,
             URI uri,
-            TaskId taskId,
-            PlanFragment planFragment,
-            List<TaskSource> sources,
-            TableWriteInfo tableWriteInfo,
             HttpClient httpClient,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            NativeExecutionTaskFactory taskFactory,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
             NativeExecutionSystemConfig systemConfig,
@@ -117,7 +106,6 @@ public class NativeExecutionProcess
         this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
         this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
         this.connectorConfig = requireNonNull(connectorConfig, "connectorConfig is null");
-        this.nativeExecutionTask = taskFactory.createNativeExecutionTask(session, location, taskId, planFragment, sources, tableWriteInfo);
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
@@ -156,11 +144,6 @@ public class NativeExecutionProcess
         getServerInfoWithRetry().get();
     }
 
-    public NativeExecutionTask getTask()
-    {
-        return nativeExecutionTask;
-    }
-
     @VisibleForTesting
     public SettableFuture<ServerInfo> getServerInfoWithRetry()
     {
@@ -175,6 +158,11 @@ public class NativeExecutionProcess
         if (process != null && process.isAlive()) {
             process.destroy();
         }
+    }
+
+    public int getPort()
+    {
+        return port;
     }
 
     private static URI getBaseUriWithPort(URI baseUri, int port)

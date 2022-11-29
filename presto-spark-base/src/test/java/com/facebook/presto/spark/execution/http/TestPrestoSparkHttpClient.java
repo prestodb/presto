@@ -684,13 +684,23 @@ public class TestPrestoSparkHttpClient
         TaskManagerConfig config = new TaskManagerConfig();
         config.setInfoRefreshMaxWait(new Duration(5, TimeUnit.SECONDS));
         config.setInfoUpdateInterval(new Duration(200, TimeUnit.MILLISECONDS));
+        List<TaskSource> sources = new ArrayList<>();
         try {
-            NativeExecutionProcess process = createNativeExecutionProcess(
-                    taskId, scheduler,
-                    new Duration(1, TimeUnit.MINUTES),
-                    new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 0)),
+            NativeExecutionTaskFactory taskFactory = new NativeExecutionTaskFactory(
+                    new TestingHttpClient(new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 0))),
+                    newSingleThreadExecutor(),
+                    scheduler,
+                    TASK_INFO_JSON_CODEC,
+                    PLAN_FRAGMENT_JSON_CODEC,
+                    TASK_UPDATE_REQUEST_JSON_CODEC,
                     config);
-            NativeExecutionTask task = process.getTask();
+            NativeExecutionTask task = taskFactory.createNativeExecutionTask(
+                    testSessionBuilder().build(),
+                    BASE_URI,
+                    taskId,
+                    createPlanFragment(),
+                    sources,
+                    new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()));
             assertNotNull(task);
             assertFalse(task.getTaskInfo().isPresent());
             assertFalse(task.pollResult().isPresent());
@@ -745,20 +755,11 @@ public class TestPrestoSparkHttpClient
             TaskManagerConfig config)
     {
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
-        NativeExecutionTaskFactory taskFactory = new NativeExecutionTaskFactory(
-                new TestingHttpClient(new TestingResponseManager(taskId.toString(), new TimeoutResponseManager(0, 10, 0))),
-                newSingleThreadExecutor(),
-                scheduler,
-                TASK_INFO_JSON_CODEC,
-                PLAN_FRAGMENT_JSON_CODEC,
-                TASK_UPDATE_REQUEST_JSON_CODEC,
-                config);
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestingHttpClient(responseManager),
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
-                taskFactory,
                 config,
                 new NativeExecutionSystemConfig(),
                 new NativeExecutionNodeConfig(),
@@ -767,10 +768,6 @@ public class TestPrestoSparkHttpClient
         return factory.createNativeExecutionProcess(
                 testSessionBuilder().build(),
                 BASE_URI,
-                taskId,
-                createPlanFragment(),
-                sources,
-                new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty()),
                 maxErrorDuration);
     }
 

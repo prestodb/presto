@@ -17,15 +17,11 @@ import com.facebook.airlift.http.client.HttpClient;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
-import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.execution.TaskSource;
-import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.sql.planner.PlanFragment;
 import io.airlift.units.Duration;
 
 import javax.annotation.PreDestroy;
@@ -33,7 +29,6 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -52,7 +47,6 @@ public class NativeExecutionProcessFactory
     private final ExecutorService coreExecutor;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
-    private final NativeExecutionTaskFactory taskFactory;
     private final TaskManagerConfig taskManagerConfig;
     private final NativeExecutionSystemConfig systemConfig;
     private final NativeExecutionNodeConfig nodeConfig;
@@ -64,7 +58,6 @@ public class NativeExecutionProcessFactory
             ExecutorService coreExecutor,
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
-            NativeExecutionTaskFactory taskFactory,
             TaskManagerConfig taskManagerConfig,
             NativeExecutionSystemConfig systemConfig,
             NativeExecutionNodeConfig nodeConfig,
@@ -74,7 +67,6 @@ public class NativeExecutionProcessFactory
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
-        this.taskFactory = requireNonNull(taskFactory, "taskFactory is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
         this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
         this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
@@ -83,37 +75,24 @@ public class NativeExecutionProcessFactory
 
     public NativeExecutionProcess createNativeExecutionProcess(
             Session session,
-            URI location,
-            TaskId taskId,
-            PlanFragment fragment,
-            List<TaskSource> sources,
-            TableWriteInfo tableWriteInfo)
+            URI location)
             throws IOException
     {
-        return createNativeExecutionProcess(session, location, taskId, fragment, sources, tableWriteInfo, MAX_ERROR_DURATION);
+        return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
             Session session,
             URI location,
-            TaskId taskId,
-            PlanFragment fragment,
-            List<TaskSource> sources,
-            TableWriteInfo tableWriteInfo,
             Duration maxErrorDuration)
     {
         try {
             return new NativeExecutionProcess(
                     session,
                     location,
-                    taskId,
-                    fragment,
-                    sources,
-                    tableWriteInfo,
                     httpClient,
                     errorRetryScheduledExecutor,
                     serverInfoCodec,
-                    taskFactory,
                     maxErrorDuration,
                     taskManagerConfig,
                     systemConfig,
