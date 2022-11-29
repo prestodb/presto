@@ -47,7 +47,8 @@ public class TestResourceManagerConfig
                 .setResourceGroupServiceCacheEnabled(false)
                 .setResourceGroupServiceCacheExpireInterval(new Duration(10, SECONDS))
                 .setResourceGroupServiceCacheRefreshInterval(new Duration(1, SECONDS))
-                .setResourceGroupRuntimeHeartbeatInterval(new Duration(1, SECONDS)));
+                .setResourceGroupRuntimeHeartbeatInterval(new Duration(1, SECONDS))
+                .setRunningTaskCountFetchInterval(new Duration(1, SECONDS)));
     }
 
     @Test
@@ -70,6 +71,7 @@ public class TestResourceManagerConfig
                 .put("resource-manager.resource-group-service-cache-expire-interval", "1m")
                 .put("resource-manager.resource-group-service-cache-refresh-interval", "10m")
                 .put("resource-manager.resource-group-runtimeinfo-heartbeat-interval", "6m")
+                .put("resource-manager.running-task-count-fetch-interval", "1m")
                 .build();
 
         ResourceManagerConfig expected = new ResourceManagerConfig()
@@ -88,7 +90,8 @@ public class TestResourceManagerConfig
                 .setResourceGroupServiceCacheEnabled(true)
                 .setResourceGroupServiceCacheExpireInterval(new Duration(1, MINUTES))
                 .setResourceGroupServiceCacheRefreshInterval(new Duration(10, MINUTES))
-                .setResourceGroupRuntimeHeartbeatInterval(new Duration(6, MINUTES));
+                .setResourceGroupRuntimeHeartbeatInterval(new Duration(6, MINUTES))
+                .setRunningTaskCountFetchInterval(new Duration(1, MINUTES));
 
         assertFullMapping(properties, expected);
     }

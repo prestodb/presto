@@ -21,6 +21,7 @@ import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
 import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.BasicQueryInfo;
+import com.facebook.presto.server.BasicQueryStats;
 import com.facebook.presto.server.NodeStatus;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolInfo;
@@ -49,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.resourceOvercommit;
@@ -259,6 +261,18 @@ public class ResourceManagerClusterStateProvider
                 .flatMap(Collection::stream)
                 .map(Query::getBasicQueryInfo)
                 .collect(toImmutableList());
+    }
+
+    public int getRunningTaskCount()
+    {
+        int runningTaskCount = nodeQueryStates.values().stream()
+                .map(CoordinatorQueriesState::getActiveQueries)
+                .flatMap(Collection::stream)
+                .map(Query::getBasicQueryInfo)
+                .filter(q -> q.getState() == RUNNING)
+                .map(BasicQueryInfo::getQueryStats)
+                .collect(Collectors.summingInt(BasicQueryStats::getRunningTasks));
+        return runningTaskCount;
     }
 
     public Map<MemoryPoolId, ClusterMemoryPoolInfo> getClusterMemoryPoolInfo()

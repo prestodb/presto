@@ -540,6 +540,34 @@ public class TestResourceManagerClusterStateProvider
         assertQueryInfos(provider.getClusterQueries(), 4, 3);
     }
 
+    @Test
+    public void testRunningTaskCount()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addShuttingDownNode(new InternalNode("node1", URI.create("local://127.0.0.1"), NodeVersion.UNKNOWN, true));
+
+        ResourceManagerClusterStateProvider provider = new ResourceManagerClusterStateProvider(nodeManager, new SessionPropertyManager(), 10, Duration.valueOf("4s"), Duration.valueOf("8s"), Duration.valueOf("5s"), Duration.valueOf("0s"), true, newSingleThreadScheduledExecutor());
+
+        assertEquals(provider.getRunningTaskCount(), 0);
+
+        long query1Sequence = 0;
+        long query2Sequence = 0;
+        long query3Sequence = 0;
+        long query4Sequence = 0;
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("1", QUEUED), query1Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 0);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("2", RUNNING), query2Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("3", FINISHED), query3Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+
+        provider.registerQueryHeartbeat("node1", createQueryInfo("4", FAILED), query4Sequence++);
+        assertEquals(provider.getRunningTaskCount(), 11);
+    }
+
     void assertWorkerMemoryInfo(ResourceManagerClusterStateProvider provider, int count)
     {
         Map<String, MemoryInfo> workerMemoryInfo = provider.getWorkerMemoryInfo();
