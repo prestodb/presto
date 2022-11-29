@@ -1,0 +1,30 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Enhancement
+description: Raise a potential enhancement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please add as much relevant information regarding your enhancement to the form below as you can.
+        The enhancement can be a feature or additional documentation. Thank you!
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the potential enhancement and its use cases.
+    validations:
+      required: true
