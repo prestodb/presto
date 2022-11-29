@@ -107,6 +107,10 @@ class ExpressionFuzzer {
   template <typename T>
   bool isDone(size_t i, T startTime) const;
 
+  /// Reset any stateful members. Should be called before every fuzzer
+  /// iteration.
+  void reset();
+
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
@@ -148,6 +152,20 @@ class ExpressionFuzzer {
   /// particular iteration.
   std::vector<TypePtr> inputRowTypes_;
   std::vector<std::string> inputRowNames_;
+
+  /// Maps a 'Type' serialized as a string to the column names that have already
+  /// been generated. Used to easily look up columns that can be re-used when a
+  /// specific type is required as input to a callable.
+  std::unordered_map<std::string, std::vector<std::string>> typeToColumnNames_;
+
+  /// Maps a 'Type' serialized as a string to the expressions that have already
+  /// been generated and have the same return type. Used to easily look up
+  /// expressions that can be re-used when a specific return type is required.
+  /// Only expressions with no nested expressions are tracked here and can be
+  /// re-used.
+  /// TODO: add support for sharing multi-level expressions.
+  std::unordered_map<std::string, std::vector<core::TypedExprPtr>>
+      typeToExpressions_;
 };
 
 } // namespace facebook::velox::test
