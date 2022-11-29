@@ -41,6 +41,7 @@ workflows:
       - linux-fuzzer-run
       - linux-aggregate-fuzzer-run
       - docker-compose-ubuntu-cpp
+      - docker-compose-centos-cpp
 
   # Hourly build on weekdays
   weekday:
@@ -547,3 +548,20 @@ jobs:
       - run:
           name: "Run ubuntu-cpp image"
           command: docker-compose run -e NUM_THREADS=16 --rm ubuntu-cpp
+
+  docker-compose-centos-cpp:
+    machine: # Use machine executor type to use docker-compose
+      # Ubuntu 22.04 is the base image but we use centos 8 on
+      # the docker-compose container. There are no centos on
+      # circle-ci base images
+      image: ubuntu-2204:2022.10.1
+    resource_class: 2xlarge
+    steps:
+      - checkout
+      - update-submodules
+      - run:
+          name: "Build images for centos-cpp declared in docker-compose.yml"
+          command: docker-compose build centos-cpp
+      - run:
+          name: "Run centos-cpp image"
+          command: docker-compose run -e NUM_THREADS=16 --rm centos-cpp

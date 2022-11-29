@@ -31,3 +31,20 @@ services:
     volumes:
       - .:/velox:delegated
     command: scripts/docker-command.sh
+
+  centos-cpp:
+    # Usage:
+    #   docker-compose pull centos-cpp or docker-compose build centos-cpp
+    #   docker-compose run --rm centos-cpp
+    #   or
+    #   docker-compose run -e NUM_THREADS=<NUMBER_OF_THREADS_TO_USE> --rm centos-cpp
+    #   to set the number of threads used during compilation
+    image: ghcr.io/facebookincubator/velox-dev:amd64-centos-8-avx
+    build:
+      context: .
+      dockerfile: scripts/centos-8-stream.dockerfile
+    environment:
+      - NUM_THREADS=8 # default value for NUM_THREADS
+    volumes:
+      - .:/velox:delegated
+    command: /bin/bash -c "scl enable gcc-toolset-9 '/velox/scripts/docker-command.sh'"
