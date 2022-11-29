@@ -79,55 +79,56 @@ uint32_t AbstractColumnStats::counter_ = 0;
 
 template <>
 std::unique_ptr<Filter> ColumnStats<bool>::makeRangeFilter(
-    float startPct,
-    float selectPct) {
+    const FilterSpec& filterSpec) {
   if (values_.empty()) {
     return std::make_unique<velox::common::IsNull>();
   }
-  bool value = valueAtPct(startPct + selectPct);
-  return std::make_unique<velox::common::BoolValue>(value, selectPct > 50);
+  bool value = valueAtPct(filterSpec.startPct + filterSpec.selectPct);
+  return std::make_unique<velox::common::BoolValue>(
+      value, filterSpec.selectPct > 50);
 }
 
 template <>
 std::unique_ptr<Filter> ColumnStats<UnscaledShortDecimal>::makeRangeFilter(
-    float startPct,
-    float selectPct) {
+    const FilterSpec& filterSpec) {
   if (values_.empty()) {
     return std::make_unique<velox::common::IsNull>();
   }
   int32_t lowerIndex;
   int32_t upperIndex;
-  UnscaledShortDecimal lower = valueAtPct(startPct, &lowerIndex);
-  UnscaledShortDecimal upper = valueAtPct(startPct + selectPct, &upperIndex);
+  UnscaledShortDecimal lower = valueAtPct(filterSpec.startPct, &lowerIndex);
+  UnscaledShortDecimal upper =
+      valueAtPct(filterSpec.startPct + filterSpec.selectPct, &upperIndex);
   if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
     std::vector<int64_t> in;
     for (auto i = lowerIndex; i <= upperIndex; ++i) {
       in.push_back(values_[i].unscaledValue());
     }
     // make sure we don't accidentally generate an AlwaysFalse filter
-    if (counter_ % 2 == 1 && selectPct < 100.0) {
+    if (counter_ % 2 == 1 && filterSpec.selectPct < 100.0) {
       return velox::common::createNegatedBigintValues(in, true);
     }
     return velox::common::createBigintValues(in, true);
   }
   // sometimes make a negated filter instead (1/4 chance)
-  if (counter_ % 4 == 1 && selectPct < 100.0) {
+  if (counter_ % 4 == 1 && filterSpec.selectPct < 100.0) {
     return std::make_unique<velox::common::NegatedBigintRange>(
-        lower.unscaledValue(), upper.unscaledValue(), selectPct < 75);
+        lower.unscaledValue(),
+        upper.unscaledValue(),
+        filterSpec.selectPct < 75);
   }
   return std::make_unique<velox::common::BigintRange>(
-      lower.unscaledValue(), upper.unscaledValue(), selectPct > 25);
+      lower.unscaledValue(), upper.unscaledValue(), filterSpec.selectPct > 25);
 }
 
 template <>
 std::unique_ptr<Filter> ColumnStats<float>::makeRangeFilter(
-    float startPct,
-    float selectPct) {
+    const FilterSpec& filterSpec) {
   if (values_.empty()) {
     return std::make_unique<velox::common::IsNull>();
   }
-  float lower = valueAtPct(startPct);
-  float upper = valueAtPct(startPct + selectPct);
+  float lower = valueAtPct(filterSpec.startPct);
+  float upper = valueAtPct(filterSpec.startPct + filterSpec.selectPct);
   bool lowerUnbounded = std::isnan(lower);
   bool upperUnbounded = std::isnan(upper);
   if (lowerUnbounded && upperUnbounded) {
@@ -141,22 +142,37 @@ std::unique_ptr<Filter> ColumnStats<float>::makeRangeFilter(
       upper,
       upperUnbounded,
       false,
-      selectPct > 25);
+      filterSpec.selectPct > 25);
 }
 
 template <>
 std::unique_ptr<Filter> ColumnStats<double>::makeRangeFilter(
-    float startPct,
-    float selectPct) {
+    const FilterSpec& filterSpec) {
   if (values_.empty()) {
-    return std::make_unique<velox::common::IsNull>();
+    if (filterSpec.allowNulls_) {
+      return std::make_unique<velox::common::IsNull>();
+    } else {
+      return std::make_unique<velox::common::DoubleRange>(
+          0, false, false, 0, false, false, false);
+    }
   }
-  double lower = valueAtPct(startPct);
-  double upper = valueAtPct(startPct + selectPct);
+
+  double lower = valueAtPct(filterSpec.startPct);
+  double upper = valueAtPct(filterSpec.startPct + filterSpec.selectPct);
   bool lowerUnbounded = std::isnan(lower);
   bool upperUnbounded = std::isnan(upper);
   if (lowerUnbounded && upperUnbounded) {
     return std::make_unique<velox::common::IsNotNull>();
+  }
+  if (!filterSpec.allowNulls_) {
+    return std::make_unique<velox::common::DoubleRange>(
+        lower,
+        lowerUnbounded,
+        filterSpec.selectPct == 0,
+        upper,
+        upperUnbounded,
+        false,
+        false);
   }
   return std::make_unique<velox::common::DoubleRange>(
       lower,
@@ -165,13 +181,12 @@ std::unique_ptr<Filter> ColumnStats<double>::makeRangeFilter(
       upper,
       upperUnbounded,
       false,
-      selectPct > 25);
+      filterSpec.selectPct > 25);
 }
 
 template <>
 std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
-    float startPct,
-    float selectPct) {
+    const FilterSpec& filterSpec) {
   if (values_.empty()) {
     return std::make_unique<velox::common::IsNull>();
   }
@@ -179,8 +194,9 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
   // used to determine if we can test a values filter reasonably
   int32_t lowerIndex;
   int32_t upperIndex;
-  StringView lower = valueAtPct(startPct, &lowerIndex);
-  StringView upper = valueAtPct(startPct + selectPct, &upperIndex);
+  StringView lower = valueAtPct(filterSpec.startPct, &lowerIndex);
+  StringView upper =
+      valueAtPct(filterSpec.startPct + filterSpec.selectPct, &upperIndex);
   if (upperIndex - lowerIndex < 1000 && ++counter_ % 10 <= 3) {
     std::vector<std::string> inRange;
     inRange.reserve(upperIndex - lowerIndex);
@@ -190,16 +206,16 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
         inRange.push_back(s.getString());
       }
     }
-    if (counter_ % 2 == 0 && selectPct != 100.0) {
+    if (counter_ % 2 == 0 && filterSpec.selectPct != 100.0) {
       return std::make_unique<velox::common::NegatedBytesValues>(
-          inRange, selectPct < 75);
+          inRange, filterSpec.selectPct < 75);
     }
     return std::make_unique<velox::common::BytesValues>(
-        inRange, selectPct > 25);
+        inRange, filterSpec.selectPct > 25);
   }
 
   // sometimes create a negated filter instead
-  if (counter_ % 4 == 1 && selectPct < 100.0) {
+  if (counter_ % 4 == 1 && filterSpec.selectPct < 100.0) {
     return std::make_unique<velox::common::NegatedBytesRange>(
         std::string(lower),
         false,
@@ -207,7 +223,7 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
         std::string(upper),
         false,
         false,
-        selectPct < 75);
+        filterSpec.selectPct < 75);
   }
 
   return std::make_unique<velox::common::BytesRange>(
@@ -217,7 +233,7 @@ std::unique_ptr<Filter> ColumnStats<StringView>::makeRangeFilter(
       std::string(upper),
       false,
       false,
-      selectPct > 25);
+      filterSpec.selectPct > 25);
 }
 
 template <>
@@ -486,13 +502,7 @@ SubfieldFilters FilterGenerator::makeSubfieldFilters(
     if (filterSpec.isForRowGroupSkip) {
       filter = stats->rowGroupSkipFilter(batches, subfield, hitRows);
     } else {
-      filter = stats->filter(
-          filterSpec.startPct,
-          filterSpec.selectPct,
-          filterSpec.filterKind,
-          batches,
-          subfield,
-          hitRows);
+      filter = stats->filter(batches, filterSpec, hitRows);
     }
 
     if (filter) {
