@@ -1,5 +1,5 @@
 {
-"UDFSignatureMap": {
+"udfSignatureMap": {
 "add_ARRAY_element_wise":[
          {
             "docString":"function to add two string vectors element-wise",
