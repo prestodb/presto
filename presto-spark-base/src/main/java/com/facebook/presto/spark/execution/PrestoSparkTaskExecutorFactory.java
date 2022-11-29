@@ -1101,7 +1101,7 @@ public class PrestoSparkTaskExecutorFactory
                     PageDataOutput pageDataOutput = new PageDataOutput(page.getSerializedPage());
                     long writtenSize = pageDataOutput.size();
 
-                    if ((writeBufferSizeInBytes - bufferedBytes) < writtenSize) {
+                    if ((writeBufferSizeInBytes - bufferedBytes) < writtenSize && !bufferedPages.isEmpty()) {
                         tempDataSink.write(bufferedPages);
                         bufferedPages.clear();
                         bufferedBytes = 0;
