@@ -21,12 +21,16 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.shuffle.ShuffleHandle;
 import org.apache.spark.shuffle.sort.BypassMergeSortShuffleHandle;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_EXECUTABLE_PATH;
+import static com.facebook.presto.hive.HiveSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -41,23 +45,34 @@ public class TestPrestoSparkNativeExecution
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner();
+        Map<String, String> configs = new HashMap<>();
+        // prevent to use the default Prestissimo config files since the Presto-Spark will generate the configs on-the-fly.
+        configs.put("catalog.config-dir", "/");
+        return PrestoSparkQueryRunner.createHivePrestoSparkQueryRunner(configs);
     }
 
     @Test
-    public void testNativeExecutionWithTableWrite()
+    public void testNativeExecutionWithProjection()
     {
+        assertUpdate("CREATE TABLE test_order WITH (format = 'DWRF') as SELECT orderkey, custkey FROM orders LIMIT 100", 100);
+
+        String prestoServerPath = System.getProperty("PRESTO_SERVER");
+        assertNotNull(prestoServerPath, "PRESTO_SERVER is not set in the system properties.");
+
         Session session = Session.builder(getSession())
                 .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+                .setSystemProperty(NATIVE_EXECUTION_EXECUTABLE_PATH, prestoServerPath)
                 .setSystemProperty("table_writer_merge_operator_enabled", "false")
                 .setCatalogSessionProperty("hive", "collect_column_statistics_on_write", "false")
+                .setCatalogSessionProperty("hive", PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
 
-        // Expecting 0 row updated since currently the NativeExecutionOperator is dummy.
-        assertUpdate(session, "CREATE TABLE test_tablescan as SELECT orderkey, custkey FROM orders", 0);
+        assertQuerySucceeds(session, "SELECT * FROM test_order");
     }
 
-    @Test(priority = 2, dependsOnMethods = "testNativeExecutionWithTableWrite")
+    // TODO: re-enable the test once the shuffle integration is ready.
+    @Ignore
+    @Test(priority = 2, dependsOnMethods = "testNativeExecutionWithProjection")
     public void testNativeExecutionShuffleManager()
     {
         Session session = Session.builder(getSession())

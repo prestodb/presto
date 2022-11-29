@@ -29,14 +29,15 @@ public class NativeExecutionConnectorConfig
     private static final String CONNECTOR_NAME = "connector.name";
 
     private boolean cacheEnabled;
-    private DataSize maxCacheSize = new DataSize(0, DataSize.Unit.GIGABYTE);
+    // maxCacheSize in MB
+    private DataSize maxCacheSize = new DataSize(0, DataSize.Unit.MEGABYTE);
     private String connectorName = "hive";
 
     public Map<String, String> getAllProperties()
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         return builder.put(CACHE_ENABLED, String.valueOf(isCacheEnabled()))
-                .put(CACHE_MAX_CACHE_SIZE, String.valueOf(getMaxCacheSize()))
+                .put(CACHE_MAX_CACHE_SIZE, String.valueOf(getDataSizeInLong(getMaxCacheSize().convertTo(DataSize.Unit.MEGABYTE))))
                 .put(CONNECTOR_NAME, getConnectorName())
                 .build();
     }
@@ -75,5 +76,10 @@ public class NativeExecutionConnectorConfig
     {
         this.connectorName = connectorName;
         return this;
+    }
+
+    private Long getDataSizeInLong(DataSize size)
+    {
+        return Double.valueOf(size.getValue()).longValue();
     }
 }
