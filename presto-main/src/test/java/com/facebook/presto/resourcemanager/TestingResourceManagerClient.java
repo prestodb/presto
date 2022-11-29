@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class TestingResourceManagerClient
+public class TestingResourceManagerClient
         implements ResourceManagerClient
 {
     private final AtomicInteger queryHeartbeats = new AtomicInteger();
@@ -35,6 +35,8 @@ class TestingResourceManagerClient
     private final Map<String, Integer> resourceGroupInfoCalls = new ConcurrentHashMap<>();
 
     private volatile List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos = ImmutableList.of();
+
+    private int runningTaskCount;
 
     @Override
     public void queryHeartbeat(String internalNode, BasicQueryInfo basicQueryInfo, long sequenceId)
@@ -53,6 +55,11 @@ class TestingResourceManagerClient
     public void setResourceGroupRuntimeInfos(List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfos)
     {
         this.resourceGroupRuntimeInfos = ImmutableList.copyOf(resourceGroupRuntimeInfos);
+    }
+
+    public void setRunningTaskCount(int runningTaskCount)
+    {
+        this.runningTaskCount = runningTaskCount;
     }
 
     @Override
@@ -91,5 +98,10 @@ class TestingResourceManagerClient
     public int getResourceGroupRuntimeHeartbeats()
     {
         return resourceGroupRuntimeHeartbeats.get();
+    }
+
+    public int getRunningTaskCount()
+    {
+        return runningTaskCount;
     }
 }

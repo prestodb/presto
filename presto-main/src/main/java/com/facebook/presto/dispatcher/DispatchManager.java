@@ -24,6 +24,7 @@ import com.facebook.presto.execution.QueryTracker;
 import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.execution.warnings.WarningCollectorFactory;
 import com.facebook.presto.metadata.SessionPropertyManager;
+import com.facebook.presto.resourcemanager.ClusterQueryTrackerService;
 import com.facebook.presto.resourcemanager.ClusterStatusSender;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.server.BasicQueryInfo;
@@ -127,7 +128,8 @@ public class DispatchManager
             QueryManagerConfig queryManagerConfig,
             DispatchExecutor dispatchExecutor,
             ClusterStatusSender clusterStatusSender,
-            SecurityConfig securityConfig)
+            SecurityConfig securityConfig,
+            Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.analyzerProvider = requireNonNull(analyzerProvider, "analyzerClient is null");
@@ -147,7 +149,7 @@ public class DispatchManager
 
         this.clusterStatusSender = requireNonNull(clusterStatusSender, "clusterStatusSender is null");
 
-        this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor());
+        this.queryTracker = new QueryTracker<>(queryManagerConfig, dispatchExecutor.getScheduledExecutor(), clusterQueryTrackerService);
 
         this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
     }

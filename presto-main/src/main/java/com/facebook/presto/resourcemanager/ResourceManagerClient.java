@@ -42,4 +42,7 @@ public interface ResourceManagerClient
 
     @ThriftMethod
     void resourceGroupRuntimeHeartbeat(String node, List<ResourceGroupRuntimeInfo> resourceGroupRuntimeInfo);
+
+    @ThriftMethod
+    int getRunningTaskCount();
 }
