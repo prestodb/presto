@@ -1380,6 +1380,12 @@ public class MetadataManager
                 }
                 return Optional.empty();
             }
+
+            @Override
+            public List<Type> getTypes()
+            {
+                return functionAndTypeManager.getTypes();
+            }
         };
     }
 
