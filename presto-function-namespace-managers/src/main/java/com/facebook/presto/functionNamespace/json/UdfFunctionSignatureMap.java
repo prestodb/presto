@@ -22,13 +22,13 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class JsonBasedUdfFunctionSignatureMap
+public class UdfFunctionSignatureMap
 {
     private final Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap;
 
     @JsonCreator
-    public JsonBasedUdfFunctionSignatureMap(
-            @JsonProperty("UDFSignatureMap") Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap)
+    public UdfFunctionSignatureMap(
+            @JsonProperty("udfSignatureMap") Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap)
     {
         this.udfSignatureMap = ImmutableMap.copyOf(requireNonNull(udfSignatureMap, "udfSignatureMap is null"));
     }

@@ -33,6 +33,7 @@ public class JsonFileBasedFunctionNamespaceManagerModule
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
     }
+
     @Override
     public void configure(Binder binder)
     {
@@ -41,6 +42,7 @@ public class JsonFileBasedFunctionNamespaceManagerModule
         configBinder(binder).bindConfig(JsonFileBasedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(SqlInvokedFunctionNamespaceManagerConfig.class);
         configBinder(binder).bindConfig(SqlFunctionLanguageConfig.class);
+        binder.bind(FunctionDefinitionProvider.class).to(JsonFileBasedFunctionDefinitionProvider.class).in(SINGLETON);
         binder.bind(JsonFileBasedFunctionNamespaceManager.class).in(SINGLETON);
     }
 }

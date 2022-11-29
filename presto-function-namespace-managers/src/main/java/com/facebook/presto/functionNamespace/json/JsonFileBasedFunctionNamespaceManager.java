@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
 
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +41,6 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
-import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
@@ -63,16 +61,19 @@ public class JsonFileBasedFunctionNamespaceManager
     private final Map<SqlFunctionId, SqlInvokedFunction> latestFunctions = new ConcurrentHashMap<>();
     private final Map<QualifiedObjectName, UserDefinedType> userDefinedTypes = new ConcurrentHashMap<>();
     private final JsonFileBasedFunctionNamespaceManagerConfig managerConfig;
+    private final FunctionDefinitionProvider functionDefinitionProvider;
 
     @Inject
     public JsonFileBasedFunctionNamespaceManager(
             @ServingCatalog String catalogName,
             SqlFunctionExecutors sqlFunctionExecutors,
             SqlInvokedFunctionNamespaceManagerConfig config,
-            JsonFileBasedFunctionNamespaceManagerConfig managerConfig)
+            JsonFileBasedFunctionNamespaceManagerConfig managerConfig,
+            FunctionDefinitionProvider functionDefinitionProvider)
     {
         super(catalogName, sqlFunctionExecutors, config);
         this.managerConfig = requireNonNull(managerConfig, "managerConfig is null");
+        this.functionDefinitionProvider = requireNonNull(functionDefinitionProvider, "functionDefinitionProvider is null");
         bootstrapNamespaceFromFile();
     }
 
@@ -90,22 +91,16 @@ public class JsonFileBasedFunctionNamespaceManager
 
     private void bootstrapNamespaceFromFile()
     {
-        try {
-            // We can change how to load the function definition file here, to support other formats of input in addition to json if needed.
-            JsonBasedUdfFunctionSignatureMap jsonBasedUdfFunctionSignatureMap = parseJson(Paths.get(managerConfig.getFunctionDefinitionFile()), JsonBasedUdfFunctionSignatureMap.class);
-            if (jsonBasedUdfFunctionSignatureMap.isEmpty()) {
-                return;
-            }
-            populateNameSpaceManager(jsonBasedUdfFunctionSignatureMap);
+        UdfFunctionSignatureMap udfFunctionSignatureMap = functionDefinitionProvider.getUdfDefinition(managerConfig.getFunctionDefinitionFile());
+        if (udfFunctionSignatureMap == null || udfFunctionSignatureMap.isEmpty()) {
+            return;
         }
-        catch (Exception e) {
-            log.info("Failed to load function definition for JsonFileBasedFunctionNamespaceManager " + e.getMessage());
-        }
+        populateNameSpaceManager(udfFunctionSignatureMap);
     }
 
-    private void populateNameSpaceManager(JsonBasedUdfFunctionSignatureMap jsonBasedUdfFunctionSignatureMap)
+    private void populateNameSpaceManager(UdfFunctionSignatureMap udfFunctionSignatureMap)
     {
-        Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = jsonBasedUdfFunctionSignatureMap.getUDFSignatureMap();
+        Map<String, List<JsonBasedUdfFunctionMetadata>> udfSignatureMap = udfFunctionSignatureMap.getUDFSignatureMap();
         udfSignatureMap.forEach((name, metaInfoList) -> {
             List<SqlInvokedFunction> functions = metaInfoList.stream().map(metaInfo -> createSqlInvokedFunction(name, metaInfo)).collect(toImmutableList());
             functions.forEach(function -> createFunction(function, false));
