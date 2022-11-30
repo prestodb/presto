@@ -430,7 +430,7 @@ ExprPtr compileExpression(
       auto access =
           dynamic_cast<const core::FieldAccessTypedExpr*>(expr.get())) {
     auto fieldReference = std::make_shared<FieldReference>(
-        expr->type(), move(compiledInputs), access->name());
+        expr->type(), std::move(compiledInputs), access->name());
     if (access->isInputColumn()) {
       // We only want to capture references to top level fields, not struct
       // fields.
