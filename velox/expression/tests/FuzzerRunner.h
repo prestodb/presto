@@ -185,14 +185,12 @@ const std::unordered_map<
                     .typeVariable("T")
                     .argumentType("boolean")
                     .argumentType("T")
-                    .argumentType("T")
                     .returnType("T")
                     .build(),
-                // if (condition, then, else): boolean, T -> T
+                // if (condition, then, else): boolean, T, T -> T
                 facebook::velox::exec::FunctionSignatureBuilder()
                     .typeVariable("T")
                     .argumentType("boolean")
-                    .argumentType("T")
                     .argumentType("T")
                     .argumentType("T")
                     .returnType("T")
