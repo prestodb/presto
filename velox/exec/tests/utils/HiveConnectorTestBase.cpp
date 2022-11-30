@@ -40,6 +40,9 @@ void HiveConnectorTestBase::SetUp() {
 }
 
 void HiveConnectorTestBase::TearDown() {
+  // Make sure all pending loads are finished or cancelled before unregister
+  // connector.
+  ioExecutor_.reset();
   dwrf::unregisterDwrfReaderFactory();
   connector::unregisterConnector(kHiveConnectorId);
   OperatorTestBase::TearDown();
