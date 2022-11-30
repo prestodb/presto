@@ -39,6 +39,8 @@ dnf remove -y gflags
 # Required for Thrift
 dnf_install autoconf automake libtool bison flex python3
 
+dnf_install conda
+
 # install sphinx for doc gen
 pip3 install sphinx sphinx-tabs breathe sphinx_rtd_theme
 

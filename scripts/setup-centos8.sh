@@ -39,6 +39,8 @@ dnf remove -y gflags
 # Required for Thrift
 dnf_install autoconf automake libtool bison flex python3
 
+dnf_install conda
+
 # Activate gcc9; enable errors on unset variables afterwards.
 source /opt/rh/gcc-toolset-9/enable || exit 1
 set -u
