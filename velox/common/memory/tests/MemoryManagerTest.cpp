@@ -27,7 +27,7 @@ namespace memory {
 
 TEST(MemoryManagerTest, Ctor) {
   {
-    MemoryManager<MemoryAllocator> manager{};
+    MemoryManager<> manager{};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), root.cap());
@@ -37,7 +37,7 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManager<MemoryAllocator> manager{8L * 1024 * 1024};
+    MemoryManager<> manager{8L * 1024 * 1024};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(8L * 1024 * 1024, root.cap());
@@ -46,15 +46,15 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
-  { ASSERT_ANY_THROW(MemoryManager<MemoryAllocator> manager{-1}); }
+  { ASSERT_ANY_THROW(MemoryManager<> manager{-1}); }
 }
 
 // TODO: when run sequentially, e.g. `buck run dwio/memory/...`, this has side
 // effects for other tests using process singleton memory manager. Might need to
 // use folly::Singleton for isolation by tag.
 TEST(MemoryManagerTest, GlobalMemoryManager) {
-  auto& manager = MemoryManager<>::getProcessDefaultManager();
-  auto& managerII = MemoryManager<>::getProcessDefaultManager();
+  auto& manager = MemoryManager<>::getInstance();
+  auto& managerII = MemoryManager<>::getInstance();
 
   auto& root = manager.getRoot();
   auto child = root.addChild("some_child", 42);
@@ -73,7 +73,7 @@ TEST(MemoryManagerTest, GlobalMemoryManager) {
 
 TEST(MemoryManagerTest, Reserve) {
   {
-    MemoryManager<MemoryAllocator> manager{};
+    MemoryManager<> manager{};
     ASSERT_TRUE(manager.reserve(0));
     ASSERT_EQ(0, manager.getTotalBytes());
     manager.release(0);
@@ -86,7 +86,7 @@ TEST(MemoryManagerTest, Reserve) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManager<MemoryAllocator> manager{42};
+    MemoryManager<> manager{42};
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(2));
@@ -107,12 +107,10 @@ TEST(MemoryManagerTest, Reserve) {
 }
 
 TEST(MemoryManagerTest, GlobalMemoryManagerQuota) {
-  auto& manager = MemoryManager<>::getProcessDefaultManager();
-  ASSERT_THROW(
-      MemoryManager<>::getProcessDefaultManager(42, true),
-      velox::VeloxUserError);
+  auto& manager = MemoryManager<>::getInstance();
+  ASSERT_THROW(MemoryManager<>::getInstance(42, true), velox::VeloxUserError);
 
-  auto& coercedManager = MemoryManager<>::getProcessDefaultManager(42);
+  auto& coercedManager = MemoryManager<>::getInstance(42);
   ASSERT_EQ(manager.getMemoryQuota(), coercedManager.getMemoryQuota());
 }
 } // namespace memory

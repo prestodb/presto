@@ -139,8 +139,8 @@ class HiveConnectorTestBase : public OperatorTestBase {
     return assignments;
   }
 
-  memory::MappedMemory* mappedMemory() {
-    return memory::MappedMemory::getInstance();
+  memory::MemoryAllocator* allocator() {
+    return memory::MemoryAllocator::getInstance();
   }
 };
 

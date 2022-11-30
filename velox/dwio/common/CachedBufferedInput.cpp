@@ -32,7 +32,7 @@ using cache::ScanTracker;
 using cache::SsdFile;
 using cache::SsdPin;
 using cache::TrackingId;
-using memory::MappedMemory;
+using memory::MemoryAllocator;
 
 std::unique_ptr<SeekableInputStream> CachedBufferedInput::enqueue(
     Region region,
@@ -79,11 +79,11 @@ bool CachedBufferedInput::shouldPreload() {
   for (auto& request : requests_) {
     numPages += bits::roundUp(
                     std::min<int32_t>(request.size, loadQuantum_),
-                    MappedMemory::kPageSize) /
-        MappedMemory::kPageSize;
+                    MemoryAllocator::kPageSize) /
+        MemoryAllocator::kPageSize;
   }
   auto cachePages = cache_->incrementCachedPages(0);
-  auto maxPages = cache_->maxBytes() / MappedMemory::kPageSize;
+  auto maxPages = cache_->maxBytes() / MemoryAllocator::kPageSize;
   auto allocatedPages = cache_->numAllocated();
   if (numPages < maxPages - allocatedPages) {
     // There is free space for the read-ahead.

@@ -30,7 +30,7 @@ namespace {
 class UnsafeRowVectorSerializer : public VectorSerializer {
  public:
   explicit UnsafeRowVectorSerializer(StreamArena* streamArena)
-      : mappedMemory_{streamArena->mappedMemory()} {}
+      : allocator_{streamArena->allocator()} {}
 
   void append(
       RowVectorPtr vector,
@@ -48,7 +48,7 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
       return;
     }
 
-    auto* buffer = (char*)mappedMemory_->allocateBytes(totalSize);
+    auto* buffer = (char*)allocator_->allocateBytes(totalSize);
     buffers_.push_back(
         ByteRange{(uint8_t*)buffer, (int32_t)totalSize, (int32_t)totalSize});
 
@@ -78,13 +78,13 @@ class UnsafeRowVectorSerializer : public VectorSerializer {
   void flush(OutputStream* stream) override {
     for (auto& buffer : buffers_) {
       stream->write((char*)buffer.buffer, buffer.position);
-      mappedMemory_->freeBytes(buffer.buffer, buffer.size);
+      allocator_->freeBytes(buffer.buffer, buffer.size);
     }
     buffers_.clear();
   }
 
  private:
-  memory::MappedMemory* mappedMemory_;
+  memory::MemoryAllocator* const FOLLY_NONNULL allocator_;
   std::vector<ByteRange> buffers_;
 };
 } // namespace

@@ -269,7 +269,7 @@ class RowContainerTest : public exec::test::RowContainerTestBase {
     std::vector<TypePtr> types{input->type()};
 
     // Store the vector in the rowContainer.
-    auto rowContainer = std::make_unique<RowContainer>(types, mappedMemory_);
+    auto rowContainer = std::make_unique<RowContainer>(types, allocator_);
     auto size = input->size();
     SelectivityVector allRows(size);
     std::vector<char*> rows(size);
@@ -806,7 +806,7 @@ TEST_F(RowContainerTest, probedFlag) {
       true, // isJoinBuild
       true, // hasProbedFlag
       false, // hasNormalizedKey
-      mappedMemory_,
+      allocator_,
       ContainerRowSerde::instance());
 
   auto input = makeRowVector({

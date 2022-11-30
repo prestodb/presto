@@ -179,14 +179,14 @@ class ConnectorQueryCtx {
       memory::MemoryPool* FOLLY_NONNULL pool,
       const Config* FOLLY_NONNULL connectorConfig,
       ExpressionEvaluator* FOLLY_NULLABLE expressionEvaluator,
-      memory::MappedMemory* FOLLY_NONNULL mappedMemory,
+      memory::MemoryAllocator* FOLLY_NONNULL allocator,
       const std::string& taskId,
       const std::string& planNodeId,
       int driverId)
       : pool_(pool),
         config_(connectorConfig),
         expressionEvaluator_(expressionEvaluator),
-        mappedMemory_(mappedMemory),
+        allocator_(allocator),
         scanId_(fmt::format("{}.{}", taskId, planNodeId)),
         taskId_(taskId),
         driverId_(driverId) {}
@@ -203,10 +203,10 @@ class ConnectorQueryCtx {
     return expressionEvaluator_;
   }
 
-  // MappedMemory for large allocations. Used for caching with
-  // CachedBufferedImput if this implements cache::AsyncDataCache.
-  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const {
-    return mappedMemory_;
+  /// MemoryAllocator used for large allocations. Used for caching with
+  /// CachedBufferedInput if this implements cache::AsyncDataCache.
+  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
+    return allocator_;
   }
 
   // This is a combination of task id and the scan's PlanNodeId. This is an id
@@ -226,10 +226,10 @@ class ConnectorQueryCtx {
   }
 
  private:
-  memory::MemoryPool* FOLLY_NONNULL pool_;
-  const Config* FOLLY_NONNULL config_;
-  ExpressionEvaluator* FOLLY_NULLABLE expressionEvaluator_;
-  memory::MappedMemory* FOLLY_NONNULL mappedMemory_;
+  memory::MemoryPool* FOLLY_NONNULL const pool_;
+  const Config* FOLLY_NONNULL const config_;
+  ExpressionEvaluator* FOLLY_NULLABLE const expressionEvaluator_;
+  memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
   const std::string scanId_;
   const std::string taskId_;
   const int driverId_;

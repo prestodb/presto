@@ -63,7 +63,7 @@ class SpillTest : public testing::Test,
 
  protected:
   void SetUp() override {
-    mappedMemory_ = memory::MappedMemory::getInstance();
+    allocator_ = memory::MemoryAllocator::getInstance();
     tempDir_ = exec::test::TempDirectoryPath::create();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
@@ -150,7 +150,7 @@ class SpillTest : public testing::Test,
         compareFlags,
         targetFileSize,
         *pool(),
-        *mappedMemory_);
+        *allocator_);
     EXPECT_EQ(targetFileSize, state_->targetFileSize());
     EXPECT_EQ(numPartitions, state_->maxPartitions());
     EXPECT_EQ(0, state_->spilledPartitions());
@@ -316,7 +316,7 @@ class SpillTest : public testing::Test,
 
   folly::Random::DefaultGenerator rng_;
   std::shared_ptr<TempDirectoryPath> tempDir_;
-  memory::MappedMemory* mappedMemory_;
+  memory::MemoryAllocator* allocator_;
   std::vector<std::optional<int64_t>> values_;
   std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
   std::string spillPath_;
@@ -358,7 +358,7 @@ TEST_F(SpillTest, spillTimestamp) {
       Timestamp{-1, 17'123'456}};
 
   SpillState state(
-      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
+      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *allocator_);
   int partitionIndex = 0;
   state.setPartitionSpilled(partitionIndex);
   EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));

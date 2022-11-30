@@ -30,7 +30,7 @@ using namespace facebook::velox::dwio;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::cache;
 
-using memory::MappedMemory;
+using memory::MemoryAllocator;
 using IoStatisticsPtr = std::shared_ptr<IoStatistics>;
 
 // Testing stream producing deterministic data. The byte at offset is
@@ -482,7 +482,8 @@ TEST_F(CacheTest, window) {
   auto stream = input->read(begin, end - begin, LogType::TEST);
   auto cacheInput = dynamic_cast<CacheInputStream*>(stream.get());
   EXPECT_TRUE(cacheInput != nullptr);
-  auto maxSize = cache_->sizeClasses().back() * memory::MappedMemory::kPageSize;
+  auto maxSize =
+      cache_->sizeClasses().back() * memory::MemoryAllocator::kPageSize;
   const void* buffer;
   int32_t size;
   int32_t numRead = 0;

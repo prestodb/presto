@@ -240,7 +240,7 @@ class HashBuild final : public Operator {
   const core::JoinType joinType_;
 
   // Holds the areas in RowContainer of 'table_'
-  memory::MappedMemory* const FOLLY_NONNULL mappedMemory_;
+  memory::MemoryAllocator* const FOLLY_NONNULL allocator_;
 
   const std::shared_ptr<HashJoinBridge> joinBridge_;
 

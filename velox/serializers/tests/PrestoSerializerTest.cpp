@@ -61,7 +61,7 @@ class PrestoSerializerTest : public ::testing::Test {
         rowVector, folly::Range(rows.data(), numRows));
 
     auto arena =
-        std::make_unique<StreamArena>(memory::MappedMemory::getInstance());
+        std::make_unique<StreamArena>(memory::MemoryAllocator::getInstance());
     auto rowType = asRowType(rowVector->type());
     auto serializer =
         serde_->createSerializer(rowType, numRows, arena.get(), serdeOptions);
@@ -79,7 +79,7 @@ class PrestoSerializerTest : public ::testing::Test {
     facebook::velox::serializer::presto::PrestoOutputStreamListener listener;
     OStreamOutputStream out(output, &listener);
     auto arena =
-        std::make_unique<StreamArena>(memory::MappedMemory::getInstance());
+        std::make_unique<StreamArena>(memory::MemoryAllocator::getInstance());
     serde_->serializeConstants(rowVector, arena.get(), serdeOptions, &out);
   }
 

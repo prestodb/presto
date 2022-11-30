@@ -27,107 +27,6 @@ namespace facebook {
 namespace velox {
 namespace memory {
 
-/* static */
-std::shared_ptr<MmapMemoryAllocator>
-MmapMemoryAllocator::createDefaultAllocator() {
-  return std::make_shared<MmapMemoryAllocator>();
-}
-
-void* FOLLY_NULLABLE MmapMemoryAllocator::alloc(int64_t size) {
-  return mappedMemory_->allocateBytes(size);
-}
-
-void* FOLLY_NULLABLE
-MmapMemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
-  auto totalBytes = numMembers * sizeEach;
-  auto* allocResult = alloc(totalBytes);
-  if (allocResult != nullptr) {
-    std::memset(allocResult, 0, totalBytes);
-  }
-  return allocResult;
-}
-
-void* FOLLY_NULLABLE MmapMemoryAllocator::allocAligned(
-    uint16_t /* alignment */,
-    int64_t /* size */) {
-  // TODO: Add functionality in MappedMemory to support allocAligned
-  VELOX_UNSUPPORTED("allocAligned is not supported for MmapMemoryAllocator.");
-}
-
-void* FOLLY_NULLABLE MmapMemoryAllocator::realloc(
-    void* FOLLY_NULLABLE p,
-    int64_t size,
-    int64_t newSize) {
-  auto* newAlloc = alloc(newSize);
-  if (p == nullptr || newAlloc == nullptr) {
-    return newAlloc;
-  }
-  std::memcpy(newAlloc, p, std::min(size, newSize));
-  free(p, size);
-  return newAlloc;
-}
-
-void* FOLLY_NULLABLE MmapMemoryAllocator::reallocAligned(
-    void* FOLLY_NULLABLE /* p */,
-    uint16_t /* alignment */,
-    int64_t /* size */,
-    int64_t /* newSize */) {
-  VELOX_UNSUPPORTED("reallocAligned is not supported for MmapMemoryAllocator.");
-}
-
-void MmapMemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t size) {
-  if (p == nullptr) {
-    return;
-  }
-  mappedMemory_->freeBytes(p, size);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::alloc(int64_t size) {
-  return std::malloc(size);
-}
-
-/* static */
-std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultAllocator() {
-  return std::make_shared<MemoryAllocator>();
-}
-
-void* FOLLY_NULLABLE
-MemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
-  return std::calloc(numMembers, sizeEach);
-}
-
-void* FOLLY_NULLABLE
-MemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
-  return aligned_alloc(alignment, size);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::realloc(
-    void* FOLLY_NULLABLE p,
-    int64_t /* size */,
-    int64_t newSize) {
-  return std::realloc(p, newSize);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::reallocAligned(
-    void* FOLLY_NULLABLE p,
-    uint16_t alignment,
-    int64_t size,
-    int64_t newSize) {
-  if (newSize <= 0) {
-    return nullptr;
-  }
-  auto block = aligned_alloc(alignment, newSize);
-  if (block) {
-    memcpy(block, p, std::min(size, newSize));
-    std::free(p);
-  }
-  return block;
-}
-
-void MemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t /* size */) {
-  std::free(p);
-}
-
 MemoryPool::MemoryPool(
     const std::string& name,
     std::shared_ptr<MemoryPool> parent)
@@ -208,10 +107,7 @@ size_t MemoryPool::getPreferredSize(size_t size) {
 }
 
 IMemoryManager& getProcessDefaultMemoryManager() {
-  if (FLAGS_use_mmap_allocator_for_memory_pool) {
-    return MemoryManager<MmapMemoryAllocator>::getProcessDefaultManager();
-  }
-  return MemoryManager<MemoryAllocator>::getProcessDefaultManager();
+  return MemoryManager<>::getInstance();
 }
 
 std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap) {

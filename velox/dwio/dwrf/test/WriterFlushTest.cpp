@@ -60,11 +60,11 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   void* allocate(int64_t size) override {
     updateLocalMemoryUsage(size);
-    return allocator_.alloc(size);
+    return allocator_->allocateBytes(size);
   }
   void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
     updateLocalMemoryUsage(numMembers * sizeEach);
-    return allocator_.allocZeroFilled(numMembers, sizeEach);
+    return allocator_->allocateZeroFilled(numMembers, sizeEach);
   }
 
   // No-op for attempts to shrink buffer.
@@ -76,10 +76,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     if (UNLIKELY(difference <= 0)) {
       return p;
     }
-    return allocator_.realloc(p, size, newSize);
+    return allocator_->reallocateBytes(p, size, newSize);
   }
   void free(void* p, int64_t size) override {
-    allocator_.free(p, size);
+    allocator_->freeBytes(p, size);
     updateLocalMemoryUsage(-size);
   }
 
@@ -126,7 +126,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
   MOCK_CONST_METHOD0(getAlignment, uint16_t());
 
  private:
-  velox::memory::MemoryAllocator allocator_{};
+  velox::memory::MemoryAllocator* const FOLLY_NONNULL allocator_{
+      velox::memory::MemoryAllocator::getInstance()};
   int64_t localMemoryUsage_{0};
   int64_t subtreeMemoryUsage_{0};
   int64_t cap_;

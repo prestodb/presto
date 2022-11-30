@@ -130,7 +130,8 @@ class HashStringAllocator : public StreamArena {
     char* FOLLY_NULLABLE position;
   };
 
-  explicit HashStringAllocator(memory::MappedMemory* FOLLY_NONNULL mappedMemory)
+  explicit HashStringAllocator(
+      memory::MemoryAllocator* FOLLY_NONNULL mappedMemory)
       : StreamArena(mappedMemory),
         pool_(mappedMemory, AllocationPool::kHashTableOwner) {}
 
@@ -270,8 +271,8 @@ class HashStringAllocator : public StreamArena {
     pool_.clear();
   }
 
-  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const {
-    return pool_.mappedMemory();
+  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
+    return pool_.allocator();
   }
 
   uint64_t cumulativeBytes() const {
@@ -283,7 +284,7 @@ class HashStringAllocator : public StreamArena {
   void checkConsistency() const;
 
  private:
-  static constexpr int32_t kUnitSize = 16 * memory::MappedMemory::kPageSize;
+  static constexpr int32_t kUnitSize = 16 * memory::MemoryAllocator::kPageSize;
   static constexpr int32_t kMinContiguous = 48;
 
   // Adds 'bytes' worth of contiguous space to the free list. This

@@ -50,7 +50,7 @@ HashBuild::HashBuild(
     : Operator(driverCtx, nullptr, operatorId, joinNode->id(), "HashBuild"),
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
-      mappedMemory_(operatorCtx_->mappedMemory()),
+      allocator_(operatorCtx_->allocator()),
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
@@ -132,7 +132,7 @@ void HashBuild::setupTable() {
         dependentTypes,
         true, // allowDuplicates
         true, // hasProbedFlag
-        mappedMemory_);
+        allocator_);
   } else {
     // (Left) semi and anti join with no extra filter only needs to know whether
     // there is a match. Hence, no need to store entries with duplicate keys.
@@ -149,7 +149,7 @@ void HashBuild::setupTable() {
           dependentTypes,
           !dropDuplicates, // allowDuplicates
           needProbedFlag, // hasProbedFlag
-          mappedMemory_);
+          allocator_);
     } else {
       // Ignore null keys
       table_ = HashTable<true>::createForJoin(
@@ -157,7 +157,7 @@ void HashBuild::setupTable() {
           dependentTypes,
           !dropDuplicates, // allowDuplicates
           needProbedFlag, // hasProbedFlag
-          mappedMemory_);
+          allocator_);
     }
   }
   analyzeKeys_ = table_->hashMode() != BaseHashTable::HashMode::kHash;
@@ -427,7 +427,7 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   const auto increment =
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0);
 
-  auto tracker = CHECK_NOTNULL(mappedMemory_->tracker());
+  auto tracker = CHECK_NOTNULL(allocator_->tracker());
   // There must be at least 2x the increments in reservation.
   if (tracker->getAvailableReservation() > 2 * increment) {
     return true;
@@ -763,7 +763,7 @@ void HashBuild::postHashBuildProcess() {
 
   // Release the unused memory reservation since we have finished the table
   // build.
-  operatorCtx_->mappedMemory()->tracker()->release();
+  operatorCtx_->allocator()->tracker()->release();
 
   if (!spillEnabled()) {
     setState(State::kFinish);

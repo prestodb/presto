@@ -17,8 +17,8 @@
 
 #include "velox/buffer/Buffer.h"
 #include "velox/common/memory/ByteStream.h"
-#include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/StreamArena.h"
 #include "velox/vector/ComplexVector.h"
 
@@ -77,8 +77,8 @@ bool isRegisteredVectorSerde();
 
 class VectorStreamGroup : public StreamArena {
  public:
-  explicit VectorStreamGroup(memory::MappedMemory* mappedMemory)
-      : StreamArena(mappedMemory) {}
+  explicit VectorStreamGroup(memory::MemoryAllocator* allocator)
+      : StreamArena(allocator) {}
 
   void createStreamTree(
       RowTypePtr type,

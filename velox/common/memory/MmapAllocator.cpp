@@ -25,7 +25,7 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::memory {
 
 MmapAllocator::MmapAllocator(const MmapAllocatorOptions& options)
-    : MappedMemory(),
+    : MemoryAllocator(),
       numAllocated_(0),
       numMapped_(0),
       capacity_(bits::roundUp(
@@ -46,7 +46,7 @@ MmapAllocator::MmapAllocator(const MmapAllocatorOptions& options)
   }
 }
 
-bool MmapAllocator::allocate(
+bool MmapAllocator::allocateNonContiguous(
     MachinePageCount numPages,
     int32_t owner,
     Allocation& out,
@@ -96,7 +96,7 @@ bool MmapAllocator::allocate(
       LOG(WARNING) << "Failed allocation in size class " << i << " for "
                    << mix.sizeCounts[i] << " pages";
       auto failedPages = mix.totalPages - out.numPages();
-      free(out);
+      freeNonContiguous(out);
       numAllocated_.fetch_sub(failedPages);
       if (userAllocCB != nullptr) {
         userAllocCB(mix.totalPages * kPageSize, false);
@@ -111,7 +111,7 @@ bool MmapAllocator::allocate(
     markAllMapped(out);
     return true;
   }
-  free(out);
+  freeNonContiguous(out);
   if (userAllocCB != nullptr) {
     userAllocCB(mix.totalPages * kPageSize, false);
   }
@@ -142,7 +142,7 @@ bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
   return false;
 }
 
-int64_t MmapAllocator::free(Allocation& allocation) {
+int64_t MmapAllocator::freeNonContiguous(Allocation& allocation) {
   auto numFreed = freeInternal(allocation);
   numAllocated_.fetch_sub(numFreed);
   return numFreed * kPageSize;
@@ -426,7 +426,7 @@ std::string MmapAllocator::SizeClass::toString() const {
     mappedFreeCount +=
         __builtin_popcountll(~pageAllocated_[i] & pageMapped_[i]);
   }
-  auto mb = (count * MappedMemory::kPageSize * unitSize_) >> 20;
+  auto mb = (count * MemoryAllocator::kPageSize * unitSize_) >> 20;
   out << "[size " << unitSize_ << ": " << count << "(" << mb << "MB) allocated "
       << mappedCount << " mapped";
   if (mappedFreeCount != numMappedFreePages_) {
@@ -657,7 +657,7 @@ void MmapAllocator::SizeClass::adviseAway(const Allocation& allocation) {
 }
 
 void MmapAllocator::SizeClass::setMappedBits(
-    const MappedMemory::PageRun run,
+    const MemoryAllocator::PageRun run,
     bool value) {
   const uint8_t* runAddress = run.data();
   const int firstBit = (runAddress - address_) / (unitSize_ * kPageSize);
@@ -671,7 +671,7 @@ void MmapAllocator::SizeClass::setMappedBits(
 }
 
 MachinePageCount MmapAllocator::SizeClass::free(
-    MappedMemory::Allocation& allocation) {
+    MemoryAllocator::Allocation& allocation) {
   MachinePageCount numFreed = 0;
   int firstRunInClass = -1;
   // Check if there are any runs in 'this' outside of 'mutex_'.

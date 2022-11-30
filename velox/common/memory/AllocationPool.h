@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox {
 // A set of MappedMemory::Allocations holding the fixed width payload
@@ -31,15 +31,15 @@ class AllocationPool {
   static constexpr int32_t kMinPages = 16;
 
   explicit AllocationPool(
-      memory::MappedMemory* mappedMemory,
+      memory::MemoryAllocator* FOLLY_NONNULL allocator,
       int32_t owner = kHashTableOwner)
-      : mappedMemory_(mappedMemory), allocation_(mappedMemory), owner_(owner) {}
+      : allocator_(allocator), allocation_(allocator), owner_(owner) {}
 
   ~AllocationPool() = default;
 
   void clear();
 
-  char* allocateFixed(uint64_t bytes);
+  char* FOLLY_NONNULL allocateFixed(uint64_t bytes);
 
   // Starts a new run for variable length allocation. The actual size
   // is at least one machine page. Throws std::bad_alloc if no space.
@@ -57,13 +57,14 @@ class AllocationPool {
     return largeAllocations_.size();
   }
 
-  const memory::MappedMemory::Allocation* allocationAt(int32_t index) const {
+  const memory::MemoryAllocator::Allocation* FOLLY_NONNULL
+  allocationAt(int32_t index) const {
     return index == allocations_.size() ? &allocation_
                                         : allocations_[index].get();
   }
 
-  const memory::MappedMemory::ContiguousAllocation* largeAllocationAt(
-      int32_t index) const {
+  const memory::MemoryAllocator::ContiguousAllocation* FOLLY_NONNULL
+  largeAllocationAt(int32_t index) const {
     return largeAllocations_[index].get();
   }
 
@@ -83,7 +84,7 @@ class AllocationPool {
     for (auto& largeAllocation : largeAllocations_) {
       totalPages += largeAllocation->numPages();
     }
-    return totalPages * memory::MappedMemory::kPageSize;
+    return totalPages * memory::MemoryAllocator::kPageSize;
   }
 
   // Returns number of bytes left at the end of the current run.
@@ -95,13 +96,13 @@ class AllocationPool {
   }
 
   // Returns pointer to first unallocated byte in the current run.
-  char* firstFreeInRun() {
+  char* FOLLY_NONNULL firstFreeInRun() {
     VELOX_DCHECK(availableInRun() > 0);
     return currentRun().data<char>() + currentOffset_;
   }
 
   // Sets the first free position in the current run.
-  void setFirstFreeInRun(const char* firstFree) {
+  void setFirstFreeInRun(const char* FOLLY_NONNULL firstFree) {
     auto run = currentRun();
     auto offset = firstFree - run.data<char>();
     VELOX_CHECK(
@@ -110,22 +111,23 @@ class AllocationPool {
     currentOffset_ = offset;
   }
 
-  memory::MappedMemory* mappedMemory() const {
-    return mappedMemory_;
+  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
+    return allocator_;
   }
 
  private:
-  memory::MappedMemory::PageRun currentRun() const {
+  memory::MemoryAllocator::PageRun currentRun() const {
     return allocation_.runAt(currentRun_);
   }
 
   void newRunImpl(memory::MachinePageCount numPages);
 
-  memory::MappedMemory* mappedMemory_;
-  std::vector<std::unique_ptr<memory::MappedMemory::Allocation>> allocations_;
-  std::vector<std::unique_ptr<memory::MappedMemory::ContiguousAllocation>>
+  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
+  std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
+      allocations_;
+  std::vector<std::unique_ptr<memory::MemoryAllocator::ContiguousAllocation>>
       largeAllocations_;
-  memory::MappedMemory::Allocation allocation_;
+  memory::MemoryAllocator::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentOffset_ = 0;
   const int32_t owner_;

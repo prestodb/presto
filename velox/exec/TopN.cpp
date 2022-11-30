@@ -31,7 +31,7 @@ TopN::TopN(
       count_(topNNode->count()),
       data_(std::make_unique<RowContainer>(
           outputType_->children(),
-          operatorCtx_->mappedMemory())),
+          operatorCtx_->allocator())),
       comparator_(
           outputType_,
           topNNode->sortingKeys(),
