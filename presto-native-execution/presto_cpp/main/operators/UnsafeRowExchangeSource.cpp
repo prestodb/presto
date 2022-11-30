@@ -27,7 +27,12 @@ void UnsafeRowExchangeSource::request() {
   auto buffer = shuffle_->next(destination_, true);
 
   auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
+  // NOTE: SerializedPage's onDestructionCb_ captures one reference on 'buffer'
+  // to keep its alive until SerializedPage destruction. Also note that 'buffer'
+  // should have been allocated from memory pool. Hence, we don't need to update
+  // the memory usage counting for the associated 'ioBuf' attached to
+  // SerializedPage on destruction.
   queue_->enqueue(std::make_unique<velox::exec::SerializedPage>(
-      std::move(ioBuf), pool_, [buffer](auto&) { buffer->release(); }));
+      std::move(ioBuf), pool_, [buffer](auto&) {}));
 }
 }; // namespace facebook::presto::operators

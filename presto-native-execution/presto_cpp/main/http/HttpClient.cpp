@@ -41,7 +41,7 @@ HttpResponse::~HttpResponse() {
   // Clear out any leftover iobufs if not consumed.
   for (auto& buf : bodyChain_) {
     if (buf) {
-      mappedMemory_->freeBytes(buf->writableData(), buf->length());
+      allocator_->freeBytes(buf->writableData(), buf->length());
     }
   }
 }
@@ -50,7 +50,7 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
   VELOX_CHECK(!iobuf->isChained());
   uint64_t dataLength = iobuf->length();
 
-  void* buf = mappedMemory_->allocateBytes(dataLength);
+  void* buf = allocator_->allocateBytes(dataLength);
   if (buf == nullptr) {
     VELOX_FAIL(
         "Cannot spare enough system memory to receive more HTTP response.");

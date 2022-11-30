@@ -117,7 +117,7 @@ class Cursor {
   }
 
   memory::MemoryPool* pool_;
-  memory::MappedMemory* mappedMemory_ = memory::MappedMemory::getInstance();
+  memory::MemoryAllocator* allocator_ = memory::MemoryAllocator::getInstance();
   TaskManager* taskManager_;
   const protocol::TaskId taskId_;
   RowTypePtr rowType_;

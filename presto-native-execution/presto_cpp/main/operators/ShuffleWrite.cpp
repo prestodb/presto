@@ -42,7 +42,6 @@ class ShuffleWriteOperator : public Operator {
     for (auto i = 0; i < input->size(); ++i) {
       auto partition = partitions->valueAt(i);
       auto data = serializedRows->valueAt(i);
-
       shuffle_->collect(partition, std::string_view(data.data(), data.size()));
     }
   }
@@ -65,7 +64,7 @@ class ShuffleWriteOperator : public Operator {
   }
 
  private:
-  ShuffleInterface* shuffle_;
+  ShuffleInterface* const FOLLY_NONNULL shuffle_;
 };
 } // namespace
 
