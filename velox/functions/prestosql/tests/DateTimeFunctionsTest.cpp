@@ -93,6 +93,14 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
 
     int64_t milliSeconds_{0};
     int16_t timezoneId_{0};
+
+    // Provides a nicer printer for gtest.
+    friend std::ostream& operator<<(
+        std::ostream& os,
+        const TimestampWithTimezone& in) {
+      return os << "TimestampWithTimezone(milliSeconds: " << in.milliSeconds_
+                << ", timezoneId: " << in.timezoneId_ << ")";
+    }
   };
 
   std::optional<TimestampWithTimezone> parseDatetime(
@@ -2067,6 +2075,13 @@ TEST_F(DateTimeFunctionsTest, parseDatetime) {
   EXPECT_EQ(
       TimestampWithTimezone(118860000, util::getTimeZoneID("+14:00")),
       parseDatetime("1970-01-02+23:01+14:00", "YYYY-MM-dd+HH:mmZZ"));
+  EXPECT_EQ(
+      TimestampWithTimezone(
+          198060000, util::getTimeZoneID("America/Los_Angeles")),
+      parseDatetime("1970-01-02+23:01 PST", "YYYY-MM-dd+HH:mm z"));
+  EXPECT_EQ(
+      TimestampWithTimezone(169260000, util::getTimeZoneID("+00:00")),
+      parseDatetime("1970-01-02+23:01 GMT", "YYYY-MM-dd+HH:mm z"));
 
   setQueryTimeZone("Asia/Kolkata");
 
