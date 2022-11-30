@@ -215,7 +215,7 @@ class SimpleFunctionAdapter : public VectorFunction {
       const core::QueryConfig& config,
       const std::vector<VectorPtr>& constantInputs,
       std::shared_ptr<const Type> returnType)
-      : fn_{std::make_unique<FUNC>(move(returnType))} {
+      : fn_{std::make_unique<FUNC>(std::move(returnType))} {
     if constexpr (FUNC::udf_has_initialize) {
       try {
         unpackInitialize<0>(config, constantInputs);
