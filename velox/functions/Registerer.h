@@ -41,7 +41,7 @@ void registerFunction(
   using funcClass = typename Func::template udf<exec::VectorExec>;
   using holderClass =
       core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
-  exec::registerSimpleFunction<holderClass>(aliases, move(returnType));
+  exec::registerSimpleFunction<holderClass>(aliases, std::move(returnType));
 }
 
 // New registration function; mostly a copy from the function above, but taking
@@ -55,7 +55,7 @@ void registerFunction(
   using funcClass = Func<exec::VectorExec>;
   using holderClass =
       core::UDFHolder<funcClass, exec::VectorExec, TReturn, TArgs...>;
-  exec::registerSimpleFunction<holderClass>(aliases, move(returnType));
+  exec::registerSimpleFunction<holderClass>(aliases, std::move(returnType));
 }
 
 } // namespace facebook::velox
