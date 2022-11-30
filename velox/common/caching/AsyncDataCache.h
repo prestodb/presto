@@ -410,6 +410,7 @@ class CoalescedLoad {
   bool loadOrFuture(folly::SemiFuture<bool>* FOLLY_NULLABLE wait);
 
   LoadState state() const {
+    tsan_lock_guard<std::mutex> l(mutex_);
     return state_;
   }
 
@@ -435,7 +436,7 @@ class CoalescedLoad {
   void setEndState(LoadState endState);
 
   // Serializes access to all members.
-  std::mutex mutex_;
+  mutable std::mutex mutex_;
 
   LoadState state_;
 

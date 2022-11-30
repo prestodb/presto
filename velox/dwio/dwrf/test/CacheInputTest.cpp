@@ -275,6 +275,7 @@ class CacheTest : public testing::Test {
       auto region = stripe.regions[columnIndex];
       random = folly::hasher<uint64_t>()(region.offset + columnIndex);
     } else {
+      std::lock_guard<std::mutex> l(mutex_);
       random = folly::Random::rand32(rng_);
     }
     return random % 100 < readPct / ((columnIndex % modulo) + 1);
@@ -622,6 +623,8 @@ TEST_F(CacheTest, ssdThreads) {
   // file 1 etc. Each tread reads its file 4 times.
   for (int i = 0; i < kNumThreads; ++i) {
     stats.push_back(std::make_shared<dwio::common::IoStatistics>());
+  }
+  for (int i = 0; i < kNumThreads; ++i) {
     threads.push_back(std::thread([i, this, &stats]() {
       for (auto counter = 0; counter < 4; ++counter) {
         readLoop(fmt::format("testfile{}", i / 2), 10, 70, 10, 20, 2, stats[i]);
