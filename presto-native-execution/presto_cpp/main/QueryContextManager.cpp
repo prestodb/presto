@@ -99,7 +99,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
       executor().get(),
       config,
       connectorConfigs,
-      memory::MappedMemory::getInstance(),
+      memory::MemoryAllocator::getInstance(),
       std::move(pool),
       spillExecutor(),
       queryId);

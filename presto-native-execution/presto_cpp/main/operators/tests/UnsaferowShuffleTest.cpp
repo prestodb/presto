@@ -59,8 +59,10 @@ class TestShuffle : public ShuffleInterface {
     }
 
     // Allocate buffer if needed.
-    if (!buffer) {
+    if (buffer == nullptr) {
       buffer = AlignedBuffer::allocate<char>(maxBytesPerPartition_, pool_);
+      assert(buffer != nullptr);
+      inProgressPartitions_[partition] = buffer;
       inProgressSizes_[partition] = 0;
     }
 
@@ -71,7 +73,7 @@ class TestShuffle : public ShuffleInterface {
     *(size_t*)(rawBuffer + offset) = data.size();
 
     offset += sizeof(size_t);
-    memcpy(rawBuffer + offset, data.data(), data.size());
+    ::memcpy(rawBuffer + offset, data.data(), data.size());
 
     inProgressSizes_[partition] += sizeof(size_t) + data.size();
   }
@@ -291,10 +293,10 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto leafTask = makeTask(leafTaskId, leafPlan, 0);
     exec::Task::start(leafTask, numMapDrivers);
 
-    ASSERT_TRUE(exec::test::waitForTaskCompletion(leafTask.get()));
+    ASSERT_TRUE(exec::test::waitForTaskCompletion(leafTask.get(), 3'000'000));
     ASSERT_TRUE(shuffle->readyForRead());
 
-    // Need to repeat the input for each map driver.
+    // NOTE: each map driver processes the input once.
     std::vector<RowVectorPtr> expectedOutputVectors;
     for (auto& input : flattenInputs) {
       for (int i = 0; i < numMapDrivers; i++) {
