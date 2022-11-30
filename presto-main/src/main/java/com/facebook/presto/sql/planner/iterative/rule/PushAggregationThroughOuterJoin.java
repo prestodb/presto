@@ -32,7 +32,6 @@ import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
-import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
@@ -53,6 +52,7 @@ import static com.facebook.presto.SystemSessionProperties.useDefaultsForCorrelat
 import static com.facebook.presto.matching.Capture.newCapture;
 import static com.facebook.presto.spi.plan.AggregationNode.globalAggregation;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
+import static com.facebook.presto.sql.planner.PlannerUtils.coalesce;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.facebook.presto.sql.planner.optimizations.DistinctOutputQueryUtil.isDistinct;
 import static com.facebook.presto.sql.planner.plan.Patterns.aggregation;
@@ -277,23 +277,23 @@ public class PushAggregationThroughOuterJoin
 
         PlanNode finalJoinNode = outerJoin;
         if (literalMap.size() < aggregationNode.getAggregations().size()) {
-            // Do a cross join with the aggregation over null
+        // Do a cross join with the aggregation over null
             finalJoinNode = new JoinNode(
-                    outerJoin.getSourceLocation(),
-                    idAllocator.getNextId(),
-                    JoinNode.Type.INNER,
-                    outerJoin,
-                    aggregationOverNull,
-                    ImmutableList.of(),
-                    ImmutableList.<VariableReferenceExpression>builder()
-                            .addAll(outerJoin.getOutputVariables())
-                            .addAll(aggregationOverNull.getOutputVariables())
-                            .build(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    ImmutableMap.of());
+                outerJoin.getSourceLocation(),
+                idAllocator.getNextId(),
+                JoinNode.Type.INNER,
+                outerJoin,
+                aggregationOverNull,
+                ImmutableList.of(),
+                ImmutableList.<VariableReferenceExpression>builder()
+                        .addAll(outerJoin.getOutputVariables())
+                        .addAll(aggregationOverNull.getOutputVariables())
+                        .build(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of());
         }
 
         // Add coalesce expressions for all aggregation functions
@@ -308,11 +308,6 @@ public class PushAggregationThroughOuterJoin
             }
         }
         return Optional.of(new ProjectNode(idAllocator.getNextId(), finalJoinNode, assignmentsBuilder.build()));
-    }
-
-    private static RowExpression coalesce(List<RowExpression> expressions)
-    {
-        return new SpecialFormExpression(SpecialFormExpression.Form.COALESCE, expressions.get(0).getType(), expressions);
     }
 
     private Optional<MappedAggregationInfo> createAggregationOverNull(AggregationNode referenceAggregation, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
