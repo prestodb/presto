@@ -183,7 +183,8 @@ std::shared_ptr<const Type> Type::create(const folly::dynamic& obj) {
 
       auto child =
           velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
-      return std::make_shared<const RowType>(move(names), move(child));
+      return std::make_shared<const RowType>(
+          std::move(names), std::move(child));
     }
 
     case TypeKind::OPAQUE: {
@@ -206,7 +207,7 @@ std::shared_ptr<const Type> Type::create(const folly::dynamic& obj) {
         childTypes =
             velox::ISerializable::deserialize<std::vector<Type>>(obj["cTypes"]);
       }
-      return createType(type, move(childTypes));
+      return createType(type, std::move(childTypes));
     }
   }
 }
