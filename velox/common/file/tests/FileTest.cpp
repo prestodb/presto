@@ -173,9 +173,9 @@ TEST(LocalFile, list) {
     auto writeFile = localFs->openFileForWrite(a);
     writeFile = localFs->openFileForWrite(b);
   }
-  ASSERT_EQ(
-      localFs->list(std::string_view(tempFolder->path)),
-      std::vector<std::string>({a, b}));
+  auto files = localFs->list(std::string_view(tempFolder->path));
+  std::sort(files.begin(), files.end());
+  ASSERT_EQ(files, std::vector<std::string>({a, b}));
   localFs->remove(a);
   ASSERT_EQ(
       localFs->list(std::string_view(tempFolder->path)),
