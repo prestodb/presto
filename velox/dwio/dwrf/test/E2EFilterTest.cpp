@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "velox/common/base/Portability.h"
 #include "velox/dwio/common/tests/E2EFilterTestBase.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
@@ -278,6 +279,12 @@ TEST_F(E2EFilterTest, timestamp) {
 }
 
 TEST_F(E2EFilterTest, listAndMap) {
+  int numCombinations = 10;
+#ifdef TSAN_BUILD
+  // The test is running slow under TSAN; reduce the number of combinations to
+  // avoid timeout.
+  numCombinations = 2;
+#endif
   testWithTypes(
       "long_val:bigint,"
       "long_val_2:bigint,"
@@ -287,7 +294,7 @@ TEST_F(E2EFilterTest, listAndMap) {
       [&]() {},
       true,
       {"long_val", "long_val_2", "int_val"},
-      10);
+      numCombinations);
 }
 
 TEST_F(E2EFilterTest, nullCompactRanges) {
