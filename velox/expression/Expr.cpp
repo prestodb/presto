@@ -1558,6 +1558,9 @@ void Expr::appendInputsSql(
       stream << inputs_[i]->toSql(complexConstants);
     }
     stream << ")";
+  } else if (vectorFunction_ != nullptr) {
+    // Function with no inputs.
+    stream << "()";
   }
 }
 

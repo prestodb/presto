@@ -2474,6 +2474,9 @@ TEST_F(ExprTest, toSql) {
   testToSql("transform(e, x -> x + b)", rowType);
   testToSql("map_filter(f, (k, v) -> (v > 10::double))", rowType);
   testToSql("reduce(e, b, (s, x) -> s + x, s -> s * 10)", rowType);
+
+  // Function without inputs.
+  testToSql("pi()", rowType);
 }
 
 namespace {
