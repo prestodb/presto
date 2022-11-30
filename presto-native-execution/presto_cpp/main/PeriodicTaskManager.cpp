@@ -19,8 +19,8 @@
 #include "presto_cpp/main/common/Counters.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/memory/MappedMemory.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 #include "velox/exec/Driver.h"
 
@@ -42,10 +42,7 @@ PeriodicTaskManager::PeriodicTaskManager(
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
-      memoryManager_(
-          velox::memory::MemoryManager<
-              velox::memory::MmapMemoryAllocator>::getProcessDefaultManager()) {
-}
+      memoryManager_(velox::memory::MemoryManager<>::getInstance()) {}
 
 void PeriodicTaskManager::start() {
   // Add new functions here.
@@ -129,16 +126,16 @@ void PeriodicTaskManager::start() {
         "clean_old_tasks");
   }
 
-  if (auto* mappedMemory = velox::memory::MappedMemory::getInstance()) {
+  if (auto* allocator = velox::memory::MemoryAllocator::getInstance()) {
     scheduler_.addFunction(
-        [mappedMemory]() {
+        [allocator]() {
           REPORT_ADD_STAT_VALUE(
-              kCounterMappedMemoryBytes, (mappedMemory->numMapped() * 4096l));
+              kCounterMappedMemoryBytes, (allocator->numMapped() * 4096l));
           REPORT_ADD_STAT_VALUE(
               kCounterAllocatedMemoryBytes,
-              (mappedMemory->numAllocated() * 4096l));
+              (allocator->numAllocated() * 4096l));
           auto allocBytesCounters =
-              velox::memory::MappedMemory::allocateBytesStats();
+              velox::memory::MemoryAllocator::allocateBytesStats();
           REPORT_ADD_STAT_VALUE(
               kCounterMappedMemoryRawAllocBytesSmall,
               (allocBytesCounters.totalSmall));
@@ -154,7 +151,7 @@ void PeriodicTaskManager::start() {
   }
 
   if (auto* asyncDataCache = dynamic_cast<velox::cache::AsyncDataCache*>(
-      velox::memory::MappedMemory::getInstance())) {
+          velox::memory::MemoryAllocator::getInstance())) {
     scheduler_.addFunction(
         [asyncDataCache]() {
           velox::cache::CacheStats memoryCacheStats =
