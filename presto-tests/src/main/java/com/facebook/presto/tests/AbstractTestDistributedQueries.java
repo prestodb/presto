@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_PAYLOAD_JOINS;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.INFORMATION_SCHEMA;
@@ -66,6 +67,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -1184,5 +1186,74 @@ public abstract class AbstractTestDistributedQueries
         assertQuery(session, "WITH t(a, b) AS (VALUES (1, INTERVAL '1' SECOND)) " +
                         "SELECT count(DISTINCT a), CAST(max(b) AS VARCHAR) FROM t",
                 "VALUES (1, '0 00:00:01.000')");
+    }
+
+    @Test
+    public void testPayloadJoins()
+    {
+        Session sessionNoOpt = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "false")
+                .build();
+
+        Session session = Session.builder(getSession())
+                .setSystemProperty(OPTIMIZE_PAYLOAD_JOINS, "true")
+                .build();
+
+        assertUpdate("create table lineitem_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m1, map(ARRAY[1,3], ARRAY[2,4]) as m2 from lineitem", 60175);
+        assertUpdate("create table part_map as select *, map(ARRAY[1,3], ARRAY[2,4]) as m3, map(ARRAY[1,3], ARRAY[2,4]) as m4 from part", 2000);
+
+        String[] queries = {
+                "SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[1,2], array[11,22]) as m3 from part) p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join (select *, map(array[partkey], array[size]) as m3 from part) p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select * from lineitem_map where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select * from lineitem_map where orderkey <= 60000) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+                "SELECT cast (l.orderkey as int) as orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from lineitem_map) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+
+                "SELECT l.orderkey, l.partkey, MAP_CONCAT(CAST(l.m1 as map<int, real> ), cast(l.m2 as map<int, real>)) as m2 FROM (select * from lineitem_map where linenumber < 9) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+
+                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (l.orderkey+1= o.orderkey+1) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.*, p.m3, p.m4 FROM lineitem_map l left join orders o on (cast(l.orderkey as int) = o.orderkey) left join part_map p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1) left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem_map) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)",
+                "with lm as (select quantity + 1 as q1, * from lineitem_map) SELECT l.* FROM (select * from lm) l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)",
+
+                "SELECT l.* FROM lineitem_map l left join orders o on (cast(l.orderkey as varchar) = cast(o.orderkey as varchar)) left join part p on (l.partkey=p.partkey)"
+        };
+
+        for (String query : queries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertNotEquals(explainWithOpt, explainNoOpt, "Couldn't optimize query: " + query);
+
+            MaterializedResult materializedRows = computeActual(session, query);
+            assertEquals(materializedRows.getRowCount(), 60175);
+        }
+
+        // Queries that we don't handle because of projections or lack of payload columns
+        String[] nonOptimizableQueries = {
+                "with lm as (select if (quantity > 1, quantity, 1) as q1, * from lineitem_map), lm2 as (select if (q1 > 2, q1, 1) as q2, quantity,partkey,suppkey,linenumber,m1,m2 from lm left join orders o on (lm.orderkey=o.orderkey)) SELECT l.* FROM (select q2+3 as q3,partkey,suppkey,linenumber,m1,m2 from lm2) l left join part p on (l.partkey=p.partkey)",
+                "SELECT l.* FROM (select rand(100) as pk100 from (select orderkey+1 as ok1, * from lineitem_map) l left join orders o on (l.ok1 = o.orderkey+1)) l left join part p on (l.pk100=p.partkey)",
+                "SELECT l.* FROM (select *, cast(orderkey as int) as ok from lineitem) l left join (select *, cast(orderkey as int) as ok from orders) o on (l.ok = o.ok) left join (select *, cast(partkey as int) as pk from part) p on (l.ok=p.pk)"
+        };
+
+        for (String query : nonOptimizableQueries) {
+            MaterializedResult resultExplainQuery = computeActual(session, "EXPLAIN " + query);
+            MaterializedResult resultExplainQueryNoOpt = computeActual(sessionNoOpt, "EXPLAIN " + query);
+            String explainNoOpt = sanitizePlan((String) getOnlyElement(resultExplainQueryNoOpt.getOnlyColumnAsSet()));
+            String explainWithOpt = sanitizePlan((String) getOnlyElement(resultExplainQuery.getOnlyColumnAsSet()));
+            assertEquals(explainWithOpt, explainNoOpt, "Query was optimized: " + query);
+        }
+
+        MaterializedResult countStarQuery = computeActual(session, "select count(t.m1) from (SELECT l.* FROM lineitem_map l left join orders o on (l.orderkey = o.orderkey) left join part p on (l.partkey=p.partkey)) t");
+        assertEquals((Long) countStarQuery.getOnlyValue(), 60175);
+    }
+
+    private String sanitizePlan(String explain)
+    {
+        return explain.replaceAll("hashvalue_[0-9][0-9][0-9]", "hashvalueXXX");
     }
 }

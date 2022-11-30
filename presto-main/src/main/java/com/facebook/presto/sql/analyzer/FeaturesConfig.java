@@ -196,6 +196,7 @@ public class FeaturesConfig
     private boolean optimizeCommonSubExpressions = true;
     private boolean preferDistributedUnion = true;
     private boolean optimizeNullsInJoin;
+    private boolean optimizePayloadJoins;
     private boolean pushdownDereferenceEnabled;
     private boolean inlineSqlFunctions = true;
     private boolean checkAccessControlOnUtilizedColumnsOnly;
@@ -1841,6 +1842,11 @@ public class FeaturesConfig
     public boolean isOptimizeNullsInJoin()
     {
         return optimizeNullsInJoin;
+    }
+
+    public boolean isOptimizePayloadJoins()
+    {
+        return optimizePayloadJoins;
     }
 
     @Config("optimize-nulls-in-join")
