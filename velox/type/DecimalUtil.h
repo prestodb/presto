@@ -84,6 +84,37 @@ class DecimalUtil {
     }
   }
 
+  template <typename TOutput>
+  inline static std::optional<TOutput> rescaleBigint(
+      const int128_t inputValue,
+      const int toPrecision,
+      const int toScale,
+      const bool nullOnFailure) {
+    static_assert(
+        std::is_same_v<TOutput, UnscaledShortDecimal> ||
+        std::is_same_v<TOutput, UnscaledLongDecimal>);
+    int128_t rescaledValue = static_cast<int128_t>(inputValue);
+    bool isOverflow = __builtin_mul_overflow(
+        rescaledValue, DecimalUtil::kPowersOfTen[toScale], &rescaledValue);
+    // Check overflow.
+    if (rescaledValue < -DecimalUtil::kPowersOfTen[toPrecision] ||
+        rescaledValue > DecimalUtil::kPowersOfTen[toPrecision] || isOverflow) {
+      if (nullOnFailure) {
+        return std::nullopt;
+      }
+      VELOX_USER_FAIL(
+          "Cannot cast BIGINT '{}' to DECIMAL({},{})",
+          inputValue,
+          toPrecision,
+          toScale);
+    }
+    if constexpr (std::is_same_v<TOutput, UnscaledShortDecimal>) {
+      return UnscaledShortDecimal(static_cast<int64_t>(rescaledValue));
+    } else {
+      return UnscaledLongDecimal(rescaledValue);
+    }
+  }
+
   template <typename R, typename A, typename B>
   inline static R divideWithRoundUp(
       R& r,
