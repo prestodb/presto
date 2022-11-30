@@ -194,6 +194,7 @@ public final class SystemSessionProperties
     public static final String PREFER_DISTRIBUTED_UNION = "prefer_distributed_union";
     public static final String WARNING_HANDLING = "warning_handling";
     public static final String OPTIMIZE_NULLS_IN_JOINS = "optimize_nulls_in_join";
+    public static final String OPTIMIZE_PAYLOAD_JOINS = "optimize_payload_joins";
     public static final String TARGET_RESULT_SIZE = "target_result_size";
     public static final String PUSHDOWN_DEREFERENCE_ENABLED = "pushdown_dereference_enabled";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
@@ -1084,6 +1085,11 @@ public final class SystemSessionProperties
                         OPTIMIZE_NULLS_IN_JOINS,
                         "Filter nulls from inner side of join",
                         featuresConfig.isOptimizeNullsInJoin(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_PAYLOAD_JOINS,
+                        "Optimize joins with payload columns",
+                        featuresConfig.isOptimizePayloadJoins(),
                         false),
                 new PropertyMetadata<>(
                         TARGET_RESULT_SIZE,
@@ -2185,6 +2191,10 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_NULLS_IN_JOINS, Boolean.class);
     }
 
+    public static boolean isOptimizePayloadJoins(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_PAYLOAD_JOINS, Boolean.class);
+    }
     public static Optional<DataSize> getTargetResultSize(Session session)
     {
         return Optional.ofNullable(session.getSystemProperty(TARGET_RESULT_SIZE, DataSize.class));
