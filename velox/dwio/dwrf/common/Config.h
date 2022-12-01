@@ -18,65 +18,16 @@
 
 #include <functional>
 #include <unordered_map>
-#include "folly/Conv.h"
+#include "velox/common/config/Config.h"
 #include "velox/dwio/common/Common.h"
 #include "velox/dwio/dwrf/common/Common.h"
 
 namespace facebook::velox::dwrf {
 
-class Config {
+class Config : public common::ConfigBase<Config> {
  public:
   template <typename T>
-  class Entry {
-    Entry(
-        const std::string& key,
-        const T& val,
-        std::function<std::string(const T&)> toStr =
-            [](const T& val) { return folly::to<std::string>(val); },
-        std::function<T(const std::string&)> toT =
-            [](const std::string& val) { return folly::to<T>(val); })
-        : key_{key}, default_{val}, toStr_{toStr}, toT_{toT} {}
-
-    const std::string key_;
-    const T default_;
-    const std::function<std::string(const T&)> toStr_;
-    const std::function<T(const std::string&)> toT_;
-
-    friend Config;
-  };
-
-  template <typename T>
-  Config& set(const Entry<T>& entry, const T& val) {
-    configs_[entry.key_] = entry.toStr_(val);
-    return *this;
-  }
-
-  template <typename T>
-  Config& unset(const Entry<T>& entry) {
-    auto iter = configs_.find(entry.key_);
-    if (iter != configs_.end()) {
-      configs_.erase(iter);
-    }
-    return *this;
-  }
-
-  Config& reset() {
-    configs_.clear();
-    return *this;
-  }
-
-  template <typename T>
-  T get(const Entry<T>& entry) const {
-    auto iter = configs_.find(entry.key_);
-    return iter != configs_.end() ? entry.toT_(iter->second) : entry.default_;
-  }
-
-  static std::shared_ptr<Config> fromMap(
-      std::map<std::string, std::string> map) {
-    auto ret = std::make_shared<Config>();
-    ret->configs_.insert(map.begin(), map.end());
-    return ret;
-  }
+  using Entry = common::ConfigBase<Config>::Entry<T>;
 
   static Entry<WriterVersion> WRITER_VERSION;
   static Entry<dwio::common::CompressionKind> COMPRESSION;
@@ -124,8 +75,12 @@ class Config {
   static Entry<uint64_t> RAW_DATA_SIZE_PER_BATCH;
   static Entry<bool> MAP_STATISTICS;
 
- private:
-  std::unordered_map<std::string, std::string> configs_;
+  static std::shared_ptr<Config> fromMap(
+      std::map<std::string, std::string> map) {
+    auto ret = std::make_shared<Config>();
+    ret->configs_.insert(map.begin(), map.end());
+    return ret;
+  }
 };
 
 } // namespace facebook::velox::dwrf

@@ -135,11 +135,11 @@ class E2EFilterTest : public E2EFilterTestBase {
         }
         flatmapNodeIdsAsStruct_[child->id] = mapFlatColsStructKeys[i];
       }
-      config->set(Config::FLATTEN_MAP, true);
+      config->set(dwrf::Config::FLATTEN_MAP, true);
       config->set<const std::vector<uint32_t>>(
-          Config::MAP_FLAT_COLS, mapFlatCols);
+          dwrf::Config::MAP_FLAT_COLS, mapFlatCols);
       config->set<const std::vector<std::vector<std::string>>>(
-          Config::MAP_FLAT_COLS_STRUCT_KEYS, mapFlatColsStructKeys);
+          dwrf::Config::MAP_FLAT_COLS_STRUCT_KEYS, mapFlatColsStructKeys);
     }
     WriterOptions options;
     options.config = config;
