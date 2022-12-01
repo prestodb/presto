@@ -21,54 +21,36 @@
 
 namespace facebook::presto::operators {
 
-/// This class is a persistent shuffle server that implements
-/// ShuffleInterface for read and write and also uses generalized Velox
-/// file system to maintain its state and data.
+/// This class is a persistent shuffle server that implements ShuffleInterface
+/// for read and write and persists the shuffle state on local storage through
+/// Velox file system interface.
 ///
 /// Except for in-progress blocks of current output vectors in the writer,
 /// each produced vector is stored as a binary file of unsafe rows. Each block
 /// filename reflects the partition and sequence number of the block (vector)
-/// for that partition. For example <ROOT_PATH>/10_12.bin is the 13th (block)
+/// for that partition. For example <ROOT_PATH>/10_12.bin is the 12th (block)
 /// vector in partition #10.
 ///
-/// The class uses filesystem also to figure out the number of written shuffle
-/// files for each partition. This allows this class to be usable under
-/// different multi-threaded or multi-process scenarios as long as each producer
-/// or consumer is assigned to a distinct group of partition IDs. Each of them
-/// can create an instance of this class (pointing to the same root path) and
-/// use it to read and write shuffle data.
+/// The class also uses Velox filesystem to figure out the number of written
+/// shuffle files for each partition. This enables the multi-threaded or
+/// multi-process use scenarios as long as each producer or consumer is assigned
+/// to a distinct group of partition IDs. Each of them can create an instance of
+/// this class (pointing to the same root path) to read and write shuffle data.
 class TestingPersistentShuffle : public ShuffleInterface {
  public:
   TestingPersistentShuffle(uint32_t maxBytesPerPartition)
       : maxBytesPerPartition_(maxBytesPerPartition),
         threadId_(std::this_thread::get_id()) {}
 
-  /// This method resets the state of the shuffle using a specific number of
-  /// partitions and a rootPath.
-  /// This can be used multiple times on the same shuffle object. If the
-  /// current rootPath is not an empty string, the method also cleans up the
-  /// its previous root path folder (does not delete the folder itself).
+  /// Resets the shuffle state with the specified 'numPartitions'
+  /// partitions and the root directory path 'rootPath'. This function can be
+  /// called multiple times. If the current 'rootPath_' is not empty, the
+  /// function also cleans up all the data files underneath it (but does not
+  /// delete the old root director itself).
   void initialize(
-      velox::memory::MemoryPool* pool,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool,
       uint32_t numPartitions,
-      std::string rootPath) {
-    pool_ = pool;
-    numPartitions_ = numPartitions;
-    // Use resize/assign instead of resize(size, val).
-    inProgressPartitions_.resize(numPartitions_);
-    inProgressPartitions_.assign(numPartitions_, nullptr);
-    inProgressSizes_.resize(numPartitions_);
-    inProgressSizes_.assign(numPartitions_, 0);
-    readPartitionsFileIndex_.resize(numPartitions_);
-    readPartitionsFileIndex_.assign(numPartitions_, 0);
-    readPartitionFiles_.resize(numPartitions_);
-    readPartitionFiles_.assign(numPartitions_, {});
-    if (rootPath_ != "") {
-      cleanup();
-    }
-    rootPath_ = std::move(rootPath);
-    fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
-  }
+      std::string rootPath);
 
   void collect(int32_t partition, std::string_view data) override;
 
@@ -80,44 +62,46 @@ class TestingPersistentShuffle : public ShuffleInterface {
 
   bool readyForRead() const override;
 
-  static TestingPersistentShuffle* instance() {
-    return &kInstance_;
+  static TestingPersistentShuffle* FOLLY_NONNULL instance() {
+    // Singleton always-alive object to be used for the purpose of testing.
+    const uint32_t kMaxBytesPerPartition = 1 << 15;
+    static TestingPersistentShuffle instance{kMaxBytesPerPartition};
+    return &instance;
   }
 
  private:
-  /// Find the next file for writing the next block of the partition.
+  // Finds and creates the next file for writing the next block of the
+  // given 'partition'.
   std::unique_ptr<velox::WriteFile> getNextOutputFile(int32_t partition);
 
-  /// Return the number of stored files for a given partition.
+  // Returns the number of stored files for a given partition.
   int getWritePartitionFilesCount(int32_t partition) const;
 
-  /// Returns all created shuffle files for a given partition.
+  // Returns all created shuffle files for a given partition.
   std::vector<std::string> getReadPartitionFiles(int32_t partition) const;
 
-  /// Write the in-progress block to the given partition.
+  // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
 
-  /// Delete all the files in the root path.
+  // Deletes all the files in the root directory.
   void cleanup();
 
-  velox::memory::MemoryPool* pool_;
-  uint32_t numPartitions_;
   const uint32_t maxBytesPerPartition_;
-  /// The latest written block buffers and sizes.
+
+  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+  uint32_t numPartitions_;
+  // The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
-  /// The latest read block index of each partition.
+  // The latest read block index of each partition.
   std::vector<size_t> readPartitionsFileIndex_;
-  /// List of generated files for each partition.
+  // List of generated files for each partition.
   std::vector<std::vector<std::string>> readPartitionFiles_;
-  /// The top directory of the shuffle files and its file system.
+  // The top directory of the shuffle files and its file system.
   std::string rootPath_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
-  /// Thread Id is used to make sure files created by this thread have unique
-  /// names.
+  // Used to make sure files created by this thread have unique names.
   std::thread::id threadId_;
-  /// Singleton always-alive object to be used for the purpose of testing.
-  static TestingPersistentShuffle kInstance_;
 };
 
 } // namespace facebook::presto::operators

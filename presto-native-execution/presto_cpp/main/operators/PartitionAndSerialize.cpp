@@ -62,7 +62,7 @@ class PartitionAndSerializeOperator : public Operator {
     auto keyChannels = toChannels(inputType, planNode->keys());
 
     // Initialize the hive partition function.
-    auto numPartitions = planNode->numPartitions();
+    const auto numPartitions = planNode->numPartitions();
     std::vector<int> bucketToPartition(numPartitions);
     std::iota(bucketToPartition.begin(), bucketToPartition.end(), 0);
     partitionFunction_ =
@@ -85,7 +85,7 @@ class PartitionAndSerializeOperator : public Operator {
       return nullptr;
     }
 
-    auto numInput = input_->size();
+    const auto numInput = input_->size();
 
     // TODO Reuse output vector.
     auto output = std::dynamic_pointer_cast<RowVector>(
@@ -118,11 +118,11 @@ class PartitionAndSerializeOperator : public Operator {
     // TODO Avoid copy.
     partitionsVector.resize(numInput);
     auto rawPartitions = partitionsVector.mutableRawValues();
-    std::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput);
+    ::memcpy(rawPartitions, partitions_.data(), sizeof(int32_t) * numInput);
   }
 
   void serializeRows(FlatVector<StringView>& dataVector) {
-    auto numInput = input_->size();
+    const auto numInput = input_->size();
 
     dataVector.resize(numInput);
 
@@ -131,7 +131,7 @@ class PartitionAndSerializeOperator : public Operator {
 
     size_t totalSize = 0;
     for (auto i = 0; i < numInput; ++i) {
-      size_t rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
+      const size_t rowSize = velox::row::UnsafeRowDynamicSerializer::getSizeRow(
           input_->type(), input_.get(), i);
       rowSizes_[i] = rowSize;
       totalSize += rowSize;
