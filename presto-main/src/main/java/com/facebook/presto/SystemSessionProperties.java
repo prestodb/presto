@@ -246,8 +246,6 @@ public final class SystemSessionProperties
     public static final String KEY_BASED_SAMPLING_ENABLED = "key_based_sampling_enabled";
     public static final String KEY_BASED_SAMPLING_PERCENTAGE = "key_based_sampling_percentage";
     public static final String KEY_BASED_SAMPLING_FUNCTION = "key_based_sampling_function";
-    public static final String HASH_BASED_DISTINCT_LIMIT_ENABLED = "hash_based_distinct_limit_enabled";
-    public static final String HASH_BASED_DISTINCT_LIMIT_THRESHOLD = "hash_based_distinct_limit_threshold";
     public static final String QUICK_DISTINCT_LIMIT_ENABLED = "quick_distinct_limit_enabled";
     public static final String OPTIMIZE_CONDITIONAL_AGGREGATION_ENABLED = "optimize_conditional_aggregation_enabled";
     public static final String ANALYZER_TYPE = "analyzer_type";
@@ -1319,18 +1317,6 @@ public final class SystemSessionProperties
                         "key_sampling_percent",
                         false),
                 integerProperty(
-                        HASH_BASED_DISTINCT_LIMIT_THRESHOLD,
-                        "Threshold for doing hash based distinct",
-                        // 10k is a decent-sized limit that guarantees almost no collisions if the # distinct < 10k according to:
-                        //   https://stackoverflow.com/questions/22029012/probability-of-64bit-hash-code-collisions
-                        featuresConfig.getHashBasedDistinctLimitThreshold(),
-                        false),
-                booleanProperty(
-                        HASH_BASED_DISTINCT_LIMIT_ENABLED,
-                        "Hash based distinct limit enabled",
-                        featuresConfig.isHashBasedDistinctLimitEnabled(),
-                        false),
-                integerProperty(
                         MAX_STAGE_COUNT_FOR_EAGER_SCHEDULING,
                         "Maximum stage count to use eager scheduling when using the adaptive scheduling policy",
                         featuresConfig.getMaxStageCountForEagerScheduling(),
@@ -1468,16 +1454,6 @@ public final class SystemSessionProperties
     public static String getKeyBasedSamplingFunction(Session session)
     {
         return session.getSystemProperty(KEY_BASED_SAMPLING_FUNCTION, String.class);
-    }
-
-    public static boolean isHashBasedDistinctLimitEnabled(Session session)
-    {
-        return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_ENABLED, Boolean.class);
-    }
-
-    public static int getHashBasedDistinctLimitThreshold(Session session)
-    {
-        return session.getSystemProperty(HASH_BASED_DISTINCT_LIMIT_THRESHOLD, Integer.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
