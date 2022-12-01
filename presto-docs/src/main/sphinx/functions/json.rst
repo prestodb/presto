@@ -197,7 +197,7 @@ JSON Functions
     ``true``, ``false`` or ``null``::
 
         SELECT json_parse('not_json'); -- ERROR!
-        SELECT json_parse('["a": 1, "b": 2]'); -- JSON '["a": 1, "b": 2]'
+        SELECT json_parse('{"a": 1, "b": 2}'); -- JSON '{"a": 1, "b": 2}'
         SELECT json_parse('[1, 2, 3]'); -- JSON '[1,2,3]'
         SELECT json_parse('"abc"'); -- JSON '"abc"'
         SELECT json_parse('42'); -- JSON '42'
@@ -208,7 +208,7 @@ JSON Functions
     a JSON string with its value set to input string::
 
         SELECT CAST('not_json' AS JSON); -- JSON '"not_json"'
-        SELECT CAST('["a": 1, "b": 2]' AS JSON); -- JSON '"[\"a\": 1, \"b\": 2]"'
+        SELECT CAST('{"a": 1, "b": 2}' AS JSON); -- JSON '"{\"a\": 1, \"b\": 2}"'
         SELECT CAST('[1, 2, 3]' AS JSON); -- JSON '"[1, 2, 3]"'
         SELECT CAST('"abc"' AS JSON); -- JSON '"\"abc\""'
         SELECT CAST('42' AS JSON); -- JSON '"42"'
