@@ -28,7 +28,7 @@ void reset(VectorPtr& vector, vector_size_t size, bool hasNulls);
 // Reset vector smart pointer if any of the buffers is not single referenced.
 template <typename... T>
 void resetIfNotWritable(VectorPtr& vector, const T&... buffer) {
-  if ((... | (buffer && buffer->refCount() > 1))) {
+  if ((... || (buffer && buffer->refCount() > 1))) {
     vector.reset();
   }
 }
