@@ -1,0 +1,42 @@
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Fuzzer Report
+description: Report an issue with the fuzzer or found through fuzzing.
+labels: ["bug", "fuzzer-found", "fuzzer"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please add as much relevant information to the form below as you can.
+        This will help us replicate and solve the issue. Thank you!
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe the issue.
+      placeholder: "[Expected behavior] and [actual behavior]."
+    validations:
+      required: true
+  - type: textarea
+    id: seed
+    attributes:
+      label: Error Reproduction
+      placeholder: Please paste the arguments used to run fuzzer.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: bash
