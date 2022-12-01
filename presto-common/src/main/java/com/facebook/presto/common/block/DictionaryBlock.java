@@ -401,14 +401,18 @@ public class DictionaryBlock
         Map<Integer, Integer> oldIndexToNewIndex = new HashMap<>();
         int[] newIds = new int[length];
 
+        // Using a boxed integer to avoid repeated boxing.
+        Integer nextIndex = 0;
         for (int i = 0; i < length; i++) {
             int position = positions[offset + i];
             int oldIndex = getId(position);
-            if (!oldIndexToNewIndex.containsKey(oldIndex)) {
-                oldIndexToNewIndex.put(oldIndex, positionsToCopy.size());
+            Integer newIndex = oldIndexToNewIndex.putIfAbsent(oldIndex, nextIndex);
+            if (newIndex == null) {
+                newIndex = nextIndex;
                 positionsToCopy.add(oldIndex);
+                nextIndex = nextIndex + 1;
             }
-            newIds[i] = oldIndexToNewIndex.get(oldIndex);
+            newIds[i] = newIndex;
         }
         return new DictionaryBlock(
                 length,
