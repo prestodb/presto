@@ -201,14 +201,14 @@ public class TestDictionaryBlock
         Slice[] expectedValues = createExpectedValues(5);
         DictionaryBlock dictionaryBlock = createDictionaryBlockWithUnreferencedKeys(expectedValues, 10);
 
-        assertEquals(dictionaryBlock.isCompact(), false);
+        assertFalse(dictionaryBlock.isCompact());
         DictionaryBlock compactBlock = dictionaryBlock.compact();
         assertNotEquals(dictionaryBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
 
         assertEquals(compactBlock.getDictionary().getPositionCount(), (expectedValues.length / 2) + 1);
         assertBlock(compactBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[3]});
         assertDictionaryIds(compactBlock, 0, 1, 1, 2, 2, 0, 1, 1, 2, 2);
-        assertEquals(compactBlock.isCompact(), true);
+        assertTrue(compactBlock.isCompact());
 
         DictionaryBlock reCompactedBlock = compactBlock.compact();
         assertEquals(reCompactedBlock.getDictionarySourceId(), compactBlock.getDictionarySourceId());
@@ -227,7 +227,7 @@ public class TestDictionaryBlock
         for (int position = 0; position < compactBlock.getPositionCount(); position++) {
             assertEquals(compactBlock.getId(position), dictionaryBlock.getId(position));
         }
-        assertEquals(compactBlock.isCompact(), true);
+        assertTrue(compactBlock.isCompact());
     }
 
     @Test
