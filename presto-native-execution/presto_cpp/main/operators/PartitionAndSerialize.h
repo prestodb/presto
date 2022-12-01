@@ -25,7 +25,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   PartitionAndSerializeNode(
       const velox::core::PlanNodeId& id,
       std::vector<velox::core::TypedExprPtr> keys,
-      int numPartitions,
+      uint32_t numPartitions,
       velox::RowTypePtr outputType,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
@@ -37,8 +37,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
         velox::ROW(
             {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})
             ->equivalent(*outputType_));
-    VELOX_USER_CHECK(!keys_.empty(), "Empty keys for hive hash");
-
+    VELOX_USER_CHECK(!keys_.empty(), "Empty keys for hive partition");
   }
 
   const velox::RowTypePtr& outputType() const override {
@@ -53,7 +52,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return keys_;
   }
 
-  int numPartitions() const {
+  uint32_t numPartitions() const {
     return numPartitions_;
   }
 
@@ -65,7 +64,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
   void addDetails(std::stringstream& stream) const override;
 
   const std::vector<velox::core::TypedExprPtr> keys_;
-  const int numPartitions_;
+  const uint32_t numPartitions_;
   const velox::RowTypePtr outputType_;
   const std::vector<velox::core::PlanNodePtr> sources_;
 };

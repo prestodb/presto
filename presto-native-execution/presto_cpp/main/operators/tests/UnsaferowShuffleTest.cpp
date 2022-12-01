@@ -142,7 +142,7 @@ void registerExchangeSource(ShuffleInterface* shuffle) {
       });
 }
 
-auto addPartitionAndSerializeNode(int numPartitions) {
+auto addPartitionAndSerializeNode(uint32_t numPartitions) {
   return [numPartitions](
              core::PlanNodeId nodeId,
              core::PlanNodePtr source) -> core::PlanNodePtr {

@@ -591,7 +591,6 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
       std::max(1.0, maxWait.getValue(protocol::TimeUnit::MICROSECONDS));
   VLOG(1) << "TaskManager::getResults " << taskId << ", " << bufferId << ", "
           << token;
-  auto eventBase = folly::EventBaseManager::get()->getEventBase();
   auto [promise, future] =
       folly::makePromiseContract<std::unique_ptr<Result>>();
 
@@ -620,6 +619,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
     return result;
   };
 
+  auto eventBase = folly::EventBaseManager::get()->getEventBase();
   try {
     auto prestoTask = findOrCreateTask(taskId);
 
@@ -747,46 +747,45 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTaskLocked(
     TaskMap& taskMap,
     const TaskId& taskId) {
   auto it = taskMap.find(taskId);
-  if (it == taskMap.cend()) {
-    auto prestoTask = std::make_shared<PrestoTask>(taskId);
-    prestoTask->info.stats.createTime =
-        util::toISOTimestamp(velox::getCurrentTimeMs());
-    prestoTask->info.needsPlan = true;
-    prestoTask->info.metadataUpdates.connectorId = "unused";
-
-    struct uuid_split {
-      int64_t lo;
-      int64_t hi;
-    };
-    union uuid_parse {
-      boost::uuids::uuid uuid;
-      uuid_split split;
-    };
-
-    uuid_parse uuid;
-    uuid.uuid = boost::uuids::random_generator()();
-
-    prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
-        uuid.split.lo;
-    prestoTask->info.taskStatus.taskInstanceIdMostSignificantBits =
-        uuid.split.hi;
-
-    prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
-    prestoTask->info.taskStatus.self =
-        fmt::format("{}/v1/task/{}", baseUri_, taskId);
-    prestoTask->info.taskStatus.outputBufferUtilization = 1;
-    prestoTask->updateHeartbeatLocked();
-    ++prestoTask->info.taskStatus.version;
-
-    taskMap[taskId] = prestoTask;
-    return prestoTask;
-  } else {
+  if (it != taskMap.end()) {
     auto prestoTask = it->second;
     std::lock_guard<std::mutex> l(prestoTask->mutex);
     prestoTask->updateHeartbeatLocked();
     ++prestoTask->info.taskStatus.version;
     return prestoTask;
   }
+
+  auto prestoTask = std::make_shared<PrestoTask>(taskId);
+  prestoTask->info.stats.createTime =
+      util::toISOTimestamp(velox::getCurrentTimeMs());
+  prestoTask->info.needsPlan = true;
+  prestoTask->info.metadataUpdates.connectorId = "unused";
+
+  struct UuidSplit {
+    int64_t lo;
+    int64_t hi;
+  };
+  union UuidParse {
+    boost::uuids::uuid uuid;
+    UuidSplit split;
+  };
+
+  UuidParse uuid;
+  uuid.uuid = boost::uuids::random_generator()();
+
+  prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
+      uuid.split.lo;
+  prestoTask->info.taskStatus.taskInstanceIdMostSignificantBits = uuid.split.hi;
+
+  prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
+  prestoTask->info.taskStatus.self =
+      fmt::format("{}/v1/task/{}", baseUri_, taskId);
+  prestoTask->info.taskStatus.outputBufferUtilization = 1;
+  prestoTask->updateHeartbeatLocked();
+  ++prestoTask->info.taskStatus.version;
+
+  taskMap[taskId] = prestoTask;
+  return prestoTask;
 }
 
 std::string TaskManager::toString() const {
