@@ -149,9 +149,12 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
 }
 
 protocol::TaskStatus PrestoTask::updateStatusLocked() {
-  if (!taskStarted) {
-    info.taskStatus.state = protocol::TaskState::RUNNING;
-    return info.taskStatus;
+  if (!taskStarted and error == nullptr) {
+    protocol::TaskStatus ret = info.taskStatus;
+    if (ret.state != protocol::TaskState::ABORTED) {
+      ret.state = protocol::TaskState::PLANNED;
+    }
+    return ret;
   }
 
   // Error occurs when creating task or even before task is created. Set error

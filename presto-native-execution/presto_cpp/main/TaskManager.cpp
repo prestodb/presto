@@ -169,8 +169,6 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
     }
     prestoTask->info.needsPlan = false;
   }
-  // outside of prestoTask->mutex.
-  prestoTask->taskStarted = true;
 
   auto info = prestoTask->updateInfo();
   return std::make_unique<TaskInfo>(info);
