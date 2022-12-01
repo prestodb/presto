@@ -688,6 +688,7 @@ TEST_P(MemoryAllocatorTest, allocateBytesWithAlignment) {
           expectSuccess);
     }
   } testSettings[] = {
+      {MemoryAllocator::kPageSize, MemoryAllocator::kMinAlignment / 2, false},
       {MemoryAllocator::kPageSize / 5,
        MemoryAllocator::kMaxAlignment / 10,
        false},
@@ -738,11 +739,13 @@ TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
   constexpr int32_t kNumAllocs = 50;
   MemoryAllocator::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
-  std::vector<MachinePageCount> sizes = {
+  const std::vector<MachinePageCount> sizes = {
       MemoryAllocator::kMaxMallocBytes / 2,
       100000,
       1000000,
       instance_->sizeClasses().back() * MemoryAllocator::kPageSize + 100000};
+  const std::vector<uint64_t> alignments = {
+      8, 16, 32, MemoryAllocator::kMaxAlignment};
   folly::Random::DefaultGenerator rng;
   rng.seed(1);
 
@@ -757,80 +760,40 @@ TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
       // If there is pre-existing data, we check that it has not been
       // overwritten.
       for (auto byte : data[index]) {
-        EXPECT_EQ(expected, byte);
+        ASSERT_EQ(expected, byte);
       }
       instance_->freeBytes(data[index].data(), data[index].size());
     }
+    uint16_t alignment =
+        alignments[folly::Random::rand32() % alignments.size()];
+    if (bytes % alignment != 0) {
+      alignment = 0;
+    }
     data[index] = folly::Range<char*>(
-        reinterpret_cast<char*>(instance_->allocateBytes(bytes)), bytes);
+        reinterpret_cast<char*>(
+            instance_->allocateZeroFilled(bytes, alignment)),
+        bytes);
     for (auto& byte : data[index]) {
+      ASSERT_EQ(byte, 0);
       byte = expected;
     }
   }
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_TRUE(instance_->checkConsistency());
   for (auto& range : data) {
     if (range.data()) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
   auto stats = MemoryAllocator::allocateBytesStats();
-  EXPECT_EQ(0, stats.totalSmall);
-  EXPECT_EQ(0, stats.totalInSizeClasses);
-  EXPECT_EQ(0, stats.totalLarge);
+  ASSERT_EQ(0, stats.totalSmall);
+  ASSERT_EQ(0, stats.totalInSizeClasses);
+  ASSERT_EQ(0, stats.totalLarge);
 
-  EXPECT_EQ(0, instance_->numAllocated());
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_EQ(0, instance_->numAllocated());
+  ASSERT_TRUE(instance_->checkConsistency());
 }
 
 TEST_P(MemoryAllocatorTest, reallocateBytes) {
-  constexpr int32_t kNumAllocs = 50;
-  MemoryAllocator::testingClearAllocateBytesStats();
-  // Different sizes, including below minimum and above largest size class.
-  std::vector<MachinePageCount> sizes = {
-      MemoryAllocator::kMaxMallocBytes / 2,
-      100000,
-      1000000,
-      instance_->sizeClasses().back() * MemoryAllocator::kPageSize + 100000};
-  folly::Random::DefaultGenerator rng;
-  rng.seed(1);
-
-  // We fill 'data' with random size allocations. Each is filled with its index
-  // in 'data' cast to char.
-  std::vector<folly::Range<char*>> data(kNumAllocs);
-  for (auto counter = 0; counter < data.size() * 4; ++counter) {
-    int32_t index = folly::Random::rand32(rng) % kNumAllocs;
-    int32_t bytes = sizes[folly::Random::rand32() % sizes.size()];
-    char expected = static_cast<char>(index);
-    if (data[index].data()) {
-      // If there is pre-existing data, we check that it has not been
-      // overwritten.
-      for (auto byte : data[index]) {
-        EXPECT_EQ(expected, byte);
-      }
-      instance_->freeBytes(data[index].data(), data[index].size());
-    }
-    data[index] = folly::Range<char*>(
-        reinterpret_cast<char*>(instance_->allocateBytes(bytes)), bytes);
-    for (auto& byte : data[index]) {
-      byte = expected;
-    }
-  }
-  EXPECT_TRUE(instance_->checkConsistency());
-  for (auto& range : data) {
-    if (range.data()) {
-      instance_->freeBytes(range.data(), range.size());
-    }
-  }
-  auto stats = MemoryAllocator::allocateBytesStats();
-  EXPECT_EQ(0, stats.totalSmall);
-  EXPECT_EQ(0, stats.totalInSizeClasses);
-  EXPECT_EQ(0, stats.totalLarge);
-
-  EXPECT_EQ(0, instance_->numAllocated());
-  EXPECT_TRUE(instance_->checkConsistency());
-}
-
-TEST_P(MemoryAllocatorTest, reallocateWithAlignment) {
   struct {
     uint64_t oldBytes;
     uint64_t newBytes;

@@ -185,6 +185,7 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   static constexpr int32_t kMallocOwner = -14;
   /// Allocations smaller than 3K should go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
+  static constexpr uint16_t kMinAlignment = 8;
   static constexpr uint16_t kMaxAlignment = 64;
 
   /// Represents a number of consecutive pages of kPageSize bytes.
@@ -366,19 +367,27 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   /// the size limit of 'this'. This function is not virtual but calls the
   /// virtual functions allocateNonContiguous and allocateContiguous, which can
   /// track sizes and enforce caps etc.
+  ///
+  /// NOTE: if not zero, 'alignment' must be power of two and in range of
+  /// [kMinAlignment, kMaxAlignment].
   virtual void* FOLLY_NULLABLE allocateBytes(
       uint64_t bytes,
       uint16_t alignment = 0,
       uint64_t maxMallocSize = kMaxMallocBytes);
 
-  /// Allocates a zero-filled contiguous bytes with capacity that can store
-  /// 'numMembers' entries with each size of 'sizeEach'.
+  /// Allocates a zero-filled contiguous bytes.
+  ///
+  /// NOTE: if not zero, 'alignment' must be power of two and in range of
+  /// [kMinAlignment, kMaxAlignment].
   virtual void* FOLLY_NULLABLE
-  allocateZeroFilled(int64_t numMembers, int64_t sizeEach);
+  allocateZeroFilled(uint64_t bytes, uint64_t alignment = 0);
 
   /// Allocates 'newSize' contiguous bytes. If 'p' is not null, this function
   /// copies std::min(size, newSize) bytes from 'p' to the newly allocated
   /// buffer and free 'p' after that.
+  ///
+  /// NOTE: if not zero, 'alignment' must be power of two and in range of
+  /// [kMinAlignment, kMaxAlignment].g
   virtual void* FOLLY_NULLABLE reallocateBytes(
       void* FOLLY_NULLABLE p,
       int64_t size,

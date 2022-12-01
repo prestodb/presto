@@ -32,6 +32,7 @@ inline void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes) {
   if (FOLLY_LIKELY(alignmentBytes == 0)) {
     return;
   }
+  VELOX_CHECK_GE(alignmentBytes, MemoryAllocator::kMinAlignment);
   VELOX_CHECK_LE(alignmentBytes, MemoryAllocator::kMaxAlignment);
   VELOX_CHECK_EQ(allocateBytes % alignmentBytes, 0);
   VELOX_CHECK_EQ((alignmentBytes & (alignmentBytes - 1)), 0);
@@ -424,6 +425,9 @@ void* FOLLY_NULLABLE MemoryAllocator::allocateBytes(
         alignment != 0 ? ::aligned_alloc(alignment, bytes) : ::malloc(bytes);
     if (result != nullptr) {
       totalSmallAllocateBytes_ += bytes;
+    } else {
+      LOG(ERROR) << "Invalid aligned memory allocation with " << alignment
+                 << " alignment and " << bytes << " bytes";
     }
     return result;
   }
@@ -455,12 +459,10 @@ void* FOLLY_NULLABLE MemoryAllocator::allocateBytes(
   return nullptr;
 }
 
-void* FOLLY_NULLABLE
-MemoryAllocator::allocateZeroFilled(int64_t numMembers, int64_t sizeEach) {
-  const auto totalBytes = numMembers * sizeEach;
-  auto* result = allocateBytes(totalBytes);
+void* MemoryAllocator::allocateZeroFilled(uint64_t bytes, uint64_t alignment) {
+  auto* result = allocateBytes(bytes, alignment);
   if (result != nullptr) {
-    ::memset(result, 0, totalBytes);
+    ::memset(result, 0, bytes);
   }
   return result;
 }
