@@ -2,6 +2,10 @@
 Binary Functions
 ================
 
+.. function:: crc32(binary) -> bigint
+
+    Computes the crc32 checksum of ``binary``.
+
 .. function:: xxhash64(binary) -> varbinary
 
     Computes the xxhash64 hash of ``binary``.

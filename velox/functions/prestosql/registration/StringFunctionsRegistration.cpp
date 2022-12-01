@@ -55,6 +55,7 @@ void registerSimpleFunctions() {
   registerFunction<RPadFunction, Varchar, Varchar, int64_t, Varchar>({"rpad"});
 
   // Register hash functions.
+  registerFunction<CRC32Function, int64_t, Varbinary>({"crc32"});
   registerFunction<XxHash64Function, Varbinary, Varbinary>({"xxhash64"});
   registerFunction<Md5Function, Varbinary, Varbinary>({"md5"});
   registerFunction<Sha256Function, Varbinary, Varbinary>({"sha256"});
