@@ -72,21 +72,21 @@ struct PrestoTask {
   uint64_t lastHeartbeatMs{0};
   mutable std::mutex mutex;
 
-  // Error before task is created or when task is being created.
+  /// Error before task is created or when task is being created.
   std::exception_ptr error{nullptr};
 
-  // Contains state info but is never returned.
+  /// Contains state info but is never returned.
   protocol::TaskInfo info;
 
-  // Pending result requests keyed on buffer ID. May arrive before 'task' is
-  // created. May be accessed on different threads outside of 'mutex', hence
-  // shared_ptr to define lifetime.
+  /// Pending result requests keyed on buffer ID. May arrive before 'task' is
+  /// created. May be accessed on different threads outside of 'mutex', hence
+  /// shared_ptr to define lifetime.
   std::unordered_map<int64_t, std::shared_ptr<ResultRequest>> resultRequests;
 
-  // Pending status request. May arrive before there is a Task.
+  /// Pending status request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskStatus>> statusRequest;
 
-  // Info request. May arrive before there is a Task.
+  /// Info request. May arrive before there is a Task.
   PromiseHolderWeakPtr<std::unique_ptr<protocol::TaskInfo>> infoRequest;
 
   explicit PrestoTask(const std::string& taskId);
@@ -108,7 +108,7 @@ struct PrestoTask {
     return updateInfoLocked();
   }
 
-  // Turn the task numbers (per state) into a string.
+  /// Turns the task numbers (per state) into a string.
   static std::string taskNumbersToString(
       const std::array<size_t, 5>& taskNumbers);
 
