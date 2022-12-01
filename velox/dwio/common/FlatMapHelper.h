@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <folly/Portability.h>
 #include "velox/vector/ComplexVector.h"
 #include "velox/vector/FlatVector.h"
 
@@ -28,9 +29,12 @@ void reset(VectorPtr& vector, vector_size_t size, bool hasNulls);
 // Reset vector smart pointer if any of the buffers is not single referenced.
 template <typename... T>
 void resetIfNotWritable(VectorPtr& vector, const T&... buffer) {
+  FOLLY_PUSH_WARNING
+  FOLLY_GNU_DISABLE_WARNING("-Wparentheses")
   if ((... || (buffer && buffer->refCount() > 1))) {
     vector.reset();
   }
+  FOLLY_POP_WARNING
 }
 
 // Initialize string vector.
