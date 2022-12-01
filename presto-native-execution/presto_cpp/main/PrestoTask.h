@@ -68,7 +68,14 @@ struct ResultRequest {
 struct PrestoTask {
   const PrestoTaskId id;
   std::shared_ptr<velox::exec::Task> task;
+
+  // Has the task been normally created and started.
+  // When you create task with error - it has never been started.
+  // When you create task from 'delete task' - it has never been started.
+  // When you create task from any other endpoint, such as 'get result' - it has
+  // not been started, until the actual 'create task' message comes.
   bool taskStarted{false};
+
   uint64_t lastHeartbeatMs{0};
   mutable std::mutex mutex;
 
