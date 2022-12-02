@@ -294,10 +294,9 @@ folly::Uri makeProducerUri(const folly::SocketAddress& address) {
 class PrestoExchangeSourceTest : public testing::Test {
  public:
   void SetUp() override {
-    auto& defaultManager =
-        memory::MemoryManager<memory::kNoAlignment>::getInstance();
+    auto& defaultManager = memory::MemoryManager::getInstance();
     auto& pool =
-        dynamic_cast<memory::MemoryPoolImpl<16>&>(defaultManager.getRoot());
+        dynamic_cast<memory::MemoryPoolImpl&>(defaultManager.getRoot());
     pool_ = &pool;
     memory::MmapAllocatorOptions options;
     options.capacity = 1L << 30;
