@@ -42,7 +42,7 @@ PeriodicTaskManager::PeriodicTaskManager(
     : driverCPUExecutor_(driverCPUExecutor),
       httpExecutor_(httpExecutor),
       taskManager_(taskManager),
-      memoryManager_(velox::memory::MemoryManager<>::getInstance()) {}
+      memoryManager_(velox::memory::MemoryManager::getInstance()) {}
 
 void PeriodicTaskManager::start() {
   // Add new functions here.

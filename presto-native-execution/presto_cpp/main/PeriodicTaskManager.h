@@ -56,7 +56,7 @@ class PeriodicTaskManager {
   folly::CPUThreadPoolExecutor* driverCPUExecutor_;
   folly::IOThreadPoolExecutor* httpExecutor_;
   TaskManager* taskManager_;
-  velox::memory::MemoryManager<>& memoryManager_;
+  velox::memory::MemoryManager& memoryManager_;
 };
 
 } // namespace facebook::presto
