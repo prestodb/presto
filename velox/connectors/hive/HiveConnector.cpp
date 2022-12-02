@@ -300,7 +300,7 @@ class InputStreamHolder : public dwio::common::AbstractInputStreamHolder {
       std::shared_ptr<dwio::common::IoStatistics> stats)
       : fileHandle_(std::move(fileHandle)), stats_(std::move(stats)) {
     input_ = std::make_unique<dwio::common::ReadFileInputStream>(
-        fileHandle_->file.get(), dwio::common::MetricsLog::voidLog(), nullptr);
+        fileHandle_->file, dwio::common::MetricsLog::voidLog(), nullptr);
   }
 
   dwio::common::InputStream& get() override {
@@ -396,7 +396,7 @@ void HiveDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
   reader_ = dwio::common::getReaderFactory(readerOpts_.getFileFormat())
                 ->createReader(
                     std::make_unique<dwio::common::ReadFileInputStream>(
-                        fileHandle_->file.get(),
+                        fileHandle_->file,
                         dwio::common::MetricsLog::voidLog(),
                         asyncCache ? nullptr : ioStats_.get()),
                     readerOpts_);

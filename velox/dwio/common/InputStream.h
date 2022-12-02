@@ -191,6 +191,12 @@ class ReadFileInputStream final : public InputStream {
       const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
       IoStatistics* FOLLY_NULLABLE stats = nullptr);
 
+  // Take shared ownership of |readFile|.
+  explicit ReadFileInputStream(
+      std::shared_ptr<velox::ReadFile>,
+      const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
+      IoStatistics* FOLLY_NULLABLE stats = nullptr);
+
   virtual ~ReadFileInputStream() {}
 
   uint64_t getLength() const final {
@@ -216,8 +222,13 @@ class ReadFileInputStream final : public InputStream {
 
   bool hasReadAsync() const override;
 
+  const std::shared_ptr<velox::ReadFile>& getReadFile() const {
+    return readFileOwned_;
+  }
+
  private:
   velox::ReadFile* FOLLY_NONNULL readFile_;
+  std::shared_ptr<velox::ReadFile> readFileOwned_;
 };
 
 class ReferenceableInputStream : public InputStream {

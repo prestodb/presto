@@ -145,6 +145,14 @@ ReadFileInputStream::ReadFileInputStream(
     IoStatistics* stats)
     : InputStream(kReadFilePath, metricsLog, stats), readFile_(readFile) {}
 
+ReadFileInputStream::ReadFileInputStream(
+    std::shared_ptr<velox::ReadFile> readFile,
+    const MetricsLogPtr& metricsLog,
+    IoStatistics* stats)
+    : InputStream(kReadFilePath, metricsLog, stats),
+      readFile_(readFile.get()),
+      readFileOwned_(std::move(readFile)) {}
+
 void ReadFileInputStream::read(
     void* buf,
     uint64_t length,
