@@ -79,6 +79,23 @@ class CacheInputStream : public SeekableInputStream {
   /// outside of the window. Use together wiht clone() and skip().
   void setRemainingBytes(uint64_t remainingBytes);
 
+  /// Causes the next load quantum to be scheduled for read-ahead when
+  /// 'percent' of the current load quantum has been returned by
+  /// Next(). If Next() returns the whole read quantum, them the first
+  /// Next triggers the read ahead of te next quantum right away. a
+  /// value of over 100 causes no prefetches to be made. If there is
+  /// no memory to cover the load quantum to prefetch the prefetch
+  /// fails silently.
+  void setPrefetchPct(int32_t pct) {
+    prefetchPct_ = pct;
+  }
+
+  /// Enables a mode where cache entries are made immediately evictable after
+  /// unpinning.
+  void setNoRetention() {
+    noRetention_ = true;
+  }
+
  private:
   // Ensures that the current position is covered by 'pin_'.
   void loadPosition();
@@ -126,6 +143,19 @@ class CacheInputStream : public SeekableInputStream {
   // A restricted view over 'region'. offset is relative to 'region_'. A cloned
   // CacheInputStream can cover a subrange of the range of the original.
   std::optional<Region> window_;
+
+  // Percentage of 'loadQuantum_' at which the next load quantum gets scheduled.
+  // Over 100 means no prefetch.
+  int32_t prefetchPct_{200};
+
+  // True if prefetch f the next 'loadQuantum_' has been started. Cleared when
+  // moving to the next load quantum.
+  bool prefetchStarted_{false};
+
+  // True if a pin should be set to lowest retention score after
+  // unpinning. This applies to sequential reads where a second access
+  // to the page is not expected.
+  bool noRetention_{false};
 };
 
 } // namespace facebook::velox::dwio::common

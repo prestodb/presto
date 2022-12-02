@@ -122,6 +122,11 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
   }
 }
 
+void AsyncDataCacheEntry::makeEvictable() {
+  accessStats_.lastUse = 0;
+  accessStats_.numUses = 0;
+}
+
 std::string AsyncDataCacheEntry::toString() const {
   return fmt::format(
       "<entry key:{}:{} size {} pins {}>",

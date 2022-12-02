@@ -60,8 +60,12 @@ struct AccessStats {
   // works well with a typical formula of time over use count going to
   // zero as uses go up and time goes down. 'now' is the current
   // accessTime(), passed from the caller since getting the time is
-  // expensive and many entries are checked one after the other.
+  // expensive and many entries are checked one after the other. lastUse == 0
+  // means explicitly evictable.
   int32_t score(AccessTime now, uint64_t /*size*/) const {
+    if (!lastUse) {
+      return std::numeric_limits<int32_t>::max();
+    }
     return (now - lastUse) / (1 + numUses);
   }
 
@@ -231,6 +235,9 @@ class AsyncDataCacheEntry {
   void setGroupId(uint64_t groupId) {
     groupId_ = groupId;
   }
+
+  /// Sets access stats so that this is immediately evictable.
+  void makeEvictable();
 
   // Moves the promise out of 'this'. Used in order to handle the
   // promise within the lock of the cache shard, so not within private

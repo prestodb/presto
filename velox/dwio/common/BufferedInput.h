@@ -71,8 +71,9 @@ class BufferedInput {
 
   // True if there is free memory for prefetching the stripe. This is
   // called to check if a stripe that is not next for read should be
-  // prefetched.
-  virtual bool shouldPreload() {
+  // prefetched. 'numPages' is added to the already enqueued pages, so
+  // that this can be called also before enqueueing regions.
+  virtual bool shouldPreload(int32_t /*numPages*/ = 0) {
     return false;
   }
 

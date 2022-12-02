@@ -72,7 +72,23 @@ bool CacheInputStream::Next(const void** buffer, int32_t* size) {
     *size = region_.length - position_;
   }
   offsetInRun_ += *size;
+  if (prefetchPct_ < 100) {
+    auto offsetInQuantum = position_ % loadQuantum_;
+    auto nextQuantum = position_ - offsetInQuantum + loadQuantum_;
+    auto prefetchThreshold = loadQuantum_ * prefetchPct_ / 100;
+    if (!prefetchStarted_ && offsetInQuantum + *size > prefetchThreshold &&
+        position_ - offsetInQuantum + loadQuantum_ < region_.length) {
+      // We read past 'prefetchPct_' % of the current load quantum and the
+      // current load quantum is not the last in the region. Prefetch the next
+      // load quantum.
+      auto prefetchSize =
+          std::min(region_.length, nextQuantum + loadQuantum_) - nextQuantum;
+      prefetchStarted_ = bufferedInput_->prefetch(
+          Region{region_.offset + nextQuantum, prefetchSize});
+    }
+  }
   position_ += *size;
+
   if (tracker_) {
     tracker_->recordRead(trackingId_, *size, fileNum_, groupId_);
   }
@@ -153,9 +169,13 @@ void CacheInputStream::loadSync(Region region) {
   // so as not to double count when the individual parts are
   // hit.
   ioStats_->incRawBytesRead(region.length);
+  prefetchStarted_ = false;
   do {
     folly::SemiFuture<bool> wait(false);
     cache::RawFileCacheKey key{fileNum_, region.offset};
+    if (noRetention_ && !pin_.empty()) {
+      pin_.checkedEntry()->makeEvictable();
+    }
     pin_.clear();
     pin_ = cache_->findOrCreate(key, region.length, &wait);
     if (pin_.empty()) {

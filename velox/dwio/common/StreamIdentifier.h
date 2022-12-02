@@ -49,6 +49,13 @@ class StreamIdentifier {
     return fmt::format("[id={}]", id_);
   }
 
+  /// Returns a special value indicating a stream to be read load quantum by
+  /// load quantum
+  static StreamIdentifier sequentialFile() {
+    constexpr int32_t kSequentialFile = std::numeric_limits<int32_t>::max() - 1;
+    return StreamIdentifier(kSequentialFile);
+  }
+
   int32_t id_;
 };
 

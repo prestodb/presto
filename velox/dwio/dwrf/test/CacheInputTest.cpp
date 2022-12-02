@@ -623,11 +623,10 @@ TEST_F(CacheTest, ssdThreads) {
   // file 1 etc. Each tread reads its file 4 times.
   for (int i = 0; i < kNumThreads; ++i) {
     stats.push_back(std::make_shared<dwio::common::IoStatistics>());
-  }
-  for (int i = 0; i < kNumThreads; ++i) {
-    threads.push_back(std::thread([i, this, &stats]() {
+    threads.push_back(std::thread([i, this, threadStats = stats.back()]() {
       for (auto counter = 0; counter < 4; ++counter) {
-        readLoop(fmt::format("testfile{}", i / 2), 10, 70, 10, 20, 2, stats[i]);
+        readLoop(
+            fmt::format("testfile{}", i / 2), 10, 70, 10, 20, 2, threadStats);
       }
     }));
   }
@@ -647,4 +646,131 @@ TEST_F(CacheTest, ssdThreads) {
         stats[i]->read().bytes() + stats[i]->ssdRead().bytes());
   }
   LOG(INFO) << cache_->toString();
+}
+
+class FileWithReadAhead {
+ public:
+  static constexpr int32_t kFileSize = 21 << 20;
+  static constexpr int64_t kLoadQuantum = 4 << 20;
+  FileWithReadAhead(
+      const std::string& name,
+      cache::AsyncDataCache* FOLLY_NONNULL cache,
+      IoStatisticsPtr stats,
+      memory::MemoryPool& pool,
+      folly::Executor* executor) {
+    fileId_ = std::make_unique<StringIdLease>(fileIds(), name);
+    file_ = std::make_shared<TestInputStream>(
+        name, fileId_->id(), kFileSize, stats);
+    bufferedInput_ = std::make_unique<CachedBufferedInput>(
+        *file_,
+        pool,
+        fileId_->id(),
+        cache,
+        nullptr,
+        0,
+        [inputStream = file_]() {
+          return std::make_unique<TestInputStreamHolder>(inputStream);
+        },
+        stats,
+        executor,
+        kLoadQuantum,
+        0);
+    auto sequential = StreamIdentifier::sequentialFile();
+    stream_ =
+        bufferedInput_->enqueue(Region{0, file_->getLength()}, &sequential);
+    // Trigger load of next 4MB after reading the first 2MB of the previous 4MB
+    // quantum.
+    reinterpret_cast<CacheInputStream*>(stream_.get())->setPrefetchPct(50);
+    reinterpret_cast<CacheInputStream*>(stream_.get())->setNoRetention();
+    bufferedInput_->load(LogType::FILE);
+  }
+
+  bool next(const void*& buffer, int32_t& size) {
+    return stream_->Next(&buffer, &size);
+  }
+
+ private:
+  std::unique_ptr<StringIdLease> fileId_;
+  std::unique_ptr<CachedBufferedInput> bufferedInput_;
+  std::unique_ptr<SeekableInputStream> stream_;
+  std::shared_ptr<InputStream> file_;
+};
+
+TEST_F(CacheTest, readAhead) {
+  constexpr int32_t kNumThreads = 3;
+  constexpr int32_t kFilesPerThread = 100;
+  constexpr int32_t kMinRead = 700000;
+
+  constexpr int64_t kExpectedSize =
+      kNumThreads * kFilesPerThread * FileWithReadAhead::kLoadQuantum;
+  initializeCache(kExpectedSize * 1.7, 0);
+  deterministic_ = true;
+  std::vector<IoStatisticsPtr> stats;
+  stats.reserve(kNumThreads);
+  std::vector<std::thread> threads;
+  threads.reserve(kNumThreads);
+
+  // We read kFilesPerThread on each thread. The files are read in parallel,
+  // advancing each file in turn. Read-ahead is triggered when a fraction of the
+  // current cache entry of each file is consumed.
+
+  for (int threadIndex = 0; threadIndex < kNumThreads; ++threadIndex) {
+    stats.push_back(std::make_shared<dwio::common::IoStatistics>());
+    threads.push_back(std::thread([threadIndex,
+                                   this,
+                                   threadStats = stats.back()]() {
+      std::vector<std::unique_ptr<FileWithReadAhead>> files;
+      auto firstFileNumber = threadIndex * kFilesPerThread;
+      for (auto i = 0; i < kFilesPerThread; ++i) {
+        auto name = fmt::format("prefetch_{}", i + firstFileNumber);
+        files.push_back(std::make_unique<FileWithReadAhead>(
+            name, cache_.get(), threadStats, *pool_, executor_.get()));
+      }
+      std::vector<int64_t> totalRead(kFilesPerThread);
+      std::vector<int64_t> bytesLeft(kFilesPerThread);
+      for (auto counter = 0; counter < 100; ++counter) {
+        for (auto i = 0; i < kFilesPerThread; ++i) {
+          if (!files[i]) {
+            continue; // This set of files is finished.
+          }
+          // Read from the next file. Different files advance at slightly
+          // different rates.
+          auto bytesNeeded = kMinRead + i * 1000;
+          while (bytesLeft[i] < bytesNeeded) {
+            const void* buffer;
+            int32_t size;
+            if (!files[i]->next(buffer, size)) {
+              // End of file. Check that a multiple of file size has been read.
+              EXPECT_EQ(0, totalRead[i] % FileWithReadAhead::kFileSize);
+              if (totalRead[i] >= 3 * FileWithReadAhead::kFileSize) {
+                files[i] = nullptr;
+                break;
+              }
+              // Open a new file with a different unique name.
+              auto newName = fmt::format(
+                  "prefetch_{}",
+                  (static_cast<int64_t>(firstFileNumber) + i + i) * 1000000000 +
+                      totalRead[i]);
+              files[i] = std::make_unique<FileWithReadAhead>(
+                  newName, cache_.get(), threadStats, *pool_, executor_.get());
+              continue;
+            }
+            totalRead[i] += size;
+            bytesLeft[i] += size;
+          }
+          bytesLeft[i] -= bytesNeeded;
+        }
+      }
+    }));
+  }
+  int64_t bytes = 0;
+  int32_t count = 0;
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads[i].join();
+    bytes += stats[i]->prefetch().bytes();
+    count += stats[i]->prefetch().count();
+  }
+  executor_->join();
+
+  LOG(INFO) << count << " prefetches with total " << bytes << " bytes";
 }
