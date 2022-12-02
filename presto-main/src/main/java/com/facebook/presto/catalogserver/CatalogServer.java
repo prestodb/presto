@@ -43,15 +43,15 @@ public class CatalogServer
 {
     private static final String EMPTY_STRING = "";
 
-    private final Metadata metadata;
+    private final Metadata metadataProvider;
     private final SessionPropertyManager sessionPropertyManager;
     private final TransactionManager transactionManager;
     private final ObjectMapper objectMapper;
 
     @Inject
-    public CatalogServer(MetadataManager metadata, SessionPropertyManager sessionPropertyManager, TransactionManager transactionManager, ObjectMapper objectMapper)
+    public CatalogServer(MetadataManager metadataProvider, SessionPropertyManager sessionPropertyManager, TransactionManager transactionManager, ObjectMapper objectMapper)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.objectMapper = requireNonNull(objectMapper, "handleResolver is null");
@@ -61,21 +61,21 @@ public class CatalogServer
     public boolean schemaExists(TransactionInfo transactionInfo, SessionRepresentation session, CatalogSchemaName schema)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return metadata.getMetadataResolver(session.toSession(sessionPropertyManager)).schemaExists(schema);
+        return metadataProvider.schemaExists(session.toSession(sessionPropertyManager), schema);
     }
 
     @ThriftMethod
     public boolean catalogExists(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        return metadata.getMetadataResolver(session.toSession(sessionPropertyManager)).catalogExists(catalogName);
+        return metadataProvider.catalogExists(session.toSession(sessionPropertyManager), catalogName);
     }
 
     @ThriftMethod
     public String listSchemaNames(TransactionInfo transactionInfo, SessionRepresentation session, String catalogName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<String> schemaNames = metadata.listSchemaNames(session.toSession(sessionPropertyManager), catalogName);
+        List<String> schemaNames = metadataProvider.listSchemaNames(session.toSession(sessionPropertyManager), catalogName);
         if (!schemaNames.isEmpty()) {
             return writeValueAsString(schemaNames, objectMapper);
         }
@@ -86,7 +86,7 @@ public class CatalogServer
     public String getTableHandle(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName table)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<TableHandle> tableHandle = metadata.getTableHandle(session.toSession(sessionPropertyManager), table);
+        Optional<TableHandle> tableHandle = metadataProvider.getTableHandle(session.toSession(sessionPropertyManager), table);
         return tableHandle.map(handle -> writeValueAsString(handle, objectMapper))
                 .orElse(EMPTY_STRING);
     }
@@ -95,7 +95,7 @@ public class CatalogServer
     public String listTables(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> tableList = metadata.listTables(session.toSession(sessionPropertyManager), prefix);
+        List<QualifiedObjectName> tableList = metadataProvider.listTables(session.toSession(sessionPropertyManager), prefix);
         if (!tableList.isEmpty()) {
             return writeValueAsString(tableList, objectMapper);
         }
@@ -106,7 +106,7 @@ public class CatalogServer
     public String listViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> viewsList = metadata.listViews(session.toSession(sessionPropertyManager), prefix);
+        List<QualifiedObjectName> viewsList = metadataProvider.listViews(session.toSession(sessionPropertyManager), prefix);
         if (!viewsList.isEmpty()) {
             writeValueAsString(viewsList, objectMapper);
         }
@@ -117,7 +117,7 @@ public class CatalogServer
     public String getViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedTablePrefix prefix)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Map<QualifiedObjectName, ViewDefinition> viewsMap = metadata.getViews(session.toSession(sessionPropertyManager), prefix);
+        Map<QualifiedObjectName, ViewDefinition> viewsMap = metadataProvider.getViews(session.toSession(sessionPropertyManager), prefix);
         if (!viewsMap.isEmpty()) {
             return writeValueAsString(viewsMap, objectMapper);
         }
@@ -128,7 +128,7 @@ public class CatalogServer
     public String getView(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName viewName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        Optional<ViewDefinition> viewDefinition = metadata.getMetadataResolver(session.toSession(sessionPropertyManager)).getView(viewName);
+        Optional<ViewDefinition> viewDefinition = metadataProvider.getView(session.toSession(sessionPropertyManager), viewName);
         return viewDefinition.map(view -> writeValueAsString(view, objectMapper))
                 .orElse(EMPTY_STRING);
     }
@@ -138,7 +138,7 @@ public class CatalogServer
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
         Optional<MaterializedViewDefinition> connectorMaterializedViewDefinition =
-                metadata.getMetadataResolver(session.toSession(sessionPropertyManager)).getMaterializedView(viewName);
+                metadataProvider.getMaterializedView(session.toSession(sessionPropertyManager), viewName);
         return connectorMaterializedViewDefinition.map(materializedView -> writeValueAsString(materializedView, objectMapper))
                 .orElse(EMPTY_STRING);
     }
@@ -147,7 +147,7 @@ public class CatalogServer
     public String getReferencedMaterializedViews(TransactionInfo transactionInfo, SessionRepresentation session, QualifiedObjectName tableName)
     {
         transactionManager.tryRegisterTransaction(transactionInfo);
-        List<QualifiedObjectName> referencedMaterializedViewsList = metadata.getReferencedMaterializedViews(session.toSession(sessionPropertyManager), tableName);
+        List<QualifiedObjectName> referencedMaterializedViewsList = metadataProvider.getReferencedMaterializedViews(session.toSession(sessionPropertyManager), tableName);
         if (!referencedMaterializedViewsList.isEmpty()) {
             return writeValueAsString(referencedMaterializedViewsList, objectMapper);
         }

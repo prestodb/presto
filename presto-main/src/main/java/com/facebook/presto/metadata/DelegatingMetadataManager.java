@@ -87,6 +87,18 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public boolean schemaExists(Session session, CatalogSchemaName schema)
+    {
+        return delegate.schemaExists(session, schema);
+    }
+
+    @Override
+    public boolean catalogExists(Session session, String catalogName)
+    {
+        return delegate.catalogExists(session, catalogName);
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
         return delegate.listSchemaNames(session, catalogName);
@@ -413,6 +425,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    {
+        return delegate.getView(session, viewName);
+    }
+
+    @Override
     public void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         delegate.createView(session, catalogName, viewMetadata, viewData, replace);
@@ -422,6 +440,12 @@ public abstract class DelegatingMetadataManager
     public void dropView(Session session, QualifiedObjectName viewName)
     {
         delegate.dropView(session, viewName);
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        return delegate.getMaterializedView(session, viewName);
     }
 
     @Override

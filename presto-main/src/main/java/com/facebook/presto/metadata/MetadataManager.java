@@ -65,7 +65,6 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
-import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.facebook.presto.sql.analyzer.TypeSignatureProvider;
 import com.facebook.presto.sql.analyzer.ViewDefinition;
 import com.facebook.presto.sql.planner.PartitioningHandle;
@@ -112,13 +111,10 @@ import static com.facebook.presto.common.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN;
 import static com.facebook.presto.common.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static com.facebook.presto.common.function.OperatorType.NOT_EQUAL;
-import static com.facebook.presto.metadata.MetadataUtil.getOptionalCatalogMetadata;
-import static com.facebook.presto.metadata.MetadataUtil.getOptionalTableHandle;
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.metadata.TableLayout.fromConnectorLayout;
 import static com.facebook.presto.spi.Constraint.alwaysTrue;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
-import static com.facebook.presto.spi.StandardErrorCode.MISSING_TABLE;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.SYNTAX_ERROR;
@@ -285,9 +281,29 @@ public class MetadataManager
     }
 
     @Override
+    public boolean schemaExists(Session session, CatalogSchemaName schema)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, schema.getCatalogName());
+        if (!catalog.isPresent()) {
+            return false;
+        }
+        CatalogMetadata catalogMetadata = catalog.get();
+        ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
+        return catalogMetadata.listConnectorIds().stream()
+                .map(catalogMetadata::getMetadataFor)
+                .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
+    }
+
+    @Override
+    public boolean catalogExists(Session session, String catalogName)
+    {
+        return getOptionalCatalogMetadata(session, catalogName).isPresent();
+    }
+
+    @Override
     public List<String> listSchemaNames(Session session, String catalogName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, catalogName);
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, catalogName);
 
         ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
         if (catalog.isPresent()) {
@@ -306,7 +322,24 @@ public class MetadataManager
     @Override
     public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table)
     {
-        return getOptionalTableHandle(session, transactionManager, table);
+        requireNonNull(table, "table is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table));
+            if (tableHandle != null) {
+                return Optional.of(new TableHandle(
+                        connectorId,
+                        tableHandle,
+                        catalogMetadata.getTransactionHandleFor(connectorId),
+                        Optional.empty()));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -314,7 +347,7 @@ public class MetadataManager
     {
         requireNonNull(table, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, table.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
             ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
@@ -338,7 +371,7 @@ public class MetadataManager
         requireNonNull(session, "session is null");
         requireNonNull(tableName, "table is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, tableName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -443,7 +476,7 @@ public class MetadataManager
     @Override
     public PartitioningHandle getPartitioningHandleForExchange(Session session, String catalogName, int partitionCount, List<Type> partitionTypes)
     {
-        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalogName)
+        CatalogMetadata catalogMetadata = getOptionalCatalogMetadata(session, catalogName)
                 .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName)));
         ConnectorId connectorId = catalogMetadata.getConnectorId();
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
@@ -529,7 +562,7 @@ public class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
         Set<QualifiedObjectName> tables = new LinkedHashSet<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
@@ -551,7 +584,7 @@ public class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
         Map<QualifiedObjectName, List<ColumnMetadata>> tableColumns = new HashMap<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
@@ -929,7 +962,7 @@ public class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         Set<QualifiedObjectName> views = new LinkedHashSet<>();
         if (catalog.isPresent()) {
@@ -952,7 +985,7 @@ public class MetadataManager
     {
         requireNonNull(prefix, "prefix is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         Map<QualifiedObjectName, ViewDefinition> views = new LinkedHashMap<>();
         if (catalog.isPresent()) {
@@ -975,6 +1008,30 @@ public class MetadataManager
     }
 
     @Override
+    public Optional<ViewDefinition> getView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+            Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
+                    session.toConnectorSession(connectorId),
+                    toSchemaTableName(viewName).toSchemaTablePrefix());
+            ConnectorViewDefinition view = views.get(toSchemaTableName(viewName));
+            if (view != null) {
+                ViewDefinition definition = deserializeView(view.getViewData());
+                if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
+                    definition = definition.withOwner(view.getOwner().get());
+                }
+                return Optional.of(definition);
+            }
+        }
+        return Optional.empty();
+    }
+
+    @Override
     public void createView(Session session, String catalogName, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
@@ -992,6 +1049,20 @@ public class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
 
         metadata.dropView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+    }
+
+    @Override
+    public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
+
+            return metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -1051,7 +1122,7 @@ public class MetadataManager
     {
         requireNonNull(tableName, "tableName is null");
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, tableName.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
         if (catalog.isPresent()) {
             ConnectorMetadata metadata = catalog.get().getMetadata();
             ConnectorSession connectorSession = session.toConnectorSession(catalog.get().getConnectorId());
@@ -1098,7 +1169,7 @@ public class MetadataManager
     @Override
     public Set<String> listRoles(Session session, String catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalog);
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
@@ -1113,7 +1184,7 @@ public class MetadataManager
     @Override
     public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalog);
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
@@ -1146,7 +1217,7 @@ public class MetadataManager
     @Override
     public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalog);
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
@@ -1159,7 +1230,7 @@ public class MetadataManager
     @Override
     public Set<String> listEnabledRoles(Session session, String catalog)
     {
-        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, transactionManager, catalog);
+        Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (!catalogMetadata.isPresent()) {
             return ImmutableSet.of();
         }
@@ -1195,7 +1266,7 @@ public class MetadataManager
         requireNonNull(prefix, "prefix is null");
         SchemaTablePrefix tablePrefix = prefix.asSchemaTablePrefix();
 
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, prefix.getCatalogName());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
 
         ImmutableSet.Builder<GrantInfo> grantInfos = ImmutableSet.builder();
         if (catalog.isPresent()) {
@@ -1302,88 +1373,6 @@ public class MetadataManager
     }
 
     @Override
-    public MetadataResolver getMetadataResolver(Session session)
-    {
-        return new MetadataResolver()
-        {
-            @Override
-            public boolean catalogExists(String catalogName)
-            {
-                return getOptionalCatalogMetadata(session, transactionManager, catalogName).isPresent();
-            }
-
-            @Override
-            public boolean schemaExists(CatalogSchemaName schema)
-            {
-                Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, schema.getCatalogName());
-                if (!catalog.isPresent()) {
-                    return false;
-                }
-                CatalogMetadata catalogMetadata = catalog.get();
-                ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getConnectorId());
-                return catalogMetadata.listConnectorIds().stream()
-                        .map(catalogMetadata::getMetadataFor)
-                        .anyMatch(metadata -> metadata.schemaExists(connectorSession, schema.getSchemaName()));
-            }
-
-            @Override
-            public boolean tableExists(QualifiedObjectName tableName)
-            {
-                return getOptionalTableHandle(session, transactionManager, tableName).isPresent();
-            }
-
-            @Override
-            public Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName)
-            {
-                Optional<TableHandle> tableHandle = getOptionalTableHandle(session, transactionManager, tableName);
-                if (!tableHandle.isPresent()) {
-                    throw new PrestoException(MISSING_TABLE, "Table does not exist: " + tableName.toString());
-                }
-                TableMetadata tableMetadata = getTableMetadata(session, tableHandle.get());
-                return Optional.of(tableMetadata.getColumns());
-            }
-
-            @Override
-            public Optional<ViewDefinition> getView(QualifiedObjectName viewName)
-            {
-                Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, viewName.getCatalogName());
-                if (catalog.isPresent()) {
-                    CatalogMetadata catalogMetadata = catalog.get();
-                    ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
-                    ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-
-                    Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(
-                            session.toConnectorSession(connectorId),
-                            toSchemaTableName(viewName).toSchemaTablePrefix());
-                    ConnectorViewDefinition view = views.get(toSchemaTableName(viewName));
-                    if (view != null) {
-                        ViewDefinition definition = deserializeView(view.getViewData());
-                        if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
-                            definition = definition.withOwner(view.getOwner().get());
-                        }
-                        return Optional.of(definition);
-                    }
-                }
-                return Optional.empty();
-            }
-
-            @Override
-            public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName viewName)
-            {
-                Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, viewName.getCatalogName());
-                if (catalog.isPresent()) {
-                    CatalogMetadata catalogMetadata = catalog.get();
-                    ConnectorId connectorId = catalogMetadata.getConnectorId(session, viewName);
-                    ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-
-                    return metadata.getMaterializedView(session.toConnectorSession(connectorId), toSchemaTableName(viewName));
-                }
-                return Optional.empty();
-            }
-        };
-    }
-
-    @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId connectorId)
     {
         return getCatalogMetadata(session, connectorId).getConnectorCapabilities();
@@ -1413,6 +1402,11 @@ public class MetadataManager
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_VIEW, "Invalid view JSON: " + data, e);
         }
+    }
+
+    private Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, String catalogName)
+    {
+        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
     }
 
     private CatalogMetadata getCatalogMetadata(Session session, ConnectorId connectorId)

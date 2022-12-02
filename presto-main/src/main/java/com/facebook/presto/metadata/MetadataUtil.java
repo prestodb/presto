@@ -18,20 +18,15 @@ import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnMetadata;
-import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
-import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.security.PrestoPrincipal;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.GrantorSpecification;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.PrincipalSpecification;
 import com.facebook.presto.sql.tree.QualifiedName;
-import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -160,33 +155,6 @@ public final class MetadataUtil
     public static QualifiedName createQualifiedName(QualifiedObjectName name)
     {
         return QualifiedName.of(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
-    }
-
-    public static Optional<CatalogMetadata> getOptionalCatalogMetadata(Session session, TransactionManager transactionManager, String catalogName)
-    {
-        return transactionManager.getOptionalCatalogMetadata(session.getRequiredTransactionId(), catalogName);
-    }
-
-    public static Optional<TableHandle> getOptionalTableHandle(Session session, TransactionManager transactionManager, QualifiedObjectName table)
-    {
-        requireNonNull(table, "table is null");
-
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, transactionManager, table.getCatalogName());
-        if (catalog.isPresent()) {
-            CatalogMetadata catalogMetadata = catalog.get();
-            ConnectorId connectorId = catalogMetadata.getConnectorId(session, table);
-            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(connectorId);
-
-            ConnectorTableHandle tableHandle = metadata.getTableHandle(session.toConnectorSession(connectorId), toSchemaTableName(table));
-            if (tableHandle != null) {
-                return Optional.of(new TableHandle(
-                        connectorId,
-                        tableHandle,
-                        catalogMetadata.getTransactionHandleFor(connectorId),
-                        Optional.empty()));
-            }
-        }
-        return Optional.empty();
     }
 
     public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)

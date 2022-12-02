@@ -57,7 +57,7 @@ public class DropSchemaTask
 
         CatalogSchemaName schema = createCatalogSchemaName(session, statement, Optional.of(statement.getSchemaName()));
 
-        if (!metadata.getMetadataResolver(session).schemaExists(schema)) {
+        if (!metadata.schemaExists(session, schema)) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_SCHEMA, statement, "Schema '%s' does not exist", schema);
             }

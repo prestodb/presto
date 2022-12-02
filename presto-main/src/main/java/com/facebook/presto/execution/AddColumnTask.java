@@ -71,7 +71,7 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isTableExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, and add column is not supported", tableName);

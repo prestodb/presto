@@ -34,7 +34,6 @@ import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
-import com.facebook.presto.sql.analyzer.MetadataResolver;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -287,7 +286,6 @@ public class InformationSchemaMetadata
             Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        MetadataResolver metadataResolver = metadata.getMetadataResolver(session);
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
@@ -296,7 +294,7 @@ public class InformationSchemaMetadata
                             .filter(this::isLowerCase)
                             .map(table -> table.toLowerCase(ENGLISH))
                             .map(table -> new QualifiedObjectName(catalogName, prefix.getSchemaName().get(), table)))
-                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadataResolver.getView(objectName).isPresent())
+                    .filter(objectName -> metadata.getTableHandle(session, objectName).isPresent() || metadata.getView(session, objectName).isPresent())
                     .map(QualifiedTablePrefix::toQualifiedTablePrefix)
                     .collect(toImmutableSet());
         }

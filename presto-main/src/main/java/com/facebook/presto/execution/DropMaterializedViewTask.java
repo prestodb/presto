@@ -46,7 +46,7 @@ public class DropMaterializedViewTask
     {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
 
-        Optional<MaterializedViewDefinition> view = metadata.getMetadataResolver(session).getMaterializedView(name);
+        Optional<MaterializedViewDefinition> view = metadata.getMaterializedView(session, name);
         if (!view.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(MISSING_MATERIALIZED_VIEW, statement, "Materialized view '%s' does not exist", name);

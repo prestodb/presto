@@ -56,7 +56,7 @@ public class DropTableTask
             return immediateFuture(null);
         }
 
-        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMetadataResolver(session).getMaterializedView(tableName);
+        Optional<MaterializedViewDefinition> optionalMaterializedView = metadata.getMaterializedView(session, tableName);
         if (optionalMaterializedView.isPresent()) {
             if (!statement.isExists()) {
                 throw new SemanticException(NOT_SUPPORTED, statement, "'%s' is a materialized view, not a table. Use DROP MATERIALIZED VIEW to drop.", tableName);
