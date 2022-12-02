@@ -316,4 +316,44 @@ struct ArraySumFunction {
   }
 };
 
+template <typename TExecCtx, typename T>
+struct ArrayHasDuplicatesFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(TExecCtx);
+
+  FOLLY_ALWAYS_INLINE void call(
+      bool& out,
+      const arg_type<velox::Array<T>>& inputArray) {
+    folly::F14FastSet<arg_type<T>> uniqSet;
+    int16_t numNulls = 0;
+    out = false;
+    for (const auto& item : inputArray) {
+      if (item.has_value()) {
+        if (!uniqSet.insert(item.value()).second) {
+          out = true;
+          break;
+        }
+      } else {
+        numNulls++;
+        if (numNulls == 2) {
+          out = true;
+          break;
+        }
+      }
+    }
+  }
+
+  FOLLY_ALWAYS_INLINE void callNullFree(
+      bool& out,
+      const null_free_arg_type<velox::Array<T>>& inputArray) {
+    folly::F14FastSet<null_free_arg_type<T>> uniqSet;
+    out = false;
+    for (const auto& item : inputArray) {
+      if (!uniqSet.insert(item).second) {
+        out = true;
+        break;
+      }
+    }
+  }
+};
+
 } // namespace facebook::velox::functions

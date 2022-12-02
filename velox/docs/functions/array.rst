@@ -27,6 +27,13 @@ Array Functions
         SELECT array_except(ARRAY [1, 2, 2], ARRAY [1, 3, 4]); -- [2]
         SELECT array_except(ARRAY [1, NULL, NULL], ARRAY [1, 1, NULL]); -- []
 
+.. function:: array_has_duplicates(array(E)) -> boolean
+
+    Returns a boolean: whether array has any elements that occur more than once.
+    E must be bigint or varchar.
+
+        select array_has_duplicates(ARRAY [5, 2, 5, 1, 1, 5, null, null])); -- true
+
 .. function:: array_intersect(array(E) x, array(E) y) -> array(E)
 
     Returns an array of the elements in the intersection of array ``x`` and array ``y``, without duplicates. ::
