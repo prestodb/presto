@@ -205,6 +205,10 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 
   const velox::exec::TaskStats taskStats = task->taskStats();
   protocol::TaskStats& prestoTaskStats = info.stats;
+  // Clear the old runtime metrics as not all of them would be overwritten by
+  // the new ones.
+  prestoTaskStats.runtimeStats.clear();
+
   prestoTaskStats.totalScheduledTimeInNanos = {};
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
@@ -472,7 +476,6 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
         it.second);
   }
 
-  prestoTaskStats.runtimeStats.clear();
   for (const auto& stat : taskRuntimeStats) {
     prestoTaskStats.runtimeStats[stat.first] =
         toRuntimeMetric(stat.first, stat.second);
