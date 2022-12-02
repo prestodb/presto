@@ -15,7 +15,7 @@ package com.facebook.presto.spark.execution;
 
 public interface PrestoSparkShuffleInfoSerializer
 {
-    byte[] serializeReadInfo(PrestoSparkShuffleReadInfo readInfo);
+    String serializeReadInfo(PrestoSparkShuffleReadInfo readInfo);
 
-    byte[] serializeWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
+    String serializeWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
 }
