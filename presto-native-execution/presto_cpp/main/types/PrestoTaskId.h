@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <stdexcept>
+#include <folly/Conv.h>
 #include <string>
 
 namespace facebook::presto {
@@ -61,8 +61,7 @@ class PrestoTaskId {
   }
 
   int parseInt(const std::string& taskId, int start, int end) {
-    auto string = taskId.substr(start, end - start);
-    return atoi(string.c_str());
+    return folly::to<int>(taskId.substr(start, end - start));
   }
 
   std::string queryId_;

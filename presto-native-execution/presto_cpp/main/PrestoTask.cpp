@@ -169,7 +169,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   VELOX_CHECK_NOT_NULL(task, "task is null when updating status")
   const auto taskStats = task->taskStats();
 
-  // Presto has a Driver per split. when splits represent partitions
+  // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
   // processed/queued splits as Drivers for Presto.
   info.taskStatus.queuedPartitionedDrivers = taskStats.numQueuedSplits;
