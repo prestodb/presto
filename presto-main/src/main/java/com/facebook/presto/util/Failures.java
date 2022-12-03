@@ -152,8 +152,8 @@ public final class Failures
         }
         else if (throwable instanceof SemanticException) {
             SemanticException e = (SemanticException) throwable;
-            if (e.getNode().getLocation().isPresent()) {
-                NodeLocation nodeLocation = e.getNode().getLocation().get();
+            if (e.getLocation().isPresent()) {
+                NodeLocation nodeLocation = e.getLocation().get();
                 return new ErrorLocation(nodeLocation.getLineNumber(), nodeLocation.getColumnNumber());
             }
         }

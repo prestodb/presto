@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.PrestoException;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,7 +50,7 @@ public interface MetadataResolver
      * Returns the list of column metadata for the provided catalog, schema and table name.
      *
      * @param tableName the fully qualified name (catalog, schema and table) of the table
-     * @throws PrestoException if the table does not exist
+     * @throws SemanticException if the table does not exist
      */
     Optional<List<ColumnMetadata>> getColumns(QualifiedObjectName tableName);
 
