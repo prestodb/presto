@@ -16,6 +16,8 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 
+import java.util.Optional;
+
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -23,21 +25,31 @@ public class SemanticException
         extends RuntimeException
 {
     private final SemanticErrorCode code;
-    private final Node node;
+    private final Optional<NodeLocation> location;
+
+    public SemanticException(SemanticErrorCode code, String format, Object... args)
+    {
+        this(code, Optional.empty(), format, args);
+    }
 
     public SemanticException(SemanticErrorCode code, Node node, String format, Object... args)
     {
-        super(formatMessage(format, node, args));
-        requireNonNull(code, "code is null");
-        requireNonNull(node, "node is null");
-
-        this.code = code;
-        this.node = node;
+        this(code, node == null ? Optional.empty() : node.getLocation(), format, args);
     }
 
-    public Node getNode()
+    public SemanticException(SemanticErrorCode code, Optional<NodeLocation> location, String format, Object... args)
     {
-        return node;
+        super(formatMessage(format, location, args));
+        requireNonNull(code, "code is null");
+
+        this.code = code;
+        this.location = location;
+    }
+
+    // TODO: Should be replaced with analyzer agnostic location
+    public Optional<NodeLocation> getLocation()
+    {
+        return location;
     }
 
     public SemanticErrorCode getCode()
@@ -45,10 +57,10 @@ public class SemanticException
         return code;
     }
 
-    private static String formatMessage(String formatString, Node node, Object[] args)
+    private static String formatMessage(String formatString, Optional<NodeLocation> location, Object[] args)
     {
-        if (node.getLocation().isPresent()) {
-            NodeLocation nodeLocation = node.getLocation().get();
+        if (location.isPresent()) {
+            NodeLocation nodeLocation = location.get();
             return format("line %s:%s: %s", nodeLocation.getLineNumber(), nodeLocation.getColumnNumber(), format(formatString, args));
         }
         return format(formatString, args);
