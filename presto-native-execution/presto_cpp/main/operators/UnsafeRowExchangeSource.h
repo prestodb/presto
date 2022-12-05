@@ -27,7 +27,7 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       std::shared_ptr<velox::exec::ExchangeQueue> queue,
       const std::shared_ptr<ShuffleInterface>& shuffle,
-      velox::memory::MemoryPool* pool)
+      velox::memory::MemoryPool* FOLLY_NONNULL pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
 
   bool shouldRequestLocked() override {

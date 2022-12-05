@@ -69,7 +69,8 @@ std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
 
 std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
     const std::string& fileName,
-    const std::shared_ptr<operators::ShuffleInterface>& writerShuffle) {
+    const std::string& shuffleName,
+    std::shared_ptr<std::string>&& serializedShuffleWriteInfo) {
   const std::string fragment = slurp(getDataPath(fileName));
 
   protocol::PlanFragment prestoPlan = json::parse(fragment);
@@ -81,7 +82,8 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
           prestoPlan,
           nullptr,
           "20201107_130540_00011_wrpkw.1.2.3",
-          writerShuffle)
+          shuffleName,
+          std::move(serializedShuffleWriteInfo))
       .planNode;
 }
 } // namespace
@@ -132,25 +134,30 @@ TEST_F(PlanConverterTest, scanAggBatch) {
   protocol::unregisterConnector("hive");
   protocol::registerConnector("hive", "hive");
   filesystems::registerLocalFileSystem();
-  auto writerShuffle = std::make_shared<operators::LocalPersistentShuffle>(
-      exec::test::TempDirectoryPath::create()->path,
-      memory::getDefaultMemoryPool().get(),
-      10,
-      1 << 15);
-  auto root = assertToBatchVeloxQueryPlan("ScanAggBatch.json", writerShuffle);
+  auto root = assertToBatchVeloxQueryPlan(
+      "ScanAggBatch.json",
+      std::string(operators::LocalPersistentShuffle::kShuffleName),
+      std::make_shared<std::string>(fmt::format(
+          "{{\n"
+          "  \"rootPath\": \"{}\",\n"
+          "  \"numPartitions\": {}\n"
+          "}}",
+          exec::test::TempDirectoryPath::create()->path,
+          10)));
 
   auto shuffleWrite =
-      dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
+      std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
   ASSERT(shuffleWrite != nullptr);
   ASSERT_EQ(shuffleWrite->sources().size(), 1);
 
-  auto localPartition = dynamic_pointer_cast<const core::LocalPartitionNode>(
-      shuffleWrite->sources().back());
+  auto localPartition =
+      std::dynamic_pointer_cast<const core::LocalPartitionNode>(
+          shuffleWrite->sources().back());
   ASSERT(localPartition != nullptr);
   ASSERT_EQ(localPartition->sources().size(), 1);
 
   auto partitionAndSerializeNode =
-      dynamic_pointer_cast<const operators::PartitionAndSerializeNode>(
+      std::dynamic_pointer_cast<const operators::PartitionAndSerializeNode>(
           localPartition->sources().back());
   ASSERT(partitionAndSerializeNode != nullptr);
   ASSERT_EQ(partitionAndSerializeNode->numPartitions(), 3);

@@ -29,9 +29,19 @@ class ShuffleWriteOperator : public Operator {
             planNode->outputType(),
             operatorId,
             planNode->id(),
-            "ShuffleWrite"),
-        shuffle_{planNode->shuffle()} {
-    shuffle_->initialize(operatorCtx_->pool());
+            "ShuffleWrite") {
+    const auto& shuffleName = planNode->shuffleName();
+    auto shuffleFactory = ShuffleInterface::factory(shuffleName);
+    VELOX_CHECK(
+        shuffleFactory != nullptr,
+        fmt::format(
+            "Failed to create shuffle write interface: Shuffle factory "
+            "with name '{}' is not registered.",
+            shuffleName));
+    shuffle_ = shuffleFactory(
+        planNode->serializedShuffleWriteInfo(),
+        ShuffleInterface::Type::kWrite,
+        operatorCtx_->pool());
   }
 
   bool needsInput() const override {
@@ -66,7 +76,7 @@ class ShuffleWriteOperator : public Operator {
   }
 
  private:
-  const std::shared_ptr<ShuffleInterface> shuffle_;
+  std::shared_ptr<ShuffleInterface> shuffle_;
 };
 } // namespace
 

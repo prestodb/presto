@@ -34,9 +34,6 @@ class ShuffleInterface {
           Type type,
           velox::memory::MemoryPool* pool)>;
 
-  /// Initialize ShuffleInterface with provided memory pool.
-  virtual void initialize(velox::memory::MemoryPool* pool) = 0;
-
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
@@ -74,8 +71,7 @@ class ShuffleInterface {
   static ShuffleInterfaceFactory& factory(const std::string& name) {
     auto factoryIter = factories().find(name);
     if (factoryIter == factories().end()) {
-      VELOX_FAIL(fmt::format(
-          "ShuffleInterface with name '{}' is not registered.", name));
+      VELOX_FAIL("ShuffleInterface with name '{}' is not registered.", name);
     }
     return factoryIter->second;
   }
