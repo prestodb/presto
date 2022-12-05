@@ -1703,7 +1703,7 @@ void ExprSetSimplified::eval(
 std::unique_ptr<ExprSet> makeExprSetFromFlag(
     std::vector<core::TypedExprPtr>&& source,
     core::ExecCtx* execCtx) {
-  if (execCtx->queryCtx()->config().exprEvalSimplified() ||
+  if (execCtx->queryCtx()->queryConfig().exprEvalSimplified() ||
       FLAGS_force_eval_simplified) {
     return std::make_unique<ExprSetSimplified>(std::move(source), execCtx);
   }

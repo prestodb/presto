@@ -50,7 +50,7 @@ class QueryCtx : public Context {
         allocator_(allocator),
         connectorConfigs_(connectorConfigs),
         executor_(executor),
-        config_{this},
+        queryConfig_{this},
         queryId_(queryId),
         spillExecutor_(std::move(spillExecutor)) {
     setConfigOverrides(config);
@@ -63,7 +63,7 @@ class QueryCtx : public Context {
   // object is alive.
   //
   // This constructor does not keep the ownership of executor.
-  QueryCtx(
+  explicit QueryCtx(
       folly::Executor::KeepAlive<> executorKeepalive,
       std::shared_ptr<Config> config = std::make_shared<MemConfig>(),
       std::unordered_map<std::string, std::shared_ptr<Config>>
@@ -77,7 +77,7 @@ class QueryCtx : public Context {
         allocator_(allocator),
         connectorConfigs_(connectorConfigs),
         executorKeepalive_(std::move(executorKeepalive)),
-        config_{this},
+        queryConfig_{this},
         queryId_(queryId) {
     setConfigOverrides(config);
     if (!pool_) {
@@ -106,8 +106,8 @@ class QueryCtx : public Context {
     return executor;
   }
 
-  const QueryConfig& config() const {
-    return config_;
+  const QueryConfig& queryConfig() const {
+    return queryConfig_;
   }
 
   Config* FOLLY_NONNULL
@@ -155,7 +155,7 @@ class QueryCtx : public Context {
   std::unordered_map<std::string, std::shared_ptr<Config>> connectorConfigs_;
   folly::Executor* FOLLY_NULLABLE executor_;
   folly::Executor::KeepAlive<> executorKeepalive_;
-  QueryConfig config_;
+  QueryConfig queryConfig_;
   const std::string queryId_;
   std::shared_ptr<folly::Executor> spillExecutor_;
 };

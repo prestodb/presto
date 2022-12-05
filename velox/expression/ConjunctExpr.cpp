@@ -161,7 +161,7 @@ void ConjunctExpr::evalSpecialForm(
   if (!reorderEnabledChecked_) {
     reorderEnabled_ = context.execCtx()
                           ->queryCtx()
-                          ->config()
+                          ->queryConfig()
                           .adaptiveFilterReorderingEnabled();
     reorderEnabledChecked_ = true;
   }

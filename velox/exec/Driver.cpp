@@ -38,7 +38,7 @@ DriverCtx::DriverCtx(
       task(_task) {}
 
 const core::QueryConfig& DriverCtx::queryConfig() const {
-  return task->queryCtx()->config();
+  return task->queryCtx()->queryConfig();
 }
 
 velox::memory::MemoryPool* FOLLY_NONNULL DriverCtx::addOperatorPool(

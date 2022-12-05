@@ -57,7 +57,7 @@ class HourFunction : public exec::VectorFunction {
     // Check if we need to adjust the current UTC timestamps to
     // the user provided session timezone.
     const auto* timeZone =
-        getTimeZoneIfNeeded(context.execCtx()->queryCtx()->config());
+        getTimeZoneIfNeeded(context.execCtx()->queryCtx()->queryConfig());
     if (timeZone != nullptr) {
       rows.applyToSelected([&](int row) {
         auto timestamp = timestamps[row];

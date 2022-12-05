@@ -27,7 +27,7 @@ TEST(TestQueryConfig, emptyConfig) {
   std::unordered_map<std::string, std::string> configData;
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
   auto queryCtx = std::make_shared<QueryCtx>(nullptr, queryCtxConfig);
-  const QueryConfig& config = queryCtx->config();
+  const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_FALSE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), "");
@@ -41,7 +41,7 @@ TEST(TestQueryConfig, setConfig) {
        {QueryConfig::kCodegenConfigurationFilePath, path}});
   auto queryCtxConfig = std::make_shared<MemConfig>(configData);
   auto queryCtx = std::make_shared<QueryCtx>(nullptr, queryCtxConfig);
-  const QueryConfig& config = queryCtx->config();
+  const QueryConfig& config = queryCtx->queryConfig();
 
   ASSERT_TRUE(config.codegenEnabled());
   ASSERT_EQ(config.codegenConfigurationFilePath(), path);

@@ -151,7 +151,7 @@ void CastExpr::applyCastWithTry(
     exec::EvalCtx& context,
     const BaseVector& input,
     FlatVector<To>* resultFlatVector) {
-  const auto& queryConfig = context.execCtx()->queryCtx()->config();
+  const auto& queryConfig = context.execCtx()->queryCtx()->queryConfig();
   auto isCastIntByTruncate = queryConfig.isCastIntByTruncate();
 
   if (!nullOnFailure_) {
@@ -441,7 +441,7 @@ VectorPtr CastExpr::applyRow(
   // Extract the flag indicating matching of children must be done by name or
   // position
   auto matchByName =
-      context.execCtx()->queryCtx()->config().isMatchStructByName();
+      context.execCtx()->queryCtx()->queryConfig().isMatchStructByName();
 
   // Cast each row child to its corresponding output child
   std::vector<VectorPtr> newChildren;

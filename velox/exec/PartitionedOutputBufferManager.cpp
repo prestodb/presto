@@ -154,7 +154,8 @@ PartitionedOutputBuffer::PartitionedOutputBuffer(
     : task_(std::move(task)),
       broadcast_(broadcast),
       numDrivers_(numDrivers),
-      maxSize_(task_->queryCtx()->config().maxPartitionedOutputBufferSize()),
+      maxSize_(
+          task_->queryCtx()->queryConfig().maxPartitionedOutputBufferSize()),
       continueSize_((maxSize_ * kContinuePct) / 100) {
   buffers_.reserve(numDestinations);
   for (int i = 0; i < numDestinations; i++) {

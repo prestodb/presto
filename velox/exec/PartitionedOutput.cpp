@@ -99,6 +99,38 @@ BlockingReason Destination::flush(
       future);
 }
 
+PartitionedOutput::PartitionedOutput(
+    int32_t operatorId,
+    DriverCtx* FOLLY_NONNULL ctx,
+    const std::shared_ptr<const core::PartitionedOutputNode>& planNode)
+    : Operator(
+          ctx,
+          planNode->outputType(),
+          operatorId,
+          planNode->id(),
+          "PartitionedOutput"),
+      keyChannels_(toChannels(planNode->inputType(), planNode->keys())),
+      numDestinations_(planNode->numPartitions()),
+      replicateNullsAndAny_(planNode->isReplicateNullsAndAny()),
+      partitionFunction_(
+          numDestinations_ == 1
+              ? nullptr
+              : planNode->partitionFunctionFactory()(numDestinations_)),
+      outputChannels_(calculateOutputChannels(
+          planNode->inputType(),
+          planNode->outputType(),
+          planNode->outputType())),
+      bufferManager_(PartitionedOutputBufferManager::getInstance()),
+      maxBufferedBytes_(ctx->task->queryCtx()
+                            ->queryConfig()
+                            .maxPartitionedOutputBufferSize()),
+      allocator_{operatorCtx_->allocator()} {
+  if (numDestinations_ == 1 || planNode->isBroadcast()) {
+    VELOX_CHECK(keyChannels_.empty());
+    VELOX_CHECK_NULL(partitionFunction_);
+  }
+}
+
 void PartitionedOutput::initializeInput(RowVectorPtr input) {
   input_ = std::move(input);
   if (outputChannels_.empty()) {

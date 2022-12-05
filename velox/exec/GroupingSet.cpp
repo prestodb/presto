@@ -68,8 +68,10 @@ GroupingSet::GroupingSet(
       spillConfig_(spillConfig),
       stringAllocator_(allocator_),
       rows_(allocator_),
-      isAdaptive_(
-          operatorCtx->task()->queryCtx()->config().hashAdaptivityEnabled()),
+      isAdaptive_(operatorCtx->task()
+                      ->queryCtx()
+                      ->queryConfig()
+                      .hashAdaptivityEnabled()),
       pool_(*operatorCtx->pool()) {
   for (auto& hasher : hashers_) {
     keyChannels_.push_back(hasher->channel());

@@ -351,7 +351,7 @@ void Task::start(
   }
 
 #if CODEGEN_ENABLED == 1
-  const auto& config = self->queryCtx()->config();
+  const auto& config = self->queryCtx()->queryConfig();
   if (config.codegenEnabled() &&
       config.codegenConfigurationFilePath().length() != 0) {
     auto codegenLogger =
@@ -427,7 +427,7 @@ void Task::start(
       // buffer size of the producers.
       self->exchangeClients_[pipeline] = std::make_shared<ExchangeClient>(
           self->destination_,
-          self->queryCtx()->config().maxPartitionedOutputBufferSize() / 2);
+          self->queryCtx()->queryConfig().maxPartitionedOutputBufferSize() / 2);
 
       self->exchangeClientByPlanNode_.emplace(
           exchangeNodeId.value(), self->exchangeClients_[pipeline]);
@@ -1582,7 +1582,7 @@ void Task::createLocalExchangeQueuesLocked(
   //  in all split groups?
   LocalExchangeState exchange;
   exchange.memoryManager = std::make_shared<LocalExchangeMemoryManager>(
-      queryCtx_->config().maxLocalExchangeBufferSize());
+      queryCtx_->queryConfig().maxLocalExchangeBufferSize());
 
   exchange.queues.reserve(numPartitions);
   for (auto i = 0; i < numPartitions; ++i) {

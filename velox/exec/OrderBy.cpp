@@ -90,7 +90,10 @@ OrderBy::OrderBy(
 #endif
 
   outputBatchSize_ = std::max<uint32_t>(
-      operatorCtx_->execCtx()->queryCtx()->config().preferredOutputBatchSize(),
+      operatorCtx_->execCtx()
+          ->queryCtx()
+          ->queryConfig()
+          .preferredOutputBatchSize(),
       data_->estimatedNumRowsPerBatch(kBatchSizeInBytes));
 }
 

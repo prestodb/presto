@@ -529,7 +529,7 @@ std::vector<std::shared_ptr<Expr>> compileExpressions(
     exprs.push_back(compileExpression(
         source,
         &scope,
-        execCtx->queryCtx()->config(),
+        execCtx->queryCtx()->queryConfig(),
         execCtx->pool(),
         flatteningCandidates,
         enableConstantFolding));

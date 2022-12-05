@@ -92,7 +92,7 @@ OperatorCtx::createConnectorQueryCtx(
 
 std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
     Spiller::Type type) const {
-  const auto& queryConfig = driverCtx_->task->queryCtx()->config();
+  const auto& queryConfig = driverCtx_->task->queryCtx()->queryConfig();
   if (!queryConfig.spillEnabled()) {
     return std::nullopt;
   }

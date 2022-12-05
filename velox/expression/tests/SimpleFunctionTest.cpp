@@ -935,10 +935,11 @@ VectorPtr testVariadicArgReuse(
   // This is a bit of a round about way of creating the SimpleFunctionAdapter,
   // especially since it requires the caller to register the function as well,
   // but it should be easier to maintain.
-  auto function = exec::SimpleFunctions()
-                      .resolveFunction(functionName, {})
-                      ->createFunction()
-                      ->createVectorFunction(execCtx->queryCtx()->config(), {});
+  auto function =
+      exec::SimpleFunctions()
+          .resolveFunction(functionName, {})
+          ->createFunction()
+          ->createVectorFunction(execCtx->queryCtx()->queryConfig(), {});
 
   // Create a dummy EvalCtx.
   SelectivityVector rows(inputs[0]->size());
