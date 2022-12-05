@@ -28,8 +28,7 @@ struct LocalShuffleInfo {
 
   /// Deserializes shuffle information that is used by LocalPersistentShuffle.
   /// Structures are assumed to be encoded in JSON format.
-  static LocalShuffleInfo deserialize(
-      const std::string& info);
+  static LocalShuffleInfo deserialize(const std::string& info);
 };
 
 /// This class is a persistent shuffle server that implements
@@ -53,30 +52,9 @@ class LocalPersistentShuffle : public ShuffleInterface {
 
   LocalPersistentShuffle(
       const std::string& rootPath,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool,
       uint32_t numPartitions,
-      uint64_t maxBytesPerPartition)
-      : maxBytesPerPartition_(maxBytesPerPartition),
-        threadId_(std::this_thread::get_id()) {
-    reset(pool, numPartitions, rootPath);
-  }
-
-  void initialize(velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
-    if (pool_ == nullptr) {
-      pool_ = pool;
-    }
-  }
-
-  /// This method is mainly for testing use only. It resets the state of the
-  /// shuffle using a specific number of partitions and a rootPath.
-  /// This can be used in tests multiple times on the same shuffle object for
-  /// efficiency. If the current rootPath is not an empty string, the method
-  /// also cleans up the its previous root path folder (does not delete the
-  /// folder itself).
-  void reset(
-      velox::memory::MemoryPool* FOLLY_NONNULL pool,
-      uint32_t numPartitions,
-      std::string rootPath);
+      uint64_t maxBytesPerPartition,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
   void collect(int32_t partition, std::string_view data) override;
 
@@ -112,7 +90,7 @@ class LocalPersistentShuffle : public ShuffleInterface {
 
   const uint64_t maxBytesPerPartition_;
 
-  velox::memory::MemoryPool* pool_{nullptr};
+  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
   uint32_t numPartitions_;
   /// The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;

@@ -2132,7 +2132,8 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId,
-    const std::shared_ptr<operators::ShuffleInterface>& writerShuffle) {
+    const std::string& shuffleName,
+    std::shared_ptr<std::string>&& serializedShuffleWriteInfo) {
   auto planFragment = toVeloxQueryPlan(fragment, tableWriteInfo, taskId);
 
   // If the last node is a PartitionedOutputNode, it means this fragment ends
@@ -2147,7 +2148,7 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
           planFragment.planNode);
   VELOX_CHECK_EQ(
       partitionedOutputNode == nullptr,
-      writerShuffle == nullptr,
+      serializedShuffleWriteInfo == nullptr,
       "Writer shuffle info and PartitionedOutputNode should be set together");
   if (partitionedOutputNode == nullptr) {
     return planFragment;
@@ -2174,13 +2175,13 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
       "shuffle-gather",
       core::LocalPartitionNode::Type::kGather,
       nullptr,
-  std::vector<core::PlanNodePtr>{partitionAndSerializeNode});
+      std::vector<core::PlanNodePtr>{partitionAndSerializeNode});
 
   auto shuffleWriteNode = std::make_shared<operators::ShuffleWriteNode>(
       "root",
-      writerShuffle,
-      std::move(localPartitionNode)
-      );
+      shuffleName,
+      std::move(*serializedShuffleWriteInfo),
+      std::move(localPartitionNode));
 
   planFragment.planNode = shuffleWriteNode;
   return planFragment;

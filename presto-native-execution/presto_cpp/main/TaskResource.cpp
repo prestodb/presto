@@ -235,8 +235,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
 
         std::unique_ptr<protocol::TaskInfo> taskInfo;
         try {
-          protocol::TaskUpdateRequest taskUpdateRequest =
-              json::parse(updateJson);
+          protocol::TaskUpdateRequest taskUpdateRequest;
           velox::core::PlanFragment planFragment;
           parseFunc(taskId, updateJson, taskUpdateRequest, planFragment);
           const auto& session = taskUpdateRequest.session;
@@ -301,30 +300,21 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
           const std::string& updateJson,
           protocol::TaskUpdateRequest& taskUpdateRequest,
           velox::core::PlanFragment& planFragment) {
+        protocol::BatchTaskUpdateRequest batchTaskUpdateRequest =
+            json::parse(updateJson);
+        taskUpdateRequest = batchTaskUpdateRequest.taskUpdateRequest;
         if (taskUpdateRequest.fragment == nullptr) {
           return;
         }
-        protocol::BatchTaskUpdateRequest batchTaskUpdateRequest =
-            json::parse(updateJson);
         std::shared_ptr<protocol::String> serializedShuffleWriteInfo =
             batchTaskUpdateRequest.shuffleWriteInfo;
-        std::shared_ptr<operators::ShuffleInterface> shuffleInterface;
+        auto shuffleName = SystemConfig::instance()->shuffleName();
         if (serializedShuffleWriteInfo) {
-          auto shuffleName = SystemConfig::instance()->shuffleName();
           VELOX_USER_CHECK(
               !shuffleName.empty(),
               "Shuffle name not provided from 'shuffle.name' property in "
               "config.properties");
-          auto& shuffleFactory =
-              operators::ShuffleInterface::factory(shuffleName);
-          // For shuffle write we will leave memory pool assignment to
-          // operator, passing nullptr here.
-          shuffleInterface = shuffleFactory(
-              *serializedShuffleWriteInfo,
-              operators::ShuffleInterface::Type::kWrite,
-              nullptr);
         }
-        taskUpdateRequest = batchTaskUpdateRequest.taskUpdateRequest;
         auto fragment =
             velox::encoding::Base64::decode(*taskUpdateRequest.fragment);
         protocol::PlanFragment prestoPlan = json::parse(fragment);
@@ -333,7 +323,8 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             prestoPlan,
             taskUpdateRequest.tableWriteInfo,
             taskId,
-            shuffleInterface);
+            shuffleName,
+            std::move(serializedShuffleWriteInfo));
       });
 }
 
@@ -344,10 +335,11 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
   return createOrUpdateTaskImpl(
       message,
       pathMatch,
-      [this](const protocol::TaskId& taskId,
-         const std::string& updateJson,
-         protocol::TaskUpdateRequest& taskUpdateRequest,
-         velox::core::PlanFragment& planFragment) {
+      [this](
+          const protocol::TaskId& taskId,
+          const std::string& updateJson,
+          protocol::TaskUpdateRequest& taskUpdateRequest,
+          velox::core::PlanFragment& planFragment) {
         taskUpdateRequest = json::parse(updateJson);
         if (taskUpdateRequest.fragment != nullptr) {
           auto fragment =

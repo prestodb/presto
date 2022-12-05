@@ -35,12 +35,16 @@ inline std::string createShuffleFileName(
 const static std::string kReadyForReadFilename = "readyForRead";
 }; // namespace
 
-void LocalPersistentShuffle::reset(
-    velox::memory::MemoryPool* pool,
+LocalPersistentShuffle::LocalPersistentShuffle(
+    const std::string& rootPath,
     uint32_t numPartitions,
-    std::string rootPath) {
-  pool_ = pool;
-  numPartitions_ = numPartitions;
+    uint64_t maxBytesPerPartition,
+    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    : maxBytesPerPartition_(maxBytesPerPartition),
+      threadId_(std::this_thread::get_id()),
+      pool_(pool),
+      numPartitions_(numPartitions),
+      rootPath_(std::move(rootPath)) {
   // Use resize/assign instead of resize(size, val).
   inProgressPartitions_.resize(numPartitions_);
   inProgressPartitions_.assign(numPartitions_, nullptr);
@@ -50,10 +54,6 @@ void LocalPersistentShuffle::reset(
   readPartitionsFileIndex_.assign(numPartitions_, 0);
   readPartitionFiles_.resize(numPartitions_);
   readPartitionFiles_.assign(numPartitions_, {});
-  if (rootPath_ != "") {
-    cleanup();
-  }
-  rootPath_ = std::move(rootPath);
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
@@ -112,9 +112,7 @@ void LocalPersistentShuffle::storePartitionBlock(int32_t partition) {
   inProgressSizes_[partition] = 0;
 }
 
-void LocalPersistentShuffle::collect(
-    int32_t partition,
-    std::string_view data) {
+void LocalPersistentShuffle::collect(int32_t partition, std::string_view data) {
   auto& buffer = inProgressPartitions_[partition];
 
   // Check if there is enough space in the buffer.
@@ -204,13 +202,12 @@ void LocalPersistentShuffle::cleanup() {
 using json = nlohmann::json;
 
 // static
-LocalShuffleInfo LocalShuffleInfo::deserialize(
-    const std::string& info) {
+LocalShuffleInfo LocalShuffleInfo::deserialize(const std::string& info) {
   const auto jsonReadInfo = json::parse(info);
-  LocalShuffleInfo readInfo;
-  jsonReadInfo.at("rootPath").get_to(readInfo.rootPath);
-  jsonReadInfo.at("numPartitions").get_to(readInfo.numPartitions);
-  return readInfo;
+  LocalShuffleInfo shuffleInfo;
+  jsonReadInfo.at("rootPath").get_to(shuffleInfo.rootPath);
+  jsonReadInfo.at("numPartitions").get_to(shuffleInfo.numPartitions);
+  return shuffleInfo;
 }
 
 // static
@@ -222,23 +219,21 @@ std::shared_ptr<ShuffleInterface> LocalPersistentShuffle::create(
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
   if (type == operators::ShuffleInterface::Type::kRead) {
     const operators::LocalShuffleInfo readInfo =
-        operators::LocalShuffleInfo::deserialize(
-            serializedStr);
+        operators::LocalShuffleInfo::deserialize(serializedStr);
     return std::make_shared<operators::LocalPersistentShuffle>(
-        readInfo.rootPath, pool, readInfo.numPartitions, maxBytesPerPartition);
+        readInfo.rootPath, readInfo.numPartitions, maxBytesPerPartition, pool);
   } else if (type == operators::ShuffleInterface::Type::kWrite) {
     const operators::LocalShuffleInfo writeInfo =
-        operators::LocalShuffleInfo::deserialize(
-            serializedStr);
+        operators::LocalShuffleInfo::deserialize(serializedStr);
     return std::make_shared<operators::LocalPersistentShuffle>(
         writeInfo.rootPath,
-        pool,
         writeInfo.numPartitions,
-        maxBytesPerPartition);
+        maxBytesPerPartition,
+        pool);
   } else {
-    VELOX_FAIL(fmt::format(
+    VELOX_FAIL(
         "Unknown shuffle interface type '{}'.",
-        static_cast<ShuffleInterface::Type>(type)));
+        static_cast<ShuffleInterface::Type>(type));
   }
 }
 

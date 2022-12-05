@@ -41,8 +41,7 @@ std::shared_ptr<folly::IOThreadPoolExecutor> spillExecutor() {
     return nullptr;
   }
   static auto executor = std::make_shared<folly::IOThreadPoolExecutor>(
-      numSpillThreads,
-      std::make_shared<folly::NamedThreadFactory>("Spiller"));
+      numSpillThreads, std::make_shared<folly::NamedThreadFactory>("Spiller"));
   return executor;
 }
 } // namespace
