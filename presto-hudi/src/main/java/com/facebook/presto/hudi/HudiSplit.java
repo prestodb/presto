@@ -41,7 +41,6 @@ public class HudiSplit
     private final List<HostAddress> addresses;
     private final NodeSelectionStrategy nodeSelectionStrategy;
     private final SplitWeight splitWeight;
-    private final SchemaEvolutionContext schemaEvolutionContext;
 
     @JsonCreator
     public HudiSplit(
@@ -52,8 +51,7 @@ public class HudiSplit
             @JsonProperty("logFiles") List<HudiFile> logFiles,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("nodeSelectionStrategy") NodeSelectionStrategy nodeSelectionStrategy,
-            @JsonProperty("splitWeight") SplitWeight splitWeight,
-            @JsonProperty("schemaEvolutionContext") SchemaEvolutionContext schemaEvolutionContext)
+            @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
         this.table = requireNonNull(table, "table is null");
         this.instantTime = requireNonNull(instantTime, "instantTime is null");
@@ -63,7 +61,6 @@ public class HudiSplit
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.nodeSelectionStrategy = requireNonNull(nodeSelectionStrategy, "nodeSelectionStrategy is null");
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
-        this.schemaEvolutionContext = requireNonNull(schemaEvolutionContext, "schemaEvolutionContext is null");
     }
 
     @JsonProperty
@@ -100,12 +97,6 @@ public class HudiSplit
     public List<HostAddress> getAddresses()
     {
         return addresses;
-    }
-
-    @JsonProperty
-    public SchemaEvolutionContext getSchemaEvolutionContext()
-    {
-        return schemaEvolutionContext;
     }
 
     @JsonProperty

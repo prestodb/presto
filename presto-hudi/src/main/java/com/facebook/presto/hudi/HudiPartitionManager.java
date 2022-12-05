@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.MetastoreUtil;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -56,6 +57,7 @@ import static com.facebook.presto.hudi.HudiErrorCode.HUDI_INVALID_PARTITION_VALU
 import static com.facebook.presto.hudi.HudiMetadata.fromPartitionColumns;
 import static com.facebook.presto.hudi.HudiMetadata.toMetastoreContext;
 import static com.facebook.presto.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Double.parseDouble;
@@ -181,6 +183,24 @@ public class HudiPartitionManager
             result.put(partitionPath, partitionMapping);
         }
         return result;
+    }
+
+    public static List<String> extractPartitionValues(String partitionName, Optional<List<String>> partitionColumnNames)
+    {
+        boolean hiveStylePartition = HIVE_PARTITION_NAME_PATTERN.matcher(partitionName).matches();
+        if (!hiveStylePartition) {
+            if (!partitionColumnNames.isPresent() || partitionColumnNames.get().size() == 1) {
+                return ImmutableList.of(partitionName);
+            }
+            else {
+                String[] partitionValues = partitionName.split(Path.SEPARATOR);
+                checkArgument(partitionValues.length == partitionColumnNames.get().size(),
+                        "Invalid partition spec: {partitionName: %s, partitionColumnNames: %s}", partitionName, partitionColumnNames.get());
+                return Arrays.asList(partitionValues);
+            }
+        }
+
+        return MetastoreUtil.extractPartitionValues(partitionName, partitionColumnNames);
     }
 
     private List<String> prunePartitions(

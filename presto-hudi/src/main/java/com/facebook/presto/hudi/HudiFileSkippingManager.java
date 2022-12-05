@@ -37,7 +37,6 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.FileSystemViewStorageConfig;
 import org.apache.hudi.common.table.view.SyncableFileSystemView;
-import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
@@ -60,31 +59,18 @@ import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static java.lang.Float.floatToRawIntBits;
+import static java.util.Objects.requireNonNull;
 
-/**
- * MetaDataTable based filesManager.
- * list Hudi Table contents based on the
- *
- * <ul>
- *   <li>Table type (MOR, COW)</li>
- *   <li>Query type (snapshot, read_optimized, incremental)</li>
- *   <li>Query instant/range</li>
- * </ul>
- *
- * Support dataSkipping.
- */
 public class HudiFileSkippingManager
 {
     private static final Logger log = Logger.get(HudiFileSkippingManager.class);
 
     private final HoodieTableQueryType queryType;
-    private final Option<String> specifiedQueryInstant;
+    private final Optional<String> specifiedQueryInstant;
     private final HoodieTableMetaClient metaClient;
     private final HoodieTableMetadata metadataTable;
 
-    protected transient volatile Map<String, List<FileSlice>> allInputFileSlices;
-
-    private transient volatile SyncableFileSystemView fileSystemView;
+    protected final Map<String, List<FileSlice>> allInputFileSlices;
 
     public HudiFileSkippingManager(
             List<String> partitions,
@@ -92,39 +78,50 @@ public class HudiFileSkippingManager
             HoodieEngineContext engineContext,
             HoodieTableMetaClient metaClient,
             HoodieTableQueryType queryType,
-            Option<String> specifiedQueryInstant)
+            Optional<String> specifiedQueryInstant)
     {
-        this.queryType = queryType;
-        this.specifiedQueryInstant = specifiedQueryInstant;
-        this.metaClient = metaClient;
+        requireNonNull(partitions, "partitions is null");
+        requireNonNull(spillableDir, "spillableDir is null");
+        requireNonNull(engineContext, "engineContext is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
+        this.specifiedQueryInstant = requireNonNull(specifiedQueryInstant, "specifiedQueryInstant is null");
+        this.metaClient = requireNonNull(metaClient, "metaClient is null");
+
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
         this.metadataTable = HoodieTableMetadata
                 .create(engineContext, metadataConfig, metaClient.getBasePathV2().toString(), spillableDir, true);
-        prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
+        this.allInputFileSlices = prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
     }
 
-    private void prepareAllInputFileSlices(List<String> partitions, HoodieEngineContext engineContext, HoodieMetadataConfig metadataConfig, String spillableDir)
+    private Map<String, List<FileSlice>> prepareAllInputFileSlices(List<String> partitions, HoodieEngineContext engineContext, HoodieMetadataConfig metadataConfig, String spillableDir)
     {
         long startTime = System.currentTimeMillis();
         HoodieTimeline activeTimeline = metaClient.reloadActiveTimeline();
-        Option<HoodieInstant> latestInstant = activeTimeline.lastInstant();
+        Optional<HoodieInstant> latestInstant = activeTimeline.lastInstant().toJavaOptional();
         // build system view.
-        fileSystemView = FileSystemViewManager
+        SyncableFileSystemView fileSystemView = FileSystemViewManager
                 .createViewManager(engineContext, metadataConfig,
                         FileSystemViewStorageConfig.newBuilder().withBaseStoreDir(spillableDir).build(),
                         HoodieCommonConfig.newBuilder().build(),
                         () -> metadataTable)
                 .getFileSystemView(metaClient);
-        Option<String> queryInstant = specifiedQueryInstant.or(() -> latestInstant.map(HoodieInstant::getTimestamp));
+        Optional<String> queryInstant = specifiedQueryInstant.isPresent() ? specifiedQueryInstant : latestInstant.map(HoodieInstant::getTimestamp);
 
-        allInputFileSlices = engineContext.mapToPair(partitions, partitionPath -> Pair.of(partitionPath, queryInstant.map(instant ->
-                fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get()))
-                .orElse(fileSystemView.getLatestFileSlices(partitionPath))
-                .collect(Collectors.toList())), partitions.size());
+        Map<String, List<FileSlice>> allInputFileSlices = engineContext
+                .mapToPair(partitions, partitionPath -> Pair.of(partitionPath, getLatestFileSlices(partitionPath, fileSystemView, queryInstant)), partitions.size());
 
         long duration = System.currentTimeMillis() - startTime;
 
-        log.info(String.format("prepare query files for table %s, spent: %d ms", metaClient.getTableConfig().getTableName(), duration));
+        log.info("prepare query files for table %s, spent: %d ms", metaClient.getTableConfig().getTableName(), duration);
+        return allInputFileSlices;
+    }
+
+    private List<FileSlice> getLatestFileSlices(String partitionPath, SyncableFileSystemView fileSystemView, Optional<String> queryInstant)
+    {
+        return queryInstant.map(instant ->
+            fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get()))
+            .orElse(fileSystemView.getLatestFileSlices(partitionPath))
+            .collect(Collectors.toList());
     }
 
     public Map<String, List<FileSlice>> listQueryFiles(TupleDomain<ColumnHandle> tupleDomain)
@@ -138,14 +135,14 @@ public class HudiFileSkippingManager
         }
         catch (Exception e) {
             // Should not throw exception, just log this Exception.
-            log.warn(String.format("failed to do data skipping for table: %s, fallback to all files scan", metaClient.getBasePathV2().toString()), e);
+            log.warn(e, "failed to do data skipping for table: %s, fallback to all files scan", metaClient.getBasePathV2());
             candidateFileSlices = allInputFileSlices;
         }
         if (log.isDebugEnabled()) {
-            int candidateFileSize = candidateFileSlices.values().stream().map(List::size).reduce(0, Integer::sum);
-            int totalFiles = allInputFileSlices.values().stream().map(List::size).reduce(0, Integer::sum);
+            int candidateFileSize = candidateFileSlices.values().stream().mapToInt(List::size).sum();
+            int totalFiles = allInputFileSlices.values().stream().mapToInt(List::size).sum();
             double skippingPercent = totalFiles == 0 ? 0.0d : (totalFiles - candidateFileSize) / (totalFiles + 0.0d);
-            log.debug(String.format("Total files: %s; candidate files after data skipping: %s; skipping percent %s", totalFiles, candidateFileSize, skippingPercent));
+            log.debug("Total files: %s; candidate files after data skipping: %s; skipping percent %s", totalFiles, candidateFileSize, skippingPercent);
         }
         return candidateFileSlices;
     }
@@ -291,7 +288,7 @@ public class HudiFileSkippingManager
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
         catch (Exception e) {
-            log.warn(String.format("failed to create Domain for column: %s which type is: %s", colName, type.toString()));
+            log.warn("failed to create Domain for column: %s which type is: %s", colName, type.toString());
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
     }

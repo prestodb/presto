@@ -17,7 +17,6 @@ package com.facebook.presto.hudi;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
-import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.Partition;
@@ -48,7 +47,6 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
-import org.apache.hudi.common.util.Option;
 
 import javax.inject.Inject;
 
@@ -127,8 +125,6 @@ public class HudiSplitManager
             // no completed instant for current table
             return new FixedSplitSource(ImmutableList.of());
         }
-        // prepare schema evolution
-        SchemaEvolutionContext schemaEvolutionContext = HudiSchemaEvolutionUtils.createSchemaEvolutionContext(Optional.of(metaClient));
         // prepare splits
         HoodieLocalEngineContext engineContext = new HoodieLocalEngineContext(conf);
         // if metadata table enabled, support dataskipping
@@ -142,13 +138,13 @@ public class HudiSplitManager
                     engineContext,
                     metaClient,
                     getQueryType(hiveTableOpt.get().getStorage().getStorageFormat().getInputFormat()),
-                    Option.empty());
+                    Optional.empty());
             ImmutableList.Builder<HudiSplit> splitsBuilder = ImmutableList.builder();
             Map<String, HudiPartition> hudiPartitionMap = getHudiPartitions(hiveTableOpt.get(), layout, partitions);
             hudiFileSkippingManager.listQueryFiles(layout.getTupleDomain())
                     .entrySet()
                     .stream()
-                    .flatMap(entry -> entry.getValue().stream().map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartitionMap.get(entry.getKey()), splitWeightProvider, schemaEvolutionContext)))
+                    .flatMap(entry -> entry.getValue().stream().map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartitionMap.get(entry.getKey()), splitWeightProvider)))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .forEach(splitsBuilder::add);
@@ -167,7 +163,7 @@ public class HudiSplitManager
             Path partitionPath = new Path(hudiPartition.getStorage().getLocation());
             String relativePartitionPath = FSUtils.getRelativePartitionPath(tablePath, partitionPath);
             fsView.getLatestFileSlicesBeforeOrOn(relativePartitionPath, timestamp, false)
-                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition, splitWeightProvider, schemaEvolutionContext))
+                    .map(fileSlice -> createHudiSplit(table, fileSlice, timestamp, hudiPartition, splitWeightProvider))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .forEach(builder::add);
@@ -196,8 +192,7 @@ public class HudiSplitManager
             FileSlice slice,
             String timestamp,
             HudiPartition partition,
-            HudiSplitWeightProvider splitWeightProvider,
-            SchemaEvolutionContext schemaEvolutionContext)
+            HudiSplitWeightProvider splitWeightProvider)
     {
         HudiFile hudiFile = slice.getBaseFile().map(f -> new HudiFile(f.getPath(), 0, f.getFileLen())).orElse(null);
         if (null == hudiFile && table.getTableType() == HudiTableType.COW) {
@@ -217,23 +212,22 @@ public class HudiSplitManager
                 logFiles,
                 ImmutableList.of(),
                 NodeSelectionStrategy.NO_PREFERENCE,
-                splitWeightProvider.calculateSplitWeight(sizeInBytes),
-                schemaEvolutionContext));
+                splitWeightProvider.calculateSplitWeight(sizeInBytes)));
     }
 
     private Map<String, HudiPartition> getHudiPartitions(Table table, HudiTableLayoutHandle tableLayout, List<String> partitions)
     {
-        List<Column> partitionColumns = table.getPartitionColumns();
+        List<String> partitionColumnNames = table.getPartitionColumns().stream().map(f -> f.getName()).collect(Collectors.toList());
 
         Map<String, Map<String, String>> partitionMap = HudiPartitionManager
-                .getPartitions(partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()), partitions);
+                .getPartitions(partitionColumnNames, partitions);
         if (partitions.size() == 1 && partitions.get(0).isEmpty()) {
             // non-partitioned
             return ImmutableMap.of(partitions.get(0), new HudiPartition(partitions.get(0), ImmutableList.of(), ImmutableMap.of(), table.getStorage(), tableLayout.getDataColumns()));
         }
         ImmutableMap.Builder<String, HudiPartition> builder = ImmutableMap.builder();
         partitionMap.entrySet().stream().map(entry -> {
-            List<String> partitionValues = extractPartitionValues(entry.getKey());
+            List<String> partitionValues = HudiPartitionManager.extractPartitionValues(entry.getKey(), Optional.of(partitionColumnNames));
             return new HudiPartition(entry.getKey(), partitionValues, entry.getValue(), table.getStorage(), fromDataColumns(table.getDataColumns()));
         }).forEach(p -> builder.put(p.getName(), p));
         return builder.build();

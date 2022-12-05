@@ -19,7 +19,6 @@ import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
-import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPageSource;
@@ -32,16 +31,13 @@ import com.facebook.presto.spi.RecordPageSource;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
-import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hudi.common.util.collection.Pair;
 
 import javax.inject.Inject;
 
 import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -87,7 +83,6 @@ public class HudiPageSourceProvider
         List<HudiColumnHandle> dataColumns = hudiColumnHandles.stream().filter(HudiColumnHandle::isRegularColumn).collect(toList());
 
         final ConnectorPageSource dataColumnPageSource;
-        Map<String, HiveType> columnCoercions = ImmutableMap.of();
         if (tableType == HudiTableType.COW) {
             HudiFile baseFile = hudiSplit.getBaseFile().orElseThrow(() ->
                     new PrestoException(HUDI_CANNOT_OPEN_SPLIT, "Split without base file is invalid"));
@@ -99,10 +94,6 @@ public class HudiPageSourceProvider
                             baseFile.getPath(),
                             false),
                     path);
-            // embed schema evolution.
-            Pair<List<HudiColumnHandle>, Map<String, HiveType>> pair = HudiSchemaEvolutionUtils.doEvolution(hudiSplit, dataColumns, layout.getTable().getPath(), configuration);
-            dataColumns = pair.getLeft();
-            columnCoercions = pair.getRight();
             dataColumnPageSource = createParquetPageSource(
                     typeManager,
                     hdfsEnvironment,
@@ -147,8 +138,7 @@ public class HudiPageSourceProvider
                 hudiSplit.getPartition().getKeyValues(),
                 dataColumnPageSource,
                 session.getSqlFunctionProperties().getTimeZoneKey(),
-                typeManager,
-                columnCoercions);
+                typeManager);
     }
 
     private static List<Column> toMetastoreColumns(List<HudiColumnHandle> hudiColumnHandles)

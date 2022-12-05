@@ -133,82 +133,6 @@ public abstract class AbstractHudiDistributedQueryTestBase
             column("col6", HIVE_BOOLEAN),
             column("col7", HIVE_BINARY));
 
-    // simulate drop column + rename column + add column.
-    //     spark.sql(
-    //             """create table data_column_rename_drop_add
-    //     |(id int, comb int, col0 int, col1 bigint, col2 float, col3 double,
-    //     | col4 string, col5 date, col6 boolean, col7 binary, year int, month int, day int)
-    //     | using hudi
-    //     | partitioned by (year,month,day)
-    //     | options(
-    //     | type='cow', primaryKey='id', preCombineField='comb',
-    //     | 'hoodie.metadata.enable'='true')""".stripMargin)
-    //
-    //     spark.sql(
-    // s"""
-    //      | insert into data_column_rename_drop_add values
-    //      | (1,1,99,1111111,101.01,1001.0001,'x000001','2021-12-25',true,'a01',2022, 11, 12),
-    //      | (2,2,99,1111111,102.02,1002.0002,'x000002','2021-12-25',true,'a02',2022, 10, 30),
-    //      | (3,3,99,1111111,103.03,1003.0003,'x000003','2021-12-25',false,'a03',2021, 10, 11),
-    //      | (4,4,99,1111111,104.04,1004.0004,'x000004','2021-12-26',true,'a04',2021, 11, 12)
-    //      |""".stripMargin)
-    //
-    //     spark.sql("set hoodie.schema.evolution.enable=true")
-    //
-    //     spark.sql("alter table data_column_rename_drop_add drop column col1")
-    //
-    //     spark.sql("alter table data_column_rename_drop_add rename column col3 to col3_rename")
-    //
-    //     spark.sql("alter table data_column_rename_drop_add add columns(col4_new string comment 'add ext1' after col4)")
-    public static final List<Column> DATA_COLUMNS1 = ImmutableList.of(
-            column("id", HIVE_INT),
-            column("comb", HIVE_INT),
-            column("col0", HIVE_INT),  // drop col1
-            column("col2", HIVE_FLOAT),
-            column("col3_rename", HIVE_DOUBLE), // rename col3 to col3_rename
-            column("col4", HIVE_STRING),
-            column("col4_new", HIVE_STRING), // new add column
-            column("col5", HIVE_DATE),
-            column("col6", HIVE_BOOLEAN),
-            column("col7", HIVE_BINARY));
-
-    // simulate change column type.
-    //     spark.sql(
-    //             """create table data_column_type_change
-    //     |(id int, comb int, col0 int, col1 bigint, col2 float, col3 double,
-    //     | col4 string, col5 date, col6 boolean, col7 binary, year int, month int, day int)
-    //     | using hudi
-    //     | partitioned by (year,month,day)
-    //     | options(
-    //     | type='cow', primaryKey='id', preCombineField='comb',
-    //     | 'hoodie.metadata.enable'='true')""".stripMargin)
-    //
-    //     spark.sql(
-    // s"""
-    //      | insert into data_column_type_change values
-    //      | (1,1,99,1111111,101.01,1001.0001,'1','2021-12-25',true,'a01',2022, 11, 12),
-    //      | (2,2,99,1111111,102.02,1002.0002,'2','2021-12-25',true,'a02',2022, 10, 30),
-    //      | (3,3,99,1111111,103.03,1003.0003,'3','2021-12-25',false,'a03',2021, 10, 11),
-    //      | (4,4,99,1111111,104.04,1004.0004,'4','2021-12-26',true,'a04',2021, 11, 12)
-    //      |""".stripMargin)
-    //
-    //     spark.sql("set hoodie.schema.evolution.enable=true")
-    //
-    //     spark.sql("alter table data_column_type_change alter column col0 type long")
-    //     spark.sql("alter table data_column_type_change alter column col2 type double")
-    //     spark.sql("alter table data_column_type_change alter column col1 type string")
-    public static final List<Column> DATA_COLUMNS2 = ImmutableList.of(
-            column("id", HIVE_INT),
-            column("comb", HIVE_INT),
-            column("col0", HIVE_LONG), // int  -> long
-            column("col1", HIVE_STRING),  // long -> string
-            column("col2", HIVE_DOUBLE), // float -> double
-            column("col3", HIVE_DOUBLE),
-            column("col4", HIVE_STRING),
-            column("col5", HIVE_DATE),
-            column("col6", HIVE_BOOLEAN),
-            column("col7", HIVE_BINARY));
-
     public static final List<Column> PARTITION_COLUMNS = ImmutableList.of(column("year", HIVE_INT), column("month", HIVE_INT), column("day", HIVE_INT));
     public static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
             column("_hoodie_commit_time", HiveType.HIVE_STRING),
@@ -222,8 +146,7 @@ public abstract class AbstractHudiDistributedQueryTestBase
      * used to test dataskipping/partition prune.
      */
     protected static final String HUDI_SKIPPING_TABLE = "data_partition_prune";
-    protected static final String HUDI_COLUMN_CHANGE_TABLE = "data_column_rename_drop_add";
-    protected static final String HUDI_COLUMN_TYPE_CHANGE_TABLE = "data_column_type_change";
+    protected static final String HUDI_SKIPPING_TABLE_NON_HIVE_STYLE = "data_partition_prune_non_hive_style_partition";
     protected static ConnectorSession connectorSession;
 
     @Override
@@ -240,8 +163,7 @@ public abstract class AbstractHudiDistributedQueryTestBase
         if (queryRunner != null) {
             // Remove the test hudi tables from HMS
             metastore.dropTable(METASTORE_CONTEXT, HUDI_SCHEMA, HUDI_SKIPPING_TABLE, false);
-            metastore.dropTable(METASTORE_CONTEXT, HUDI_SCHEMA, HUDI_COLUMN_CHANGE_TABLE, false);
-            metastore.dropTable(METASTORE_CONTEXT, HUDI_SCHEMA, HUDI_COLUMN_TYPE_CHANGE_TABLE, false);
+            metastore.dropTable(METASTORE_CONTEXT, HUDI_SCHEMA, HUDI_SKIPPING_TABLE_NON_HIVE_STYLE, false);
         }
     }
 
@@ -290,11 +212,8 @@ public abstract class AbstractHudiDistributedQueryTestBase
         // Create the test hudi tables for dataSkipping/partition prune in HMS
         registerHudiTableInHMS(HoodieTableType.COPY_ON_WRITE, HUDI_SKIPPING_TABLE, testingDataDir, Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS.stream()).collect(Collectors.toList()));
 
-        // Create the test hudi table for column rename/drop/add in HMS
-        registerHudiTableInHMS(HoodieTableType.COPY_ON_WRITE, HUDI_COLUMN_CHANGE_TABLE, testingDataDir, Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS1.stream()).collect(Collectors.toList()));
-
-        // create the test hudi table for column type change in HMS
-        registerHudiTableInHMS(HoodieTableType.COPY_ON_WRITE, HUDI_COLUMN_TYPE_CHANGE_TABLE, testingDataDir, Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS2.stream()).collect(Collectors.toList()));
+        // Create the test hudi tables with non_hive_style_partitions for dataSkipping/partition prune in HMS
+        registerHudiTableInHMS(HoodieTableType.COPY_ON_WRITE, HUDI_SKIPPING_TABLE_NON_HIVE_STYLE, testingDataDir, Streams.concat(HUDI_META_COLUMNS.stream(), DATA_COLUMNS.stream()).collect(Collectors.toList()));
 
         // Install a hudi connector catalog
         queryRunner.installPlugin(new HudiPlugin("hudi", Optional.of(metastore)));
