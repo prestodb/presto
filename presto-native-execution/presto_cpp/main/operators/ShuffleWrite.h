@@ -23,10 +23,12 @@ class ShuffleWriteNode : public velox::core::PlanNode {
  public:
   ShuffleWriteNode(
       const velox::core::PlanNodeId& id,
-      const std::shared_ptr<ShuffleInterface>& shuffle,
+      const std::string& shuffleName,
+      const std::string& serializedShuffleWriteInfo,
       velox::core::PlanNodePtr source)
       : velox::core::PlanNode(id),
-        shuffle_{shuffle},
+        shuffleName_{shuffleName},
+        serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
         sources_{std::move(source)} {}
 
   const velox::RowTypePtr& outputType() const override {
@@ -37,8 +39,12 @@ class ShuffleWriteNode : public velox::core::PlanNode {
     return sources_;
   }
 
-  const std::shared_ptr<ShuffleInterface>& shuffle() const {
-    return shuffle_;
+  const std::string& shuffleName() const {
+    return shuffleName_;
+  }
+
+  const std::string& serializedShuffleWriteInfo() const {
+    return serializedShuffleWriteInfo_;
   }
 
   std::string_view name() const override {
@@ -48,7 +54,8 @@ class ShuffleWriteNode : public velox::core::PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override {}
 
-  const std::shared_ptr<ShuffleInterface> shuffle_;
+  const std::string shuffleName_;
+  const std::string serializedShuffleWriteInfo_;
   const std::vector<velox::core::PlanNodePtr> sources_;
 };
 

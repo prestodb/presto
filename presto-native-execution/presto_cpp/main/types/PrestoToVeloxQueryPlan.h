@@ -14,12 +14,12 @@
 
 #include <stdexcept>
 #include <vector>
+#include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/presto_protocol/presto_protocol.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/PlanNode.h"
 #include "velox/type/Variant.h"
-#include "presto_cpp/main/operators/ShuffleInterface.h"
 
 #include "presto_cpp/main/types/PrestoTaskId.h"
 // TypeSignatureTypeConverter.h must be included after presto_protocol.h
@@ -44,7 +44,8 @@ class VeloxQueryPlanConverter {
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId,
-      const std::shared_ptr<operators::ShuffleInterface>& writerShuffle);
+      const std::string& shuffleName,
+      std::shared_ptr<std::string>&& serializedShuffleWriteInfo);
 
   // visible for testing
   velox::core::PlanNodePtr toVeloxQueryPlan(

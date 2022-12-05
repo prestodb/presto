@@ -38,7 +38,8 @@ add_test(
   COMMAND presto_expressions_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_dependencies(presto_expressions_test presto_protocol presto_types)
+add_dependencies(presto_expressions_test presto_operators presto_protocol
+                 presto_types)
 
 # There is not really a better way at this point.  Several posts have complained
 # about the parser generator not producing a file that finds the includes on the
@@ -51,6 +52,7 @@ target_link_libraries(
   presto_expressions_test
   gtest
   gtest_main
+  $<TARGET_OBJECTS:duckdb>
   $<TARGET_OBJECTS:presto_protocol>
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
