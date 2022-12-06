@@ -387,7 +387,7 @@ TEST_F(HdfsFileSystemTest, writeDataFailures) {
   writeFile->close();
   VELOX_ASSERT_THROW(
       writeFile->append("abcde"),
-      "Cannot append to HDFS file because file is not opened for write: /a.txt");
+      "Cannot append to HDFS file because file handle is null, file path: /a.txt");
 }
 
 TEST_F(HdfsFileSystemTest, writeFlushFailures) {
@@ -395,7 +395,7 @@ TEST_F(HdfsFileSystemTest, writeFlushFailures) {
   writeFile->close();
   VELOX_ASSERT_THROW(
       writeFile->flush(),
-      "Cannot flush HDFS file because file is not opened for write: /a.txt");
+      "Cannot flush HDFS file because file handle is null, file path: /a.txt");
 }
 
 TEST_F(HdfsFileSystemTest, readFailures) {
