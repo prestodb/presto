@@ -144,7 +144,7 @@ class CastExpr : public SpecialForm {
   /// @param result The result vector
   void apply(
       const SelectivityVector& rows,
-      VectorPtr& input,
+      const VectorPtr& input,
       exec::EvalCtx& context,
       const TypePtr& fromType,
       const TypePtr& toType,
@@ -169,7 +169,7 @@ class CastExpr : public SpecialForm {
       const RowVector* input,
       exec::EvalCtx& context,
       const RowType& fromType,
-      const RowType& toType);
+      const TypePtr& toType);
 
   /// Apply the cast between decimal vectors.
   /// @param rows Non-null rows of the input vector.

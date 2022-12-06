@@ -434,9 +434,10 @@ VectorPtr CastExpr::applyRow(
     const RowVector* input,
     exec::EvalCtx& context,
     const RowType& fromType,
-    const RowType& toType) {
+    const TypePtr& toType) {
+  const RowType& toRowType = toType->asRow();
   int numInputChildren = input->children().size();
-  int numOutputChildren = toType.size();
+  int numOutputChildren = toRowType.size();
 
   // Extract the flag indicating matching of children must be done by name or
   // position
@@ -450,7 +451,7 @@ VectorPtr CastExpr::applyRow(
   for (auto toChildrenIndex = 0; toChildrenIndex < numOutputChildren;
        toChildrenIndex++) {
     // For each child, find the corresponding column index in the output
-    auto toFieldName = toType.nameOf(toChildrenIndex);
+    const auto& toFieldName = toRowType.nameOf(toChildrenIndex);
     bool matchNotFound = false;
 
     // If match is by field name and the input field name is not found
@@ -461,7 +462,7 @@ VectorPtr CastExpr::applyRow(
         matchNotFound = true;
       } else {
         fromChildrenIndex = fromType.getChildIdx(toFieldName);
-        toChildrenIndex = toType.getChildIdx(toFieldName);
+        toChildrenIndex = toRowType.getChildIdx(toFieldName);
       }
     } else {
       fromChildrenIndex = toChildrenIndex;
@@ -472,7 +473,7 @@ VectorPtr CastExpr::applyRow(
 
     // Updating output types and names
     VectorPtr outputChild;
-    auto toChildType = toType.childAt(toChildrenIndex);
+    const auto& toChildType = toRowType.childAt(toChildrenIndex);
 
     if (matchNotFound) {
       if (nullOnFailure_) {
@@ -484,7 +485,7 @@ VectorPtr CastExpr::applyRow(
       context.ensureWritable(rows, toChildType, outputChild);
       outputChild->addNulls(nullptr, rows);
     } else {
-      auto inputChild = input->children()[fromChildrenIndex];
+      const auto& inputChild = input->children()[fromChildrenIndex];
       if (toChildType == inputChild->type()) {
         outputChild = inputChild;
       } else {
@@ -498,16 +499,13 @@ VectorPtr CastExpr::applyRow(
             outputChild);
       }
     }
-    newChildren.emplace_back(outputChild);
+    newChildren.emplace_back(std::move(outputChild));
   }
 
   // Assemble the output row
-  auto toNames = toType.names();
-  auto toTypes = toType.children();
-  auto finalRowType = ROW(std::move(toNames), std::move(toTypes));
   return std::make_shared<RowVector>(
       context.pool(),
-      finalRowType,
+      toType,
       input->nulls(),
       rows.size(),
       std::move(newChildren));
@@ -607,7 +605,7 @@ void CastExpr::applyPeeled(
             input.asUnchecked<RowVector>(),
             context,
             fromType->asRow(),
-            toType->asRow());
+            toType);
         break;
       case TypeKind::SHORT_DECIMAL:
       case TypeKind::LONG_DECIMAL:
@@ -631,7 +629,7 @@ void CastExpr::applyPeeled(
 
 void CastExpr::apply(
     const SelectivityVector& rows,
-    VectorPtr& input,
+    const VectorPtr& input,
     exec::EvalCtx& context,
     const TypePtr& fromType,
     const TypePtr& toType,
