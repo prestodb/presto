@@ -11,24 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.analyzer.crux;
 
+import com.facebook.presto.sql.analyzer.AnalyzerType;
+import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
 
-import static com.facebook.presto.sql.analyzer.AnalyzerType.BUILTIN;
+import static com.facebook.presto.sql.analyzer.AnalyzerType.CRUX;
 import static com.google.inject.Scopes.SINGLETON;
 
-public class AnalyzerModule
+public class CruxAnalyzerModule
         implements Module
 {
     @Override
     public void configure(Binder binder)
     {
         MapBinder<AnalyzerType, QueryPreparer> queryPreparersByType = MapBinder.newMapBinder(binder, AnalyzerType.class, QueryPreparer.class);
-        queryPreparersByType.addBinding(BUILTIN).to(BuiltInQueryPreparer.class).in(SINGLETON);
-
-        binder.bind(AnalyzerProvider.class).in(SINGLETON);
+        queryPreparersByType.addBinding(CRUX).to(CruxQueryPreparer.class).in(SINGLETON);
     }
 }

@@ -11,22 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.analyzer.crux;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.sql.analyzer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.QueryPreparer;
+import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 
 import java.util.Map;
 import java.util.Optional;
 
-public class NativeQueryPreparer
+public class CruxQueryPreparer
         implements QueryPreparer
 {
     @Override
     public PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        return new NativePreparedQuery(Optional.of(query), Optional.of(query));
+        return new CruxPreparedQuery(Optional.of(query), Optional.of(query));
     }
 }
