@@ -41,7 +41,6 @@ import org.apache.commons.math3.special.Erf;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.math.RoundingMode;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.concurrent.ThreadLocalRandom;
@@ -1073,18 +1072,16 @@ public final class MathFunctions
     @SqlType(StandardTypes.DOUBLE)
     public static double round(@SqlType(StandardTypes.DOUBLE) double num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
-        if (Double.isNaN(num) || Double.isInfinite(num) || decimals > Integer.MAX_VALUE) {
+        if (Double.isNaN(num) || Double.isInfinite(num)) {
             return num;
         }
 
-        double result = BigDecimal.valueOf(num)
-                .setScale((int) decimals, RoundingMode.HALF_UP)
-                .doubleValue();
-
-        if (result == 0.0 && num < 0) {
-            return -0.0;
+        double factor = Math.pow(10, decimals);
+        if (num < 0) {
+            return -(Math.round(-num * factor) / factor);
         }
-        return result;
+
+        return Math.round(num * factor) / factor;
     }
 
     @Description("round to given number of decimal places")
@@ -1093,18 +1090,16 @@ public final class MathFunctions
     public static long roundFloat(@SqlType(StandardTypes.REAL) long num, @SqlType(StandardTypes.INTEGER) long decimals)
     {
         float numInFloat = intBitsToFloat((int) num);
-        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat) || decimals > Integer.MAX_VALUE) {
+        if (Float.isNaN(numInFloat) || Float.isInfinite(numInFloat)) {
             return num;
         }
 
-        float result = BigDecimal.valueOf(numInFloat)
-                .setScale((int) decimals, RoundingMode.HALF_UP)
-                .floatValue();
-
-        if (result == 0.0f && numInFloat < 0.0f) {
-            return floatToRawIntBits(-0.0f);
+        double factor = Math.pow(10, decimals);
+        if (numInFloat < 0) {
+            return floatToRawIntBits((float) -(Math.round(-numInFloat * factor) / factor));
         }
-        return floatToRawIntBits(result);
+
+        return floatToRawIntBits((float) (Math.round(numInFloat * factor) / factor));
     }
 
     @ScalarFunction("round")
