@@ -64,8 +64,12 @@ BaseVector::BaseVector(
   }
 }
 
-void BaseVector::ensureNullsCapacity(vector_size_t size, bool setNotNull) {
+void BaseVector::ensureNullsCapacity(
+    vector_size_t minimumSize,
+    bool setNotNull) {
   auto fill = setNotNull ? bits::kNotNull : bits::kNull;
+  // Ensure the size of nulls_ is always at least as large as length_.
+  auto size = std::max(minimumSize, length_);
   if (nulls_ && nulls_->isMutable()) {
     if (nulls_->capacity() < bits::nbytes(size)) {
       AlignedBuffer::reallocate<bool>(&nulls_, size, fill);

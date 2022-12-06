@@ -2168,3 +2168,11 @@ TEST_F(VectorTest, lifetime) {
       },
       "Memory pool should be destroyed only after all allocated memory has been freed.");
 }
+
+TEST_F(VectorTest, ensureNullsCapacity) {
+  // Has to be more than 1 byte's worth of bits.
+  size_t size = 100;
+  auto vec = makeFlatVector<int64_t>(size, [](vector_size_t i) { return i; });
+  auto nulls = vec->mutableNulls(2);
+  ASSERT_GE(nulls->size(), bits::nbytes(size));
+}

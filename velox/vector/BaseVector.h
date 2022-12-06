@@ -746,10 +746,10 @@ class BaseVector {
   virtual std::string toSummaryString() const;
 
   /*
-   * Allocates or reallocates nulls_ with the given size if nulls_ hasn't
-   * been allocated yet or has been allocated with a smaller capacity.
+   * Allocates or reallocates nulls_ with at least the given size if nulls_
+   * hasn't been allocated yet or has been allocated with a smaller capacity.
    */
-  void ensureNullsCapacity(vector_size_t size, bool setNotNull = false);
+  void ensureNullsCapacity(vector_size_t minimumSize, bool setNotNull = false);
 
   FOLLY_ALWAYS_INLINE static std::optional<int32_t>
   compareNulls(bool thisNull, bool otherNull, CompareFlags flags) {
