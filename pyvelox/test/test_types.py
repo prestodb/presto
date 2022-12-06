@@ -41,18 +41,18 @@ class TestVeloxTypes(unittest.TestCase):
 
     def test_complex_types(self):
         arrayType = pv.ArrayType(pv.BigintType())
-        self.assertEquals(arrayType.element_type(), pv.BigintType())
+        self.assertEqual(arrayType.element_type(), pv.BigintType())
 
         mapType = pv.MapType(pv.VarcharType(), pv.VarbinaryType())
-        self.assertEquals(mapType.key_type(), pv.VarcharType())
-        self.assertEquals(mapType.value_type(), pv.VarbinaryType())
+        self.assertEqual(mapType.key_type(), pv.VarcharType())
+        self.assertEqual(mapType.value_type(), pv.VarbinaryType())
 
         rowType = pv.RowType(
             ["c0", "c1", "c2"], [pv.BooleanType(), pv.BigintType(), pv.VarcharType()]
         )
-        self.assertEquals(rowType.size(), 3)
-        self.assertEquals(rowType.child_at(0), pv.BooleanType())
-        self.assertEquals(rowType.find_child("c1"), pv.BigintType())
-        self.assertEquals(rowType.get_child_idx("c1"), 1)
-        self.assertEquals(rowType.name_of(1), "c1")
-        self.assertEquals(rowType.names(), ["c0", "c1", "c2"])
+        self.assertEqual(rowType.size(), 3)
+        self.assertEqual(rowType.child_at(0), pv.BooleanType())
+        self.assertEqual(rowType.find_child("c1"), pv.BigintType())
+        self.assertEqual(rowType.get_child_idx("c1"), 1)
+        self.assertEqual(rowType.name_of(1), "c1")
+        self.assertEqual(rowType.names(), ["c0", "c1", "c2"])

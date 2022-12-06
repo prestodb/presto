@@ -237,6 +237,14 @@ jobs:
             ccache -s
           no_output_timeout: 1h
       - run:
+          name: "Build and Test PyVelox"
+          command: |
+            conda init bash 
+            source ~/.bashrc
+            conda create -y --name pyveloxenv python=3.7
+            conda activate pyveloxenv 
+            LD_LIBRARY_PATH=/usr/local/lib make python-test
+      - run:
           name: "Run Unit Tests"
           command: |
             cd _build/debug && ctest -j 16 -VV --output-on-failure

@@ -118,6 +118,7 @@ inline void addVeloxBindings(pybind11::module& m, bool asLocalModule = true) {
       "Check if the type is a primitive type");
   type.def("kind", &Type::kind, "Returns the kind of the type");
   type.def("serialize", &serializeType, "Serializes the type as JSON");
+  type.def("__eq__", &Type::equivalent);
 
   booleanType.def(py::init());
   tinyintType.def(py::init());
