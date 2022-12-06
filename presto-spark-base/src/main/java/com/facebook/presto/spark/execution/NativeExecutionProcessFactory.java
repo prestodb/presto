@@ -18,9 +18,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.TaskManagerConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
+import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import io.airlift.units.Duration;
 
@@ -48,9 +46,7 @@ public class NativeExecutionProcessFactory
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final TaskManagerConfig taskManagerConfig;
-    private final NativeExecutionSystemConfig systemConfig;
-    private final NativeExecutionNodeConfig nodeConfig;
-    private final NativeExecutionConnectorConfig connectorConfig;
+    private final WorkerProperty<?, ?, ?> workerProperty;
 
     @Inject
     public NativeExecutionProcessFactory(
@@ -59,24 +55,20 @@ public class NativeExecutionProcessFactory
             ScheduledExecutorService errorRetryScheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             TaskManagerConfig taskManagerConfig,
-            NativeExecutionSystemConfig systemConfig,
-            NativeExecutionNodeConfig nodeConfig,
-            NativeExecutionConnectorConfig connectorConfig)
+            WorkerProperty<?, ?, ?> workerProperty)
+
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.coreExecutor = requireNonNull(coreExecutor, "coreExecutor is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
-        this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
-        this.connectorConfig = requireNonNull(connectorConfig, "connectorConfig is null");
+        this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
     public NativeExecutionProcess createNativeExecutionProcess(
             Session session,
             URI location)
-            throws IOException
     {
         return createNativeExecutionProcess(session, location, MAX_ERROR_DURATION);
     }
@@ -95,9 +87,7 @@ public class NativeExecutionProcessFactory
                     serverInfoCodec,
                     maxErrorDuration,
                     taskManagerConfig,
-                    systemConfig,
-                    nodeConfig,
-                    connectorConfig);
+                    workerProperty);
         }
         catch (IOException e) {
             throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, format("Cannot start native process: %s", e.getMessage()), e);

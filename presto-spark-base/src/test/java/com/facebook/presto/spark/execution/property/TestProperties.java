@@ -115,38 +115,28 @@ public class TestProperties
     @Test
     public void testFilePropertiesPopulator()
     {
+        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(new NativeExecutionSystemConfig(), new NativeExecutionConnectorConfig(), new NativeExecutionNodeConfig());
+        testPropertiesPopulate(workerProperty);
+    }
+
+    private void testPropertiesPopulate(PrestoSparkWorkerProperty workerProperty)
+    {
         Path directory = null;
         try {
             directory = Files.createTempDirectory("presto");
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-            fail();
-        }
-        Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
-        Map<String, String> workerConfigProperties = new NativeExecutionSystemConfig().getAllProperties();
-        testPropertiesPopulate(workerConfigProperties, configPropertiesPath);
+            Path configPropertiesPath = Paths.get(directory.toString(), "config.properties");
+            Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
+            Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
+            workerProperty.populateAllProperties(configPropertiesPath, nodePropertiesPath, connectorPropertiesPath);
 
-        Path nodePropertiesPath = Paths.get(directory.toString(), "node.properties");
-        Map<String, String> nodeConfigProperties = new NativeExecutionNodeConfig().getAllProperties();
-        testPropertiesPopulate(nodeConfigProperties, nodePropertiesPath);
-
-        Path connectorPropertiesPath = Paths.get(directory.toString(), "catalog/hive.properties");
-        Map<String, String> connectorProperties = new NativeExecutionConnectorConfig().getAllProperties();
-        testPropertiesPopulate(connectorProperties, connectorPropertiesPath);
-    }
-
-    private void testPropertiesPopulate(Map<String, String> properties, Path populatePath)
-    {
-        try {
-            WorkerProperty.populateProperty(properties, populatePath);
+            verifyProperties(workerProperty.getSystemConfig().getAllProperties(), readPropertiesFromDisk(configPropertiesPath));
+            verifyProperties(workerProperty.getNodeConfig().getAllProperties(), readPropertiesFromDisk(nodePropertiesPath));
+            verifyProperties(workerProperty.getConnectorConfig().getAllProperties(), readPropertiesFromDisk(connectorPropertiesPath));
         }
         catch (Exception exception) {
             exception.printStackTrace();
             fail();
         }
-        Properties actual = readPropertiesFromDisk(populatePath);
-        verifyProperties(properties, actual);
     }
 
     private Properties readPropertiesFromDisk(Path path)
