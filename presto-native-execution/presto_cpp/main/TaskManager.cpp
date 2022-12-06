@@ -23,7 +23,6 @@
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
-#include "velox/serializers/PrestoSerializer.h"
 
 DEFINE_int32(
     old_task_ms,
