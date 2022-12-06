@@ -17,7 +17,6 @@ import com.facebook.airlift.json.Codec;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.Session;
-import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
@@ -65,7 +64,6 @@ import com.facebook.presto.spark.util.PrestoSparkTransactionUtils;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
@@ -91,7 +89,6 @@ import org.apache.spark.MapOutputStatistics;
 import org.apache.spark.Partitioner;
 import org.apache.spark.ShuffleDependency;
 import org.apache.spark.SimpleFutureAction;
-import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -126,7 +123,6 @@ import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extra
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkBroadcastJoinMaxMemoryOverride;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.isStorageBasedBroadcastJoinEnabled;
-import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
 import static com.facebook.presto.spark.SparkErrorCode.EXCEEDED_SPARK_DRIVER_MAX_RESULT_SIZE;
 import static com.facebook.presto.spark.SparkErrorCode.GENERIC_SPARK_ERROR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_LOST;
@@ -638,17 +634,6 @@ public abstract class AbstractPrestoSparkQueryExecution
         ConnectorId connectorId = partitioning.getConnectorId()
                 .orElseThrow(() -> new IllegalArgumentException("Unexpected partitioning: " + partitioning));
         return partitioningProviderManager.getPartitioningProvider(connectorId);
-    }
-
-    protected int getHashPartitionCount(SparkContext sparkContext, QueryId queryId, Session session, PlanAndMore planAndMore)
-    {
-        int hashPartitionCount = SystemSessionProperties.getHashPartitionCount(session);
-        if (planAndMore.getPhysicalResourceSettings().isEnabled()) {
-            log.info(String.format("Setting optimized executor count to %d for query with id:%s", planAndMore.getPhysicalResourceSettings().getExecutorCount(), queryId.getId()));
-            sparkContext.conf().set(SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG, Integer.toString(planAndMore.getPhysicalResourceSettings().getExecutorCount()));
-            hashPartitionCount = planAndMore.getPhysicalResourceSettings().getHashPartitionCount();
-        }
-        return hashPartitionCount;
     }
 
     protected SubPlan configureOutputPartitioning(Session session, SubPlan subPlan, int hashPartitionCount)

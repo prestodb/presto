@@ -13,27 +13,25 @@
  */
 package com.facebook.presto.spark;
 
+import java.util.OptionalInt;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 
+/**
+ *  Class for storing physical resource settings.
+ *  Resource settings could have conflicting overrides coming from either presto or spark.
+ *  The class holds the final values that needs to be applied to the query.
+ */
 public class PhysicalResourceSettings
 {
-    public static final PhysicalResourceSettings DISABLED_PHYSICAL_RESOURCE_SETTING = new PhysicalResourceSettings(0, 0, () -> {});
-
-    private final int executorCount;
+    private final OptionalInt maxExecutorCount;
     private final int hashPartitionCount;
 
-    public PhysicalResourceSettings(int executorCount, int hashPartitionCount)
+    public PhysicalResourceSettings(int hashPartitionCount, OptionalInt maxExecutorCount)
     {
-        this(
-                executorCount,
-                hashPartitionCount,
-                () -> checkArgument(executorCount >= 0 && hashPartitionCount >= 0, "executorCount and hashPartitionCount should be positive"));
-    }
-
-    public PhysicalResourceSettings(int executorCount, int hashPartitionCount, Runnable check)
-    {
-        check.run();
-        this.executorCount = executorCount;
+        checkArgument(maxExecutorCount.orElse(0) >= 0 && hashPartitionCount >= 0, "executorCount and hashPartitionCount should be positive");
+        this.maxExecutorCount = maxExecutorCount;
         this.hashPartitionCount = hashPartitionCount;
     }
 
@@ -42,13 +40,22 @@ public class PhysicalResourceSettings
         return hashPartitionCount;
     }
 
-    public int getExecutorCount()
+    /**
+     * maxExecutorCount is an optional field, the value is based on resource allocation tuning property
+     * An empty value, means resource tuning is disabled and values from SparkConf will be used.
+     * When not empty, resource tuning is enabled and calculated by {@link PrestoSparkPhysicalResourceCalculator} based on the query plan
+     */
+    public OptionalInt getMaxExecutorCount()
     {
-        return executorCount;
+        return maxExecutorCount;
     }
 
-    public boolean isEnabled()
+    @Override
+    public String toString()
     {
-        return ((executorCount > 0) && (hashPartitionCount > 0));
+        return toStringHelper(this)
+                .add("maxExecutorCount", maxExecutorCount)
+                .add("hashPartitionCount", hashPartitionCount)
+                .toString();
     }
 }

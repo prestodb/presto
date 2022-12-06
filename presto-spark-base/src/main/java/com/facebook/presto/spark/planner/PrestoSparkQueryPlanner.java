@@ -24,6 +24,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControl;
 import com.facebook.presto.spark.PhysicalResourceSettings;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
+import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -122,7 +123,8 @@ public class PrestoSparkQueryPlanner
         Optional<Output> output = new OutputExtractor().extractOutput(plan.getRoot());
         Optional<QueryType> queryType = getQueryType(preparedQuery.getStatement().getClass());
         List<String> columnNames = ((OutputNode) plan.getRoot()).getColumnNames();
-        PhysicalResourceSettings physicalResourceSettings = new PrestoSparkPhysicalResourceCalculator().calculate(plan.getRoot(), metadata, session);
+        PhysicalResourceSettings physicalResourceSettings = new PrestoSparkPhysicalResourceCalculator()
+                .calculate(plan.getRoot(), new PrestoSparkSourceStatsCollector(metadata, session), session);
         return new PlanAndMore(
                 plan,
                 Optional.ofNullable(analysis.getUpdateType()),
