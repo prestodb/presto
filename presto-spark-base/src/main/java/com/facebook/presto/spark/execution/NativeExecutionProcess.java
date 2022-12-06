@@ -23,9 +23,6 @@ import com.facebook.presto.execution.TaskManagerConfig;
 import com.facebook.presto.server.RequestErrorTracker;
 import com.facebook.presto.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpServerClient;
-import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
-import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
 import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.annotations.VisibleForTesting;
@@ -72,12 +69,10 @@ public class NativeExecutionProcess
     private final URI location;
     private final int port;
     private final TaskManagerConfig taskManagerConfig;
-    private final NativeExecutionSystemConfig systemConfig;
-    private final NativeExecutionNodeConfig nodeConfig;
-    private final NativeExecutionConnectorConfig connectorConfig;
     private final ScheduledExecutorService errorRetryScheduledExecutor;
     private final RequestErrorTracker errorTracker;
     private final HttpClient httpClient;
+    private final WorkerProperty<?, ?, ?> workerProperty;
 
     private Process process;
 
@@ -89,9 +84,7 @@ public class NativeExecutionProcess
             JsonCodec<ServerInfo> serverInfoCodec,
             Duration maxErrorDuration,
             TaskManagerConfig taskManagerConfig,
-            NativeExecutionSystemConfig systemConfig,
-            NativeExecutionNodeConfig nodeConfig,
-            NativeExecutionConnectorConfig connectorConfig)
+            WorkerProperty<?, ?, ?> workerProperty)
             throws IOException
     {
         this.port = getAvailableTcpPort();
@@ -103,9 +96,6 @@ public class NativeExecutionProcess
                 location,
                 serverInfoCodec);
         this.taskManagerConfig = requireNonNull(taskManagerConfig, "taskManagerConfig is null");
-        this.systemConfig = requireNonNull(systemConfig, "systemConfig is null");
-        this.nodeConfig = requireNonNull(nodeConfig, "nodeConfig is null");
-        this.connectorConfig = requireNonNull(connectorConfig, "connectorConfig is null");
         this.errorRetryScheduledExecutor = requireNonNull(errorRetryScheduledExecutor, "errorRetryScheduledExecutor is null");
         this.errorTracker = new RequestErrorTracker(
                 "NativeExecution",
@@ -115,6 +105,7 @@ public class NativeExecutionProcess
                 maxErrorDuration,
                 errorRetryScheduledExecutor,
                 "getting native process status");
+        this.workerProperty = requireNonNull(workerProperty, "workerProperty is null");
     }
 
     /**
@@ -194,11 +185,10 @@ public class NativeExecutionProcess
         // there is no port isolation among all the containers running on the same host, so we have
         // to pick unique port per worker to avoid port collision. This config will be passed down to
         // the native execution process eventually for process initialization.
-        systemConfig.setHttpServerPort(port);
-        WorkerProperty.populateProperty(systemConfig.getAllProperties(), Paths.get(configBasePath, WORKER_CONFIG_FILE));
-        WorkerProperty.populateProperty(nodeConfig.getAllProperties(), Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE));
-        WorkerProperty.populateProperty(
-                connectorConfig.getAllProperties(),
+        workerProperty.getSystemConfig().setHttpServerPort(port);
+        workerProperty.populateAllProperties(
+                Paths.get(configBasePath, WORKER_CONFIG_FILE),
+                Paths.get(configBasePath, WORKER_NODE_CONFIG_FILE),
                 Paths.get(configBasePath, format("%s%s.properties", WORKER_CONNECTOR_CONFIG_FILE, getNativeExecutionCatalogName(session))));
     }
 

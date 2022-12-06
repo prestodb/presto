@@ -42,6 +42,7 @@ import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
+import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
 import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.page.PageCodecMarker;
@@ -755,15 +756,17 @@ public class TestPrestoSparkHttpClient
             TaskManagerConfig config)
     {
         ScheduledExecutorService errorScheduler = newScheduledThreadPool(4);
+        PrestoSparkWorkerProperty workerProperty = new PrestoSparkWorkerProperty(
+                new NativeExecutionSystemConfig(),
+                new NativeExecutionConnectorConfig(),
+                new NativeExecutionNodeConfig());
         NativeExecutionProcessFactory factory = new NativeExecutionProcessFactory(
                 new TestingHttpClient(responseManager),
                 newSingleThreadExecutor(),
                 errorScheduler,
                 SERVER_INFO_JSON_CODEC,
                 config,
-                new NativeExecutionSystemConfig(),
-                new NativeExecutionNodeConfig(),
-                new NativeExecutionConnectorConfig());
+                workerProperty);
         List<TaskSource> sources = new ArrayList<>();
         return factory.createNativeExecutionProcess(
                 testSessionBuilder().build(),
