@@ -116,6 +116,8 @@ import com.facebook.presto.spark.execution.PrestoSparkTaskExecutorFactory;
 import com.facebook.presto.spark.execution.property.NativeExecutionConnectorConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionNodeConfig;
 import com.facebook.presto.spark.execution.property.NativeExecutionSystemConfig;
+import com.facebook.presto.spark.execution.property.PrestoSparkWorkerProperty;
+import com.facebook.presto.spark.execution.property.WorkerProperty;
 import com.facebook.presto.spark.node.PrestoSparkInternalNodeManager;
 import com.facebook.presto.spark.node.PrestoSparkNodePartitioningManager;
 import com.facebook.presto.spark.node.PrestoSparkQueryManager;
@@ -486,6 +488,8 @@ public class PrestoSparkModule
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
         binder.bind(NativeExecutionProcessFactory.class).in(Scopes.SINGLETON);
+        binder.bind(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, new TypeLiteral<WorkerProperty<?, ?, ?>>() {}).setDefault().to(PrestoSparkWorkerProperty.class).in(Scopes.SINGLETON);
         binder.bind(NativeExecutionTaskFactory.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("nativeExecution", ForNativeExecutionTask.class)
                 .withConfigDefaults(config -> {
