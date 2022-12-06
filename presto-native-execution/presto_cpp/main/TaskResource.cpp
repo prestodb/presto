@@ -11,9 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "TaskResource.h"
+#include "presto_cpp/main/TaskResource.h"
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/external/json/json.hpp"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
@@ -243,6 +244,13 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
             configs.emplace(
                 velox::core::QueryConfig::kSessionTimezone,
                 velox::util::getTimeZoneName(session.timeZoneKey));
+          }
+
+          // Copy spill path from the System Config to the Velox Query config
+          // via 'configs'.
+          const auto spillPath = SystemConfig::instance()->spillerSpillPath();
+          if (not spillPath.empty()) {
+            configs.emplace(velox::core::QueryConfig::kSpillPath, spillPath);
           }
 
           std::unordered_map<

@@ -84,6 +84,8 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kHttpExecThreads{"http_exec_threads"};
   static constexpr std::string_view kNumIoThreads{"num-io-threads"};
   static constexpr std::string_view kNumSpillThreads{"num-spill-threads"};
+  static constexpr std::string_view kSpillerSpillPath =
+      "experimental.spiller-spill-path";
   static constexpr std::string_view kShutdownOnsetSec{"shutdown-onset-sec"};
   static constexpr std::string_view kSystemMemoryGb{"system-memory-gb"};
   static constexpr std::string_view kAsyncCacheSsdGb{"async-cache-ssd-gb"};
@@ -132,6 +134,8 @@ class SystemConfig : public ConfigBase {
   int32_t numIoThreads() const;
 
   int32_t numSpillThreads() const;
+
+  std::string spillerSpillPath() const;
 
   int32_t shutdownOnsetSec() const;
 
