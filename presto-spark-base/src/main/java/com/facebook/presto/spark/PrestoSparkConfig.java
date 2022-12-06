@@ -61,9 +61,10 @@ public class PrestoSparkConfig
     private DataSize averageInputDataSizePerPartition = new DataSize(2, GIGABYTE);
     private int maxHashPartitionCount = 4096;
     private int minHashPartitionCount = 1024;
-    private boolean isResourceAllocationStrategyEnabled;
-
     private boolean adaptiveJoinSideSwitchingEnabled;
+    private boolean resourceAllocationStrategyEnabled;
+    private boolean executorAllocationStrategyEnabled;
+    private boolean hashPartitionCountAllocationStrategyEnabled;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -385,14 +386,14 @@ public class PrestoSparkConfig
 
     public boolean isSparkResourceAllocationStrategyEnabled()
     {
-        return isResourceAllocationStrategyEnabled;
+        return resourceAllocationStrategyEnabled;
     }
 
     @Config("spark.resource-allocation-strategy-enabled")
     @ConfigDescription("Determines whether the resource allocation strategy for executor and partition count is enabled")
-    public PrestoSparkConfig setSparkResourceAllocationStrategyEnabled(boolean isResourceAllocationStrategyEnabled)
+    public PrestoSparkConfig setSparkResourceAllocationStrategyEnabled(boolean resourceAllocationStrategyEnabled)
     {
-        this.isResourceAllocationStrategyEnabled = isResourceAllocationStrategyEnabled;
+        this.resourceAllocationStrategyEnabled = resourceAllocationStrategyEnabled;
         return this;
     }
 
@@ -434,6 +435,32 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setAdaptiveJoinSideSwitchingEnabled(boolean adaptiveJoinSideSwitchingEnabled)
     {
         this.adaptiveJoinSideSwitchingEnabled = adaptiveJoinSideSwitchingEnabled;
+        return this;
+    }
+
+    public boolean isExecutorAllocationStrategyEnabled()
+    {
+        return executorAllocationStrategyEnabled;
+    }
+
+    @Config("spark.executor-allocation-strategy-enabled")
+    @ConfigDescription("Determines whether the executor allocation strategy is enabled. This will be suppressed if used alongside spark.dynamicAllocation.maxExecutors")
+    public PrestoSparkConfig setExecutorAllocationStrategyEnabled(boolean executorAllocationStrategyEnabled)
+    {
+        this.executorAllocationStrategyEnabled = executorAllocationStrategyEnabled;
+        return this;
+    }
+
+    public boolean isHashPartitionCountAllocationStrategyEnabled()
+    {
+        return hashPartitionCountAllocationStrategyEnabled;
+    }
+
+    @Config("spark.hash-partition-count-allocation-strategy-enabled")
+    @ConfigDescription("Determines whether the hash partition count strategy is enabled. This will be suppressed if used alongside hash_partition_count")
+    public PrestoSparkConfig setHashPartitionCountAllocationStrategyEnabled(boolean hashPartitionCountAllocationStrategyEnabled)
+    {
+        this.hashPartitionCountAllocationStrategyEnabled = hashPartitionCountAllocationStrategyEnabled;
         return this;
     }
 }
