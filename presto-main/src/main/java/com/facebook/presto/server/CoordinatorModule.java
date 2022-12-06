@@ -16,6 +16,7 @@ package com.facebook.presto.server;
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
 import com.facebook.airlift.discovery.server.EmbeddedDiscoveryModule;
+import com.facebook.presto.analyzer.crux.CruxAnalyzerModule;
 import com.facebook.presto.client.QueryResults;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
@@ -81,9 +82,6 @@ import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
 import com.facebook.presto.sql.analyzer.AnalyzerModule;
-import com.facebook.presto.sql.analyzer.AnalyzerProvider;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
-import com.facebook.presto.sql.analyzer.NativeQueryPreparer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -182,9 +180,7 @@ public class CoordinatorModule
         newExporter(binder).export(QueryManager.class).withGeneratedName();
 
         binder.install(new AnalyzerModule());
-        binder.bind(AnalyzerProvider.class).in(Scopes.SINGLETON);
-        binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
-        binder.bind(NativeQueryPreparer.class).in(Scopes.SINGLETON);
+        binder.install(new CruxAnalyzerModule());
 
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);

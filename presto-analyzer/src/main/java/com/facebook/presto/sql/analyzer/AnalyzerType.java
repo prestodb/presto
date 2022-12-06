@@ -26,5 +26,5 @@ public enum AnalyzerType
      * This is for C++ based parser and analyzer. This analyzer is currently under development.
      * Please avoid using it, as it may corrupt the session.
      */
-    NATIVE
+    CRUX
 }

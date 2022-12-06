@@ -11,15 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.analyzer.crux;
+
+import com.facebook.presto.sql.analyzer.PreparedQuery;
 
 import java.util.Optional;
 
-public class NativePreparedQuery
+public class CruxPreparedQuery
         extends PreparedQuery
 {
     // TODO: Dummy implementation. This should be replaced with native implementation.
-    public NativePreparedQuery(Optional<String> formattedQuery, Optional<String> prepareSql)
+    public CruxPreparedQuery(Optional<String> formattedQuery, Optional<String> prepareSql)
     {
         super(formattedQuery, prepareSql);
     }
