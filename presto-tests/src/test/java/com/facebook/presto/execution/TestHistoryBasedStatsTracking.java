@@ -136,6 +136,34 @@ public class TestHistoryBasedStatsTracking
     }
 
     @Test
+    public void testUnionMultiple()
+    {
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'A' UNION ALL " +
+                        "SELECT * FROM nation where substr(name, 1, 1) = 'B' UNION ALL " +
+                        "SELECT * FROM nation where substr(name, 1, 1) = 'C'",
+                anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
+
+        executeAndTrackHistory("SELECT * FROM nation where substr(name, 1, 1) = 'A' UNION ALL " +
+                "SELECT * FROM nation where substr(name, 1, 1) = 'B' UNION ALL " +
+                "SELECT * FROM nation where substr(name, 1, 1) = 'C'");
+        assertPlan(
+                "SELECT * FROM nation where substr(name, 1, 1) = 'B' UNION ALL " +
+                        "SELECT * FROM nation where substr(name, 1, 1) = 'C' UNION ALL " +
+                        "SELECT * FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any()), anyTree(any())).withOutputRowCount(5)));
+
+        assertPlan(
+                "SELECT nationkey FROM nation where substr(name, 1, 1) = 'A' UNION ALL SELECT nationkey FROM customer where nationkey < 10",
+                anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
+
+        executeAndTrackHistory("SELECT nationkey FROM nation where substr(name, 1, 1) = 'A' UNION ALL SELECT nationkey FROM customer  where nationkey < 10");
+        assertPlan(
+                " SELECT nationkey FROM customer where nationkey < 10 UNION ALL SELECT nationkey FROM nation where substr(name, 1, 1) = 'A'",
+                anyTree(node(ExchangeNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(601)));
+    }
+
+    @Test
     public void testJoin()
     {
         assertPlan(
