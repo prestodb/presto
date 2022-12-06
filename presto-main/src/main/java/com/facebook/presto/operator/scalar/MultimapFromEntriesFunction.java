@@ -70,11 +70,10 @@ public final class MultimapFromEntriesFunction
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (keySet.contains(rowBlock, 0)) {
+            if (!keySet.add(rowBlock, 0)) {
                 entryIndicesList[keySet.positionOf(rowBlock, 0)].add(i);
             }
             else {
-                keySet.add(rowBlock, 0);
                 entryIndicesList[keySet.size() - 1].add(i);
             }
         }

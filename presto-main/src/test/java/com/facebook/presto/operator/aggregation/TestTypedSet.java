@@ -208,11 +208,13 @@ public class TestTypedSet
         assertEquals(typedSet.isContainNullElements(), false);
         for (int i = 0; i < elementCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
-            typedSet.add(blockBuilder, i);
+            assertTrue(typedSet.add(blockBuilder, i), "First add should return true");
+            assertFalse(typedSet.add(blockBuilder, i), "Adding an repeat element should return false");
         }
         assertEquals(typedSet.isContainNullElements(), false);
         blockBuilder.appendNull();
-        typedSet.add(blockBuilder, blockBuilder.getPositionCount() - 1);
+        assertTrue(typedSet.add(blockBuilder, blockBuilder.getPositionCount() - 1), "Original null");
+        assertFalse(typedSet.add(blockBuilder, blockBuilder.getPositionCount() - 1), "repeat null");
         assertEquals(typedSet.isContainNullElements(), true);
     }
 
