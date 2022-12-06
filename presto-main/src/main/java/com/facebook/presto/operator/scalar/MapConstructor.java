@@ -152,7 +152,7 @@ public final class MapConstructor
             }
 
             if (keyType.getJavaType() == Block.class) {
-                // If it's nto primitive or string, we need to look for nulls in the block.
+                // If it's not primitive or string, we need to look for nulls in the block.
                 Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
                 try {
                     if ((boolean) keyIndeterminate.invoke(keyObject, false)) {

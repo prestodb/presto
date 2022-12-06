@@ -230,8 +230,7 @@ public final class MapToMapCast
         BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, 1);
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (!typedSet.contains(keyBlock, i / 2)) {
-                typedSet.add(keyBlock, i / 2);
+            if (typedSet.add(keyBlock, i / 2)) {
                 toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
                 if (fromMap.isNull(i + 1)) {
                     blockBuilder.appendNull();
