@@ -121,6 +121,9 @@ public class TypedSet
 
         // containsNullElement flag is maintained so contains() method can have shortcut for null value
         if (block.isNull(position)) {
+            if (containNullElements) {
+                return false;
+            }
             containNullElements = true;
         }
 
