@@ -86,6 +86,11 @@ int32_t SystemConfig::numSpillThreads() const {
   return opt.hasValue() ? opt.value() : std::thread::hardware_concurrency();
 }
 
+std::string SystemConfig::spillerSpillPath() const {
+  auto opt = optionalProperty<std::string>(std::string(kSpillerSpillPath));
+  return opt.hasValue() ? opt.value() : "";
+}
+
 int32_t SystemConfig::shutdownOnsetSec() const {
   auto opt = optionalProperty<int32_t>(std::string(kShutdownOnsetSec));
   return opt.hasValue() ? opt.value() : kShutdownOnsetSecDefault;
