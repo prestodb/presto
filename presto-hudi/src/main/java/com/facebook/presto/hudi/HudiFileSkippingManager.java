@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.parquet.predicate.TupleDomainParquetPredicate;
 import com.facebook.presto.spi.ColumnHandle;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
@@ -42,7 +43,6 @@ import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,7 +70,7 @@ public class HudiFileSkippingManager
     private final HoodieTableMetaClient metaClient;
     private final HoodieTableMetadata metadataTable;
 
-    protected final Map<String, List<FileSlice>> allInputFileSlices;
+    private final Map<String, List<FileSlice>> allInputFileSlices;
 
     public HudiFileSkippingManager(
             List<String> partitions,
@@ -93,35 +93,49 @@ public class HudiFileSkippingManager
         this.allInputFileSlices = prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
     }
 
-    private Map<String, List<FileSlice>> prepareAllInputFileSlices(List<String> partitions, HoodieEngineContext engineContext, HoodieMetadataConfig metadataConfig, String spillableDir)
+    private Map<String, List<FileSlice>> prepareAllInputFileSlices(
+            List<String> partitions,
+            HoodieEngineContext engineContext,
+            HoodieMetadataConfig metadataConfig,
+            String spillableDir)
     {
         long startTime = System.currentTimeMillis();
         HoodieTimeline activeTimeline = metaClient.reloadActiveTimeline();
         Optional<HoodieInstant> latestInstant = activeTimeline.lastInstant().toJavaOptional();
         // build system view.
         SyncableFileSystemView fileSystemView = FileSystemViewManager
-                .createViewManager(engineContext, metadataConfig,
+                .createViewManager(engineContext,
+                        metadataConfig,
                         FileSystemViewStorageConfig.newBuilder().withBaseStoreDir(spillableDir).build(),
                         HoodieCommonConfig.newBuilder().build(),
                         () -> metadataTable)
                 .getFileSystemView(metaClient);
-        Optional<String> queryInstant = specifiedQueryInstant.isPresent() ? specifiedQueryInstant : latestInstant.map(HoodieInstant::getTimestamp);
+        Optional<String> queryInstant = specifiedQueryInstant.isPresent() ?
+                specifiedQueryInstant : latestInstant.map(HoodieInstant::getTimestamp);
 
         Map<String, List<FileSlice>> allInputFileSlices = engineContext
-                .mapToPair(partitions, partitionPath -> Pair.of(partitionPath, getLatestFileSlices(partitionPath, fileSystemView, queryInstant)), partitions.size());
+                .mapToPair(
+                        partitions,
+                        partitionPath -> Pair.of(
+                                partitionPath,
+                                getLatestFileSlices(partitionPath, fileSystemView, queryInstant)),
+                        partitions.size());
 
         long duration = System.currentTimeMillis() - startTime;
-
-        log.info("prepare query files for table %s, spent: %d ms", metaClient.getTableConfig().getTableName(), duration);
+        log.debug("prepare query files for table %s, spent: %d ms", metaClient.getTableConfig().getTableName(), duration);
         return allInputFileSlices;
     }
 
-    private List<FileSlice> getLatestFileSlices(String partitionPath, SyncableFileSystemView fileSystemView, Optional<String> queryInstant)
+    private List<FileSlice> getLatestFileSlices(
+            String partitionPath,
+            SyncableFileSystemView fileSystemView,
+            Optional<String> queryInstant)
     {
-        return queryInstant.map(instant ->
-            fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get()))
-            .orElse(fileSystemView.getLatestFileSlices(partitionPath))
-            .collect(Collectors.toList());
+        return queryInstant
+                .map(instant ->
+                        fileSystemView.getLatestMergedFileSlicesBeforeOrOn(partitionPath, queryInstant.get()))
+                .orElse(fileSystemView.getLatestFileSlices(partitionPath))
+                .collect(Collectors.toList());
     }
 
     public Map<String, List<FileSlice>> listQueryFiles(TupleDomain<ColumnHandle> tupleDomain)
@@ -142,12 +156,17 @@ public class HudiFileSkippingManager
             int candidateFileSize = candidateFileSlices.values().stream().mapToInt(List::size).sum();
             int totalFiles = allInputFileSlices.values().stream().mapToInt(List::size).sum();
             double skippingPercent = totalFiles == 0 ? 0.0d : (totalFiles - candidateFileSize) / (totalFiles + 0.0d);
-            log.debug("Total files: %s; candidate files after data skipping: %s; skipping percent %s", totalFiles, candidateFileSize, skippingPercent);
+            log.debug("Total files: %s; candidate files after data skipping: %s; skipping percent %s",
+                    totalFiles,
+                    candidateFileSize,
+                    skippingPercent);
         }
         return candidateFileSlices;
     }
 
-    private Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(Map<String, List<FileSlice>> inputFileSlices, TupleDomain<ColumnHandle> tupleDomain)
+    private Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
+            Map<String, List<FileSlice>> inputFileSlices,
+            TupleDomain<ColumnHandle> tupleDomain)
     {
         // split regular column predicates
         TupleDomain<HudiColumnHandle> regularTupleDomain = HudiPredicates.from(tupleDomain).getRegularColumnPredicates();
@@ -155,40 +174,60 @@ public class HudiFileSkippingManager
         if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
             return inputFileSlices;
         }
-        List<String> regularColumns = regularColumnPredicates.getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
+        List<String> regularColumns = regularColumnPredicates
+                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
         // get filter columns
-        List<String> encodedTargetColumnNames = regularColumns.stream().map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
+        List<String> encodedTargetColumnNames = regularColumns
+                .stream()
+                .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
         Map<String, List<HoodieMetadataColumnStats>> statsByFileName = metadataTable.getRecordsByKeyPrefixes(
                 encodedTargetColumnNames,
                 HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
                 .collectAsList()
                 .stream()
-                .filter(f -> f.getData().getColumnStatMetadata()
-                        .isPresent())
-                .map(f -> f.getData().getColumnStatMetadata().get()).collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
+                .filter(f -> f.getData().getColumnStatMetadata().isPresent())
+                .map(f -> f.getData().getColumnStatMetadata().get())
+                .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
 
         // prune files.
-        return inputFileSlices.entrySet().parallelStream().collect(Collectors.toMap(entry -> entry.getKey(), entry -> {
-            return entry.getValue().stream().filter(fileSlice -> {
-                String fileSliceName = fileSlice.getBaseFile().map(BaseFile::getFileName).orElse("");
-                // no stats found
-                if (!statsByFileName.containsKey(fileSliceName)) {
-                    return true;
-                }
-                List<HoodieMetadataColumnStats> stats = statsByFileName.get(fileSliceName);
-                return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
-            }).collect(Collectors.toList());
-        }));
+        return inputFileSlices
+                .entrySet()
+                .stream()
+                .collect(Collectors
+                        .toMap(entry -> entry.getKey(), entry -> entry
+                                .getValue()
+                                .stream()
+                                .filter(fileSlice -> pruneFiles(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
+                                .collect(Collectors.toList())));
     }
 
-    private boolean evaluateStatisticPredicate(TupleDomain<String> regularColumnPredicates, List<HoodieMetadataColumnStats> stats, List<String> regularColumns)
+    private boolean pruneFiles(
+            FileSlice fileSlice,
+            Map<String, List<HoodieMetadataColumnStats>> statsByFileName,
+            TupleDomain<String> regularColumnPredicates,
+            List<String> regularColumns)
+    {
+        String fileSliceName = fileSlice.getBaseFile().map(BaseFile::getFileName).orElse("");
+        // no stats found
+        if (!statsByFileName.containsKey(fileSliceName)) {
+            return true;
+        }
+        List<HoodieMetadataColumnStats> stats = statsByFileName.get(fileSliceName);
+        return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
+    }
+
+    private boolean evaluateStatisticPredicate(
+            TupleDomain<String> regularColumnPredicates,
+            List<HoodieMetadataColumnStats> stats,
+            List<String> regularColumns)
     {
         if (regularColumnPredicates.isNone() || !regularColumnPredicates.getDomains().isPresent()) {
             return true;
         }
         for (String regularColumn : regularColumns) {
             Domain columnPredicate = regularColumnPredicates.getDomains().get().get(regularColumn);
-            Optional<HoodieMetadataColumnStats> currentColumnStats = stats.stream().filter(s -> s.getColumnName().equals(regularColumn)).findFirst();
+            Optional<HoodieMetadataColumnStats> currentColumnStats = stats
+                    .stream().filter(s -> s.getColumnName().equals(regularColumn)).findFirst();
             if (!currentColumnStats.isPresent()) {
                 // no stats for column
             }
@@ -212,6 +251,10 @@ public class HudiFileSkippingManager
         if (!hasNonNullValue || statistics.getMaxValue() == null || statistics.getMinValue() == null) {
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
+        if (!(statistics.getMinValue() instanceof org.apache.hudi.org.apache.avro.generic.GenericRecord) ||
+                !(statistics.getMaxValue() instanceof org.apache.hudi.org.apache.avro.generic.GenericRecord)) {
+            return Domain.all(type);
+        }
         return getDomain(colName, type, ((org.apache.hudi.org.apache.avro.generic.GenericRecord) statistics.getMinValue()).get(0),
                 ((org.apache.hudi.org.apache.avro.generic.GenericRecord) statistics.getMaxValue()).get(0), hasNullValue);
     }
@@ -222,7 +265,6 @@ public class HudiFileSkippingManager
      */
     private static Domain getDomain(String colName, Type type, Object minimum, Object maximum, boolean hasNullValue)
     {
-        List<Range> ranges = new ArrayList<>();
         try {
             if (type.equals(BOOLEAN)) {
                 boolean hasTrueValue = (boolean) minimum || (boolean) maximum;
@@ -239,14 +281,13 @@ public class HudiFileSkippingManager
                 // No other case, since all null case is handled earlier.
             }
 
-            if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER))) {
+            if ((type.equals(BIGINT) || type.equals(TINYINT) || type.equals(SMALLINT) || type.equals(INTEGER) || type.equals(DATE))) {
                 long minValue = TupleDomainParquetPredicate.asLong(minimum);
                 long maxValue = TupleDomainParquetPredicate.asLong(maximum);
                 if (isStatisticsOverflow(type, minValue, maxValue)) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                ranges.add(Range.range(type, minValue, true, maxValue, true));
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return ofMinMax(type, minValue, maxValue, hasNullValue);
             }
 
             if (type.equals(REAL)) {
@@ -255,8 +296,7 @@ public class HudiFileSkippingManager
                 if (minValue.isNaN() || maxValue.isNaN()) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                ranges.add(Range.range(type, (long) floatToRawIntBits(minValue), true, (long) floatToRawIntBits(maxValue), true));
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return ofMinMax(type, (long) floatToRawIntBits(minValue), (long) floatToRawIntBits(maxValue), hasNullValue);
             }
 
             if (type.equals(DOUBLE)) {
@@ -265,25 +305,13 @@ public class HudiFileSkippingManager
                 if (minValue.isNaN() || maxValue.isNaN()) {
                     return Domain.create(ValueSet.all(type), hasNullValue);
                 }
-                ranges.add(Range.range(type, minValue, true, maxValue, true));
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return ofMinMax(type, minValue, maxValue, hasNullValue);
             }
 
             if (isVarcharType(type)) {
                 Slice min = Slices.utf8Slice((String) minimum);
                 Slice max = Slices.utf8Slice((String) maximum);
-                ranges.add(Range.range(type, min, true, max, true));
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
-            }
-
-            if (type.equals(DATE)) {
-                long min = TupleDomainParquetPredicate.asLong(minimum);
-                long max = TupleDomainParquetPredicate.asLong(maximum);
-                if (isStatisticsOverflow(type, min, max)) {
-                    return Domain.create(ValueSet.all(type), hasNullValue);
-                }
-                ranges.add(Range.range(type, min, true, max, true));
-                return Domain.create(ValueSet.ofRanges(ranges), hasNullValue);
+                return ofMinMax(type, min, max, hasNullValue);
             }
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
@@ -291,5 +319,12 @@ public class HudiFileSkippingManager
             log.warn("failed to create Domain for column: %s which type is: %s", colName, type.toString());
             return Domain.create(ValueSet.all(type), hasNullValue);
         }
+    }
+
+    private static Domain ofMinMax(Type type, Object min, Object max, boolean hasNullValue)
+    {
+        Range range = Range.range(type, min, true, max, true);
+        ValueSet vs = ValueSet.ofRanges(ImmutableList.of(range));
+        return Domain.create(vs, hasNullValue);
     }
 }

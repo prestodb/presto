@@ -24,7 +24,6 @@ import java.util.Optional;
 
 public class HudiPredicates
 {
-    private final TupleDomain<HudiColumnHandle> partitionColumnPredicates;
     private final TupleDomain<HudiColumnHandle> regularColumnPredicates;
 
     public static HudiPredicates from(TupleDomain<ColumnHandle> predicate)
@@ -43,16 +42,11 @@ public class HudiPredicates
             }
         }));
 
-        return new HudiPredicates(
-                TupleDomain.withColumnDomains(partitionColumnPredicates),
-                TupleDomain.withColumnDomains(regularColumnPredicates));
+        return new HudiPredicates(TupleDomain.withColumnDomains(regularColumnPredicates));
     }
 
-    private HudiPredicates(
-            TupleDomain<HudiColumnHandle> partitionColumnPredicates,
-            TupleDomain<HudiColumnHandle> regularColumnPredicates)
+    private HudiPredicates(TupleDomain<HudiColumnHandle> regularColumnPredicates)
     {
-        this.partitionColumnPredicates = partitionColumnPredicates;
         this.regularColumnPredicates = regularColumnPredicates;
     }
 

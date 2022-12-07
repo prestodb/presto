@@ -100,12 +100,12 @@ public class HudiPartitionManager
 
         boolean metaTableEnabled = isHudiMetadataTableEnabled(connectorSession);
 
-        return metaTableEnabled ? prunePartitionByMetaDataTable(connectorSession, metaClient, partitionColumns, tupleDomain) :
+        return metaTableEnabled ?
+                prunePartitionByMetaDataTable(metaClient, partitionColumns, tupleDomain) :
                 prunePartitionByMetaStore(metastore, metastoreContext, schemaName, tableName, partitionColumns, tupleDomain);
     }
 
     private List<String> prunePartitionByMetaDataTable(
-            ConnectorSession connectorSession,
             HoodieTableMetaClient metaClient,
             List<Column> partitionColumns,
             TupleDomain<ColumnHandle> tupleDomain)
@@ -119,7 +119,10 @@ public class HudiPartitionManager
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
 
         // Load all the partition path from the basePath
-        List<String> allPartitions = FSUtils.getAllPartitionPaths(engineContext, metadataConfig, metaClient.getBasePathV2().toString());
+        List<String> allPartitions = FSUtils.getAllPartitionPaths(
+                engineContext,
+                metadataConfig,
+                metaClient.getBasePathV2().toString());
 
         // Extract partition columns predicate
         TupleDomain<String> partitionPredicate = tupleDomain.transform(hudiColumnHandle -> {
@@ -139,8 +142,14 @@ public class HudiPartitionManager
 
         List<HudiColumnHandle> partitionColumnHandles = fromPartitionColumns(partitionColumns);
 
-        List<String> matchedPartitionPaths = prunePartitions(partitionPredicate, partitionColumnHandles, getPartitions(partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()), allPartitions));
-        log.info(format("Total partition size is %s, after partition prune size is %s.", allPartitions.size(), matchedPartitionPaths.size()));
+        List<String> matchedPartitionPaths = prunePartitions(
+                partitionPredicate,
+                partitionColumnHandles,
+                getPartitions(
+                        partitionColumns.stream().map(f -> f.getName()).collect(Collectors.toList()),
+                        allPartitions));
+        log.debug(format("Total partition size is %s, after partition prune size is %s.",
+                allPartitions.size(), matchedPartitionPaths.size()));
         return matchedPartitionPaths;
     }
 
@@ -151,7 +160,8 @@ public class HudiPartitionManager
      * partition paths:
      *      p1=val1/p2=val2/p3=val3  (hive style partition)
      *      p1=val4/p2=val5/p3=val6  (hive style partition)
-     * return values {p1=val1/p2=val2/p3=val3 -> {p1 -> val1, p2 -> value2, p3 -> value3}}, {p1=val4/p2=val5/p3=val6 -> {p1 -> val4, p2 -> value5, p3 -> value6}}
+     * return values {p1=val1/p2=val2/p3=val3 -> {p1 -> val1, p2 -> value2, p3 -> value3}},
+     *               {p1=val4/p2=val5/p3=val6 -> {p1 -> val4, p2 -> value5, p3 -> value6}}
      *
      * @param partitionKey  The partition key list
      * @param partitionPaths partition path list
@@ -194,8 +204,11 @@ public class HudiPartitionManager
             }
             else {
                 String[] partitionValues = partitionName.split(Path.SEPARATOR);
-                checkArgument(partitionValues.length == partitionColumnNames.get().size(),
-                        "Invalid partition spec: {partitionName: %s, partitionColumnNames: %s}", partitionName, partitionColumnNames.get());
+                checkArgument(
+                        partitionValues.length == partitionColumnNames.get().size(),
+                        "Invalid partition spec: {partitionName: %s, partitionColumnNames: %s}",
+                        partitionName,
+                        partitionColumnNames.get());
                 return Arrays.asList(partitionValues);
             }
         }
@@ -210,13 +223,21 @@ public class HudiPartitionManager
     {
         return candidatePartitionPaths.entrySet().stream().filter(f -> {
             Map<String, String> partitionMapping = f.getValue();
-            return partitionMapping.entrySet().stream().allMatch(p -> evaluatePartitionPredicate(partitionPredicate, partitionColumnHandles, p.getValue(), p.getKey()));
+            return partitionMapping
+                    .entrySet()
+                    .stream()
+                    .allMatch(p -> evaluatePartitionPredicate(partitionPredicate, partitionColumnHandles, p.getValue(), p.getKey()));
         }).map(entry -> entry.getKey()).collect(Collectors.toList());
     }
 
-    private boolean evaluatePartitionPredicate(TupleDomain<String> partitionPredicate, List<HudiColumnHandle> partitionColumnHandles, String partitionPathValue, String partitionName)
+    private boolean evaluatePartitionPredicate(
+            TupleDomain<String> partitionPredicate,
+            List<HudiColumnHandle> partitionColumnHandles,
+            String partitionPathValue,
+            String partitionName)
     {
-        Optional<HudiColumnHandle> columnHandleOpt = partitionColumnHandles.stream().filter(f -> f.getName().equals(partitionName)).findFirst();
+        Optional<HudiColumnHandle> columnHandleOpt =
+                partitionColumnHandles.stream().filter(f -> f.getName().equals(partitionName)).findFirst();
         if (columnHandleOpt.isPresent()) {
             Domain domain = getDomain(columnHandleOpt.get(), partitionPathValue);
             if (!partitionPredicate.getDomains().isPresent()) {
