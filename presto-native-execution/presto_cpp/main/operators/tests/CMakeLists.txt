@@ -18,6 +18,7 @@ target_link_libraries(
   presto_operators
   velox_vector_fuzzer
   velox_exec_test_lib
+  velox_hive_partition_function
   velox_vector_test_lib
   velox_type
   velox_vector
