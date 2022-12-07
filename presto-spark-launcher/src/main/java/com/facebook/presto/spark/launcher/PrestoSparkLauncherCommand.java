@@ -27,6 +27,8 @@ import java.io.File;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_KEY;
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_LOCAL;
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkFile;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadCatalogProperties;
 import static com.facebook.presto.spark.launcher.LauncherUtils.loadProperties;
@@ -65,7 +67,7 @@ public class PrestoSparkLauncherCommand
                 packageSupplier,
                 loadProperties(checkFile(new File(clientOptions.config))),
                 loadCatalogProperties(new File(clientOptions.catalogs)),
-                "LOCAL",
+                ImmutableMap.of(METADATA_STORAGE_TYPE_KEY, METADATA_STORAGE_TYPE_LOCAL),
                 Optional.empty(),
                 Optional.empty(),
                 sessionPropertyConfigurationProperties,
