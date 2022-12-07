@@ -224,7 +224,7 @@ class TestingCoalescedLoad : public CoalescedLoad {
   TestingCoalescedLoad(
       std::vector<RawFileCacheKey> keys,
       std::vector<int32_t> sizes,
-      AsyncDataCache& cache)
+      const std::shared_ptr<AsyncDataCache>& cache)
       : CoalescedLoad(std::move(keys), std::move(sizes)), cache_(cache) {}
 
   void injectError(bool error) {
@@ -233,7 +233,7 @@ class TestingCoalescedLoad : public CoalescedLoad {
 
   std::vector<CachePin> loadData(bool /*isPrefetch*/) override {
     std::vector<CachePin> pins;
-    cache_.makePins(
+    cache_->makePins(
         keys_,
         [&](int32_t index) { return sizes_[index]; },
         [&](int32_t /*index*/, CachePin pin) {
@@ -249,7 +249,7 @@ class TestingCoalescedLoad : public CoalescedLoad {
   }
 
  protected:
-  AsyncDataCache& cache_;
+  std::shared_ptr<AsyncDataCache> cache_;
   std::vector<Request> requests_;
   bool injectError_{false};
 };
@@ -260,18 +260,18 @@ class TestingCoalescedSsdLoad : public TestingCoalescedLoad {
       std::vector<RawFileCacheKey> keys,
       std::vector<int32_t> sizes,
       std::vector<SsdPin> ssdPins,
-      AsyncDataCache& cache)
+      const std::shared_ptr<AsyncDataCache>& cache)
       : TestingCoalescedLoad(std::move(keys), std::move(sizes), cache),
         ssdPins_(std::move(ssdPins)) {}
 
   std::vector<CachePin> loadData(bool /*isPrefetch*/) override {
     auto fileNum = keys_[0].fileNum;
-    auto& file = cache_.ssdCache()->file(fileNum);
+    auto& file = cache_->ssdCache()->file(fileNum);
     std::vector<CachePin> pins;
     std::vector<SsdPin> toLoad;
     // We make pins for the new load but leave out the entries that may have
     // been loaded between constructing 'this' and now.
-    cache_.makePins(
+    cache_->makePins(
         keys_,
         [&](int32_t index) { return sizes_[index]; },
         [&](int32_t index, CachePin pin) {
@@ -390,7 +390,7 @@ void AsyncDataCacheTest::loadBatch(
       sizes.push_back(request->size);
     }
     auto load = std::make_shared<TestingCoalescedLoad>(
-        std::move(keys), std::move(sizes), *cache_);
+        std::move(keys), std::move(sizes), cache_);
     load->injectError(injectError);
     executor()->add([load]() {
       try {
@@ -410,7 +410,7 @@ void AsyncDataCacheTest::loadBatch(
       ssdPins.push_back(std::move(request->ssdPin));
     }
     auto load = std::make_shared<TestingCoalescedSsdLoad>(
-        std::move(keys), std::move(sizes), std::move(ssdPins), *cache_);
+        std::move(keys), std::move(sizes), std::move(ssdPins), cache_);
     load->injectError(injectError);
     executor()->add([load]() {
       try {
