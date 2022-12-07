@@ -138,6 +138,14 @@ class S3ReadFile final : public ReadFile {
     return false;
   }
 
+  std::string getName() const final {
+    return fmt::format("s3://{}/{}", bucket_, key_);
+  }
+
+  uint64_t getNaturalReadSize() const final {
+    return 72 << 20;
+  }
+
  private:
   // The assumption here is that "position" has space for at least "length"
   // bytes.

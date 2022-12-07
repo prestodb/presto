@@ -64,11 +64,8 @@ uint64_t InMemoryWriteFile::size() const {
   return file_->size();
 }
 
-LocalReadFile::LocalReadFile(std::string_view path) {
-  std::unique_ptr<char[]> buf(new char[path.size() + 1]);
-  buf[path.size()] = 0;
-  memcpy(buf.get(), path.data(), path.size());
-  fd_ = open(buf.get(), O_RDONLY);
+LocalReadFile::LocalReadFile(std::string_view path) : path_(path) {
+  fd_ = open(path_.c_str(), O_RDONLY);
   VELOX_CHECK_GE(
       fd_,
       0,

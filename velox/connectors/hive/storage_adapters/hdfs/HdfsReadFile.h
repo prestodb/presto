@@ -34,6 +34,14 @@ class HdfsReadFile final : public ReadFile {
 
   bool shouldCoalesce() const final;
 
+  std::string getName() const final {
+    return filePath_;
+  }
+
+  uint64_t getNaturalReadSize() const final {
+    return 72 << 20;
+  }
+
  private:
   void preadInternal(uint64_t offset, uint64_t length, char* pos) const;
   void seekToPosition(hdfsFile file, uint64_t offset) const;

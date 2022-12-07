@@ -70,6 +70,8 @@ class BaseStatsReporter {
   virtual void addStatValue(const char* key, size_t value = 1) const = 0;
 
   virtual void addStatValue(folly::StringPiece key, size_t value = 1) const = 0;
+
+  static bool registered;
 };
 
 // This is a dummy reporter that does nothing
@@ -90,22 +92,26 @@ class DummyStatsReporter : public BaseStatsReporter {
       const override {}
 };
 
-#define REPORT_ADD_STAT_VALUE(k, ...)                                         \
-  {                                                                           \
-    auto reporter =                                                           \
-        folly::Singleton<facebook::velox::BaseStatsReporter>::try_get_fast(); \
-    if (LIKELY(reporter != nullptr)) {                                        \
-      reporter->addStatValue((k), ##__VA_ARGS__);                             \
-    }                                                                         \
+#define REPORT_ADD_STAT_VALUE(k, ...)                          \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (LIKELY(reporter != nullptr)) {                       \
+        reporter->addStatValue((k), ##__VA_ARGS__);            \
+      }                                                        \
+    }                                                          \
   }
 
-#define REPORT_ADD_STAT_EXPORT_TYPE(k, t)                                     \
-  {                                                                           \
-    auto reporter =                                                           \
-        folly::Singleton<facebook::velox::BaseStatsReporter>::try_get_fast(); \
-    if (LIKELY(reporter != nullptr)) {                                        \
-      reporter->addStatExportType((k), (t));                                  \
-    }                                                                         \
+#define REPORT_ADD_STAT_EXPORT_TYPE(k, t)                      \
+  {                                                            \
+    if (::facebook::velox::BaseStatsReporter::registered) {    \
+      auto reporter = folly::Singleton<                        \
+          facebook::velox::BaseStatsReporter>::try_get_fast(); \
+      if (LIKELY(reporter != nullptr)) {                       \
+        reporter->addStatExportType((k), (t));                 \
+      }                                                        \
+    }                                                          \
   }
 
 } // namespace facebook::velox

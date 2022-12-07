@@ -204,8 +204,7 @@ class ReadFileInputStream final : public InputStream {
   }
 
   uint64_t getNaturalReadSize() const final {
-    // TODO: configure this accurately if it actually has impact.
-    return 10ULL << 20;
+    return readFile_->getNaturalReadSize();
   }
 
   void read(void* FOLLY_NONNULL, uint64_t, uint64_t, LogType) override;

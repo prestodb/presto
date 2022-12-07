@@ -102,6 +102,14 @@ class ReadFile {
     bytesRead_ = 0;
   }
 
+  virtual std::string getName() const = 0;
+
+  //
+  // Get the natural size for reads.
+  // @return the number of bytes that should be read at once
+  //
+  virtual uint64_t getNaturalReadSize() const = 0;
+
  protected:
   mutable std::atomic<uint64_t> bytesRead_ = 0;
 };
@@ -166,6 +174,14 @@ class InMemoryReadFile final : public ReadFile {
     return shouldCoalesce_;
   }
 
+  std::string getName() const override {
+    return "<InMemoryReadFile>";
+  }
+
+  uint64_t getNaturalReadSize() const override {
+    return 1024;
+  }
+
  private:
   const std::string ownedFile_;
   const std::string_view file_;
@@ -214,10 +230,22 @@ class LocalReadFile final : public ReadFile {
     return false;
   }
 
+  std::string getName() const override {
+    if (path_.empty()) {
+      return "<LocalReadFile>";
+    }
+    return path_;
+  }
+
+  uint64_t getNaturalReadSize() const override {
+    return 10 << 20;
+  }
+
  private:
   void preadInternal(uint64_t offset, uint64_t length, char* FOLLY_NONNULL pos)
       const;
 
+  std::string path_;
   int32_t fd_;
   long size_;
 };

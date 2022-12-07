@@ -30,6 +30,7 @@ add_library(
   RawVector.cpp
   RuntimeMetrics.cpp
   SimdUtil.cpp
+  StatsReporter.cpp
   SuccinctPrinter.cpp)
 
 target_link_libraries(velox_common_base velox_exception velox_process xsimd)
