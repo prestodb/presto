@@ -63,7 +63,7 @@ class LocalCppMicroBenchmarks:
 
     def run(
         self,
-        result_dir,
+        output_dir,
         binary_path=None,
         binary_filter=None,
         bm_filter=None,
@@ -78,13 +78,14 @@ class LocalCppMicroBenchmarks:
             binary_path = self._default_binary_path()
 
         binaries = self._find_binaries(binary_path)
-        result_dir_path = pathlib.Path(result_dir)
+        output_dir_path = pathlib.Path(output_dir)
+        output_dir_path.mkdir(parents=True, exist_ok=True)
 
         for binary_path in binaries:
             if binary_filter and not re.search(binary_filter, binary_path.name):
                 continue
 
-            out_path = result_dir_path / f"{binary_path.name}.json"
+            out_path = output_dir_path / f"{binary_path.name}.json"
             print(f"Executing and dumping results for '{binary_path}' to '{out_path}':")
             run_command = [
                 binary_path,
@@ -167,67 +168,3 @@ class LocalCppMicroBenchmarks:
         if x == "items_per_second":
             return "i/s"
         return x
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(
-        description="VeloxBench Client Tool",
-        epilog="(c) Meta Platforms 2004-present",
-    )
-    parser.add_argument(
-        "--binary_path",
-        default=None,
-        help="Directory where benchmark binaries are stored. "
-        "Defaults to release build directory.",
-    )
-    parser.add_argument(
-        "--binary_filter",
-        default=None,
-        help="Filter applied to binary names. "
-        "By default execute all binaries found.",
-    )
-    parser.add_argument(
-        "--bm_filter",
-        default=None,
-        help="Filter applied to benchmark names within binaries. "
-        "By default execute all benchmarks.",
-    )
-    parser.add_argument(
-        "--bm_max_secs",
-        default=None,
-        type=int,
-        help="For how many second to run each benchmark in a binary.",
-    )
-    parser.add_argument(
-        "--bm_max_trials",
-        default=None,
-        type=int,
-        help="Maximum number of trials (iterations) executed for each benchmark.",
-    )
-    parser.add_argument(
-        "--bm_estimate_time",
-        default=False,
-        action="store_true",
-        help="Use folly benchmark --bm_estimate_time flag.",
-    )
-    return parser.parse_args()
-
-
-def main():
-    args = parse_arguments()
-
-    with tempfile.TemporaryDirectory() as result_dir:
-        LocalCppMicroBenchmarks().run(
-            result_dir=result_dir,
-            binary_path=args.binary_path,
-            binary_filter=args.binary_filter,
-            bm_filter=args.bm_filter,
-            bm_max_secs=args.bm_max_secs,
-            bm_max_trials=args.bm_max_trials,
-            bm_estimate_time=args.bm_estimate_time,
-        )
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

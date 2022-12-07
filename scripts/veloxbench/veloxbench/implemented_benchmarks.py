@@ -25,14 +25,14 @@ from ._benchmark import Benchmark
 @conbench.runner.register_benchmark
 class RecordCppMicroBenchmarks(LocalCppMicroBenchmarks, Benchmark):
     def run(self, **kwargs):
-        with tempfile.TemporaryDirectory() as result_dir:
+        with tempfile.TemporaryDirectory() as output_dir:
             # run benchmarks and save to a tempdir
             super().run(
-                result_dir=result_dir, bm_max_secs=10, bm_max_trials=1000000, **kwargs
+                output_dir=output_dir, bm_max_secs=10, bm_max_trials=1000000, **kwargs
             )
 
             # iterate through files to make the suites
-            with os.scandir(result_dir) as result_files:
+            with os.scandir(output_dir) as result_files:
                 for result_file in result_files:
                     suite = result_file.name.replace(".json", "", 1)
                     with open(result_file.path, "r") as f:
