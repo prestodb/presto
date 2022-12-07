@@ -27,9 +27,12 @@ namespace facebook::velox::cache {
 using memory::MachinePageCount;
 using memory::MemoryAllocator;
 
-AsyncDataCacheEntry::AsyncDataCacheEntry(CacheShard* shard)
-    : shard_(shard), data_(shard->cache()) {
+AsyncDataCacheEntry::AsyncDataCacheEntry(CacheShard* shard) : shard_(shard) {
   accessStats_.reset();
+}
+
+AsyncDataCacheEntry::~AsyncDataCacheEntry() {
+  shard_->cache()->freeNonContiguous(data_);
 }
 
 void AsyncDataCacheEntry::setExclusiveToShared() {
@@ -105,8 +108,7 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
     tinyData_.clear();
     auto sizePages = bits::roundUp(size_, MemoryAllocator::kPageSize) /
         MemoryAllocator::kPageSize;
-    if (cache->allocateNonContiguous(
-            sizePages, CacheShard::kCacheOwner, data_)) {
+    if (cache->allocateNonContiguous(sizePages, data_)) {
       cache->incrementCachedPages(data().numPages());
     } else {
       // No memory to cover 'this'.
@@ -393,7 +395,7 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
     }
   }
   ClockTimer t(allocClocks_);
-  toFree.clear();
+  freeAllocations(toFree);
   cache_->incrementCachedPages(
       -largeFreed / static_cast<int32_t>(MemoryAllocator::kPageSize));
   if (evictSaveableSkipped && ssdCache && ssdCache->startWrite()) {
@@ -405,6 +407,14 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
   } else if (evictSaveableSkipped) {
     ++cache_->numSkippedSaves();
   }
+}
+
+void CacheShard::freeAllocations(
+    std::vector<MemoryAllocator::Allocation>& allocations) {
+  for (auto& allocation : allocations) {
+    cache_->freeNonContiguous(allocation);
+  }
+  allocations.clear();
 }
 
 void CacheShard::calibrateThreshold() {
@@ -599,14 +609,13 @@ void AsyncDataCache::backoff(int32_t counter) {
 
 bool AsyncDataCache::allocateNonContiguous(
     MachinePageCount numPages,
-    int32_t owner,
     Allocation& out,
-    std::function<void(int64_t, bool)> beforeAllocCB,
+    ReservationCallback reservationCB,
     MachinePageCount minSizeClass) {
   freeNonContiguous(out);
   return makeSpace(numPages, [&]() {
     return allocator_->allocateNonContiguous(
-        numPages, owner, out, beforeAllocCB, minSizeClass);
+        numPages, out, reservationCB, minSizeClass);
   });
 }
 
@@ -614,10 +623,10 @@ bool AsyncDataCache::allocateContiguous(
     MachinePageCount numPages,
     Allocation* collateral,
     ContiguousAllocation& allocation,
-    std::function<void(int64_t, bool)> beforeAllocCB) {
+    ReservationCallback reservationCB) {
   return makeSpace(numPages, [&]() {
     return allocator_->allocateContiguous(
-        numPages, collateral, allocation, beforeAllocCB);
+        numPages, collateral, allocation, std::move(reservationCB));
   });
 }
 

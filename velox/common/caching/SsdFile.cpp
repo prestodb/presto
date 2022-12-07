@@ -425,7 +425,7 @@ void SsdFile::verifyWrite(AsyncDataCacheEntry& entry, SsdRun ssdRun) {
 
 void SsdFile::updateStats(SsdCacheStats& stats) const {
   // Lock only in tsan build. Incrementing the counters has no synchronized
-  // emantics.
+  // semantics.
   tsan_lock_guard<std::mutex> l(mutex_);
   stats.entriesWritten += stats_.entriesWritten;
   stats.bytesWritten += stats_.bytesWritten;

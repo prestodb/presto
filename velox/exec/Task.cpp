@@ -214,13 +214,6 @@ velox::memory::MemoryPool* FOLLY_NONNULL Task::addOperatorPool(
   return childPools_.back().get();
 }
 
-memory::MemoryAllocator* FOLLY_NONNULL Task::addOperatorMemory(
-    const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
-  auto allocator = queryCtx_->allocator()->addChild(tracker);
-  childAllocators_.emplace_back(allocator);
-  return allocator.get();
-}
-
 bool Task::supportsSingleThreadedExecution() const {
   std::vector<std::unique_ptr<DriverFactory>> driverFactories;
 
@@ -1495,7 +1488,7 @@ ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
   auto [promise, future] = makeVeloxContinuePromiseContract(
       fmt::format("Task::stateChangeFuture {}", taskId_));
   stateChangePromises_.emplace_back(std::move(promise));
-  if (maxWaitMicros) {
+  if (maxWaitMicros > 0) {
     return std::move(future).within(std::chrono::microseconds(maxWaitMicros));
   }
   return std::move(future);

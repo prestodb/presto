@@ -343,7 +343,7 @@ class AggregationTest : public OperatorTestBase {
         false,
         true,
         true,
-        allocator_,
+        pool_.get(),
         ContainerRowSerde::instance());
   }
 

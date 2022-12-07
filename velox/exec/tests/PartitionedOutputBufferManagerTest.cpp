@@ -32,7 +32,6 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
  protected:
   void SetUp() override {
     pool_ = facebook::velox::memory::getDefaultMemoryPool();
-    allocator_ = memory::MemoryAllocator::getInstance();
     bufferManager_ = PartitionedOutputBufferManager::getInstance().lock();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
@@ -74,7 +73,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
   }
 
   std::unique_ptr<SerializedPage> toSerializedPage(VectorPtr vector) {
-    auto data = std::make_unique<VectorStreamGroup>(allocator_);
+    auto data = std::make_unique<VectorStreamGroup>(pool_.get());
     auto size = vector->size();
     auto range = IndexRange{0, size};
     data->createStreamTree(
@@ -82,7 +81,7 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
     data->append(
         std::dynamic_pointer_cast<RowVector>(vector), folly::Range(&range, 1));
     auto listener = bufferManager_->newListener();
-    IOBufOutputStream stream(*allocator_, listener.get(), data->size());
+    IOBufOutputStream stream(*pool_, listener.get(), data->size());
     data->flush(&stream);
     return std::make_unique<SerializedPage>(stream.getIOBuf());
   }
@@ -233,7 +232,6 @@ class PartitionedOutputBufferManagerTest : public testing::Test {
       std::make_shared<folly::CPUThreadPoolExecutor>(
           std::thread::hardware_concurrency())};
   std::shared_ptr<facebook::velox::memory::MemoryPool> pool_;
-  memory::MemoryAllocator* allocator_;
   std::shared_ptr<PartitionedOutputBufferManager> bufferManager_;
 };
 

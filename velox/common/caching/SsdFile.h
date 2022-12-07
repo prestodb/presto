@@ -120,7 +120,7 @@ class SsdPin {
 
 // Metrics for SSD cache. Maintained by SsdFile and aggregated by SsdCache.
 struct SsdCacheStats {
-  SsdCacheStats() {}
+  SsdCacheStats() = default;
 
   SsdCacheStats(const SsdCacheStats& other) {
     *this = other;

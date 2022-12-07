@@ -170,15 +170,13 @@ class SpillFileList {
       const std::vector<CompareFlags>& sortCompareFlags,
       const std::string& path,
       uint64_t targetFileSize,
-      memory::MemoryPool& pool,
-      memory::MemoryAllocator& allocator)
+      memory::MemoryPool& pool)
       : type_(type),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         path_(path),
         targetFileSize_(targetFileSize),
-        pool_(pool),
-        allocator_(allocator) {
+        pool_(pool) {
     // NOTE: if the associated spilling operator has specified the sort
     // comparison flags, then it must match the number of sorting keys.
     VELOX_CHECK(
@@ -230,7 +228,6 @@ class SpillFileList {
   const std::string path_;
   const uint64_t targetFileSize_;
   memory::MemoryPool& pool_;
-  memory::MemoryAllocator& allocator_;
   std::unique_ptr<VectorStreamGroup> batch_;
   SpillFiles files_;
 };
@@ -558,15 +555,13 @@ class SpillState {
       int32_t numSortingKeys,
       const std::vector<CompareFlags>& sortCompareFlags,
       uint64_t targetFileSize,
-      memory::MemoryPool& pool,
-      memory::MemoryAllocator& allocator)
+      memory::MemoryPool& pool)
       : path_(path),
         maxPartitions_(maxPartitions),
         numSortingKeys_(numSortingKeys),
         sortCompareFlags_(sortCompareFlags),
         targetFileSize_(targetFileSize),
         pool_(pool),
-        allocator_(allocator),
         files_(maxPartitions_) {}
 
   /// Indicates if a given 'partition' has been spilled or not.
@@ -652,7 +647,6 @@ class SpillState {
   const uint64_t targetFileSize_;
 
   memory::MemoryPool& pool_;
-  memory::MemoryAllocator& allocator_;
 
   // A set of spilled partition numbers.
   SpillPartitionNumSet spilledPartitionSet_;

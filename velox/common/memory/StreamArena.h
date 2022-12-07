@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/Memory.h"
 
 namespace facebook::velox {
 
@@ -29,7 +29,7 @@ class StreamArena {
  public:
   static constexpr int32_t kVectorStreamOwner = 1;
 
-  explicit StreamArena(memory::MemoryAllocator* FOLLY_NONNULL allocator);
+  explicit StreamArena(memory::MemoryPool* FOLLY_NONNULL pool);
 
   virtual ~StreamArena() = default;
 
@@ -47,12 +47,12 @@ class StreamArena {
     return size_;
   }
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
-    return allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool() const {
+    return pool_;
   }
 
  private:
-  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool_;
   // All allocations.
   std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
       allocations_;

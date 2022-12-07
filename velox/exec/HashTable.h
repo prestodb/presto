@@ -283,12 +283,12 @@ class HashTable : public BaseHashTable {
       bool allowDuplicates,
       bool isJoinBuild,
       bool hasProbedFlag,
-      memory::MemoryAllocator* FOLLY_NULLABLE memory);
+      memory::MemoryPool* FOLLY_NULLABLE pool);
 
   static std::unique_ptr<HashTable> createForAggregation(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<std::unique_ptr<Aggregate>>& aggregates,
-      memory::MemoryAllocator* FOLLY_NULLABLE memory) {
+      memory::MemoryPool* FOLLY_NULLABLE pool) {
     return std::make_unique<HashTable>(
         std::move(hashers),
         aggregates,
@@ -296,7 +296,7 @@ class HashTable : public BaseHashTable {
         false, // allowDuplicates
         false, // isJoinBuild
         false, // hasProbedFlag
-        memory);
+        pool);
   }
 
   static std::unique_ptr<HashTable> createForJoin(
@@ -304,7 +304,7 @@ class HashTable : public BaseHashTable {
       const std::vector<TypePtr>& dependentTypes,
       bool allowDuplicates,
       bool hasProbedFlag,
-      memory::MemoryAllocator* FOLLY_NULLABLE memory) {
+      memory::MemoryPool* FOLLY_NULLABLE pool) {
     static const std::vector<std::unique_ptr<Aggregate>> kNoAggregates;
     return std::make_unique<HashTable>(
         std::move(hashers),
@@ -313,7 +313,7 @@ class HashTable : public BaseHashTable {
         allowDuplicates,
         true, // isJoinBuild
         hasProbedFlag,
-        memory);
+        pool);
   }
 
   virtual ~HashTable() override = default;

@@ -38,7 +38,7 @@ HashTable<ignoreNullKeys>::HashTable(
     bool allowDuplicates,
     bool isJoinBuild,
     bool hasProbedFlag,
-    memory::MemoryAllocator* allocator)
+    memory::MemoryPool* pool)
     : BaseHashTable(std::move(hashers)), isJoinBuild_(isJoinBuild) {
   std::vector<TypePtr> keys;
   for (auto& hasher : hashers_) {
@@ -56,7 +56,7 @@ HashTable<ignoreNullKeys>::HashTable(
       isJoinBuild,
       hasProbedFlag,
       hashMode_ != HashMode::kHash,
-      allocator,
+      pool,
       ContainerRowSerde::instance());
   nextOffset_ = rows_->nextOffset();
 }
@@ -588,8 +588,7 @@ void HashTable<ignoreNullKeys>::allocateTables(uint64_t size) {
     // The total size is 9 bytes per slot, 8 in the pointers table and 1 in the
     // tags table.
     auto numPages = bits::roundUp(size * 9, kPageSize) / kPageSize;
-    if (!rows_->allocator()->allocateContiguous(
-            numPages, nullptr, tableAllocation_)) {
+    if (!rows_->pool()->allocateContiguous(numPages, tableAllocation_)) {
       VELOX_FAIL("Could not allocate join/group by hash table");
     }
     table_ = tableAllocation_.data<char*>();
@@ -1070,8 +1069,7 @@ void HashTable<ignoreNullKeys>::setHashMode(HashMode mode, int32_t numNew) {
     auto bytes = size_ * sizeof(char*);
     constexpr auto kPageSize = memory::MemoryAllocator::kPageSize;
     auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
-    if (!rows_->allocator()->allocateContiguous(
-            numPages, nullptr, tableAllocation_)) {
+    if (!rows_->pool()->allocateContiguous(numPages, tableAllocation_)) {
       VELOX_FAIL(
           "Could not allocate array with {} bytes/{} pages for array mode hash table",
           bytes,

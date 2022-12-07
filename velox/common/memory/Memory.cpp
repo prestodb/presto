@@ -26,6 +26,24 @@ DEFINE_bool(
 namespace facebook {
 namespace velox {
 namespace memory {
+namespace {
+#define VELOX_MEM_MANAGER_CAP_EXCEEDED(cap)                         \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
+      /* isRetriable */ true,                                       \
+      "Exceeded memory manager cap of {} MB",                       \
+      (cap) / 1024 / 1024);
+
+#define VELOX_MEM_MANUAL_CAP()                                      \
+  _VELOX_THROW(                                                     \
+      ::facebook::velox::VeloxRuntimeError,                         \
+      ::facebook::velox::error_source::kErrorSourceRuntime.c_str(), \
+      ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
+      /* isRetriable */ true,                                       \
+      "Memory allocation manually capped");
+} // namespace
 
 MemoryPool::MemoryPool(
     const std::string& name,
@@ -174,6 +192,74 @@ void MemoryPoolImpl::free(void* p, int64_t size) {
   const auto alignedSize = sizeAlign(size);
   allocator_.freeBytes(p, alignedSize);
   release(alignedSize);
+}
+
+bool MemoryPoolImpl::allocateNonContiguous(
+    MachinePageCount numPages,
+    MemoryAllocator::Allocation& out,
+    MachinePageCount minSizeClass) {
+  if (!allocator_.allocateNonContiguous(
+          numPages,
+          out,
+          [this](int64_t allocBytes, bool preAllocate) {
+            if (memoryUsageTracker_ != nullptr) {
+              memoryUsageTracker_->update(
+                  preAllocate ? allocBytes : -allocBytes);
+            }
+          },
+          minSizeClass)) {
+    VELOX_CHECK(out.empty());
+    return false;
+  }
+  VELOX_CHECK(!out.empty());
+  VELOX_CHECK_NULL(out.pool());
+  out.setPool(this);
+  return true;
+}
+
+void MemoryPoolImpl::freeNonContiguous(
+    MemoryAllocator::Allocation& allocation) {
+  const int64_t freedBytes = allocator_.freeNonContiguous(allocation);
+  VELOX_CHECK(allocation.empty());
+  if (memoryUsageTracker_ != nullptr) {
+    memoryUsageTracker_->update(-freedBytes);
+  }
+}
+
+MachinePageCount MemoryPoolImpl::largestSizeClass() const {
+  return allocator_.largestSizeClass();
+}
+
+const std::vector<MachinePageCount>& MemoryPoolImpl::sizeClasses() const {
+  return allocator_.sizeClasses();
+}
+
+bool MemoryPoolImpl::allocateContiguous(
+    MachinePageCount numPages,
+    MemoryAllocator::ContiguousAllocation& out) {
+  if (!allocator_.allocateContiguous(
+          numPages, nullptr, out, [this](int64_t allocBytes, bool preAlloc) {
+            if (memoryUsageTracker_) {
+              memoryUsageTracker_->update(preAlloc ? allocBytes : -allocBytes);
+            }
+          })) {
+    VELOX_CHECK(out.empty());
+    return false;
+  }
+  VELOX_CHECK(!out.empty());
+  VELOX_CHECK_NULL(out.pool());
+  out.setPool(this);
+  return true;
+}
+
+void MemoryPoolImpl::freeContiguous(
+    MemoryAllocator::ContiguousAllocation& allocation) {
+  const int64_t bytesToFree = allocation.size();
+  allocator_.freeContiguous(allocation);
+  VELOX_CHECK(allocation.empty());
+  if (memoryUsageTracker_ != nullptr) {
+    memoryUsageTracker_->update(-bytesToFree);
+  }
 }
 
 int64_t MemoryPoolImpl::getCurrentBytes() const {

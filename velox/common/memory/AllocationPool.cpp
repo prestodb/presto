@@ -22,10 +22,10 @@
 namespace facebook::velox {
 
 void AllocationPool::clear() {
-  // Trigger Allocation's destructor to free allocated memory
-  auto copy = std::move(allocation_);
+  // Trigger Allocation's destructor to free allocated memory.
+  auto allocationToClear = std::move(allocation_);
   allocations_.clear();
-  auto copyLarge = std::move(largeAllocations_);
+  auto largeAllocationToClear = std::move(largeAllocations_);
   largeAllocations_.clear();
 }
 
@@ -36,11 +36,10 @@ char* AllocationPool::allocateFixed(uint64_t bytes) {
       memory::MemoryAllocator::kPageSize;
 
   // Use contiguous allocations from mapped memory if allocation size is large
-  if (numPages > allocator_->largestSizeClass()) {
+  if (numPages > pool_->largestSizeClass()) {
     auto largeAlloc =
         std::make_unique<memory::MemoryAllocator::ContiguousAllocation>();
-    largeAlloc->reset(allocator_, nullptr, 0);
-    if (!allocator_->allocateContiguous(numPages, nullptr, *largeAlloc)) {
+    if (!pool_->allocateContiguous(numPages, *largeAlloc)) {
       throw std::bad_alloc();
     }
     largeAllocations_.emplace_back(std::move(largeAlloc));
@@ -68,12 +67,8 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
           std::make_unique<memory::MemoryAllocator::Allocation>(
               std::move(allocation_)));
     }
-    if (!allocator_->allocateNonContiguous(
-            std::max<int32_t>(kMinPages, numPages),
-            owner_,
-            allocation_,
-            nullptr,
-            numPages)) {
+    if (!pool_->allocateNonContiguous(
+            std::max<int32_t>(kMinPages, numPages), allocation_, numPages)) {
       throw std::bad_alloc();
     }
     currentRun_ = 0;

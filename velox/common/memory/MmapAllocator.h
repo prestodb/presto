@@ -68,9 +68,8 @@ class MmapAllocator : public MemoryAllocator {
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
-      std::function<void(int64_t, bool)> userAllocCB = nullptr,
+      ReservationCallback reservationCB = nullptr,
       MachinePageCount minSizeClass = 0) override;
 
   int64_t freeNonContiguous(Allocation& allocation) override;
@@ -79,11 +78,12 @@ class MmapAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t, bool)> userAllocCB = nullptr) override {
+      ReservationCallback reservationCB = nullptr) override {
+    VELOX_CHECK_GT(numPages, 0);
     bool result;
     stats_.recordAllocate(numPages * kPageSize, 1, [&]() {
-      result =
-          allocateContiguousImpl(numPages, collateral, allocation, userAllocCB);
+      result = allocateContiguousImpl(
+          numPages, collateral, allocation, reservationCB);
     });
     return result;
   }
@@ -151,7 +151,6 @@ class MmapAllocator : public MemoryAllocator {
     // are not backed by memory.
     bool allocate(
         ClassPageCount numPages,
-        int32_t owner,
         MachinePageCount& numUnmapped,
         MemoryAllocator::Allocation& out);
 
@@ -167,9 +166,7 @@ class MmapAllocator : public MemoryAllocator {
     // Advises away backing for 'numPages' worth of unallocated mapped class
     // pages. This needs to make an Allocation, for which it needs the
     // containing MmapAllocator.
-    MachinePageCount adviseAway(
-        MachinePageCount numPages,
-        MmapAllocator* FOLLY_NONNULL allocator);
+    MachinePageCount adviseAway(MachinePageCount numPages);
 
     // Sets the mapped bits for the runs in 'allocation' to 'value' for the
     // addresses that fall in the range of 'this'
@@ -186,8 +183,7 @@ class MmapAllocator : public MemoryAllocator {
 
    private:
     static constexpr int32_t kNoLastLookup = -1;
-    // Number of bits in 'mappedPages_' for one bit in
-    // 'mappedFreeLookup_'.
+    // Number of bits in 'mappedPages_' for one bit in 'mappedFreeLookup_'.
     static constexpr int32_t kPagesPerLookupBit =
         xsimd::batch<int64_t>::size * 128;
     // Number of extra 0 uint64's at te end of allocation bitmaps for SIMD
@@ -197,11 +193,10 @@ class MmapAllocator : public MemoryAllocator {
     // Same as allocate, except that this must be called inside
     // 'mutex_'. If 'numUnmapped' is nullptr, the allocated pages must
     // all be backed by memory. Otherwise numUnmapped is updated to be
-    // the count of machine pages needeing backing memory to back the
+    // the count of machine pages needing backing memory to back the
     // allocation.
     bool allocateLocked(
         ClassPageCount numPages,
-        int32_t owner,
         MachinePageCount* FOLLY_NULLABLE numUnmapped,
         MemoryAllocator::Allocation& out);
 
@@ -268,14 +263,12 @@ class MmapAllocator : public MemoryAllocator {
     int32_t lastLookupIndex_{kNoLastLookup};
 
     // has a set bit if the corresponding 8 word range in
-    // pageAllocated_/pageMapped_ has at least one mapped free
-    // bit. Contains 1 bit for each 8 words of
-    // pageAllocated_/pageMapped_.
+    // pageAllocated_/pageMapped_ has at least one mapped free bit. Contains 1
+    // bit for each 8 words of pageAllocated_/pageMapped_.
     std::vector<uint64_t> mappedFreeLookup_;
 
-    // Number of meaningful words in
-    // 'pageAllocated_'/'pageMapped'. The arrays themselves are padded
-    // with extra zeros for SIMD access.
+    // Number of meaningful words in 'pageAllocated_'/'pageMapped'. The arrays
+    // themselves are padded with extra zeros for SIMD access.
     const int32_t pageBitmapSize_;
 
     // Has a 1 bit if the corresponding size class page is allocated.
@@ -299,7 +292,7 @@ class MmapAllocator : public MemoryAllocator {
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t, bool)> userAllocCB);
+      ReservationCallback reservationCB);
 
   void freeContiguousImpl(ContiguousAllocation& allocation);
 
@@ -322,11 +315,16 @@ class MmapAllocator : public MemoryAllocator {
   // advises them away. Returns the number of pages advised away.
   MachinePageCount adviseAway(MachinePageCount target);
 
+  // If set true, allocations larger than the largest size class size will be
+  // delegated to ManagedMmapArena. Otherwise, a system mmap call will be
+  // issued for each such allocation.
+  const bool useMmapArena_;
+
   // Serializes moving capacity between size classes
   std::mutex sizeClassBalanceMutex_;
 
-  // Number of allocated pages. Allocation succeeds if an atomic
-  // increment of this by the desired amount is <= 'capacity_'.
+  // Number of allocated pages. Allocation succeeds if an atomic increment of
+  // this by the desired amount is <= 'capacity_'.
   std::atomic<MachinePageCount> numAllocated_;
 
   // Number of machine pages backed by memory in the address ranges in
@@ -354,11 +352,6 @@ class MmapAllocator : public MemoryAllocator {
   // ManagedMmapArenas, to avoid calling mmap on every allocation.
   std::mutex arenaMutex_;
   std::unique_ptr<ManagedMmapArenas> managedArenas_;
-
-  // If set true, allocations larger than largest size class size will be
-  // delegated to ManagedMmapArena. Otherwise a system mmap call will be
-  // issued for each such allocation.
-  bool useMmapArena_;
 
   Failure injectedFailure_{Failure::kNone};
   Stats stats_;

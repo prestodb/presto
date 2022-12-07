@@ -78,7 +78,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
             buildType->childAt(channel), channel));
       }
       auto table = HashTable<true>::createForJoin(
-          std::move(keyHashers), dependentTypes, true, false, allocator_);
+          std::move(keyHashers), dependentTypes, true, false, pool_.get());
 
       makeRows(size, 1, sequence, buildType, batches);
       copyVectorsToTable(batches, startOffset, table.get());
@@ -152,7 +152,7 @@ class HashTableTest : public testing::TestWithParam<bool> {
     }
     static std::vector<std::unique_ptr<Aggregate>> empty;
     return HashTable<false>::createForAggregation(
-        std::move(keyHashers), empty, allocator_);
+        std::move(keyHashers), empty, pool_.get());
   }
 
   void insertGroups(
@@ -435,7 +435,6 @@ class HashTableTest : public testing::TestWithParam<bool> {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
-  memory::MemoryAllocator* allocator_{memory::MemoryAllocator::getInstance()};
   std::unique_ptr<test::VectorMaker> vectorMaker_{
       std::make_unique<test::VectorMaker>(pool_.get())};
   // Bitmap of positions in batches_ that end up in the table.
@@ -517,7 +516,7 @@ TEST_P(HashTableTest, clear) {
       std::vector<TypePtr>{BIGINT()},
       BIGINT()));
   auto table = HashTable<true>::createForAggregation(
-      std::move(keyHashers), aggregates, allocator_);
+      std::move(keyHashers), aggregates, pool_.get());
   table->clear();
 }
 
@@ -596,7 +595,7 @@ TEST_P(HashTableTest, regularHashingTableSize) {
           std::make_unique<VectorHasher>(type->childAt(channel), channel));
     }
     auto table = HashTable<true>::createForJoin(
-        std::move(keyHashers), {}, true, false, allocator_);
+        std::move(keyHashers), {}, true, false, pool_.get());
     std::vector<RowVectorPtr> batches;
     makeRows(1 << 12, 1, 0, type, batches);
     copyVectorsToTable(batches, 0, table.get());

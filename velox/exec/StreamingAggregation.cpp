@@ -99,7 +99,7 @@ StreamingAggregation::StreamingAggregation(
       false,
       false,
       false,
-      operatorCtx_->allocator(),
+      pool(),
       ContainerRowSerde::instance());
 }
 

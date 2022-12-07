@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/Memory.h"
 
 namespace facebook::velox {
 // A set of MappedMemory::Allocations holding the fixed width payload
@@ -27,13 +27,10 @@ namespace facebook::velox {
 // started.
 class AllocationPool {
  public:
-  static constexpr int32_t kHashTableOwner = -3;
   static constexpr int32_t kMinPages = 16;
 
-  explicit AllocationPool(
-      memory::MemoryAllocator* FOLLY_NONNULL allocator,
-      int32_t owner = kHashTableOwner)
-      : allocator_(allocator), allocation_(allocator), owner_(owner) {}
+  explicit AllocationPool(memory::MemoryPool* FOLLY_NONNULL pool)
+      : pool_(pool) {}
 
   ~AllocationPool() = default;
 
@@ -111,8 +108,8 @@ class AllocationPool {
     currentOffset_ = offset;
   }
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
-    return allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool() const {
+    return pool_;
   }
 
  private:
@@ -122,7 +119,7 @@ class AllocationPool {
 
   void newRunImpl(memory::MachinePageCount numPages);
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool_;
   std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
       allocations_;
   std::vector<std::unique_ptr<memory::MemoryAllocator::ContiguousAllocation>>
@@ -130,7 +127,6 @@ class AllocationPool {
   memory::MemoryAllocator::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentOffset_ = 0;
-  const int32_t owner_;
 };
 
 } // namespace facebook::velox

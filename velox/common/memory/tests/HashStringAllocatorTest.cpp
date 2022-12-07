@@ -33,8 +33,8 @@ struct Multipart {
 class HashStringAllocatorTest : public testing::Test {
  protected:
   void SetUp() override {
-    instance_ = std::make_unique<HashStringAllocator>(
-        memory::MemoryAllocator::getInstance());
+    pool_ = memory::getDefaultMemoryPool();
+    instance_ = std::make_unique<HashStringAllocator>(pool_.get());
     rng_.seed(1);
   }
 
@@ -82,6 +82,7 @@ class HashStringAllocatorTest : public testing::Test {
     return result;
   }
 
+  std::shared_ptr<memory::MemoryPool> pool_;
   std::unique_ptr<HashStringAllocator> instance_;
   int32_t sequence_ = 0;
   folly::Random::DefaultGenerator rng_;

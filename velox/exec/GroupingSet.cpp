@@ -61,13 +61,12 @@ GroupingSet::GroupingSet(
       constantLists_(std::move(constantLists)),
       intermediateTypes_(std::move(intermediateTypes)),
       ignoreNullKeys_(ignoreNullKeys),
-      allocator_(operatorCtx->allocator()),
       spillMemoryThreshold_(operatorCtx->driverCtx()
                                 ->queryConfig()
                                 .aggregationSpillMemoryThreshold()),
       spillConfig_(spillConfig),
-      stringAllocator_(allocator_),
-      rows_(allocator_),
+      stringAllocator_(operatorCtx->pool()),
+      rows_(operatorCtx->pool()),
       isAdaptive_(operatorCtx->task()
                       ->queryCtx()
                       ->queryConfig()
@@ -251,10 +250,10 @@ void GroupingSet::addRemainingInput() {
 void GroupingSet::createHashTable() {
   if (ignoreNullKeys_) {
     table_ = HashTable<true>::createForAggregation(
-        std::move(hashers_), aggregates_, allocator_);
+        std::move(hashers_), aggregates_, &pool_);
   } else {
     table_ = HashTable<false>::createForAggregation(
-        std::move(hashers_), aggregates_, allocator_);
+        std::move(hashers_), aggregates_, &pool_);
   }
   lookup_ = std::make_unique<HashLookup>(table_->hashers());
   if (!isAdaptive_ && table_->hashMode() != BaseHashTable::HashMode::kHash) {
@@ -506,7 +505,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
     return;
   }
 
-  auto tracker = allocator_->tracker();
+  auto tracker = pool_.getMemoryUsageTracker();
   const auto currentUsage = tracker->getCurrentUserBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
@@ -563,7 +562,7 @@ void GroupingSet::spill(int64_t targetRows, int64_t targetBytes) {
     for (auto i = 0; i < types.size(); ++i) {
       names.push_back(fmt::format("s{}", i));
     }
-    VELOX_DCHECK(allocator_->tracker() != nullptr);
+    VELOX_DCHECK(pool_.getMemoryUsageTracker() != nullptr);
     spiller_ = std::make_unique<Spiller>(
         Spiller::Type::kAggregate,
         rows,
@@ -601,7 +600,7 @@ bool GroupingSet::getOutputWithSpill(
         false,
         false,
         false,
-        allocator_,
+        &pool_,
         ContainerRowSerde::instance());
     // Take ownership of the rows and free the hash table. The table will not be
     // needed for producing spill output.
