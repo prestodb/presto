@@ -244,9 +244,11 @@ void SimpleMemoryTracker::update(int64_t size, bool mock) {
   if (mock) {
     return;
   }
-  int64_t previousUsage =
+  const int64_t previousUsage =
       totalUserMemory_.fetch_add(size, std::memory_order_relaxed);
-  if (size > 0 && previousUsage + size > userMemoryQuota_) {
+  const int64_t currentUsage = previousUsage + size;
+  maySetMax(UsageType::kUserMem, currentUsage);
+  if (size > 0 && currentUsage > userMemoryQuota_) {
     VELOX_MEM_CAP_EXCEEDED(fmt::format(
         MEM_CAP_EXCEEDED_ERROR_FORMAT.data(),
         succinctBytes(userMemoryQuota_),
@@ -259,6 +261,12 @@ void SimpleMemoryTracker::update(int64_t size, bool mock) {
 
 int64_t SimpleMemoryTracker::getCurrentUserBytes() const {
   return totalUserMemory_.load(std::memory_order_relaxed);
+}
+
+std::shared_ptr<MemoryUsageTracker> SimpleMemoryTracker::addChild(
+    bool trackSystemMem,
+    const MemoryUsageConfig& config) {
+  return SimpleMemoryTracker::create(shared_from_this(), config);
 }
 
 /* static */ std::shared_ptr<SimpleMemoryTracker> SimpleMemoryTracker::create(

@@ -131,7 +131,7 @@ class Writer : public WriterBase {
   Writer(
       const WriterOptions& options,
       std::unique_ptr<dwio::common::DataSink> sink,
-      memory::MemoryPool& parentPool)
+      std::shared_ptr<memory::MemoryPool> pool)
       : WriterBase{std::move(sink)},
         schema_{dwio::common::TypeWithId::create(options.schema)},
         layoutPlannerFactory_{options.layoutPlannerFactory} {
@@ -141,14 +141,7 @@ class Writer : public WriterBase {
                                       *options.encryptionSpec,
                                       options.encrypterFactory.get())
                                 : nullptr);
-    initContext(
-        options.config,
-        parentPool.addChild(
-            fmt::format(
-                "writer_node_{}",
-                folly::to<std::string>(folly::Random::rand64())),
-            std::min(options.memoryBudget, parentPool.cap())),
-        std::move(handler));
+    initContext(options.config, std::move(pool), std::move(handler));
     if (!options.flushPolicyFactory) {
       auto& context = getContext();
       flushPolicy_ = std::make_unique<DefaultFlushPolicy>(
@@ -172,6 +165,19 @@ class Writer : public WriterBase {
     }
   }
 
+  Writer(
+      const WriterOptions& options,
+      std::unique_ptr<dwio::common::DataSink> sink,
+      memory::MemoryPool& parentPool)
+      : Writer{
+            options,
+            std::move(sink),
+            parentPool.addChild(
+                fmt::format(
+                    "writer_node_{}",
+                    folly::to<std::string>(folly::Random::rand64())),
+                std::min(options.memoryBudget, parentPool.cap()))} {}
+
   ~Writer() override = default;
 
   void write(const VectorPtr& slice);
@@ -187,6 +193,7 @@ class Writer : public WriterBase {
       const WriterContext& context,
       size_t nextWriteSize) const;
 
+  // TODO: Remove this api next.
   void setMemoryUsageTracker(
       const std::shared_ptr<velox::memory::MemoryUsageTracker>& tracker) {
     getContext()

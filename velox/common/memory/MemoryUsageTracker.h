@@ -208,7 +208,7 @@ class MemoryUsageTracker
     return user(currentUsageInBytes_) + system(currentUsageInBytes_);
   }
 
-  std::shared_ptr<MemoryUsageTracker> addChild(
+  virtual std::shared_ptr<MemoryUsageTracker> addChild(
       bool trackSystemMem = false,
       const MemoryUsageConfig& config = MemoryUsageConfig()) {
     return create(
@@ -405,8 +405,11 @@ class SimpleMemoryTracker : public MemoryUsageTracker {
       const MemoryUsageConfig& config);
   virtual ~SimpleMemoryTracker() override = default;
 
-  virtual void update(int64_t size, bool mock = false) override;
-  virtual int64_t getCurrentUserBytes() const override;
+  void update(int64_t size, bool mock = false) override;
+  int64_t getCurrentUserBytes() const override;
+  std::shared_ptr<MemoryUsageTracker> addChild(
+      bool trackSystemMem = false,
+      const MemoryUsageConfig& config = MemoryUsageConfig()) override;
 
   static std::shared_ptr<SimpleMemoryTracker> create(
       const std::shared_ptr<MemoryUsageTracker>& parent = nullptr,
