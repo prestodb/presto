@@ -59,7 +59,7 @@ public class PrestoSparkRunner
                 distribution.getPackageSupplier(),
                 distribution.getConfigProperties(),
                 distribution.getCatalogProperties(),
-                distribution.getMetadataStorageType(),
+                distribution.getPrestoSparkProperties(),
                 distribution.getEventListenerProperties(),
                 distribution.getAccessControlProperties(),
                 distribution.getSessionPropertyConfigurationProperties(),
@@ -198,7 +198,7 @@ public class PrestoSparkRunner
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
             Map<String, Map<String, String>> catalogProperties,
-            String metadataStorageType,
+            Map<String, String> prestoSparkProperties,
             Optional<Map<String, String>> eventListenerProperties,
             Optional<Map<String, String>> accessControlProperties,
             Optional<Map<String, String>> sessionPropertyConfigurationProperties,
@@ -211,7 +211,7 @@ public class PrestoSparkRunner
                 configProperties,
                 pluginsDirectory.getAbsolutePath(),
                 catalogProperties,
-                metadataStorageType,
+                prestoSparkProperties,
                 eventListenerProperties,
                 accessControlProperties,
                 sessionPropertyConfigurationProperties,
@@ -230,9 +230,9 @@ public class PrestoSparkRunner
             implements PrestoSparkTaskExecutorFactoryProvider
     {
         private final PackageSupplier packageSupplier;
-        private final String metadataStorageType;
         private final Map<String, String> configProperties;
         private final Map<String, Map<String, String>> catalogProperties;
+        private final Map<String, String> prestoSparkProperties;
         private final Map<String, String> eventListenerProperties;
         private final Map<String, String> accessControlProperties;
         private final Map<String, String> sessionPropertyConfigurationProperties;
@@ -243,9 +243,9 @@ public class PrestoSparkRunner
         {
             requireNonNull(distribution, "distribution is null");
             this.packageSupplier = distribution.getPackageSupplier();
-            this.metadataStorageType = distribution.getMetadataStorageType();
             this.configProperties = distribution.getConfigProperties();
             this.catalogProperties = distribution.getCatalogProperties();
+            this.prestoSparkProperties = distribution.getPrestoSparkProperties();
             // Optional is not Serializable
             this.eventListenerProperties = distribution.getEventListenerProperties().orElse(null);
             this.accessControlProperties = distribution.getAccessControlProperties().orElse(null);
@@ -264,9 +264,9 @@ public class PrestoSparkRunner
 
         private static IPrestoSparkService service;
         private static String currentPackagePath;
-        private static String currentMetadataStorageType;
         private static Map<String, String> currentConfigProperties;
         private static Map<String, Map<String, String>> currentCatalogProperties;
+        private static Map<String, String> currentPrestoSparkProperties;
         private static Map<String, String> currentEventListenerProperties;
         private static Map<String, String> currentAccessControlProperties;
         private static Map<String, String> currentSessionPropertyConfigurationProperties;
@@ -282,17 +282,17 @@ public class PrestoSparkRunner
                             packageSupplier,
                             configProperties,
                             catalogProperties,
-                            metadataStorageType,
+                            prestoSparkProperties,
                             Optional.ofNullable(eventListenerProperties),
                             Optional.ofNullable(accessControlProperties),
                             Optional.ofNullable(sessionPropertyConfigurationProperties),
                             Optional.ofNullable(functionNamespaceProperties),
                             Optional.ofNullable(tempStorageProperties));
 
-                    currentMetadataStorageType = metadataStorageType;
                     currentPackagePath = getPackagePath(packageSupplier);
                     currentConfigProperties = configProperties;
                     currentCatalogProperties = catalogProperties;
+                    currentPrestoSparkProperties = prestoSparkProperties;
                     currentEventListenerProperties = eventListenerProperties;
                     currentAccessControlProperties = accessControlProperties;
                     currentSessionPropertyConfigurationProperties = sessionPropertyConfigurationProperties;
@@ -301,9 +301,9 @@ public class PrestoSparkRunner
                 }
                 else {
                     checkEquals("packagePath", currentPackagePath, getPackagePath(packageSupplier));
-                    checkEquals("metadataStorageType", currentMetadataStorageType, metadataStorageType);
                     checkEquals("configProperties", currentConfigProperties, configProperties);
                     checkEquals("catalogProperties", currentCatalogProperties, catalogProperties);
+                    checkEquals("prestoSparkProperties", currentPrestoSparkProperties, prestoSparkProperties);
                     checkEquals("eventListenerProperties", currentEventListenerProperties, eventListenerProperties);
                     checkEquals("accessControlProperties", currentAccessControlProperties, accessControlProperties);
                     checkEquals("sessionPropertyConfigurationProperties",
