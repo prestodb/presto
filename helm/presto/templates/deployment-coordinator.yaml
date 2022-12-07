@@ -26,6 +26,8 @@ spec:
       app.kubernetes.io/name: {{ .Chart.Name }}
       app.kubernetes.io/instance: {{ .Release.Name }}
       app.kubernetes.io/component: coordinator
+  strategy: {{- toYaml .Values.coordinator.deployment.strategy | nindent 4 }}
+  revisionHistoryLimit: {{ toYaml .Values.coordinator.deployment.revisionHistoryLimit }}
   template:
     metadata:
       labels:

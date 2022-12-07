@@ -105,6 +105,11 @@ coordinator:
     timeoutSeconds: 2
     failureThreshold: 3
     successThreshold: 1
+  # Deployment configuration for coordinator
+  deployment:
+    strategy:
+      type: Recreate
+    revisionHistoryLimit: 3
   # Coordinator resource limits and requests
   resources: {}
   # Constrain coordinator pods to specific nodes (overwrites common constraints)
@@ -143,6 +148,11 @@ worker:
     timeoutSeconds: 2
     failureThreshold: 3
     successThreshold: 1
+  # Deployment configuration for worker
+  deployment:
+    strategy:
+      type: Recreate
+    revisionHistoryLimit: 3
   # Worker resource limits and requests
   resources: {}
   # Constrain worker pods to specific nodes (overwrites common constraints)
