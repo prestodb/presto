@@ -12,7 +12,6 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
-#include "velox/connectors/hive/HivePartitionFunction.h"
 #include "velox/row/UnsafeRowDynamicSerializer.h"
 
 using namespace facebook::velox::exec;

@@ -226,6 +226,19 @@ auto addShuffleWriteNode(
 } // namespace
 
 class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
+ public:
+  static constexpr std::string_view kTestShuffleInfoFormat =
+      "{{\n"
+      "  \"numPartitions\": {},\n"
+      "  \"maxBytesPerPartition\": {}\n"
+      "}}";
+
+  static constexpr std::string_view kLocalShuffleInfoFormat =
+      "{{\n"
+      "  \"rootPath\": \"{}\",\n"
+      "  \"numPartitions\": {}\n"
+      "}}";
+
  protected:
   void registerVectorSerde() override {
     serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
@@ -400,18 +413,6 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
       fileSystem->remove(file);
     }
   }
-
-  const std::string kTestShuffleInfoFormat =
-      "{{\n"
-      "  \"numPartitions\": {},\n"
-      "  \"maxBytesPerPartition\": {}\n"
-      "}}";
-
-  const std::string kLocalShuffleInfoFormat =
-      "{{\n"
-      "  \"rootPath\": \"{}\",\n"
-      "  \"numPartitions\": {}\n"
-      "}}";
 };
 
 TEST_F(UnsafeRowShuffleTest, operators) {

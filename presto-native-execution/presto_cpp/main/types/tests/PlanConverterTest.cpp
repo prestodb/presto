@@ -147,18 +147,18 @@ TEST_F(PlanConverterTest, scanAggBatch) {
 
   auto shuffleWrite =
       std::dynamic_pointer_cast<const operators::ShuffleWriteNode>(root);
-  ASSERT(shuffleWrite != nullptr);
+  ASSERT_NE(shuffleWrite, nullptr);
   ASSERT_EQ(shuffleWrite->sources().size(), 1);
 
   auto localPartition =
       std::dynamic_pointer_cast<const core::LocalPartitionNode>(
           shuffleWrite->sources().back());
-  ASSERT(localPartition != nullptr);
+  ASSERT_NE(localPartition, nullptr);
   ASSERT_EQ(localPartition->sources().size(), 1);
 
   auto partitionAndSerializeNode =
       std::dynamic_pointer_cast<const operators::PartitionAndSerializeNode>(
           localPartition->sources().back());
-  ASSERT(partitionAndSerializeNode != nullptr);
+  ASSERT_NE(partitionAndSerializeNode, nullptr);
   ASSERT_EQ(partitionAndSerializeNode->numPartitions(), 3);
 }
