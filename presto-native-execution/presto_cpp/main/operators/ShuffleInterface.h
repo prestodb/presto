@@ -34,6 +34,8 @@ class ShuffleInterface {
           Type type,
           velox::memory::MemoryPool* pool)>;
 
+  virtual ~ShuffleInterface() = default;
+
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
 
