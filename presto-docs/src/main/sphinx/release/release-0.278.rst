@@ -2,6 +2,10 @@
 Release 0.278
 =============
 
+.. warning::
+
+   There is a performance regression in :func:`ROUND`.
+
 **Details**
 ===========
 
