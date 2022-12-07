@@ -53,10 +53,10 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.worker.command }}
-          command: {{- toYaml . | nindent 12 }}
+          command: {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with .Values.worker.args }}
-          args: {{- toYaml . | nindent 12 }}
+          args: {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with $env }}
           env: {{- toYaml . | nindent 12 }}
