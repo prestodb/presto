@@ -600,8 +600,15 @@ void corruptFile(const std::string& path) {
 } // namespace
 
 TEST_F(AsyncDataCacheTest, ssd) {
+#ifdef TSAN_BUILD
+  // NOTE: scale down the test data set to prevent tsan tester from running out
+  // of memory.
+  constexpr uint64_t kRamBytes = 16 << 20;
+  constexpr uint64_t kSsdBytes = 256UL << 20;
+#else
   constexpr uint64_t kRamBytes = 32 << 20;
   constexpr uint64_t kSsdBytes = 512UL << 20;
+#endif
   FLAGS_velox_exception_user_stacktrace_enabled = false;
   initializeCache(kRamBytes, kSsdBytes);
   cache_->setVerifyHook(
@@ -611,11 +618,10 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // new entry creation.
   FLAGS_ssd_verify_write = true;
 
-  // We read kSsdBytes worth of data on 16
-  // threads. The same data will
-  // be hit by all threads. The expectation is that most of the data
-  // ends up on SSD. All data may not get written if reading is faster than
-  // writing. Error out once every 11 load batches.
+  // We read kSsdBytes worth of data on 16 threads. The same data will be hit by
+  // all threads. The expectation is that most of the data ends up on SSD. All
+  // data may not get written if reading is faster than writing. Error out once
+  // every 11 load batches.
   //
   // Note that executor() must have more threads so that background
   // write does not wait for the workload.
@@ -626,14 +632,14 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // We allow writes to proceed faster.
   FLAGS_ssd_verify_write = false;
 
-  EXPECT_LE(kRamBytes, stats.bytesWritten);
+  ASSERT_LE(kRamBytes, stats.bytesWritten);
   // We read the data back. The verify hook checks correct values. Error every
   // 13 batch loads.
   runThreads(16, [&](int32_t /*i*/) { loadLoop(0, kSsdBytes, 13); });
 
   LOG(INFO) << "Stats after second pass:" << cache_->toString();
   stats = cache_->ssdCache()->stats();
-  EXPECT_LE(kRamBytes, stats.bytesRead);
+  ASSERT_LE(kRamBytes, stats.bytesRead);
 
   // We re-read the second half and add another half capacity of new
   // entries. We expect some of the oldest entries to get evicted. Error every
@@ -645,14 +651,14 @@ TEST_F(AsyncDataCacheTest, ssd) {
   // Wait for writes to finish and make a checkpoint.
   cache_->ssdCache()->shutdown();
   auto stats2 = cache_->ssdCache()->stats();
-  EXPECT_GT(stats2.bytesWritten, stats.bytesWritten);
-  EXPECT_GT(stats2.bytesRead, stats.bytesRead);
+  ASSERT_GT(stats2.bytesWritten, stats.bytesWritten);
+  ASSERT_GT(stats2.bytesRead, stats.bytesRead);
 
   // Check that no pins are leaked.
-  EXPECT_EQ(0, stats2.numPins);
+  ASSERT_EQ(0, stats2.numPins);
   auto ramStats = cache_->refreshStats();
-  EXPECT_EQ(0, ramStats.numShared);
-  EXPECT_EQ(0, ramStats.numExclusive);
+  ASSERT_EQ(0, ramStats.numShared);
+  ASSERT_EQ(0, ramStats.numExclusive);
   cache_->ssdCache()->clear();
   // We cut the tail off one of the cache shards.
   corruptFile(fmt::format("{}/cache0.cpt", tempDirectory_->path));
@@ -666,9 +672,8 @@ TEST_F(AsyncDataCacheTest, ssd) {
             << cache_->toString();
   auto ssdStats = cache_->ssdCache()->stats();
 
-  //    The exact number of hits after recovery is not deterministic due
-  // to threading. Hitting at least 1/2 of the capacity when 3/4 are
-  // available since one of the shards was deliberately corrupted, is
-  // a safe bet.
-  EXPECT_LT(kSsdBytes / 2, stats.bytesRead);
+  // The exact number of hits after recovery is not deterministic due to
+  // threading. Hitting at least 1/2 of the capacity when 3/4 are available
+  // since one of the shards was deliberately corrupted, is a safe bet.
+  ASSERT_LT(kSsdBytes / 2, stats2.bytesRead);
 }
