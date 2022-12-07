@@ -41,7 +41,10 @@ import java.util.Set;
 
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static com.facebook.presto.hive.HiveUtil.getDeserializerClassName;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
+import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -86,6 +89,11 @@ public class S3SelectRecordCursorProvider
             throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
+        // Query is not going to filter any data, no need to use S3 Select.
+        if (!hasFilters(schema, effectivePredicate, columns)) {
+            return Optional.empty();
+        }
+
         String serdeName = getDeserializerClassName(schema);
         if (CSV_SERDES.contains(serdeName)) {
             IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager);
@@ -96,5 +104,33 @@ public class S3SelectRecordCursorProvider
 
         // unsupported serdes
         return Optional.empty();
+    }
+
+    private static boolean hasFilters(
+            Properties schema,
+            TupleDomain<HiveColumnHandle> effectivePredicate,
+            List<HiveColumnHandle> projectedColumns)
+    {
+        // When there are no effective predicates and the projected columns are identical to the schema, it means that
+        // we get all the data out of S3. We can use S3 GetObject instead of S3 SelectObjectContent in these cases.
+        if (effectivePredicate.isAll()) {
+            return !areColumnsEquivalent(projectedColumns, schema);
+        }
+        return true;
+    }
+
+    private static boolean areColumnsEquivalent(List<HiveColumnHandle> projectedColumns, Properties schema)
+    {
+        Set<String> projectedColumnNames = projectedColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+        Set<String> schemaColumnNames;
+        String columnNameProperty = schema.getProperty(LIST_COLUMNS);
+        if (columnNameProperty.length() == 0) {
+            schemaColumnNames = ImmutableSet.of();
+        }
+        else {
+            String columnNameDelimiter = (String) schema.getOrDefault(COLUMN_NAME_DELIMITER, ",");
+            schemaColumnNames = ImmutableSet.copyOf(columnNameProperty.split(columnNameDelimiter));
+        }
+        return projectedColumnNames.equals(schemaColumnNames);
     }
 }
