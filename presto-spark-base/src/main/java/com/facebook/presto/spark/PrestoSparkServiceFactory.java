@@ -26,6 +26,7 @@ import com.google.inject.Module;
 
 import java.util.List;
 
+import static com.facebook.presto.spark.classloader_interface.PrestoSparkConfiguration.METADATA_STORAGE_TYPE_LOCAL;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class PrestoSparkServiceFactory
@@ -60,7 +61,7 @@ public class PrestoSparkServiceFactory
 
     protected List<Module> getAdditionalModules(PrestoSparkConfiguration configuration)
     {
-        checkArgument("LOCAL".equals(configuration.getMetadataStorageType().toUpperCase()), "only local metadata storage is supported");
+        checkArgument(METADATA_STORAGE_TYPE_LOCAL.equalsIgnoreCase(configuration.getMetadataStorageType()), "only local metadata storage is supported");
         return ImmutableList.of(new PrestoSparkLocalMetadataStorageModule());
     }
 
