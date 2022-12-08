@@ -93,10 +93,10 @@ public class BenchmarkMapToMapCast
         public void setup()
         {
             MetadataManager metadata = createTestMetadataManager();
-            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, mapType(DOUBLE, BIGINT), mapType(BIGINT, DOUBLE));
+            FunctionHandle functionHandle = metadata.getFunctionAndTypeManager().lookupCast(CAST, mapType(BIGINT, DOUBLE), mapType(BIGINT, BIGINT));
 
             List<RowExpression> projections = ImmutableList.of(
-                    new CallExpression(CAST.name(), functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(DOUBLE, BIGINT)))));
+                    new CallExpression(CAST.name(), functionHandle, mapType(BIGINT, DOUBLE), ImmutableList.of(field(0, mapType(BIGINT, BIGINT)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))
                     .compilePageProcessor(SESSION.getSqlFunctionProperties(), Optional.empty(), projections)
@@ -104,7 +104,7 @@ public class BenchmarkMapToMapCast
 
             Block keyBlock = createKeyBlock(POSITION_COUNT, MAP_SIZE);
             Block valueBlock = createValueBlock(POSITION_COUNT, MAP_SIZE);
-            Block block = createMapBlock(mapType(DOUBLE, BIGINT), POSITION_COUNT, keyBlock, valueBlock);
+            Block block = createMapBlock(mapType(BIGINT, DOUBLE), POSITION_COUNT, keyBlock, valueBlock);
             page = new Page(block);
         }
 
@@ -120,18 +120,18 @@ public class BenchmarkMapToMapCast
 
         private static Block createKeyBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = BIGINT.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
-                DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
+                BIGINT.writeLong(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }
             return valueBlockBuilder.build();
         }
 
         private static Block createValueBlock(int positionCount, int mapSize)
         {
-            BlockBuilder valueBlockBuilder = BIGINT.createBlockBuilder(null, positionCount * mapSize);
+            BlockBuilder valueBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount * mapSize);
             for (int i = 0; i < positionCount * mapSize; i++) {
-                BIGINT.writeLong(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
+                DOUBLE.writeDouble(valueBlockBuilder, ThreadLocalRandom.current().nextLong());
             }
             return valueBlockBuilder.build();
         }
