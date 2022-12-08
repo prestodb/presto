@@ -22,7 +22,6 @@
 #include <vector>
 #include "velox/common/memory/Memory.h"
 #include "velox/dwio/common/IntDecoder.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/TypeWithId.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -1489,12 +1488,13 @@ std::unique_ptr<DwrfReader> getDwrfReader(
   writer.write(batch);
   writer.close();
 
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
-
+  std::string_view data(sinkPtr->getData(), sinkPtr->size());
   ReaderOptions readerOpts;
-  RowReaderOptions rowReaderOpts;
-  return std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  return std::make_unique<DwrfReader>(
+      readerOpts,
+      std::make_unique<BufferedInput>(
+          std::make_shared<InMemoryReadFile>(data),
+          readerOpts.getMemoryPool()));
 }
 
 void removeSizeFromStats(std::string& input) {

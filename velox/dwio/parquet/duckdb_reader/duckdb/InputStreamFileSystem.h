@@ -33,7 +33,7 @@ namespace facebook::velox::duckdb {
 class InputStreamFileSystem : public ::duckdb::FileSystem {
  public:
   explicit InputStreamFileSystem(
-      std::unique_ptr<dwio::common::InputStream> stream)
+      std::shared_ptr<dwio::common::InputStream> stream)
       : stream_(std::move(stream)) {}
 
   ~InputStreamFileSystem() override = default;
@@ -152,7 +152,7 @@ class InputStreamFileSystem : public ::duckdb::FileSystem {
   }
 
  private:
-  std::unique_ptr<dwio::common::InputStream> stream_;
+  std::shared_ptr<dwio::common::InputStream> stream_;
 };
 
 } // namespace facebook::velox::duckdb

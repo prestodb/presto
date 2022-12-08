@@ -19,7 +19,6 @@
 
 #include "folly/Random.h"
 #include "velox/dwio/common/DataSink.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"

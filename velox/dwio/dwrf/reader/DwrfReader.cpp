@@ -73,10 +73,10 @@ DwrfRowReader::DwrfRowReader(
   std::function<std::string()> createExceptionContext = [&]() {
     std::string exceptionMessageContext = fmt::format(
         "The schema loaded in the reader does not match the schema in the file footer."
-        "Input Stream Name: {},\n"
+        "Input Name: {},\n"
         "File Footer Schema (without partition columns): {},\n"
         "Input Table Schema (with partition columns): {}\n",
-        getReader().getStream().getName(),
+        getReader().getBufferedInput().getName(),
         getReader().getSchema()->toString(),
         getType()->toString());
     return exceptionMessageContext;
@@ -472,15 +472,11 @@ std::optional<size_t> DwrfRowReader::estimatedRowSize() const {
 
 DwrfReader::DwrfReader(
     const ReaderOptions& options,
-    std::unique_ptr<InputStream> input)
+    std::unique_ptr<dwio::common::BufferedInput> input)
     : readerBase_(std::make_unique<ReaderBase>(
           options.getMemoryPool(),
           std::move(input),
           options.getDecrypterFactory(),
-          options.getBufferedInputFactory()
-              ? options.getBufferedInputFactory()
-              : dwio::common::BufferedInputFactory::baseFactoryShared(),
-          options.getFileNum(),
           options.getFileFormat() == FileFormat::ORC ? FileFormat::ORC
                                                      : FileFormat::DWRF)),
       options_(options) {}
@@ -653,11 +649,13 @@ uint64_t DwrfReader::getMemoryUse(
    * in the input stream and in the seekable input stream.
    * If no string column is read, estimate from the number of streams.
    */
-  uint64_t memory = hasStringColumn
-      ? 2 * maxDataLength
-      : std::min(
-            uint64_t(maxDataLength),
-            nSelectedStreams * readerBase.getStream().getNaturalReadSize());
+  uint64_t memory = hasStringColumn ? 2 * maxDataLength
+                                    : std::min(
+                                          uint64_t(maxDataLength),
+                                          nSelectedStreams *
+                                              readerBase.getBufferedInput()
+                                                  .getReadFile()
+                                                  ->getNaturalReadSize());
 
   // Do we need even more memory to read the footer or the metadata?
   auto footerLength = readerBase.getPostScript().footerLength();
@@ -698,9 +696,9 @@ std::unique_ptr<DwrfRowReader> DwrfReader::createDwrfRowReader(
 }
 
 std::unique_ptr<DwrfReader> DwrfReader::create(
-    std::unique_ptr<InputStream> stream,
+    std::unique_ptr<dwio::common::BufferedInput> input,
     const ReaderOptions& options) {
-  return std::make_unique<DwrfReader>(options, std::move(stream));
+  return std::make_unique<DwrfReader>(options, std::move(input));
 }
 
 void registerDwrfReaderFactory() {

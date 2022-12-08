@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include <cstring>
 #include "velox/dwio/common/InputStream.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/common/exception/Exception.h"
 #include "velox/dwio/dwrf/reader/StripeReaderBase.h"
@@ -94,9 +93,11 @@ class EncryptedStatsTest : public Test {
     auto handler = DecryptionHandler::create(*footer, &factory);
     handler_ = handler.get();
 
+    auto readFile =
+        std::make_shared<facebook::velox::InMemoryReadFile>(std::string());
     reader_ = std::make_unique<ReaderBase>(
         *pool_,
-        std::make_unique<MemoryInputStream>(nullptr, 0),
+        std::make_unique<BufferedInput>(readFile, *pool_),
         std::make_unique<PostScript>(std::move(ps)),
         footer,
         nullptr,
@@ -199,8 +200,10 @@ std::unique_ptr<ReaderBase> createCorruptedFileReader(
   buf.data()[0] = psLen;
 
   sink.write(std::move(buf));
-  auto input = std::make_unique<MemoryInputStream>(sink.getData(), sink.size());
-  return std::make_unique<ReaderBase>(*pool, std::move(input));
+  auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(
+      std::string_view(sink.getData(), sink.size()));
+  return std::make_unique<ReaderBase>(
+      *pool, std::make_unique<BufferedInput>(readFile, *pool));
 }
 
 TEST(ReaderBaseTest, InvalidPostScriptThrows) {

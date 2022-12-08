@@ -76,38 +76,23 @@ FooterStatisticsImpl::FooterStatisticsImpl(
 
 ReaderBase::ReaderBase(
     MemoryPool& pool,
-    std::unique_ptr<InputStream> stream,
+    std::unique_ptr<dwio::common::BufferedInput> input,
     FileFormat fileFormat)
-    : ReaderBase(
-          pool,
-          std::move(stream),
-          nullptr,
-          nullptr,
-          kDefaultFileNum,
-          fileFormat) {}
+    : ReaderBase(pool, std::move(input), nullptr, fileFormat) {}
 
 ReaderBase::ReaderBase(
     MemoryPool& pool,
-    std::unique_ptr<InputStream> stream,
+    std::unique_ptr<dwio::common::BufferedInput> input,
     std::shared_ptr<DecrypterFactory> decryptorFactory,
-    std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory,
-    uint64_t fileNum,
     FileFormat fileFormat)
     : pool_{pool},
-      stream_{std::move(stream)},
       arena_(std::make_unique<google::protobuf::Arena>()),
-      fileNum_(fileNum),
       decryptorFactory_(decryptorFactory),
-      bufferedInputFactory_(
-          bufferedInputFactory
-              ? bufferedInputFactory
-              : dwio::common::BufferedInputFactory::baseFactoryShared()) {
-  input_ = bufferedInputFactory_->create(*stream_, pool, fileNum);
-
+      input_(std::move(input)) {
   // read last bytes into buffer to get PostScript
   // If file is small, load the entire file.
   // TODO: make a config
-  fileLength_ = stream_->getLength();
+  fileLength_ = input_->getReadFile()->size();
   DWIO_ENSURE(fileLength_ > 0, "ORC file is empty");
 
   auto preloadFile = fileLength_ <= FILE_PRELOAD_THRESHOLD;

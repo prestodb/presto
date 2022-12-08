@@ -25,8 +25,22 @@ namespace facebook::velox::dwio::common {
 class BufferedInput {
  public:
   constexpr static uint64_t kMaxMergeDistance = 1024 * 1024 * 1.25;
-  BufferedInput(InputStream& input, memory::MemoryPool& pool)
-      : input_{input}, pool_{pool} {}
+
+  BufferedInput(
+      std::shared_ptr<ReadFile> readFile,
+      memory::MemoryPool& pool,
+      const MetricsLogPtr& metricsLog = MetricsLog::voidLog(),
+      IoStatistics* FOLLY_NULLABLE stats = nullptr)
+      : input_{std::make_shared<ReadFileInputStream>(
+            std::move(readFile),
+            metricsLog,
+            stats)},
+        pool_{pool} {}
+
+  BufferedInput(
+      std::shared_ptr<ReadFileInputStream> input,
+      memory::MemoryPool& pool)
+      : input_(std::move(input)), pool_(pool) {}
 
   BufferedInput(BufferedInput&&) = default;
   virtual ~BufferedInput() = default;
@@ -36,7 +50,7 @@ class BufferedInput {
   BufferedInput& operator=(BufferedInput&&) = delete;
 
   virtual const std::string& getName() const {
-    return input_.getName();
+    return input_->getName();
   }
 
   // The previous API was taking a vector of regions
@@ -87,11 +101,26 @@ class BufferedInput {
 
   virtual void setNumStripes(int32_t /*numStripes*/) {}
 
+  // Create a new (clean) instance of BufferedInput sharing the same underlying
+  // file and memory pool.  The enqueued regions are NOT copied.
+  virtual std::unique_ptr<BufferedInput> clone() const {
+    return std::make_unique<BufferedInput>(input_, pool_);
+  }
+
+  const std::shared_ptr<ReadFile>& getReadFile() const {
+    return input_->getReadFile();
+  }
+
+  // Internal API, do not use outside Velox.
+  const std::shared_ptr<ReadFileInputStream>& getInputStream() const {
+    return input_;
+  }
+
  protected:
-  InputStream& input_;
+  std::shared_ptr<ReadFileInputStream> input_;
+  memory::MemoryPool& pool_;
 
  private:
-  memory::MemoryPool& pool_;
   std::vector<uint64_t> offsets_;
   std::vector<DataBuffer<char>> buffers_;
   std::vector<Region> regions_;
@@ -126,33 +155,6 @@ class BufferedInput {
 
   // tries and merges WS read regions into one
   bool tryMerge(Region& first, const Region& second);
-};
-
-class BufferedInputFactory {
- public:
-  virtual ~BufferedInputFactory() = default;
-
-  virtual std::unique_ptr<BufferedInput> create(
-      InputStream& input,
-      velox::memory::MemoryPool& pool,
-      uint64_t /*fileNum*/) const {
-    return std::make_unique<BufferedInput>(input, pool);
-  }
-
-  // Returns an executor for parallelizing IO. The executor is
-  // expected to have an indefinite lifetime and the actions queued on
-  // the executor must be self-contained and capture and own such
-  // context as they need and not rely on a BufferedInput being live.
-  virtual folly::Executor* FOLLY_NULLABLE executor() const {
-    return nullptr;
-  }
-
-  // Returns a static factory for producing basic BufferedInput instances.
-  static std::shared_ptr<BufferedInputFactory> baseFactoryShared();
-
-  static BufferedInputFactory* FOLLY_NONNULL baseFactory() {
-    return baseFactoryShared().get();
-  }
 };
 
 } // namespace facebook::velox::dwio::common

@@ -15,7 +15,6 @@
  */
 
 #include "velox/dwio/common/DataSink.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Statistics.h"
 #include "velox/dwio/common/tests/utils/DataSetBuilder.h"
@@ -121,7 +120,9 @@ class ParquetReaderBenchmark {
       std::shared_ptr<ScanSpec> scanSpec,
       const RowTypePtr& rowType) {
     dwio::common::ReaderOptions readerOpts;
-    auto input = std::make_unique<FileInputStream>("test.parquet");
+    auto input = std::make_unique<BufferedInput>(
+        std::make_shared<LocalReadFile>("test.parquet"),
+        readerOpts.getMemoryPool());
 
     std::unique_ptr<Reader> reader;
     switch (parquetReaderType) {
@@ -130,7 +131,7 @@ class ParquetReaderBenchmark {
         break;
       case ParquetReaderType::DUCKDB:
         reader = std::make_unique<duckdb_reader::ParquetReader>(
-            std::move(input), readerOpts);
+            input->getInputStream(), readerOpts);
         break;
       default:
         VELOX_UNSUPPORTED("Only native or DuckDB Parquet reader is supported");

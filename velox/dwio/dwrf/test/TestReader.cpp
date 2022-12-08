@@ -21,7 +21,6 @@
 #include "folly/lang/Assume.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/dwio/common/DataSink.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/common/Common.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
@@ -66,6 +65,13 @@ TEST(TestReader, testCompressionNames) {
       compressionKindToString(static_cast<CompressionKind>(99)));
 }
 
+std::unique_ptr<BufferedInput> createFileBufferedInput(
+    const std::string& path,
+    memory::MemoryPool& pool) {
+  return std::make_unique<BufferedInput>(
+      std::make_shared<LocalReadFile>(path), pool);
+}
+
 // schema of flat map sample file
 // struct {
 //   id int,
@@ -93,8 +99,8 @@ void verifyFlatMapReading(
       map4:map<int,struct<field1:int,field2:float,field3:string>>,\
       memo:string>"));
   rowReaderOpts.select(std::make_shared<ColumnSelector>(requestedType));
-  auto reader =
-      DwrfReader::create(std::make_unique<FileInputStream>(file), readerOpts);
+  auto reader = DwrfReader::create(
+      createFileBufferedInput(file, readerOpts.getMemoryPool()), readerOpts);
   auto rowReaderOwner = reader->createRowReader(rowReaderOpts);
   auto rowReader = dynamic_cast<DwrfRowReader*>(rowReaderOwner.get());
   VectorPtr batch;
@@ -200,7 +206,8 @@ TEST_P(TestFlatMapReader, testStringKeyLifeCycle) {
     rowReaderOptions.setReturnFlatVector(returnFlatVector);
 
     auto reader = DwrfReader::create(
-        std::make_unique<FileInputStream>(fmSmall), readerOptions);
+        createFileBufferedInput(fmSmall, readerOptions.getMemoryPool()),
+        readerOptions);
     auto rowReader = reader->createRowReader(rowReaderOptions);
     rowReader->next(100, batch);
   }
@@ -307,7 +314,8 @@ TEST_P(TestFlatMapReaderFlatLayout, testCompare) {
 
   ReaderOptions readerOptions;
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(fmSmall), readerOptions);
+      createFileBufferedInput(fmSmall, readerOptions.getMemoryPool()),
+      readerOptions);
   RowReaderOptions rowReaderOptions;
   auto param = GetParam();
   rowReaderOptions.setReturnFlatVector(false);
@@ -354,7 +362,7 @@ TEST(TestReader, testReadFlatMapWithKeyFilters) {
       requestedType, std::vector<std::string>{"map1#[1]", "map2#[\"key-1\"]"});
   rowReaderOpts.select(cs);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(fmSmall), readerOpts);
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
 
@@ -414,7 +422,7 @@ TEST(TestReader, testReadFlatMapWithKeyRejectList) {
       requestedType, std::vector<std::string>{"map1#[\"!2\",\"!3\"]"});
   rowReaderOpts.select(cs);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(fmSmall), readerOpts);
+      createFileBufferedInput(fmSmall, readerOpts.getMemoryPool()), readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
 
@@ -510,7 +518,8 @@ void verifyFlatmapStructEncoding(
     size_t batchSize = 1000) {
   ReaderOptions readerOpts;
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(filename), readerOpts);
+      createFileBufferedInput(filename, readerOpts.getMemoryPool()),
+      readerOpts);
 
   const std::string projectedColumn = "map1";
   const vector_size_t projectedColumnIndex = 1;
@@ -618,7 +627,8 @@ TEST(TestReader, testMismatchSchemaMoreFields) {
   rowReaderOpts.select(std::make_shared<ColumnSelector>(
       requestedType, std::vector<uint64_t>{1, 2, 3}));
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
   rowReader->next(1, batch);
@@ -636,7 +646,8 @@ TEST(TestReader, testMismatchSchemaMoreFields) {
 
   rowReaderOpts.setProjectSelectedType(true);
   reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   rowReader = reader->createRowReader(rowReaderOpts);
   rowReader->next(1, batch);
 
@@ -661,7 +672,8 @@ TEST(TestReader, testMismatchSchemaFewerFields) {
   rowReaderOpts.select(std::make_shared<ColumnSelector>(
       requestedType, std::vector<uint64_t>{1}));
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
   rowReader->next(1, batch);
@@ -678,7 +690,8 @@ TEST(TestReader, testMismatchSchemaFewerFields) {
   batch.reset();
   rowReaderOpts.setProjectSelectedType(true);
   reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   rowReader = reader->createRowReader(rowReaderOpts);
   rowReader->next(1, batch);
 
@@ -701,7 +714,8 @@ TEST(TestReader, testMismatchSchemaNestedMoreFields) {
   rowReaderOpts.select(std::make_shared<ColumnSelector>(
       requestedType, std::vector<std::string>{"b.b", "b.c", "b.d", "c"}));
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
   rowReader->next(1, batch);
@@ -730,7 +744,8 @@ TEST(TestReader, testMismatchSchemaNestedMoreFields) {
   batch.reset();
   rowReaderOpts.setProjectSelectedType(true);
   reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   rowReader = reader->createRowReader(rowReaderOpts);
   rowReader->next(1, batch);
 
@@ -764,7 +779,8 @@ TEST(TestReader, testMismatchSchemaNestedFewerFields) {
   rowReaderOpts.select(std::make_shared<ColumnSelector>(
       requestedType, std::vector<std::string>{"b.b", "c"}));
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   VectorPtr batch;
   rowReader->next(1, batch);
@@ -789,7 +805,8 @@ TEST(TestReader, testMismatchSchemaNestedFewerFields) {
   batch.reset();
   rowReaderOpts.setProjectSelectedType(true);
   reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(structFile), readerOpts);
+      createFileBufferedInput(structFile, readerOpts.getMemoryPool()),
+      readerOpts);
   rowReader = reader->createRowReader(rowReaderOpts);
   rowReader->next(1, batch);
 
@@ -1068,7 +1085,9 @@ TEST(TestReader, testEmptyFile) {
   DataBuffer<char> buf{*pool, 1};
   buf.data()[0] = psLen;
   sink.write(std::move(buf));
-  auto input = std::make_unique<MemoryInputStream>(sink.getData(), sink.size());
+  std::string_view data(sink.getData(), sink.size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), *pool);
 
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
@@ -1168,8 +1187,9 @@ void testBufferLifeCycle(
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), *pool);
 
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
@@ -1224,8 +1244,9 @@ void testFlatmapAsMapFieldLifeCycle(
   auto writer =
       E2EWriterTestUtil::writeData(std::move(sink), schema, batches, config);
 
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), *pool);
 
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
@@ -1358,7 +1379,8 @@ TEST(TestReader, testOrcReaderSimple) {
   // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
   readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(simpleTest), readerOpts);
+      createFileBufferedInput(simpleTest, readerOpts.getMemoryPool()),
+      readerOpts);
 
   RowReaderOptions rowReaderOptions;
   auto rowReader = reader->createRowReader(rowReaderOptions);
@@ -1404,7 +1426,8 @@ TEST(TestReader, testOrcReaderComplexTypes) {
   ReaderOptions readerOpts;
   readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(icebergOrc), readerOpts);
+      createFileBufferedInput(icebergOrc, readerOpts.getMemoryPool()),
+      readerOpts);
   auto rowType = reader->rowType();
   EXPECT_TRUE(rowType->equivalent(*expectedType));
 }
@@ -1414,7 +1437,8 @@ TEST(TestReader, testOrcReaderVarchar) {
   ReaderOptions readerOpts;
   readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(varcharOrc), readerOpts);
+      createFileBufferedInput(varcharOrc, readerOpts.getMemoryPool()),
+      readerOpts);
 
   RowReaderOptions rowReaderOptions;
   auto rowReader = reader->createRowReader(rowReaderOptions);
@@ -1444,7 +1468,7 @@ TEST(TestReader, testOrcReaderDate) {
   ReaderOptions readerOpts;
   readerOpts.setFileFormat(dwio::common::FileFormat::ORC);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(dateOrc), readerOpts);
+      createFileBufferedInput(dateOrc, readerOpts.getMemoryPool()), readerOpts);
 
   RowReaderOptions rowReaderOptions;
   auto rowReader = reader->createRowReader(rowReaderOptions);

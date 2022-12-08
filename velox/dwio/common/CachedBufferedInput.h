@@ -31,23 +31,6 @@ DECLARE_int32(cache_load_quantum);
 
 namespace facebook::velox::dwio::common {
 
-// Abstract class for owning an InputStream and related structures
-// like pins into file handle caches. TODO: Make file handle cache
-// produce shared_ptr<InputStream> and write all in terms of these.
-class AbstractInputStreamHolder {
- public:
-  virtual ~AbstractInputStreamHolder() = default;
-  virtual InputStream& get() = 0;
-};
-
-// Function type for making copies of InputStream for running
-// parallel loads. We cannot pass the one non-owned InputStream to
-// other threads because the BufferedInput and its owner could be
-// destroyed out of sequence and the streams are owned via
-// unique_ptr. TODO: Make all streams owned via shared_ptr.
-using StreamSource =
-    std::function<std::unique_ptr<AbstractInputStreamHolder>()>;
-
 struct CacheRequest {
   CacheRequest(
       cache::RawFileCacheKey _key,
@@ -74,26 +57,47 @@ struct CacheRequest {
 class CachedBufferedInput : public BufferedInput {
  public:
   CachedBufferedInput(
-      InputStream& input,
+      std::shared_ptr<ReadFile> readFile,
+      memory::MemoryPool& pool,
+      const MetricsLogPtr& metricsLog,
+      uint64_t fileNum,
+      cache::AsyncDataCache* FOLLY_NONNULL cache,
+      std::shared_ptr<cache::ScanTracker> tracker,
+      uint64_t groupId,
+      std::shared_ptr<IoStatistics> ioStats,
+      folly::Executor* FOLLY_NULLABLE executor,
+      int32_t loadQuantum,
+      int32_t maxCoalesceDistance)
+      : BufferedInput(std::move(readFile), pool, metricsLog),
+        cache_(cache),
+        fileNum_(fileNum),
+        tracker_(std::move(tracker)),
+        groupId_(groupId),
+        ioStats_(std::move(ioStats)),
+        executor_(executor),
+        fileSize_(input_->getLength()),
+        loadQuantum_(loadQuantum),
+        maxCoalesceDistance_(maxCoalesceDistance) {}
+
+  CachedBufferedInput(
+      std::shared_ptr<ReadFileInputStream> input,
       memory::MemoryPool& pool,
       uint64_t fileNum,
       cache::AsyncDataCache* FOLLY_NONNULL cache,
       std::shared_ptr<cache::ScanTracker> tracker,
       uint64_t groupId,
-      StreamSource streamSource,
       std::shared_ptr<IoStatistics> ioStats,
       folly::Executor* FOLLY_NULLABLE executor,
       int32_t loadQuantum,
       int32_t maxCoalesceDistance)
-      : BufferedInput(input, pool),
+      : BufferedInput(std::move(input), pool),
         cache_(cache),
         fileNum_(fileNum),
         tracker_(std::move(tracker)),
         groupId_(groupId),
-        streamSource_(streamSource),
         ioStats_(std::move(ioStats)),
         executor_(executor),
-        fileSize_(input.getLength()),
+        fileSize_(input_->getLength()),
         loadQuantum_(loadQuantum),
         maxCoalesceDistance_(maxCoalesceDistance) {}
 
@@ -101,10 +105,6 @@ class CachedBufferedInput : public BufferedInput {
     for (auto& load : allCoalescedLoads_) {
       load->cancel();
     }
-  }
-
-  const std::string& getName() const override {
-    return input_.getName();
   }
 
   std::unique_ptr<SeekableInputStream> enqueue(
@@ -135,6 +135,20 @@ class CachedBufferedInput : public BufferedInput {
     }
   }
 
+  virtual std::unique_ptr<BufferedInput> clone() const override {
+    return std::make_unique<CachedBufferedInput>(
+        input_,
+        pool_,
+        fileNum_,
+        cache_,
+        tracker_,
+        groupId_,
+        ioStats_,
+        executor_,
+        loadQuantum_,
+        maxCoalesceDistance_);
+  }
+
   cache::AsyncDataCache* FOLLY_NONNULL cache() const {
     return cache_;
   }
@@ -162,7 +176,6 @@ class CachedBufferedInput : public BufferedInput {
   const uint64_t fileNum_;
   std::shared_ptr<cache::ScanTracker> tracker_;
   const uint64_t groupId_;
-  StreamSource streamSource_;
   std::shared_ptr<IoStatistics> ioStats_;
   folly::Executor* const FOLLY_NULLABLE executor_;
 
@@ -183,62 +196,4 @@ class CachedBufferedInput : public BufferedInput {
   const int32_t maxCoalesceDistance_;
 };
 
-class CachedBufferedInputFactory : public BufferedInputFactory {
- public:
-  CachedBufferedInputFactory(
-      cache::AsyncDataCache* FOLLY_NONNULL cache,
-      std::shared_ptr<cache::ScanTracker> tracker,
-      uint64_t groupId,
-      StreamSource streamSource,
-      std::shared_ptr<IoStatistics> ioStats,
-      folly::Executor* FOLLY_NULLABLE executor,
-      const ReaderOptions& readerOpts)
-      : cache_(cache),
-        tracker_(std::move(tracker)),
-        groupId_(groupId),
-        streamSource_(streamSource),
-        ioStats_(ioStats),
-        executor_(executor),
-        loadQuantum_(readerOpts.loadQuantum()),
-        maxCoalesceDistance_(readerOpts.maxCoalesceDistance()) {}
-
-  std::unique_ptr<BufferedInput> create(
-      InputStream& input,
-      velox::memory::MemoryPool& pool,
-      uint64_t fileNum) const override {
-    return std::make_unique<CachedBufferedInput>(
-        input,
-        pool,
-        fileNum,
-        cache_,
-        tracker_,
-        groupId_,
-        streamSource_,
-        ioStats_,
-        executor_,
-        loadQuantum_,
-        maxCoalesceDistance_);
-  }
-
-  std::string toString() const {
-    if (tracker_) {
-      return tracker_->toString();
-    }
-    return "";
-  }
-
-  folly::Executor* FOLLY_NULLABLE executor() const override {
-    return executor_;
-  }
-
- private:
-  cache::AsyncDataCache* const FOLLY_NONNULL cache_;
-  std::shared_ptr<cache::ScanTracker> tracker_;
-  const uint64_t groupId_;
-  StreamSource streamSource_;
-  std::shared_ptr<IoStatistics> ioStats_;
-  folly::Executor* FOLLY_NULLABLE executor_;
-  int32_t loadQuantum_;
-  int32_t maxCoalesceDistance_;
-};
 } // namespace facebook::velox::dwio::common

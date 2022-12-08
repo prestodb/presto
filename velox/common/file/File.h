@@ -51,16 +51,14 @@ class ReadFile {
   pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const = 0;
 
   // Same as above, but returns owned data directly.
-  virtual std::string pread(uint64_t offset, uint64_t length) const = 0;
+  virtual std::string pread(uint64_t offset, uint64_t length) const;
 
   // Reads starting at 'offset' into the memory referenced by the
   // Ranges in 'buffers'. The buffers are filled left to right. A
   // buffer with nullptr data will cause its size worth of bytes to be skipped.
   virtual uint64_t preadv(
       uint64_t /*offset*/,
-      const std::vector<folly::Range<char*>>& /*buffers*/) const {
-    VELOX_NYI("preadv not supported");
-  }
+      const std::vector<folly::Range<char*>>& /*buffers*/) const;
 
   // Like preadv but may execute asynchronously and returns the read
   // size or exception via SemiFuture. Use hasPreadvAsync() to check
@@ -142,21 +140,19 @@ class WriteFile {
 // We don't provide registration functions for the in-memory files, as they
 // aren't intended for any robust use needing a filesystem.
 
-class InMemoryReadFile final : public ReadFile {
+class InMemoryReadFile : public ReadFile {
  public:
   explicit InMemoryReadFile(std::string_view file) : file_(file) {}
 
   explicit InMemoryReadFile(std::string file)
       : ownedFile_(std::move(file)), file_(ownedFile_) {}
 
-  std::string_view
-  pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const final;
-
-  std::string pread(uint64_t offset, uint64_t length) const final;
-
-  uint64_t preadv(
+  std::string_view pread(
       uint64_t offset,
-      const std::vector<folly::Range<char*>>& buffers) const final;
+      uint64_t length,
+      void* FOLLY_NONNULL buf) const override;
+
+  std::string pread(uint64_t offset, uint64_t length) const override;
 
   uint64_t size() const final {
     return file_.size();
@@ -215,8 +211,6 @@ class LocalReadFile final : public ReadFile {
 
   std::string_view
   pread(uint64_t offset, uint64_t length, void* FOLLY_NONNULL buf) const final;
-
-  std::string pread(uint64_t offset, uint64_t length) const final;
 
   uint64_t size() const final;
 

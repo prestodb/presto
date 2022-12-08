@@ -47,7 +47,10 @@ int main(int argc, char** argv) {
   // To make DwrfReader reads ORC file, setFileFormat to FileFormat::ORC
   readerOpts.setFileFormat(FileFormat::ORC);
   auto reader = DwrfReader::create(
-      std::make_unique<FileInputStream>(filePath), readerOpts);
+      std::make_unique<BufferedInput>(
+          std::make_shared<LocalReadFile>(filePath),
+          readerOpts.getMemoryPool()),
+      readerOpts);
 
   VectorPtr batch;
   RowReaderOptions rowReaderOptions;

@@ -25,7 +25,6 @@ using namespace facebook::velox::common;
 using namespace facebook::velox::dwio::common;
 using namespace facebook::velox::parquet;
 
-using dwio::common::MemoryInputStream;
 using dwio::common::MemorySink;
 
 class E2EFilterTest : public E2EFilterTestBase {
@@ -71,7 +70,7 @@ class E2EFilterTest : public E2EFilterTestBase {
 
   std::unique_ptr<dwio::common::Reader> makeReader(
       const dwio::common::ReaderOptions& opts,
-      std::unique_ptr<dwio::common::InputStream> input) override {
+      std::unique_ptr<dwio::common::BufferedInput> input) override {
     return std::make_unique<ParquetReader>(std::move(input), opts);
   }
 

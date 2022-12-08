@@ -25,6 +25,13 @@ using namespace facebook::velox::parquet;
 
 class ParquetReaderTest : public ParquetReaderTestBase {};
 
+ParquetReader createReader(const std::string& path, const ReaderOptions& opts) {
+  return ParquetReader(
+      std::make_unique<BufferedInput>(
+          std::make_shared<LocalReadFile>(path), opts.getMemoryPool()),
+      opts);
+}
+
 TEST_F(ParquetReaderTest, parseSample) {
   // sample.parquet holds two columns (a: BIGINT, b: DOUBLE) and
   // 20 rows (10 rows per group). Group offsets are 153 and 614.
@@ -34,8 +41,7 @@ TEST_F(ParquetReaderTest, parseSample) {
   const std::string sample(getExampleFilePath("sample.parquet"));
 
   ReaderOptions readerOptions;
-  ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
+  ParquetReader reader = createReader(sample, readerOptions);
   EXPECT_EQ(reader.numberOfRows(), 20ULL);
 
   auto type = reader.typeWithId();
@@ -56,8 +62,7 @@ TEST_F(ParquetReaderTest, parseDate) {
   const std::string sample(getExampleFilePath("date.parquet"));
 
   ReaderOptions readerOptions;
-  facebook::velox::parquet::ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
+  ParquetReader reader = createReader(sample, readerOptions);
 
   EXPECT_EQ(reader.numberOfRows(), 25ULL);
 
@@ -74,8 +79,7 @@ TEST_F(ParquetReaderTest, parseRowMapArray) {
   const std::string sample(getExampleFilePath("row_map_array.parquet"));
 
   ReaderOptions readerOptions;
-  facebook::velox::parquet::ParquetReader reader(
-      std::make_unique<FileInputStream>(sample), readerOptions);
+  ParquetReader reader = createReader(sample, readerOptions);
 
   EXPECT_EQ(reader.numberOfRows(), 1ULL);
 

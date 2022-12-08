@@ -33,7 +33,7 @@ class CacheInputStream : public SeekableInputStream {
       CachedBufferedInput* cache,
       IoStatistics* ioStats,
       const Region& region,
-      InputStream& input,
+      std::shared_ptr<ReadFileInputStream> input,
       uint64_t fileNum,
       std::shared_ptr<cache::ScanTracker> tracker,
       cache::TrackingId trackingId,
@@ -110,7 +110,7 @@ class CacheInputStream : public SeekableInputStream {
   CachedBufferedInput* const bufferedInput_;
   cache::AsyncDataCache* const cache_;
   IoStatistics* ioStats_;
-  InputStream& input_;
+  std::shared_ptr<ReadFileInputStream> input_;
   // The region of 'input' 'this' ranges over.
   const Region region_;
   const uint64_t fileNum_;

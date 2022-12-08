@@ -31,7 +31,7 @@ CacheInputStream::CacheInputStream(
     CachedBufferedInput* bufferedInput,
     IoStatistics* ioStats,
     const Region& region,
-    InputStream& input,
+    std::shared_ptr<ReadFileInputStream> input,
     uint64_t fileNum,
     std::shared_ptr<ScanTracker> tracker,
     TrackingId trackingId,
@@ -40,7 +40,7 @@ CacheInputStream::CacheInputStream(
     : bufferedInput_(bufferedInput),
       cache_(bufferedInput_->cache()),
       ioStats_(ioStats),
-      input_(input),
+      input_(std::move(input)),
       region_(region),
       fileNum_(fileNum),
       tracker_(std::move(tracker)),
@@ -202,7 +202,7 @@ void CacheInputStream::loadSync(Region region) {
       uint64_t usec = 0;
       {
         MicrosecondTimer timer(&usec);
-        input_.read(ranges, region.offset, LogType::FILE);
+        input_->read(ranges, region.offset, LogType::FILE);
       }
       ioStats_->read().increment(region.length);
       ioStats_->queryThreadIoLatency().increment(usec);

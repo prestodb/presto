@@ -166,7 +166,7 @@ class DwrfReader : public dwio::common::Reader {
    */
   DwrfReader(
       const dwio::common::ReaderOptions& options,
-      std::unique_ptr<dwio::common::InputStream> input);
+      std::unique_ptr<dwio::common::BufferedInput> input);
 
   ~DwrfReader() override = default;
 
@@ -274,7 +274,7 @@ class DwrfReader : public dwio::common::Reader {
    * @param options the options for reading the file
    */
   static std::unique_ptr<DwrfReader> create(
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       const dwio::common::ReaderOptions& options);
 
  private:
@@ -289,9 +289,9 @@ class DwrfReaderFactory : public dwio::common::ReaderFactory {
   DwrfReaderFactory() : ReaderFactory(dwio::common::FileFormat::DWRF) {}
 
   std::unique_ptr<dwio::common::Reader> createReader(
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       const dwio::common::ReaderOptions& options) override {
-    return DwrfReader::create(std::move(stream), options);
+    return DwrfReader::create(std::move(input), options);
   }
 };
 

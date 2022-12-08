@@ -37,8 +37,7 @@ StripeInformationWrapper StripeReaderBase::loadStripe(
     // if file is preloaded, return stripe is preloaded
     preload = true;
   } else {
-    stripeInput_ = reader_->bufferedInputFactory().create(
-        reader_->getStream(), reader_->getMemoryPool(), reader_->getFileNum());
+    stripeInput_ = reader_->getBufferedInput().clone();
 
     if (preload) {
       // If metadata cache exists, adjust read position to avoid re-reading

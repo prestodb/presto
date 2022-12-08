@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/dwrf/reader/StripeStream.h"
 #include "velox/dwio/dwrf/test/OrcTest.h"
@@ -33,16 +32,14 @@ using namespace facebook::velox::memory;
 using facebook::velox::RowType;
 using facebook::velox::dwio::type::fbhive::HiveTypeParser;
 
-class RecordingInputStream : public MemoryInputStream {
+class RecordingInputStream : public facebook::velox::InMemoryReadFile {
  public:
-  RecordingInputStream() : MemoryInputStream{nullptr, 0} {}
+  RecordingInputStream() : InMemoryReadFile(std::string()) {}
 
-  void read(
-      void* /* unused */,
-      uint64_t length,
-      uint64_t offset,
-      MetricsLog::MetricsType) override {
+  std::string_view pread(uint64_t offset, uint64_t length, void* buf)
+      const override {
     reads_.push_back({offset, length});
+    return {static_cast<char*>(buf), length};
   }
 
   const std::vector<Region>& getReads() const {
@@ -50,7 +47,7 @@ class RecordingInputStream : public MemoryInputStream {
   }
 
  private:
-  std::vector<Region> reads_;
+  mutable std::vector<Region> reads_;
 };
 
 class TestProvider : public StrideIndexProvider {
@@ -112,7 +109,7 @@ TEST(StripeStream, planReads) {
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::move(is),
+      std::make_unique<BufferedInput>(std::move(is), *pool),
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
@@ -154,7 +151,7 @@ TEST(StripeStream, filterSequences) {
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::move(is),
+      std::make_unique<BufferedInput>(std::move(is), *pool),
       std::make_unique<PostScript>(proto::PostScript{}),
       footer,
       nullptr);
@@ -213,7 +210,7 @@ TEST(StripeStream, zeroLength) {
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::move(is),
+      std::make_unique<BufferedInput>(std::move(is), *pool),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
       nullptr);
@@ -288,7 +285,7 @@ TEST(StripeStream, planReadsIndex) {
   auto isPtr = is.get();
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::move(is),
+      std::make_unique<BufferedInput>(std::move(is), *pool),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
       std::move(cache));
@@ -402,7 +399,9 @@ TEST(StripeStream, readEncryptedStreams) {
 
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::make_unique<MemoryInputStream>(nullptr, 0),
+      std::make_unique<BufferedInput>(
+          std::make_shared<facebook::velox::InMemoryReadFile>(std::string()),
+          *pool),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
       nullptr,
@@ -466,7 +465,9 @@ TEST(StripeStream, schemaMismatch) {
 
   auto readerBase = std::make_shared<ReaderBase>(
       *pool,
-      std::make_unique<MemoryInputStream>(nullptr, 0),
+      std::make_unique<BufferedInput>(
+          std::make_shared<facebook::velox::InMemoryReadFile>(std::string()),
+          *pool),
       std::make_unique<PostScript>(std::move(ps)),
       footer,
       nullptr,

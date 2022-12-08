@@ -36,7 +36,7 @@ class StructColumnReader;
 class ReaderBase {
  public:
   ReaderBase(
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput>,
       const dwio::common::ReaderOptions& options);
 
   virtual ~ReaderBase() = default;
@@ -47,10 +47,6 @@ class ReaderBase {
 
   dwio::common::BufferedInput& bufferedInput() const {
     return *input_;
-  }
-
-  dwio::common::InputStream& stream() const {
-    return *stream_;
   }
 
   uint64_t fileLength() const {
@@ -108,9 +104,7 @@ class ReaderBase {
 
   memory::MemoryPool& pool_;
   const dwio::common::ReaderOptions& options_;
-  const std::unique_ptr<dwio::common::InputStream> stream_;
-  std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory_;
-  std::shared_ptr<velox::dwio::common::BufferedInput> input_;
+  std::unique_ptr<velox::dwio::common::BufferedInput> input_;
   uint64_t fileLength_;
   std::unique_ptr<thrift::FileMetaData> fileMetaData_;
   RowTypePtr schema_;
@@ -179,7 +173,7 @@ class ParquetRowReader : public dwio::common::RowReader {
 class ParquetReader : public dwio::common::Reader {
  public:
   ParquetReader(
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput>,
       const dwio::common::ReaderOptions& options);
 
   ~ParquetReader() override = default;
@@ -214,9 +208,9 @@ class ParquetReaderFactory : public dwio::common::ReaderFactory {
   ParquetReaderFactory() : ReaderFactory(dwio::common::FileFormat::PARQUET) {}
 
   std::unique_ptr<dwio::common::Reader> createReader(
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       const dwio::common::ReaderOptions& options) override {
-    return std::make_unique<ParquetReader>(std::move(stream), options);
+    return std::make_unique<ParquetReader>(std::move(input), options);
   }
 };
 

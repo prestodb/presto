@@ -17,7 +17,6 @@
 #include "velox/dwio/dwrf/test/utils/E2EWriterTestUtil.h"
 
 #include <gtest/gtest.h>
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
@@ -90,8 +89,9 @@ namespace facebook::velox::dwrf {
       layoutPlannerFactory,
       writerMemoryCap);
   // read it back and compare
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+  auto readFile = std::make_shared<InMemoryReadFile>(
+      std::string_view(sinkPtr->getData(), sinkPtr->size()));
+  auto input = std::make_unique<BufferedInput>(readFile, pool);
 
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;

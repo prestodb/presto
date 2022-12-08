@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 
 #include "velox/common/base/Nulls.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
 #include "velox/dwio/dwrf/reader/DwrfReader.h"
 #include "velox/dwio/dwrf/writer/FlushPolicy.h"
@@ -69,8 +68,9 @@ std::unique_ptr<RowReader> writeAndGetReader(
 
   writer.close();
 
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
+  std::string_view data(sinkPtr->getData(), sinkPtr->size());
+  auto readFile = std::make_shared<facebook::velox::InMemoryReadFile>(data);
+  auto input = std::make_unique<BufferedInput>(readFile, pool);
 
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;

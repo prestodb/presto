@@ -358,7 +358,7 @@ class DwioCoalescedLoad : public DwioCoalescedLoadBase {
  public:
   DwioCoalescedLoad(
       cache::AsyncDataCache& cache,
-      std::unique_ptr<AbstractInputStreamHolder> input,
+      std::shared_ptr<ReadFileInputStream> input,
       std::shared_ptr<IoStatistics> ioStats,
       uint64_t groupId,
       std::vector<CacheRequest*> requests,
@@ -368,7 +368,6 @@ class DwioCoalescedLoad : public DwioCoalescedLoadBase {
         maxCoalesceDistance_(maxCoalesceDistance) {}
 
   std::vector<CachePin> loadData(bool isPrefetch) override {
-    auto& stream = input_->get();
     std::vector<CachePin> pins;
     pins.reserve(keys_.size());
     cache_.makePins(
@@ -393,13 +392,13 @@ class DwioCoalescedLoad : public DwioCoalescedLoadBase {
             int32_t /*end*/,
             uint64_t offset,
             const std::vector<folly::Range<char*>>& buffers) {
-          stream.read(buffers, offset, LogType::FILE);
+          input_->read(buffers, offset, LogType::FILE);
         });
     updateStats(stats, isPrefetch, false);
     return pins;
   }
 
-  std::unique_ptr<AbstractInputStreamHolder> input_;
+  std::shared_ptr<ReadFileInputStream> input_;
   const int32_t maxCoalesceDistance_;
 };
 
@@ -449,12 +448,7 @@ void CachedBufferedInput::readRegion(
     load = std::make_shared<SsdLoad>(*cache_, ioStats_, groupId_, requests);
   } else {
     load = std::make_shared<DwioCoalescedLoad>(
-        *cache_,
-        streamSource_(),
-        ioStats_,
-        groupId_,
-        requests,
-        maxCoalesceDistance_);
+        *cache_, input_, ioStats_, groupId_, requests, maxCoalesceDistance_);
   }
   allCoalescedLoads_.push_back(load);
   coalescedLoads_.withWLock([&](auto& loads) {

@@ -16,7 +16,6 @@
 
 #include <folly/Random.h>
 #include <random>
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/encryption/TestProvider.h"
 #include "velox/dwio/common/tests/utils/BatchMaker.h"
@@ -212,6 +211,16 @@ TEST(E2EWriterTests, MaxFlatMapKeys) {
       *pool, type, E2EWriterTestUtil::generateBatches(batch), 1, 1, config);
 }
 
+std::unique_ptr<DwrfReader> createReader(
+    const MemorySink& sink,
+    const ReaderOptions& opts) {
+  std::string_view data(sink.getData(), sink.size());
+  return std::make_unique<DwrfReader>(
+      opts,
+      std::make_unique<BufferedInput>(
+          std::make_shared<InMemoryReadFile>(data), opts.getMemoryPool()));
+}
+
 TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
   using keyType = int32_t;
   using valueType = int64_t;
@@ -241,13 +250,9 @@ TEST(E2EWriterTests, PresentStreamIsSuppressedOnFlatMap) {
       config,
       E2EWriterTestUtil::simpleFlushPolicyFactory(true));
 
-  // read it back and verify no present streams exist.
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
-
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
-  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
   bool preload = true;
@@ -490,13 +495,9 @@ void testFlatMapConfig(
 
   writer.close();
 
-  // read it back and verify encoding
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
-
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
-  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  auto reader = createReader(*sinkPtr, readerOpts);
   auto rowReader = reader->createRowReader(rowReaderOpts);
   auto dwrfRowReader = dynamic_cast<DwrfRowReader*>(rowReader.get());
   bool preload = true;
@@ -619,12 +620,9 @@ TEST(E2EWriterTests, PartialStride) {
   writer.write(batch);
   writer.close();
 
-  auto input =
-      std::make_unique<MemoryInputStream>(sinkPtr->getData(), sinkPtr->size());
-
   ReaderOptions readerOpts;
   RowReaderOptions rowReaderOpts;
-  auto reader = std::make_unique<DwrfReader>(readerOpts, std::move(input));
+  auto reader = createReader(*sinkPtr, readerOpts);
   ASSERT_EQ(size - nullCount, reader->columnStatistics(1)->getNumberOfValues())
       << reader->columnStatistics(1)->toString();
   ASSERT_EQ(true, reader->columnStatistics(1)->hasNull().value());
@@ -814,11 +812,9 @@ class E2EEncryptionTest : public Test {
     writer_->close();
 
     // read it back for compare
-    auto input =
-        std::make_unique<MemoryInputStream>(sink_->getData(), sink_->size());
     ReaderOptions readerOpts;
     readerOpts.setDecrypterFactory(decrypterFactory);
-    return std::make_unique<DwrfReader>(readerOpts, std::move(input));
+    return createReader(*sink_, readerOpts);
   }
 
   const DecryptionHandler& getDecryptionHandler(

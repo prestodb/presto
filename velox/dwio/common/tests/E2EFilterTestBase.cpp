@@ -32,7 +32,8 @@ using namespace facebook::velox::dwio::common;
 using namespace facebook::velox;
 using namespace facebook::velox::common;
 
-using dwio::common::MemoryInputStream;
+using dwio::common::BufferedInput;
+using dwio::common::InMemoryReadFile;
 using dwio::common::MemorySink;
 using velox::common::Subfield;
 
@@ -83,11 +84,11 @@ void E2EFilterTestBase::readWithoutFilter(
     std::shared_ptr<ScanSpec> spec,
     const std::vector<RowVectorPtr>& batches,
     uint64_t& time) {
-  auto input = std::make_unique<MemoryInputStream>(
-      sinkPtr_->getData(), sinkPtr_->size());
-
   dwio::common::ReaderOptions readerOpts;
   dwio::common::RowReaderOptions rowReaderOpts;
+  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
 
   // The spec must stay live over the lifetime of the reader.
@@ -134,11 +135,11 @@ void E2EFilterTestBase::readWithFilter(
     uint64_t& time,
     bool useValueHook,
     bool skipCheck) {
-  auto input = std::make_unique<MemoryInputStream>(
-      sinkPtr_->getData(), sinkPtr_->size());
-
   dwio::common::ReaderOptions readerOpts;
   dwio::common::RowReaderOptions rowReaderOpts;
+  std::string_view data(sinkPtr_->getData(), sinkPtr_->size());
+  auto input = std::make_unique<BufferedInput>(
+      std::make_shared<InMemoryReadFile>(data), readerOpts.getMemoryPool());
   auto reader = makeReader(readerOpts, std::move(input));
   // The  spec must stay live over the lifetime of the reader.
   setUpRowReaderOptions(rowReaderOpts, spec);

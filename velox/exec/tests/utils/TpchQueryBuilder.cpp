@@ -82,12 +82,12 @@ void TpchQueryBuilder::initialize(const std::string& dataPath) {
       if (tableMetadata_[tableName].dataFiles.empty()) {
         dwio::common::ReaderOptions readerOptions;
         readerOptions.setFileFormat(format_);
+        auto input = std::make_unique<dwio::common::BufferedInput>(
+            std::make_shared<LocalReadFile>(dirEntry.path().string()),
+            readerOptions.getMemoryPool());
         std::unique_ptr<dwio::common::Reader> reader =
             dwio::common::getReaderFactory(readerOptions.getFileFormat())
-                ->createReader(
-                    std::make_unique<dwio::common::FileInputStream>(
-                        dirEntry.path()),
-                    readerOptions);
+                ->createReader(std::move(input), readerOptions);
         const auto fileType = reader->rowType();
         const auto fileColumnNames = fileType->names();
         // There can be extra columns in the file towards the end.

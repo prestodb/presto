@@ -24,17 +24,12 @@
 namespace facebook::velox::parquet {
 
 ReaderBase::ReaderBase(
-    std::unique_ptr<dwio::common::InputStream> stream,
+    std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
     : pool_(options.getMemoryPool()),
       options_(options),
-      stream_{std::move(stream)},
-      bufferedInputFactory_(
-          options.getBufferedInputFactory()
-              ? options.getBufferedInputFactory()
-              : dwio::common::BufferedInputFactory::baseFactoryShared()) {
-  input_ = bufferedInputFactory_->create(*stream_, pool_, options.getFileNum());
-  fileLength_ = stream_->getLength();
+      input_(std::move(input)) {
+  fileLength_ = input_->getReadFile()->size();
   VELOX_CHECK_GT(fileLength_, 0, "Parquet file is empty");
   VELOX_CHECK_GE(fileLength_, 12, "Parquet file is too small");
 
@@ -435,15 +430,13 @@ void ReaderBase::scheduleRowGroups(
       currentGroup + 1 < rowGroupIds.size() ? rowGroupIds[currentGroup + 1] : 0;
   auto input = inputs_[thisGroup].get();
   if (!input) {
-    auto newInput =
-        bufferedInputFactory_->create(*stream_, pool_, options_.getFileNum());
+    auto newInput = input_->clone();
     reader.enqueueRowGroup(thisGroup, *newInput);
     newInput->load(dwio::common::LogType::STRIPE);
     inputs_[thisGroup] = std::move(newInput);
   }
   if (nextGroup) {
-    auto newInput =
-        bufferedInputFactory_->create(*stream_, pool_, options_.getFileNum());
+    auto newInput = input_->clone();
     reader.enqueueRowGroup(nextGroup, *newInput);
     newInput->load(dwio::common::LogType::STRIPE);
     inputs_[nextGroup] = std::move(newInput);
@@ -483,10 +476,10 @@ ParquetRowReader::ParquetRowReader(
   std::function<std::string()> createExceptionContext = [&]() {
     std::string exceptionMessageContext = fmt::format(
         "The schema loaded in the reader does not match the schema in the file footer."
-        "Input Stream Name: {},\n"
+        "Input Name: {},\n"
         "File Footer Schema (without partition columns): {},\n"
         "Input Table Schema (with partition columns): {}\n",
-        readerBase_->stream().getName(),
+        readerBase_->bufferedInput().getReadFile()->getName(),
         readerBase_->schema()->toString(),
         requestedType_->toString());
     return exceptionMessageContext;
@@ -587,9 +580,9 @@ std::optional<size_t> ParquetRowReader::estimatedRowSize() const {
 }
 
 ParquetReader::ParquetReader(
-    std::unique_ptr<dwio::common::InputStream> stream,
+    std::unique_ptr<dwio::common::BufferedInput> input,
     const dwio::common::ReaderOptions& options)
-    : readerBase_(std::make_shared<ReaderBase>(std::move(stream), options)) {}
+    : readerBase_(std::make_shared<ReaderBase>(std::move(input), options)) {}
 
 std::unique_ptr<dwio::common::RowReader> ParquetReader::createRowReader(
     const dwio::common::RowReaderOptions& options) const {

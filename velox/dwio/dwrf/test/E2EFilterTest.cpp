@@ -93,7 +93,7 @@ class E2EFilterTest : public E2EFilterTestBase {
 
   std::unique_ptr<dwio::common::Reader> makeReader(
       const dwio::common::ReaderOptions& opts,
-      std::unique_ptr<dwio::common::InputStream> input) override {
+      std::unique_ptr<dwio::common::BufferedInput> input) override {
     return std::make_unique<DwrfReader>(opts, std::move(input));
   }
 

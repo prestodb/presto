@@ -50,12 +50,12 @@ void BufferedInput::load(const LogType logType) {
         });
 
     // Now we have all buffers and regions, load it in parallel
-    input_.vread(buffers, regions, logType);
+    input_->vread(buffers, regions, logType);
   } else {
     loadWithAction(
         logType,
         [this](void* buf, uint64_t length, uint64_t offset, LogType type) {
-          input_.read(buf, length, offset, type);
+          input_->read(buf, length, offset, type);
         });
   }
 
@@ -116,8 +116,8 @@ bool BufferedInput::tryMerge(Region& first, const Region& second) {
     // the second region is inside first one if extension is negative
     if (extension > 0) {
       first.length += extension;
-      if ((input_.getStats() != nullptr) && gap > 0) {
-        input_.getStats()->incRawOverreadBytes(gap);
+      if ((input_->getStats() != nullptr) && gap > 0) {
+        input_->getStats()->incRawOverreadBytes(gap);
       }
     }
 
@@ -170,13 +170,6 @@ std::tuple<const char*, uint64_t> BufferedInput::readInternal(
   }
 
   return std::make_tuple(nullptr, MAX_UINT64);
-}
-
-//  static
-std::shared_ptr<BufferedInputFactory>
-BufferedInputFactory::baseFactoryShared() {
-  static auto instance = std::make_shared<BufferedInputFactory>();
-  return instance;
 }
 
 } // namespace facebook::velox::dwio::common

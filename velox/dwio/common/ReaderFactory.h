@@ -18,7 +18,7 @@
 
 #include <memory>
 
-#include "velox/dwio/common/InputStream.h"
+#include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/dwio/common/Reader.h"
 
@@ -57,7 +57,7 @@ class ReaderFactory {
    * @return reader object
    */
   virtual std::unique_ptr<Reader> createReader(
-      std::unique_ptr<InputStream> stream,
+      std::unique_ptr<BufferedInput>,
       const ReaderOptions& options) = 0;
 
  private:

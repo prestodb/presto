@@ -35,27 +35,17 @@ using IoStatisticsPtr = std::shared_ptr<IoStatistics>;
 
 // Testing stream producing deterministic data. The byte at offset is
 // the low byte of 'seed_' + offset.
-class TestInputStream : public InputStream {
+class TestReadFile : public ReadFile {
  public:
-  TestInputStream(
-      const std::string& path,
-      uint64_t seed,
-      uint64_t length,
-      IoStatisticsPtr ioStats)
-      : InputStream(path),
-        seed_(seed),
-        length_(length),
-        ioStats_(std::move(ioStats)) {}
+  TestReadFile(uint64_t seed, uint64_t length, IoStatisticsPtr ioStats)
+      : seed_(seed), length_(length), ioStats_(std::move(ioStats)) {}
 
-  uint64_t getLength() const override {
+  uint64_t size() const override {
     return length_;
   }
 
-  uint64_t getNaturalReadSize() const override {
-    return 1024 * 1024;
-  }
-
-  void read(void* buffer, uint64_t length, uint64_t offset, LogType) override {
+  std::string_view pread(uint64_t offset, uint64_t length, void* buffer)
+      const override {
     int fill;
     uint64_t content = offset + seed_;
     uint64_t available = std::min(length_ - offset, length);
@@ -63,6 +53,7 @@ class TestInputStream : public InputStream {
       reinterpret_cast<char*>(buffer)[fill] = content + fill;
     }
     ioStats_->incRawBytesRead(length);
+    return std::string_view(static_cast<const char*>(buffer), fill);
   }
 
   // Asserts that 'bytes' is as would be read from 'offset'.
@@ -74,23 +65,26 @@ class TestInputStream : public InputStream {
     }
   }
 
+  uint64_t memoryUsage() const override {
+    VELOX_NYI();
+  }
+
+  bool shouldCoalesce() const override {
+    VELOX_NYI();
+  }
+
+  std::string getName() const override {
+    return "<TestReadFile>";
+  }
+
+  uint64_t getNaturalReadSize() const override {
+    VELOX_NYI();
+  }
+
  private:
   const uint64_t seed_;
   const uint64_t length_;
   IoStatisticsPtr ioStats_;
-};
-
-class TestInputStreamHolder : public AbstractInputStreamHolder {
- public:
-  explicit TestInputStreamHolder(std::shared_ptr<InputStream> stream)
-      : stream_(std::move(stream)) {}
-
-  InputStream& get() override {
-    return *stream_;
-  }
-
- private:
-  std::shared_ptr<InputStream> stream_;
 };
 
 class CacheTest : public testing::Test {
@@ -99,7 +93,7 @@ class CacheTest : public testing::Test {
 
   // Describes a piece of file potentially read by this test.
   struct StripeData {
-    TestInputStream* file;
+    TestReadFile* file;
     std::unique_ptr<CachedBufferedInput> input;
     std::vector<std::unique_ptr<SeekableInputStream>> streams;
     std::vector<Region> regions;
@@ -197,7 +191,7 @@ class CacheTest : public testing::Test {
     return lease.id();
   }
 
-  std::shared_ptr<InputStream>
+  std::shared_ptr<TestReadFile>
   inputByPath(const std::string& path, uint64_t& fileId, uint64_t& groupId) {
     std::lock_guard<std::mutex> l(mutex_);
     StringIdLease lease(fileIds(), path);
@@ -208,8 +202,7 @@ class CacheTest : public testing::Test {
     if (it == pathToInput_.end()) {
       fileIds_.push_back(lease);
       fileIds_.push_back(groupLease);
-      auto stream = std::make_shared<TestInputStream>(
-          path,
+      auto stream = std::make_shared<TestReadFile>(
           lease.id(),
           1UL << 63,
           std::make_shared<dwio::common::IoStatistics>());
@@ -223,7 +216,7 @@ class CacheTest : public testing::Test {
   // enqueued. 'numColumns' streams are evenly selected from
   // kMaxStreams.
   std::unique_ptr<StripeData> makeStripeData(
-      std::shared_ptr<InputStream> inputStream,
+      std::shared_ptr<TestReadFile> readFile,
       int32_t numColumns,
       std::shared_ptr<ScanTracker> tracker,
       uint64_t fileId,
@@ -232,21 +225,19 @@ class CacheTest : public testing::Test {
       const IoStatisticsPtr& ioStats) {
     auto data = std::make_unique<StripeData>();
     data->input = std::make_unique<CachedBufferedInput>(
-        *inputStream,
+        readFile,
         *pool_,
+        MetricsLog::voidLog(),
         fileId,
         cache_.get(),
         tracker,
         groupId,
-        [inputStream]() {
-          return std::make_unique<TestInputStreamHolder>(inputStream);
-        },
         ioStats,
         executor_.get(),
         dwio::common::ReaderOptions::kDefaultLoadQuantum, // loadQuantum 8MB.
         512 << 10 // Max coalesce distance 512K.
     );
-    data->file = dynamic_cast<TestInputStream*>(inputStream.get());
+    data->file = readFile.get();
     for (auto i = 0; i < numColumns; ++i) {
       int32_t streamIndex = i * (kMaxStreams / numColumns);
 
@@ -361,7 +352,7 @@ class CacheTest : public testing::Test {
     std::vector<std::unique_ptr<StripeData>> stripes;
     uint64_t fileId;
     uint64_t groupId;
-    std::shared_ptr<InputStream> input = inputByPath(filename, fileId, groupId);
+    auto readFile = inputByPath(filename, fileId, groupId);
     if (groupStats_) {
       groupStats_->recordFile(fileId, groupId, numStripes);
     }
@@ -373,7 +364,7 @@ class CacheTest : public testing::Test {
            prefetchStripeIndex < lastPrefetchStripe;
            ++prefetchStripeIndex) {
         stripes.push_back(makeStripeData(
-            input,
+            readFile,
             numColumns,
             tracker,
             fileId,
@@ -430,7 +421,7 @@ class CacheTest : public testing::Test {
   // Serializes 'pathToInput_' and 'fileIds_' in multithread test.
   std::mutex mutex_;
   std::vector<StringIdLease> fileIds_;
-  folly::F14FastMap<uint64_t, std::shared_ptr<InputStream>> pathToInput_;
+  folly::F14FastMap<uint64_t, std::shared_ptr<TestReadFile>> pathToInput_;
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
   cache::FileGroupStats* FOLLY_NULLABLE groupStats_ = nullptr;
   std::shared_ptr<AsyncDataCache> cache_;
@@ -463,16 +454,15 @@ TEST_F(CacheTest, window) {
       groupStats_);
   uint64_t fileId;
   uint64_t groupId;
-  std::shared_ptr<InputStream> file =
-      inputByPath("test_for_window", fileId, groupId);
+  auto file = inputByPath("test_for_window", fileId, groupId);
   auto input = std::make_unique<CachedBufferedInput>(
-      *file,
+      file,
       *pool_,
+      MetricsLog::voidLog(),
       fileId,
       cache_.get(),
       tracker,
       groupId,
-      [file]() { return std::make_unique<TestInputStreamHolder>(file); },
       ioStats_,
       executor_.get(),
       dwio::common::ReaderOptions::kDefaultLoadQuantum, // loadQuantum 8MB.
@@ -659,25 +649,21 @@ class FileWithReadAhead {
       memory::MemoryPool& pool,
       folly::Executor* executor) {
     fileId_ = std::make_unique<StringIdLease>(fileIds(), name);
-    file_ = std::make_shared<TestInputStream>(
-        name, fileId_->id(), kFileSize, stats);
+    file_ = std::make_shared<TestReadFile>(fileId_->id(), kFileSize, stats);
     bufferedInput_ = std::make_unique<CachedBufferedInput>(
-        *file_,
+        file_,
         pool,
+        MetricsLog::voidLog(),
         fileId_->id(),
         cache,
         nullptr,
         0,
-        [inputStream = file_]() {
-          return std::make_unique<TestInputStreamHolder>(inputStream);
-        },
         stats,
         executor,
         kLoadQuantum,
         0);
     auto sequential = StreamIdentifier::sequentialFile();
-    stream_ =
-        bufferedInput_->enqueue(Region{0, file_->getLength()}, &sequential);
+    stream_ = bufferedInput_->enqueue(Region{0, file_->size()}, &sequential);
     // Trigger load of next 4MB after reading the first 2MB of the previous 4MB
     // quantum.
     reinterpret_cast<CacheInputStream*>(stream_.get())->setPrefetchPct(50);
@@ -693,7 +679,7 @@ class FileWithReadAhead {
   std::unique_ptr<StringIdLease> fileId_;
   std::unique_ptr<CachedBufferedInput> bufferedInput_;
   std::unique_ptr<SeekableInputStream> stream_;
-  std::shared_ptr<InputStream> file_;
+  std::shared_ptr<TestReadFile> file_;
 };
 
 TEST_F(CacheTest, readAhead) {

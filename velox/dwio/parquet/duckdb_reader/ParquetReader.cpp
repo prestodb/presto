@@ -309,7 +309,7 @@ std::optional<size_t> ParquetRowReader::estimatedRowSize() const {
 }
 
 ParquetReader::ParquetReader(
-    std::unique_ptr<dwio::common::InputStream> stream,
+    std::shared_ptr<dwio::common::InputStream> stream,
     const dwio::common::ReaderOptions& options)
     : fileSystem_(
           std::make_unique<duckdb::InputStreamFileSystem>(std::move(stream))),

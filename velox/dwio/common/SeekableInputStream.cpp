@@ -185,14 +185,14 @@ static uint64_t computeBlock(uint64_t request, uint64_t length) {
 }
 
 SeekableFileInputStream::SeekableFileInputStream(
-    InputStream& stream,
+    std::shared_ptr<ReadFileInputStream> input,
     uint64_t offset,
     uint64_t byteCount,
     memory::MemoryPool& _pool,
     LogType logType,
     uint64_t _blockSize)
     : pool(_pool),
-      input(stream),
+      input(std::move(input)),
       logType(logType),
       start(offset),
       length(byteCount),
@@ -211,7 +211,7 @@ bool SeekableFileInputStream::Next(const void** data, int32_t* size) {
     bytesRead = std::min(length - position, blockSize);
     buffer.resize(bytesRead);
     if (bytesRead > 0) {
-      input.read(buffer.data(), bytesRead, start + position, logType);
+      input->read(buffer.data(), bytesRead, start + position, logType);
       *data = static_cast<void*>(buffer.data());
     }
   }
@@ -252,7 +252,7 @@ void SeekableFileInputStream::seekToPosition(PositionProvider& location) {
 
 std::string SeekableFileInputStream::getName() const {
   return folly::to<std::string>(
-      input.getName(), " from ", start, " for ", length);
+      input->getName(), " from ", start, " for ", length);
 }
 
 size_t SeekableFileInputStream::positionSize() {

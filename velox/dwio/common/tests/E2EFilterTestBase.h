@@ -17,8 +17,8 @@
 #pragma once
 
 #include "velox/common/time/Timer.h"
+#include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/DataSink.h"
-#include "velox/dwio/common/MemoryInputStream.h"
 #include "velox/dwio/common/Reader.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/common/SelectiveColumnReader.h"
@@ -173,7 +173,7 @@ class E2EFilterTestBase : public testing::Test {
 
   virtual std::unique_ptr<dwio::common::Reader> makeReader(
       const dwio::common::ReaderOptions& opts,
-      std::unique_ptr<dwio::common::InputStream> input) = 0;
+      std::unique_ptr<dwio::common::BufferedInput> input) = 0;
 
   virtual void setUpRowReaderOptions(
       dwio::common::RowReaderOptions& opts,

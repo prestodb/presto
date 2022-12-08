@@ -31,8 +31,8 @@ TEST(ReadFileInputStream, SimpleUsage) {
     writeFile.append("bbbbb");
     writeFile.append("ccccc");
   }
-  InMemoryReadFile readFile(fileData);
-  ReadFileInputStream inputStream(&readFile);
+  auto readFile = std::make_shared<InMemoryReadFile>(fileData);
+  ReadFileInputStream inputStream(readFile);
   ASSERT_EQ(inputStream.getLength(), 15);
   auto buf = std::make_unique<char[]>(15);
 

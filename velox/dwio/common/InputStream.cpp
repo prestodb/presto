@@ -138,19 +138,11 @@ void FileInputStream::read(
 }
 
 ReadFileInputStream::ReadFileInputStream(
-    velox::ReadFile* readFile,
-    const MetricsLogPtr& metricsLog,
-    IoStatistics* stats)
-    : InputStream(readFile->getName(), metricsLog, stats),
-      readFile_(readFile) {}
-
-ReadFileInputStream::ReadFileInputStream(
     std::shared_ptr<velox::ReadFile> readFile,
     const MetricsLogPtr& metricsLog,
     IoStatistics* stats)
     : InputStream(readFile->getName(), metricsLog, stats),
-      readFile_(readFile.get()),
-      readFileOwned_(std::move(readFile)) {}
+      readFile_(std::move(readFile)) {}
 
 void ReadFileInputStream::read(
     void* buf,

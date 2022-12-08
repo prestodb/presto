@@ -109,7 +109,7 @@ class SeekableArrayInputStream : public SeekableInputStream {
 class SeekableFileInputStream : public SeekableInputStream {
  private:
   memory::MemoryPool& pool;
-  InputStream& input;
+  std::shared_ptr<ReadFileInputStream> input;
   LogType logType;
   const uint64_t start;
   const uint64_t length;
@@ -120,7 +120,7 @@ class SeekableFileInputStream : public SeekableInputStream {
 
  public:
   SeekableFileInputStream(
-      InputStream& input,
+      std::shared_ptr<ReadFileInputStream> input,
       uint64_t offset,
       uint64_t byteCount,
       memory::MemoryPool& pool,

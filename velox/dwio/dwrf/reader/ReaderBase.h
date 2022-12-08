@@ -60,44 +60,34 @@ class FooterStatisticsImpl : public dwio::common::Statistics {
 };
 
 class ReaderBase {
-  static constexpr uint64_t kDefaultFileNum =
-      std::numeric_limits<uint64_t>::max();
-
  public:
-  // create reader base from input stream
+  // create reader base from buffered input
   ReaderBase(
       memory::MemoryPool& pool,
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       std::shared_ptr<dwio::common::encryption::DecrypterFactory>
           decryptorFactory = nullptr,
-      std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory =
-          nullptr,
-      uint64_t fileNum = kDefaultFileNum,
       dwio::common::FileFormat fileFormat = dwio::common::FileFormat::DWRF);
 
   ReaderBase(
       memory::MemoryPool& pool,
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       dwio::common::FileFormat fileFormat);
 
   // create reader base from metadata
   ReaderBase(
       memory::MemoryPool& pool,
-      std::unique_ptr<dwio::common::InputStream> stream,
+      std::unique_ptr<dwio::common::BufferedInput> input,
       std::unique_ptr<PostScript> ps,
       const proto::Footer* footer,
       std::unique_ptr<StripeMetadataCache> cache,
       std::unique_ptr<encryption::DecryptionHandler> handler = nullptr)
       : pool_{pool},
-        stream_{std::move(stream)},
         postScript_{std::move(ps)},
         footer_{std::make_unique<FooterWrapper>(footer)},
         cache_{std::move(cache)},
         handler_{std::move(handler)},
-        input_{
-            stream_
-                ? std::make_unique<dwio::common::BufferedInput>(*stream_, pool_)
-                : nullptr},
+        input_{std::move(input)},
         schema_{
             std::dynamic_pointer_cast<const RowType>(convertType(*footer_))},
         fileLength_{0},
@@ -116,14 +106,6 @@ class ReaderBase {
 
   memory::MemoryPool& getMemoryPool() const {
     return pool_;
-  }
-
-  dwio::common::InputStream& getStream() const {
-    return *stream_;
-  }
-
-  uint64_t getFileNum() const {
-    return fileNum_;
   }
 
   const PostScript& getPostScript() const {
@@ -148,12 +130,6 @@ class ReaderBase {
 
   dwio::common::BufferedInput& getBufferedInput() const {
     return *input_;
-  }
-
-  const dwio::common::BufferedInputFactory& bufferedInputFactory() const {
-    return bufferedInputFactory_
-        ? *bufferedInputFactory_
-        : *dwio::common::BufferedInputFactory::baseFactory();
   }
 
   const std::unique_ptr<StripeMetadataCache>& getMetadataCache() const {
@@ -250,16 +226,13 @@ class ReaderBase {
       uint32_t index = 0);
 
   memory::MemoryPool& pool_;
-  std::unique_ptr<dwio::common::InputStream> stream_;
   std::unique_ptr<google::protobuf::Arena> arena_;
   std::unique_ptr<PostScript> postScript_;
   std::unique_ptr<FooterWrapper> footer_ = nullptr;
-  uint64_t fileNum_;
   std::unique_ptr<StripeMetadataCache> cache_;
   // Keeps factory alive for possibly async prefetch.
   std::shared_ptr<dwio::common::encryption::DecrypterFactory> decryptorFactory_;
   std::unique_ptr<encryption::DecryptionHandler> handler_;
-  std::shared_ptr<dwio::common::BufferedInputFactory> bufferedInputFactory_;
 
   std::unique_ptr<dwio::common::BufferedInput> input_;
   RowTypePtr schema_;
