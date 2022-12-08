@@ -58,10 +58,10 @@ spec:
           args: {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with $env }}
-          env: {{- toYaml . | nindent 12 }}
+          env: {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           {{- with $envFrom }}
-          envFrom: {{- toYaml . | nindent 12 }}
+          envFrom: {{- tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
           ports:
             - name: http

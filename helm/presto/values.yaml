@@ -28,7 +28,7 @@ serviceAccount:
   labels: {}
   annotations: {}
 
-# Common environment variables
+# Common environment variables (templated)
 env: []
 envFrom: []
 
@@ -80,10 +80,10 @@ log: |-
 coordinator:
   # Coordinator JVM options (overwrites common JVM options)
   jvm: ""
-  # Command and arguments to launch coordinator
+  # Command and arguments to launch coordinator (templated)
   command: ["sh", "-c", "$PRESTO_HOME/bin/launcher run"]
   args: ~
-  # Additional coordinator environment variables
+  # Additional coordinator environment variables (templated)
   env: []
   envFrom: []
   # Additional coordinator volumes
@@ -123,10 +123,10 @@ worker:
   replicas: 2
   # Worker JVM options (overwrites common JVM options)
   jvm: ""
-  # Command and arguments to launch worker
+  # Command and arguments to launch worker (templated)
   command: ["sh", "-c", "$PRESTO_HOME/bin/launcher run"]
   args: ~
-  # Additional worker environment variables
+  # Additional worker environment variables (templated)
   env: []
   envFrom: []
   # Additional worker volumes
