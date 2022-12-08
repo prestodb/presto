@@ -78,6 +78,7 @@ Array Functions
     Returns the position of the first occurrence of the ``element`` in array ``x`` (or 0 if not found).
 
 .. function:: array_position(x, element, instance) -> bigint
+    :noindex:
 
     If ``instance > 0``, returns the position of the ``instance``-th occurrence of the ``element`` in array ``x``. If ``instance < 0``, returns the position of the ``instance``-to-last occurrence of the ``element`` in array ``x``. If no matching element instance is found, 0 is returned.
 
@@ -179,7 +180,7 @@ Array Functions
     The M-th element of the N-th argument will be the N-th field of the M-th output element.
     If the arguments have an uneven length, missing values are filled with ``NULL`` ::
 
-    SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
+        SELECT zip(ARRAY[1, 2], ARRAY['1b', null, '3b']); -- [ROW(1, '1b'), ROW(2, null), ROW(null, '3b')]
 
 .. function:: zip_with(array(T), array(U), function(T,U,R)) -> array(R)
 

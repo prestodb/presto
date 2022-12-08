@@ -90,7 +90,7 @@ distribution value.
 Returns the rank of a value in a group of values. This is similar to rank(), except that tie values do
 not produce gaps in the sequence.
 
-.. function:: ntile(n) → bigint
+.. function:: ntile(n) -> bigint
 
 Divides the rows for each window partition into n buckets ranging from 1 to at most ``n``. Bucket values
 will differ by at most 1. If the number of rows in the partition does not divide evenly into the number
