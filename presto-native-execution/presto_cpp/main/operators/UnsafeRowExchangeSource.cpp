@@ -66,7 +66,7 @@ UnsafeRowExchangeSource::createExchangeSource(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");
-  auto& shuffleFactory = ShuffleInterface::factory(shuffleName);
+  auto shuffleFactory = ShuffleInterfaceFactory::factory(shuffleName);
   auto uri = folly::Uri(url);
   auto serializedShuffleInfo = getSerializedShuffleInfo(uri);
   VELOX_USER_CHECK(
@@ -77,8 +77,7 @@ UnsafeRowExchangeSource::createExchangeSource(
       uri.host(),
       destination,
       std::move(queue),
-      shuffleFactory(
-          serializedShuffleInfo.value(), ShuffleInterface::Type::kRead, pool),
+      shuffleFactory->createReader(serializedShuffleInfo.value(), pool),
       pool);
 }
 }; // namespace facebook::presto::operators
