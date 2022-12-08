@@ -328,6 +328,8 @@ jobs:
       CONBENCH_HOST: "CircleCI-runner-dedicated"
       LINUX_DISTRO: "ubuntu"
       VELOX_DEPENDENCY_SOURCE: BUNDLED
+      BASELINE_OUTPUT_PATH: "/tmp/baseline_output/"
+      TARGET_OUTPUT_PATH: "/tmp/target_output/"
     steps:
       - checkout
       - update-submodules
@@ -337,17 +339,31 @@ jobs:
             sudo ./scripts/setup-ubuntu.sh
       - setup-environment
       - build-benchmarks
+      # TODO: For now we just compare the target binary with itself, until we 
+      # stabilize benchmark runs. We should eventually have two different 
+      # set of binaries. 
       - run:
-          name: "Install benchmark dependencies"
+          name: "Run Benchmarks - Baseline"
           command: |
-            pip3 install -r scripts/benchmark-requirements.txt
-      - run-benchmarks
-      # TODO: Disabling conbench github notifications for now until results are more stable.
-      #- run:
-      #    name: "Analyze Benchmark Regressions and Post to Github"
-      #    command: |
-      #      export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
-      #      python3 scripts/benchmark-github-status.py --z-score-threshold 50
+            ./scripts/benchmark-runner.py run \
+                --bm_estimate_time \
+                --bm_max_secs 10 \
+                --bm_max_trials 10000 \
+                --output_path ${BASELINE_OUTPUT_PATH}
+      - run:
+          name: "Run Benchmarks - Target"
+          command: |
+            ./scripts/benchmark-runner.py run \
+                --bm_estimate_time \
+                --bm_max_secs 10 \
+                --bm_max_trials 10000 \
+                --output_path ${TARGET_OUTPUT_PATH}
+      - run:
+          name: "Benchmark Summary"
+          command: |
+            ./scripts/benchmark-runner.py compare \
+                --baseline_path ${BASELINE_OUTPUT_PATH} \
+                --target_path ${TARGET_OUTPUT_PATH} || true
       - post-steps
 
   # Build with different options
