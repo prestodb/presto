@@ -299,6 +299,7 @@ struct ScopedContextSaver {
   std::vector<VectorPtr> peeled;
   BufferPtr wrap;
   BufferPtr wrapNulls;
+  vector_size_t constantWrapIndex;
   VectorEncoding::Simple wrapEncoding;
   bool nullsPruned = false;
   // The selection of the context being saved.

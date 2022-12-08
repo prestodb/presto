@@ -111,6 +111,7 @@ void EvalCtx::saveAndReset(
   saver.peeled = std::move(peeledFields_);
   saver.wrap = std::move(wrap_);
   saver.wrapNulls = std::move(wrapNulls_);
+  saver.constantWrapIndex = constantWrapIndex_;
   saver.wrapEncoding = wrapEncoding_;
   wrapEncoding_ = VectorEncoding::Simple::FLAT;
   saver.nullsPruned = nullsPruned_;
@@ -205,6 +206,7 @@ void EvalCtx::restore(ScopedContextSaver& saver) {
   errors_ = std::move(saver.errors);
   wrap_ = std::move(saver.wrap);
   wrapNulls_ = std::move(saver.wrapNulls);
+  constantWrapIndex_ = saver.constantWrapIndex;
   wrapEncoding_ = saver.wrapEncoding;
   finalSelection_ = saver.finalSelection;
 }

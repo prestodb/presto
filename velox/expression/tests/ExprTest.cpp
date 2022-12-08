@@ -3086,3 +3086,16 @@ TEST_F(ExprTest, mapKeysAndValues) {
   std::vector<VectorPtr> result(2);
   ASSERT_NO_THROW(exprSet->eval(rows, context, result));
 }
+
+/// Test recursive constant peeling: in general expression evaluation first,
+/// then in cast.
+TEST_F(ExprTest, constantWrap) {
+  auto data = makeRowVector({
+      makeNullableFlatVector<int64_t>({std::nullopt, 1, 25, 3}),
+      makeConstant("5", 4),
+  });
+
+  auto result = evaluate("c0 < (cast(c1 as bigint) + 10)", {data});
+  assertEqualVectors(
+      makeNullableFlatVector<bool>({std::nullopt, true, false, true}), result);
+}
