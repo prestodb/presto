@@ -7,6 +7,9 @@ set -euo pipefail -x
 cleanup_docker_containers
 start_docker_containers
 
+# obtain Hive version
+TESTS_HIVE_VERSION_MAJOR=$(get_hive_major_version)
+
 # insert AWS credentials
 exec_in_hadoop_master_container cp /etc/hadoop/conf/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
 exec_in_hadoop_master_container sed -i \
@@ -18,10 +21,8 @@ exec_in_hadoop_master_container sed -i \
 # create test table
 table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.gz "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.lz4 "${table_path}"
-exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /tmp/test1.csv.bz2 "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test1.csv{,.gz,.bz2,.lz4} "${table_path}"
+
 exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
@@ -40,6 +41,7 @@ set +e
   -Dhive.hadoop2.databaseName=default \
   -Dhive.hadoop2.s3.awsAccessKey=${AWS_ACCESS_KEY_ID} \
   -Dhive.hadoop2.s3.awsSecretKey=${AWS_SECRET_ACCESS_KEY} \
+  -Dhive.hadoop2.hiveVersionMajor="${TESTS_HIVE_VERSION_MAJOR}" \
   -Dhive.hadoop2.s3.writableBucket=${S3_BUCKET}
 EXIT_CODE=$?
 set -e

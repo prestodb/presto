@@ -60,11 +60,9 @@ import com.facebook.presto.spi.security.ConnectorIdentity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.gen.JoinCompiler;
 import com.facebook.presto.testing.MaterializedResult;
-import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.TestingConnectorSession;
 import com.facebook.presto.testing.TestingNodeManager;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -79,7 +77,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -94,6 +91,7 @@ import static com.facebook.presto.hive.AbstractTestHiveClient.createTablePropert
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnHandles;
 import static com.facebook.presto.hive.AbstractTestHiveClient.filterNonHiddenColumnMetadata;
 import static com.facebook.presto.hive.AbstractTestHiveClient.getAllSplits;
+import static com.facebook.presto.hive.HiveFileSystemTestUtils.getTableHandle;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveTestUtils.FILTER_STATS_CALCULATOR_SERVICE;
 import static com.facebook.presto.hive.HiveTestUtils.FUNCTION_AND_TYPE_MANAGER;
@@ -111,7 +109,6 @@ import static com.facebook.presto.hive.metastore.NoopMetastoreCacheStats.NOOP_ME
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
 import static com.facebook.presto.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static com.facebook.presto.testing.MaterializedResult.materializeSourceDataStream;
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
@@ -265,40 +262,24 @@ public abstract class AbstractTestHiveFileSystem
         return new HiveTransaction(transactionManager, metadataFactory.get());
     }
 
+    protected MaterializedResult readTable(SchemaTableName tableName)
+            throws IOException
+    {
+        return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, metadataFactory, pageSourceProvider, splitManager);
+    }
+
     @Test
     public void testGetRecords()
             throws Exception
     {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession();
-
-            ConnectorTableHandle table = getTableHandle(metadata, this.table);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
-            Map<String, Integer> columnIndex = indexColumns(columnHandles);
-
-            List<ConnectorTableLayoutResult> tableLayoutResults = metadata.getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
-            HiveTableLayoutHandle layoutHandle = (HiveTableLayoutHandle) getOnlyElement(tableLayoutResults).getTableLayout().getHandle();
-            assertEquals(layoutHandle.getPartitions().get().size(), 1);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, layoutHandle, SPLIT_SCHEDULING_CONTEXT);
-
-            TableHandle tableHandle = new TableHandle(new ConnectorId(database), table, transaction.getTransactionHandle(), Optional.of(layoutHandle));
-
-            long sum = 0;
-
-            for (ConnectorSplit split : getAllSplits(splitSource)) {
-                try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle.getLayout().get(), columnHandles, NON_CACHEABLE)) {
-                    MaterializedResult result = materializeSourceDataStream(session, pageSource, getTypes(columnHandles));
-
-                    for (MaterializedRow row : result) {
-                        sum += (Long) row.getField(columnIndex.get("t_bigint"));
-                    }
-                }
-            }
-            // The test table is made up of multiple S3 objects with same data and different compression codec
-            // formats: uncompressed | .gz | .lz4 | .bz2
-            assertEquals(sum, 78300 * 4);
-        }
+        assertEqualsIgnoreOrder(
+                readTable(table),
+                MaterializedResult.resultBuilder(newSession(), BIGINT)
+                        .row(70000L).row(8000L).row(300L) // test1.csv
+                        .row(70000L).row(8000L).row(300L) // test1.csv.gz
+                        .row(70000L).row(8000L).row(300L) // test1.csv.bz2
+                        .row(70000L).row(8000L).row(300L) // test1.csv.lz4
+                        .build());
     }
 
     @Test
@@ -447,11 +428,11 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorSession session = newSession();
 
             // load the new table
-            ConnectorTableHandle hiveTableHandle = getTableHandle(metadata, tableName);
+            ConnectorTableHandle hiveTableHandle = getTableHandle(metadata, tableName, session);
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, hiveTableHandle).values());
 
             // verify the metadata
-            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName, session));
             assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
 
             // verify the data
@@ -476,25 +457,6 @@ public abstract class AbstractTestHiveFileSystem
             transaction.getMetastore().dropTable(new HdfsContext(newSession()), table.getSchemaName(), table.getTableName());
             transaction.commit();
         }
-    }
-
-    private ConnectorTableHandle getTableHandle(ConnectorMetadata metadata, SchemaTableName tableName)
-    {
-        ConnectorTableHandle handle = metadata.getTableHandle(newSession(), tableName);
-        checkArgument(handle != null, "table not found: %s", tableName);
-        return handle;
-    }
-
-    private static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
-    {
-        ImmutableMap.Builder<String, Integer> index = ImmutableMap.builder();
-        int i = 0;
-        for (ColumnHandle columnHandle : columnHandles) {
-            HiveColumnHandle hiveColumnHandle = (HiveColumnHandle) columnHandle;
-            index.put(hiveColumnHandle.getName(), i);
-            i++;
-        }
-        return index.build();
     }
 
     private static class TestingHiveMetastore
