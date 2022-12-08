@@ -210,31 +210,26 @@ LocalShuffleInfo LocalShuffleInfo::deserialize(const std::string& info) {
   return shuffleInfo;
 }
 
-// static
-std::shared_ptr<ShuffleInterface> LocalPersistentShuffle::create(
+std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
-    operators::ShuffleInterface::Type type,
     velox::memory::MemoryPool* pool) {
   static const uint64_t maxBytesPerPartition =
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
-  if (type == operators::ShuffleInterface::Type::kRead) {
-    const operators::LocalShuffleInfo readInfo =
-        operators::LocalShuffleInfo::deserialize(serializedStr);
-    return std::make_shared<operators::LocalPersistentShuffle>(
-        readInfo.rootPath, readInfo.numPartitions, maxBytesPerPartition, pool);
-  } else if (type == operators::ShuffleInterface::Type::kWrite) {
-    const operators::LocalShuffleInfo writeInfo =
-        operators::LocalShuffleInfo::deserialize(serializedStr);
-    return std::make_shared<operators::LocalPersistentShuffle>(
-        writeInfo.rootPath,
-        writeInfo.numPartitions,
-        maxBytesPerPartition,
-        pool);
-  } else {
-    VELOX_FAIL(
-        "Unknown shuffle interface type '{}'.",
-        static_cast<ShuffleInterface::Type>(type));
-  }
+  const operators::LocalShuffleInfo readInfo =
+      operators::LocalShuffleInfo::deserialize(serializedStr);
+  return std::make_shared<operators::LocalPersistentShuffle>(
+      readInfo.rootPath, readInfo.numPartitions, maxBytesPerPartition, pool);
+}
+
+std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
+    const std::string& serializedStr,
+    velox::memory::MemoryPool* pool) {
+  static const uint64_t maxBytesPerPartition =
+      SystemConfig::instance()->localShuffleMaxPartitionBytes();
+  const operators::LocalShuffleInfo writeInfo =
+      operators::LocalShuffleInfo::deserialize(serializedStr);
+  return std::make_shared<operators::LocalPersistentShuffle>(
+      writeInfo.rootPath, writeInfo.numPartitions, maxBytesPerPartition, pool);
 }
 
 } // namespace facebook::presto::operators

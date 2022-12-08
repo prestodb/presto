@@ -48,7 +48,7 @@ struct TestShuffleInfo {
   }
 };
 
-class TestShuffle : public ShuffleInterface {
+class TestShuffle : public ShuffleReader, public ShuffleWriter {
  public:
   static constexpr std::string_view kShuffleName = "test-shuffle";
 
@@ -133,20 +133,20 @@ class TestShuffle : public ShuffleInterface {
     return readyForRead_;
   }
 
-  static std::shared_ptr<ShuffleInterface>& getInstance() {
-    static std::shared_ptr<ShuffleInterface> instance_;
-    return instance_;
-  }
-
   static void reset() {
     getInstance().reset();
   }
 
-  static std::shared_ptr<ShuffleInterface>& create(
+  /// Maintains a single shuffle interface for testing purpose.
+  static std::shared_ptr<TestShuffle>& getInstance() {
+    static std::shared_ptr<TestShuffle> instance_;
+    return instance_;
+  }
+
+  static std::shared_ptr<TestShuffle> create(
       const std::string& serializedShuffleInfo,
-      operators::ShuffleInterface::Type /* type */,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) {
-    std::shared_ptr<ShuffleInterface>& instance = getInstance();
+    std::shared_ptr<TestShuffle>& instance = getInstance();
     if (instance) {
       return instance;
     }
@@ -175,7 +175,22 @@ class TestShuffle : public ShuffleInterface {
   std::vector<std::vector<BufferPtr>> readyPartitions_;
 };
 
-void registerExchangeSource(const std::shared_ptr<ShuffleInterface>& shuffle) {
+class TestShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
+    return TestShuffle::create(serializedShuffleInfo, pool);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
+    return TestShuffle::create(serializedShuffleInfo, pool);
+  }
+};
+
+void registerExchangeSource(const std::shared_ptr<ShuffleReader>& shuffle) {
   exec::ExchangeSource::registerFactory(
       [shuffle](
           const std::string& taskId,
@@ -242,11 +257,12 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
  protected:
   void registerVectorSerde() override {
     serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
-    ShuffleInterface::registerFactory(
-        std::string(TestShuffle::kShuffleName), TestShuffle::create);
-    ShuffleInterface::registerFactory(
+    ShuffleInterfaceFactory::registerFactory(
+        std::string(TestShuffle::kShuffleName),
+        std::make_unique<TestShuffleFactory>());
+    ShuffleInterfaceFactory::registerFactory(
         std::string(LocalPersistentShuffle::kShuffleName),
-        LocalPersistentShuffle::create);
+        std::make_unique<LocalPersistentShuffleFactory>());
   }
 
   static std::string makeTaskId(const std::string& prefix, int num) {
@@ -456,7 +472,7 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   velox::exec::ExchangeSource::factories().clear();
   const std::string shuffleInfo =
       fmt::format(kTestShuffleInfoFormat, numPartitions, 1 << 20);
-  TestShuffle::create(shuffleInfo, ShuffleInterface::Type::kRead, pool());
+  TestShuffle::create(shuffleInfo, pool());
   registerExchangeSource(TestShuffle::getInstance());
   runShuffleTest(
       std::string(TestShuffle::kShuffleName),
@@ -686,17 +702,27 @@ TEST_F(UnsafeRowShuffleTest, partitionAndSerializeToString) {
   ASSERT_EQ(plan->toString(false, false), "-- PartitionAndSerialize\n");
 }
 
+class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
+ public:
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    return nullptr;
+  }
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) override {
+    return nullptr;
+  }
+};
+
 TEST_F(UnsafeRowShuffleTest, shuffleInterfaceRegistration) {
   const std::string kShuffleName = "dummy-shuffle";
-  auto dummyShuffleInterface =
-      [](const std::string& /* serializedShuffleInfo */,
-         ShuffleInterface::Type /* type */,
-         velox::memory::MemoryPool* /* pool */) { return nullptr; };
-  EXPECT_TRUE(
-      ShuffleInterface::registerFactory(kShuffleName, dummyShuffleInterface));
-  EXPECT_NO_THROW(ShuffleInterface::factory(kShuffleName));
-  EXPECT_FALSE(
-      ShuffleInterface::registerFactory(kShuffleName, dummyShuffleInterface));
+  EXPECT_TRUE(ShuffleInterfaceFactory::registerFactory(
+      kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
+  EXPECT_NO_THROW(ShuffleInterfaceFactory::factory(kShuffleName));
+  EXPECT_FALSE(ShuffleInterfaceFactory::registerFactory(
+      kShuffleName, std::make_unique<DummyShuffleInterfaceFactory>()));
 }
 } // namespace facebook::presto::operators::test
 
