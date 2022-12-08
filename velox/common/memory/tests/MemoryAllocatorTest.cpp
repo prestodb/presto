@@ -41,6 +41,20 @@ static constexpr MachinePageCount kCapacity =
 // The class leverage memory usage tracker to track the memory usage.
 class MockMemoryAllocator final : public MemoryAllocator {
  public:
+  void* allocateBytes(
+      uint64_t bytes,
+      uint16_t alignment = 0,
+      uint64_t maxMallocSize = kMaxMallocBytes) override {
+    return allocator_->allocateBytes(bytes, alignment, maxMallocSize);
+  }
+
+  void freeBytes(
+      void* FOLLY_NONNULL p,
+      uint64_t size,
+      uint64_t maxMallocSize = kMaxMallocBytes) noexcept override {
+    allocator_->freeBytes(p, size, maxMallocSize);
+  }
+
   MockMemoryAllocator(
       MemoryAllocator* FOLLY_NONNULL allocator,
       std::shared_ptr<MemoryUsageTracker> tracker)
@@ -845,12 +859,16 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
     }
   }
   ASSERT_TRUE(instance_->checkConsistency());
+  auto stats = MemoryAllocator::allocateBytesStats();
+  if (!useMmap_) {
+    ASSERT_LT(0, stats.totalSmall);
+  }
   for (auto& range : data) {
     if (range.data()) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
-  auto stats = MemoryAllocator::allocateBytesStats();
+  stats = MemoryAllocator::allocateBytesStats();
   ASSERT_EQ(0, stats.totalSmall);
   ASSERT_EQ(0, stats.totalInSizeClasses);
   ASSERT_EQ(0, stats.totalLarge);
@@ -910,6 +928,20 @@ TEST_P(MemoryAllocatorTest, allocateBytesWithAlignment) {
       if (testData.alignment != 0) {
         ASSERT_EQ(reinterpret_cast<uint64_t>(ptr) % testData.alignment, 0);
       }
+      const auto stats = MemoryAllocator::allocateBytesStats();
+      if (useMmap_ &&
+          testData.allocateBytes >= MemoryAllocator::kMaxMallocBytes) {
+        ASSERT_EQ(0, stats.totalSmall);
+        ASSERT_EQ(
+            testData.allocateBytes,
+            stats.totalInSizeClasses + stats.totalLarge);
+        ASSERT_LT(0, instance_->numAllocated());
+      } else {
+        ASSERT_EQ(testData.allocateBytes, stats.totalSmall);
+        ASSERT_EQ(0, stats.totalInSizeClasses);
+        ASSERT_EQ(0, stats.totalLarge);
+        ASSERT_EQ(0, instance_->numAllocated());
+      };
       instance_->freeBytes(ptr, testData.allocateBytes);
     } else {
       EXPECT_ANY_THROW(
@@ -1104,7 +1136,7 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
       if (data.capacity() != capacity) {
         capacity = data.capacity();
         auto stats = MemoryAllocator::allocateBytesStats();
-        EXPECT_EQ(
+        ASSERT_EQ(
             capacity * sizeof(double),
             stats.totalSmall + stats.totalInSizeClasses + stats.totalLarge);
       }
@@ -1112,19 +1144,26 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
     for (auto i = 0; i < kNumDoubles; i++) {
       ASSERT_EQ(i, data[i]);
     }
-    EXPECT_EQ(512, instance_->numAllocated());
     auto stats = MemoryAllocator::allocateBytesStats();
-    EXPECT_EQ(0, stats.totalSmall);
-    EXPECT_EQ(0, stats.totalInSizeClasses);
-    EXPECT_EQ(2 << 20, stats.totalLarge);
+    if (useMmap_) {
+      ASSERT_EQ(0, stats.totalSmall);
+      ASSERT_EQ(0, stats.totalInSizeClasses);
+      ASSERT_EQ(2 << 20, stats.totalLarge);
+      ASSERT_EQ(512, instance_->numAllocated());
+    } else {
+      ASSERT_EQ(2 << 20, stats.totalSmall);
+      ASSERT_EQ(0, stats.totalInSizeClasses);
+      ASSERT_EQ(0, stats.totalLarge);
+      ASSERT_EQ(0, instance_->numAllocated());
+    };
   }
-  EXPECT_EQ(0, instance_->numAllocated());
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_EQ(0, instance_->numAllocated());
+  ASSERT_TRUE(instance_->checkConsistency());
   {
     StlMemoryAllocator<int64_t> alloc(instance_);
-    EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+    ASSERT_THROW(alloc.allocate(1ULL << 62), VeloxException);
     auto p = alloc.allocate(1);
-    EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
+    ASSERT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
     alloc.deallocate(p, 1);
   }
 }

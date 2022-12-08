@@ -180,7 +180,7 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
 
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
-  /// Allocations smaller than 3K should go to malloc.
+  /// Allocations smaller than 3K should go to malloc for MmapAllocator.
   static constexpr int32_t kMaxMallocBytes = 3072;
   static constexpr uint16_t kMinAlignment = 8;
   static constexpr uint16_t kMaxAlignment = 64;
@@ -417,7 +417,7 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   virtual void* FOLLY_NULLABLE allocateBytes(
       uint64_t bytes,
       uint16_t alignment = 0,
-      uint64_t maxMallocSize = kMaxMallocBytes);
+      uint64_t maxMallocSize = kMaxMallocBytes) = 0;
 
   /// Allocates a zero-filled contiguous bytes.
   ///
@@ -443,7 +443,7 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   virtual void freeBytes(
       void* FOLLY_NONNULL p,
       uint64_t size,
-      uint64_t maxMallocSize = kMaxMallocBytes) noexcept;
+      uint64_t maxMallocSize = kMaxMallocBytes) noexcept = 0;
 
   using ReservationCallback = std::function<void(int64_t, bool)>;
 
@@ -535,6 +535,10 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   virtual std::string toString() const;
 
  protected:
+  // Invoked to check if 'alignmentBytes' is valid and 'allocateBytes' is
+  // multiple of 'alignmentBytes'.
+  static void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes);
+
   // Represents a mix of blocks of different sizes for covering a single
   // allocation.
   struct SizeMix {
@@ -549,9 +553,14 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
     int32_t totalPages{0};
   };
 
-  /// Returns a mix of standard sizes and allocation counts for covering
-  /// 'numPages' worth of memory. 'minSizeClass' is the size of the smallest
-  /// usable size class.
+  // Returns the size class size that corresponds to 'bytes'.
+  static MachinePageCount roundUpToSizeClassSize(
+      size_t bytes,
+      const std::vector<MachinePageCount>& sizes);
+
+  // Returns a mix of standard sizes and allocation counts for covering
+  // 'numPages' worth of memory. 'minSizeClass' is the size of the smallest
+  // usable size class.
   SizeMix allocationSize(
       MachinePageCount numPages,
       MachinePageCount minSizeClass) const;
@@ -561,14 +570,6 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
- private:
-  inline static std::mutex initMutex_;
-  // Singleton instance.
-  inline static std::shared_ptr<MemoryAllocator> instance_;
-  // Application-supplied custom implementation of MemoryAllocator to be
-  // returned by getInstance().
-  inline static MemoryAllocator* FOLLY_NULLABLE customInstance_;
-
   // Static counters for STL and memoryPool users of
   // MemoryAllocator. Updated by allocateBytes() and freeBytes(). These
   // are intended to be exported via StatsReporter. These are
@@ -577,6 +578,14 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   inline static std::atomic<uint64_t> totalSmallAllocateBytes_;
   inline static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
   inline static std::atomic<uint64_t> totalLargeAllocateBytes_;
+
+ private:
+  inline static std::mutex initMutex_;
+  // Singleton instance.
+  inline static std::shared_ptr<MemoryAllocator> instance_;
+  // Application-supplied custom implementation of MemoryAllocator to be
+  // returned by getInstance().
+  inline static MemoryAllocator* FOLLY_NULLABLE customInstance_;
 };
 
 /// An Allocator backed by MemoryAllocator for STL containers.

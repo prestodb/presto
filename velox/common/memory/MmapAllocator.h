@@ -66,6 +66,16 @@ class MmapAllocator : public MemoryAllocator {
 
   explicit MmapAllocator(const MmapAllocatorOptions& options);
 
+  void* FOLLY_NULLABLE allocateBytes(
+      uint64_t bytes,
+      uint16_t alignment,
+      uint64_t maxMallocSize) override;
+
+  void freeBytes(
+      void* FOLLY_NONNULL p,
+      uint64_t size,
+      uint64_t maxMallocSize = kMaxMallocBytes) noexcept override;
+
   bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,

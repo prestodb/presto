@@ -44,6 +44,75 @@ MmapAllocator::MmapAllocator(const MmapAllocatorOptions& options)
   }
 }
 
+void* FOLLY_NULLABLE MmapAllocator::allocateBytes(
+    uint64_t bytes,
+    uint16_t alignment,
+    uint64_t maxMallocSize) {
+  alignmentCheck(bytes, alignment);
+
+  if (bytes <= maxMallocSize) {
+    auto* result =
+        alignment != 0 ? ::aligned_alloc(alignment, bytes) : ::malloc(bytes);
+    if (result != nullptr) {
+      totalSmallAllocateBytes_ += bytes;
+    } else {
+      LOG(ERROR) << "Invalid aligned memory allocation with " << alignment
+                 << " alignment and " << bytes << " bytes";
+    }
+    return result;
+  }
+  if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation;
+    const auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    if (allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
+      auto run = allocation.runAt(0);
+      VELOX_CHECK_EQ(
+          1,
+          allocation.numRuns(),
+          "A size class allocateBytes must produce one run");
+      allocation.clear();
+      totalSizeClassAllocateBytes_ += numPages * kPageSize;
+      return run.data<char>();
+    }
+    return nullptr;
+  }
+
+  ContiguousAllocation allocation;
+  auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
+  if (allocateContiguous(numPages, nullptr, allocation)) {
+    char* data = allocation.data<char>();
+    allocation.clear();
+    totalLargeAllocateBytes_ += numPages * kPageSize;
+    return data;
+  }
+  return nullptr;
+}
+
+void MmapAllocator::freeBytes(
+    void* p,
+    uint64_t bytes,
+    uint64_t maxMallocSize) noexcept {
+  if (bytes <= maxMallocSize) {
+    ::free(p); // NOLINT
+    totalSmallAllocateBytes_ -= bytes;
+    return;
+  }
+
+  if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation;
+    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
+    freeNonContiguous(allocation);
+    totalSizeClassAllocateBytes_ -= numPages * kPageSize;
+    return;
+  }
+
+  ContiguousAllocation allocation;
+  allocation.set(p, bytes);
+  freeContiguous(allocation);
+  totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
+}
+
 bool MmapAllocator::allocateNonContiguous(
     MachinePageCount numPages,
     Allocation& out,

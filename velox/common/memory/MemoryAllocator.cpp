@@ -28,18 +28,6 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
-namespace {
-inline void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes) {
-  if (FOLLY_LIKELY(alignmentBytes == 0)) {
-    return;
-  }
-  VELOX_CHECK_GE(alignmentBytes, MemoryAllocator::kMinAlignment);
-  VELOX_CHECK_LE(alignmentBytes, MemoryAllocator::kMaxAlignment);
-  VELOX_CHECK_EQ(allocateBytes % alignmentBytes, 0);
-  VELOX_CHECK_EQ((alignmentBytes & (alignmentBytes - 1)), 0);
-}
-} // namespace
-
 MemoryAllocator::Allocation::~Allocation() {
   if (pool_ != nullptr) {
     pool_->freeNonContiguous(*this);
@@ -174,11 +162,30 @@ MemoryAllocator::SizeMix MemoryAllocator::allocationSize(
   return mix;
 }
 
+// static
+void MemoryAllocator::alignmentCheck(
+    uint64_t allocateBytes,
+    uint16_t alignmentBytes) {
+  if (FOLLY_LIKELY(alignmentBytes == 0)) {
+    return;
+  }
+  VELOX_CHECK_GE(alignmentBytes, MemoryAllocator::kMinAlignment);
+  VELOX_CHECK_LE(alignmentBytes, MemoryAllocator::kMaxAlignment);
+  VELOX_CHECK_EQ(allocateBytes % alignmentBytes, 0);
+  VELOX_CHECK_EQ((alignmentBytes & (alignmentBytes - 1)), 0);
+}
+
 namespace {
 // The implementation of MemoryAllocator using malloc.
 class MemoryAllocatorImpl : public MemoryAllocator {
  public:
   MemoryAllocatorImpl();
+
+  void* allocateBytes(uint64_t bytes, uint16_t alignment, uint64_t /*unused*/)
+      override;
+
+  void freeBytes(void* p, uint64_t bytes, uint64_t /*unused*/) noexcept
+      override;
 
   bool allocateNonContiguous(
       MachinePageCount numPages,
@@ -243,6 +250,31 @@ class MemoryAllocatorImpl : public MemoryAllocator {
 } // namespace
 
 MemoryAllocatorImpl::MemoryAllocatorImpl() : numAllocated_(0), numMapped_(0) {}
+
+void* MemoryAllocatorImpl::allocateBytes(
+    uint64_t bytes,
+    uint16_t alignment,
+    uint64_t /*unused*/) {
+  alignmentCheck(bytes, alignment);
+  auto* result =
+      alignment != 0 ? ::aligned_alloc(alignment, bytes) : ::malloc(bytes);
+  if (result != nullptr) {
+    totalSmallAllocateBytes_ += bytes;
+  } else {
+    LOG(ERROR) << "Invalid aligned memory allocation with " << alignment
+               << " alignment and " << bytes << " bytes";
+  }
+  return result;
+}
+
+void MemoryAllocatorImpl::freeBytes(
+    void* p,
+    uint64_t bytes,
+    uint64_t /*unused*/) noexcept {
+  ::free(p); // NOLINT
+  totalSmallAllocateBytes_ -= bytes;
+  VELOX_CHECK_GE(totalSmallAllocateBytes_, 0);
+}
 
 bool MemoryAllocatorImpl::allocateNonContiguous(
     MachinePageCount numPages,
@@ -460,13 +492,8 @@ void MemoryAllocator::testingDestroyInstance() {
   instance_ = nullptr;
 }
 
-std::string MemoryAllocator::toString() const {
-  return fmt::format("MemoryAllocator: Allocated pages {}", numAllocated());
-}
-
-namespace {
-// Returns the size class size that corresponds to 'bytes'.
-MachinePageCount roundUpToSizeClassSize(
+// static
+MachinePageCount MemoryAllocator::roundUpToSizeClassSize(
     size_t bytes,
     const std::vector<MachinePageCount>& sizes) {
   auto pages = bits::roundUp(bytes, MemoryAllocator::kPageSize) /
@@ -474,50 +501,9 @@ MachinePageCount roundUpToSizeClassSize(
   VELOX_CHECK_LE(pages, sizes.back());
   return *std::lower_bound(sizes.begin(), sizes.end(), pages);
 }
-} // namespace
 
-void* FOLLY_NULLABLE MemoryAllocator::allocateBytes(
-    uint64_t bytes,
-    uint16_t alignment,
-    uint64_t maxMallocSize) {
-  alignmentCheck(bytes, alignment);
-
-  if (bytes <= maxMallocSize) {
-    auto* result =
-        alignment != 0 ? ::aligned_alloc(alignment, bytes) : ::malloc(bytes);
-    if (result != nullptr) {
-      totalSmallAllocateBytes_ += bytes;
-    } else {
-      LOG(ERROR) << "Invalid aligned memory allocation with " << alignment
-                 << " alignment and " << bytes << " bytes";
-    }
-    return result;
-  }
-  if (bytes <= sizeClassSizes_.back() * kPageSize) {
-    Allocation allocation;
-    const auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
-    if (allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
-      auto run = allocation.runAt(0);
-      VELOX_CHECK_EQ(
-          1,
-          allocation.numRuns(),
-          "A size class allocateBytes must produce one run");
-      allocation.clear();
-      totalSizeClassAllocateBytes_ += numPages * kPageSize;
-      return run.data<char>();
-    }
-    return nullptr;
-  }
-
-  ContiguousAllocation allocation;
-  auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
-  if (allocateContiguous(numPages, nullptr, allocation)) {
-    char* data = allocation.data<char>();
-    allocation.clear();
-    totalLargeAllocateBytes_ += numPages * kPageSize;
-    return data;
-  }
-  return nullptr;
+std::string MemoryAllocator::toString() const {
+  return fmt::format("MemoryAllocator: Allocated pages {}", numAllocated());
 }
 
 void* MemoryAllocator::allocateZeroFilled(uint64_t bytes, uint64_t alignment) {
@@ -540,31 +526,6 @@ void* FOLLY_NULLABLE MemoryAllocator::reallocateBytes(
   ::memcpy(newAlloc, p, std::min(size, newSize));
   freeBytes(p, size);
   return newAlloc;
-}
-
-void MemoryAllocator::freeBytes(
-    void* FOLLY_NONNULL p,
-    uint64_t bytes,
-    uint64_t maxMallocSize) noexcept {
-  if (bytes <= maxMallocSize) {
-    ::free(p); // NOLINT
-    totalSmallAllocateBytes_ -= bytes;
-    return;
-  }
-
-  if (bytes <= sizeClassSizes_.back() * kPageSize) {
-    Allocation allocation;
-    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
-    allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
-    freeNonContiguous(allocation);
-    totalSizeClassAllocateBytes_ -= numPages * kPageSize;
-    return;
-  }
-
-  ContiguousAllocation allocation;
-  allocation.set(p, bytes);
-  freeContiguous(allocation);
-  totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
 }
 
 Stats Stats::operator-(const Stats& other) const {
