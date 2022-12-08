@@ -591,7 +591,7 @@ std::string generateUserFriendlyDiff(
 
 void verifyDuckDBResult(const DuckDBQueryResult& result, std::string_view sql) {
   VELOX_CHECK(
-      result->success, "DuckDB query failed: {} \n {}", result->error, sql);
+      result->success, "DuckDB query failed: {}\n{}", result->error, sql);
 }
 
 } // namespace

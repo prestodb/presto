@@ -1023,6 +1023,8 @@ uint64_t MapVector::estimateFlatSize() const {
 void MapVector::prepareForReuse() {
   BaseVector::prepareForReuse();
 
+  sortedKeys_ = false;
+
   if (!(offsets_->unique() && offsets_->isMutable())) {
     offsets_ = nullptr;
   } else {

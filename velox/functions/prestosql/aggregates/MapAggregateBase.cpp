@@ -39,6 +39,7 @@ void MapAggregateBase::extractValues(
 
     if (isNull(group)) {
       mapVector->setNull(i, true);
+      mapVector->setOffsetAndSize(i, 0, 0);
       continue;
     }
 
@@ -86,6 +87,9 @@ VectorPtr MapAggregateBase::removeDuplicates(MapVectorPtr& mapVector) const {
 
   // Check for duplicate keys.
   for (vector_size_t row = 0; row < numRows; row++) {
+    if (mapVector->isNullAt(row)) {
+      continue;
+    }
     auto offset = offsets[row];
     auto size = sizes[row];
     auto duplicateCnt = 0;

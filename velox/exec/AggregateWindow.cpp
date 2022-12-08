@@ -94,8 +94,10 @@ class AggregateWindowFunction : public exec::WindowFunction {
   ~AggregateWindowFunction() {
     // Needed to delete any out-of-line storage for the accumulator in the
     // group row.
-    std::vector<char*> singleGroupRowVector = {rawSingleGroupRow_};
-    aggregate_->destroy(folly::Range(singleGroupRowVector.data(), 1));
+    if (aggregateInitialized_) {
+      std::vector<char*> singleGroupRowVector = {rawSingleGroupRow_};
+      aggregate_->destroy(folly::Range(singleGroupRowVector.data(), 1));
+    }
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {
@@ -134,6 +136,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
         auto singleGroup = std::vector<vector_size_t>{0};
         aggregate_->clear();
         aggregate_->initializeNewGroups(&rawSingleGroupRow_, singleGroup);
+        aggregateInitialized_ = true;
       }
 
       fillArgVectors(startRow, frameMetadata.lastRow);
@@ -234,8 +237,11 @@ class AggregateWindowFunction : public exec::WindowFunction {
     rows.setValidRange(startFrame, endFrame, true);
     rows.updateBounds();
 
+    BaseVector::prepareForReuse(aggregateResultVector_, 1);
+
     aggregate_->addSingleGroupRawInput(
         rawSingleGroupRow_, rows, argVectors_, false);
+    aggregate_->finalize(&rawSingleGroupRow_, 1);
     aggregate_->extractValues(&rawSingleGroupRow_, 1, &aggregateResultVector_);
   }
 
@@ -285,6 +291,7 @@ class AggregateWindowFunction : public exec::WindowFunction {
       // require adding new APIs to the Aggregate framework.
       aggregate_->clear();
       aggregate_->initializeNewGroups(&rawSingleGroupRow_, kSingleGroup);
+      aggregateInitialized_ = true;
 
       auto frameStartIndex = frameStartsVector[i] - minFrame;
       auto frameEndIndex = frameEndsVector[i] - minFrame + 1;
@@ -295,6 +302,8 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
   // Aggregate function object required for this window function evaluation.
   std::unique_ptr<exec::Aggregate> aggregate_;
+
+  bool aggregateInitialized_{false};
 
   // Current WindowPartition used for accessing rows in the apply method.
   const exec::WindowPartition* partition_;

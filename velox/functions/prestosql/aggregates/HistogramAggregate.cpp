@@ -98,6 +98,7 @@ class HistogramAggregate : public exec::Aggregate {
       if (mapSize == 0) {
         bits::setNull(rawNulls, i, true);
       } else {
+        clearNull(rawNulls, i);
         for (auto it = groupMap->begin(); it != groupMap->end(); ++it) {
           mapKeys->set(index, it->first);
           mapValues->set(index, it->second);
