@@ -46,7 +46,7 @@ struct LocalShuffleInfo {
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
 /// this class (pointing to the same root path) to read and write shuffle data.
-class LocalPersistentShuffle : public ShuffleInterface {
+class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
  public:
   static constexpr folly::StringPiece kShuffleName{"local"};
 
@@ -65,11 +65,6 @@ class LocalPersistentShuffle : public ShuffleInterface {
   velox::BufferPtr next(int32_t partition, bool success) override;
 
   bool readyForRead() const override;
-
-  static std::shared_ptr<ShuffleInterface> create(
-      const std::string& serializedStr,
-      operators::ShuffleInterface::Type type,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   // Finds and creates the next file for writing the next block of the
@@ -104,6 +99,17 @@ class LocalPersistentShuffle : public ShuffleInterface {
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
   // Used to make sure files created by this thread have unique names.
   std::thread::id threadId_;
+};
+
+class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedStr,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedStr,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
 };
 
 } // namespace facebook::presto::operators

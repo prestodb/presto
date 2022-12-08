@@ -474,9 +474,9 @@ std::vector<std::string> PrestoServer::registerConnectors(
 }
 
 void PrestoServer::registerShuffleInterfaceFactories() {
-  operators::ShuffleInterface::registerFactory(
+  operators::ShuffleInterfaceFactory::registerFactory(
       operators::LocalPersistentShuffle::kShuffleName.toString(),
-      operators::LocalPersistentShuffle::create);
+      std::make_unique<operators::LocalPersistentShuffleFactory>());
 }
 
 void PrestoServer::registerFileSystems() {

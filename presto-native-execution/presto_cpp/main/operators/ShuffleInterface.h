@@ -18,23 +18,9 @@
 
 namespace facebook::presto::operators {
 
-class ShuffleInterface {
+class ShuffleWriter {
  public:
-  /// Indicates the type of ShuffleInterface. This common interface could be
-  /// used for both READ and WRITE. This enum is used to differenciate the usage
-  /// of the ShuffleInterface
-  enum class Type {
-    kRead,
-    kWrite,
-  };
-
-  using ShuffleInterfaceFactory =
-      std::function<std::shared_ptr<ShuffleInterface>(
-          const std::string& serializedShuffleInfo,
-          Type type,
-          velox::memory::MemoryPool* pool)>;
-
-  virtual ~ShuffleInterface() = default;
+  virtual ~ShuffleWriter() = default;
 
   /// Write to the shuffle one row at a time.
   virtual void collect(int32_t partition, std::string_view data) = 0;
@@ -43,6 +29,16 @@ class ShuffleInterface {
   /// @param success set to false to indicate aborted client.
   virtual void noMoreData(bool success) = 0;
 
+  /// Return true if all the data is finished writing and is ready to
+  /// to be read while noMoreData signals the shuffle service that there
+  /// is no more data to be writen.
+  virtual bool readyForRead() const = 0;
+};
+
+class ShuffleReader {
+ public:
+  virtual ~ShuffleReader() = default;
+
   /// Check by the reader to see if more blocks are available for this
   /// partition.
   virtual bool hasNext(int32_t partition) const = 0;
@@ -50,11 +46,17 @@ class ShuffleInterface {
   /// Read the next block of data for this partition.
   /// @param success set to false to indicate aborted client.
   virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+};
 
-  /// Return true if all the data is finished writing and is ready to
-  /// to be read while noMoreData signals the shuffle service that there
-  /// is no more data to be writen.
-  virtual bool readyForRead() const = 0;
+class ShuffleInterfaceFactory {
+ public:
+  virtual std::shared_ptr<ShuffleReader> createReader(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) = 0;
+
+  virtual std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* pool) = 0;
 
   /// Register ShuffleInterfaceFactory to its registry. It returns true if the
   /// registration is successful, false if a factory with the name already
@@ -62,27 +64,30 @@ class ShuffleInterface {
   /// This method is not thread safe.
   static bool registerFactory(
       const std::string& name,
-      ShuffleInterfaceFactory shuffleInterfaceFactory) {
-    std::unordered_map<std::string, ShuffleInterfaceFactory>& factoryMap =
-        factories();
-    return factoryMap.emplace(name, shuffleInterfaceFactory).second;
+      std::unique_ptr<ShuffleInterfaceFactory> shuffleInterfaceFactory) {
+    std::unordered_map<std::string, std::unique_ptr<ShuffleInterfaceFactory>>&
+        factoryMap = factories();
+    return factoryMap.emplace(name, std::move(shuffleInterfaceFactory)).second;
   }
 
   /// Get a ShuffleInterfaceFactory with provided name. Throws if not found.
   /// This method is not thread safe.
-  static ShuffleInterfaceFactory& factory(const std::string& name) {
+  static ShuffleInterfaceFactory* factory(const std::string& name) {
     auto factoryIter = factories().find(name);
     if (factoryIter == factories().end()) {
       VELOX_FAIL("ShuffleInterface with name '{}' is not registered.", name);
     }
-    return factoryIter->second;
+    return factoryIter->second.get();
   }
 
  private:
-  static std::unordered_map<std::string, ShuffleInterfaceFactory>& factories() {
-    static std::unordered_map<std::string, ShuffleInterfaceFactory> factories;
+  static std::
+      unordered_map<std::string, std::unique_ptr<ShuffleInterfaceFactory>>&
+      factories() {
+    static std::
+        unordered_map<std::string, std::unique_ptr<ShuffleInterfaceFactory>>
+            factories;
     return factories;
   }
 };
-
 } // namespace facebook::presto::operators
