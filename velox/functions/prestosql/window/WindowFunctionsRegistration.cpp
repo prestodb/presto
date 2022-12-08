@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
-#include "velox/exec/Aggregate.h"
 
 namespace facebook::velox::window {
-
-extern void registerAggregateWindowFunction(const std::string& name);
 
 namespace prestosql {
 
@@ -38,12 +35,6 @@ void registerAllWindowFunctions() {
   registerCumeDist("cume_dist");
   registerNtile("ntile");
   registerNthValue("nth_value");
-
-  // Register all aggregate functions as window functions.
-  const auto& aggregateFunctions = exec::aggregateFunctions();
-  for (const auto& aggregateEntry : aggregateFunctions) {
-    window::registerAggregateWindowFunction(aggregateEntry.first);
-  }
 }
 
 } // namespace prestosql

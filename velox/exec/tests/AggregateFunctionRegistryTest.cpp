@@ -17,6 +17,7 @@
 #include "velox/exec/AggregateFunctionRegistry.h"
 #include <gtest/gtest.h>
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/WindowFunction.h"
 #include "velox/functions/Registerer.h"
 #include "velox/type/Type.h"
 
@@ -198,4 +199,18 @@ TEST_F(FunctionRegistryTest, getAggregateFunctionSignatures) {
 
   ASSERT_EQ(aggregateFuncSignaturesStr, expectedSignaturesStr);
 }
+
+TEST_F(FunctionRegistryTest, aggregateWindowFunctionSignature) {
+  auto windowFunctionSignatures = getWindowFunctionSignatures("aggregate_func");
+  ASSERT_EQ(windowFunctionSignatures->size(), 3);
+
+  std::set<std::string> functionSignatures;
+  for (const auto& signature : windowFunctionSignatures.value()) {
+    functionSignatures.insert(signature->toString());
+  }
+  ASSERT_EQ(functionSignatures.count("(bigint,double) -> bigint"), 1);
+  ASSERT_EQ(functionSignatures.count("() -> date"), 1);
+  ASSERT_EQ(functionSignatures.count("(T,T) -> T"), 1);
+}
+
 } // namespace facebook::velox::exec::test

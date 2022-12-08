@@ -16,6 +16,7 @@ add_library(
   Aggregate.cpp
   AggregateFunctionRegistry.cpp
   AggregationMasks.cpp
+  AggregateWindow.cpp
   ContainerRowSerde.cpp
   CrossJoinBuild.cpp
   CrossJoinProbe.cpp

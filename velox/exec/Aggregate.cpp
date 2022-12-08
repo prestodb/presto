@@ -15,6 +15,7 @@
  */
 
 #include "velox/exec/Aggregate.h"
+#include "velox/exec/AggregateWindow.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
 
@@ -58,6 +59,9 @@ bool registerAggregateFunction(
 
   aggregateFunctions()[sanitizedName] = {
       std::move(signatures), std::move(factory)};
+
+  // Register the aggregate as a window function also.
+  registerAggregateWindowFunction(sanitizedName);
   return true;
 }
 
