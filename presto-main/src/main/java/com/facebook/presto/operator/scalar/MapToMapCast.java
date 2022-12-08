@@ -44,7 +44,6 @@ import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.util.Failures.internalError;
 import static com.facebook.presto.util.Reflection.methodHandle;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.primitives.Primitives.unwrap;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
@@ -92,8 +91,8 @@ public final class MapToMapCast
                         TypeSignatureParameter.of(toKeyType.getTypeSignature()),
                         TypeSignatureParameter.of(toValueType.getTypeSignature())));
 
-        MethodHandle keyProcessor = buildProcessor(functionAndTypeManager, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(functionAndTypeManager, fromValueType, toValueType, false);
+        MethodHandle keyProcessor = (fromKeyType == toKeyType) ? null : buildProcessor(functionAndTypeManager, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = (fromValueType == toValueType) ? null : buildProcessor(functionAndTypeManager, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
         return new BuiltInScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target);
     }
@@ -213,25 +212,19 @@ public final class MapToMapCast
             SqlFunctionProperties properties,
             Block fromMap)
     {
-        checkState(toMapType.getTypeParameters().size() == 2, "Expect two type parameters for toMapType");
-        Type toKeyType = toMapType.getTypeParameters().get(0);
-        TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
-        BlockBuilder keyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
-        for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            try {
-                keyProcessFunction.invokeExact(fromMap, i, properties, keyBlockBuilder);
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
+        if (keyProcessFunction == null && valueProcessFunction == null) {
+            return fromMap;
         }
-        Block keyBlock = keyBlockBuilder.build();
 
-        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, 1);
+        Type toKeyType = toMapType.getTypeParameters().get(0);
+        Type toValueType = toMapType.getTypeParameters().get(1);
+        BlockBuilder mapBlockBuilder = toMapType.createBlockBuilder(null, fromMap.getPositionCount());
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-        for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
-            if (typedSet.add(keyBlock, i / 2)) {
-                toKeyType.appendTo(keyBlock, i / 2, blockBuilder);
+
+        if (keyProcessFunction == null) {
+            // common case
+            for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
+                toKeyType.appendTo(fromMap, i, blockBuilder);
                 if (fromMap.isNull(i + 1)) {
                     blockBuilder.appendNull();
                     continue;
@@ -244,9 +237,37 @@ public final class MapToMapCast
                     throw internalError(t);
                 }
             }
-            else {
-                // if there are duplicated keys, fail it!
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "duplicate keys");
+        }
+        else {
+            TypedSet typedSet = new TypedSet(toKeyType, fromMap.getPositionCount() / 2, "map-to-map cast");
+            for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
+                try {
+                    keyProcessFunction.invokeExact(fromMap, i, properties, blockBuilder);
+                }
+                catch (Throwable t) {
+                    throw internalError(t);
+                }
+
+                if (!typedSet.add(blockBuilder, i)) {
+                    throw new PrestoException(INVALID_CAST_ARGUMENT, "duplicate keys");
+                }
+
+                if (fromMap.isNull(i + 1)) {
+                    blockBuilder.appendNull();
+                    continue;
+                }
+
+                if (valueProcessFunction != null) {
+                    try {
+                        valueProcessFunction.invokeExact(fromMap, i + 1, properties, blockBuilder);
+                    }
+                    catch (Throwable t) {
+                        throw internalError(t);
+                    }
+                }
+                else {
+                    toValueType.appendTo(fromMap, i + 1, blockBuilder);
+                }
             }
         }
 
