@@ -22,8 +22,29 @@ exec_in_hadoop_master_container sed -i \
 table_path="s3a://${S3_BUCKET}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test1.csv{,.gz,.bz2,.lz4} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint)
+    LOCATION '${table_path}'"
 
-exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint) LOCATION '${table_path}'"
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs_comma_delimited/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_comma_delimited_table.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_external_fs_comma_delimited(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY ','
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
+
+table_path="s3a://${S3_BUCKET}/presto_test_external_fs_pipe_delimited/"
+exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+exec_in_hadoop_master_container hadoop fs -put -f /tmp/files/test_pipe_delimited_table.csv{,.gz,.bz2} "${table_path}"
+exec_in_hadoop_master_container /usr/bin/hive -e "
+    CREATE EXTERNAL TABLE presto_test_external_fs_pipe_delimited(t_bigint bigint, s_bigint bigint)
+    ROW FORMAT DELIMITED
+    FIELDS TERMINATED BY '|'
+    STORED AS TEXTFILE
+    LOCATION '${table_path}'"
 
 stop_unnecessary_hadoop_services
 
