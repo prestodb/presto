@@ -76,9 +76,9 @@ class Config : public common::ConfigBase<Config> {
   static Entry<bool> MAP_STATISTICS;
 
   static std::shared_ptr<Config> fromMap(
-      std::map<std::string, std::string> map) {
+      const std::map<std::string, std::string>& map) {
     auto ret = std::make_shared<Config>();
-    ret->configs_.insert(map.begin(), map.end());
+    ret->configs_.insert(map.cbegin(), map.cend());
     return ret;
   }
 };

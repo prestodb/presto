@@ -19,7 +19,9 @@
 #include <functional>
 #include <map>
 #include <unordered_map>
+
 #include "folly/Conv.h"
+#include "velox/common/base/Exceptions.h"
 
 namespace facebook::velox::common {
 // The concrete config class would inherit the config base
@@ -34,14 +36,24 @@ class ConfigBase {
         const T& val,
         std::function<std::string(const T&)> toStr =
             [](const T& val) { return folly::to<std::string>(val); },
-        std::function<T(const std::string&)> toT =
-            [](const std::string& val) { return folly::to<T>(val); })
+        std::function<T(const std::string&, const std::string&)> toT =
+            [](const std::string& key, const std::string& val) {
+              auto converted = folly::tryTo<T>(val);
+              VELOX_CHECK(
+                  converted.hasValue(),
+                  fmt::format(
+                      "Invalid configuration for key '{}'. Value '{}' cannot be converted to type {}.",
+                      key,
+                      val,
+                      folly::demangle(typeid(T))));
+              return converted.value();
+            })
         : key_{key}, default_{val}, toStr_{toStr}, toT_{toT} {}
 
     const std::string key_;
     const T default_;
     const std::function<std::string(const T&)> toStr_;
-    const std::function<T(const std::string&)> toT_;
+    const std::function<T(const std::string&, const std::string&)> toT_;
 
     friend ConfigBase;
     friend ConcreteConfig;
@@ -67,7 +79,8 @@ class ConfigBase {
   template <typename T>
   T get(const Entry<T>& entry) const {
     auto iter = configs_.find(entry.key_);
-    return iter != configs_.end() ? entry.toT_(iter->second) : entry.default_;
+    return iter != configs_.end() ? entry.toT_(entry.key_, iter->second)
+                                  : entry.default_;
   }
 
  protected:

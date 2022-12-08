@@ -127,7 +127,7 @@ Config::Entry<const std::vector<uint32_t>> Config::MAP_FLAT_COLS(
     "orc.map.flat.cols",
     {},
     [](const std::vector<uint32_t>& val) { return folly::join(",", val); },
-    [](const std::string& val) {
+    [](const std::string& /* key */, const std::string& val) {
       std::vector<uint32_t> result;
       if (!val.empty()) {
         std::vector<folly::StringPiece> pieces;
@@ -159,7 +159,7 @@ Config::Entry<const std::vector<std::vector<std::string>>>
           return folly::toJson(
               folly::dynamic::array(columns.cbegin(), columns.cend()));
         },
-        [](const std::string& val) {
+        [](const std::string& /* key */, const std::string& val) {
           folly::dynamic columns = folly::parseJson(val);
           std::vector<std::vector<std::string>> result;
           result.reserve(columns.size());
