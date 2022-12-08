@@ -176,23 +176,29 @@ void validate(
     const std::unordered_map<std::string, SignatureVariable>& variables,
     const TypeSignature& returnType,
     const std::vector<TypeSignature>& argumentTypes) {
-  // Validate that the type params are unique.
-  std::unordered_set<std::string> usedTypeVariables;
-
+  std::unordered_set<std::string> usedVariables;
   // Validate the argument types.
   for (const auto& arg : argumentTypes) {
     // Is base type a type parameter or a built in type ?
-    validateBaseTypeAndCollectTypeParams(
-        variables, arg, usedTypeVariables, false);
+    validateBaseTypeAndCollectTypeParams(variables, arg, usedVariables, false);
+  }
+
+  // All type variables should apear in the inputs arguments.
+  for (auto& [name, variable] : variables) {
+    if (variable.isTypeParameter()) {
+      VELOX_USER_CHECK(
+          usedVariables.count(name),
+          "Some type variables are not used in the inputs");
+    }
   }
 
   validateBaseTypeAndCollectTypeParams(
-      variables, returnType, usedTypeVariables, true);
+      variables, returnType, usedVariables, true);
 
   VELOX_USER_CHECK_EQ(
-      usedTypeVariables.size(),
+      usedVariables.size(),
       variables.size(),
-      "Not all type parameters used");
+      "Some integer variables are not used");
 }
 
 } // namespace

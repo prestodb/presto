@@ -25,6 +25,7 @@ class FunctionSignatureBuilderTest : public functions::test::FunctionBaseTest {
 };
 
 TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
+  // All type variables should be used in the inputs arguments.
   assertUserInvalidArgument(
       [=]() {
         FunctionSignatureBuilder()
@@ -33,7 +34,35 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
             .argumentType("integer")
             .build();
       },
-      "Not all type parameters used");
+      "Some type variables are not used in the inputs");
+
+  assertUserInvalidArgument(
+      [=]() {
+        FunctionSignatureBuilder()
+            .typeVariable("T")
+            .returnType("T")
+            .argumentType("integer")
+            .build();
+      },
+      "Some type variables are not used in the inputs");
+
+  // Integer variables do not have to be used in the inputs, but in that case
+  // must appear in the return.
+  ASSERT_NO_THROW(FunctionSignatureBuilder()
+                      .integerVariable("a")
+                      .returnType("DECIMAL(a, a)")
+                      .argumentType("integer")
+                      .build(););
+
+  assertUserInvalidArgument(
+      [=]() {
+        FunctionSignatureBuilder()
+            .integerVariable("a")
+            .returnType("integer")
+            .argumentType("integer")
+            .build();
+      },
+      "Some integer variables are not used");
 
   // Duplicate type params.
   assertUserInvalidArgument(
@@ -64,6 +93,7 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
         FunctionSignatureBuilder()
             .typeVariable("T")
             .returnType("integer")
+            .argumentType("T")
             .argumentType("array(M)")
             .build();
       },
@@ -86,7 +116,7 @@ TEST_F(FunctionSignatureBuilderTest, basicTypeTests) {
           .typeVariable("T")
           .typeVariable("M")
           .returnType("Array(M)")
-          .argumentType("Map(Map(Array(T)), Any)")
+          .argumentType("Map(Map(Array(T), M), Any)")
           .build() != nullptr);
 }
 
