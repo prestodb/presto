@@ -239,10 +239,10 @@ jobs:
       - run:
           name: "Build and Test PyVelox"
           command: |
-            conda init bash 
+            conda init bash
             source ~/.bashrc
             conda create -y --name pyveloxenv python=3.7
-            conda activate pyveloxenv 
+            conda activate pyveloxenv
             LD_LIBRARY_PATH=/usr/local/lib make python-test
       - run:
           name: "Run Unit Tests"
@@ -263,6 +263,8 @@ jobs:
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
                 --lazy_vector_generation_ratio 0.2 \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
                 --duration_sec 60 \
                 --logtostderr=1 \
                 --minloglevel=0 \
@@ -339,9 +341,9 @@ jobs:
             sudo ./scripts/setup-ubuntu.sh
       - setup-environment
       - build-benchmarks
-      # TODO: For now we just compare the target binary with itself, until we 
-      # stabilize benchmark runs. We should eventually have two different 
-      # set of binaries. 
+      # TODO: For now we just compare the target binary with itself, until we
+      # stabilize benchmark runs. We should eventually have two different
+      # set of binaries.
       - run:
           name: "Run Benchmarks - Baseline"
           command: |
@@ -457,6 +459,8 @@ jobs:
                 --duration_sec 600 \
                 --enable_variadic_signatures \
                 --velox_fuzzer_enable_complex_types \
+                --velox_fuzzer_enable_column_reuse \
+                --velox_fuzzer_enable_expression_reuse \
                 --logtostderr=1 \
                 --minloglevel=0 \
               2>&1 | tee /tmp/fuzzer.log || ( \
