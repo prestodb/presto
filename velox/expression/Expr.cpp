@@ -313,7 +313,14 @@ void Expr::evalSimplifiedImpl(
   }
 
   // Apply the actual function.
-  vectorFunction_->apply(remainingRows, inputValues_, type(), context, result);
+  try {
+    vectorFunction_->apply(
+        remainingRows, inputValues_, type(), context, result);
+  } catch (const VeloxException& ve) {
+    throw;
+  } catch (const std::exception& e) {
+    VELOX_USER_FAIL(e.what());
+  }
 
   // Make sure the returned vector has its null bitmap properly set.
   addNulls(rows, remainingRows.asRange().bits(), context, result);
@@ -1438,7 +1445,13 @@ void Expr::applyFunction(
       ? computeIsAsciiForResult(vectorFunction_.get(), inputValues_, rows)
       : std::nullopt;
 
-  vectorFunction_->apply(rows, inputValues_, type(), context, result);
+  try {
+    vectorFunction_->apply(rows, inputValues_, type(), context, result);
+  } catch (const VeloxException& ve) {
+    throw;
+  } catch (const std::exception& e) {
+    VELOX_USER_FAIL(e.what());
+  }
 
   if (!result) {
     LocalSelectivityVector mutableRemainingRowsHolder(context);

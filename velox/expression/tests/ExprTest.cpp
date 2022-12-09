@@ -53,13 +53,13 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return core::Expressions::inferTypes(untyped, rowType, execCtx_->pool());
   }
 
-  std::unique_ptr<exec::ExprSet> compileExpression(
+  template <typename T = exec::ExprSet>
+  std::unique_ptr<T> compileExpression(
       const std::string& expr,
       const RowTypePtr& rowType) {
     std::vector<core::TypedExprPtr> expressions = {
         parseExpression(expr, rowType)};
-    return std::make_unique<exec::ExprSet>(
-        std::move(expressions), execCtx_.get());
+    return std::make_unique<T>(std::move(expressions), execCtx_.get());
   }
 
   std::unique_ptr<exec::ExprSet> compileMultiple(
@@ -91,7 +91,13 @@ class ExprTest : public testing::Test, public VectorTestBase {
     return evaluateMultiple({text}, input)[0];
   }
 
-  VectorPtr evaluate(exec::ExprSet* exprSet, const RowVectorPtr& input) {
+  template <
+      typename T = exec::ExprSet,
+      typename = std::enable_if_t<
+          std::is_same_v<T, exec::ExprSet> ||
+              std::is_same_v<T, exec::ExprSetSimplified>,
+          bool>>
+  VectorPtr evaluate(T* exprSet, const RowVectorPtr& input) {
     exec::EvalCtx context(execCtx_.get(), exprSet, input.get());
 
     SelectivityVector rows(input->size());
@@ -232,6 +238,21 @@ class ExprTest : public testing::Test, public VectorTestBase {
       ASSERT_EQ(message, e.message());
       ASSERT_EQ(context, trimInputPath(e.context()));
       ASSERT_EQ(topLevelContext, trimInputPath(e.topLevelContext()));
+    }
+  }
+
+  void assertErrorSimplified(
+      const std::string& expression,
+      const VectorPtr& input,
+      const std::string& message) {
+    try {
+      auto inputVector = makeRowVector({input});
+      auto exprSetSimplified = compileExpression<exec::ExprSetSimplified>(
+          expression, asRowType(inputVector->type()));
+      evaluate<exec::ExprSetSimplified>(exprSetSimplified.get(), inputVector);
+      ASSERT_TRUE(false) << "Expected an error";
+    } catch (VeloxException& e) {
+      ASSERT_EQ(message, e.message());
     }
   }
 
@@ -2985,9 +3006,16 @@ TEST_F(ExprTest, addNulls) {
 }
 
 namespace {
+
+// Throw a VeloxException if veloxException_ is true. Throw an std exception
+// otherwise.
 class AlwaysThrowsVectorFunction : public exec::VectorFunction {
  public:
-  static constexpr const char* kErrorMessage = "Expected";
+  static constexpr const char* kVeloxErrorMessage = "Velox Exception: Expected";
+  static constexpr const char* kStdErrorMessage = "Std Exception: Expected";
+
+  explicit AlwaysThrowsVectorFunction(bool veloxException)
+      : veloxException_{veloxException} {}
 
   void apply(
       const SelectivityVector& rows,
@@ -2995,9 +3023,13 @@ class AlwaysThrowsVectorFunction : public exec::VectorFunction {
       const TypePtr& /* outputType */,
       exec::EvalCtx& context,
       VectorPtr& /* result */) const override {
-    auto error = std::make_exception_ptr(std::invalid_argument(kErrorMessage));
-    context.setErrors(rows, error);
-    return;
+    if (veloxException_) {
+      auto error =
+          std::make_exception_ptr(std::invalid_argument(kVeloxErrorMessage));
+      context.setErrors(rows, error);
+      return;
+    }
+    throw std::invalid_argument(kStdErrorMessage);
   }
 
   static std::vector<std::shared_ptr<exec::FunctionSignature>> signatures() {
@@ -3006,6 +3038,9 @@ class AlwaysThrowsVectorFunction : public exec::VectorFunction {
                 .argumentType("integer")
                 .build()};
   }
+
+ private:
+  const bool veloxException_;
 };
 
 class NoOpVectorFunction : public exec::VectorFunction {
@@ -3034,7 +3069,7 @@ TEST_F(ExprTest, applyFunctionNoResult) {
   exec::registerVectorFunction(
       "always_throws_vector_function",
       AlwaysThrowsVectorFunction::signatures(),
-      std::make_unique<AlwaysThrowsVectorFunction>());
+      std::make_unique<AlwaysThrowsVectorFunction>(true));
 
   // At various places in the code, we don't check if result has been set or
   // not.  Conjuncts have the nice property that they set throwOnError to
@@ -3044,7 +3079,7 @@ TEST_F(ExprTest, applyFunctionNoResult) {
       makeFlatVector<int32_t>({1, 2, 3}),
       "always_throws_vector_function(c0)",
       "and(always_throws_vector_function(c0), 1:BOOLEAN)",
-      AlwaysThrowsVectorFunction::kErrorMessage);
+      AlwaysThrowsVectorFunction::kVeloxErrorMessage);
 
   exec::registerVectorFunction(
       "no_op",
@@ -3098,4 +3133,23 @@ TEST_F(ExprTest, constantWrap) {
   auto result = evaluate("c0 < (cast(c1 as bigint) + 10)", {data});
   assertEqualVectors(
       makeNullableFlatVector<bool>({std::nullopt, true, false, true}), result);
+}
+
+TEST_F(ExprTest, stdExceptionInVectorFunction) {
+  exec::registerVectorFunction(
+      "always_throws_vector_function",
+      AlwaysThrowsVectorFunction::signatures(),
+      std::make_unique<AlwaysThrowsVectorFunction>(false));
+
+  assertError(
+      "always_throws_vector_function(c0)",
+      makeFlatVector<int32_t>({1, 2, 3}),
+      "always_throws_vector_function(c0)",
+      "Same as context.",
+      AlwaysThrowsVectorFunction::kStdErrorMessage);
+
+  assertErrorSimplified(
+      "always_throws_vector_function(c0)",
+      makeFlatVector<int32_t>({1, 2, 3}),
+      AlwaysThrowsVectorFunction::kStdErrorMessage);
 }
