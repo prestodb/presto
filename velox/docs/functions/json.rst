@@ -124,6 +124,15 @@ JSON Functions
 
         SELECT json_array_contains('[1, 2, 3]', 2);
 
+.. function:: json_size(json, value) -> bigint
+
+    Returns the size of the ``value``. For ``objects`` or ``arrays``, the size
+    is the number of members, and the size of a ``scalar`` value is zero::
+
+        SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x'); -- 2
+        SELECT json_size('{"x": [1, 2, 3]}', '$.x'); -- 3
+        SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x.a'); -- 0
+
 ============
 JSON Vectors
 ============

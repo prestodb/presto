@@ -113,4 +113,30 @@ struct JsonArrayContainsFunction {
   }
 };
 
+template <typename T>
+struct JsonSizeFunction {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  FOLLY_ALWAYS_INLINE bool call(
+      int64_t& result,
+      const arg_type<Json>& json,
+      const arg_type<Varchar>& jsonPath) {
+    const folly::StringPiece& jsonStringPiece = json;
+    const folly::StringPiece& jsonPathStringPiece = jsonPath;
+    auto extractResult = jsonExtract(jsonStringPiece, jsonPathStringPiece);
+    if (!extractResult.has_value()) {
+      return false;
+    }
+    // The size of the object or array is the number of members, otherwise the
+    // size is zero
+    if (extractResult->isArray() || extractResult->isObject()) {
+      result = extractResult->size();
+    } else {
+      result = 0;
+    }
+
+    return true;
+  }
+};
+
 } // namespace facebook::velox::functions
