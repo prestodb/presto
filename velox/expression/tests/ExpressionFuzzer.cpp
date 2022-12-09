@@ -72,6 +72,8 @@ DEFINE_bool(
     false,
     "Enable testing of function signatures with variadic arguments.");
 
+DEFINE_bool(enable_cast, false, "Enable testing with cast expression.");
+
 DEFINE_string(
     repro_persist_path,
     "",
@@ -544,13 +546,24 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
     const TypePtr& returnType) {
   VELOX_CHECK_GT(remainingLevelOfNesting_, 0);
   --remainingLevelOfNesting_;
-
   auto guard = folly::makeGuard([&] { ++remainingLevelOfNesting_; });
 
   auto& listOfCandidateExprs = typeToExpressions_[returnType->toString()];
   bool reuseExpression = FLAGS_velox_fuzzer_enable_expression_reuse &&
       !listOfCandidateExprs.empty() && vectorFuzzer_.coinToss(0.3);
   if (!reuseExpression) {
+    core::TypedExprPtr expression;
+
+    // Generate a cast expression with 40% chance.
+    if (FLAGS_enable_cast && vectorFuzzer_.coinToss(0.4)) {
+      expression = generateCastExpression(returnType);
+      if (!expression) {
+        LOG(INFO) << "Casting to '" << returnType->toString()
+                  << "' is unsupported. Returning a constant instead.";
+        expression = generateArgConstant(returnType);
+      }
+      return expression;
+    }
     auto firstAttempt =
         &ExpressionFuzzer::generateExpressionFromConcreteSignatures;
     auto secondAttempt =
@@ -562,7 +575,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
       std::swap(firstAttempt, secondAttempt);
     }
 
-    core::TypedExprPtr expression = (this->*firstAttempt)(returnType);
+    expression = (this->*firstAttempt)(returnType);
     if (!expression) {
       if (FLAGS_velox_fuzzer_enable_complex_types) {
         expression = (this->*secondAttempt)(returnType);
@@ -585,11 +598,18 @@ core::TypedExprPtr ExpressionFuzzer::generateExpression(
   return listOfCandidateExprs[chosenExprIndex];
 }
 
-core::TypedExprPtr ExpressionFuzzer::getCallExprFromCallable(
+std::vector<core::TypedExprPtr> ExpressionFuzzer::getArgsForCallable(
     const CallableSignature& callable) {
   auto funcIt = funcArgOverrides_.find(callable.name);
-  auto args = funcIt == funcArgOverrides_.end() ? generateArgs(callable)
-                                                : funcIt->second(callable);
+  if (funcIt == funcArgOverrides_.end()) {
+    return generateArgs(callable);
+  }
+  return funcIt->second(callable);
+}
+
+core::TypedExprPtr ExpressionFuzzer::getCallExprFromCallable(
+    const CallableSignature& callable) {
+  auto args = getArgsForCallable(callable);
 
   return std::make_shared<core::CallTypedExpr>(
       callable.returnType, args, callable.name);
@@ -671,6 +691,46 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
   CallableSignature callable{chosen->name, argumentTypes, false, returnType};
 
   return getCallExprFromCallable(callable);
+}
+
+TypePtr ExpressionFuzzer::chooseCastFromType(const TypePtr& to) {
+  if (to->isPrimitiveType()) {
+    return vectorFuzzer_.randType(0);
+  }
+  if (to->isArray()) {
+    return ARRAY(chooseCastFromType(to->childAt(0)));
+  }
+  if (to->isMap()) {
+    return MAP(
+        chooseCastFromType(to->childAt(0)), chooseCastFromType(to->childAt(1)));
+  }
+  if (to->isRow()) {
+    std::vector<TypePtr> children;
+    for (auto& child : to->asRow().children()) {
+      children.push_back(chooseCastFromType(child));
+    }
+    return ROW(std::move(children));
+  }
+  // Placeholder for unsupported types.
+  return nullptr;
+}
+
+core::TypedExprPtr ExpressionFuzzer::generateCastExpression(
+    const TypePtr& returnType) {
+  // Choose a random from type.
+  auto fromType = chooseCastFromType(returnType);
+  if (!fromType) {
+    return nullptr;
+  }
+
+  CallableSignature callable{"cast", {fromType}, false, returnType};
+  auto args = getArgsForCallable(callable);
+
+  // Generate try_cast expression with 50% chance.
+  bool nullOnFailure =
+      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+  return std::make_shared<core::CastTypedExpr>(
+      callable.returnType, args, nullOnFailure);
 }
 
 template <typename T>

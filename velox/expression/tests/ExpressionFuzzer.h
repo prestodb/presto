@@ -83,6 +83,10 @@ class ExpressionFuzzer {
   std::vector<core::TypedExprPtr> generateRegexpReplaceArgs(
       const CallableSignature& input);
 
+  // Return a vector of expressions for each argument of callable in order.
+  std::vector<core::TypedExprPtr> getArgsForCallable(
+      const CallableSignature& callable);
+
   core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
 
   /// Generate an expression with a random concrete function signature that
@@ -101,6 +105,19 @@ class ExpressionFuzzer {
   /// returns returnType.
   core::TypedExprPtr generateExpressionFromSignatureTemplate(
       const TypePtr& returnType);
+
+  /// Generate a cast expression that returns the specified type. Return a
+  /// nullptr if casting to the specified type is not supported. The supported
+  /// types include primitive types, array, map, and row types right now.
+  core::TypedExprPtr generateCastExpression(const TypePtr& returnType);
+
+  /// Choose a random type to be casted to the specified type. If the specified
+  /// type is primitive, return a random primitive type. If the specified type
+  /// is complex, return a type whose top-level being the same and child types
+  /// being determined by chooseCastFromType() recursively. Casting to or from
+  /// custom types is not supported yet. In case of an unsupported `to` type,
+  /// this function returns a nullptr.
+  TypePtr chooseCastFromType(const TypePtr& to);
 
   /// If --duration_sec > 0, check if we expired the time budget. Otherwise,
   /// check if we expired the number of iterations (--steps).
