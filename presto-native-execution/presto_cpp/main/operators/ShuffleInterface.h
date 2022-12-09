@@ -28,11 +28,6 @@ class ShuffleWriter {
   /// Tell the shuffle system the writer is done.
   /// @param success set to false to indicate aborted client.
   virtual void noMoreData(bool success) = 0;
-
-  /// Return true if all the data is finished writing and is ready to
-  /// to be read while noMoreData signals the shuffle service that there
-  /// is no more data to be writen.
-  virtual bool readyForRead() const = 0;
 };
 
 class ShuffleReader {
