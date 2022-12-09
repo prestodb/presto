@@ -187,7 +187,10 @@ class MemoryAllocatorTest : public testing::TestWithParam<TestParam> {
       MemoryAllocator::setDefaultInstance(mockAllocator_.get());
     }
     instance_ = MemoryAllocator::getInstance();
-    memoryManager_ = std::make_unique<MemoryManager>(kMaxMemory, instance_);
+    IMemoryManager::Options options;
+    options.capacity = kMaxMemory;
+    options.allocator = instance_;
+    memoryManager_ = std::make_unique<MemoryManager>(options);
     pool_ = memoryManager_->getChild();
   }
 

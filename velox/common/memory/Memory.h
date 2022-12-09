@@ -95,8 +95,18 @@ namespace memory {
 /// be merged into memory pool object later.
 class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
  public:
+  struct Options {
+    /// Specifies the memory allocation alignment through this memory pool.
+    uint16_t alignment{MemoryAllocator::kMaxAlignment};
+    /// Specifies the memory capacity of this memory pool.
+    int64_t capacity{kMaxMemory};
+  };
+
   /// Constructs a named memory pool with specified 'parent'.
-  MemoryPool(const std::string& name, std::shared_ptr<MemoryPool> parent);
+  MemoryPool(
+      const std::string& name,
+      std::shared_ptr<MemoryPool> parent,
+      uint16_t alignment);
 
   /// Removes this memory pool's tracking from its parent through dropChild().
   /// Drops the shared reference to its parent.
@@ -184,7 +194,9 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   /// Returns the memory allocation alignment size applied internally by this
   /// memory pool object.
-  virtual uint16_t getAlignment() const = 0;
+  virtual uint16_t alignment() const {
+    return alignment_;
+  }
 
   /// Resource governing methods used to track and limit the memory usage
   /// through this memory pool object.
@@ -253,7 +265,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual void dropChild(const MemoryPool* FOLLY_NONNULL child);
 
   const std::string name_;
-  std::shared_ptr<MemoryPool> parent_;
+  const uint16_t alignment_;
+  const std::shared_ptr<MemoryPool> parent_;
 
   /// Protects 'children_'.
   mutable folly::SharedMutex childrenMutex_;
@@ -271,7 +284,7 @@ class MemoryPoolImpl : public MemoryPool {
       MemoryManager& memoryManager,
       const std::string& name,
       std::shared_ptr<MemoryPool> parent,
-      int64_t cap = kMaxMemory);
+      const Options& options = Options{});
 
   ~MemoryPoolImpl() {
     if (const auto& tracker = getMemoryUsageTracker()) {
@@ -339,7 +352,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   int64_t cap() const override;
 
-  uint16_t getAlignment() const override;
+  uint16_t alignment() const override;
 
   void capMemoryAllocation() override;
 
@@ -371,7 +384,7 @@ class MemoryPoolImpl : public MemoryPool {
  private:
   VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
 
-  static int64_t sizeAlign(int64_t size);
+  int64_t sizeAlign(int64_t size);
 
   void* FOLLY_NULLABLE
   reallocAligned(void* FOLLY_NULLABLE p, int64_t size, int64_t newSize) {
@@ -382,7 +395,7 @@ class MemoryPoolImpl : public MemoryPool {
       std::function<void(const MemoryUsage&)> visitor) const;
   void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
 
-  static constexpr uint16_t alignment_{MemoryAllocator::kMaxAlignment};
+  const int64_t cap_;
   MemoryManager& memoryManager_;
 
   // Memory allocated attributed to the memory node.
@@ -390,25 +403,36 @@ class MemoryPoolImpl : public MemoryPool {
   std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
   mutable folly::SharedMutex subtreeUsageMutex_;
   MemoryUsage subtreeMemoryUsage_;
-  int64_t cap_;
   std::atomic_bool capped_{false};
 
   MemoryAllocator& allocator_;
 };
-
-constexpr folly::StringPiece kRootNodeName{"__root__"};
 
 /// This class provides the interface of memory manager. The memory manager is
 /// responsible for enforcing the memory usage quota as well as managing the
 /// memory pools.
 class IMemoryManager {
  public:
-  virtual ~IMemoryManager() {}
+  struct Options {
+    /// Specifies the default memory allocation alignment.
+    uint16_t alignment{MemoryAllocator::kMaxAlignment};
 
-  /// Returns the total memory usage allowed under this memory manager.
-  /// The memory manager maintains this quota as a hard cap, and any allocation
-  /// that would exceed the quota throws.
-  virtual int64_t getMemoryQuota() const = 0;
+    /// Specifies the max memory capacity in bytes.
+    int64_t capacity{kMaxMemory};
+
+    /// Specifies the backing memory allocator.
+    MemoryAllocator* FOLLY_NONNULL allocator{MemoryAllocator::getInstance()};
+  };
+
+  virtual ~IMemoryManager() = default;
+
+  /// Returns the total memory usage in bytes allowed under this memory manager.
+  /// The memory manager maintains this capacity as a hard cap, and any
+  /// allocation that would exceed the quota throws.
+  virtual int64_t capacity() const = 0;
+
+  /// Returns the memory allocation alignment of this memory manager.
+  virtual uint16_t alignment() const = 0;
 
   /// Power users that want to explicitly modify the tree should get the root of
   /// the tree.
@@ -439,29 +463,28 @@ class IMemoryManager {
 class MemoryManager final : public IMemoryManager {
  public:
   /// Tries to get the singleton memory manager. If not previously initialized,
-  /// the process singleton manager will be initialized with the given quota.
+  /// the process singleton manager will be initialized with the 'options'.
   FOLLY_EXPORT static MemoryManager& getInstance(
-      int64_t quota = kMaxMemory,
-      bool ensureQuota = false) {
-    static MemoryManager manager{quota};
-    auto actualQuota = manager.getMemoryQuota();
+      const Options& options = Options{},
+      bool ensureCapacity = false) {
+    static MemoryManager manager{options};
+    auto actualCapacity = manager.capacity();
     VELOX_USER_CHECK(
-        !ensureQuota || actualQuota == quota,
-        "Process level manager manager created with input_quota: {}, current_quota: {}",
-        quota,
-        actualQuota);
+        !ensureCapacity || actualCapacity == options.capacity,
+        "Process level manager manager created with input capacity: {}, actual capacity: {}",
+        options.capacity,
+        actualCapacity);
 
     return manager;
   }
 
-  explicit MemoryManager(
-      int64_t memoryQuota = kMaxMemory,
-      MemoryAllocator* FOLLY_NONNULL allocator =
-          MemoryAllocator::getInstance());
+  explicit MemoryManager(const Options& options = Options{});
 
   ~MemoryManager();
 
-  int64_t getMemoryQuota() const final;
+  int64_t capacity() const final;
+
+  uint16_t alignment() const final;
 
   MemoryPool& getRoot() const final;
 
@@ -483,7 +506,8 @@ class MemoryManager final : public IMemoryManager {
   VELOX_FRIEND_TEST(MultiThreadingUncappingTest, SimpleTree);
 
   MemoryAllocator* const FOLLY_NONNULL allocator_;
-  const int64_t memoryQuota_;
+  const uint16_t alignment_;
+  const int64_t capacity_;
 
   std::shared_ptr<MemoryPool> root_;
   mutable folly::SharedMutex mutex_;

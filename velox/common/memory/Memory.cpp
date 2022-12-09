@@ -43,12 +43,19 @@ namespace {
       ::facebook::velox::error_code::kMemCapExceeded.c_str(),       \
       /* isRetriable */ true,                                       \
       "Memory allocation manually capped");
+
+constexpr folly::StringPiece kRootNodeName{"__root__"};
 } // namespace
 
 MemoryPool::MemoryPool(
     const std::string& name,
-    std::shared_ptr<MemoryPool> parent)
-    : name_(name), parent_(std::move(parent)) {}
+    std::shared_ptr<MemoryPool> parent,
+    uint16_t alignment)
+    : name_(name),
+      alignment_{alignment == 0 ? MemoryAllocator::kMinAlignment : alignment},
+      parent_(std::move(parent)) {
+  MemoryAllocator::validateAlignment(alignment_);
+}
 
 MemoryPool::~MemoryPool() {
   VELOX_CHECK(children_.empty());
@@ -128,16 +135,15 @@ MemoryPoolImpl::MemoryPoolImpl(
     MemoryManager& memoryManager,
     const std::string& name,
     std::shared_ptr<MemoryPool> parent,
-    int64_t cap)
-    : MemoryPool{name, parent},
+    const Options& options)
+    : MemoryPool{name, parent, options.alignment},
+      cap_{options.capacity},
       memoryManager_{memoryManager},
       localMemoryUsage_{},
-      cap_{cap},
       allocator_{memoryManager_.getAllocator()} {
-  VELOX_USER_CHECK_GT(cap, 0);
+  VELOX_USER_CHECK_GT(cap_, 0);
 }
 
-/* static */
 int64_t MemoryPoolImpl::sizeAlign(int64_t size) {
   const auto remainder = size % alignment_;
   return (remainder == 0) ? size : (size + alignment_ - remainder);
@@ -304,7 +310,7 @@ int64_t MemoryPoolImpl::cap() const {
   return cap_;
 }
 
-uint16_t MemoryPoolImpl::getAlignment() const {
+uint16_t MemoryPoolImpl::alignment() const {
   return alignment_;
 }
 
@@ -338,7 +344,8 @@ std::shared_ptr<MemoryPool> MemoryPoolImpl::genChild(
     std::shared_ptr<MemoryPool> parent,
     const std::string& name,
     int64_t cap) {
-  return std::make_shared<MemoryPoolImpl>(memoryManager_, name, parent, cap);
+  return std::make_shared<MemoryPoolImpl>(
+      memoryManager_, name, parent, Options{alignment_, cap});
 }
 
 const MemoryUsage& MemoryPoolImpl::getLocalMemoryUsage() const {
@@ -389,7 +396,7 @@ void MemoryPoolImpl::reserve(int64_t size) {
     // more conservative side.
     release(size);
     if (!success) {
-      VELOX_MEM_MANAGER_CAP_EXCEEDED(memoryManager_.getMemoryQuota());
+      VELOX_MEM_MANAGER_CAP_EXCEEDED(memoryManager_.capacity());
     }
     if (manualCap) {
       VELOX_MEM_MANUAL_CAP();
@@ -410,17 +417,18 @@ void MemoryPoolImpl::release(int64_t size, bool mock) {
   }
 }
 
-MemoryManager::MemoryManager(
-    int64_t memoryQuota,
-    MemoryAllocator* FOLLY_NONNULL allocator)
-    : allocator_{std::move(allocator)},
-      memoryQuota_{memoryQuota},
+MemoryManager::MemoryManager(const Options& options)
+    : allocator_{options.allocator},
+      alignment_(options.alignment),
+      capacity_{options.capacity},
       root_{std::make_shared<MemoryPoolImpl>(
           *this,
           kRootNodeName.str(),
           nullptr,
-          memoryQuota)} {
-  VELOX_USER_CHECK_GE(memoryQuota_, 0);
+          MemoryPool::Options{alignment_, capacity_})} {
+  VELOX_CHECK_NOT_NULL(allocator_);
+  VELOX_USER_CHECK_GE(capacity_, 0);
+  MemoryAllocator::validateAlignment(alignment_);
 }
 
 MemoryManager::~MemoryManager() {
@@ -430,8 +438,12 @@ MemoryManager::~MemoryManager() {
   }
 }
 
-int64_t MemoryManager::getMemoryQuota() const {
-  return memoryQuota_;
+int64_t MemoryManager::capacity() const {
+  return capacity_;
+}
+
+uint16_t MemoryManager::alignment() const {
+  return alignment_;
 }
 
 MemoryPool& MemoryManager::getRoot() const {
@@ -452,7 +464,7 @@ int64_t MemoryManager::getTotalBytes() const {
 
 bool MemoryManager::reserve(int64_t size) {
   return totalBytes_.fetch_add(size, std::memory_order_relaxed) + size <=
-      memoryQuota_;
+      capacity_;
 }
 
 void MemoryManager::release(int64_t size) {

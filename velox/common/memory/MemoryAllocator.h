@@ -185,6 +185,8 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   static constexpr uint16_t kMinAlignment = 8;
   static constexpr uint16_t kMaxAlignment = 64;
 
+  static void validateAlignment(uint16_t alignment);
+
   /// Represents a number of consecutive pages of kPageSize bytes.
   class PageRun {
    public:

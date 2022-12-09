@@ -28,6 +28,16 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
+/*static*/
+void MemoryAllocator::validateAlignment(uint16_t alignment) {
+  if (alignment == 0) {
+    return;
+  }
+  VELOX_CHECK_LE(MemoryAllocator::kMinAlignment, alignment);
+  VELOX_CHECK_GE(MemoryAllocator::kMaxAlignment, alignment);
+  VELOX_CHECK_EQ(alignment & (alignment - 1), 0);
+}
+
 MemoryAllocator::Allocation::~Allocation() {
   if (pool_ != nullptr) {
     pool_->freeNonContiguous(*this);

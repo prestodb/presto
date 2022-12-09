@@ -38,7 +38,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       const std::string& name,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, parent}, cap_{cap} {}
+      : MemoryPool{name, parent, 0}, cap_{cap} {}
 
   // Methods not usually exposed by MemoryPool interface to
   // allow for manipulation.
@@ -108,8 +108,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   bool allocateContiguous(
       velox::memory::MachinePageCount /*unused*/,
-      velox::memory::MemoryAllocator::ContiguousAllocation& /*unused*/)
-      override {
+      velox::memory::MemoryAllocator::ContiguousAllocation&
+      /*unused*/) override {
     VELOX_UNSUPPORTED("allocateContiguous unsupported");
   }
 
@@ -158,7 +158,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       setMemoryUsageTracker,
       void(const std::shared_ptr<velox::memory::MemoryUsageTracker>&));
 
-  MOCK_CONST_METHOD0(getAlignment, uint16_t());
+  MOCK_CONST_METHOD0(alignment, uint16_t());
 
  private:
   velox::memory::MemoryAllocator* const FOLLY_NONNULL allocator_{

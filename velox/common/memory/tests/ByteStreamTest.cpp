@@ -27,12 +27,13 @@ class ByteStreamTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
     constexpr uint64_t kMaxMappedMemory = 64 << 20;
-    MmapAllocatorOptions options;
-    options.capacity = kMaxMappedMemory;
-    mmapAllocator_ = std::make_shared<MmapAllocator>(options);
+    MmapAllocatorOptions allocatorOptions;
+    allocatorOptions.capacity = kMaxMappedMemory;
+    mmapAllocator_ = std::make_shared<MmapAllocator>(allocatorOptions);
     MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
-    memoryManager_ = std::make_unique<MemoryManager>(
-        kMaxMemory, MemoryAllocator::getInstance());
+    IMemoryManager::Options mgrOptions;
+    mgrOptions.capacity = kMaxMemory;
+    memoryManager_ = std::make_unique<MemoryManager>(mgrOptions);
     pool_ = memoryManager_->getChild();
   }
 
