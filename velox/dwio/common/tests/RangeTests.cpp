@@ -26,7 +26,7 @@ namespace facebook::velox::common {
 TEST(RangeTests, Add) {
   Ranges ranges;
   ASSERT_THROW(ranges.add(2, 1), exception::LoggedException);
-  ASSERT_THROW(ranges.add(2, 2), exception::LoggedException);
+  ranges.add(2, 2);
   ranges.add(1, 3);
   ASSERT_THAT(ranges.ranges_, ElementsAre(std::tuple<size_t, size_t>{1, 3}));
   ASSERT_EQ(ranges.size(), 2);

@@ -32,6 +32,9 @@ possible.
 class Ranges {
  public:
   void add(size_t begin, size_t end) {
+    if (begin == end) {
+      return;
+    }
     DWIO_ENSURE_LT(begin, end);
     size_ += (end - begin);
     if (ranges_.size()) {
