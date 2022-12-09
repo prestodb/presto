@@ -21,12 +21,12 @@ import com.facebook.presto.hadoop.FileSystemFactory;
 import com.facebook.presto.hive.HdfsConfiguration;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HiveSessionProperties;
-import com.facebook.presto.hive.WrapperJobConf;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.JobConf;
 
 import javax.inject.Inject;
 
@@ -88,22 +88,21 @@ public class HiveCachingHdfsConfiguration
         return config;
     }
 
-    public static class CachingJobConf
-            extends WrapperJobConf
+    private static class CachingJobConf
+            extends JobConf
             implements FileSystemFactory
     {
         private final BiFunction<Configuration, URI, FileSystem> factory;
-
-        public CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory, Configuration config)
+        private CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory, Configuration conf)
         {
-            super(config);
+            super(conf);
             this.factory = requireNonNull(factory, "factory is null");
         }
 
         @Override
         public FileSystem createFileSystem(URI uri)
         {
-            return factory.apply(getConfig(), uri);
+            return factory.apply(this, uri);
         }
     }
 }
