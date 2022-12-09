@@ -113,7 +113,6 @@ class TestShuffle : public ShuffleReader, public ShuffleWriter {
         inProgressPartitions_[i].reset();
       }
     }
-    readyForRead_ = true;
   }
 
   bool hasNext(int32_t partition) const {
@@ -127,10 +126,6 @@ class TestShuffle : public ShuffleReader, public ShuffleWriter {
     auto buffer = readyPartitions_[partition].back();
     readyPartitions_[partition].pop_back();
     return buffer;
-  }
-
-  bool readyForRead() const {
-    return readyForRead_;
   }
 
   static void reset() {
@@ -160,7 +155,6 @@ class TestShuffle : public ShuffleReader, public ShuffleWriter {
 
  private:
   memory::MemoryPool* pool_{nullptr};
-  bool readyForRead_ = false;
   const uint32_t numPartitions_;
   const uint32_t maxBytesPerPartition_;
 

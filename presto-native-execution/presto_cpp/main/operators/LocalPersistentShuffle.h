@@ -64,8 +64,6 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
   velox::BufferPtr next(int32_t partition, bool success) override;
 
-  bool readyForRead() const override;
-
  private:
   // Finds and creates the next file for writing the next block of the
   // given 'partition'.
@@ -79,6 +77,8 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
   // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
+
+  bool readyForRead() const;
 
   // Deletes all the files in the root directory.
   void cleanup();
