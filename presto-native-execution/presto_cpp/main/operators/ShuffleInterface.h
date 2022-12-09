@@ -45,6 +45,8 @@ class ShuffleReader {
 
 class ShuffleInterfaceFactory {
  public:
+  virtual ~ShuffleInterfaceFactory() = default;
+
   virtual std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
       velox::memory::MemoryPool* pool) = 0;
