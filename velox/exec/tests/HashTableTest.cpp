@@ -104,9 +104,12 @@ class HashTableTest : public testing::TestWithParam<bool> {
 
   // Inserts and deletes rows in a HashTable, similarly to a group by
   // that periodically spills a fraction of the groups.
-  void testGroupBySpill(int32_t size, TypePtr tableType, int32_t numKeys) {
-    constexpr int32_t kBatchSize = 1000;
-    constexpr int32_t kNumErasePerRound = 500;
+  void testGroupBySpill(
+      int32_t size,
+      TypePtr tableType,
+      int32_t numKeys,
+      int32_t batchSize = 1000,
+      int32_t eraseSize = 500) {
     int32_t sequence = 0;
     std::vector<RowVectorPtr> batches;
     auto table = createHashTableForAggregation(tableType, numKeys);
@@ -114,17 +117,16 @@ class HashTableTest : public testing::TestWithParam<bool> {
     std::vector<char*> allInserted;
     int32_t numErased = 0;
     // We insert 1000 and delete 500.
-    for (auto round = 0; round < size; round += kBatchSize) {
-      makeRows(kBatchSize, 1, sequence, tableType, batches);
-      sequence += kBatchSize;
-      lookup->reset(kBatchSize);
+    for (auto round = 0; round < size; round += batchSize) {
+      makeRows(batchSize, 1, sequence, tableType, batches);
+      sequence += batchSize;
+      lookup->reset(batchSize);
       insertGroups(*batches.back(), *lookup, *table);
       allInserted.insert(
           allInserted.end(), lookup->hits.begin(), lookup->hits.end());
 
-      table->erase(
-          folly::Range<char**>(&allInserted[numErased], kNumErasePerRound));
-      numErased += kNumErasePerRound;
+      table->erase(folly::Range<char**>(&allInserted[numErased], eraseSize));
+      numErased += eraseSize;
     }
     int32_t batchStart = 0;
     // We loop over the keys one more time. The first half will be all
@@ -132,14 +134,13 @@ class HashTableTest : public testing::TestWithParam<bool> {
     int32_t row = 0;
     for (auto i = 0; i < batches.size(); ++i) {
       insertGroups(*batches[0], *lookup, *table);
-      for (; row < batchStart + kBatchSize; ++row) {
-        if (row < numErased) {
-          ASSERT_NE(lookup->hits[row - batchStart], allInserted[row]);
-        } else {
+      for (; row < batchStart + batchSize; ++row) {
+        if (row >= numErased) {
           ASSERT_EQ(lookup->hits[row - batchStart], allInserted[row]);
         }
       }
     }
+    table->checkConsistency();
   }
 
   std::unique_ptr<HashTable<false>> createHashTableForAggregation(
@@ -582,7 +583,7 @@ TEST_P(HashTableTest, arrayProbeNormalizedKey) {
     insertGroups(*data, rows, *lookup, *table);
   }
 
-  ASSERT_TRUE(table->hashMode() == BaseHashTable::HashMode::kNormalizedKey);
+  ASSERT_EQ(table->hashMode(), BaseHashTable::HashMode::kNormalizedKey);
 }
 
 TEST_P(HashTableTest, regularHashingTableSize) {
@@ -613,7 +614,24 @@ TEST_P(HashTableTest, regularHashingTableSize) {
   }
 }
 
+TEST_P(HashTableTest, groupBySpill) {
+  auto type = ROW({"k1"}, {BIGINT()});
+  testGroupBySpill(5'000'000, type, 1, 1000, 1000);
+}
+
 VELOX_INSTANTIATE_TEST_SUITE_P(
     HashTableTests,
     HashTableTest,
     testing::Values(true, false));
+
+TEST(HashTableTest, modeString) {
+  ASSERT_EQ("HASH", BaseHashTable::modeString(BaseHashTable::HashMode::kHash));
+  ASSERT_EQ(
+      "NORMALIZED_KEY",
+      BaseHashTable::modeString(BaseHashTable::HashMode::kNormalizedKey));
+  ASSERT_EQ(
+      "ARRAY", BaseHashTable::modeString(BaseHashTable::HashMode::kArray));
+  ASSERT_EQ(
+      "Unknown HashTable mode:100",
+      BaseHashTable::modeString(static_cast<BaseHashTable::HashMode>(100)));
+}
