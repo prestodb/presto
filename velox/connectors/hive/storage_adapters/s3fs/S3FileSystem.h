@@ -31,29 +31,33 @@ class S3FileSystem : public FileSystem {
   // Initialize the Aws::S3::S3Client from the input Config parameters.
   void initializeClient();
 
+  std::string name() const override;
+
   std::unique_ptr<ReadFile> openFileForRead(std::string_view path) override;
 
   std::unique_ptr<WriteFile> openFileForWrite(std::string_view path) override;
 
-  std::string name() const override;
-
   void remove(std::string_view path) override {
     VELOX_UNSUPPORTED("remove for S3 not implemented");
+  }
+
+  void rename(
+      std::string_view path,
+      std::string_view newPath,
+      bool overWrite = false) override {
+    VELOX_UNSUPPORTED("rename for S3 not implemented");
   }
 
   bool exists(std::string_view path) override {
     VELOX_UNSUPPORTED("exists for S3 not implemented");
   }
 
-  virtual std::vector<std::string> list(std::string_view path) override {
+  std::vector<std::string> list(std::string_view path) override {
     VELOX_UNSUPPORTED("list for S3 not implemented");
   }
 
-  virtual void rename(
-      std::string_view path,
-      std::string_view newPath,
-      bool overWrite = false) {
-    VELOX_UNSUPPORTED("rename for S3 not implemented");
+  void mkdir(std::string_view path) override {
+    VELOX_UNSUPPORTED("mkdir for S3 not implemented");
   }
 
  protected:

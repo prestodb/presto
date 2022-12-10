@@ -67,6 +67,9 @@ class FileSystem {
   // output if there are many entries in the folder.
   virtual std::vector<std::string> list(std::string_view path) = 0;
 
+  // Create a directory (recursively). Throws velox exception on failure.
+  virtual void mkdir(std::string_view path) = 0;
+
  protected:
   std::shared_ptr<const Config> config_;
 };
