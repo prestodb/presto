@@ -286,6 +286,8 @@ class E2EFilterTestBase : public testing::Test {
   int32_t flushEveryNBatches_{10};
   int32_t nextReadSizeIndex_{0};
   std::vector<int32_t> readSizes_;
+  int32_t batchCount_ = kBatchCount;
+  int32_t batchSize_ = kBatchSize;
 };
 
 } // namespace facebook::velox::dwio::common

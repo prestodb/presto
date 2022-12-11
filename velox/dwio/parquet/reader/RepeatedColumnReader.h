@@ -34,6 +34,10 @@ class RepeatedLengths {
     return lengths_;
   }
 
+  int32_t nextLengthIndex() const {
+    return nextLengthIndex_;
+  }
+
   void readLengths(int32_t* FOLLY_NONNULL lengths, int32_t numLengths) {
     VELOX_CHECK_LE(
         nextLengthIndex_ + numLengths, lengths_->size() / sizeof(int32_t));
@@ -82,11 +86,26 @@ class ListColumnReader : public dwio::common::SelectiveListColumnReader {
     lengths_.readLengths(lengths, numLengths);
   }
 
+  /// Sets nulls and lengths of 'this' for the range of top level rows for which
+  /// these have been decoded in 'leaf'.
   void setLengthsFromRepDefs(PageReader& leaf);
+
+  /// advances 'this' to the end of the previously provided lengths/nulls. This
+  /// is needed if lists are conditionally read from different structs that all
+  /// end at different positions. Repeated children must use all lengths
+  /// supplied before receiving new lengths.
+  void skipUnreadLengths();
 
  private:
   RepeatedLengths lengths_;
   ::parquet::internal::LevelInfo levelInfo_;
 };
+
+/// Sets nulls and lengths for 'reader' and its children for the
+/// next 'numTop' top level rows. 'reader' must be a complex type
+/// reader. 'reader' may be inside structs but may not be inside a
+/// repeated reader. The topmost repeated reader ensures repdefs for
+/// all its children.
+void ensureRepDefs(dwio::common::SelectiveColumnReader& reader, int32_t numTop);
 
 } // namespace facebook::velox::parquet

@@ -133,7 +133,7 @@ class SelectiveColumnReader {
   }
 
   /// Returns list of child readers, empty for leaf readers.
-  virtual const std::vector<SelectiveColumnReader*> children() const;
+  virtual const std::vector<SelectiveColumnReader*>& children() const;
 
   /**
    * Read the next group of values into a RowVector.

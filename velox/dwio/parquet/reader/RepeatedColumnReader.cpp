@@ -20,34 +20,55 @@
 
 namespace facebook::velox::parquet {
 
-PageReader* readLeafRepDefs(
+namespace {
+PageReader* FOLLY_NULLABLE readLeafRepDefs(
     dwio::common::SelectiveColumnReader* FOLLY_NONNULL reader,
-    int32_t numTop) {
+    int32_t numTop,
+    bool mustRead) {
   auto children = reader->children();
   if (children.empty()) {
+    if (!mustRead) {
+      return nullptr;
+    }
     auto pageReader = reader->formatData().as<ParquetData>().reader();
     pageReader->decodeRepDefs(numTop);
     return pageReader;
   }
-  PageReader* pageReader;
-  for (auto i = 0; i < children.size(); ++i) {
-    auto child = children[i];
-    if (i == 0) {
-      pageReader = readLeafRepDefs(child, numTop);
-
-      auto& type =
-          *reinterpret_cast<const ParquetTypeWithId*>(&reader->nodeType());
-      if (auto structChild = dynamic_cast<StructColumnReader*>(reader)) {
-        VELOX_NYI();
+  PageReader* pageReader = nullptr;
+  auto& type = *reinterpret_cast<const ParquetTypeWithId*>(&reader->nodeType());
+  if (type.type->kind() == TypeKind::ARRAY) {
+    pageReader = readLeafRepDefs(children[0], numTop, true);
+    auto list = dynamic_cast<ListColumnReader*>(reader);
+    assert(list);
+    list->setLengthsFromRepDefs(*pageReader);
+    return pageReader;
+  }
+  if (auto structReader = dynamic_cast<StructColumnReader*>(reader)) {
+    pageReader = readLeafRepDefs(structReader->childForRepDefs(), numTop, true);
+    assert(pageReader);
+    structReader->setNullsFromRepDefs(*pageReader);
+    for (auto i = 0; i < children.size(); ++i) {
+      auto child = children[i];
+      if (child != structReader->childForRepDefs()) {
+        readLeafRepDefs(child, numTop, false);
       }
-      auto list = dynamic_cast<ListColumnReader*>(reader);
-      VELOX_CHECK(list);
-      list->setLengthsFromRepDefs(*pageReader);
-    } else {
-      readLeafRepDefs(child, numTop);
     }
   }
   return pageReader;
+}
+
+void skipUnreadLengthsAndNulls(dwio::common::SelectiveColumnReader& reader) {
+  auto children = reader.children();
+  if (children.empty()) {
+    return;
+  }
+  if (reader.type()->kind() == TypeKind::ARRAY) {
+    reinterpret_cast<ListColumnReader*>(&reader)->skipUnreadLengths();
+  } else if (reader.type()->kind() == TypeKind::ROW) {
+    reinterpret_cast<StructColumnReader*>(&reader)->seekToEndOfPresetNulls();
+  } else {
+    VELOX_UNREACHABLE();
+  }
 }
 
 void enqueueChildren(
@@ -63,14 +84,18 @@ void enqueueChildren(
     enqueueChildren(child, index, input);
   }
 }
+} // namespace
 
 void ensureRepDefs(
     dwio::common::SelectiveColumnReader& reader,
     int32_t numTop) {
   auto& nodeType =
       *reinterpret_cast<const ParquetTypeWithId*>(&reader.nodeType());
-  if (nodeType.maxDefine_ <= 1)
-    readLeafRepDefs(&reader, numTop);
+  // Check that this is a direct child of the root struct.
+  if (nodeType.parent && !nodeType.parent->parent) {
+    skipUnreadLengthsAndNulls(reader);
+    readLeafRepDefs(&reader, numTop, true);
+  }
 }
 
 ListColumnReader::ListColumnReader(
@@ -87,6 +112,7 @@ ListColumnReader::ListColumnReader(
       ParquetColumnReader::build(childType, params, *scanSpec.children()[0]);
   reinterpret_cast<const ParquetTypeWithId*>(requestedType.get())
       ->makeLevelInfo(levelInfo_);
+  children_ = {child_.get()};
 }
 
 void ListColumnReader::enqueueRowGroup(
@@ -99,7 +125,22 @@ void ListColumnReader::seekToRowGroup(uint32_t index) {
   SelectiveColumnReader::seekToRowGroup(index);
   readOffset_ = 0;
   childTargetReadOffset_ = 0;
+  BufferPtr noBuffer;
+  formatData_->as<ParquetData>().setNulls(noBuffer, 0);
+  lengths_.setLengths(nullptr);
   child_->seekToRowGroup(index);
+}
+
+void ListColumnReader::skipUnreadLengths() {
+  auto& previousLengths = lengths_.lengths();
+  if (previousLengths) {
+    auto numPreviousLengths =
+        (previousLengths->size() / sizeof(vector_size_t)) -
+        lengths_.nextLengthIndex();
+    if (numPreviousLengths) {
+      skip(numPreviousLengths);
+    }
+  }
 }
 
 void ListColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
@@ -130,6 +171,18 @@ void ListColumnReader::read(
   // The topmost list reader reads the repdefs for the left subtree.
   ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
   SelectiveListColumnReader::read(offset, rows, incomingNulls);
+
+  // The child should be at the end of the range provided to this
+  // read() so that it can receive new repdefs for the next set of top
+  // level rows. The end of the range is not the end of unused lengths
+  // because all lengths maty have been used but the last one might
+  // have been 0.  If the last list was 0 and the previous one was not
+  // in 'rows' we will be at the end of the last non-zero list in
+  // 'rows', which is not the end of the lengths. ORC can seek to this
+  // point on next read, Parquet needs to seek here because new
+  // repdefs will be scanned and new lengths provided, overwriting the
+  // previous ones before the next read().
+  child_->seekTo(childTargetReadOffset_, false);
 }
 
 } // namespace facebook::velox::parquet

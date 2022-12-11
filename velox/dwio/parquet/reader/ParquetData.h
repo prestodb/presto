@@ -18,6 +18,7 @@
 
 #include <thrift/protocol/TCompactProtocol.h> //@manual
 #include "velox/common/base/RawVector.h"
+#include "velox/dwio/common/BufferUtil.h"
 #include "velox/dwio/common/BufferedInput.h"
 #include "velox/dwio/common/ScanSpec.h"
 #include "velox/dwio/parquet/reader/PageReader.h"
@@ -87,9 +88,16 @@ class ParquetData : public dwio::common::FormatData {
   /// Sets nulls to be returned by readNulls(). Nulls for non-leaf readers come
   /// from leaf repdefs which are gathered before descending the reader tree.
   void setNulls(BufferPtr& nulls, int32_t numValues) {
+    if (nulls || numValues) {
+      VELOX_CHECK_EQ(presetNullsConsumed_, presetNullsSize_);
+    }
     presetNulls_ = nulls;
     presetNullsSize_ = numValues;
-    presetNullsSkipped_ = 0;
+    presetNullsConsumed_ = 0;
+  }
+
+  int32_t presetNullsLeft() const {
+    return presetNullsSize_ - presetNullsConsumed_;
   }
 
   void readNulls(
@@ -100,19 +108,21 @@ class ParquetData : public dwio::common::FormatData {
     // If the query accesses only nulls, read the nulls from the pages in range.
     // If nulls are preread, return those minus any skipped.
     if (presetNulls_) {
-      VELOX_CHECK_EQ(numValues, presetNullsSize_ - presetNullsSkipped_);
-      nulls = std::move(presetNulls_);
-      if (presetNullsSkipped_) {
+      VELOX_CHECK_LE(numValues, presetNullsSize_ - presetNullsConsumed_);
+      if (!presetNullsConsumed_ && numValues == presetNullsSize_) {
+        nulls = std::move(presetNulls_);
+        presetNullsConsumed_ = numValues;
+      } else {
+        dwio::common::ensureCapacity<bool>(nulls, numValues, &pool_);
         auto bits = nulls->asMutable<uint64_t>();
         bits::copyBits(
-            bits,
-            presetNullsSkipped_,
+            presetNulls_->as<uint64_t>(),
+            presetNullsConsumed_,
             bits,
             0,
-            presetNullsSize_ - presetNullsSkipped_);
+            numValues);
+        presetNullsConsumed_ += numValues;
       }
-      presetNullsSkipped_ = 0;
-      presetNullsSize_ = 0;
       return;
     }
     if (nullsOnly) {
@@ -133,7 +143,7 @@ class ParquetData : public dwio::common::FormatData {
       reader_->skipNullsOnly(numValues);
     }
     if (presetNulls_) {
-      presetNullsSkipped_ += numValues;
+      presetNullsConsumed_ += numValues;
     }
     return numValues;
   }
@@ -162,6 +172,10 @@ class ParquetData : public dwio::common::FormatData {
     return reader_->isDictionary();
   }
 
+  bool parentNullsInLeaves() const override {
+    return true;
+  }
+
  protected:
   memory::MemoryPool& pool_;
   std::shared_ptr<const ParquetTypeWithId> type_;
@@ -182,7 +196,7 @@ class ParquetData : public dwio::common::FormatData {
   int32_t presetNullsSize_{0};
 
   // Count of leading skipped positions in 'presetNulls_'
-  int32_t presetNullsSkipped_{0};
+  int32_t presetNullsConsumed_{0};
 };
 
 } // namespace facebook::velox::parquet

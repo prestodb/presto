@@ -81,6 +81,10 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
     }
   }
 
+  const std::vector<SelectiveColumnReader*>& children() const override {
+    return children_;
+  }
+
   // Sets 'rows' as the set of rows for which 'this' or its children
   // may be loaded as LazyVectors. When a struct is loaded as lazy,
   // its children will be lazy if the struct does not add nulls. The

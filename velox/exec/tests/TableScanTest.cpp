@@ -2103,7 +2103,6 @@ TEST_F(TableScanTest, errorInLoadLazy) {
   auto cache = dynamic_cast<cache::AsyncDataCache*>(
       memory::MemoryAllocator::getInstance());
   VELOX_CHECK_NOT_NULL(cache);
-
   auto vectors = makeVectors(10, 1'000);
   auto filePath = TempFilePath::create();
   writeToFile(filePath->path, vectors);

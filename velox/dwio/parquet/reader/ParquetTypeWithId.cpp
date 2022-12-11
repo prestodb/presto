@@ -34,6 +34,22 @@ bool containsList(const ParquetTypeWithId& type) {
 } // namespace
 using ::parquet::internal::LevelInfo;
 
+bool ParquetTypeWithId::hasNonRepeatedLeaf() const {
+  if (type->kind() == TypeKind::ARRAY) {
+    return false;
+  }
+  if (type->kind() == TypeKind::ROW) {
+    for (auto i = 0; i < type->size(); ++i) {
+      if (parquetChildAt(i).hasNonRepeatedLeaf()) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return true;
+  }
+}
+
 LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
   int16_t repeatedAncestor = 0;
   for (auto parent = parquetParent(); parent;

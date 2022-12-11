@@ -44,7 +44,7 @@ std::vector<RowVectorPtr> E2EFilterTestBase::makeDataset(
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_, 0);
   }
 
-  dataSetBuilder_->makeDataset(rowType_, kBatchCount, kBatchSize);
+  dataSetBuilder_->makeDataset(rowType_, batchCount_, batchSize_);
 
   if (forRowGroupSkip) {
     dataSetBuilder_->withRowGroupSpecificData(kRowsInGroup);

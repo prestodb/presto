@@ -183,6 +183,9 @@ void SelectiveStructColumnReaderBase::read(
 void SelectiveStructColumnReaderBase::recordParentNullsInChildren(
     vector_size_t offset,
     RowSet rows) {
+  if (formatData_->parentNullsInLeaves()) {
+    return;
+  }
   auto& childSpecs = scanSpec_->children();
   for (auto i = 0; i < childSpecs.size(); ++i) {
     auto& childSpec = childSpecs[i];

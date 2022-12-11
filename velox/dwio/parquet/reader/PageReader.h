@@ -115,6 +115,10 @@ class PageReader {
   // prereading repdefs with seekToPage.
   static constexpr int64_t kRepDefOnly = -1;
 
+  // In 'numRowsInPage_', indicates that the page's def levels must be
+  // consulted to determine number of leaf values.
+  static constexpr int32_t kRowsUnknown = -1;
+
   // If the current page has nulls, returns a nulls bitmap owned by 'this'. This
   // is filled for 'numRows' bits.
   const uint64_t* FOLLY_NULLABLE readNulls(int32_t numRows, BufferPtr& buffer);
@@ -165,6 +169,11 @@ class PageReader {
   void prepareDataPageV2(const thrift::PageHeader& pageHeader, int64_t row);
   void prepareDictionary(const thrift::PageHeader& pageHeader);
   void makeDecoder();
+
+  // For a non-top level leaf, reads the defs and sets 'leafNulls_' and
+  // 'numRowsInPage_' accordingly. This is used for non-top level leaves when
+  // 'hasChunkRepDefs_' is false.
+  void readPageDefLevels();
 
   // Returns a pointer to contiguous space for the next 'size' bytes
   // from current position. Copies data into 'copy' if the range
@@ -310,6 +319,12 @@ class PageReader {
   std::unique_ptr<RleBpDecoder> defineDecoder_;
   std::unique_ptr<arrow::util::RleDecoder> repeatDecoder_;
   std::unique_ptr<arrow::util::RleDecoder> wideDefineDecoder_;
+
+  // True for a leaf column for which repdefs are loaded for the whole column
+  // chunk. This is typically the leaftmost leaf of a list. Other leaves under
+  // the list can read repdefs as they go since the list lengths are already
+  // known.
+  bool hasChunkRepDefs_{false};
 
   // index of current page in 'numLeavesInPage_' -1 means before first page.
   int32_t pageIndex_{-1};

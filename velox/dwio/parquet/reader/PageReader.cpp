@@ -38,6 +38,12 @@ void PageReader::seekToPage(int64_t row) {
   rowOfPage_ += numRowsInPage_;
   for (;;) {
     auto dataStart = pageStart_;
+    if (chunkSize_ <= pageStart_) {
+      // This may happen if seeking to exactly end of row group.
+      numRepDefsInPage_ = 0;
+      numRowsInPage_ = 0;
+      break;
+    }
     PageHeader pageHeader = readPageHeader(chunkSize_ - pageStart_);
     pageStart_ = pageDataStart_ + pageHeader.compressed_page_size;
 
@@ -51,7 +57,7 @@ void PageReader::seekToPage(int64_t row) {
       case thrift::PageType::DICTIONARY_PAGE:
         if (row == kRepDefOnly) {
           skipBytes(
-              pageHeader.uncompressed_page_size,
+              pageHeader.compressed_page_size,
               inputStream_.get(),
               bufferStart_,
               bufferEnd_);
@@ -66,11 +72,6 @@ void PageReader::seekToPage(int64_t row) {
       break;
     }
     updateRowInfoAfterPageSkipped();
-    dwio::common::skipBytes(
-        pageHeader.compressed_page_size,
-        inputStream_.get(),
-        bufferStart_,
-        bufferEnd_);
   }
 }
 
@@ -222,9 +223,9 @@ const char* FOLLY_NONNULL PageReader::uncompressData(
 }
 
 void PageReader::setPageRowInfo(bool forRepDef) {
-  if (isTopLevel_ || forRepDef) {
+  if (isTopLevel_ || forRepDef || maxRepeat_ == 0) {
     numRowsInPage_ = numRepDefsInPage_;
-  } else {
+  } else if (hasChunkRepDefs_) {
     ++pageIndex_;
     VELOX_CHECK_LT(
         pageIndex_,
@@ -232,12 +233,33 @@ void PageReader::setPageRowInfo(bool forRepDef) {
         "Seeking past known repdefs for non top level column page {}",
         pageIndex_);
     numRowsInPage_ = numLeavesInPage_[pageIndex_];
+  } else {
+    numRowsInPage_ = kRowsUnknown;
   }
+}
+
+void PageReader::readPageDefLevels() {
+  VELOX_CHECK(kRowsUnknown == numRowsInPage_ || maxDefine_ > 1);
+  definitionLevels_.resize(numRepDefsInPage_);
+  wideDefineDecoder_->GetBatch(definitionLevels_.data(), numRepDefsInPage_);
+  leafNulls_.resize(bits::nwords(numRepDefsInPage_));
+  leafNullsSize_ = getLengthsAndNulls(
+      LevelMode::kNulls,
+      leafInfo_,
+
+      0,
+      numRepDefsInPage_,
+      numRepDefsInPage_,
+      nullptr,
+      leafNulls_.data(),
+      0);
+  numRowsInPage_ = leafNullsSize_;
+  numLeafNullsConsumed_ = 0;
 }
 
 void PageReader::updateRowInfoAfterPageSkipped() {
   rowOfPage_ += numRowsInPage_;
-  if (!isTopLevel_) {
+  if (hasChunkRepDefs_) {
     numLeafNullsConsumed_ = rowOfPage_;
   }
 }
@@ -248,7 +270,14 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
       pageHeader.__isset.data_page_header);
   numRepDefsInPage_ = pageHeader.data_page_header.num_values;
   setPageRowInfo(row == kRepDefOnly);
-  if (row != kRepDefOnly && numRowsInPage_ + rowOfPage_ <= row) {
+  if (row != kRepDefOnly && numRowsInPage_ != kRowsUnknown &&
+      numRowsInPage_ + rowOfPage_ <= row) {
+    dwio::common::skipBytes(
+        pageHeader.compressed_page_size,
+        inputStream_.get(),
+        bufferStart_,
+        bufferEnd_);
+
     return;
   }
   pageData_ = readBytes(pageHeader.compressed_page_size, pageBuffer_);
@@ -285,6 +314,10 @@ void PageReader::prepareDataPageV1(const PageHeader& pageHeader, int64_t row) {
   encodedDataSize_ = pageEnd - pageData_;
 
   encoding_ = pageHeader.data_page_header.encoding;
+  if (!hasChunkRepDefs_ && (numRowsInPage_ == kRowsUnknown || maxDefine_ > 1)) {
+    readPageDefLevels();
+  }
+
   if (row != kRepDefOnly) {
     makeDecoder();
   }
@@ -294,7 +327,8 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
   VELOX_CHECK(pageHeader.__isset.data_page_header_v2);
   numRepDefsInPage_ = pageHeader.data_page_header_v2.num_values;
   setPageRowInfo(row == kRepDefOnly);
-  if (row != kRepDefOnly && numRowsInPage_ + rowOfPage_ <= row) {
+  if (row != kRepDefOnly && numRowsInPage_ != kRowsUnknown &&
+      numRowsInPage_ + rowOfPage_ <= row) {
     skipBytes(
         pageHeader.compressed_page_size,
         inputStream_.get(),
@@ -341,7 +375,12 @@ void PageReader::prepareDataPageV2(const PageHeader& pageHeader, int64_t row) {
 
   encodedDataSize_ = pageHeader.uncompressed_page_size - levelsSize;
   encoding_ = pageHeader.data_page_header_v2.encoding;
-  makeDecoder();
+  if (numRowsInPage_ == kRowsUnknown) {
+    readPageDefLevels();
+  }
+  if (row != kRepDefOnly) {
+    makeDecoder();
+  }
 }
 
 void PageReader::prepareDictionary(const PageHeader& pageHeader) {
@@ -511,16 +550,20 @@ int32_t parquetTypeBytes(thrift::Type::type type) {
 } // namespace
 
 void PageReader::preloadRepDefs() {
+  hasChunkRepDefs_ = true;
   while (pageStart_ < chunkSize_) {
     seekToPage(kRepDefOnly);
-    auto begin = repetitionLevels_.size();
-    auto numLevels = repetitionLevels_.size() + numRepDefsInPage_;
+    auto begin = definitionLevels_.size();
+    auto numLevels = definitionLevels_.size() + numRepDefsInPage_;
     definitionLevels_.resize(numLevels);
-    repetitionLevels_.resize(numLevels);
     wideDefineDecoder_->GetBatch(
         definitionLevels_.data() + begin, numRepDefsInPage_);
-    repeatDecoder_->GetBatch(
-        repetitionLevels_.data() + begin, numRepDefsInPage_);
+    if (repeatDecoder_) {
+      repetitionLevels_.resize(numLevels);
+
+      repeatDecoder_->GetBatch(
+          repetitionLevels_.data() + begin, numRepDefsInPage_);
+    }
     leafNulls_.resize(bits::nwords(leafNullsSize_ + numRepDefsInPage_));
     auto numLeaves = getLengthsAndNulls(
         LevelMode::kNulls,
@@ -547,21 +590,26 @@ void PageReader::preloadRepDefs() {
 }
 
 void PageReader::decodeRepDefs(int32_t numTopLevelRows) {
-  if (repetitionLevels_.empty()) {
+  if (definitionLevels_.empty()) {
     preloadRepDefs();
   }
   repDefBegin_ = repDefEnd_;
   int32_t numLevels = definitionLevels_.size();
   int32_t topFound = 0;
   int32_t i = repDefBegin_;
-  for (; i < numLevels; ++i) {
-    if (repetitionLevels_[i] == 0)
-      ++topFound;
-    if (topFound == numTopLevelRows + 1) {
-      break;
+  if (maxRepeat_ > 0) {
+    for (; i < numLevels; ++i) {
+      if (repetitionLevels_[i] == 0) {
+        ++topFound;
+        if (topFound == numTopLevelRows + 1) {
+          break;
+        }
+      }
     }
+    repDefEnd_ = i;
+  } else {
+    repDefEnd_ = i + numTopLevelRows;
   }
-  repDefEnd_ = i;
 }
 
 int32_t PageReader::getLengthsAndNulls(
@@ -657,7 +705,7 @@ void PageReader::skip(int64_t numRows) {
   auto toSkip = numRows;
   if (firstUnvisited_ + numRows >= rowOfPage_ + numRowsInPage_) {
     seekToPage(firstUnvisited_ + numRows);
-    if (!leafNulls_.empty()) {
+    if (hasChunkRepDefs_) {
       numLeafNullsConsumed_ = rowOfPage_;
     }
     toSkip -= rowOfPage_ - firstUnvisited_;
@@ -718,7 +766,7 @@ void PageReader::skipNullsOnly(int64_t numRows) {
 }
 
 void PageReader::readNullsOnly(int64_t numValues, BufferPtr& buffer) {
-  VELOX_CHECK(isTopLevel_);
+  VELOX_CHECK(!maxRepeat_);
   auto toRead = numValues;
   if (buffer) {
     dwio::common::ensureCapacity<bool>(buffer, numValues, &pool_);
@@ -786,7 +834,7 @@ bool PageReader::rowsForPage(
   auto rowZero = visitBase_ + visitorRows_[currentVisitorRow_];
   if (rowZero >= rowOfPage_ + numRowsInPage_) {
     seekToPage(rowZero);
-    if (!leafNulls_.empty()) {
+    if (hasChunkRepDefs_) {
       numLeafNullsConsumed_ = rowOfPage_;
     }
   }

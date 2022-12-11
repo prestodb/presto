@@ -79,6 +79,9 @@ class ParquetTypeWithId : public dwio::common::TypeWithId {
   const int32_t precision_;
   const int32_t scale_;
   const int32_t typeLength_;
+
+  // True if this is or has a non-repeated leaf.
+  bool hasNonRepeatedLeaf() const;
 };
 
 using ParquetTypeWithIdPtr = std::shared_ptr<const ParquetTypeWithId>;

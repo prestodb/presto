@@ -102,12 +102,11 @@ TEST_F(E2EFilterTest, integerDirect) {
       "long_val:bigint,"
       "long_null:bigint",
       [&]() { makeAllNulls("long_null"); },
-      false,
+      true,
       {"short_val", "int_val", "long_val"},
       20);
 }
-
-TEST_F(E2EFilterTest, integerDictionary) {
+TEST_F(E2EFilterTest, compression) {
   for (const auto compression :
        {::parquet::Compression::SNAPPY,
         ::parquet::Compression::ZSTD,
@@ -157,10 +156,54 @@ TEST_F(E2EFilterTest, integerDictionary) {
               30000, // rareMax
               true); // keepNulls
         },
-        false,
+        true,
         {"short_val", "int_val", "long_val"},
-        20);
+        3);
   }
+}
+
+TEST_F(E2EFilterTest, integerDictionary) {
+  writerProperties_ =
+      ::parquet::WriterProperties::Builder().data_pagesize(4 * 1024)->build();
+
+  testWithTypes(
+      "short_val:smallint,"
+      "int_val:int,"
+      "long_val:bigint",
+      [&]() {
+        makeIntDistribution<int64_t>(
+            "long_val",
+            10, // min
+            100, // max
+            22, // repeats
+            19, // rareFrequency
+            -9999, // rareMin
+            10000000000, // rareMax
+            true); // keepNulls
+
+        makeIntDistribution<int32_t>(
+            "int_val",
+            10, // min
+            100, // max
+            22, // repeats
+            19, // rareFrequency
+            -9999, // rareMin
+            100000000, // rareMax
+            false); // keepNulls
+
+        makeIntDistribution<int16_t>(
+            "short_val",
+            10, // min
+            100, // max
+            22, // repeats
+            19, // rareFrequency
+            -999, // rareMin
+            30000, // rareMax
+            true); // keepNulls
+      },
+      true,
+      {"short_val", "int_val", "long_val"},
+      20);
 }
 
 TEST_F(E2EFilterTest, floatAndDoubleDirect) {
@@ -181,7 +224,7 @@ TEST_F(E2EFilterTest, floatAndDoubleDirect) {
         makeQuantizedFloat<float>("float_val2", 200, true);
         makeQuantizedFloat<double>("double_val2", 522, true);
       },
-      false,
+      true,
       {"float_val", "double_val", "float_val2", "double_val2", "float_null"},
       20);
 }
@@ -206,7 +249,7 @@ TEST_F(E2EFilterTest, floatAndDouble) {
         makeReapeatingValues<float>("float_val2", 0, 100, 200, 10.1);
         makeReapeatingValues<double>("double_val2", 0, 100, 200, 100.8);
       },
-      false,
+      true,
       {"float_val", "double_val", "float_val2", "double_val2", "float_null"},
       20);
 }
@@ -299,7 +342,7 @@ TEST_F(E2EFilterTest, longDecimalDictionary) {
               UnscaledLongDecimal(30000), // rareMax
               true);
         },
-        false,
+        true,
         {},
         20);
   }
@@ -329,7 +372,7 @@ TEST_F(E2EFilterTest, longDecimalDirect) {
               UnscaledLongDecimal(30000), // rareMax
               true);
         },
-        false,
+        true,
         {},
         20);
   }
@@ -361,7 +404,7 @@ TEST_F(E2EFilterTest, stringDirect) {
         makeStringUnique("string_val");
         makeStringUnique("string_val_2");
       },
-      false,
+      true,
       {"string_val", "string_val_2"},
       20);
 }
@@ -376,7 +419,7 @@ TEST_F(E2EFilterTest, stringDictionary) {
         makeStringDistribution("string_val_2", 170, false, true);
         makeStringDistribution("string_const", 1, true, false);
       },
-      false,
+      true,
       {"string_val", "string_val_2"},
       20);
 }
@@ -395,17 +438,38 @@ TEST_F(E2EFilterTest, dedictionarize) {
         makeStringDistribution("string_val", 10000000, true, false);
         makeStringDistribution("string_val_2", 1700000, false, true);
       },
-      false,
+      true,
       {"long_val", "string_val", "string_val_2"},
       20);
 }
 
-TEST_F(E2EFilterTest, scalarList) {
+TEST_F(E2EFilterTest, filterStruct) {
+  // The data has a struct member with one second level struct
+  // column. Both structs have a column that gets filtered 'nestedxxx'
+  // and one that does not 'dataxxx'.
+  testWithTypes(
+      "long_val:bigint,"
+      "outer_struct: struct<nested1:bigint, "
+      "  data1: string, "
+      "  inner_struct: struct<nested2: bigint, data2: array<smallint>>>",
+      [&]() {},
+      false,
+      {"long_val",
+       "outer_struct.inner_struct",
+       "outer_struct.nested1",
+       "outer_struct.inner_struct.nested2"},
+      40);
+}
+
+TEST_F(E2EFilterTest, list) {
   // Break up the leaf data in small pages to cover coalescing repdefs.
   writerProperties_ =
       ::parquet::WriterProperties::Builder().data_pagesize(4 * 1024)->build();
+  batchCount_ = 2;
+  batchSize_ = 12000;
   testWithTypes(
-      "long_val:bigint, array_val:array<int>",
+      "long_val:bigint, array_val:array<int>,"
+      "struct_array: struct<a: array<struct<k:int, v:int, va: array<smallint>>>>",
       nullptr,
       false,
       {"long_val"},

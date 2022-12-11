@@ -116,6 +116,16 @@ class FormatData {
   virtual bool rowGroupMatches(
       uint32_t rowGroupId,
       velox::common::Filter* FOLLY_NULLABLE filter) = 0;
+
+  /// True if leaf columns contain nullness information for struct
+  /// parents. This is true in Parquet and false in ORC. and Alpha. If
+  /// false, struct parent must maintain the count of skipped nulls at
+  /// the struct level so that the children will not skip positions
+  /// where the parent was null and there is no value to skip in the
+  /// child.
+  virtual bool parentNullsInLeaves() const {
+    return false;
+  }
 };
 
 /// Base class for format-specific reader initialization arguments.

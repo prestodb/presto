@@ -29,6 +29,10 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
     return false;
   }
 
+  const std::vector<SelectiveColumnReader*>& children() const override {
+    return children_;
+  }
+
  protected:
   // Buffer size for reading lengths when skipping.
   static constexpr int32_t kBufferSize = 1024;
@@ -166,6 +170,7 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
   // read up to the last position corresponding to
   // the last non-null parent.
   vector_size_t childTargetReadOffset_ = 0;
+  std::vector<SelectiveColumnReader*> children_;
 };
 
 class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
@@ -177,10 +182,6 @@ class SelectiveListColumnReader : public SelectiveRepeatedColumnReader {
       velox::common::ScanSpec& scanSpec);
 
   uint64_t skip(uint64_t numValues) override;
-
-  const std::vector<SelectiveColumnReader*> children() const override {
-    return std::vector<SelectiveColumnReader*>{child_.get()};
-  }
 
   void read(
       vector_size_t offset,
@@ -208,11 +209,6 @@ class SelectiveMapColumnReader : public SelectiveRepeatedColumnReader {
   }
 
   uint64_t skip(uint64_t numValues) override;
-
-  const std::vector<SelectiveColumnReader*> children() const override {
-    return std::vector<SelectiveColumnReader*>{
-        keyReader_.get(), elementReader_.get()};
-  }
 
   void read(
       vector_size_t offset,

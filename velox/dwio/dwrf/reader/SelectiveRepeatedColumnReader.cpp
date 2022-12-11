@@ -67,6 +67,7 @@ SelectiveListColumnReader::SelectiveListColumnReader(
       DwrfParams(stripe, FlatMapContext{encodingKey.sequence, nullptr});
   child_ = SelectiveDwrfReader::build(
       childType, nodeType_->childAt(0), childParams, *scanSpec_->children()[0]);
+  children_ = {child_.get()};
 }
 
 SelectiveMapColumnReader::SelectiveMapColumnReader(
@@ -116,6 +117,7 @@ SelectiveMapColumnReader::SelectiveMapColumnReader(
       nodeType_->childAt(1),
       elementParams,
       *scanSpec_->children()[1]);
+  children_ = {keyReader_.get(), elementReader_.get()};
 
   VLOG(1) << "[Map] Initialized map column reader for node " << nodeType_->id;
 }
