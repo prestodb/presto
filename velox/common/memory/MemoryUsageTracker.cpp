@@ -231,47 +231,4 @@ std::string MemoryUsageTracker::toString() const {
   out << ">";
   return out.str();
 }
-
-SimpleMemoryTracker::SimpleMemoryTracker(
-    const std::shared_ptr<MemoryUsageTracker>& parent,
-    const MemoryUsageConfig& config)
-    : MemoryUsageTracker{parent, UsageType::kUserMem, config},
-      userMemoryQuota_{config.maxUserMemory.value_or(kMaxMemory)} {}
-
-// Simple memory tracker wants to be accurate for its memory accounting, so
-// it ignores mock updates.
-void SimpleMemoryTracker::update(int64_t size, bool mock) {
-  if (mock) {
-    return;
-  }
-  const int64_t previousUsage =
-      totalUserMemory_.fetch_add(size, std::memory_order_relaxed);
-  const int64_t currentUsage = previousUsage + size;
-  maySetMax(UsageType::kUserMem, currentUsage);
-  if (size > 0 && currentUsage > userMemoryQuota_) {
-    VELOX_MEM_CAP_EXCEEDED(fmt::format(
-        MEM_CAP_EXCEEDED_ERROR_FORMAT.data(),
-        succinctBytes(userMemoryQuota_),
-        succinctBytes(size)));
-  }
-  if (parent_) {
-    parent_->update(size, mock);
-  }
-}
-
-int64_t SimpleMemoryTracker::getCurrentUserBytes() const {
-  return totalUserMemory_.load(std::memory_order_relaxed);
-}
-
-std::shared_ptr<MemoryUsageTracker> SimpleMemoryTracker::addChild(
-    bool trackSystemMem,
-    const MemoryUsageConfig& config) {
-  return SimpleMemoryTracker::create(shared_from_this(), config);
-}
-
-/* static */ std::shared_ptr<SimpleMemoryTracker> SimpleMemoryTracker::create(
-    const std::shared_ptr<MemoryUsageTracker>& parent,
-    const MemoryUsageConfig& config) {
-  return std::make_shared<SimpleMemoryTracker>(parent, config);
-}
 } // namespace facebook::velox::memory

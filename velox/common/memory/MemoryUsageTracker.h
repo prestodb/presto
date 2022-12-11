@@ -144,8 +144,6 @@ class MemoryUsageTracker
             .build());
   }
 
-  virtual ~MemoryUsageTracker() = default;
-
   // Increments the reservation for 'this' so that we can allocate at
   // least 'size' bytes on top of the current allocation. This is used
   // when a memory user needs to allocate more memory and needs a
@@ -168,9 +166,9 @@ class MemoryUsageTracker
   // Sometimes the memory pool wants to mock an update for quota
   // accounting purposes and different memory usage trackers can
   // choose to accommodate this differently.
-  virtual void update(int64_t size, bool /* mock */ = false);
+  void update(int64_t size, bool /* mock */ = false);
 
-  virtual int64_t getCurrentUserBytes() const {
+  int64_t getCurrentUserBytes() const {
     return adjustByReservation(user(currentUsageInBytes_));
   }
   int64_t getCurrentSystemBytes() const {
@@ -208,7 +206,7 @@ class MemoryUsageTracker
     return user(currentUsageInBytes_) + system(currentUsageInBytes_);
   }
 
-  virtual std::shared_ptr<MemoryUsageTracker> addChild(
+  std::shared_ptr<MemoryUsageTracker> addChild(
       bool trackSystemMem = false,
       const MemoryUsageConfig& config = MemoryUsageConfig()) {
     return create(
@@ -393,30 +391,5 @@ class MemoryUsageTracker
   GrowCallback growCallback_{};
 
   MakeMemoryCapExceededMessage makeMemoryCapExceededMessage_{};
-};
-
-// A temporary solution to MemoryUsageTracker accounting leak without properly
-// remodeling the interface. Only the overridden methods are supposed to be
-// used.
-class SimpleMemoryTracker : public MemoryUsageTracker {
- public:
-  explicit SimpleMemoryTracker(
-      const std::shared_ptr<MemoryUsageTracker>& parent,
-      const MemoryUsageConfig& config);
-  virtual ~SimpleMemoryTracker() override = default;
-
-  void update(int64_t size, bool mock = false) override;
-  int64_t getCurrentUserBytes() const override;
-  std::shared_ptr<MemoryUsageTracker> addChild(
-      bool trackSystemMem = false,
-      const MemoryUsageConfig& config = MemoryUsageConfig()) override;
-
-  static std::shared_ptr<SimpleMemoryTracker> create(
-      const std::shared_ptr<MemoryUsageTracker>& parent = nullptr,
-      const MemoryUsageConfig& config = MemoryUsageConfig());
-
- private:
-  const int64_t userMemoryQuota_;
-  std::atomic_long totalUserMemory_{0};
 };
 } // namespace facebook::velox::memory

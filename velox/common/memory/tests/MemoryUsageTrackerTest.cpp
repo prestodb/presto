@@ -315,34 +315,3 @@ TEST(MemoryUsageTrackerTest, maybeReserve) {
   // The child destruction won't release the reserved memory back to the parent.
   EXPECT_EQ(8 * kMB, parent->getCurrentUserBytes());
 }
-
-TEST(SimpleMemoryUsageTracker, testHierarchicalUpdate) {
-  auto root = SimpleMemoryTracker::create();
-  auto node_0_0 = SimpleMemoryTracker::create(root);
-  auto node_0_1 = SimpleMemoryTracker::create(root);
-  auto node_1_0 = SimpleMemoryTracker::create(node_0_0);
-
-  root->update(1);
-  EXPECT_EQ(1, root->getCurrentUserBytes());
-  EXPECT_EQ(0, node_0_0->getCurrentUserBytes());
-  EXPECT_EQ(0, node_0_1->getCurrentUserBytes());
-  EXPECT_EQ(0, node_1_0->getCurrentUserBytes());
-
-  node_0_0->update(2);
-  EXPECT_EQ(3, root->getCurrentUserBytes());
-  EXPECT_EQ(2, node_0_0->getCurrentUserBytes());
-  EXPECT_EQ(0, node_0_1->getCurrentUserBytes());
-  EXPECT_EQ(0, node_1_0->getCurrentUserBytes());
-
-  node_0_1->update(4);
-  EXPECT_EQ(7, root->getCurrentUserBytes());
-  EXPECT_EQ(2, node_0_0->getCurrentUserBytes());
-  EXPECT_EQ(4, node_0_1->getCurrentUserBytes());
-  EXPECT_EQ(0, node_1_0->getCurrentUserBytes());
-
-  node_1_0->update(8);
-  EXPECT_EQ(15, root->getCurrentUserBytes());
-  EXPECT_EQ(10, node_0_0->getCurrentUserBytes());
-  EXPECT_EQ(4, node_0_1->getCurrentUserBytes());
-  EXPECT_EQ(8, node_1_0->getCurrentUserBytes());
-}
