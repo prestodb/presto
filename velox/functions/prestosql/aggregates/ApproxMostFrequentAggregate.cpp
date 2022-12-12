@@ -92,8 +92,6 @@ struct ApproxMostFrequentAggregate : exec::Aggregate {
     addIntermediate<true>(group, rows, args);
   }
 
-  void finalize(char**, int32_t) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     (*result)->resize(numGroups);

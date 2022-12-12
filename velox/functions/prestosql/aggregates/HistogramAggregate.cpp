@@ -71,8 +71,6 @@ class HistogramAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto mapVector = (*result)->as<MapVector>();

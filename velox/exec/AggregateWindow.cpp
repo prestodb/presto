@@ -241,7 +241,6 @@ class AggregateWindowFunction : public exec::WindowFunction {
 
     aggregate_->addSingleGroupRawInput(
         rawSingleGroupRow_, rows, argVectors_, false);
-    aggregate_->finalize(&rawSingleGroupRow_, 1);
     aggregate_->extractValues(&rawSingleGroupRow_, 1, &aggregateResultVector_);
   }
 

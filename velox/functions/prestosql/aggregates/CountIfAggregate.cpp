@@ -41,8 +41,6 @@ class CountIfAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* groups */, int32_t /* numGroups */) override {}
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     extractValues(groups, numGroups, result);

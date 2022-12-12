@@ -36,8 +36,6 @@ class ChecksumAggregate : public exec::Aggregate {
   explicit ChecksumAggregate(const TypePtr& resultType)
       : Aggregate(resultType) {}
 
-  void finalize(char** /* groups */, int32_t /* numGroups */) override {}
-
   int32_t accumulatorFixedWidthSize() const override {
     return sizeof(int64_t);
   }

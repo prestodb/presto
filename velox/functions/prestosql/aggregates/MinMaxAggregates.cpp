@@ -271,10 +271,6 @@ class NonNumericMinMaxAggregateBase : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* groups */, int32_t /* numGroups */) override {
-    // Nothing to do
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);

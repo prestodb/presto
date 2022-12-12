@@ -99,8 +99,6 @@ class AggregateFunc : public Aggregate {
       char** /*groups*/,
       int32_t /*numGroups*/,
       VectorPtr* /*result*/) override {}
-
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
 };
 
 class AggregationTest : public OperatorTestBase {

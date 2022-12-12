@@ -47,8 +47,6 @@ class MapAggregateBase : public exec::Aggregate {
     setAllNulls(groups, indices);
   }
 
-  void finalize(char** groups, int32_t numGroups) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override;
 

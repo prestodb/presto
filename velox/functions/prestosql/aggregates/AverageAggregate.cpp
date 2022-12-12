@@ -57,8 +57,6 @@ class AverageAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     extractValuesImpl(groups, numGroups, result);
@@ -311,8 +309,6 @@ class DecimalAverageAggregate : public exec::Aggregate {
       new (groups[i] + offset_) AverageDecimalAccumulator();
     }
   }
-
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
 
   void addRawInput(
       char** groups,

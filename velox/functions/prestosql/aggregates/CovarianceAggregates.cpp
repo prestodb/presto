@@ -385,8 +385,6 @@ class CovarianceAggregate : public exec::Aggregate {
     });
   }
 
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto vector = (*result)->as<FlatVector<T>>();

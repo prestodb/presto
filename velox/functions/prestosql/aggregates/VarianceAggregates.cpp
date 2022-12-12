@@ -150,8 +150,6 @@ class VarianceAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     auto rowVector = (*result)->as<RowVector>();

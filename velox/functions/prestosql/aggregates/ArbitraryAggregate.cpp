@@ -155,8 +155,6 @@ class NonNumericArbitrary : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* groups */, int32_t /* numGroups */) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);

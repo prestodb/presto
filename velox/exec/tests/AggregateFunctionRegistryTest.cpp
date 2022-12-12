@@ -29,8 +29,6 @@ class AggregateFunc : public Aggregate {
  public:
   explicit AggregateFunc(TypePtr resultType) : Aggregate(resultType) {}
 
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
-
   int32_t accumulatorFixedWidthSize() const override {
     return 0;
   }

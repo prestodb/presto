@@ -168,8 +168,6 @@ class MinMaxByAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     VELOX_CHECK(result);

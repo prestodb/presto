@@ -29,8 +29,6 @@ class SimpleNumericAggregate : public exec::Aggregate {
   explicit SimpleNumericAggregate(TypePtr resultType) : Aggregate(resultType) {}
 
  public:
-  void finalize(char** /* unused */, int32_t /* unused */) override {}
-
   void extractAccumulators(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     extractValues(groups, numGroups, result);

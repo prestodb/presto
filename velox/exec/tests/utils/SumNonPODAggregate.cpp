@@ -127,8 +127,6 @@ class SumNonPODAggregate : public Aggregate {
       bool mayPushdown) override {
     addSingleGroupIntermediateResults(group, rows, args, mayPushdown);
   }
-
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
 };
 } // namespace
 

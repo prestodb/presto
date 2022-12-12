@@ -228,8 +228,6 @@ class LastAggregateNumeric : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
-
  private:
   /// For raw input, if second argument is present read ignoreNull from this
   /// constant mapping.
@@ -484,8 +482,6 @@ class LastAggregateNonNumeric : public exec::Aggregate {
       value<aggregate::SingleValueAccumulator>(group)->destroy(allocator_);
     }
   }
-
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {}
 
  private:
   /// For raw input, if second argument is present read ignoreNull from this

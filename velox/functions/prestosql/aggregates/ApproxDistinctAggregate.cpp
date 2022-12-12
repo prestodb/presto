@@ -141,10 +141,6 @@ class ApproxDistinctAggregate : public exec::Aggregate {
     }
   }
 
-  void finalize(char** /*groups*/, int32_t /*numGroups*/) override {
-    // nothing to do
-  }
-
   void extractValues(char** groups, int32_t numGroups, VectorPtr* result)
       override {
     if (hllAsFinalResult_) {

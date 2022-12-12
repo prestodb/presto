@@ -135,7 +135,6 @@ void Spiller::extractSpill(folly::Range<char**> rows, RowVectorPtr& resultPtr) {
   auto& aggregates = container_->aggregates();
   auto numKeys = types.size();
   for (auto i = 0; i < aggregates.size(); ++i) {
-    aggregates[i]->finalize(rows.data(), rows.size());
     aggregates[i]->extractAccumulators(
         rows.data(), rows.size(), &result->childAt(i + numKeys));
   }
