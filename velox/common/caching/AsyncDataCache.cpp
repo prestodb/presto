@@ -630,7 +630,7 @@ bool AsyncDataCache::allocateContiguous(
   });
 }
 
-void* FOLLY_NULLABLE AsyncDataCache::allocateBytes(
+void* AsyncDataCache::allocateBytes(
     uint64_t bytes,
     uint16_t alignment,
     uint64_t maxMallocSize) {

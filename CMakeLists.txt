@@ -240,7 +240,9 @@ endif()
 if("${ENABLE_ALL_WARNINGS}")
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     set(KNOWN_COMPILER_SPECIFIC_WARNINGS
-        "-Wno-range-loop-analysis -Wno-mismatched-tags")
+        "-Wno-range-loop-analysis \
+         -Wno-mismatched-tags \
+         -Wno-nullability-completeness")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(KNOWN_COMPILER_SPECIFIC_WARNINGS
         "-Wno-implicit-fallthrough \
