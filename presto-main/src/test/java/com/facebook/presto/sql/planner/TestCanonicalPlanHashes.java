@@ -32,6 +32,8 @@ import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.REMOV
 import static com.facebook.presto.sql.planner.CanonicalPlanGenerator.generateCanonicalPlan;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.google.common.graph.Traverser.forTree;
+import static com.google.common.hash.Hashing.sha256;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -165,6 +167,20 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testWindow()
+            throws Exception
+    {
+        String query1 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 1000";
+        String query2 = "SELECT orderkey, SUM(custkey) OVER (PARTITION BY orderstatus ORDER BY totalprice) FROM orders where orderkey < 2000";
+
+        assertSamePlanHash(query1 + " UNION ALL " + query2, query2 + " UNION ALL " + query1, CONNECTOR);
+
+        assertDifferentPlanHash(query1,
+                "SELECT orderkey, SUM(custkey) OVER (PARTITION BY totalprice ORDER BY totalprice) FROM orders where orderkey < 1000",
+                CONNECTOR);
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
@@ -231,16 +247,16 @@ public class TestCanonicalPlanHashes
     private void assertSamePlanHash(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        String hashes1 = getPlanHash(sql1, strategy);
-        String hashes2 = getPlanHash(sql2, strategy);
+        String hashes1 = sha256().hashString(getPlanHash(sql1, strategy), UTF_8).toString();
+        String hashes2 = sha256().hashString(getPlanHash(sql2, strategy), UTF_8).toString();
         assertEquals(hashes1, hashes2);
     }
 
     private void assertDifferentPlanHash(String sql1, String sql2, PlanCanonicalizationStrategy strategy)
             throws Exception
     {
-        String hashes1 = getPlanHash(sql1, strategy);
-        String hashes2 = getPlanHash(sql2, strategy);
+        String hashes1 = sha256().hashString(getPlanHash(sql1, strategy), UTF_8).toString();
+        String hashes2 = sha256().hashString(getPlanHash(sql2, strategy), UTF_8).toString();
         assertNotEquals(hashes1, hashes2);
     }
 
