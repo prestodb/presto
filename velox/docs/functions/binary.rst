@@ -26,6 +26,10 @@ Binary Functions
 
     Computes the HMAC with sha256 of ``binary`` with the given ``key``.
 
+.. function:: hmac_sha512(binary, key) -> varbinary
+
+    Computes the HMAC with sha512 of ``binary`` with the given ``key``.
+
 .. function:: to_base64(binary) -> varchar
 
     Encodes ``binary`` into a base64 string representation.
