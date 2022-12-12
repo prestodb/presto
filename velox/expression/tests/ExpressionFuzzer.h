@@ -87,6 +87,15 @@ class ExpressionFuzzer {
   std::vector<core::TypedExprPtr> getArgsForCallable(
       const CallableSignature& callable);
 
+  /// Specialization for the "switch" function. Takes in a signature that is of
+  /// the form Switch (condition, then): boolean, T -> T where the type variable
+  /// is bounded to a randomly selected type. It randomly decides the number
+  /// of cases (upto a max of 5) to generate and whether to include the else
+  /// clause. Finally, uses the type specified in the signature to generate
+  /// inputs with that return type.
+  std::vector<core::TypedExprPtr> generateSwitchArgs(
+      const CallableSignature& input);
+
   core::TypedExprPtr getCallExprFromCallable(const CallableSignature& callable);
 
   /// Generate an expression with a random concrete function signature that

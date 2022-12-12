@@ -151,7 +151,8 @@ const std::unordered_map<
     FuzzerRunner::kSpecialForms = {
         {"and",
          std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // and: boolean, boolean,.. -> boolean
+             // Signature: and (condition,...) -> output:
+             // boolean, boolean,.. -> boolean
              facebook::velox::exec::FunctionSignatureBuilder()
                  .argumentType("boolean")
                  .argumentType("boolean")
@@ -160,7 +161,8 @@ const std::unordered_map<
                  .build()}},
         {"or",
          std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // or: boolean, boolean,.. -> boolean
+             // Signature: or (condition,...) -> output:
+             // boolean, boolean,.. -> boolean
              facebook::velox::exec::FunctionSignatureBuilder()
                  .argumentType("boolean")
                  .argumentType("boolean")
@@ -169,7 +171,8 @@ const std::unordered_map<
                  .build()}},
         {"coalesce",
          std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-             // coalesce: T, T,.. -> T
+             // Signature: coalesce (input,...) -> output:
+             // T, T,.. -> T
              facebook::velox::exec::FunctionSignatureBuilder()
                  .typeVariable("T")
                  .argumentType("T")
@@ -180,18 +183,36 @@ const std::unordered_map<
         {
             "if",
             std::vector<facebook::velox::exec::FunctionSignaturePtr>{
-                // if (condition, then): boolean, T -> T
+                // Signature: if (condition, then) -> output:
+                // boolean, T -> T
                 facebook::velox::exec::FunctionSignatureBuilder()
                     .typeVariable("T")
                     .argumentType("boolean")
                     .argumentType("T")
                     .returnType("T")
                     .build(),
-                // if (condition, then, else): boolean, T, T -> T
+                // Signature: if (condition, then, else) -> output:
+                // boolean, T, T -> T
                 facebook::velox::exec::FunctionSignatureBuilder()
                     .typeVariable("T")
                     .argumentType("boolean")
                     .argumentType("T")
+                    .argumentType("T")
+                    .returnType("T")
+                    .build()},
+        },
+        {
+            "switch",
+            std::vector<facebook::velox::exec::FunctionSignaturePtr>{
+                // Signature: Switch (condition, then) -> output:
+                // boolean, T -> T
+                // This is only used to bind to a randomly selected type for the
+                // output, then while generating arguments, an override is used
+                // to generate inputs that can create variation of multiple
+                // cases and may or may not include a final else clause.
+                facebook::velox::exec::FunctionSignatureBuilder()
+                    .typeVariable("T")
+                    .argumentType("boolean")
                     .argumentType("T")
                     .returnType("T")
                     .build()},

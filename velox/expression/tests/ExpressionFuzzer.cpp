@@ -406,6 +406,7 @@ ExpressionFuzzer::ExpressionFuzzer(
       &ExpressionFuzzer::generateEmptyApproxSetArgs, "empty_approx_set");
   registerFuncOverride(
       &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
+  registerFuncOverride(&ExpressionFuzzer::generateSwitchArgs, "switch");
 }
 
 template <typename TFunc>
@@ -534,6 +535,29 @@ std::vector<core::TypedExprPtr> ExpressionFuzzer::generateRegexpReplaceArgs(
       generateArg(input.args[0]), generateArgConstant(input.args[1])};
   if (input.args.size() == 3) {
     inputExpressions.emplace_back(generateArgConstant(input.args[2]));
+  }
+  return inputExpressions;
+}
+
+std::vector<core::TypedExprPtr> ExpressionFuzzer::generateSwitchArgs(
+    const CallableSignature& input) {
+  VELOX_CHECK_EQ(
+      input.args.size(),
+      2,
+      "Only two inputs are expected from the template signature.");
+  size_t cases = boost::random::uniform_int_distribution<uint32_t>(1, 5)(rng_);
+  bool useFinalElse =
+      boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_) > 0;
+
+  auto conditionClauseType = input.args[0];
+  auto thenClauseType = input.args[1];
+  std::vector<core::TypedExprPtr> inputExpressions;
+  for (int case_idx = 0; case_idx < cases; case_idx++) {
+    inputExpressions.push_back(generateArg(conditionClauseType));
+    inputExpressions.push_back(generateArg(thenClauseType));
+  }
+  if (useFinalElse) {
+    inputExpressions.push_back(generateArg(thenClauseType));
   }
   return inputExpressions;
 }
