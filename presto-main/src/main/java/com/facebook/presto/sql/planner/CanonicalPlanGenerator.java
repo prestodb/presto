@@ -42,6 +42,7 @@ import com.facebook.presto.sql.planner.plan.OutputNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
+import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -51,6 +52,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.TreeMultimap;
 
@@ -77,6 +79,8 @@ import static com.facebook.presto.sql.planner.CanonicalPartitioningScheme.getCan
 import static com.facebook.presto.sql.planner.CanonicalTableScanNode.CanonicalTableHandle.getCanonicalTableHandle;
 import static com.facebook.presto.sql.planner.RowExpressionVariableInliner.inlineVariables;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.graph.Traverser.forTree;
 import static java.lang.String.format;
 import static java.util.Comparator.comparing;
@@ -157,7 +161,7 @@ public class CanonicalPlanGenerator
         }
 
         List<VariableReferenceExpression> columns = node.getColumns().stream()
-                .map(variable -> rename(variable, context))
+                .map(variable -> rename(variable, "", context))
                 .sorted()
                 .collect(toImmutableList());
         List<String> columnNames = node.getColumnNames().stream().sorted().collect(toImmutableList());
@@ -347,6 +351,81 @@ public class CanonicalPlanGenerator
 
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
+    }
+
+    @Override
+    public Optional<PlanNode> visitWindow(WindowNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        Set<VariableReferenceExpression> prePartitionedInputs = node.getPrePartitionedInputs().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted(comparing(this::writeValueAsString))
+                .collect(toImmutableSet());
+
+        WindowNode.Specification specification = new WindowNode.Specification(
+                node.getSpecification().getPartitionBy().stream()
+                        .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                        .sorted(comparing(this::writeValueAsString))
+                        .collect(toImmutableList()),
+                node.getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions())));
+
+        Map<VariableReferenceExpression, WindowNode.Function> windowFunctions = node.getWindowFunctions()
+                .entrySet().stream()
+                .map(entry -> {
+                    WindowNode.Function function = entry.getValue();
+                    CallExpression callExpression = new CallExpression(
+                            Optional.empty(),
+                            function.getFunctionCall().getDisplayName(),
+                            function.getFunctionCall().getFunctionHandle(),
+                            function.getFunctionCall().getType(),
+                            function.getFunctionCall().getArguments().stream()
+                                    .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression))
+                                    .collect(toImmutableList()));
+                    Optional<VariableReferenceExpression> startValue = function.getFrame().getStartValue()
+                            .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
+                    Optional<VariableReferenceExpression> endValue = function.getFrame().getEndValue()
+                            .map(expression -> inlineAndCanonicalize(context.getExpressions(), expression));
+                    WindowNode.Frame frame = new WindowNode.Frame(
+                            function.getFrame().getType(),
+                            function.getFrame().getStartType(),
+                            startValue,
+                            function.getFrame().getEndType(),
+                            endValue,
+                            startValue.map(ignored -> ""),
+                            endValue.map(ignored -> ""));
+                    WindowNode.Function newFunction = new WindowNode.Function(
+                            callExpression,
+                            frame,
+                            function.isIgnoreNulls());
+                    return Maps.immutableEntry(entry.getKey(), newFunction);
+                })
+                .sorted(comparing(entry -> writeValueAsString(entry.getValue())))
+                .map(entry -> {
+                    VariableReferenceExpression variable = rename(entry.getKey(), entry.getValue().getFunctionCall().getDisplayName(), context);
+                    return Maps.immutableEntry(variable, entry.getValue());
+                })
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+
+        PlanNode canonicalPlan = new WindowNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                specification,
+                windowFunctions,
+                Optional.empty(),
+                prePartitionedInputs,
+                node.getPreSortedOrderPrefix());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+
+        return Optional.of(canonicalPlan);
     }
 
     @Override
@@ -758,17 +837,17 @@ public class CanonicalPlanGenerator
         return type.equals(JoinNode.Type.INNER);
     }
 
-    private VariableReferenceExpression rename(VariableReferenceExpression variable, Context context)
+    private VariableReferenceExpression rename(VariableReferenceExpression variable, String nameHint, Context context)
     {
-        VariableReferenceExpression newVariable = variableAllocator.newVariable(inlineAndCanonicalize(context.getExpressions(), variable));
+        VariableReferenceExpression newVariable = variableAllocator.newVariable(Optional.empty(), nameHint, variable.getType());
         context.mapExpression(variable, newVariable);
         return newVariable;
     }
 
-    private String writeValueAsString(RowExpression rowExpression)
+    private String writeValueAsString(Object object)
     {
         try {
-            return objectMapper.writeValueAsString(rowExpression);
+            return objectMapper.writeValueAsString(object);
         }
         catch (JsonProcessingException e) {
             throw new PrestoException(PLAN_SERIALIZATION_ERROR, "Cannot serialize plan to JSON", e);
