@@ -70,12 +70,7 @@ public final class MultimapFromEntriesFunction
                 throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
-            if (!keySet.add(rowBlock, 0)) {
-                entryIndicesList[keySet.positionOf(rowBlock, 0)].add(i);
-            }
-            else {
-                entryIndicesList[keySet.size() - 1].add(i);
-            }
+            entryIndicesList[keySet.addAndGetPosition(rowBlock, 0)].add(i);
         }
 
         BlockBuilder multimapBlockBuilder = mapType.createBlockBuilder(null, keySet.size());
