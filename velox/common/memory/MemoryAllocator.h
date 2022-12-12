@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <gflags/gflags.h>
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -23,7 +24,7 @@
 #include <mutex>
 #include <unordered_set>
 
-#include <gflags/gflags.h>
+#include "folly/SharedMutex.h"
 #include "velox/common/base/CheckedArithmetic.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/MemoryUsageTracker.h"
@@ -582,7 +583,7 @@ class MemoryAllocator : std::enable_shared_from_this<MemoryAllocator> {
   inline static std::atomic<uint64_t> totalLargeAllocateBytes_;
 
  private:
-  inline static std::mutex initMutex_;
+  inline static folly::SharedMutex instanceMutex_;
   // Singleton instance.
   inline static std::shared_ptr<MemoryAllocator> instance_;
   // Application-supplied custom implementation of MemoryAllocator to be

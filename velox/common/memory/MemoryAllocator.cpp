@@ -473,13 +473,16 @@ bool MemoryAllocatorImpl::checkConsistency() const {
 
 // static
 MemoryAllocator* MemoryAllocator::getInstance() {
-  if (customInstance_) {
-    return customInstance_;
+  {
+    folly::SharedMutex::ReadHolder readGuard(instanceMutex_);
+    if (customInstance_) {
+      return customInstance_;
+    }
+    if (instance_) {
+      return instance_.get();
+    }
   }
-  if (instance_) {
-    return instance_.get();
-  }
-  std::lock_guard<std::mutex> l(initMutex_);
+  folly::SharedMutex::WriteHolder writeGuard(instanceMutex_);
   if (instance_) {
     return instance_.get();
   }
@@ -494,11 +497,13 @@ std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultInstance() {
 
 // static
 void MemoryAllocator::setDefaultInstance(MemoryAllocator* instance) {
+  folly::SharedMutex::WriteHolder writeGuard(instanceMutex_);
   customInstance_ = instance;
 }
 
 // static
 void MemoryAllocator::testingDestroyInstance() {
+  folly::SharedMutex::WriteHolder writeGuard(instanceMutex_);
   instance_ = nullptr;
 }
 
