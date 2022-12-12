@@ -806,10 +806,18 @@ TEST_F(TaskManagerTest, aggregationSpill) {
   int queryId = 0;
   for (const bool doSpill : {true, true}) {
     SCOPED_TRACE(fmt::format("doSpill: {}", doSpill));
-    auto tempDirectory = exec::test::TempDirectoryPath::create();
+    std::shared_ptr<exec::test::TempDirectoryPath> spillDirectory;
     std::unordered_map<std::string, std::string> queryConfigs;
+    // TODO(spershin): Temporarily disable spilling here until we migrate the
+    // base spill path to system config (Velox changes are pending).
     if (doSpill) {
-      queryConfigs.emplace(core::QueryConfig::kSpillPath, tempDirectory->path);
+      continue;
+    }
+    if (doSpill) {
+      // TODO(spershin): When we migrate the base spill path to system config we
+      // need to ensure the system config has the base spilling path, not the
+      // query config. Use spillDirectory->path.
+      spillDirectory = exec::test::TempDirectoryPath::create();
       queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
       queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
       queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
