@@ -636,12 +636,15 @@ void HashTable<ignoreNullKeys>::clear() {
 
 template <bool ignoreNullKeys>
 void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
+  // NOTE: the way we decide the table size and trigger rehash, guarantees the
+  // table should always have free slots after the insertion.
   VELOX_CHECK(
       size_ == 0 || size_ > (numDistinct_ + numTombstones_),
-      "size_:{} numDistinct_:{} numTombstoneRows_:{}",
+      "size {}, numDistinct {}, numTombstoneRows {}, hashMode {}",
       size_,
       numDistinct_,
-      numTombstones_);
+      numTombstones_,
+      hashMode_);
 
   const int64_t newNumDistincts = numNew + numDistinct_;
   if (!table_ || !size_) {
@@ -665,7 +668,9 @@ void HashTable<ignoreNullKeys>::checkSize(int32_t numNew) {
     // then the table lookup will become slow. Given that, we treat tombstone
     // slot as non-empty slot here to decide whether to trigger rehash or not.
   } else if (newNumDistincts > rehashSize()) {
-    auto newSize = bits::nextPowerOfTwo(newNumDistincts);
+    // NOTE: we need to plus one here as newNumDistincts itself could be power
+    // of two.
+    auto newSize = bits::nextPowerOfTwo(newNumDistincts + 1);
     allocateTables(newSize);
     rehash();
   }

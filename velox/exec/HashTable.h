@@ -168,12 +168,16 @@ class BaseHashTable {
   /// be used for flushing a partial group by, for example.
   virtual void clear() = 0;
 
+  /// Returns the capacity of the internal hash table which is number of rows
+  /// it can stores in a group by or hash join build.
+  virtual uint64_t capacity() const = 0;
+
   /// Returns the number of rows in a group by or hash join build
   /// side. This is used for sizing the internal hash table.
   virtual uint64_t numDistinct() const = 0;
 
-  // Returns table growth in bytes after adding 'numNewDistinct' distinct
-  // entries. This only concerns the hash table, not the payload rows.
+  /// Returns table growth in bytes after adding 'numNewDistinct' distinct
+  /// entries. This only concerns the hash table, not the payload rows.
   virtual uint64_t hashTableSizeIncrease(int32_t numNewDistinct) const = 0;
 
   /// Returns true if the hash table contains rows with duplicate keys.
@@ -371,6 +375,10 @@ class HashTable : public BaseHashTable {
     return &rows_->stringAllocator();
   }
 
+  uint64_t capacity() const override {
+    return size_;
+  }
+
   uint64_t numDistinct() const override {
     return numDistinct_;
   }
@@ -424,6 +432,10 @@ class HashTable : public BaseHashTable {
   /// NOTE: the check cost is non-trivial and is mostly intended for testing
   /// purpose.
   void checkConsistency() const;
+
+  void testingSetHashMode(HashMode mode, int32_t numNew) {
+    setHashMode(mode, numNew);
+  }
 
  private:
   // Returns the number of entries after which the table gets rehashed.
