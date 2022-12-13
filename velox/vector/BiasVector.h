@@ -40,7 +40,7 @@ namespace facebook::velox {
  * or another example:
  *   1024, 1124, 900
  * as:
- *   bias = 1012, values = -12, 112, -112
+ *   bias = 1012, values = 12, 112, -112
  *
  * The original values at an index are retrieved via bias + value[i], e.g.
  * logical_value[1] = -898 + (-65) = -963
