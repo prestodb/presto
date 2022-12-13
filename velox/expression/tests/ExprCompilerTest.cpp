@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "gtest/gtest.h"
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/parse/TypeResolver.h"
@@ -179,5 +180,25 @@ TEST_F(ExprCompilerTest, concatFlattening) {
   ASSERT_EQ(
       "concat(a, ---:VARCHAR, ...:VARCHAR, b)",
       compile(expression)->toString());
+}
+
+TEST_F(ExprCompilerTest, functionNameNotRegistered) {
+  auto expression = std::make_shared<core::CallTypedExpr>(
+      VARCHAR(),
+      std::vector<core::TypedExprPtr>{varchar("---"), varchar("...")},
+      "not_registered_function");
+
+  VELOX_ASSERT_THROW(
+      compile(expression),
+      "Scalar function name not registered: not_registered_function, called with arguments: (VARCHAR, VARCHAR).");
+}
+
+TEST_F(ExprCompilerTest, functionSignatureNotRegistered) {
+  // Concat of two integers isn't supported.
+  auto expression = concatCall({bigint(1), bigint(2)});
+
+  VELOX_ASSERT_THROW(
+      compile(expression),
+      "Scalar function concat not registered with arguments: (BIGINT, BIGINT).  Found function registered with the following signatures:\n((varchar,varchar...) -> varchar)");
 }
 } // namespace facebook::velox::exec::test

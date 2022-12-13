@@ -421,10 +421,34 @@ ExprPtr compileExpression(
           call->name(),
           trackCpuUsage);
     } else {
-      VELOX_FAIL(
-          "Scalar function not registered: {} ({})",
-          call->name(),
-          folly::join(", ", inputTypes));
+      const auto& functionName = call->name();
+      auto vectorFunctionSignatures = getVectorFunctionSignatures(functionName);
+      auto simpleFunctionSignatures =
+          SimpleFunctions().getFunctionSignatures(functionName);
+      std::vector<std::string> signatures;
+
+      if (vectorFunctionSignatures.has_value()) {
+        for (const auto& signature : vectorFunctionSignatures.value()) {
+          signatures.push_back(fmt::format("({})", signature->toString()));
+        }
+      }
+
+      for (const auto& signature : simpleFunctionSignatures) {
+        signatures.push_back(fmt::format("({})", signature->toString()));
+      }
+
+      if (signatures.empty()) {
+        VELOX_FAIL(
+            "Scalar function name not registered: {}, called with arguments: ({}).",
+            call->name(),
+            folly::join(", ", inputTypes));
+      } else {
+        VELOX_FAIL(
+            "Scalar function {} not registered with arguments: ({}).  Found function registered with the following signatures:\n{}",
+            call->name(),
+            folly::join(", ", inputTypes),
+            folly::join("\n", signatures));
+      }
     }
   } else if (
       auto access =
