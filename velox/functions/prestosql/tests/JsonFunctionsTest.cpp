@@ -58,6 +58,37 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
   }
 };
 
+TEST_F(JsonFunctionsTest, JsonFormat) {
+  const auto json_format = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string, std::string>(
+        "json_format(c0)", {value}, {JSON()});
+  };
+
+  EXPECT_EQ(json_format(R"(true)"), "true");
+  EXPECT_EQ(json_format(R"(null)"), "null");
+  EXPECT_EQ(json_format(R"(42)"), "42");
+  EXPECT_EQ(json_format(R"("abc")"), "\"abc\"");
+  EXPECT_EQ(json_format(R"([1, 2, 3])"), "[1, 2, 3]");
+  EXPECT_EQ(json_format(R"({"k1":"v1"})"), "{\"k1\":\"v1\"}");
+
+  // check keys and values are there
+  const std::string jsonStr = json_format(R"({"k1":"v1","k2":"v2"})").value();
+  folly::dynamic object = folly::parseJson(jsonStr);
+
+  std::set<std::string> keys{"k1", "k2"};
+
+  for (const auto& key : object.keys()) {
+    EXPECT_TRUE(keys.find(key.getString()) != keys.end());
+  }
+
+  std::unordered_map<std::string, std::string> jsonMap{
+      {"k1", "v1"}, {"k2", "v2"}};
+
+  for (const auto& key : jsonMap) {
+    EXPECT_EQ(object.at(key.first), jsonMap.at(key.first));
+  }
+}
+
 TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {
   auto signatures = getSignatureStrings("is_json_scalar");
   ASSERT_EQ(1, signatures.size());
