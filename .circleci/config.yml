@@ -43,6 +43,7 @@ workflows:
       - linux-aggregate-fuzzer-run
       - docker-compose-ubuntu-cpp
       - docker-compose-centos-cpp
+      - docker-compose-presto-native
 
   # Hourly build on weekdays
   weekday:
@@ -631,3 +632,28 @@ jobs:
       - run:
           name: "Run centos-cpp image"
           command: docker-compose run -e NUM_THREADS=16 --rm centos-cpp
+
+  docker-compose-presto-native:
+    machine: # Use machine executor type to use docker-compose
+      image: ubuntu-2204:2022.10.1
+    resource_class: 2xlarge
+    environment:
+      PRESTODB_REPOSITORY: https://github.com/prestodb/presto
+    steps:
+      - run:
+          name: "Checkout prestodb"
+          command: git clone git@github.com:prestodb/presto.git
+      - run:
+          name: "Update presto-native to latest Velox"
+          command: |
+            cd presto
+            git submodule update --init --recursive
+            cd presto-native-execution
+            git submodule update --remote --merge
+      - run:
+          name: "Build presto-native container"
+          command: |
+            git config --global user.email "velox@users.noreply.github.com"
+            git config --global user.name "velox"
+            cd presto/presto-native-execution
+            make runtime-container
