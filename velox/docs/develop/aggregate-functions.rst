@@ -56,11 +56,18 @@ Step                      Input                   Output
 In some cases, the calculations performed by partial and final aggregations are
 the same. This is the case for the :func:`sum`, :func:`min` and :func:`max`
 aggregates. In most cases they are different. For example, partial :func:`count`
-aggregate counts incoming values and final :func:count` aggregate sums up partial
+aggregate counts incoming values and final :func:`count` aggregate sums up partial
 counts to produce a total.
 
 The signature of an aggregate function consists of the type of the raw input data,
 the type of the intermediate result and the type of the final result.
+
+Aggregate functions can also be used in a window operator. Here is an example of
+computing running total that uses :func:`sum` aggregate function in a window operator.
+
+.. code-block:: sql
+
+        SELECT a, sum(b) OVER (PARTITION by c ORDER BY d DESC) FROM t
 
 Memory Layout
 -------------
@@ -320,7 +327,11 @@ GroupBy aggregation code path is done. We proceed to global aggregation.
 Global aggregation
 ------------------
 
-Global aggregation is similar to group-by aggregation, but there is only one group and one accumulator. After implementing group-by aggregation, the only thing needed to enable global aggregation is to implement addSingleGroupRawInput() method (addSingleGroupIntermediateResults() method is already implemented as it is used for spilling group by).
+Global aggregation is similar to group-by aggregation, but there is only one
+group and one accumulator. After implementing group-by aggregation, the only
+thing needed to enable global aggregation is to implement
+addSingleGroupRawInput() method (addSingleGroupIntermediateResults() method is
+already implemented as it is used for spilling group by).
 
 .. code-block:: c++
 
@@ -375,6 +386,18 @@ workflows.
      - Y
      - N
      - Y
+
+Global aggregation is also used by the window operator. For each row, a global
+accumulator is cleared (clear + initializeNewGroups), then all rows in a window
+frame are added (addSingleGroupRawInput), then result is extracted
+(extractValues).
+
+When computing running totals, i.e. when window frame is BETWEEN UNBOUNDED
+PRECEDING AND CURRENT ROW, window operator re-uses the accumulator for multiple
+rows without resetting. For each row, window operator adds that row to the
+accumulator, then extracts results. The aggregate function sees a repeated
+sequence of addSingleGroupRawInput + extractValues calls and needs to handle
+these correctly.
 
 Factory function
 ----------------
