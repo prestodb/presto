@@ -36,6 +36,7 @@ public class OrcFileWriterConfig
     }
 
     public static final int DEFAULT_COMPRESSION_LEVEL = Integer.MIN_VALUE;
+    private static final boolean DEFAULT_FLAT_MAP_WRITER_ENABLED = false;
 
     private DataSize stripeMinSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MIN_SIZE;
     private DataSize stripeMaxSize = DefaultOrcWriterFlushPolicy.DEFAULT_STRIPE_MAX_SIZE;
@@ -52,6 +53,7 @@ public class OrcFileWriterConfig
     private boolean isIntegerDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_INTEGER_DICTIONARY_ENCODING_ENABLED;
     private boolean isStringDictionaryEncodingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_ENCODING_ENABLED;
     private boolean isStringDictionarySortingEnabled = OrcWriterOptions.DEFAULT_STRING_DICTIONARY_SORTING_ENABLED;
+    private boolean isFlatMapWriterEnabled = DEFAULT_FLAT_MAP_WRITER_ENABLED;
 
     public OrcWriterOptions.Builder toOrcWriterOptionsBuilder()
     {
@@ -176,6 +178,18 @@ public class OrcFileWriterConfig
     public OrcFileWriterConfig setStringDictionarySortingEnabled(boolean isStringDictionarySortingEnabled)
     {
         this.isStringDictionarySortingEnabled = isStringDictionarySortingEnabled;
+        return this;
+    }
+
+    public boolean isFlatMapWriterEnabled()
+    {
+        return isFlatMapWriterEnabled;
+    }
+
+    @Config("hive.orc.writer.flat-map-writer-enabled")
+    public OrcFileWriterConfig setFlatMapWriterEnabled(boolean isFlatMapWriterEnabled)
+    {
+        this.isFlatMapWriterEnabled = isFlatMapWriterEnabled;
         return this;
     }
 
