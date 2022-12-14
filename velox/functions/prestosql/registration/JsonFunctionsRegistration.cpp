@@ -35,7 +35,6 @@ void registerJsonFunctions() {
   registerFunction<JsonArrayContainsFunction, bool, Json, Varchar>(
       {"json_array_contains"});
   registerFunction<JsonSizeFunction, int64_t, Json, Varchar>({"json_size"});
-  registerFunction<JsonFormatFunction, Varchar, Json>({"json_format"});
 }
 
 } // namespace facebook::velox::functions

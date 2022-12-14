@@ -133,13 +133,6 @@ JSON Functions
         SELECT json_size('{"x": [1, 2, 3]}', '$.x'); -- 3
         SELECT json_size('{"x": {"a": 1, "b": 2}}', '$.x.a'); -- 0
 
-.. function:: json_format(json) -> varchar
-
-    Serializes the input JSON value to JSON text conforming to RFC 7159.
-    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number, true, false or null
-
-        SELECT json_format(JSON '{"a": 1, "b": 2}')
-
 ============
 JSON Vectors
 ============

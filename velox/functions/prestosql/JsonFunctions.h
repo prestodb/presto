@@ -21,18 +21,6 @@
 namespace facebook::velox::functions {
 
 template <typename T>
-struct JsonFormatFunction {
-  VELOX_DEFINE_FUNCTION_TYPES(T);
-
-  FOLLY_ALWAYS_INLINE void call(
-      out_type<Varchar>& jsonString,
-      const arg_type<Json>& json) {
-    folly::parseJson(json.getString());
-    jsonString.setNoCopy(json);
-  }
-};
-
-template <typename T>
 struct IsJsonScalarFunction {
   VELOX_DEFINE_FUNCTION_TYPES(T);
 
