@@ -63,6 +63,8 @@ public class PrestoSparkConfig
     private int minHashPartitionCount = 1024;
     private boolean isResourceAllocationStrategyEnabled;
 
+    private boolean adaptiveJoinSideSwitchingEnabled;
+
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
         return sparkPartitionCountAutoTuneEnabled;
@@ -419,6 +421,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setHashPartitionCountScalingFactorOnOutOfMemory(double hashPartitionCountScalingFactorOnOutOfMemory)
     {
         this.hashPartitionCountScalingFactorOnOutOfMemory = hashPartitionCountScalingFactorOnOutOfMemory;
+        return this;
+    }
+
+    public boolean isAdaptiveJoinSideSwitchingEnabled()
+    {
+        return adaptiveJoinSideSwitchingEnabled;
+    }
+
+    @Config("optimizer.adaptive-join-side-switching-enabled")
+    @ConfigDescription("Enables the adaptive optimization to choose build and probe sides of a join")
+    public PrestoSparkConfig setAdaptiveJoinSideSwitchingEnabled(boolean adaptiveJoinSideSwitchingEnabled)
+    {
+        this.adaptiveJoinSideSwitchingEnabled = adaptiveJoinSideSwitchingEnabled;
         return this;
     }
 }
