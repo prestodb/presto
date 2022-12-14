@@ -24,6 +24,7 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.SortExpressionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -174,7 +175,8 @@ public class JoinNode
                 ImmutableMap.of()); // dynamicFilters are invalid after flipping children
     }
 
-    private static Type flipType(Type type)
+    @VisibleForTesting
+    public static Type flipType(Type type)
     {
         switch (type) {
             case INNER:
