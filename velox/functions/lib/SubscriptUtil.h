@@ -247,6 +247,11 @@ class SubscriptImpl : public exec::VectorFunction {
       const vector_size_t* indices) const {
     auto arraySize = rawSizes[indices[row]];
 
+    // Subscript into empty arrays always returns NULLs.
+    if (arraySize == 0) {
+      return -1;
+    }
+
     if (index < 0) {
       // Check if we allow negative indices. If so, adjust.
       if constexpr (allowNegativeIndices) {
