@@ -118,15 +118,13 @@ public class DetermineJoinDistributionType
 
     private JoinNode getSizeBasedJoin(JoinNode joinNode, Context context)
     {
-        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
-
-        boolean isRightSideSmall = getSourceTablesSizeInBytes(joinNode.getRight(), context) <= joinMaxBroadcastTableSize.toBytes();
+        boolean isRightSideSmall = isBelowBroadcastLimit(joinNode.getRight(), context);
         if (isRightSideSmall && !mustPartition(joinNode)) {
             // choose right join side with small source tables as replicated build side
             return joinNode.withDistributionType(REPLICATED);
         }
 
-        boolean isLeftSideSmall = getSourceTablesSizeInBytes(joinNode.getLeft(), context) <= joinMaxBroadcastTableSize.toBytes();
+        boolean isLeftSideSmall = isBelowBroadcastLimit(joinNode.getLeft(), context);
         JoinNode flippedJoin = joinNode.flipChildren();
         if (isLeftSideSmall && !mustPartition(flippedJoin)) {
             // choose join left side with small source tables as replicated build side
@@ -148,19 +146,31 @@ public class DetermineJoinDistributionType
         // the output from a filter or aggregation due to lack of estimates.
         // We use getFirstKnownOutputSizeInBytes instead of getSourceTablesSizeInBytes to account for the reduction in
         // output size from the operators between the join and the table scan as much as possible when comparing the sizes of the join sides.
-        double leftOutputSizeInBytes = getFirstKnownOutputSizeInBytes(joinNode.getLeft(), context);
-        double rightOutputSizeInBytes = getFirstKnownOutputSizeInBytes(joinNode.getRight(), context);
+
         // All the REPLICATED cases were handled in the code above, so now we only consider PARTITIONED cases here
-        if (rightOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < leftOutputSizeInBytes && !mustReplicate(joinNode, context)) {
+        if (isSmallerThanThreshold(joinNode.getRight(), joinNode.getLeft(), context) && !mustReplicate(joinNode, context)) {
             return joinNode.withDistributionType(PARTITIONED);
         }
 
-        if (leftOutputSizeInBytes * SIZE_DIFFERENCE_THRESHOLD < rightOutputSizeInBytes && !mustReplicate(flippedJoin, context)) {
+        if (isSmallerThanThreshold(joinNode.getLeft(), joinNode.getRight(), context) && !mustReplicate(flippedJoin, context)) {
             return flippedJoin.withDistributionType(PARTITIONED);
         }
 
         // neither side is small enough, choose syntactic join order
         return getSyntacticOrderJoin(joinNode, context, AUTOMATIC);
+    }
+
+    public static boolean isBelowBroadcastLimit(PlanNode planNode, Context context)
+    {
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+        return getSourceTablesSizeInBytes(planNode, context) <= joinMaxBroadcastTableSize.toBytes();
+    }
+
+    public static boolean isSmallerThanThreshold(PlanNode planNodeA, PlanNode planNodeB, Context context)
+    {
+        double aOutputSize = getFirstKnownOutputSizeInBytes(planNodeA, context);
+        double bOutputSize = getFirstKnownOutputSizeInBytes(planNodeB, context);
+        return aOutputSize * SIZE_DIFFERENCE_THRESHOLD < bOutputSize;
     }
 
     public static double getSourceTablesSizeInBytes(PlanNode node, Context context)
