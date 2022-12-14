@@ -92,18 +92,34 @@ Here are specific guidelines for contributing Presto SQL functions.
 
 1. Read [How to add a scalar function?](https://facebookincubator.github.io/velox/develop/scalar-functions.html) guide.
 
-1. Use the following template for the PR title: Add xxx Presto function (replace xxx with the function name.)
+2. Use the following template for the PR title: Add xxx Presto function (replace xxx with the function name.)
 
-1. Add documentation for the new function to an .rst file under velox/docs/functions directory.
+3. Add documentation for the new function to an .rst file under velox/docs/functions directory.
 
-1. Functions in documentation are listed in alphabetical order. Make sure to
+4. Functions in documentation are listed in alphabetical order. Make sure to
    place the new function so that the order is preserved.
 
-1. Use Presto to check the function semantics. Try different edge cases to see
+5. Use Presto to check the function semantics. Try different edge cases to see
    whether the function returns null, or throws, or does something else. Make sure
    to replicate Presto semantics exactly.
 
-1.  Add tests.
+6. Add tests.
+
+7. Run [Fuzzer](https://facebookincubator.github.io/velox/develop/testing/fuzzer.html)
+   to test new the function in isolation as well as in combination with other functions.
+   Note: Fuzzer is under active development and the commands below may not work as is.
+   Consult the CircleCI configuration in .circleci/config.yml for the up-to-date command
+   line arguments.
+
+   ```
+   # Test the new function in isolation. Use --only flag to restrict the set of functions
+   # and run for 60 seconds or longer.
+   velox_expression_fuzzer_test --only <my-new-function-name> --duration_sec 60 --logtostderr=1 --enable_variadic_signatures --velox_fuzzer_enable_complex_types --lazy_vector_generation_ratio 0.2 --velox_fuzzer_enable_column_reuse --velox_fuzzer_enable_expression_reuse
+
+   # Test the new function in combination with other functions. Do not restrict the set
+   # of functions and run for 10 minutes (600 seconds) or longer.
+   velox_expression_fuzzer_test --duration_sec 600 --logtostderr=1 --enable_variadic_signatures --velox_fuzzer_enable_complex_types --lazy_vector_generation_ratio 0.2 --velox_fuzzer_enable_column_reuse --velox_fuzzer_enable_expression_reuse
+   ```
 
 Here are example PRs:
 

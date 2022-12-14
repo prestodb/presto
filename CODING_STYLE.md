@@ -84,9 +84,10 @@ Some good practices about code comments:
       the semantic meaning of that variable or do not add a comment at all.
       This is an anti-pattern:
 
-    `// A simple counter.
+    ```
+    // A simple counter.
     size_t count_{0};
-    `
+    ```
 
   * For functions with large bodies, a good practice is to group blocks of
     related code, and precede them with a blank line and a high-level comment
