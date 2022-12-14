@@ -121,6 +121,11 @@ public class TestHivePageSink
                     // CSV supports only unbounded VARCHAR type, which is not provided by lineitem
                     continue;
                 }
+                if (format == HiveStorageFormat.ALPHA) {
+                    // Alpha read/write is not supported yet
+                    continue;
+                }
+
                 config.setHiveStorageFormat(format);
                 config.setCompressionCodec(NONE);
                 long uncompressedLength = writeTestFile(config, metastoreClientConfig, metastore, makeFileName(tempDir, config));

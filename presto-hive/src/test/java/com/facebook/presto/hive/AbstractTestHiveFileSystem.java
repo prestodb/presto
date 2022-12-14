@@ -390,6 +390,10 @@ public abstract class AbstractTestHiveFileSystem
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
+            if (storageFormat == HiveStorageFormat.ALPHA) {
+                // Alpha read/write is not supported yet
+                continue;
+            }
             createTable(METASTORE_CONTEXT, temporaryCreateTable, storageFormat);
             dropTable(temporaryCreateTable);
         }

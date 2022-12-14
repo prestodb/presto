@@ -225,6 +225,7 @@ import static com.facebook.presto.hive.HiveMetadata.convertToPredicate;
 import static com.facebook.presto.hive.HiveQueryRunner.METASTORE_CONTEXT;
 import static com.facebook.presto.hive.HiveSessionProperties.OFFLINE_DATA_DEBUG_MODE_ENABLED;
 import static com.facebook.presto.hive.HiveSessionProperties.SORTED_WRITE_TO_TEMP_PATH_ENABLED;
+import static com.facebook.presto.hive.HiveStorageFormat.ALPHA;
 import static com.facebook.presto.hive.HiveStorageFormat.AVRO;
 import static com.facebook.presto.hive.HiveStorageFormat.CSV;
 import static com.facebook.presto.hive.HiveStorageFormat.DWRF;
@@ -576,7 +577,8 @@ public abstract class AbstractTestHiveClient
     protected Set<HiveStorageFormat> createTableFormats = difference(
             ImmutableSet.copyOf(HiveStorageFormat.values()),
             // exclude formats that change table schema with serde
-            ImmutableSet.of(AVRO, CSV));
+            // exclude ALPHA because it does not support DML yet
+            ImmutableSet.of(AVRO, CSV, ALPHA));
 
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(MetadataManager.createTestMetadataManager(), new FeaturesConfig());
 
