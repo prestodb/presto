@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 
@@ -85,4 +86,9 @@ VELOX_DECLARE_VECTOR_FUNCTION(
     udf_array_constructor,
     ArrayConstructor::signatures(),
     std::make_unique<ArrayConstructor>());
+
+void registerArrayConstructor(const std::string& name) {
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_array_constructor, name);
+}
+
 } // namespace facebook::velox::functions
