@@ -144,9 +144,31 @@ TEST_F(MapTest, duplicateKeys) {
       evaluate<MapVector>("map2(c0, c1)", makeRowVector({keys, values})));
 }
 
-TEST_F(MapTest, differentArraySizes) {
+TEST_F(MapTest, fewerValuesThanKeys) {
   auto size = 1'000;
 
+  // Make sure that some rows have fewer 'values' than 'keys'.
+  auto keys = makeArrayVector<int64_t>(
+      size,
+      [](vector_size_t row) { return row % 7; },
+      [](vector_size_t row) { return row % 11; });
+  auto values = makeArrayVector<int32_t>(
+      size,
+      [](vector_size_t row) { return row % 5; },
+      [](vector_size_t row) { return row % 13; });
+
+  VELOX_ASSERT_THROW(
+      evaluate<MapVector>("map(c0, c1)", makeRowVector({keys, values})),
+      "(5 vs. 0) Key and value arrays must be the same length");
+
+  ASSERT_NO_THROW(
+      evaluate<MapVector>("try(map(c0, c1))", makeRowVector({keys, values})));
+}
+
+TEST_F(MapTest, fewerKeysThanValues) {
+  auto size = 1'000;
+
+  // Make sure that some rows have fewer 'keys' than 'values'.
   auto keys = makeArrayVector<int64_t>(
       size,
       [](vector_size_t row) { return row % 5; },

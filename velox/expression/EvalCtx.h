@@ -132,6 +132,17 @@ class EvalCtx {
       const BufferPtr& elementToTopLevelRows,
       ErrorVectorPtr& topLevelErrors);
 
+  void deselectErrors(SelectivityVector& rows) const {
+    if (!errors_) {
+      return;
+    }
+    // A non-null in errors resets the row. AND with the errors null mask.
+    rows.deselectNonNulls(
+        errors_->rawNulls(),
+        rows.begin(),
+        std::min(errors_->size(), rows.end()));
+  }
+
   // Returns the vector of errors or nullptr if no errors. This is
   // intentionally a raw pointer to signify that the caller may not
   // retain references to this.

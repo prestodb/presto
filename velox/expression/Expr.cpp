@@ -1009,18 +1009,6 @@ void Expr::evalWithNulls(
   evalAll(rows, context, result);
 }
 
-namespace {
-void deselectErrors(EvalCtx& context, SelectivityVector& rows) {
-  auto errors = context.errors();
-  if (!errors) {
-    return;
-  }
-  // A non-null in errors resets the row. AND with the errors null mask.
-  rows.deselectNonNulls(
-      errors->rawNulls(), rows.begin(), std::min(errors->size(), rows.end()));
-}
-} // namespace
-
 void Expr::evalWithMemo(
     const SelectivityVector& rows,
     EvalCtx& context,
@@ -1054,7 +1042,7 @@ void Expr::evalWithMemo(
           context, &rows, uncached->countSelected() < rows.countSelected());
 
       evalWithNulls(*uncached, context, result);
-      deselectErrors(context, *uncached);
+      context.deselectErrors(*uncached);
       context.exprSet()->addToMemo(this);
       auto newCacheSize = uncached->end();
 
@@ -1095,7 +1083,7 @@ void Expr::evalWithMemo(
         context.execCtx()->getSelectivityVector(rows.end());
   }
   *cachedDictionaryIndices_ = rows;
-  deselectErrors(context, *cachedDictionaryIndices_);
+  context.deselectErrors(*cachedDictionaryIndices_);
 }
 
 void Expr::setAllNulls(
@@ -1257,7 +1245,7 @@ void Expr::evalAll(
       mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
       remainingRows = mutableRemainingRows;
     }
-    deselectErrors(context, *mutableRemainingRows);
+    context.deselectErrors(*mutableRemainingRows);
 
     // All rows have at least one null output or error.
     if (!remainingRows->hasSelections()) {
@@ -1456,7 +1444,7 @@ void Expr::applyFunction(
   if (!result) {
     LocalSelectivityVector mutableRemainingRowsHolder(context);
     auto mutableRemainingRows = mutableRemainingRowsHolder.get(rows);
-    deselectErrors(context, *mutableRemainingRows);
+    context.deselectErrors(*mutableRemainingRows);
 
     // If there are rows with no result and no exception this is a bug in the
     // function implementation.
