@@ -96,7 +96,7 @@ std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
   if (!queryConfig.spillEnabled()) {
     return std::nullopt;
   }
-  if (!queryConfig.spillPath().has_value()) {
+  if (driverCtx_->task->spillDirectory().empty()) {
     return std::nullopt;
   }
   switch (type) {
@@ -124,8 +124,8 @@ std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
 
   return Spiller::Config(
       makeOperatorSpillPath(
-          queryConfig.spillPath().value(),
-          taskId(),
+          driverCtx_->task->spillDirectory(),
+          driverCtx()->pipelineId,
           driverCtx()->driverId,
           operatorId_),
       queryConfig.maxSpillFileSize(),

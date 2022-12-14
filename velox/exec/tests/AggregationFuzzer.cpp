@@ -601,10 +601,10 @@ ResultOrError AggregationFuzzer::execute(
     AssertQueryBuilder builder(plan);
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
-      builder.config(core::QueryConfig::kSpillEnabled, "true")
+      builder.spillDirectory(spillDirectory->path)
+          .config(core::QueryConfig::kSpillEnabled, "true")
           .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-          .config(core::QueryConfig::kTestingSpillPct, "100")
-          .config(core::QueryConfig::kSpillPath, spillDirectory->path);
+          .config(core::QueryConfig::kTestingSpillPct, "100");
     }
     resultOrError.result = builder.maxDrivers(2).copyResults(pool_.get());
     LOG(INFO) << resultOrError.result->toString();

@@ -170,11 +170,11 @@ class OrderByTest : public OperatorTestBase {
           {core::QueryConfig::kTestingSpillPct, "100"},
           {core::QueryConfig::kSpillEnabled, "true"},
           {core::QueryConfig::kOrderBySpillEnabled, "true"},
-          {core::QueryConfig::kSpillPath, spillDirectory->path},
       });
       CursorParameters params;
       params.planNode = planNode;
       params.queryCtx = queryCtx;
+      params.spillDirectory = spillDirectory->path;
       auto task = assertQueryOrdered(params, duckDbSql, sortingKeys);
       auto inputRows = toPlanStats(task->taskStats()).at(orderById).inputRows;
       if (inputRows > 0) {
@@ -432,7 +432,6 @@ TEST_F(OrderByTest, spill) {
   // Set 'kSpillableReservationGrowthPct' to an extreme large value to trigger
   // disk spilling by failed memory growth reservation.
   queryCtx->setConfigOverridesUnsafe({
-      {core::QueryConfig::kSpillPath, spillDirectory->path},
       {core::QueryConfig::kSpillEnabled, "true"},
       {core::QueryConfig::kOrderBySpillEnabled, "true"},
       {core::QueryConfig::kSpillableReservationGrowthPct, "1000"},
@@ -440,6 +439,7 @@ TEST_F(OrderByTest, spill) {
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
+  params.spillDirectory = spillDirectory->path;
   auto task = assertQueryOrdered(
       params, "SELECT * FROM tmp ORDER BY c0 ASC NULLS LAST", {0});
   auto stats = task->taskStats().pipelineStats;
@@ -496,13 +496,12 @@ TEST_F(OrderByTest, spillWithMemoryLimit) {
                 .orderBy({fmt::format("{} ASC NULLS LAST", "c0")}, false)
                 .planNode())
             .queryCtx(queryCtx)
-            .config(QueryConfig::kSpillPath, tempDirectory->path)
+            .spillDirectory(tempDirectory->path)
             .config(core::QueryConfig::kSpillEnabled, "true")
             .config(core::QueryConfig::kOrderBySpillEnabled, "true")
             .config(
                 QueryConfig::kOrderBySpillMemoryThreshold,
                 std::to_string(testData.orderByMemLimit))
-            .config(QueryConfig::kSpillPath, tempDirectory->path)
             .assertResults(results);
 
     auto stats = task->taskStats().pipelineStats;

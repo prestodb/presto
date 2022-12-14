@@ -45,6 +45,10 @@ struct CursorParameters {
   // Number of splits groups the task will be processing. Must be 1 for
   // ungrouped execution.
   int numSplitGroups{1};
+
+  /// Spilling directory, if not empty, then the task's spilling directory would
+  /// be built from it.
+  std::string spillDirectory;
 };
 
 class TaskQueue {

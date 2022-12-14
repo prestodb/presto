@@ -336,12 +336,12 @@ void gatherCopy(
 }
 
 std::string makeOperatorSpillPath(
-    const std::string& spillPath,
-    const std::string& taskId,
+    const std::string& spillDir,
+    int pipelineId,
     int driverId,
     int32_t operatorId) {
-  VELOX_CHECK(!spillPath.empty());
-  return fmt::format("{}/{}_{}_{}", spillPath, taskId, driverId, operatorId);
+  VELOX_CHECK(!spillDir.empty());
+  return fmt::format("{}/{}_{}_{}", spillDir, pipelineId, driverId, operatorId);
 }
 
 void addOperatorRuntimeStats(

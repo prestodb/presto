@@ -587,11 +587,11 @@ class HashJoinBuilder {
     std::shared_ptr<TempDirectoryPath> spillDirectory;
     if (injectSpill) {
       spillDirectory = exec::test::TempDirectoryPath::create();
+      builder.spillDirectory(spillDirectory->path);
       config(core::QueryConfig::kSpillEnabled, "true");
       config(core::QueryConfig::kMaxSpillLevel, std::to_string(maxSpillLevel));
       config(core::QueryConfig::kJoinSpillEnabled, "true");
       config(core::QueryConfig::kTestingSpillPct, "100");
-      config(core::QueryConfig::kSpillPath, spillDirectory->path);
     } else {
       config(core::QueryConfig::kSpillEnabled, "false");
     }

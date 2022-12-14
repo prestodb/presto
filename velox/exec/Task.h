@@ -67,6 +67,12 @@ class Task : public std::enable_shared_from_this<Task> {
 
   ~Task();
 
+  /// Specify directory to which data will be spilled if spilling is enabled and
+  /// required.
+  void setSpillDirectory(const std::string& spillDirectory) {
+    spillDirectory_ = spillDirectory;
+  }
+
   std::string toString() const;
 
   /// Returns universally unique identifier of the task.
@@ -492,6 +498,10 @@ class Task : public std::enable_shared_from_this<Task> {
     return numDeletedTasks_;
   }
 
+  const std::string& spillDirectory() const {
+    return spillDirectory_;
+  }
+
   /// Invoked to wait for all the tasks created by the test to be deleted.
   ///
   /// NOTE: it is assumed that there is no more task to be created after or
@@ -842,6 +852,9 @@ class Task : public std::enable_shared_from_this<Task> {
   // terminate(). They are fulfilled when the last thread stops
   // running for 'this'.
   std::vector<ContinuePromise> threadFinishPromises_;
+
+  /// Base spill directory for this task.
+  std::string spillDirectory_;
 };
 
 /// Listener invoked on task completion.

@@ -285,8 +285,9 @@ class QueryConfig {
   /// composed of Task id and serial numbers. The files are automatically
   /// deleted when no longer needed. Files may be left behind after crashes but
   /// are identifiable based on the Task id in the name.
+  /// TODO(spershin): This method and kSpillPath will be removed.
   std::optional<std::string> spillPath() const {
-    return get<std::string>(kSpillPath, "/tmp");
+    return get<std::string>(kSpillPath);
   }
 
   /// Returns 'is aggregation spilling enabled' flag. Must also check the

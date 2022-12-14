@@ -111,8 +111,8 @@ void gatherCopy(
 /// not. It is assumed that the disk spilling file hierarchy for an operator is
 /// flat.
 std::string makeOperatorSpillPath(
-    const std::string& spillPath,
-    const std::string& taskId,
+    const std::string& spillDir,
+    int pipelineId,
     int driverId,
     int32_t operatorId);
 

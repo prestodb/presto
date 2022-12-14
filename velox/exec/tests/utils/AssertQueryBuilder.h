@@ -84,6 +84,14 @@ class AssertQueryBuilder {
     params_.queryCtx = ctx;
     return *this;
   }
+
+  /// Spilling directory, if not empty, then the task's spilling directory would
+  /// be built from it.
+  AssertQueryBuilder& spillDirectory(const std::string& dir) {
+    params_.spillDirectory = dir;
+    return *this;
+  }
+
   // Methods to run the query and verify the results.
 
   /// Run the query and verify results against DuckDB. Requires

@@ -160,7 +160,7 @@ void AggregationTestBase::testAggregations(
     queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-        .config(core::QueryConfig::kSpillPath, spillDirectory->path)
+        .spillDirectory(spillDirectory->path)
         .maxDrivers(4);
 
     auto task = assertResults(queryBuilder);
@@ -206,7 +206,7 @@ void AggregationTestBase::testAggregations(
     queryBuilder.config(core::QueryConfig::kTestingSpillPct, "100")
         .config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
-        .config(core::QueryConfig::kSpillPath, spillDirectory->path);
+        .spillDirectory(spillDirectory->path);
 
     auto task = assertResults(queryBuilder);
 

@@ -265,7 +265,7 @@ RowVectorPtr JoinFuzzer::execute(
     builder.config(core::QueryConfig::kSpillEnabled, "true")
         .config(core::QueryConfig::kAggregationSpillEnabled, "true")
         .config(core::QueryConfig::kTestingSpillPct, "100")
-        .config(core::QueryConfig::kSpillPath, spillDirectory->path);
+        .spillDirectory(spillDirectory->path);
   }
 
   auto result = builder.maxDrivers(2).copyResults(pool_.get());

@@ -204,7 +204,7 @@ TEST_F(OperatorUtilsTest, gatherCopy) {
 }
 
 TEST_F(OperatorUtilsTest, makeOperatorSpillPath) {
-  EXPECT_EQ("spill/task_1_100", makeOperatorSpillPath("spill", "task", 1, 100));
+  EXPECT_EQ("spill/3_1_100", makeOperatorSpillPath("spill", 3, 1, 100));
 }
 
 TEST_F(OperatorUtilsTest, wrap) {

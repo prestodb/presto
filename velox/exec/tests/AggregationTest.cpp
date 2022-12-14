@@ -873,9 +873,9 @@ TEST_F(AggregationTest, spillWithMemoryLimit) {
                         .singleAggregation({"c0", "c1"}, {"array_agg(c2)"})
                         .planNode())
                     .queryCtx(queryCtx)
+                    .spillDirectory(tempDirectory->path)
                     .config(QueryConfig::kSpillEnabled, "true")
                     .config(QueryConfig::kAggregationSpillEnabled, "true")
-                    .config(QueryConfig::kSpillPath, tempDirectory->path)
                     .config(
                         QueryConfig::kAggregationSpillMemoryThreshold,
                         std::to_string(testData.aggregationMemLimit))
@@ -981,9 +981,9 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
                                .singleAggregation({"c0"}, {"array_agg(c1)"})
                                .planNode())
             .queryCtx(queryCtx)
+            .spillDirectory(tempDirectory->path)
             .config(QueryConfig::kSpillEnabled, "true")
             .config(QueryConfig::kAggregationSpillEnabled, "true")
-            .config(QueryConfig::kSpillPath, tempDirectory->path)
             .config(QueryConfig::kMinSpillRunSize, std::to_string(1000'000'000))
             .config(
                 QueryConfig::kSpillPartitionBits,
@@ -1092,9 +1092,9 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
                              .singleAggregation({"c0"}, {"array_agg(c1)"})
                              .planNode())
           .queryCtx(queryCtx)
+          .spillDirectory(tempDirectory->path)
           .config(QueryConfig::kSpillEnabled, "true")
           .config(QueryConfig::kAggregationSpillEnabled, "true")
-          .config(QueryConfig::kSpillPath, tempDirectory->path)
           .config(
               QueryConfig::kSpillPartitionBits, std::to_string(kPartitionsBits))
           // Set to increase the hash table a little bit to only trigger spill
@@ -1330,11 +1330,11 @@ TEST_F(AggregationTest, outputBatchSizeCheckWithSpill) {
                                .values(batches)
                                .singleAggregation({"c0", "c1"}, {"sum(c2)"})
                                .planNode())
+            .spillDirectory(tempDirectory->path)
             .config(QueryConfig::kSpillEnabled, "true")
             .config(QueryConfig::kAggregationSpillEnabled, "true")
             // Set one spill partition to avoid the test flakiness.
             .config(QueryConfig::kSpillPartitionBits, "0")
-            .config(QueryConfig::kSpillPath, tempDirectory->path)
             .config(
                 QueryConfig::kPreferredOutputBatchSize,
                 std::to_string(outputBufferSize))
@@ -1355,9 +1355,9 @@ TEST_F(AggregationTest, distinctWithSpilling) {
   auto spillDirectory = exec::test::TempDirectoryPath::create();
   core::PlanNodeId aggrNodeId;
   auto task = AssertQueryBuilder(duckDbQueryRunner_)
+                  .spillDirectory(spillDirectory->path)
                   .config(QueryConfig::kSpillEnabled, "true")
                   .config(QueryConfig::kAggregationSpillEnabled, "true")
-                  .config(QueryConfig::kSpillPath, spillDirectory->path)
                   .config(QueryConfig::kTestingSpillPct, "100")
                   .plan(PlanBuilder()
                             .values(vectors)
@@ -1385,9 +1385,9 @@ TEST_F(AggregationTest, preGroupedAggregationWithSpilling) {
   core::PlanNodeId aggrNodeId;
   auto task =
       AssertQueryBuilder(duckDbQueryRunner_)
+          .spillDirectory(spillDirectory->path)
           .config(QueryConfig::kSpillEnabled, "true")
           .config(QueryConfig::kAggregationSpillEnabled, "true")
-          .config(QueryConfig::kSpillPath, spillDirectory->path)
           .config(QueryConfig::kTestingSpillPct, "100")
           .plan(PlanBuilder()
                     .values(vectors)
