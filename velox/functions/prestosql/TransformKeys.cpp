@@ -15,6 +15,7 @@
  */
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/lib/CheckDuplicateKeys.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
 #include "velox/functions/lib/RowsTranslationUtil.h"
 #include "velox/vector/FunctionVector.h"
@@ -91,7 +92,7 @@ class TransformKeysFunction : public exec::VectorFunction {
         transformedKeys,
         flatMap->mapValues());
 
-    checkDuplicateKeys(localResult, rows);
+    checkDuplicateKeys(localResult, rows, context);
 
     context.moveOrCopyResult(localResult, rows, result);
   }
@@ -106,31 +107,6 @@ class TransformKeysFunction : public exec::VectorFunction {
                 .argumentType("map(K1,V)")
                 .argumentType("function(K1,V,K2)")
                 .build()};
-  }
-
- private:
-  void checkDuplicateKeys(
-      const MapVectorPtr& mapVector,
-      const SelectivityVector& rows) const {
-    static const char* kDuplicateKey =
-        "Duplicate map keys ({}) are not allowed";
-
-    MapVector::canonicalize(mapVector);
-
-    auto offsets = mapVector->rawOffsets();
-    auto sizes = mapVector->rawSizes();
-    auto mapKeys = mapVector->mapKeys();
-    rows.applyToSelected([&](auto row) {
-      auto offset = offsets[row];
-      auto size = sizes[row];
-      for (auto i = 1; i < size; i++) {
-        if (mapKeys->equalValueAt(mapKeys.get(), offset + i, offset + i - 1)) {
-          auto duplicateKey = mapKeys->wrappedVector()->toString(
-              mapKeys->wrappedIndex(offset + i));
-          VELOX_USER_FAIL(kDuplicateKey, duplicateKey);
-        }
-      }
-    });
   }
 };
 } // namespace

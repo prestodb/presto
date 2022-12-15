@@ -15,6 +15,7 @@
  */
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
+#include "velox/functions/lib/CheckDuplicateKeys.h"
 
 namespace facebook::velox::functions {
 namespace {
@@ -86,7 +87,7 @@ class MapFunction : public exec::VectorFunction {
           valuesArray->elements());
 
       if constexpr (!AllowDuplicateKeys) {
-        checkForDuplicateKeys(mapVector, rows, context);
+        checkDuplicateKeys(mapVector, rows, context);
       }
       context.moveOrCopyResult(mapVector, rows, result);
     } else {
@@ -181,7 +182,7 @@ class MapFunction : public exec::VectorFunction {
           wrappedKeys,
           wrappedValues);
       if constexpr (!AllowDuplicateKeys) {
-        checkForDuplicateKeys(mapVector, remainingRows, context);
+        checkDuplicateKeys(mapVector, remainingRows, context);
       }
       context.moveOrCopyResult(mapVector, remainingRows, result);
     }
@@ -213,32 +214,6 @@ class MapFunction : public exec::VectorFunction {
     VELOX_CHECK_GE(values->size(), rows.end());
     return rows.testSelected([&](vector_size_t row) {
       return keys->offsetAt(row) == values->offsetAt(row);
-    });
-  }
-
-  static void checkForDuplicateKeys(
-      MapVectorPtr& mapVector,
-      const SelectivityVector& rows,
-      exec::EvalCtx& context) {
-    // Check for duplicate keys
-    MapVector::canonicalize(mapVector);
-
-    static const char* kDuplicateKey =
-        "Duplicate map keys ({}) are not allowed";
-
-    auto offsets = mapVector->rawOffsets();
-    auto sizes = mapVector->rawSizes();
-    auto mapKeys = mapVector->mapKeys();
-    context.applyToSelectedNoThrow(rows, [&](vector_size_t row) {
-      auto offset = offsets[row];
-      auto size = sizes[row];
-      for (vector_size_t i = 1; i < size; i++) {
-        if (mapKeys->equalValueAt(mapKeys.get(), offset + i, offset + i - 1)) {
-          auto duplicateKey = mapKeys->wrappedVector()->toString(
-              mapKeys->wrappedIndex(offset + i));
-          VELOX_USER_FAIL(kDuplicateKey, duplicateKey);
-        }
-      }
     });
   }
 };
