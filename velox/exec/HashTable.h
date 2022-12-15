@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/MappedMemory.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/RowContainer.h"
@@ -300,12 +300,12 @@ class HashTable : public BaseHashTable {
       bool allowDuplicates,
       bool isJoinBuild,
       bool hasProbedFlag,
-      memory::MemoryPool* FOLLY_NULLABLE pool);
+      memory::MappedMemory* FOLLY_NULLABLE memory);
 
   static std::unique_ptr<HashTable> createForAggregation(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<std::unique_ptr<Aggregate>>& aggregates,
-      memory::MemoryPool* FOLLY_NULLABLE pool) {
+      memory::MappedMemory* FOLLY_NULLABLE memory) {
     return std::make_unique<HashTable>(
         std::move(hashers),
         aggregates,
@@ -313,7 +313,7 @@ class HashTable : public BaseHashTable {
         false, // allowDuplicates
         false, // isJoinBuild
         false, // hasProbedFlag
-        pool);
+        memory);
   }
 
   static std::unique_ptr<HashTable> createForJoin(
@@ -321,7 +321,7 @@ class HashTable : public BaseHashTable {
       const std::vector<TypePtr>& dependentTypes,
       bool allowDuplicates,
       bool hasProbedFlag,
-      memory::MemoryPool* FOLLY_NULLABLE pool) {
+      memory::MappedMemory* FOLLY_NULLABLE memory) {
     static const std::vector<std::unique_ptr<Aggregate>> kNoAggregates;
     return std::make_unique<HashTable>(
         std::move(hashers),
@@ -330,7 +330,7 @@ class HashTable : public BaseHashTable {
         allowDuplicates,
         true, // isJoinBuild
         hasProbedFlag,
-        pool);
+        memory);
   }
 
   virtual ~HashTable() override = default;
@@ -638,7 +638,7 @@ class HashTable : public BaseHashTable {
   int32_t nextOffset_;
   uint8_t* FOLLY_NULLABLE tags_ = nullptr;
   char* FOLLY_NULLABLE* FOLLY_NULLABLE table_ = nullptr;
-  memory::MemoryAllocator::ContiguousAllocation tableAllocation_;
+  memory::MappedMemory::ContiguousAllocation tableAllocation_;
   int64_t size_ = 0;
   int64_t sizeMask_ = 0;
   int64_t numDistinct_ = 0;

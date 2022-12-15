@@ -84,7 +84,7 @@ OperatorCtx::createConnectorQueryCtx(
       pool_,
       driverCtx_->task->queryCtx()->getConnectorConfig(connectorId),
       expressionEvaluator_.get(),
-      driverCtx_->task->queryCtx()->allocator(),
+      driverCtx_->task->queryCtx()->mappedMemory(),
       taskId(),
       planNodeId,
       driverCtx_->driverId);
@@ -230,6 +230,14 @@ std::optional<uint32_t> Operator::maxDrivers(
     }
   }
   return std::nullopt;
+}
+
+memory::MappedMemory* OperatorCtx::mappedMemory() const {
+  if (!mappedMemory_) {
+    mappedMemory_ =
+        driverCtx_->task->addOperatorMemory(pool_->getMemoryUsageTracker());
+  }
+  return mappedMemory_;
 }
 
 const std::string& OperatorCtx::taskId() const {

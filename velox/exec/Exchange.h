@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <velox/common/memory/MappedMemory.h>
+#include <velox/common/memory/Memory.h>
 #include <memory>
-
 #include "velox/common/memory/ByteStream.h"
-#include "velox/common/memory/Memory.h"
 #include "velox/exec/Operator.h"
 
 namespace facebook::velox::exec {

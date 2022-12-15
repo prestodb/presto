@@ -21,19 +21,18 @@
 #include <map>
 #include <memory>
 #include <unordered_set>
-
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/MappedMemory.h"
 
 namespace facebook::velox::memory {
 
 class MmapArena {
  public:
-  /// Single MmapArena capacity is determined by mmap_arena_capacity_ratio ratio
-  /// but the capacity should be at least kMinCapacityBytes if the calculated
-  /// capacity from the ratio is too small to serve large allocations.
+  // Single MmapArena capacity is determined by mmap_arena_capacity_ratio ratio
+  // but the capacity should be at least kMinCapacityBytes if the calculated
+  // capacity from the ratio is too small to serve large allocations.
   static constexpr int64_t kMinCapacityBytes = 128 * 1024 * 1024; // 128M
 
-  /// MmapArena capacity should be multiple of kMinGrainSizeBytes.
+  // MmapArena capacity should be multiple of kMinGrainSizeBytes.
   static constexpr uint64_t kMinGrainSizeBytes = 1024 * 1024; // 1M
 
   MmapArena(size_t capacityBytes);
@@ -64,17 +63,16 @@ class MmapArena {
   bool empty() {
     return freeBytes_ == byteSize_;
   }
-
-  /// Checks internal consistency of this MmapArena. Returns true if OK. May
-  /// return false if there are concurrent alocations and frees during the
-  /// consistency check. This is a false positive but not dangerous. This is for
-  /// test only
+  // Checks internal consistency of this MmapArena. Returns true if OK. May
+  // return false if there are concurrent alocations and frees during the
+  // consistency check. This is a false positive but not dangerous. This is for
+  // test only
   bool checkConsistency() const;
 
-  /// translate lookup table to a string for debugging purpose only.
+  // translate lookup table to a string for debugging purpose only.
   std::string freeLookupStr() {
     std::stringstream lookupStr;
-    for (auto itr = freeLookup_.begin(); itr != freeLookup_.end(); ++itr) {
+    for (auto itr = freeLookup_.begin(); itr != freeLookup_.end(); itr++) {
       lookupStr << "\n{" << itr->first << "->[";
       for (auto itrInner = itr->second.begin(); itrInner != itr->second.end();
            itrInner++) {
@@ -99,11 +97,11 @@ class MmapArena {
 
   void removeFreeBlock(std::map<uint64_t, uint64_t>::iterator& itr);
 
-  // Total capacity size of this arena
-  const uint64_t byteSize_;
-
   // Starting address of this arena
   uint8_t* FOLLY_NONNULL address_;
+
+  // Total capacity size of this arena
+  const uint64_t byteSize_;
 
   std::atomic<uint64_t> freeBytes_;
 

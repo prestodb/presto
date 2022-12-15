@@ -34,22 +34,15 @@ using namespace facebook::velox;
 using namespace facebook::velox::memory;
 
 struct Block {
-  explicit Block(MemoryAllocator& _allocator) : allocator(_allocator) {}
-
   ~Block() {
-    if (data != nullptr) {
+    if (data) {
       free(data);
     }
-    if (allocation != nullptr) {
-      allocator.freeNonContiguous(*allocation);
-    }
-    allocator.freeContiguous(contiguous);
   }
 
-  MemoryAllocator& allocator;
   size_t size = 0;
   char* data = nullptr;
-  std::shared_ptr<MemoryAllocator::Allocation> allocation;
+  std::shared_ptr<MappedMemory::Allocation> allocation;
   MmapAllocator::ContiguousAllocation contiguous;
 };
 
@@ -91,12 +84,13 @@ class FragmentationTest {
   }
 
   void allocate(size_t size) {
-    auto block = std::make_unique<Block>(*memory_);
+    auto block = std::make_unique<Block>();
     block->size = size;
     if (memory_) {
       if (size <= 8 << 20) {
-        block->allocation = std::make_shared<MemoryAllocator::Allocation>();
-        if (!memory_->allocateNonContiguous(size / 4096, *block->allocation)) {
+        block->allocation =
+            std::make_shared<MappedMemory::Allocation>(memory_.get());
+        if (!memory_->allocate(size / 4096, 0, *block->allocation)) {
           VELOX_FAIL("allocate() faild");
         }
         for (int i = 0; i < block->allocation->numRuns(); ++i) {

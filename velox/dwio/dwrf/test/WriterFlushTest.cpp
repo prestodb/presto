@@ -17,7 +17,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "velox/common/memory/Memory.h"
 #include "velox/dwio/dwrf/writer/Writer.h"
 #include "velox/dwio/type/fbhive/HiveTypeParser.h"
 
@@ -38,7 +37,7 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       const std::string& name,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, parent, 0}, cap_{cap} {}
+      : MemoryPool{name, parent}, cap_{cap} {}
 
   // Methods not usually exposed by MemoryPool interface to
   // allow for manipulation.
@@ -61,12 +60,11 @@ class MockMemoryPool : public velox::memory::MemoryPool {
 
   void* allocate(int64_t size) override {
     updateLocalMemoryUsage(size);
-    return allocator_->allocateBytes(size);
+    return allocator_.alloc(size);
   }
-
-  void* allocateZeroFilled(int64_t numEntries, int64_t sizeEach) override {
-    updateLocalMemoryUsage(numEntries * sizeEach);
-    return allocator_->allocateZeroFilled(numEntries * sizeEach);
+  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
+    updateLocalMemoryUsage(numMembers * sizeEach);
+    return allocator_.allocZeroFilled(numMembers, sizeEach);
   }
 
   // No-op for attempts to shrink buffer.
@@ -78,44 +76,11 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     if (UNLIKELY(difference <= 0)) {
       return p;
     }
-    return allocator_->reallocateBytes(p, size, newSize);
+    return allocator_.realloc(p, size, newSize);
   }
   void free(void* p, int64_t size) override {
-    allocator_->freeBytes(p, size);
+    allocator_.free(p, size);
     updateLocalMemoryUsage(-size);
-  }
-
-  bool allocateNonContiguous(
-      velox::memory::MachinePageCount /*unused*/,
-      velox::memory::MemoryAllocator::Allocation& /*unused*/,
-      velox::memory::MachinePageCount /*unused*/) override {
-    VELOX_UNSUPPORTED("allocateNonContiguous unsupported");
-  }
-
-  void freeNonContiguous(
-      velox::memory::MemoryAllocator::Allocation& /*unused*/) override {
-    VELOX_UNSUPPORTED("freeNonContiguous unsupported");
-  }
-
-  velox::memory::MachinePageCount largestSizeClass() const override {
-    VELOX_UNSUPPORTED("largestSizeClass unsupported");
-  }
-
-  const std::vector<velox::memory::MachinePageCount>& sizeClasses()
-      const override {
-    VELOX_UNSUPPORTED("sizeClasses unsupported");
-  }
-
-  bool allocateContiguous(
-      velox::memory::MachinePageCount /*unused*/,
-      velox::memory::MemoryAllocator::ContiguousAllocation&
-      /*unused*/) override {
-    VELOX_UNSUPPORTED("allocateContiguous unsupported");
-  }
-
-  void freeContiguous(velox::memory::MemoryAllocator::ContiguousAllocation&
-                      /*unused*/) override {
-    VELOX_UNSUPPORTED("freeContiguous unsupported");
   }
 
   int64_t getCurrentBytes() const override {
@@ -158,11 +123,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       setMemoryUsageTracker,
       void(const std::shared_ptr<velox::memory::MemoryUsageTracker>&));
 
-  MOCK_CONST_METHOD0(alignment, uint16_t());
+  MOCK_CONST_METHOD0(getAlignment, uint16_t());
 
  private:
-  velox::memory::MemoryAllocator* const FOLLY_NONNULL allocator_{
-      velox::memory::MemoryAllocator::getInstance()};
+  velox::memory::MemoryAllocator allocator_{};
   int64_t localMemoryUsage_{0};
   int64_t subtreeMemoryUsage_{0};
   int64_t cap_;

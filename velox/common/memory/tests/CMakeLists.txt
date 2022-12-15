@@ -17,12 +17,12 @@ add_executable(
   ByteStreamTest.cpp
   CompactDoubleListTest.cpp
   HashStringAllocatorTest.cpp
-  MemoryAllocatorTest.cpp
   MemoryHeaderTest.cpp
   MemoryManagerTest.cpp
   MemoryPoolTest.cpp
   MemoryUsageTest.cpp
-  MemoryUsageTrackerTest.cpp)
+  MemoryUsageTrackerTest.cpp
+  MappedMemoryTest.cpp)
 
 target_link_libraries(
   velox_memory_test

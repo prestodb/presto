@@ -102,7 +102,7 @@ WriteFile& SpillFileList::currentOutput() {
 void SpillFileList::flush() {
   if (batch_) {
     IOBufOutputStream out(
-        pool_, nullptr, std::max<int64_t>(64 * 1024, batch_->size()));
+        mappedMemory_, nullptr, std::max<int64_t>(64 * 1024, batch_->size()));
     batch_->flush(&out);
     batch_.reset();
     auto iobuf = out.getIOBuf();
@@ -118,7 +118,7 @@ void SpillFileList::write(
     const RowVectorPtr& rows,
     const folly::Range<IndexRange*>& indices) {
   if (!batch_) {
-    batch_ = std::make_unique<VectorStreamGroup>(&pool_);
+    batch_ = std::make_unique<VectorStreamGroup>(&mappedMemory_);
     batch_->createStreamTree(
         std::static_pointer_cast<const RowType>(rows->type()),
         1000,
@@ -182,7 +182,8 @@ void SpillState::appendToPartition(
         sortCompareFlags_,
         fmt::format("{}-spill-{}", path_, partition),
         targetFileSize_,
-        pool_);
+        pool_,
+        mappedMemory_);
   }
 
   IndexRange range{0, rows->size()};

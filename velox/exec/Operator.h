@@ -197,6 +197,8 @@ class OperatorCtx {
     return operatorType_;
   }
 
+  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const;
+
   core::ExecCtx* FOLLY_NONNULL execCtx() const;
 
   /// Makes an extract of QueryCtx for use in a connector. 'planNodeId'
@@ -218,6 +220,7 @@ class OperatorCtx {
   velox::memory::MemoryPool* const FOLLY_NONNULL pool_;
 
   // These members are created on demand.
+  mutable memory::MappedMemory* FOLLY_NULLABLE mappedMemory_{nullptr};
   mutable std::unique_ptr<core::ExecCtx> execCtx_;
   mutable std::unique_ptr<connector::ExpressionEvaluator> expressionEvaluator_;
 };

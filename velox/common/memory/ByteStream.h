@@ -328,7 +328,7 @@ class ByteStream {
       if (offset == bytes) {
         return;
       }
-      extend(bits::roundUp(bytes - offset, memory::MemoryAllocator::kPageSize));
+      extend(bits::roundUp(bytes - offset, memory::MappedMemory::kPageSize));
     }
   }
 
@@ -350,7 +350,7 @@ class ByteStream {
   }
 
  private:
-  void extend(int32_t bytes = memory::MemoryAllocator::kPageSize);
+  void extend(int32_t bytes = memory::MappedMemory::kPageSize);
 
   void updateEnd() {
     if (!ranges_.empty() && current_ == &ranges_.back() &&
@@ -401,11 +401,11 @@ inline Date ByteStream::read<Date>() {
 class IOBufOutputStream : public OutputStream {
  public:
   explicit IOBufOutputStream(
-      memory::MemoryPool& pool,
+      memory::MappedMemory& mappedMemory,
       OutputStreamListener* listener = nullptr,
-      int32_t initialSize = memory::MemoryAllocator::kPageSize)
+      int32_t initialSize = memory::MappedMemory::kPageSize)
       : OutputStream(listener),
-        arena_(std::make_shared<StreamArena>(&pool)),
+        arena_(std::make_shared<StreamArena>(&mappedMemory)),
         out_(std::make_unique<ByteStream>(arena_.get())) {
     out_->startWrite(initialSize);
   }

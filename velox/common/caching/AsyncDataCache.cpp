@@ -25,14 +25,11 @@
 namespace facebook::velox::cache {
 
 using memory::MachinePageCount;
-using memory::MemoryAllocator;
+using memory::MappedMemory;
 
-AsyncDataCacheEntry::AsyncDataCacheEntry(CacheShard* shard) : shard_(shard) {
+AsyncDataCacheEntry::AsyncDataCacheEntry(CacheShard* shard)
+    : shard_(shard), data_(shard->cache()) {
   accessStats_.reset();
-}
-
-AsyncDataCacheEntry::~AsyncDataCacheEntry() {
-  shard_->cache()->freeNonContiguous(data_);
 }
 
 void AsyncDataCacheEntry::setExclusiveToShared() {
@@ -91,8 +88,8 @@ void AsyncDataCacheEntry::addReference() {
 
 memory::MachinePageCount AsyncDataCacheEntry::setPrefetch(bool flag) {
   isPrefetch_ = flag;
-  auto numPages = bits::roundUp(size_, memory::MemoryAllocator::kPageSize) /
-      memory::MemoryAllocator::kPageSize;
+  auto numPages = bits::roundUp(size_, memory::MappedMemory::kPageSize) /
+      memory::MappedMemory::kPageSize;
   return shard_->cache()->incrementPrefetchPages(flag ? numPages : -numPages);
 }
 
@@ -106,9 +103,9 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
     tinyData_.resize(size_);
   } else {
     tinyData_.clear();
-    auto sizePages = bits::roundUp(size_, MemoryAllocator::kPageSize) /
-        MemoryAllocator::kPageSize;
-    if (cache->allocateNonContiguous(sizePages, data_)) {
+    auto sizePages =
+        bits::roundUp(size_, MappedMemory::kPageSize) / MappedMemory::kPageSize;
+    if (cache->allocate(sizePages, CacheShard::kCacheOwner, data_)) {
       cache->incrementCachedPages(data().numPages());
     } else {
       // No memory to cover 'this'.
@@ -323,7 +320,7 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
     auto numPages = entry->data().numPages();
     if (numPages) {
       cache_->incrementCachedPages(-numPages);
-      cache_->freeNonContiguous(entry->data());
+      cache_->free(entry->data());
     }
   }
 }
@@ -335,7 +332,7 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
   auto ssdCache = cache_->ssdCache();
   bool skipSsdSaveable = ssdCache && ssdCache->writeInProgress();
   auto now = accessTime();
-  std::vector<MemoryAllocator::Allocation> toFree;
+  std::vector<MappedMemory::Allocation> toFree;
   {
     std::lock_guard<std::mutex> l(mutex_);
     int size = entries_.size();
@@ -395,9 +392,9 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
     }
   }
   ClockTimer t(allocClocks_);
-  freeAllocations(toFree);
+  toFree.clear();
   cache_->incrementCachedPages(
-      -largeFreed / static_cast<int32_t>(MemoryAllocator::kPageSize));
+      -largeFreed / static_cast<int32_t>(MappedMemory::kPageSize));
   if (evictSaveableSkipped && ssdCache && ssdCache->startWrite()) {
     // Rare. May occur if SSD is unusually slow. Useful for  diagnostics.
     LOG(INFO) << "SSDCA: Start save for old saveable, skipped "
@@ -407,14 +404,6 @@ void CacheShard::evict(uint64_t bytesToFree, bool evictAllUnpinned) {
   } else if (evictSaveableSkipped) {
     ++cache_->numSkippedSaves();
   }
-}
-
-void CacheShard::freeAllocations(
-    std::vector<MemoryAllocator::Allocation>& allocations) {
-  for (auto& allocation : allocations) {
-    cache_->freeNonContiguous(allocation);
-  }
-  allocations.clear();
 }
 
 void CacheShard::calibrateThreshold() {
@@ -494,10 +483,10 @@ void CacheShard::appendSsdSaveable(std::vector<CachePin>& pins) {
 }
 
 AsyncDataCache::AsyncDataCache(
-    const std::shared_ptr<MemoryAllocator>& allocator,
+    const std::shared_ptr<MappedMemory>& mappedMemory,
     uint64_t maxBytes,
     std::unique_ptr<SsdCache> ssdCache)
-    : allocator_(allocator),
+    : mappedMemory_(mappedMemory),
       ssdCache_(std::move(ssdCache)),
       cachedPages_(0),
       maxBytes_(maxBytes) {
@@ -553,8 +542,8 @@ bool AsyncDataCache::makeSpace(
     isCounted = true;
   }
   for (auto nthAttempt = 0; nthAttempt < kMaxAttempts; ++nthAttempt) {
-    if (allocator_->numAllocated() + numPages <
-        maxBytes_ / MemoryAllocator::kPageSize) {
+    if (mappedMemory_->numAllocated() + numPages <
+        maxBytes_ / MappedMemory::kPageSize) {
       try {
         if (allocate()) {
           if (isCounted) {
@@ -588,7 +577,7 @@ bool AsyncDataCache::makeSpace(
     // and still have not made the allocation, we go to desperate mode
     // with 'evictAllUnpinned' set to true.
     shards_[shardCounter_ & (kShardMask)]->evict(
-        numPages * sizeMultiplier * MemoryAllocator::kPageSize,
+        numPages * sizeMultiplier * MappedMemory::kPageSize,
         nthAttempt >= kNumShards);
     if (numPages < kSmallSizePages && sizeMultiplier < 4) {
       sizeMultiplier *= 2;
@@ -607,15 +596,16 @@ void AsyncDataCache::backoff(int32_t counter) {
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
 
-bool AsyncDataCache::allocateNonContiguous(
+bool AsyncDataCache::allocate(
     MachinePageCount numPages,
+    int32_t owner,
     Allocation& out,
-    ReservationCallback reservationCB,
+    std::function<void(int64_t, bool)> beforeAllocCB,
     MachinePageCount minSizeClass) {
-  freeNonContiguous(out);
+  free(out);
   return makeSpace(numPages, [&]() {
-    return allocator_->allocateNonContiguous(
-        numPages, out, reservationCB, minSizeClass);
+    return mappedMemory_->allocate(
+        numPages, owner, out, beforeAllocCB, minSizeClass);
   });
 }
 
@@ -623,20 +613,18 @@ bool AsyncDataCache::allocateContiguous(
     MachinePageCount numPages,
     Allocation* collateral,
     ContiguousAllocation& allocation,
-    ReservationCallback reservationCB) {
+    std::function<void(int64_t, bool)> beforeAllocCB) {
   return makeSpace(numPages, [&]() {
-    return allocator_->allocateContiguous(
-        numPages, collateral, allocation, std::move(reservationCB));
+    return mappedMemory_->allocateContiguous(
+        numPages, collateral, allocation, beforeAllocCB);
   });
 }
 
-void* AsyncDataCache::allocateBytes(
-    uint64_t bytes,
-    uint16_t alignment,
-    uint64_t maxMallocSize) {
+void* FOLLY_NULLABLE
+AsyncDataCache::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
   void* result = nullptr;
   makeSpace(bits::roundUp(bytes, kPageSize) / kPageSize, [&]() {
-    result = allocator_->allocateBytes(bytes, alignment, maxMallocSize);
+    result = mappedMemory_->allocateBytes(bytes, maxMallocSize);
     return result != nullptr;
   });
   return result;
@@ -650,7 +638,7 @@ void AsyncDataCache::incrementNew(uint64_t size) {
   if (newBytes_ > nextSsdScoreSize_) {
     // Check next time after replacing half the cache.
     nextSsdScoreSize_ = newBytes_ +
-        std::max<int64_t>(cachedPages_ * MemoryAllocator::kPageSize, 1UL << 28);
+        std::max<int64_t>(cachedPages_ * MappedMemory::kPageSize, 1UL << 28);
     ssdCache_->groupStats().updateSsdFilter(ssdCache_->maxBytes() * 0.9);
   }
 }
@@ -662,7 +650,7 @@ void AsyncDataCache::possibleSsdSave(uint64_t bytes) {
   }
 
   ssdSaveable_ += bytes;
-  if (ssdSaveable_ / MemoryAllocator::kPageSize >
+  if (ssdSaveable_ / MappedMemory::kPageSize >
       std::max<int32_t>(kMinSavePages, cachedPages_ / 8)) {
     // Do not start a new save if another one is in progress.
     if (!ssdCache_->startWrite()) {
@@ -710,7 +698,7 @@ std::string AsyncDataCache::toString() const {
       << " Alloc Megaclocks " << (stats.allocClocks >> 20)
       << " allocated pages " << numAllocated() << " cached pages "
       << cachedPages_;
-  out << "\nBacking: " << allocator_->toString();
+  out << "\nBacking: " << mappedMemory_->toString();
   if (ssdCache_) {
     out << "\nSSD: " << ssdCache_->toString();
   }

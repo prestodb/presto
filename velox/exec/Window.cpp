@@ -58,9 +58,9 @@ Window::Window(
       numInputColumns_(windowNode->sources()[0]->outputType()->size()),
       data_(std::make_unique<RowContainer>(
           windowNode->sources()[0]->outputType()->children(),
-          pool())),
+          operatorCtx_->mappedMemory())),
       decodedInputVectors_(numInputColumns_),
-      stringAllocator_(pool()) {
+      stringAllocator_(operatorCtx_->mappedMemory()) {
   auto inputType = windowNode->sources()[0]->outputType();
   initKeyInfo(inputType, windowNode->partitionKeys(), {}, partitionKeyInfo_);
   initKeyInfo(

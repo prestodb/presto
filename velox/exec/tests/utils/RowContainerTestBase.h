@@ -34,6 +34,7 @@ class RowContainerTestBase : public testing::Test,
  protected:
   void SetUp() override {
     pool_ = memory::getDefaultMemoryPool();
+    mappedMemory_ = memory::MappedMemory::getInstance();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();
@@ -67,10 +68,11 @@ class RowContainerTestBase : public testing::Test,
         isJoinBuild,
         true,
         true,
-        pool_.get(),
+        mappedMemory_,
         ContainerRowSerde::instance());
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
+  memory::MappedMemory* mappedMemory_;
 };
 } // namespace facebook::velox::exec::test

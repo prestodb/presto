@@ -239,6 +239,9 @@ class HashBuild final : public Operator {
 
   const core::JoinType joinType_;
 
+  // Holds the areas in RowContainer of 'table_'
+  memory::MappedMemory* const FOLLY_NONNULL mappedMemory_;
+
   const std::shared_ptr<HashJoinBridge> joinBridge_;
 
   const std::optional<Spiller::Config> spillConfig_;

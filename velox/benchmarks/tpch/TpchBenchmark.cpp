@@ -114,7 +114,7 @@ class TpchBenchmark {
       auto allocator = std::make_shared<memory::MmapAllocator>(options);
       allocator_ = std::make_shared<cache::AsyncDataCache>(
           allocator, memoryBytes, nullptr);
-      memory::MemoryAllocator::setDefaultInstance(allocator_.get());
+      memory::MappedMemory::setDefaultInstance(allocator_.get());
     }
     functions::prestosql::registerAllScalarFunctions();
     aggregate::prestosql::registerAllAggregateFunctions();
@@ -175,7 +175,7 @@ class TpchBenchmark {
   }
 
   std::unique_ptr<folly::IOThreadPoolExecutor> ioExecutor_;
-  std::shared_ptr<memory::MemoryAllocator> allocator_;
+  std::shared_ptr<memory::MappedMemory> allocator_;
 };
 
 TpchBenchmark benchmark;

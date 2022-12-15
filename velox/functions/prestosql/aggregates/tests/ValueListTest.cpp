@@ -72,9 +72,9 @@ class ValueListTest : public functions::test::FunctionBaseTest {
     return allocator_.get();
   }
 
-  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
   std::unique_ptr<HashStringAllocator> allocator_{
-      std::make_unique<HashStringAllocator>(pool_.get())};
+      std::make_unique<HashStringAllocator>(
+          memory::MappedMemory::getInstance())};
 };
 
 TEST_F(ValueListTest, empty) {

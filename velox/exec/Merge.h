@@ -50,6 +50,10 @@ class Merge : public SourceOperator {
     return outputType_;
   }
 
+  memory::MappedMemory* mappedMemory() const {
+    return operatorCtx_->mappedMemory();
+  }
+
  protected:
   virtual BlockingReason addMergeSources(ContinueFuture* future) = 0;
 

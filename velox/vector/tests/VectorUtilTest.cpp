@@ -61,7 +61,8 @@ class VectorUtilTest : public testing::Test {
     pool_ = memoryManager_.getChild();
   }
 
-  memory::MemoryManager memoryManager_;
+  memory::MemoryManager<memory::MemoryAllocator, AlignedBuffer::kAlignment>
+      memoryManager_;
   std::shared_ptr<memory::MemoryPool> pool_;
 };
 

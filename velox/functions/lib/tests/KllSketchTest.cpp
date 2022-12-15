@@ -314,8 +314,7 @@ TEST(KllSketchTest, mergeDeserialized) {
 // 2. Otherwise it's \f$ K \sum_i \(\frac{2}{3}\)^i \f$ and it converges to
 //    about O(3K).
 TEST(KllSketchTest, memoryUsage) {
-  auto pool = memory::getDefaultMemoryPool();
-  HashStringAllocator alloc(pool.get());
+  HashStringAllocator alloc(memory::MappedMemory::getInstance());
   KllSketch<int64_t, StlAllocator<int64_t>> kll(
       1024, StlAllocator<int64_t>(&alloc));
   EXPECT_LE(alloc.retainedSize() - alloc.freeSpace(), 64);

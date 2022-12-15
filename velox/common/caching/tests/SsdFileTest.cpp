@@ -25,7 +25,7 @@
 using namespace facebook::velox;
 using namespace facebook::velox::cache;
 
-using facebook::velox::memory::MemoryAllocator;
+using facebook::velox::memory::MappedMemory;
 
 // Represents an entry written to SSD.
 struct TestEntry {
@@ -51,7 +51,7 @@ class SsdFileTest : public testing::Test {
     // tmpfs does not support O_DIRECT, so turn this off for testing.
     FLAGS_ssd_odirect = false;
     cache_ = std::make_shared<AsyncDataCache>(
-        MemoryAllocator::createDefaultInstance(), maxBytes);
+        MappedMemory::createDefaultInstance(), maxBytes);
 
     fileName_ = StringIdLease(fileIds(), "fileInStorage");
 
@@ -64,13 +64,13 @@ class SsdFileTest : public testing::Test {
 
   static void initializeContents(
       int64_t sequence,
-      MemoryAllocator::Allocation& alloc) {
+      MappedMemory::Allocation& alloc) {
     bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      MappedMemory::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           ptr[offset] = sequence;
@@ -85,16 +85,16 @@ class SsdFileTest : public testing::Test {
   // Checks that the contents are consistent with what is set in
   // initializeContents.
   static void checkContents(
-      const MemoryAllocator::Allocation& alloc,
+      const MappedMemory::Allocation& alloc,
       int32_t numBytes) {
     bool first = true;
     int64_t sequence;
     int32_t bytesChecked = sizeof(int64_t);
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
+      MappedMemory::PageRun run = alloc.runAt(i);
       int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
       int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           sequence = ptr[offset];

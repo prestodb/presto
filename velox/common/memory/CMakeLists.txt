@@ -22,7 +22,7 @@ add_library(
   HashStringAllocator.cpp
   Memory.cpp
   MemoryUsage.cpp
-  MemoryAllocator.cpp
+  MappedMemory.cpp
   MmapAllocator.cpp
   MmapArena.cpp
   MemoryUsageTracker.cpp

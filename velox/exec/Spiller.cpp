@@ -22,9 +22,8 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
-namespace {
-constexpr int32_t kLogEveryN = 32;
-}
+
+constexpr int kLogEveryN = 32;
 
 Spiller::Spiller(
     Type type,
@@ -104,7 +103,8 @@ Spiller::Spiller(
           numSortingKeys,
           sortCompareFlags,
           targetFileSize,
-          pool),
+          pool,
+          spillMappedMemory()),
       pool_(pool),
       executor_(executor) {
   TestValue::adjust(
@@ -115,7 +115,7 @@ Spiller::Spiller(
   VELOX_CHECK((type_ != Type::kOrderBy) || (state_.maxPartitions() == 1));
   spillRuns_.reserve(state_.maxPartitions());
   for (int i = 0; i < state_.maxPartitions(); ++i) {
-    spillRuns_.emplace_back(spillMemoryAllocator());
+    spillRuns_.emplace_back(spillMappedMemory());
   }
 }
 
@@ -497,7 +497,7 @@ Spiller::SpillRows Spiller::finishSpill() {
   spillFinalized_ = true;
 
   SpillRows rowsFromNonSpillingPartitions(
-      0, memory::StlMemoryAllocator<char*>(&spillMemoryAllocator()));
+      0, memory::StlMappedMemoryAllocator<char*>(&spillMappedMemory()));
   if (type_ != Spiller::Type::kHashJoinProbe) {
     fillSpillRuns(&rowsFromNonSpillingPartitions);
   }
@@ -650,12 +650,12 @@ void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList) {
 }
 
 // static
-memory::MemoryAllocator& Spiller::spillMemoryAllocator() {
+memory::MappedMemory& Spiller::spillMappedMemory() {
   // Return the top level instance. Since this too may be full,
   // another possibility is to return an emergency instance that
   // delegates to the process wide one and makes a file-backed mmap
   // if the allocation fails.
-  return *memory::MemoryAllocator::getInstance();
+  return *memory::MappedMemory::getInstance();
 }
 
 // static

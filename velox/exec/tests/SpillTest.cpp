@@ -63,7 +63,7 @@ class SpillTest : public testing::Test,
 
  protected:
   void SetUp() override {
-    allocator_ = memory::MemoryAllocator::getInstance();
+    mappedMemory_ = memory::MappedMemory::getInstance();
     tempDir_ = exec::test::TempDirectoryPath::create();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
@@ -144,7 +144,13 @@ class SpillTest : public testing::Test,
     // the batch number of the vector in the partition. When read back, both
     // partitions produce an ascending sequence of integers without gaps.
     state_ = std::make_unique<SpillState>(
-        spillPath_, numPartitions, 1, compareFlags, targetFileSize, *pool());
+        spillPath_,
+        numPartitions,
+        1,
+        compareFlags,
+        targetFileSize,
+        *pool(),
+        *mappedMemory_);
     EXPECT_EQ(targetFileSize, state_->targetFileSize());
     EXPECT_EQ(numPartitions, state_->maxPartitions());
     EXPECT_EQ(0, state_->spilledPartitions());
@@ -310,7 +316,7 @@ class SpillTest : public testing::Test,
 
   folly::Random::DefaultGenerator rng_;
   std::shared_ptr<TempDirectoryPath> tempDir_;
-  memory::MemoryAllocator* allocator_;
+  memory::MappedMemory* mappedMemory_;
   std::vector<std::optional<int64_t>> values_;
   std::vector<std::vector<RowVectorPtr>> batchesByPartition_;
   std::string spillPath_;
@@ -351,7 +357,8 @@ TEST_F(SpillTest, spillTimestamp) {
       Timestamp{1, 17'123'456},
       Timestamp{-1, 17'123'456}};
 
-  SpillState state(spillPath, 1, 1, emptyCompareFlags, 1024, *pool());
+  SpillState state(
+      spillPath, 1, 1, emptyCompareFlags, 1024, *pool(), *mappedMemory_);
   int partitionIndex = 0;
   state.setPartitionSpilled(partitionIndex);
   EXPECT_TRUE(state.isPartitionSpilled(partitionIndex));

@@ -16,13 +16,12 @@
 #pragma once
 
 #include "velox/common/memory/HashStringAllocator.h"
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/MappedMemory.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/ContainerRowSerde.h"
 #include "velox/exec/Spill.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
-
 namespace facebook::velox::exec {
 
 using normalized_key_t = uint64_t;
@@ -66,7 +65,7 @@ struct RowContainerIterator {
 class RowPartitions {
  public:
   /// Initializes this to hold up to 'numRows'.
-  RowPartitions(int32_t numRows, memory::MemoryPool& pool);
+  RowPartitions(int32_t numRows, memory::MappedMemory& mappedMemory);
 
   /// Appends 'partitions' to the end of 'this'. Throws if adding more than the
   /// capacity given at construction.
@@ -87,7 +86,7 @@ class RowPartitions {
   int32_t size_{0};
 
   // Partition numbers. 1 byte each.
-  memory::MemoryAllocator::Allocation allocation_;
+  memory::MappedMemory::Allocation allocation_;
 };
 
 // Packed representation of offset, null byte offset and null mask for
@@ -132,17 +131,17 @@ class RowContainer {
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
-  // 'keyTypes' gives the type of row and use 'allocator' for bulk
+  // 'keyTypes' gives the type of row and use 'mappedMemory' for bulk
   // allocation.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
-      memory::MemoryPool* FOLLY_NONNULL pool)
-      : RowContainer(keyTypes, std::vector<TypePtr>{}, pool) {}
+      memory::MappedMemory* FOLLY_NONNULL mappedMemory)
+      : RowContainer(keyTypes, std::vector<TypePtr>{}, mappedMemory) {}
 
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       const std::vector<TypePtr>& dependentTypes,
-      memory::MemoryPool* FOLLY_NONNULL pool)
+      memory::MappedMemory* FOLLY_NONNULL mappedMemory)
       : RowContainer(
             keyTypes,
             true, // nullableKeys
@@ -152,7 +151,7 @@ class RowContainer {
             false, // isJoinBuild
             false, // hasProbedFlag
             false, // hasNormalizedKey
-            pool,
+            mappedMemory,
             ContainerRowSerde::instance()) {}
 
   // 'keyTypes' gives the type of the key of each row. For a group by,
@@ -169,7 +168,7 @@ class RowContainer {
   // join. 'hasNormalizedKey' specifies that an extra word is left
   // below each row for a normalized key that collapses all parts
   // into one word for faster comparison. The bulk allocation is done
-  // from 'allocator'.  'serde_' is used for serializing complex
+  // from 'mappedMemory'.  'serde_' is used for serializing complex
   // type values into the container.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
@@ -180,7 +179,7 @@ class RowContainer {
       bool isJoinBuild,
       bool hasProbedFlag,
       bool hasNormalizedKey,
-      memory::MemoryPool* FOLLY_NONNULL pool,
+      memory::MappedMemory* FOLLY_NONNULL mappedMemory,
       const RowSerde& serde);
 
   // Allocates a new row and initializes possible aggregates to null.
@@ -355,13 +354,13 @@ class RowContainer {
       auto allocation = rows_.allocationAt(i);
       auto numRuns = allocation->numRuns();
       for (auto runIndex = iter->runIndex; runIndex < numRuns; ++runIndex) {
-        memory::MemoryAllocator::PageRun run = allocation->runAt(runIndex);
+        memory::MappedMemory::PageRun run = allocation->runAt(runIndex);
         auto data = run.data<char>();
         int64_t limit;
         if (i == numAllocations - 1 && runIndex == rows_.currentRunIndex()) {
           limit = rows_.currentOffset();
         } else {
-          limit = run.numPages() * memory::MemoryAllocator::kPageSize;
+          limit = run.numPages() * memory::MappedMemory::kPageSize;
         }
         auto row = iter->rowOffset;
         while (row + rowSize <= limit) {
@@ -570,8 +569,8 @@ class RowContainer {
     }
   }
 
-  memory::MemoryPool* FOLLY_NONNULL pool() const {
-    return stringAllocator_.pool();
+  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const {
+    return stringAllocator_.mappedMemory();
   }
 
   // Returns the types of all non-aggregate columns of 'this', keys first.

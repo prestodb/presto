@@ -278,6 +278,12 @@ class Task : public std::enable_shared_from_this<Task> {
       int pipelineId,
       const std::string& operatorType);
 
+  /// Creates new instance of MappedMemory, stores it in the task to ensure
+  /// lifetime and returns a raw pointer. Not thread safe, e.g. must be called
+  /// from the Operator's constructor.
+  memory::MappedMemory* FOLLY_NONNULL
+  addOperatorMemory(const std::shared_ptr<memory::MemoryUsageTracker>& tracker);
+
   // Removes driver from the set of drivers in 'self'. The task will be kept
   // alive by 'self'. 'self' going out of scope may cause the Task to
   // be freed. This happens if a cancelled task is decoupled from the
@@ -743,6 +749,10 @@ class Task : public std::enable_shared_from_this<Task> {
   //
   // NOTE: ''childPools_' holds the ownerships of node memory pools.
   std::unordered_map<core::PlanNodeId, memory::MemoryPool*> nodePools_;
+
+  // Keep operator MappedMemory instances alive for the duration of the task to
+  // allow for sharing data without copy.
+  std::vector<std::shared_ptr<memory::MappedMemory>> childMappedMemories_;
 
   // A set of IDs of leaf plan nodes that require splits. Used to check plan
   // node IDs specified in split management methods.

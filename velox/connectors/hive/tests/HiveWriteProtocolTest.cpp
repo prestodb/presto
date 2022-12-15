@@ -34,7 +34,7 @@ TEST(HiveWriteProtocolTest, writerParameters) {
       queryCtx->pool(),
       queryCtx->getConnectorConfig(HiveConnectorFactory::kHiveConnectorName),
       nullptr,
-      queryCtx->allocator(),
+      queryCtx->mappedMemory(),
       "test_task_id",
       "test_plan_node_id",
       0);

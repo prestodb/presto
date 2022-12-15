@@ -75,7 +75,7 @@ class HashJoinBridgeTest : public testing::Test,
           std::make_unique<VectorHasher>(rowType_->childAt(channel), channel));
     }
     return HashTable<true>::createForJoin(
-        std::move(keyHashers), {}, true, false, pool_.get());
+        std::move(keyHashers), {}, true, false, mappedMemory_);
   }
 
   std::vector<ContinueFuture> createEmptyFutures(int32_t count) {
@@ -137,7 +137,7 @@ class HashJoinBridgeTest : public testing::Test,
   const uint32_t numSpillFilesPerPartition_{20};
 
   std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
-  memory::MemoryAllocator* allocator_{memory::MemoryAllocator::getInstance()};
+  memory::MappedMemory* mappedMemory_{memory::MappedMemory::getInstance()};
   std::shared_ptr<TempDirectoryPath> tempDir_;
 
   std::mutex mutex_;
