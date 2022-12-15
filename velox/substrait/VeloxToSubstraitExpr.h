@@ -64,17 +64,17 @@ class VeloxToSubstraitExprConvertor {
       google::protobuf::Arena& arena,
       const velox::variant& variantValue);
 
+  /// Convert Velox FieldAccessTypedExpr to Substrait FieldReference Expression.
+  const ::substrait::Expression_FieldReference& toSubstraitExpr(
+      google::protobuf::Arena& arena,
+      const std::shared_ptr<const core::FieldAccessTypedExpr>& fieldExpr,
+      const RowTypePtr& inputType);
+
  private:
   /// Convert Velox Cast Expression to Substrait Cast Expression.
   const ::substrait::Expression_Cast& toSubstraitExpr(
       google::protobuf::Arena& arena,
       const std::shared_ptr<const core::CastTypedExpr>& castExpr,
-      const RowTypePtr& inputType);
-
-  /// Convert Velox FieldAccessTypedExpr to Substrait FieldReference Expression.
-  const ::substrait::Expression_FieldReference& toSubstraitExpr(
-      google::protobuf::Arena& arena,
-      const std::shared_ptr<const core::FieldAccessTypedExpr>& fieldExpr,
       const RowTypePtr& inputType);
 
   /// Convert Velox CallTypedExpr Expression to Substrait Expression.
