@@ -32,6 +32,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.CostCalculator;
 import com.facebook.presto.cost.CostCalculatorUsingExchanges;
+import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
@@ -97,6 +98,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -137,6 +139,8 @@ public class TestIterativePlanFragmenter
     private FinalizerService finalizerService;
     private NodeScheduler nodeScheduler;
     private NodePartitioningManager nodePartitioningManager;
+    private PlanNodeIdAllocator planNodeIdAllocator;
+    private PlanVariableAllocator planVariableAllocator;
 
     @BeforeClass
     public void setUp()
@@ -162,6 +166,8 @@ public class TestIterativePlanFragmenter
         PartitioningProviderManager partitioningProviderManager = new PartitioningProviderManager();
         nodePartitioningManager = new NodePartitioningManager(nodeScheduler, partitioningProviderManager, new NodeSelectionStats());
         planFragmenter = new PlanFragmenter(metadata, nodePartitioningManager, new QueryManagerConfig(), new SqlParser(), new FeaturesConfig());
+        planNodeIdAllocator = new PlanNodeIdAllocator();
+        planVariableAllocator = new PlanVariableAllocator();
     }
 
     @AfterClass(alwaysRun = true)
@@ -215,37 +221,35 @@ public class TestIterativePlanFragmenter
                 "orderkey_0", BIGINT);
         TypeProvider typeProvider = TypeProvider.copyOf(types);
         PlanNode node = translateExpression(join, typeProvider);
-        Plan plan = new Plan(node, typeProvider, StatsAndCosts.empty());
+        Plan plan = new Plan(node, typeProvider, StatsAndCosts.create(node, node1 -> PlanNodeStatsEstimate.unknown(), node1 -> PlanCostEstimate.unknown()));
 
         SubPlan fullFragmentedPlan = getFullFragmentedPlan(plan);
 
-        inTransaction(session -> runTestIterativePlanFragmenter(node, plan, fullFragmentedPlan, session));
+        runTestIterativePlanFragmenter(node, fullFragmentedPlan);
     }
 
-    private Void runTestIterativePlanFragmenter(PlanNode node, Plan plan, SubPlan fullFragmentedPlan, Session session)
+    private Void runTestIterativePlanFragmenter(PlanNode node, SubPlan fullFragmentedPlan)
     {
         TestingFragmentTracker testingFragmentTracker = new TestingFragmentTracker();
         IterativePlanFragmenter iterativePlanFragmenter = new IterativePlanFragmenter(
-                plan,
-                testingFragmentTracker::isFragmentFinished,
                 metadata,
                 new PlanChecker(new FeaturesConfig()),
                 new SqlParser(),
-                new PlanNodeIdAllocator(),
                 nodePartitioningManager,
                 new QueryManagerConfig(),
-                session,
-                WarningCollector.NOOP,
-                false);
+                (node1, sourceStats, lookup, session1, types) -> PlanNodeStatsEstimate.unknown(),
+                (node12, stats, sourcesCosts, session12) -> PlanCostEstimate.unknown());
 
-        PlanAndFragments nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, node);
+        PlanAndFragments nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, node, testingFragmentTracker);
         assertTrue(nextPlanAndFragments.getRemainingPlan().isPresent());
         assertEquals(nextPlanAndFragments.getReadyFragments().size(), 2);
+        nextPlanAndFragments.getReadyFragments()
+                .forEach(subplan -> testingFragmentTracker.putSubPlanById(subplan.getFragment().getId(), subplan));
 
         // nothing new is ready for execution, you are returned the same plan you sent in
         // and no fragments.
         PlanAndFragments previousPlanAndFragments = nextPlanAndFragments;
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get(), testingFragmentTracker);
         assertTrue(nextPlanAndFragments.getReadyFragments().isEmpty());
         assertTrue(nextPlanAndFragments.getRemainingPlan().isPresent());
         assertEquals(previousPlanAndFragments.getRemainingPlan().get(), nextPlanAndFragments.getRemainingPlan().get());
@@ -255,12 +259,12 @@ public class TestIterativePlanFragmenter
         previousPlanAndFragments = nextPlanAndFragments;
         testingFragmentTracker.addFinishedFragment(new PlanFragmentId(1));
 
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get(), testingFragmentTracker);
         assertEquals(previousPlanAndFragments, nextPlanAndFragments);
 
         testingFragmentTracker.addFinishedFragment(new PlanFragmentId(2));
         previousPlanAndFragments = nextPlanAndFragments;
-        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get());
+        nextPlanAndFragments = getNextPlanAndFragments(iterativePlanFragmenter, previousPlanAndFragments.getRemainingPlan().get(), testingFragmentTracker);
 
         // when the root fragment is ready to execute, there should be no remaining plan left
         assertFalse(nextPlanAndFragments.getRemainingPlan().isPresent());
@@ -382,9 +386,10 @@ public class TestIterativePlanFragmenter
         return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, new PlanNodeIdAllocator(), WarningCollector.NOOP));
     }
 
-    private PlanAndFragments getNextPlanAndFragments(IterativePlanFragmenter iterativePlanFragmenter, PlanNode node)
+    private PlanAndFragments getNextPlanAndFragments(IterativePlanFragmenter iterativePlanFragmenter, PlanNode node, TestingFragmentTracker testingFragmentTracker)
     {
-        return iterativePlanFragmenter.createReadySubPlans(node);
+        return inTransaction(session ->
+                iterativePlanFragmenter.createReadySubPlans(node, planNodeIdAllocator, planVariableAllocator, session, testingFragmentTracker::isFragmentFinished, testingFragmentTracker::getSubPlanById));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
@@ -401,6 +406,7 @@ public class TestIterativePlanFragmenter
     private static class TestingFragmentTracker
     {
         private final Set<PlanFragmentId> finishedFragments = new HashSet<>();
+        private final Map<PlanFragmentId, SubPlan> subPlanById = new HashMap<>();
 
         public void addFinishedFragment(PlanFragmentId id)
         {
@@ -410,6 +416,16 @@ public class TestIterativePlanFragmenter
         public boolean isFragmentFinished(PlanFragmentId id)
         {
             return finishedFragments.contains(id);
+        }
+
+        public void putSubPlanById(PlanFragmentId id, SubPlan subPlan)
+        {
+            subPlanById.put(id, subPlan);
+        }
+
+        public Optional<SubPlan> getSubPlanById(PlanFragmentId id)
+        {
+            return Optional.ofNullable(subPlanById.get(id));
         }
     }
 
