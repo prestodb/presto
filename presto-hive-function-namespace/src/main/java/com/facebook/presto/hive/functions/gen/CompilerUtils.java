@@ -64,7 +64,7 @@ public final class CompilerUtils
     public static <T> Class<? extends T> defineClass(ClassDefinition classDefinition, Class<T> superType, DynamicClassLoader classLoader)
     {
         log.debug("Defining class: %s", classDefinition.getName());
-        if (log.isDebugEnabled()) {
+       {
             Path dumpPath = Paths.get(System.getProperty("java.io.tmpdir", "/tmp"), "classes");
             log.debug("Dumping to %s", dumpPath);
             return classGenerator(classLoader)
@@ -73,6 +73,6 @@ public final class CompilerUtils
                     .dumpClassFilesTo(dumpPath)
                     .defineClass(classDefinition, superType);
         }
-        return classGenerator(classLoader).defineClass(classDefinition, superType);
+        //return classGenerator(classLoader).defineClass(classDefinition, superType);
     }
 }

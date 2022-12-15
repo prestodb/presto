@@ -14,12 +14,12 @@
 package com.facebook.presto.operator.aggregation.state;
 
 import com.facebook.presto.common.array.ObjectBigArray;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.operator.aggregation.SetOfValues;
 import com.facebook.presto.spi.function.AccumulatorStateFactory;
+import it.unimi.dsi.fastutil.ints.IntArraySet;
 import org.openjdk.jol.info.ClassLayout;
-
-import static java.util.Objects.requireNonNull;
 
 public class SetAggregationStateFactory
         implements AccumulatorStateFactory
@@ -62,43 +62,69 @@ public class SetAggregationStateFactory
         private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final Type elementType;
         private long size;
-        private final ObjectBigArray<SetOfValues> set = new ObjectBigArray<>();
+        private final SetOfValues valueSetForAllGroups;
+        private final ObjectBigArray<IntArraySet> positionSets = new ObjectBigArray<>();
 
         public GroupedState(Type elementType)
         {
             this.elementType = elementType;
+            valueSetForAllGroups = new SetOfValues(elementType);
         }
 
         @Override
         public void ensureCapacity(long size)
         {
-            set.ensureCapacity(size);
         }
 
         @Override
         public SetOfValues get()
         {
-            return set.get(getGroupId());
+            IntArraySet positionSet = positionSets.get(getGroupId());
+            if (positionSet == null) {
+                return null;
+            }
+
+            SetOfValues setOfValues = new SetOfValues(elementType);
+            for (int i : positionSet) {
+                setOfValues.add(valueSetForAllGroups.getvalues(), i);
+            }
+
+            return setOfValues;
         }
 
         @Override
-        public void set(SetOfValues value)
+        public void set(SetOfValues setOfValues)
         {
-            requireNonNull(value, "value is null");
-
-            SetOfValues previous = get();
-            if (previous != null) {
-                size -= previous.estimatedInMemorySize();
+            Block valuesBlock = setOfValues.getvalues();
+            IntArraySet positionSet = positionSets.get(getGroupId());
+            size -= positionSet.size() * 4;
+            for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
+                positionSet.add(valueSetForAllGroups.add(valuesBlock, i));
             }
-
-            set.set(getGroupId(), value);
-            size += value.estimatedInMemorySize();
+            size += positionSet.size() * 4;
         }
 
         @Override
         public void addMemoryUsage(long memory)
         {
             size += memory;
+        }
+
+        @Override
+        public void add(Block block, int position)
+        {
+            positionSets.ensureCapacity(getGroupId());
+            IntArraySet positionSet = positionSets.get(getGroupId());
+            if (positionSet == null) {
+                positionSet = new IntArraySet(5);
+                positionSets.set(getGroupId(), positionSet);
+            }
+            else {
+                size -= positionSet.size() * 4;
+            }
+
+            positionSet.add(valueSetForAllGroups.add(block, position));
+            size += positionSet.size() * 4;
         }
 
         @Override
@@ -110,7 +136,7 @@ public class SetAggregationStateFactory
         @Override
         public long getEstimatedSize()
         {
-            return INSTANCE_SIZE + size;
+            return INSTANCE_SIZE + valueSetForAllGroups.estimatedInMemorySize() + size;
         }
     }
 
@@ -147,6 +173,16 @@ public class SetAggregationStateFactory
         public Type getElementType()
         {
             return elementType;
+        }
+
+        @Override
+        public void add(Block block, int position)
+        {
+            if (set == null) {
+                set = new SetOfValues(elementType);
+            }
+
+            set.add(block, position);
         }
 
         @Override

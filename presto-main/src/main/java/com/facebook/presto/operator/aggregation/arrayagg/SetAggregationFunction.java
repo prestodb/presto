@@ -48,6 +48,7 @@ import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.P
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static com.facebook.presto.spi.function.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static com.facebook.presto.util.Reflection.methodHandle;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 public class SetAggregationFunction
@@ -132,29 +133,19 @@ public class SetAggregationFunction
 
     public static void input(Type type, SetAggregationState state, Block block, int position)
     {
-        SetOfValues set = state.get();
-        if (set == null) {
-            set = new SetOfValues(type);
-            state.set(set);
-        }
-
-        long startSize = set.estimatedInMemorySize();
-        set.add(block, position);
-        state.addMemoryUsage(set.estimatedInMemorySize() - startSize);
+        state.add(block, position);
     }
 
     public static void combine(SetAggregationState state, SetAggregationState otherState)
     {
-        if (state.get() != null && otherState.get() != null) {
+        checkState(otherState instanceof SetAggregationStateFactory.SingleState);
+        if (otherState.get() != null) {
             SetOfValues otherSet = otherState.get();
             Block otherValues = otherSet.getvalues();
 
-            SetOfValues set = state.get();
-            long startSize = set.estimatedInMemorySize();
             for (int i = 0; i < otherValues.getPositionCount(); i++) {
-                set.add(otherValues, i);
+                state.add(otherValues, i);
             }
-            state.addMemoryUsage(set.estimatedInMemorySize() - startSize);
         }
         else if (state.get() == null) {
             state.set(otherState.get());

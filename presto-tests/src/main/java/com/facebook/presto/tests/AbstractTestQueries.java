@@ -5715,7 +5715,7 @@ public abstract class AbstractTestQueries
 
         assertQuery(
                 "select count() from " +
-                        "(select set_agg(orderkey) = array_agg(distinct orderkey) eq from orders group by custkey) where eq",
+                        "(select array_sort(set_agg(orderkey)) = array_sort(array_agg(distinct orderkey)) eq from orders group by custkey) where eq",
                 "select count(distinct custkey) from orders");
         assertQuery(
                 "select cardinality(set_agg(orderkey)) from orders",
