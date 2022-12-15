@@ -109,7 +109,9 @@ import com.facebook.presto.transaction.TransactionId;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 import io.airlift.slice.SliceUtf8;
 
 import javax.annotation.Nullable;
@@ -124,8 +126,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.facebook.presto.common.Subfield.NestedField;
-import static com.facebook.presto.common.Subfield.PathElement;
 import static com.facebook.presto.common.function.OperatorType.SUBSCRIPT;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -153,6 +153,10 @@ import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoAggregateWindowO
 import static com.facebook.presto.sql.analyzer.Analyzer.verifyNoExternalFunctions;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.isNonNullConstant;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.tryResolveEnumLiteralType;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.getResolvedLambdaArguments;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isTopMostReference;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.isUnusedArgumentForAccessControl;
+import static com.facebook.presto.sql.analyzer.FunctionArgumentCheckerForAccessControlUtils.resolveSubfield;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.EXPRESSION_NOT_CONSTANT;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
@@ -179,7 +183,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
-import static java.util.Collections.reverse;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -207,6 +210,7 @@ public class ExpressionAnalyzer
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
     private final Multimap<QualifiedObjectName, Subfield> tableColumnAndSubfieldReferences = HashMultimap.create();
+    private final Multimap<QualifiedObjectName, Subfield> tableColumnAndSubfieldReferencesForAccessControl = HashMultimap.create();
 
     private final Optional<TransactionId> transactionId;
     private final Optional<Map<SqlFunctionId, SqlInvokedFunction>> sessionFunctions;
@@ -327,6 +331,11 @@ public class ExpressionAnalyzer
         return tableColumnAndSubfieldReferences;
     }
 
+    public Multimap<QualifiedObjectName, Subfield> getTableColumnAndSubfieldReferencesForAccessControl()
+    {
+        return tableColumnAndSubfieldReferencesForAccessControl;
+    }
+
     private class Visitor
             extends StackableAstVisitor<Type, Context>
     {
@@ -427,13 +436,27 @@ public class ExpressionAnalyzer
                 if (lambdaArgumentDeclaration != null) {
                     // Lambda argument reference is not a column reference
                     lambdaArgumentReferences.put(NodeRef.of((Identifier) node), lambdaArgumentDeclaration);
-                    return setExpressionType(node, field.getType());
+                    if (!context.getContext().getResolvedLambdaArguments().containsKey(node)) {
+                        return setExpressionType(node, field.getType());
+                    }
                 }
             }
 
             // If we found a direct column reference, and we will put it in tableColumnReferencesWithSubFields
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent() && isTopMostReference(node, context)) {
-                tableColumnAndSubfieldReferences.put(field.getOriginTable().get(), new Subfield(field.getOriginColumnName().get(), ImmutableList.of()));
+            if (isTopMostReference(node, context)) {
+                Optional<QualifiedObjectName> tableName = field.getOriginTable();
+                Optional<Subfield> subfield = field.getOriginColumnName().map(column -> new Subfield(column, ImmutableList.of()));
+                ResolvedSubfield resolvedSubfield = context.getContext().getResolvedLambdaArguments().get(node);
+                if (resolvedSubfield != null) {
+                    tableName = resolvedSubfield.getResolvedField().getField().getOriginTable();
+                    subfield = Optional.of(resolvedSubfield.getSubfield());
+                }
+                if (tableName.isPresent() && subfield.isPresent()) {
+                    tableColumnAndSubfieldReferences.put(tableName.get(), subfield.get());
+                    if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
+                        tableColumnAndSubfieldReferencesForAccessControl.put(tableName.get(), subfield.get());
+                    }
+                }
             }
 
             FieldId previous = columnReferences.put(NodeRef.of(node), fieldId);
@@ -923,7 +946,8 @@ public class ExpressionAnalyzer
             }
 
             ImmutableList.Builder<TypeSignatureProvider> argumentTypesBuilder = ImmutableList.builder();
-            for (Expression expression : node.getArguments()) {
+            for (int index = 0; index < node.getArguments().size(); ++index) {
+                Expression expression = node.getArguments().get(index);
                 if (expression instanceof LambdaExpression || expression instanceof BindExpression) {
                     argumentTypesBuilder.add(new TypeSignatureProvider(
                             types -> {
@@ -942,7 +966,7 @@ public class ExpressionAnalyzer
                                         innerExpressionAnalyzer.setExpressionType(argument, getExpressionType(argument));
                                     }
                                 }
-                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types));
+                                Type type = innerExpressionAnalyzer.analyze(expression, baseScope, context.getContext().expectingLambda(types, ImmutableMap.of()));
                                 if (expression instanceof LambdaExpression) {
                                     verifyNoAggregateWindowOrGroupingFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
                                     verifyNoExternalFunctions(innerExpressionAnalyzer.getResolvedFunctions(), functionAndTypeManager, ((LambdaExpression) expression).getBody(), "Lambda expression");
@@ -951,7 +975,11 @@ public class ExpressionAnalyzer
                             }));
                 }
                 else {
-                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, context).getTypeSignature()));
+                    Context newContext = context.getContext();
+                    if (isUnusedArgumentForAccessControl(node, index, context.getContext())) {
+                        newContext = newContext.withUnusedExpressionsForAccessControl(ImmutableSet.of(NodeRef.of(expression)));
+                    }
+                    argumentTypesBuilder.add(new TypeSignatureProvider(process(expression, new StackableAstVisitorContext<>(newContext)).getTypeSignature()));
                 }
             }
 
@@ -968,6 +996,8 @@ public class ExpressionAnalyzer
                 }
             }
 
+            Map<Identifier, ResolvedSubfield> resolvedLambdaArguments = getResolvedLambdaArguments(node, context, expressionTypes);
+
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = functionAndTypeManager.getType(functionMetadata.getArgumentTypes().get(i));
@@ -977,7 +1007,7 @@ public class ExpressionAnalyzer
                 }
                 if (argumentTypes.get(i).hasDependency()) {
                     FunctionType expectedFunctionType = (FunctionType) expectedType;
-                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes())));
+                    process(expression, new StackableAstVisitorContext<>(context.getContext().expectingLambda(expectedFunctionType.getArgumentTypes(), resolvedLambdaArguments)));
                 }
                 else {
                     Type actualType = functionAndTypeManager.getType(argumentTypes.get(i).getTypeSignature());
@@ -1283,7 +1313,7 @@ public class ExpressionAnalyzer
                 fieldToLambdaArgumentDeclaration.put(FieldId.from(resolvedField), lambdaArgument);
             }
 
-            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(Context.inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
+            Type returnType = process(node.getBody(), new StackableAstVisitorContext<>(context.getContext().inLambda(lambdaScope, fieldToLambdaArgumentDeclaration.build())));
             FunctionType functionType = new FunctionType(types, returnType);
             return setExpressionType(node, functionType);
         }
@@ -1301,7 +1331,7 @@ public class ExpressionAnalyzer
             functionInputTypesBuilder.addAll(context.getContext().getFunctionInputTypes());
             List<Type> functionInputTypes = functionInputTypesBuilder.build();
 
-            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes)));
+            FunctionType functionType = (FunctionType) process(node.getFunction(), new StackableAstVisitorContext<>(context.getContext().expectingLambda(functionInputTypes, ImmutableMap.of())));
 
             List<Type> argumentTypes = functionType.getArgumentTypes();
             int numCapturedValues = node.getValues().size();
@@ -1345,74 +1375,20 @@ public class ExpressionAnalyzer
             }
         }
 
-        private boolean isDereferenceOrSubscript(Expression node)
-        {
-            return node instanceof DereferenceExpression || node instanceof SubscriptExpression;
-        }
-
-        private boolean isTopMostReference(Expression node, StackableAstVisitorContext<Context> context)
-        {
-            if (!context.getPreviousNode().isPresent()) {
-                return true;
-            }
-            return !isDereferenceOrSubscript((Expression) context.getPreviousNode().get());
-        }
-
         private void addColumnSubfieldReferences(Expression node, StackableAstVisitorContext<Context> context)
         {
-            // If expression is nested with multiple dereferences and subscripts, we only look at the topmost one.
-            if (!isTopMostReference(node, context)) {
+            Optional<ResolvedSubfield> resolvedSubfield = resolveSubfield(node, context, expressionTypes);
+            if (!resolvedSubfield.isPresent()) {
                 return;
             }
-            Scope scope = context.getContext().getScope();
-            Expression childNode = node;
-            List<PathElement> columnDereferences = new ArrayList<>();
-            while (true) {
-                if (childNode instanceof SubscriptExpression) {
-                    SubscriptExpression subscriptExpression = (SubscriptExpression) childNode;
-                    childNode = subscriptExpression.getBase();
-                    Type baseType = expressionTypes.get(NodeRef.of(childNode));
-                    if (baseType == null || !(baseType instanceof RowType)) {
-                        continue;
-                    }
-                    int index = toIntExact(((LongLiteral) subscriptExpression.getIndex()).getValue());
-                    RowType baseRowType = (RowType) baseType;
-                    Optional<String> dereference = baseRowType.getFields().get(index - 1).getName();
-                    if (!dereference.isPresent()) {
-                        break;
-                    }
-                    columnDereferences.add(new NestedField(dereference.get()));
-                    continue;
-                }
+            tableColumnAndSubfieldReferences.put(
+                    resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
+                    resolvedSubfield.get().getSubfield());
 
-                QualifiedName childQualifiedName;
-                if (childNode instanceof DereferenceExpression) {
-                    childQualifiedName = DereferenceExpression.getQualifiedName((DereferenceExpression) childNode);
-                }
-                else if (childNode instanceof Identifier) {
-                    childQualifiedName = QualifiedName.of(((Identifier) childNode).getValue());
-                }
-                else {
-                    break;
-                }
-                if (childQualifiedName != null) {
-                    Optional<ResolvedField> resolvedField = scope.tryResolveField(childNode, childQualifiedName);
-                    if (resolvedField.isPresent() &&
-                            resolvedField.get().getField().getOriginColumnName().isPresent() &&
-                            resolvedField.get().getField().getOriginTable().isPresent()) {
-                        reverse(columnDereferences);
-                        tableColumnAndSubfieldReferences.put(
-                                resolvedField.get().getField().getOriginTable().get(),
-                                new Subfield(resolvedField.get().getField().getOriginColumnName().get(), columnDereferences));
-                        break;
-                    }
-                }
-                if (childNode instanceof DereferenceExpression) {
-                    columnDereferences.add(new NestedField(((DereferenceExpression) childNode).getField().getValue()));
-                    childNode = ((DereferenceExpression) childNode).getBase();
-                    continue;
-                }
-                break;
+            if (!context.getContext().getUnusedExpressionsForAccessControl().contains(NodeRef.of(node))) {
+                tableColumnAndSubfieldReferencesForAccessControl.put(
+                        resolvedSubfield.get().getResolvedField().getField().getOriginTable().get(),
+                        resolvedSubfield.get().getSubfield());
             }
         }
 
@@ -1536,7 +1512,7 @@ public class ExpressionAnalyzer
         }
     }
 
-    private static class Context
+    public static class Context
     {
         private final Scope scope;
 
@@ -1548,35 +1524,61 @@ public class ExpressionAnalyzer
         // The mapping from names to corresponding lambda argument declarations when inside a lambda; null otherwise.
         // Empty map means that the all lambda expressions surrounding the current node has no arguments.
         private final Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration;
+        private final Map<Identifier, ResolvedSubfield> resolvedLambdaArguments;
+        private final Set<NodeRef<Expression>> unusedExpressionsForAccessControl;
 
         private Context(
                 Scope scope,
                 List<Type> functionInputTypes,
-                Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
+                Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration,
+                Map<Identifier, ResolvedSubfield> resolvedLambdaArguments,
+                Set<NodeRef<Expression>> unusedExpressionsForAccessControl)
         {
             this.scope = requireNonNull(scope, "scope is null");
             this.functionInputTypes = functionInputTypes;
             this.fieldToLambdaArgumentDeclaration = fieldToLambdaArgumentDeclaration;
+            this.resolvedLambdaArguments = requireNonNull(resolvedLambdaArguments, "resolvedLambdaArguments is null");
+            this.unusedExpressionsForAccessControl = requireNonNull(unusedExpressionsForAccessControl, "unusedExpressionsForAccessControl is null");
         }
 
         public static Context notInLambda(Scope scope)
         {
-            return new Context(scope, null, null);
+            return new Context(scope, null, null, ImmutableMap.of(), ImmutableSet.of());
         }
 
-        public static Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
+        public Context inLambda(Scope scope, Map<FieldId, LambdaArgumentDeclaration> fieldToLambdaArgumentDeclaration)
         {
-            return new Context(scope, null, requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"));
+            return new Context(
+                    scope,
+                    null,
+                    requireNonNull(fieldToLambdaArgumentDeclaration, "fieldToLambdaArgumentDeclaration is null"),
+                    resolvedLambdaArguments,
+                    unusedExpressionsForAccessControl);
         }
 
-        public Context expectingLambda(List<Type> functionInputTypes)
+        public Context expectingLambda(List<Type> functionInputTypes, Map<Identifier, ResolvedSubfield> resolvedLambdaArguments)
         {
-            return new Context(scope, requireNonNull(functionInputTypes, "functionInputTypes is null"), this.fieldToLambdaArgumentDeclaration);
+            return new Context(
+                    scope,
+                    requireNonNull(functionInputTypes, "functionInputTypes is null"),
+                    this.fieldToLambdaArgumentDeclaration,
+                    resolvedLambdaArguments,
+                    unusedExpressionsForAccessControl);
         }
 
         public Context notExpectingLambda()
         {
-            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration);
+            return new Context(scope, null, this.fieldToLambdaArgumentDeclaration, ImmutableMap.of(), unusedExpressionsForAccessControl);
+        }
+
+        public Context withUnusedExpressionsForAccessControl(Set<NodeRef<Expression>> unusedExpressionsForAccessControl)
+        {
+            return new Context(
+                    scope,
+                    functionInputTypes,
+                    fieldToLambdaArgumentDeclaration,
+                    resolvedLambdaArguments,
+                    Sets.union(unusedExpressionsForAccessControl, this.unusedExpressionsForAccessControl));
         }
 
         Scope getScope()
@@ -1604,6 +1606,16 @@ public class ExpressionAnalyzer
         {
             checkState(isExpectingLambda());
             return functionInputTypes;
+        }
+
+        public Map<Identifier, ResolvedSubfield> getResolvedLambdaArguments()
+        {
+            return resolvedLambdaArguments;
+        }
+
+        public Set<NodeRef<Expression>> getUnusedExpressionsForAccessControl()
+        {
+            return unusedExpressionsForAccessControl;
         }
     }
 
@@ -1720,7 +1732,7 @@ public class ExpressionAnalyzer
         analysis.addFunctionHandles(resolvedFunctions);
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
-        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences());
+        analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), analyzer.getTableColumnAndSubfieldReferences(), analyzer.getTableColumnAndSubfieldReferencesForAccessControl());
 
         return new ExpressionAnalysis(
                 expressionTypes,

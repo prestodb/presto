@@ -131,6 +131,34 @@ public abstract class AbstractTestDistributedQueries
     }
 
     @Test
+    public void testSubfieldAccessControl()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("check_access_control_with_subfields", "true")
+                .build();
+        assertUpdate(
+                session,
+                "CREATE TABLE test_subfield AS SELECT CAST(ROW(1, 2, ARRAY[ROW(1, 2)]) AS ROW(f1 int, f2 int, f3 ARRAY<ROW(ff1 int, ff2 int)>)) x",
+                1);
+        assertAccessAllowed(session, "SELECT x.f1 from test_subfield");
+        assertAccessAllowed(session, "SELECT x.f1 from test_subfield", privilege("x.f2", SELECT_COLUMN));
+        assertAccessDenied(
+                session,
+                "SELECT x.f1 from test_subfield",
+                ".*Cannot select from columns \\[x.f1\\].*",
+                privilege("x.f1", SELECT_COLUMN));
+
+        assertAccessDenied(session,
+                "SELECT transform(x.f3, col -> col.ff1) from test_subfield",
+                ".*Cannot select from columns \\[x.f3.ff1\\].*", privilege("x.f3.ff1", SELECT_COLUMN));
+        assertAccessAllowed(session,
+                "SELECT transform(x.f3, col -> col.ff1) from test_subfield",
+                privilege("x.f3.ff2", SELECT_COLUMN));
+
+        assertUpdate("DROP TABLE test_subfield");
+    }
+
+    @Test
     public void testCreateTable()
     {
         assertUpdate("CREATE TABLE test_create (a bigint, b double, c varchar)");
