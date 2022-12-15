@@ -1334,10 +1334,10 @@ void HashTable<ignoreNullKeys>::decideHashMode(int32_t numNew) {
   // The key concatenation fits in 64 bits.
   if (bestWithReserve != VectorHasher::kRangeTooLarge) {
     enableRangeWhereCan(rangeSizes, distinctSizes, useRange);
-    setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
   } else {
     clearUseRange(useRange);
   }
+  setHasherMode(hashers_, useRange, rangeSizes, distinctSizes);
   setHashMode(HashMode::kNormalizedKey, numNew);
 }
 
