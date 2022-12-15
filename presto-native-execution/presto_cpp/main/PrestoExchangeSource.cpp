@@ -157,12 +157,12 @@ void PrestoExchangeSource::processDataResponse(
     page = std::make_unique<exec::SerializedPage>(
         std::move(singleChain),
         pool_,
-        [allocator = response->allocator()](folly::IOBuf& iobuf) {
+        [mappedMemory = response->mappedMemory()](folly::IOBuf& iobuf) {
           // Free the backed memory from MemoryAllocator on page dtor.
           folly::IOBuf* start = &iobuf;
           auto curr = start;
           do {
-            allocator->freeBytes(curr->writableData(), curr->length());
+            mappedMemory->freeBytes(curr->writableData(), curr->length());
             curr = curr->next();
           } while (curr != start);
         });
