@@ -301,7 +301,7 @@ public class TestingAccessControlManager
     @Override
     public void checkCanSelectFromColumns(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Set<Subfield> columnOrSubfieldNames)
     {
-        Set<String> columns = columnOrSubfieldNames.stream().map(subfield -> subfield.getRootName()).collect(toImmutableSet());
+        Set<String> columns = columnOrSubfieldNames.stream().map(subfield -> subfield.toString()).collect(toImmutableSet());
         if (shouldDenyPrivilege(identity.getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
             denySelectColumns(tableName.toString(), columns);
         }

@@ -595,12 +595,10 @@ class StatementAnalyzer
                     .orElseThrow(() -> (new SemanticException(MISSING_TABLE, node, "Table '%s' does not exist", tableName)));
 
             // user must have read and insert permission in order to analyze stats of a table
-            analysis.addTableColumnAndSubfieldReferences(
-                    accessControl,
-                    session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
-                            .build());
+            Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.<QualifiedObjectName, Subfield>builder()
+                    .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet().stream().map(column -> new Subfield(column, ImmutableList.of())).collect(toImmutableSet()))
+                    .build();
+            analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
             try {
                 accessControl.checkCanInsertIntoTable(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
             }
@@ -1955,16 +1953,12 @@ class StatementAnalyzer
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(leftField.get()));
                 analysis.addColumnReference(NodeRef.of(column), FieldId.from(rightField.get()));
                 if (leftField.get().getField().getOriginTable().isPresent() && leftField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
-                            accessControl,
-                            session.getIdentity(),
-                            ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
+                    Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.of(leftField.get().getField().getOriginTable().get(), new Subfield(leftField.get().getField().getOriginColumnName().get(), ImmutableList.of()));
+                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
                 }
                 if (rightField.get().getField().getOriginTable().isPresent() && rightField.get().getField().getOriginColumnName().isPresent()) {
-                    analysis.addTableColumnAndSubfieldReferences(
-                            accessControl,
-                            session.getIdentity(),
-                            ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of())));
+                    Multimap<QualifiedObjectName, Subfield> tableColumnMap = ImmutableMultimap.of(rightField.get().getField().getOriginTable().get(), new Subfield(rightField.get().getField().getOriginColumnName().get(), ImmutableList.of()));
+                    analysis.addTableColumnAndSubfieldReferences(accessControl, session.getIdentity(), tableColumnMap, tableColumnMap);
                 }
             }
 
