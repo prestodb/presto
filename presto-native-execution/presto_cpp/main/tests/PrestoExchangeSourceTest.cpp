@@ -15,7 +15,7 @@
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
 
-#include <velox/common/memory/MemoryAllocator.h>
+#include <velox/common/memory/MappedMemory.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/http/HttpClient.h"
 #include "presto_cpp/main/http/HttpServer.h"
@@ -294,18 +294,21 @@ folly::Uri makeProducerUri(const folly::SocketAddress& address) {
 class PrestoExchangeSourceTest : public testing::Test {
  public:
   void SetUp() override {
-    auto& defaultManager = memory::MemoryManager::getInstance();
+    auto& defaultManager =
+        memory::MemoryManager<memory::MemoryAllocator, memory::kNoAlignment>::
+            getProcessDefaultManager();
     auto& pool =
-        dynamic_cast<memory::MemoryPoolImpl&>(defaultManager.getRoot());
+        dynamic_cast<memory::MemoryPoolImpl<memory::MemoryAllocator, 16>&>(
+            defaultManager.getRoot());
     pool_ = &pool;
     memory::MmapAllocatorOptions options;
     options.capacity = 1L << 30;
-    allocator_ = std::make_unique<memory::MmapAllocator>(options);
-    memory::MemoryAllocator::setDefaultInstance(allocator_.get());
+    mappedMemory_ = std::make_unique<memory::MmapAllocator>(options);
+    memory::MappedMemory::setDefaultInstance(mappedMemory_.get());
   }
 
   void TearDown() override {
-    memory::MemoryAllocator::setDefaultInstance(nullptr);
+    memory::MappedMemory::setDefaultInstance(nullptr);
   }
 
   void requestNextPage(
@@ -319,7 +322,7 @@ class PrestoExchangeSourceTest : public testing::Test {
   }
 
   memory::MemoryPool* pool_;
-  std::unique_ptr<memory::MemoryAllocator> allocator_;
+  std::unique_ptr<memory::MappedMemory> mappedMemory_;
 };
 
 TEST_F(PrestoExchangeSourceTest, basic) {
