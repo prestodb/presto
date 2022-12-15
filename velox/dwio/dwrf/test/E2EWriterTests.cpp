@@ -82,7 +82,7 @@ TEST(E2EWriterTests, DISABLED_TestFileCreation) {
     batches.push_back(BatchMaker::createBatch(type, size, *pool, nullptr, i));
   }
 
-  auto sink = std::make_unique<FileSink>("/tmp/e2e_generated_file.orc");
+  auto sink = std::make_unique<LocalFileSink>("/tmp/e2e_generated_file.orc");
   E2EWriterTestUtil::writeData(
       std::move(sink),
       type,

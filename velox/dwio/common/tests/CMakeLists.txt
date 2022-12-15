@@ -21,6 +21,7 @@ add_executable(
   ChainedBufferTests.cpp
   DataBufferTests.cpp
   DecoderUtilTest.cpp
+  LocalFileSinkTest.cpp
   LoggedExceptionTest.cpp
   RangeTests.cpp
   RetryTests.cpp

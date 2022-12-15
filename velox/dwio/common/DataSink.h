@@ -133,14 +133,14 @@ class DataSink : public Closeable {
   }
 };
 
-class FileSink : public DataSink {
+class LocalFileSink : public DataSink {
  public:
-  explicit FileSink(
+  explicit LocalFileSink(
       const std::string& name,
       const MetricsLogPtr& metricLogger = MetricsLog::voidLog(),
       IoStatistics* stats = nullptr);
 
-  ~FileSink() override {
+  ~LocalFileSink() override {
     destroy();
   }
 
@@ -158,6 +158,10 @@ class FileSink : public DataSink {
  private:
   int file_;
 };
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+using FileSink = LocalFileSink;
+#endif
 
 class MemorySink : public DataSink {
  public:

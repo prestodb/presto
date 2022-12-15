@@ -15,6 +15,8 @@
  */
 
 #include "velox/dwio/common/DataSink.h"
+
+#include "velox/common/base/Fs.h"
 #include "velox/dwio/common/exception/Exception.h"
 
 #include <fcntl.h>
@@ -23,11 +25,15 @@
 
 namespace facebook::velox::dwio::common {
 
-FileSink::FileSink(
+LocalFileSink::LocalFileSink(
     const std::string& name,
     const MetricsLogPtr& metricLogger,
     IoStatistics* stats)
     : DataSink{name, metricLogger, stats} {
+  auto dir = fs::path(name).parent_path();
+  if (!fs::exists(dir)) {
+    DWIO_ENSURE(velox::common::generateFileDirectory(dir.c_str()));
+  }
   file_ = open(name_.c_str(), O_CREAT | O_WRONLY | O_TRUNC, S_IRUSR | S_IWUSR);
   if (file_ == -1) {
     markClosed();
@@ -35,7 +41,7 @@ FileSink::FileSink(
   }
 }
 
-void FileSink::write(std::vector<DataBuffer<char>>& buffers) {
+void LocalFileSink::write(std::vector<DataBuffer<char>>& buffers) {
   writeImpl(buffers, [&](auto& buffer) {
     size_t size = buffer.size();
     size_t offset = 0;
@@ -93,19 +99,20 @@ std::unique_ptr<DataSink> DataSink::create(
       return result;
     }
   }
-  return std::make_unique<FileSink>(path, metricsLog, stats);
+  return std::make_unique<LocalFileSink>(path, metricsLog, stats);
 }
 
-static std::unique_ptr<DataSink> fileSink(
+static std::unique_ptr<DataSink> localFileSink(
     const std::string& filename,
     const MetricsLogPtr& metricsLog,
     IoStatistics* stats = nullptr) {
   if (strncmp(filename.c_str(), "file:", 5) == 0) {
-    return std::make_unique<FileSink>(filename.substr(5), metricsLog, stats);
+    return std::make_unique<LocalFileSink>(
+        filename.substr(5), metricsLog, stats);
   }
   return nullptr;
 }
 
-VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(FileSink, fileSink);
+VELOX_REGISTER_DATA_SINK_METHOD_DEFINITION(LocalFileSink, localFileSink);
 
 } // namespace facebook::velox::dwio::common

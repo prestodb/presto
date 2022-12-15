@@ -44,7 +44,7 @@ class ParquetReaderBenchmark {
     pool_ = memory::getDefaultMemoryPool();
     dataSetBuilder_ = std::make_unique<DataSetBuilder>(*pool_.get(), 0);
 
-    auto sink = std::make_unique<FileSink>("test.parquet");
+    auto sink = std::make_unique<LocalFileSink>("test.parquet");
     std::shared_ptr<::parquet::WriterProperties> writerProperties;
     if (disableDictionary_) {
       // The parquet file is in plain encoding format.
