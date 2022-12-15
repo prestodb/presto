@@ -142,8 +142,10 @@ class LocalFileSystem : public FileSystem {
 
   void mkdir(std::string_view path) override {
     std::error_code ec;
-    VELOX_CHECK(
-        std::filesystem::create_directories(path, ec),
+    std::filesystem::create_directories(path, ec);
+    VELOX_CHECK_EQ(
+        0,
+        ec.value(),
         "Mkdir {} failed: {}, message: {}",
         path,
         ec,

@@ -228,6 +228,9 @@ TEST(LocalFile, mkdir) {
   EXPECT_NO_THROW(localFs->mkdir(path));
   EXPECT_TRUE(localFs->exists(path));
 
+  // Create a completely existing directory - we should not throw.
+  EXPECT_NO_THROW(localFs->mkdir(path));
+
   // Write a file to our directory to double check it exist.
   path += "/a.txt";
   const std::string data("aaaaa");
