@@ -256,7 +256,13 @@ public class AbstractAnalyzerTest
                         new ColumnMetadata("b", RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("w"), BIGINT),
                                 new RowType.Field(Optional.of("x"),
-                                        new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))))),
+                                        new ArrayType(new ArrayType(RowType.from(ImmutableList.of(new RowType.Field(Optional.of("y"), BIGINT))))))))),
+                        new ColumnMetadata("c", RowType.from(ImmutableList.of(
+                                new RowType.Field(
+                                        Optional.of("x"),
+                                        new ArrayType(RowType.from(ImmutableList.of(
+                                                new RowType.Field(Optional.of("x"), BIGINT),
+                                                new RowType.Field(Optional.of("y"), BIGINT)))))))))),
                 false));
 
         // table with columns containing special characters

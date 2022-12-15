@@ -100,6 +100,13 @@ public class TestAccumuloDistributedQueries
                 "SELECT 0");
     }
 
+    @Test
+    @Override
+    public void testSubfieldAccessControl()
+    {
+        // disabled as accumulo doesn't support complex types
+    }
+
     @Override
     public void testDelete()
     {
