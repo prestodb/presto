@@ -316,16 +316,19 @@ endif()
 
 find_library(RE2 re2 REQUIRED)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
+set_source(ICU)
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin" AND NOT (${ICU_SOURCE} STREQUAL "BUNDLED"
+                                              ))
   if(ON_APPLE_M1)
     set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c" ${CMAKE_PREFIX_PATH})
   else()
     set(CMAKE_PREFIX_PATH "/usr/local/opt/icu4c" ${CMAKE_PREFIX_PATH})
   endif()
-  find_package(ICU REQUIRED)
-  include_directories(${ICU_INCLUDE_DIRS})
-  link_directories("${ICU_INCLUDE_DIRS}/../lib")
 endif()
+resolve_dependency(ICU)
+get_filename_component(ICU_LIBRARY_DIRS ${ICU_LIBRARIES} DIRECTORY)
+include_directories(${ICU_INCLUDE_DIRS})
+link_directories(${ICU_LIBRARY_DIRS})
 
 if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(pybind11_SOURCE AUTO)

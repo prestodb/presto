@@ -30,7 +30,12 @@
 # ==============================================================================
 
 include(FetchContent)
+include(ExternalProject)
+include(ProcessorCount)
 include(CheckCXXCompilerFlag)
+
+# Enable SSL certificate verification for file downloads
+set(CMAKE_TLS_VERIFY true)
 
 # ================================ FOLLY =======================================
 
@@ -207,6 +212,61 @@ macro(build_fmt)
 endmacro()
 # ================================ END FMT ================================
 
+# ================================== ICU4C ==================================
+if(DEFINED ENV{VELOX_ICU4C_URL})
+  set(ICU4C_SOURCE_URL "$ENV{VELOX_ICU4C_URL}")
+else()
+  set(VELOX_ICU4C_BUILD_VERSION 72)
+  string(
+    CONCAT ICU4C_SOURCE_URL
+           "https://github.com/unicode-org/icu/releases/download/"
+           "release-${VELOX_ICU4C_BUILD_VERSION}-1/"
+           "icu4c-${VELOX_ICU4C_BUILD_VERSION}_1-src.tgz")
+
+  set(VELOX_ICU4C_BUILD_SHA256_CHECKSUM
+      a2d2d38217092a7ed56635e34467f92f976b370e20182ad325edea6681a71d68)
+endif()
+
+macro(build_icu4c)
+
+  message(STATUS "Building ICU4C from source")
+
+  ProcessorCount(NUM_JOBS)
+  set_with_default(NUM_JOBS NUM_THREADS ${NUM_JOBS})
+  find_program(MAKE_PROGRAM make)
+
+  set(ICU_CFG --disable-tests --disable-samples)
+  set(HOST_ENV_CMAKE
+      ${CMAKE_COMMAND}
+      -E
+      env
+      CC="${CMAKE_C_COMPILER}"
+      CXX="${CMAKE_CXX_COMPILER}"
+      CFLAGS="${CMAKE_C_FLAGS}"
+      CXXFLAGS="${CMAKE_CXX_FLAGS}"
+      LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}")
+  set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu)
+  set(ICU_INCLUDE_DIRS ${ICU_DIR}/include)
+  set(ICU_LIBRARY_DIR ${ICU_DIR}/lib/)
+  # This VAR is created to match the custom FindICU.cmake in use to find system
+  # icu.
+  set(ICU_LIBRARIES ${ICU_LIBRARY_DIR}/libicuuc.so)
+
+  # We can not use FetchContent as ICU does not use cmake
+  ExternalProject_Add(
+    ICU
+    URL ${ICU4C_SOURCE_URL}
+    URL_HASH SHA256=${VELOX_ICU4C_BUILD_SHA256_CHECKSUM}
+    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-src
+    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-bld
+    CONFIGURE_COMMAND <SOURCE_DIR>/source/configure --prefix=${ICU_DIR}
+                      --libdir=${ICU_LIBRARY_DIR} ${ICU_CFG}
+    BUILD_COMMAND ${MAKE_PROGRAM} -j ${NUM_JOBS}
+    INSTALL_COMMAND ${HOST_ENV_CMAKE} ${MAKE_PROGRAM} install)
+endmacro()
+
+# ================================ END ICU4C ================================
+
 macro(build_dependency DEPENDENCY_NAME)
   if("${DEPENDENCY_NAME}" STREQUAL "folly")
     build_folly()
@@ -216,6 +276,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_pybind11()
   elseif("${DEPENDENCY_NAME}" STREQUAL "fmt")
     build_fmt()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "ICU")
+    build_icu4c()
   else()
     message(
       FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
