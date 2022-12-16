@@ -250,13 +250,6 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
                 velox::util::getTimeZoneName(session.timeZoneKey));
           }
 
-          // Copy spill path from the System Config to the Velox Query config
-          // via 'configs'.
-          const auto spillPath = SystemConfig::instance()->spillerSpillPath();
-          if (not spillPath.empty()) {
-            configs.emplace(velox::core::QueryConfig::kSpillPath, spillPath);
-          }
-
           std::unordered_map<
               std::string,
               std::unordered_map<std::string, std::string>>
