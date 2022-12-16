@@ -13,11 +13,11 @@
  */
 package com.facebook.presto.analyzer.crux;
 
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.PreparedQuery;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.QueryPreparer;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.ParsingException;
 

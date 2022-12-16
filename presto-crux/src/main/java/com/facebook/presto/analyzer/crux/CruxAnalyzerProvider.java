@@ -13,16 +13,31 @@
  */
 package com.facebook.presto.analyzer.crux;
 
-import com.facebook.presto.common.analyzer.PreparedQuery;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
+import com.facebook.presto.spi.analyzer.QueryPreparer;
 
-import java.util.Optional;
-
-public class CruxPreparedQuery
-        extends PreparedQuery
+public class CruxAnalyzerProvider
+        implements AnalyzerProvider
 {
-    // TODO: Dummy implementation. This should be replaced with native implementation.
-    public CruxPreparedQuery(Optional<String> formattedQuery, Optional<String> prepareSql)
+    private static final String PROVIDER_NAME = "crux";
+
+    private final CruxQueryPreparer queryPreparer;
+
+    // TODO inject using CruxModule
+    public CruxAnalyzerProvider(CruxQueryPreparer queryPreparer)
     {
-        super(formattedQuery, prepareSql);
+        this.queryPreparer = queryPreparer;
+    }
+
+    @Override
+    public String getType()
+    {
+        return PROVIDER_NAME;
+    }
+
+    @Override
+    public QueryPreparer getQueryPreparer()
+    {
+        return queryPreparer;
     }
 }

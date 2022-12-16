@@ -11,18 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.analyzer.crux;
+package com.facebook.presto.common.analyzer;
 
-import com.facebook.presto.common.analyzer.PreparedQuery;
-
-import java.util.Optional;
-
-public class CruxPreparedQuery
-        extends PreparedQuery
+public class AnalyzerException
+        extends RuntimeException
 {
-    // TODO: Dummy implementation. This should be replaced with native implementation.
-    public CruxPreparedQuery(Optional<String> formattedQuery, Optional<String> prepareSql)
+    public AnalyzerException(String message)
     {
-        super(formattedQuery, prepareSql);
+        super(message);
     }
 }

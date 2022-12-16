@@ -11,18 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.analyzer.crux;
+package com.facebook.presto.spi.analyzer;
 
-import com.facebook.presto.common.analyzer.PreparedQuery;
-
-import java.util.Optional;
-
-public class CruxPreparedQuery
-        extends PreparedQuery
+public interface AnalyzerProvider
 {
-    // TODO: Dummy implementation. This should be replaced with native implementation.
-    public CruxPreparedQuery(Optional<String> formattedQuery, Optional<String> prepareSql)
-    {
-        super(formattedQuery, prepareSql);
-    }
+    String getType();
+
+    QueryPreparer getQueryPreparer();
 }

@@ -13,12 +13,14 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.QueryPreparer;
 import com.facebook.presto.sql.analyzer.utils.StatementUtils;
-import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Execute;
 import com.facebook.presto.sql.tree.Explain;
@@ -62,7 +64,7 @@ public class BuiltInQueryPreparer
 
     @Override
     public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
-            throws ParsingException, PrestoException, SemanticException
+            throws SemanticException
     {
         Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(analyzerOptions));
         if (warningCollector.hasWarnings() && analyzerOptions.getWarningHandlingLevel() == AS_ERROR) {
@@ -75,7 +77,7 @@ public class BuiltInQueryPreparer
     }
 
     public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, Statement wrappedStatement, Map<String, String> preparedStatements)
-            throws ParsingException, PrestoException, SemanticException
+            throws SemanticException
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();

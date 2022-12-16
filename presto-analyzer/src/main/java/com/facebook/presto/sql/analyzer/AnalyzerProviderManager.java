@@ -11,37 +11,46 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 
 import javax.inject.Inject;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.facebook.presto.spi.StandardErrorCode.UNSUPPORTED_ANALYZER_TYPE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-/**
- * This class provides various interfaces for various functionalities in the analyzer.
- * This class can be used to get a specific analyzer implementation for a given analyzer type.
- */
-public class AnalyzerProvider
+public class AnalyzerProviderManager
 {
-    private final Map<AnalyzerType, QueryPreparer> queryPreparersByType;
+    private final Map<String, AnalyzerProvider> analyzerProviders = new HashMap<>();
 
     @Inject
-    public AnalyzerProvider(Map<AnalyzerType, QueryPreparer> queryPreparersByType)
+    public AnalyzerProviderManager(BuiltInAnalyzerProvider analyzerProvider)
     {
-        this.queryPreparersByType = requireNonNull(queryPreparersByType, "queryPreparersByType is null");
+        // Initializing builtin analyzer by default.
+        addAnalyzerProvider(analyzerProvider);
     }
 
-    public QueryPreparer getQueryPreparer(AnalyzerType analyzerType)
+    public void addAnalyzerProvider(AnalyzerProvider analyzerProvider)
+    {
+        requireNonNull(analyzerProvider, "analyzerProvider is null");
+
+        if (analyzerProviders.putIfAbsent(analyzerProvider.getType(), analyzerProvider) != null) {
+            throw new IllegalArgumentException(format("Analyzer provider '%s' is already registered", analyzerProvider.getType()));
+        }
+    }
+
+    public AnalyzerProvider getAnalyzerProvider(String analyzerType)
     {
         requireNonNull(analyzerType, "AnalyzerType is null");
-        if (queryPreparersByType.containsKey(analyzerType)) {
-            return queryPreparersByType.get(analyzerType);
+
+        if (analyzerProviders.containsKey(analyzerType)) {
+            return analyzerProviders.get(analyzerType);
         }
 
         throw new PrestoException(UNSUPPORTED_ANALYZER_TYPE, "Unsupported analyzer type: " + analyzerType);

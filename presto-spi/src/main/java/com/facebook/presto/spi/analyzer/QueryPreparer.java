@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.spi.analyzer;
 
-import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.common.analyzer.AnalyzerException;
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.parser.ParsingException;
 
 import java.util.Map;
 
@@ -31,10 +31,8 @@ public interface QueryPreparer
      * @param preparedStatements existing prepared query statements
      * @param warningCollector Warning collector to collect various warnings
      * @return preared query object
-     * @throws ParsingException
-     * @throws PrestoException
-     * @throws SemanticException
+     * @throws AnalyzerException
      */
     PreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
-            throws ParsingException, PrestoException, SemanticException;
+            throws AnalyzerException;
 }

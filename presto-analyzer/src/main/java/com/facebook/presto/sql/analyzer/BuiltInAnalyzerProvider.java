@@ -13,21 +13,33 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.analyzer.QueryPreparer;
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.multibindings.MapBinder;
+import com.google.inject.Inject;
 
-import static com.facebook.presto.sql.analyzer.AnalyzerType.BUILTIN;
-import static com.google.inject.Scopes.SINGLETON;
+import static java.util.Objects.requireNonNull;
 
-public class AnalyzerModule
-        implements Module
+public class BuiltInAnalyzerProvider
+        implements AnalyzerProvider
 {
-    @Override
-    public void configure(Binder binder)
+    private static final String PROVIDER_NAME = "BUILTIN";
+    private final BuiltInQueryPreparer queryPreparer;
+
+    @Inject
+    public BuiltInAnalyzerProvider(BuiltInQueryPreparer queryPreparer)
     {
-        MapBinder<AnalyzerType, QueryPreparer> queryPreparersByType = MapBinder.newMapBinder(binder, AnalyzerType.class, QueryPreparer.class);
-        queryPreparersByType.addBinding(BUILTIN).to(BuiltInQueryPreparer.class).in(SINGLETON);
+        this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
+    }
+
+    @Override
+    public String getType()
+    {
+        return PROVIDER_NAME;
+    }
+
+    @Override
+    public QueryPreparer getQueryPreparer()
+    {
+        return queryPreparer;
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.analyzer.AnalyzerException;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
 
@@ -22,7 +23,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SemanticException
-        extends RuntimeException
+        extends AnalyzerException
 {
     private final SemanticErrorCode code;
     private final Optional<NodeLocation> location;

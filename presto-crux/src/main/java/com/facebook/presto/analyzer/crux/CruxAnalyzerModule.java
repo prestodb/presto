@@ -13,8 +13,8 @@
  */
 package com.facebook.presto.analyzer.crux;
 
+import com.facebook.presto.spi.analyzer.QueryPreparer;
 import com.facebook.presto.sql.analyzer.AnalyzerType;
-import com.facebook.presto.sql.analyzer.QueryPreparer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
