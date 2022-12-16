@@ -128,7 +128,8 @@ void compareExceptions(
     std::exception_ptr simplifiedPtr) {
   // If we don't have two exceptions, fail.
   if (!commonPtr || !simplifiedPtr) {
-    LOG(ERROR) << "Only one path threw exception:";
+    LOG(ERROR) << "Only " << (commonPtr ? "common" : "simplified")
+               << " path threw exception:";
     if (commonPtr) {
       std::rethrow_exception(commonPtr);
     } else {
