@@ -20,12 +20,8 @@
 using namespace ::facebook::velox;
 using namespace ::facebook::velox::core;
 
-TEST(TestPlanNode, visit) {
-  std::shared_ptr<const Type> bigIntType =
-      std::make_shared<ScalarType<TypeKind::BIGINT>>();
-  auto rowType = std::make_shared<RowType>(
-      std::vector<std::string>{"name1"},
-      std::vector<std::shared_ptr<const Type>>{bigIntType});
+TEST(TestPlanNode, findFirstNode) {
+  auto rowType = ROW({"name1"}, {BIGINT()});
 
   std::shared_ptr<connector::ConnectorTableHandle> tableHandle;
   std::unordered_map<std::string, std::shared_ptr<connector::ColumnHandle>>
@@ -51,16 +47,19 @@ TEST(TestPlanNode, visit) {
 
   EXPECT_EQ(
       tableScan3.get(),
-      PlanNode::visit(project0.get(), [](const PlanNode* node) {
+      PlanNode::findFirstNode(project0.get(), [](const PlanNode* node) {
         return node->id() == "3";
       }));
 
   EXPECT_EQ(
-      project0.get(), PlanNode::visit(project0.get(), [](const PlanNode* node) {
+      project0.get(),
+      PlanNode::findFirstNode(project0.get(), [](const PlanNode* node) {
         return node->name() == "Project";
       }));
 
-  EXPECT_EQ(nullptr, PlanNode::visit(project0.get(), [](const PlanNode* node) {
-              return node->name() == "Unknown";
-            }));
+  EXPECT_EQ(
+      nullptr,
+      PlanNode::findFirstNode(project0.get(), [](const PlanNode* node) {
+        return node->name() == "Unknown";
+      }));
 }

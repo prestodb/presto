@@ -137,7 +137,7 @@ class PlanNode {
 
   /// Recursively checks the node tree for a first node that satisfy a given
   /// condition. Returns pointer to the node if found, nullptr if not.
-  static const PlanNode* visit(
+  static const PlanNode* findFirstNode(
       const PlanNode* node,
       const std::function<bool(const PlanNode* node)>& predicate) {
     if (predicate(node)) {
@@ -146,7 +146,7 @@ class PlanNode {
 
     // Recursively go further through the sources.
     for (const auto& source : node->sources()) {
-      const auto* ret = PlanNode::visit(source.get(), predicate);
+      const auto* ret = PlanNode::findFirstNode(source.get(), predicate);
       if (ret != nullptr) {
         return ret;
       }
