@@ -87,6 +87,10 @@ TEST_P(MultiParquetTpchTest, Q16) {
   assertQuery(16, std::move(sortingKeys));
 }
 
+TEST_P(MultiParquetTpchTest, Q17) {
+  assertQuery(17);
+}
+
 TEST_P(MultiParquetTpchTest, Q18) {
   assertQuery(18);
 }
