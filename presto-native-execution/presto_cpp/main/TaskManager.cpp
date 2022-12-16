@@ -21,6 +21,7 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
+#include "velox/common/file/FileSystems.h"
 #include "velox/common/time/Timer.h"
 #include "velox/exec/Exchange.h"
 
@@ -173,6 +174,77 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   return std::make_unique<TaskInfo>(info);
 }
 
+// If the plan fragment contains operator that can spill and spilling is
+// enabled, created the spilling directory for the task.
+static std::string maybeSetupTaskSpillDirectory(
+    const velox::core::QueryCtx* queryCtx,
+    const TaskId& taskId,
+    const velox::core::PlanFragment& planFragment) {
+  if (not queryCtx->queryConfig().spillEnabled()) {
+    return "";
+  }
+
+  const auto baseSpillPath = SystemConfig::instance()->spillerSpillPath();
+  if (baseSpillPath.empty()) {
+    return "";
+  }
+
+  // Functors to check if a given node can spill.
+  const auto hasSpillingHashAggrFunc = [](const core::PlanNode* node) {
+    if (node->name() == "Aggregation") {
+      if (const auto* aggregationNode =
+              dynamic_cast<const core::AggregationNode*>(node)) {
+        if (aggregationNode->isFinal() || aggregationNode->isSingle()) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  const auto hasSpillingOrderByFunc = [](const core::PlanNode* node) {
+    return (node->name() == "OrderBy");
+  };
+  const auto hasSpillingHashJoinFunc = [](const core::PlanNode* node) {
+    return (node->name() == "HashJoin");
+  };
+
+  // Determine if this task can spill at all, to avoid creating a folder for
+  // nothing. Looks for particular nodes for that.
+  const auto* topNode = planFragment.planNode.get();
+  if ((queryCtx->queryConfig().aggregationSpillEnabled() &&
+       core::PlanNode::findFirstNode(topNode, hasSpillingHashAggrFunc)) ||
+      (queryCtx->queryConfig().orderBySpillEnabled() &&
+       core::PlanNode::findFirstNode(topNode, hasSpillingOrderByFunc)) ||
+      (queryCtx->queryConfig().joinSpillEnabled() &&
+       core::PlanNode::findFirstNode(topNode, hasSpillingHashJoinFunc))) {
+    // Might need spilling.
+  } else {
+    return "";
+  }
+
+  // Form the task spill path.
+  const std::string& queryId = queryCtx->queryId();
+  std::stringstream ss;
+  ss << baseSpillPath << "/";
+  // Generate 'YYYY-MM-DD' from the query ID, which starts with 'YYYYMMDD'.
+  ss << fmt::format(
+      "{}-{}-{}",
+      queryId.substr(0, 4),
+      queryId.substr(4, 2),
+      queryId.substr(6, 2));
+  ss << "/";
+  // TODO(spershin): We will like need to use identity (from config?) in the
+  // long run. Use 'presto_native' for now.
+  ss << "presto_native" << queryId << "/" << taskId << "/";
+  const std::string spillPath = ss.str();
+
+  // Create folder for the task spilling.
+  auto fileSystem = velox::filesystems::getFileSystem(spillPath, nullptr);
+  VELOX_CHECK_NOT_NULL(fileSystem, "File System is null!");
+  fileSystem->mkdir(spillPath);
+  return spillPath;
+}
+
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     const TaskId& taskId,
     velox::core::PlanFragment planFragment,
@@ -208,8 +280,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
         concurrentLifespans = std::numeric_limits<uint32_t>::max();
       }
 
+      const auto taskSpillDir =
+          maybeSetupTaskSpillDirectory(queryCtx.get(), taskId, planFragment);
       execTask = std::make_shared<exec::Task>(
           taskId, planFragment, 0, std::move(queryCtx));
+      execTask->setSpillDirectory(taskSpillDir);
+
       prestoTask->task = execTask;
       prestoTask->info.needsPlan = false;
       startTask = true;

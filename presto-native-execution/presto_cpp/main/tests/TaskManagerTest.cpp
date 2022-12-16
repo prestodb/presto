@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "velox/common/base/Fs.h"
 #include "velox/common/file/FileSystems.h"
@@ -520,6 +521,22 @@ class TaskManagerTest : public testing::Test {
         fmt::format("{}B", totalMax));
   }
 
+  // Setup the temporary spilling directory and initialize the system config
+  // file (in the same temporary directory) to contain the spilling path
+  // setting.
+  static std::shared_ptr<exec::test::TempDirectoryPath> setupSpillPath() {
+    auto spillDirectory = exec::test::TempDirectoryPath::create();
+    auto sysConfigFilePath =
+        fmt::format("{}/config.properties", spillDirectory->path);
+    auto fileSystem = filesystems::getFileSystem(sysConfigFilePath, nullptr);
+    auto sysConfigFile = fileSystem->openFileForWrite(sysConfigFilePath);
+    sysConfigFile->append(fmt::format(
+        "{}={}\n", SystemConfig::kSpillerSpillPath, spillDirectory->path));
+    sysConfigFile->close();
+    SystemConfig::instance()->initialize(sysConfigFilePath);
+    return spillDirectory;
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_;
   RowTypePtr rowType_;
   exec::test::DuckDbQueryRunner duckDbQueryRunner_;
@@ -801,23 +818,14 @@ TEST_F(TaskManagerTest, aggregationSpill) {
   }
   duckDbQueryRunner_.createTable("tmp", vectors);
 
-  // Keep bumping up query id per each test iteration to generate a new query
-  // id.
+  // Keep bumping up queryId per each test iteration to generate a new query id.
   int queryId = 0;
-  for (const bool doSpill : {true, true}) {
+  for (const bool doSpill : {false, true}) {
     SCOPED_TRACE(fmt::format("doSpill: {}", doSpill));
     std::shared_ptr<exec::test::TempDirectoryPath> spillDirectory;
     std::unordered_map<std::string, std::string> queryConfigs;
-    // TODO(spershin): Temporarily disable spilling here until we migrate the
-    // base spill path to system config (Velox changes are pending).
     if (doSpill) {
-      continue;
-    }
-    if (doSpill) {
-      // TODO(spershin): When we migrate the base spill path to system config we
-      // need to ensure the system config has the base spilling path, not the
-      // query config. Use spillDirectory->path.
-      spillDirectory = exec::test::TempDirectoryPath::create();
+      spillDirectory = TaskManagerTest::setupSpillPath();
       queryConfigs.emplace(core::QueryConfig::kTestingSpillPct, "100");
       queryConfigs.emplace(core::QueryConfig::kSpillEnabled, "true");
       queryConfigs.emplace(core::QueryConfig::kAggregationSpillEnabled, "true");
