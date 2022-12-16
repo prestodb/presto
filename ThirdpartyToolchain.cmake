@@ -247,10 +247,7 @@ macro(build_icu4c)
       LDFLAGS="${CMAKE_MODULE_LINKER_FLAGS}")
   set(ICU_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu)
   set(ICU_INCLUDE_DIRS ${ICU_DIR}/include)
-  set(ICU_LIBRARY_DIR ${ICU_DIR}/lib/)
-  # This VAR is created to match the custom FindICU.cmake in use to find system
-  # icu.
-  set(ICU_LIBRARIES ${ICU_LIBRARY_DIR}/libicuuc.so)
+  set(ICU_LIBRARIES ${ICU_DIR}/lib)
 
   # We can not use FetchContent as ICU does not use cmake
   ExternalProject_Add(
@@ -260,7 +257,7 @@ macro(build_icu4c)
     SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-src
     BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/icu-bld
     CONFIGURE_COMMAND <SOURCE_DIR>/source/configure --prefix=${ICU_DIR}
-                      --libdir=${ICU_LIBRARY_DIR} ${ICU_CFG}
+                      --libdir=${ICU_LIBRARIES} ${ICU_CFG}
     BUILD_COMMAND ${MAKE_PROGRAM} -j ${NUM_JOBS}
     INSTALL_COMMAND ${HOST_ENV_CMAKE} ${MAKE_PROGRAM} install)
 endmacro()
