@@ -131,8 +131,7 @@ class HashStringAllocator : public StreamArena {
   };
 
   explicit HashStringAllocator(memory::MappedMemory* FOLLY_NONNULL mappedMemory)
-      : StreamArena(mappedMemory),
-        pool_(mappedMemory, AllocationPool::kHashTableOwner) {}
+      : StreamArena(mappedMemory), pool_(mappedMemory) {}
 
   // Copies a StringView at 'offset' in 'group' to storage owned by
   // the hash table. Updates the StringView.

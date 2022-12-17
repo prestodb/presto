@@ -67,7 +67,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
 
   bool allocate(int32_t numPages, MappedMemory::Allocation& result) {
     try {
-      if (!instance_->allocate(numPages, 0, result)) {
+      if (!instance_->allocateNonContiguous(numPages, result)) {
         EXPECT_EQ(result.numRuns(), 0);
         return false;
       }
@@ -150,7 +150,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
 
   void free(MappedMemory::Allocation& alloc) {
     checkContents(alloc);
-    instance_->free(alloc);
+    instance_->freeNonContiguous(alloc);
   }
 
   void allocateMultiple(
@@ -177,7 +177,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
             return;
           }
           MappedMemory::Allocation small(instance_);
-          if (!instance_->allocate(available / 4, 0, small)) {
+          if (!instance_->allocateNonContiguous(available / 4, small)) {
             FAIL() << "Could not allocate 1/4 of available";
             return;
           }
@@ -447,12 +447,12 @@ TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
 
     MappedMemory::Allocation result(mappedMemory.get());
 
-    mappedMemory->allocate(numPages, 0, result);
+    mappedMemory->allocateNonContiguous(numPages, result);
     EXPECT_GE(result.numPages(), numPages);
     EXPECT_EQ(
         result.numPages() * MappedMemory::kPageSize,
         tracker->getCurrentUserBytes());
-    mappedMemory->free(result);
+    mappedMemory->freeNonContiguous(result);
     EXPECT_EQ(0, tracker->getCurrentUserBytes());
   }
 
@@ -461,13 +461,13 @@ TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
   {
     MappedMemory::Allocation result1(mappedMemory.get());
     MappedMemory::Allocation result2(mappedMemory.get());
-    mappedMemory->allocate(numPages, 0, result1);
+    mappedMemory->allocateNonContiguous(numPages, result1);
     EXPECT_GE(result1.numPages(), numPages);
     EXPECT_EQ(
         result1.numPages() * MappedMemory::kPageSize,
         tracker->getCurrentUserBytes());
 
-    mappedMemory->allocate(numPages, 0, result2);
+    mappedMemory->allocateNonContiguous(numPages, result2);
     EXPECT_GE(result2.numPages(), numPages);
     EXPECT_EQ(
         (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
@@ -489,7 +489,7 @@ TEST_P(MappedMemoryTest, minSizeClass) {
 
   int32_t sizeClass = mappedMemory->sizeClasses().back();
   int32_t numPages = sizeClass + 1;
-  mappedMemory->allocate(numPages, 0, result, nullptr, sizeClass);
+  mappedMemory->allocateNonContiguous(numPages, result, nullptr, sizeClass);
   EXPECT_GE(result.numPages(), sizeClass * 2);
   // All runs have to be at least the minimum size.
   for (auto i = 0; i < result.numRuns(); ++i) {
@@ -498,7 +498,7 @@ TEST_P(MappedMemoryTest, minSizeClass) {
   EXPECT_EQ(
       result.numPages() * MappedMemory::kPageSize,
       tracker->getCurrentUserBytes());
-  mappedMemory->free(result);
+  mappedMemory->freeNonContiguous(result);
   EXPECT_EQ(0, tracker->getCurrentUserBytes());
 }
 
@@ -739,9 +739,9 @@ DEBUG_ONLY_TEST_P(
   constexpr MachinePageCount kAllocSize = 8;
   std::unique_ptr<MappedMemory::Allocation> allocation(
       new MappedMemory::Allocation(scopedMemory.get()));
-  ASSERT_FALSE(scopedMemory->allocate(kAllocSize, 0, *allocation));
+  ASSERT_FALSE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
   ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
-  ASSERT_TRUE(scopedMemory->allocate(kAllocSize, 0, *allocation));
+  ASSERT_TRUE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
   ASSERT_GT(tracker->getCurrentUserBytes(), 0);
   allocation.reset();
   ASSERT_EQ(tracker->getCurrentUserBytes(), 0);

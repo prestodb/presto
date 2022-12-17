@@ -217,7 +217,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   /// Sometimes in memory governance we want to mock an update for quota
   /// accounting purposes and different implementations can
   /// choose to accommodate this differently.
-  virtual void release(int64_t /* bytes */, bool /* mock */ = false) {
+  virtual void release(int64_t /* bytes */) {
     VELOX_NYI("release() needs to be implemented in derived memory pool.");
   }
 
@@ -418,7 +418,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   // TODO: consider returning bool instead.
   void reserve(int64_t size) override;
-  void release(int64_t size, bool mock = false) override;
+  void release(int64_t size) override;
 
  private:
   VELOX_FRIEND_TEST(MemoryPoolTest, Ctor);
@@ -618,8 +618,8 @@ void* FOLLY_NULLABLE MemoryPoolImpl<Allocator, ALIGNMENT>::reallocate(
   auto alignedNewSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, newSize);
   int64_t difference = alignedNewSize - alignedSize;
   if (UNLIKELY(difference <= 0)) {
-    // Track and pretend the shrink took place for accounting purposes.
-    release(-difference, true);
+    // Track shrink took place for accounting purposes.
+    release(-difference);
     return p;
   }
 
@@ -809,11 +809,11 @@ void MemoryPoolImpl<Allocator, ALIGNMENT>::reserve(int64_t size) {
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>
-void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size, bool mock) {
+void MemoryPoolImpl<Allocator, ALIGNMENT>::release(int64_t size) {
   memoryManager_.release(size);
   localMemoryUsage_.incrementCurrentBytes(-size);
   if (memoryUsageTracker_) {
-    memoryUsageTracker_->update(-size, mock);
+    memoryUsageTracker_->update(-size);
   }
 }
 

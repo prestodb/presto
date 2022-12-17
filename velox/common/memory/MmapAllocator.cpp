@@ -46,9 +46,8 @@ MmapAllocator::MmapAllocator(const MmapAllocatorOptions& options)
   }
 }
 
-bool MmapAllocator::allocate(
+bool MmapAllocator::allocateNonContiguous(
     MachinePageCount numPages,
-    int32_t owner,
     Allocation& out,
     std::function<void(int64_t, bool)> userAllocCB,
     MachinePageCount minSizeClass) {
@@ -82,7 +81,7 @@ bool MmapAllocator::allocate(
         mix.sizeCounts[i],
         [&]() {
           success = sizeClasses_[mix.sizeIndices[i]]->allocate(
-              mix.sizeCounts[i], owner, newMapsNeeded, out);
+              mix.sizeCounts[i], newMapsNeeded, out);
         });
     if (TestValue::enabled()) {
       // NOTE: the test callback might overwrite 'success' to inject an
@@ -96,7 +95,7 @@ bool MmapAllocator::allocate(
       LOG(WARNING) << "Failed allocation in size class " << i << " for "
                    << mix.sizeCounts[i] << " pages";
       auto failedPages = mix.totalPages - out.numPages();
-      free(out);
+      freeNonContiguous(out);
       numAllocated_.fetch_sub(failedPages);
       if (userAllocCB != nullptr) {
         userAllocCB(mix.totalPages * kPageSize, false);
@@ -111,7 +110,7 @@ bool MmapAllocator::allocate(
     markAllMapped(out);
     return true;
   }
-  free(out);
+  freeNonContiguous(out);
   if (userAllocCB != nullptr) {
     userAllocCB(mix.totalPages * kPageSize, false);
   }
@@ -142,7 +141,7 @@ bool MmapAllocator::ensureEnoughMappedPages(int32_t newMappedNeeded) {
   return false;
 }
 
-int64_t MmapAllocator::free(Allocation& allocation) {
+int64_t MmapAllocator::freeNonContiguous(Allocation& allocation) {
   auto numFreed = freeInternal(allocation);
   numAllocated_.fetch_sub(numFreed);
   return numFreed * kPageSize;
@@ -441,16 +440,14 @@ std::string MmapAllocator::SizeClass::toString() const {
 
 bool MmapAllocator::SizeClass::allocate(
     ClassPageCount numPages,
-    int32_t owner,
     MachinePageCount& numUnmapped,
     MmapAllocator::Allocation& out) {
   std::lock_guard<std::mutex> l(mutex_);
-  return allocateLocked(numPages, owner, &numUnmapped, out);
+  return allocateLocked(numPages, &numUnmapped, out);
 }
 
 bool MmapAllocator::SizeClass::allocateLocked(
     const ClassPageCount numPages,
-    int32_t /* unused */,
     MachinePageCount* FOLLY_NULLABLE numUnmapped,
     MmapAllocator::Allocation& out) {
   size_t numWords = pageBitmapSize_;
@@ -605,7 +602,7 @@ MachinePageCount MmapAllocator::SizeClass::adviseAway(
       return 0;
     }
     target = std::min(target, numMappedFreePages_);
-    allocateLocked(target, kNoOwner, nullptr, allocation);
+    allocateLocked(target, nullptr, allocation);
     VELOX_CHECK(allocation.numPages() == target * unitSize_);
     numAllocatedMapped_ -= target;
     numAdvisedAway_ += target;

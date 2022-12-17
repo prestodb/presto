@@ -712,7 +712,7 @@ RowPartitions::RowPartitions(
     : capacity_(numRows), allocation_(&mappedMemory) {
   auto numPages = bits::roundUp(capacity_, memory::MappedMemory::kPageSize) /
       memory::MappedMemory::kPageSize;
-  if (!mappedMemory.allocate(numPages, 0, allocation_)) {
+  if (!mappedMemory.allocateNonContiguous(numPages, allocation_)) {
     VELOX_FAIL(
         "Failed to allocate RowContainer partitions: {} pages", numPages);
   }

@@ -66,9 +66,8 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
       allocations_.push_back(std::make_unique<memory::MappedMemory::Allocation>(
           std::move(allocation_)));
     }
-    if (!mappedMemory_->allocate(
+    if (!mappedMemory_->allocateNonContiguous(
             std::max<int32_t>(kMinPages, numPages),
-            owner_,
             allocation_,
             nullptr,
             numPages)) {

@@ -163,10 +163,7 @@ class MemoryUsageTracker
   // allocation and negative for free. If there is no reservation or
   // the new allocated amount exceeds the reservation, propagates the
   // change upward.
-  // Sometimes the memory pool wants to mock an update for quota
-  // accounting purposes and different memory usage trackers can
-  // choose to accommodate this differently.
-  void update(int64_t size, bool /* mock */ = false);
+  void update(int64_t size);
 
   int64_t getCurrentUserBytes() const {
     return adjustByReservation(user(currentUsageInBytes_));

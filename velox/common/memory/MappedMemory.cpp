@@ -124,13 +124,14 @@ namespace {
 class MappedMemoryImpl : public MappedMemory {
  public:
   MappedMemoryImpl();
-  bool allocate(
+
+  bool allocateNonContiguous(
       MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
       std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) override;
-  int64_t free(Allocation& allocation) override;
+
+  int64_t freeNonContiguous(Allocation& allocation) override;
 
   bool allocateContiguous(
       MachinePageCount numPages,
@@ -187,13 +188,12 @@ class MappedMemoryImpl : public MappedMemory {
 
 MappedMemoryImpl::MappedMemoryImpl() : numAllocated_(0), numMapped_(0) {}
 
-bool MappedMemoryImpl::allocate(
+bool MappedMemoryImpl::allocateNonContiguous(
     MachinePageCount numPages,
-    int32_t owner,
     Allocation& out,
     std::function<void(int64_t, bool)> userAllocCB,
     MachinePageCount minSizeClass) {
-  free(out);
+  freeNonContiguous(out);
 
   auto mix = allocationSize(numPages, minSizeClass);
 
@@ -271,7 +271,7 @@ bool MappedMemoryImpl::allocateContiguousImpl(
     std::function<void(int64_t, bool)> userAllocCB) {
   MachinePageCount numCollateralPages = 0;
   if (collateral != nullptr) {
-    numCollateralPages = free(*collateral) / kPageSize;
+    numCollateralPages = freeNonContiguous(*collateral) / kPageSize;
   }
   auto numContiguousCollateralPages = allocation.numPages();
   if (numContiguousCollateralPages > 0) {
@@ -308,7 +308,7 @@ bool MappedMemoryImpl::allocateContiguousImpl(
   return true;
 }
 
-int64_t MappedMemoryImpl::free(Allocation& allocation) {
+int64_t MappedMemoryImpl::freeNonContiguous(Allocation& allocation) {
   if (allocation.numRuns() == 0) {
     return 0;
   }
@@ -421,7 +421,7 @@ MappedMemory::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
   if (bytes <= sizeClassSizes_.back() * kPageSize) {
     Allocation allocation(this);
     auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
-    if (allocate(numPages, kMallocOwner, allocation, nullptr, numPages)) {
+    if (allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
       auto run = allocation.runAt(0);
       VELOX_CHECK_EQ(
           1,
@@ -455,7 +455,7 @@ void MappedMemory::freeBytes(
     Allocation allocation(this);
     auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
     allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
-    free(allocation);
+    freeNonContiguous(allocation);
     totalSizeClassAllocateBytes_ -= numPages * kPageSize;
   } else {
     ContiguousAllocation allocation;
@@ -465,16 +465,14 @@ void MappedMemory::freeBytes(
   }
 }
 
-bool ScopedMappedMemory::allocate(
+bool ScopedMappedMemory::allocateNonContiguous(
     MachinePageCount numPages,
-    int32_t owner,
     Allocation& out,
     std::function<void(int64_t, bool)> userAllocCB,
     MachinePageCount minSizeClass) {
-  free(out);
-  return parent_->allocate(
+  freeNonContiguous(out);
+  return parent_->allocateNonContiguous(
       numPages,
-      owner,
       out,
       [this, userAllocCB](int64_t allocBytes, bool preAllocate) {
         if (tracker_) {

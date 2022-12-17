@@ -33,10 +33,8 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
       allocations_.push_back(std::make_unique<memory::MappedMemory::Allocation>(
           std::move(allocation_)));
     }
-    if (!mappedMemory_->allocate(
-            std::max(allocationQuantum_, numPages),
-            kVectorStreamOwner,
-            allocation_)) {
+    if (!mappedMemory_->allocateNonContiguous(
+            std::max(allocationQuantum_, numPages), allocation_)) {
       throw std::bad_alloc();
     }
     currentRun_ = 0;

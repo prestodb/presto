@@ -90,7 +90,7 @@ class FragmentationTest {
       if (size <= 8 << 20) {
         block->allocation =
             std::make_shared<MappedMemory::Allocation>(memory_.get());
-        if (!memory_->allocate(size / 4096, 0, *block->allocation)) {
+        if (!memory_->allocateNonContiguous(size / 4096, *block->allocation)) {
           VELOX_FAIL("allocate() faild");
         }
         for (int i = 0; i < block->allocation->numRuns(); ++i) {

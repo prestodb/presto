@@ -27,13 +27,10 @@ namespace facebook::velox {
 // started.
 class AllocationPool {
  public:
-  static constexpr int32_t kHashTableOwner = -3;
   static constexpr int32_t kMinPages = 16;
 
-  explicit AllocationPool(
-      memory::MappedMemory* mappedMemory,
-      int32_t owner = kHashTableOwner)
-      : mappedMemory_(mappedMemory), allocation_(mappedMemory), owner_(owner) {}
+  explicit AllocationPool(memory::MappedMemory* mappedMemory)
+      : mappedMemory_(mappedMemory), allocation_(mappedMemory) {}
 
   ~AllocationPool() = default;
 
@@ -128,7 +125,6 @@ class AllocationPool {
   memory::MappedMemory::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentOffset_ = 0;
-  const int32_t owner_;
 };
 
 } // namespace facebook::velox

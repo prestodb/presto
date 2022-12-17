@@ -27,8 +27,6 @@ struct ByteRange;
 // complex types as serialized rows.
 class StreamArena {
  public:
-  static constexpr int32_t kVectorStreamOwner = 1;
-
   explicit StreamArena(memory::MappedMemory* mappedMemory);
 
   virtual ~StreamArena() = default;

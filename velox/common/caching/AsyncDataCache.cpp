@@ -105,7 +105,7 @@ void AsyncDataCacheEntry::initialize(FileCacheKey key) {
     tinyData_.clear();
     auto sizePages =
         bits::roundUp(size_, MappedMemory::kPageSize) / MappedMemory::kPageSize;
-    if (cache->allocate(sizePages, CacheShard::kCacheOwner, data_)) {
+    if (cache->allocateNonContiguous(sizePages, data_)) {
       cache->incrementCachedPages(data().numPages());
     } else {
       // No memory to cover 'this'.
@@ -320,7 +320,7 @@ void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
     auto numPages = entry->data().numPages();
     if (numPages) {
       cache_->incrementCachedPages(-numPages);
-      cache_->free(entry->data());
+      cache_->freeNonContiguous(entry->data());
     }
   }
 }
@@ -596,16 +596,15 @@ void AsyncDataCache::backoff(int32_t counter) {
   std::this_thread::sleep_for(std::chrono::microseconds(usec)); // NOLINT
 }
 
-bool AsyncDataCache::allocate(
+bool AsyncDataCache::allocateNonContiguous(
     MachinePageCount numPages,
-    int32_t owner,
     Allocation& out,
     std::function<void(int64_t, bool)> beforeAllocCB,
     MachinePageCount minSizeClass) {
-  free(out);
+  freeNonContiguous(out);
   return makeSpace(numPages, [&]() {
-    return mappedMemory_->allocate(
-        numPages, owner, out, beforeAllocCB, minSizeClass);
+    return mappedMemory_->allocateNonContiguous(
+        numPages, out, beforeAllocCB, minSizeClass);
   });
 }
 

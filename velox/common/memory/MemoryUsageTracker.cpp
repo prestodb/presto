@@ -33,7 +33,7 @@ std::shared_ptr<MemoryUsageTracker> MemoryUsageTracker::create(
   return std::make_shared<SharedMemoryUsageTracker>(parent, type, config);
 }
 
-void MemoryUsageTracker::update(int64_t size, bool /* mock */) {
+void MemoryUsageTracker::update(int64_t size) {
   if (size > 0) {
     int64_t increment = 0;
     ++usage(numAllocs_, UsageType::kTotalMem);

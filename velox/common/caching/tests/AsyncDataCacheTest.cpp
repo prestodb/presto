@@ -563,7 +563,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
     pins.pop_front();
   }
   MappedMemory::Allocation allocation(cache_.get());
-  EXPECT_FALSE(cache_->allocate(kSizeInPages, 0, allocation));
+  EXPECT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
   // One 4 page entry below the max size of 4K 4 page entries in 16MB of
   // capacity.
   EXPECT_EQ(4092, cache_->incrementCachedPages(0));
@@ -573,7 +573,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   // We allocate the full capacity and expect the cache entries to go.
   for (;;) {
     MappedMemory::Allocation(cache_.get());
-    if (!cache_->allocate(kSizeInPages, 0, allocation)) {
+    if (!cache_->allocateNonContiguous(kSizeInPages, allocation)) {
       break;
     }
     allocations.push_back(std::move(allocation));

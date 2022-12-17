@@ -503,8 +503,6 @@ struct CacheStats {
 // and other housekeeping.
 class CacheShard {
  public:
-  static constexpr int32_t kCacheOwner = -4;
-
   explicit CacheShard(AsyncDataCache* FOLLY_NONNULL cache) : cache_(cache) {}
 
   // See AsyncDataCache::findOrCreate.
@@ -624,15 +622,14 @@ class AsyncDataCache : public memory::MappedMemory {
   // Returns true if there is an entry for 'key'. Updates access time.
   bool exists(RawFileCacheKey key) const;
 
-  bool allocate(
+  bool allocateNonContiguous(
       memory::MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
       std::function<void(int64_t, bool)> beforeAllocCB = nullptr,
       memory::MachinePageCount minSizeClass = 0) override;
 
-  int64_t free(Allocation& allocation) override {
-    return mappedMemory_->free(allocation);
+  int64_t freeNonContiguous(Allocation& allocation) override {
+    return mappedMemory_->freeNonContiguous(allocation);
   }
 
   bool allocateContiguous(

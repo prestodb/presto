@@ -66,14 +66,13 @@ class MmapAllocator : public MappedMemory {
 
   explicit MmapAllocator(const MmapAllocatorOptions& options);
 
-  bool allocate(
+  bool allocateNonContiguous(
       MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
       std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) override;
 
-  int64_t free(Allocation& allocation) override;
+  int64_t freeNonContiguous(Allocation& allocation) override;
 
   bool allocateContiguous(
       MachinePageCount numPages,
@@ -147,12 +146,11 @@ class MmapAllocator : public MappedMemory {
       return unitSize_;
     }
 
-    // Allocates 'numPages' from 'this' and appends these to
-    // *out. '*numUnmapped' is incremented by the number of pages that
-    // are not backed by memory.
+    // Allocates 'numPages' from 'this' and appends these to *out.
+    // '*numUnmapped' is incremented by the number of pages that are not backed
+    // by memory.
     bool allocate(
         ClassPageCount numPages,
-        int32_t owner,
         MachinePageCount& numUnmapped,
         MappedMemory::Allocation& out);
 
@@ -195,14 +193,12 @@ class MmapAllocator : public MappedMemory {
     // checks.
     static constexpr int32_t kSimdTail = 8;
 
-    // Same as allocate, except that this must be called inside
-    // 'mutex_'. If 'numUnmapped' is nullptr, the allocated pages must
-    // all be backed by memory. Otherwise numUnmapped is updated to be
-    // the count of machine pages needeing backing memory to back the
-    // allocation.
+    // Same as allocate, except that this must be called inside 'mutex_'. If
+    // 'numUnmapped' is nullptr, the allocated pages must all be backed by
+    // memory. Otherwise, numUnmapped is updated to be the count of machine
+    // pages needing backing memory to back the allocation.
     bool allocateLocked(
         ClassPageCount numPages,
-        int32_t owner,
         MachinePageCount* FOLLY_NULLABLE numUnmapped,
         MappedMemory::Allocation& out);
 

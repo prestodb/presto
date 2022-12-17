@@ -162,9 +162,6 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
  public:
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
-  static constexpr int32_t kNoOwner = -1;
-  // Marks allocation via allocateBytes, e.g. StlMappedMemoryAllocator.
-  static constexpr int32_t kMallocOwner = -14;
   // Allocations smaller than 3K should  go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
 
@@ -217,7 +214,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     }
 
     ~Allocation() {
-      mappedMemory_->free(*this);
+      mappedMemory_->freeNonContiguous(*this);
     }
 
     Allocation(const Allocation& other) = delete;
@@ -375,15 +372,14 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   /// the reservation if the actual allocation fails. The function returns true
   /// if the allocation succeeded. If returning false, 'out' references no
   /// memory and any partially allocated memory is freed.
-  virtual bool allocate(
+  virtual bool allocateNonContiguous(
       MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
       std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) = 0;
 
   // Returns the number of freed bytes.
-  virtual int64_t free(Allocation& allocation) = 0;
+  virtual int64_t freeNonContiguous(Allocation& allocation) = 0;
 
   /// Makes a contiguous mmap of 'numPages'. Advises away the required number of
   /// free pages so as not to have resident size exceed the capacity if capacity
@@ -534,15 +530,14 @@ class ScopedMappedMemory final : public MappedMemory {
         parent_(parentPtr_.get()),
         tracker_(std::move(tracker)) {}
 
-  bool allocate(
+  bool allocateNonContiguous(
       MachinePageCount numPages,
-      int32_t owner,
       Allocation& out,
       std::function<void(int64_t, bool)> userAllocCB,
       MachinePageCount minSizeClass) override;
 
-  int64_t free(Allocation& allocation) override {
-    int64_t freed = parent_->free(allocation);
+  int64_t freeNonContiguous(Allocation& allocation) override {
+    int64_t freed = parent_->freeNonContiguous(allocation);
     if (tracker_) {
       tracker_->update(-freed);
     }
