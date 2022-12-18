@@ -204,6 +204,30 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testMarkDistinct()
+            throws Exception
+    {
+        String query = "SELECT count(*), count(distinct orderstatus) FROM (SELECT * FROM orders WHERE orderstatus = 'F')";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
+    public void testAssignUniqueId()
+            throws Exception
+    {
+        String query = "SELECT name, (SELECT name FROM region WHERE regionkey = nation.regionkey) FROM nation";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
+    public void testEnforceSingleRow()
+            throws Exception
+    {
+        String query = "SELECT (SELECT regionkey FROM nation WHERE name = 'nosuchvalue') AS sub";
+        assertSamePlanHash(query, query, CONNECTOR);
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
