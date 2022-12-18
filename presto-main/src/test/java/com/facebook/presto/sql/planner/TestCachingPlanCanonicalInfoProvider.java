@@ -50,6 +50,8 @@ public class TestCachingPlanCanonicalInfoProvider
         });
         // Assert that size of cache remains same, meaning all needed hashes were already cached.
         assertEquals(planCanonicalInfoProvider.getCacheSize(), 5L * historyBasedPlanCanonicalizationStrategyList().size());
+        planCanonicalInfoProvider.getHistoryBasedStatisticsCacheManager().invalidate(session.getQueryId());
+        assertEquals(planCanonicalInfoProvider.getCacheSize(), 0);
     }
 
     private Session createSession()
