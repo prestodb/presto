@@ -28,6 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class HistoryBasedPlanStatisticsManager
 {
     private final SessionPropertyManager sessionPropertyManager;
+    private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final PlanCanonicalInfoProvider planCanonicalInfoProvider;
     private final HistoryBasedOptimizationConfig config;
 
@@ -39,8 +40,9 @@ public class HistoryBasedPlanStatisticsManager
     {
         requireNonNull(objectMapper, "objectMapper is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
+        this.historyBasedStatisticsCacheManager = new HistoryBasedStatisticsCacheManager();
         ObjectMapper newObjectMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
-        this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(newObjectMapper, metadata);
+        this.planCanonicalInfoProvider = new CachingPlanCanonicalInfoProvider(historyBasedStatisticsCacheManager, newObjectMapper, metadata);
         this.config = requireNonNull(config, "config is null");
     }
 
@@ -55,12 +57,12 @@ public class HistoryBasedPlanStatisticsManager
 
     public HistoryBasedPlanStatisticsCalculator getHistoryBasedPlanStatisticsCalculator(StatsCalculator delegate)
     {
-        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, delegate, planCanonicalInfoProvider, config);
+        return new HistoryBasedPlanStatisticsCalculator(() -> historyBasedPlanStatisticsProvider, historyBasedStatisticsCacheManager, delegate, planCanonicalInfoProvider, config);
     }
 
     public HistoryBasedPlanStatisticsTracker getHistoryBasedPlanStatisticsTracker()
     {
-        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, sessionPropertyManager, config);
+        return new HistoryBasedPlanStatisticsTracker(() -> historyBasedPlanStatisticsProvider, historyBasedStatisticsCacheManager, sessionPropertyManager, config);
     }
 
     public PlanCanonicalInfoProvider getPlanCanonicalInfoProvider()

@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.plan.PlanCanonicalizationStrategy;
+import com.facebook.presto.cost.HistoryBasedStatisticsCacheManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.TableHandle;
@@ -22,16 +23,12 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.statistics.PlanStatistics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.DataSize;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static com.facebook.presto.common.plan.PlanCanonicalizationStrategy.CONNECTOR;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -42,21 +39,13 @@ import static java.util.Objects.requireNonNull;
 public class CachingPlanCanonicalInfoProvider
         implements PlanCanonicalInfoProvider
 {
-    private static final DataSize CACHE_SIZE_BYTES = new DataSize(10, DataSize.Unit.MEGABYTE);
-
-    // Create a cache, instead of a LoadingCache, because we can load multiple keys at once.
-    // For weight, we only consider size of hash, as PlanNodes are already in memory for running queries.
-    // We use length of hash + 20 bytes as overhead for storing references, string size and strategy.
-    private final Cache<CacheKey, PlanNodeCanonicalInfo> cache = CacheBuilder.newBuilder()
-            .maximumWeight(CACHE_SIZE_BYTES.toBytes())
-            .weigher((Weigher<CacheKey, PlanNodeCanonicalInfo>) (key, value) -> value.getHash().length() + 20)
-            .expireAfterWrite(5, TimeUnit.MINUTES)
-            .build();
+    private final HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager;
     private final ObjectMapper objectMapper;
     private final Metadata metadata;
 
-    public CachingPlanCanonicalInfoProvider(ObjectMapper objectMapper, Metadata metadata)
+    public CachingPlanCanonicalInfoProvider(HistoryBasedStatisticsCacheManager historyBasedStatisticsCacheManager, ObjectMapper objectMapper, Metadata metadata)
     {
+        this.historyBasedStatisticsCacheManager = requireNonNull(historyBasedStatisticsCacheManager, "historyBasedStatisticsCacheManager is null");
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -77,8 +66,8 @@ public class CachingPlanCanonicalInfoProvider
 
     private Optional<PlanNodeCanonicalInfo> loadValue(Session session, CacheKey key)
     {
-        // TODO: Use QueryManager to unload keys rather relying on LoadingCache
-        PlanNodeCanonicalInfo result = cache.getIfPresent(key);
+        Map<CacheKey, PlanNodeCanonicalInfo> cache = historyBasedStatisticsCacheManager.getCanonicalInfoCache(session.getQueryId());
+        PlanNodeCanonicalInfo result = cache.get(key);
         if (result != null) {
             return Optional.of(result);
         }
@@ -103,13 +92,19 @@ public class CachingPlanCanonicalInfoProvider
                     .collect(toImmutableList());
             cache.put(new CacheKey(plan, key.getStrategy()), new PlanNodeCanonicalInfo(hashValue, inputTableStatistics));
         });
-        return Optional.ofNullable(cache.getIfPresent(key));
+        return Optional.ofNullable(cache.get(key));
     }
 
     @VisibleForTesting
     public long getCacheSize()
     {
-        return cache.size();
+        return historyBasedStatisticsCacheManager.getCanonicalInfoCache().values().stream().mapToLong(cache -> cache.size()).sum();
+    }
+
+    @VisibleForTesting
+    public HistoryBasedStatisticsCacheManager getHistoryBasedStatisticsCacheManager()
+    {
+        return historyBasedStatisticsCacheManager;
     }
 
     private String hashCanonicalPlan(CanonicalPlan plan, ObjectMapper objectMapper)
@@ -117,7 +112,7 @@ public class CachingPlanCanonicalInfoProvider
         return sha256().hashString(plan.toString(objectMapper), UTF_8).toString();
     }
 
-    private static class CacheKey
+    public static class CacheKey
     {
         private final PlanNode node;
         private final PlanCanonicalizationStrategy strategy;

@@ -14,7 +14,6 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.cost.HistoryBasedPlanStatisticsCalculator;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.Plugin;
@@ -73,8 +72,6 @@ public class TestHistoryBasedStatsTracking
     @BeforeMethod(alwaysRun = true)
     public void setUp()
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        ((HistoryBasedPlanStatisticsCalculator) queryRunner.getStatsCalculator()).invalidateCache();
         getHistoryProvider().clearCache();
     }
 
