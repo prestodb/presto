@@ -24,6 +24,7 @@ import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.LimitNode;
+import com.facebook.presto.spi.plan.MarkDistinctNode;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
 import com.facebook.presto.spi.plan.PlanNode;
@@ -36,6 +37,8 @@ import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.facebook.presto.sql.planner.plan.EnforceSingleRowNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
@@ -451,6 +454,78 @@ public class CanonicalPlanGenerator
                 outputVariables,
                 rows,
                 Optional.empty());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitMarkDistinct(MarkDistinctNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        List<VariableReferenceExpression> distinctVariables = node.getDistinctVariables().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted(comparing(this::writeValueAsString))
+                .collect(toImmutableList());
+
+        VariableReferenceExpression markerVariable = rename(node.getMarkerVariable(), "is_distinct", context);
+        PlanNode canonicalPlan = new MarkDistinctNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                markerVariable,
+                distinctVariables,
+                Optional.empty());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitAssignUniqueId(AssignUniqueId node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        VariableReferenceExpression idVariable = rename(node.getIdVariable(), "unique", context);
+
+        PlanNode canonicalPlan = new AssignUniqueId(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                idVariable);
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitEnforceSingleRow(EnforceSingleRowNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode canonicalPlan = new EnforceSingleRowNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
