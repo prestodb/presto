@@ -28,6 +28,7 @@ import com.facebook.presto.sql.planner.assertions.Matcher;
 import com.facebook.presto.sql.planner.assertions.SymbolAliases;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.JoinNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -154,6 +155,16 @@ public class TestHistoryBasedStatsTracking
         assertPlan(query, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(Double.NaN)));
         executeAndTrackHistory(query);
         assertPlan(query, anyTree(node(JoinNode.class, anyTree(any()), anyTree(any())).withOutputRowCount(1)));
+    }
+
+    @Test
+    public void testSort()
+    {
+        String query = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY regionkey";
+
+        assertPlan(query, anyTree(node(SortNode.class, anyTree(any())).withOutputRowCount(Double.NaN)));
+        executeAndTrackHistory(query);
+        assertPlan(query, anyTree(node(SortNode.class, anyTree(any())).withOutputRowCount(2)));
     }
 
     @Test

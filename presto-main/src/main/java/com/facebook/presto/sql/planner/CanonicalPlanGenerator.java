@@ -40,6 +40,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
@@ -450,6 +451,28 @@ public class CanonicalPlanGenerator
                 outputVariables,
                 rows,
                 Optional.empty());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitSort(SortNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode canonicalPlan = new SortNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                getCanonicalOrderingScheme(node.getOrderingScheme(), context.getExpressions()),
+                node.isPartial());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
