@@ -181,6 +181,18 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testValues()
+            throws Exception
+    {
+        String query1 = "SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(id, name)";
+        String query2 = "SELECT * FROM ( VALUES (1, 'a'), (2, 'b'), (3, 'c')) AS t(idd, name)";
+        String query3 = "SELECT * FROM ( VALUES (1, 'a'), (3, 'b'), (2, 'c')) AS t(id, name)";
+
+        assertSamePlanHash(query1, query2, CONNECTOR);
+        assertDifferentPlanHash(query1, query3, CONNECTOR);
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
