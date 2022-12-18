@@ -193,6 +193,17 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testSort()
+            throws Exception
+    {
+        String query1 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY regionkey";
+        String query2 = "SELECT * FROM nation where substr(name, 1, 1) = 'A' ORDER BY nationkey";
+
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
     public void testJoin()
             throws Exception
     {
