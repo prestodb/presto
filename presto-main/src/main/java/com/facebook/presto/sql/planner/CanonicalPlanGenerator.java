@@ -428,18 +428,18 @@ public class CanonicalPlanGenerator
     private Aggregation getCanonicalAggregation(Aggregation aggregation, Map<VariableReferenceExpression, VariableReferenceExpression> context)
     {
         return new Aggregation(
-                (CallExpression) inlineAndCanonicalize(context, aggregation.getCall()),
+                inlineAndCanonicalize(context, aggregation.getCall()),
                 aggregation.getFilter().map(filter -> inlineAndCanonicalize(context, filter)),
                 aggregation.getOrderBy().map(orderBy -> getCanonicalOrderingScheme(orderBy, context)),
                 aggregation.isDistinct(),
-                aggregation.getMask().map(context::get));
+                aggregation.getMask().map(mask -> inlineAndCanonicalize(context, mask)));
     }
 
     private static OrderingScheme getCanonicalOrderingScheme(OrderingScheme orderingScheme, Map<VariableReferenceExpression, VariableReferenceExpression> context)
     {
         return new OrderingScheme(
                 orderingScheme.getOrderBy().stream()
-                        .map(orderBy -> new Ordering(context.get(orderBy.getVariable()), orderBy.getSortOrder()))
+                        .map(orderBy -> new Ordering(inlineAndCanonicalize(context, orderBy.getVariable()), orderBy.getSortOrder()))
                         .collect(toImmutableList()));
     }
 
@@ -447,7 +447,7 @@ public class CanonicalPlanGenerator
     {
         return new GroupingSetDescriptor(
                 groupingSetDescriptor.getGroupingKeys().stream()
-                        .map(context::get)
+                        .map(key -> inlineAndCanonicalize(context, key))
                         .collect(toImmutableList()),
                 groupingSetDescriptor.getGroupingSetCount(),
                 groupingSetDescriptor.getGlobalGroupingSets());
