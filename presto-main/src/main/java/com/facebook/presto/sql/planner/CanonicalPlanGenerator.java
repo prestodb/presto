@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.UnionNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -425,6 +426,31 @@ public class CanonicalPlanGenerator
                 node.getPreSortedOrderPrefix());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
 
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitValues(ValuesNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        List<List<RowExpression>> rows = node.getRows().stream()
+                .map(row -> row.stream().map(expression -> inlineAndCanonicalize(context.getExpressions(), expression)).collect(toImmutableList()))
+                .collect(toImmutableList());
+
+        List<VariableReferenceExpression> outputVariables = node.getOutputVariables().stream()
+                .map(variable -> rename(variable, "", context))
+                .collect(toImmutableList());
+
+        PlanNode canonicalPlan = new ValuesNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                outputVariables,
+                rows,
+                Optional.empty());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
 
