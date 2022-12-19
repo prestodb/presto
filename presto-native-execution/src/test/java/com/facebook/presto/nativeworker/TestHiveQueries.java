@@ -596,6 +596,8 @@ abstract class TestHiveQueries
     {
         assertQuery("SELECT count(*) FROM orders where clerk is not null");
         assertQuery("SELECT count(*) FROM orders where clerk is null");
+        assertQuery("select count(*) from orders_ex where quantity_by_linenumber is null");
+        assertQuery("select count(*) from orders_ex where quantity_by_linenumber is not null");
     }
 
     @Test
