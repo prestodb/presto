@@ -31,6 +31,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.CallExpression;
@@ -150,7 +151,7 @@ public class CanonicalPlanGenerator
             return Optional.empty();
         }
 
-        PlanNode result = new StatsEquivalentPlanNodeWithLimit(plan.get().getId(), plan.get(), (LimitNode) limit.get());
+        PlanNode result = new StatsEquivalentPlanNodeWithLimit(plan.get().getId(), plan.get(), limit.get());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
@@ -228,7 +229,30 @@ public class CanonicalPlanGenerator
         }
 
         PlanNode result = new LimitNode(Optional.empty(), planNodeidAllocator.getNextId(), source.get(), node.getCount(), node.getStep());
-        context.addLimitNodePlan(node, new CanonicalPlan(result, strategy));
+        context.addLimitingNodePlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
+    }
+
+    @Override
+    public Optional<PlanNode> visitTopN(TopNNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        PlanNode result = new TopNNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                node.getCount(),
+                getCanonicalOrderingScheme(node.getOrderingScheme(), context.getExpressions()),
+                node.getStep());
+        context.addLimitingNodePlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }
 
@@ -1138,24 +1162,24 @@ public class CanonicalPlanGenerator
             expressions.put(from, to);
         }
 
-        private void addLimitNodePlan(LimitNode plan, CanonicalPlan canonicalPlan)
+        private void addLimitingNodePlan(PlanNode limit, CanonicalPlan canonicalPlan)
         {
-            if (!plan.getStatsEquivalentPlanNode().isPresent()) {
-                addPlanInternal(plan, canonicalPlan);
+            if (!limit.getStatsEquivalentPlanNode().isPresent()) {
+                addPlanInternal(limit, canonicalPlan);
                 return;
             }
             // When limits are involved, we can only know canonicalized plans after topmost limit has been canonicalized.
             // Once we are at topmost limit, we cache canonicalized plans for all sub-plans.
-            PlanNode statsEquivalentPlanNode = plan.getStatsEquivalentPlanNode().get();
+            PlanNode statsEquivalentPlanNode = limit.getStatsEquivalentPlanNode().get();
             StatsEquivalentPlanNodeWithLimit statsEquivalentPlanNodeWithLimit = (StatsEquivalentPlanNodeWithLimit) statsEquivalentPlanNode;
             if (childrenCount(statsEquivalentPlanNodeWithLimit.getLimit()) != childrenCount(statsEquivalentPlanNodeWithLimit.getPlan())) {
-                addPlanInternal(plan, canonicalPlan);
+                addPlanInternal(limit, canonicalPlan);
                 return;
             }
             forTree(PlanNode::getSources)
-                    .depthFirstPreOrder(plan)
+                    .depthFirstPreOrder(limit)
                     .forEach(child -> {
-                        CanonicalPlan childCanonicalPlan = child == plan ? canonicalPlan : canonicalPlans.get(child);
+                        CanonicalPlan childCanonicalPlan = child == limit ? canonicalPlan : canonicalPlans.get(child);
                         if (childCanonicalPlan == null || !child.getStatsEquivalentPlanNode().isPresent()) {
                             return;
                         }
@@ -1165,7 +1189,7 @@ public class CanonicalPlanGenerator
                         addPlanInternal(
                                 child.getStatsEquivalentPlanNode().get(),
                                 new CanonicalPlan(
-                                        new StatsEquivalentPlanNodeWithLimit(childCanonicalPlan.getPlan().getId(), childCanonicalPlan.getPlan(), (LimitNode) canonicalPlan.getPlan()),
+                                        new StatsEquivalentPlanNodeWithLimit(childCanonicalPlan.getPlan().getId(), childCanonicalPlan.getPlan(), canonicalPlan.getPlan()),
                                         canonicalPlan.getStrategy()));
                     });
         }
