@@ -272,6 +272,16 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testRowNumber()
+            throws Exception
+    {
+        String query1 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY regionkey) from nation";
+        String query2 = "SELECT nationkey, ROW_NUMBER() OVER (PARTITION BY name) from nation";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
     public void testLimit()
             throws Exception
     {
