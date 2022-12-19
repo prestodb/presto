@@ -483,6 +483,14 @@ PartitionedOutputBufferManager::getBuffer(const std::string& taskId) {
   });
 }
 
+std::shared_ptr<PartitionedOutputBuffer>
+PartitionedOutputBufferManager::getBufferIfExists(const std::string& taskId) {
+  return buffers_.withLock([&](auto& buffers) {
+    auto it = buffers.find(taskId);
+    return it == buffers.end() ? nullptr : it->second;
+  });
+}
+
 uint64_t PartitionedOutputBufferManager::numBuffers() const {
   return buffers_.lock()->size();
 }
@@ -525,26 +533,22 @@ void PartitionedOutputBufferManager::acknowledge(
 void PartitionedOutputBufferManager::deleteResults(
     const std::string& taskId,
     int destination) {
-  auto buffer = buffers_.withLock(
-      [&](auto& buffers) -> std::shared_ptr<PartitionedOutputBuffer> {
-        auto it = buffers.find(taskId);
-        if (it == buffers.end()) {
-          return nullptr;
-        }
-        return it->second;
-      });
-  if (buffer) {
+  if (auto buffer = getBufferIfExists(taskId)) {
     buffer->deleteResults(destination);
   }
 }
 
-void PartitionedOutputBufferManager::getData(
+bool PartitionedOutputBufferManager::getData(
     const std::string& taskId,
     int destination,
     uint64_t maxBytes,
     int64_t sequence,
     DataAvailableCallback notify) {
-  getBuffer(taskId)->getData(destination, maxBytes, sequence, notify);
+  if (auto buffer = getBufferIfExists(taskId)) {
+    buffer->getData(destination, maxBytes, sequence, notify);
+    return true;
+  }
+  return false;
 }
 
 void PartitionedOutputBufferManager::initializeTask(
