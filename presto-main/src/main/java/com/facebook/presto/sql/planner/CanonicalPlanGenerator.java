@@ -49,6 +49,7 @@ import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.facebook.presto.sql.planner.plan.UnnestNode;
 import com.facebook.presto.sql.planner.plan.WindowNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -618,6 +619,39 @@ public class CanonicalPlanGenerator
                 partitionBy,
                 rowNumberVariable,
                 node.getMaxRowCountPerPartition(),
+                Optional.empty());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitTopNRowNumber(TopNRowNumberNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        List<VariableReferenceExpression> partitionBy = node.getPartitionBy().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted(comparing(this::writeValueAsString))
+                .collect(toImmutableList());
+
+        VariableReferenceExpression rowNumberVariable = rename(node.getRowNumberVariable(), "row_number", context);
+        PlanNode canonicalPlan = new TopNRowNumberNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                new WindowNode.Specification(
+                        partitionBy,
+                        node.getSpecification().getOrderingScheme().map(scheme -> getCanonicalOrderingScheme(scheme, context.getExpressions()))),
+                rowNumberVariable,
+                node.getMaxRowCountPerPartition(),
+                node.isPartial(),
                 Optional.empty());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);

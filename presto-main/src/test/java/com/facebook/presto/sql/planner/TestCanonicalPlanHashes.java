@@ -301,6 +301,16 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testTopNRowNumber()
+            throws Exception
+    {
+        String query1 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n = 1";
+        String query2 = "SELECT orderstatus FROM (SELECT orderstatus, row_number() OVER (PARTITION BY orderstatus ORDER BY custkey) n FROM orders) WHERE n <= 2";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {

@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -103,6 +104,12 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
 
         @Override
         public PlanNode visitTopN(TopNNode node, RewriteContext<Context> context)
+        {
+            return visitLimitingNode(node, context);
+        }
+
+        @Override
+        public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Context> context)
         {
             return visitLimitingNode(node, context);
         }
