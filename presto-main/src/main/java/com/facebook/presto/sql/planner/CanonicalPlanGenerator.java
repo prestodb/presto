@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
@@ -564,6 +565,36 @@ public class CanonicalPlanGenerator
                 Optional.empty(),
                 planNodeidAllocator.getNextId(),
                 source.get());
+        context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
+        return Optional.of(canonicalPlan);
+    }
+
+    @Override
+    public Optional<PlanNode> visitRowNumber(RowNumberNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        List<VariableReferenceExpression> partitionBy = node.getPartitionBy().stream()
+                .map(variable -> inlineAndCanonicalize(context.getExpressions(), variable))
+                .sorted(comparing(this::writeValueAsString))
+                .collect(toImmutableList());
+
+        VariableReferenceExpression rowNumberVariable = rename(node.getRowNumberVariable(), "row_number", context);
+        PlanNode canonicalPlan = new RowNumberNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                partitionBy,
+                rowNumberVariable,
+                node.getMaxRowCountPerPartition(),
+                Optional.empty());
         context.addPlan(node, new CanonicalPlan(canonicalPlan, strategy));
         return Optional.of(canonicalPlan);
     }
