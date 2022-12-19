@@ -642,14 +642,10 @@ class AsyncDataCache : public memory::MappedMemory {
     mappedMemory_->freeContiguous(allocation);
   }
 
-  void* allocateBytes(uint64_t bytes, uint64_t maxMallocSize = kMaxMallocBytes)
-      override;
+  void* allocateBytes(uint64_t bytes) override;
 
-  void freeBytes(
-      void* p,
-      uint64_t size,
-      uint64_t maxMallocSize = kMaxMallocBytes) noexcept override {
-    mappedMemory_->freeBytes(p, size, maxMallocSize);
+  void freeBytes(void* p, uint64_t size) noexcept override {
+    mappedMemory_->freeBytes(p, size);
   }
 
   bool checkConsistency() const override {

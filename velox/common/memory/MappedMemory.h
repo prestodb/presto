@@ -401,22 +401,18 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
 
   // Allocates 'bytes' contiguous bytes and returns the pointer to the first
-  // byte. If 'bytes' is less than 'maxMallocSize', delegates the allocation to
-  // malloc. If the size is above that and below the largest size classes' size,
-  // allocates one element of the next size classes' size. If 'size' is greater
-  // than the largest size classes' size, calls allocateContiguous(). Returns
-  // nullptr if there is no space. The amount to allocate is subject to the size
-  // limit of 'this'. This function is not virtual but calls the virtual
-  // functions allocate and allocateContiguous, which can track sizes and
-  // enforce caps etc.
-  virtual void* FOLLY_NULLABLE
-  allocateBytes(uint64_t bytes, uint64_t maxMallocSize = kMaxMallocBytes);
+  // byte. If 'bytes' is less than 'kMaxMallocBytes', delegates the allocation
+  // to malloc. If the size is above that and below the largest size classes'
+  // size, allocates one element of the next size classes' size. If 'size' is
+  // greater than the largest size classes' size, calls allocateContiguous().
+  // Returns nullptr if there is no space. The amount to allocate is subject to
+  // the size limit of 'this'. This function is not virtual but calls the
+  // virtual functions allocate and allocateContiguous, which can track sizes
+  // and enforce caps etc.
+  virtual void* FOLLY_NULLABLE allocateBytes(uint64_t bytes);
 
   // Frees memory allocated with allocateBytes().
-  virtual void freeBytes(
-      void* FOLLY_NONNULL p,
-      uint64_t size,
-      uint64_t maxMallocSize = kMaxMallocBytes) noexcept;
+  virtual void freeBytes(void* FOLLY_NONNULL p, uint64_t size) noexcept;
 
   // Checks internal consistency of allocation data
   // structures. Returns true if OK.

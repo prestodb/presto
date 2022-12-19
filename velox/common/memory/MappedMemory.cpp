@@ -409,9 +409,8 @@ MachinePageCount roundUpToSizeClassSize(
 }
 } // namespace
 
-void* FOLLY_NULLABLE
-MappedMemory::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
-  if (bytes <= maxMallocSize) {
+void* FOLLY_NULLABLE MappedMemory::allocateBytes(uint64_t bytes) {
+  if (bytes <= kMaxMallocBytes) {
     auto result = ::malloc(bytes);
     if (result) {
       totalSmallAllocateBytes_ += bytes;
@@ -444,11 +443,8 @@ MappedMemory::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
   return nullptr;
 }
 
-void MappedMemory::freeBytes(
-    void* FOLLY_NONNULL p,
-    uint64_t bytes,
-    uint64_t maxMallocSize) noexcept {
-  if (bytes <= maxMallocSize) {
+void MappedMemory::freeBytes(void* FOLLY_NONNULL p, uint64_t bytes) noexcept {
+  if (bytes <= kMaxMallocBytes) {
     ::free(p); // NOLINT
     totalSmallAllocateBytes_ -= bytes;
   } else if (bytes <= sizeClassSizes_.back() * kPageSize) {

@@ -619,11 +619,10 @@ bool AsyncDataCache::allocateContiguous(
   });
 }
 
-void* FOLLY_NULLABLE
-AsyncDataCache::allocateBytes(uint64_t bytes, uint64_t maxMallocSize) {
+void* FOLLY_NULLABLE AsyncDataCache::allocateBytes(uint64_t bytes) {
   void* result = nullptr;
   makeSpace(bits::roundUp(bytes, kPageSize) / kPageSize, [&]() {
-    result = mappedMemory_->allocateBytes(bytes, maxMallocSize);
+    result = mappedMemory_->allocateBytes(bytes);
     return result != nullptr;
   });
   return result;
