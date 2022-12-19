@@ -19,6 +19,7 @@ import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.sql.planner.PlanVariableAllocator;
 import com.facebook.presto.sql.planner.StatsEquivalentPlanNodeWithLimit;
 import com.facebook.presto.sql.planner.TypeProvider;
@@ -97,6 +98,17 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
         @Override
         public PlanNode visitLimit(LimitNode node, RewriteContext<Context> context)
         {
+            return visitLimitingNode(node, context);
+        }
+
+        @Override
+        public PlanNode visitTopN(TopNNode node, RewriteContext<Context> context)
+        {
+            return visitLimitingNode(node, context);
+        }
+
+        private PlanNode visitLimitingNode(PlanNode node, RewriteContext<Context> context)
+        {
             context.get().getLimits().addLast(node);
             PlanNode result = visitPlan(node, context);
             context.get().getLimits().removeLast();
@@ -106,9 +118,9 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
 
     private static class Context
     {
-        private final Deque<LimitNode> limits = new ArrayDeque<>();
+        private final Deque<PlanNode> limits = new ArrayDeque<>();
 
-        public Deque<LimitNode> getLimits()
+        public Deque<PlanNode> getLimits()
         {
             return limits;
         }
