@@ -21,6 +21,7 @@ import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
+import com.facebook.presto.sql.planner.plan.TopNRowNumberNode;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -43,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class StatsEquivalentPlanNodeWithLimit
         extends InternalPlanNode
 {
-    private static final Set<Class<?>> LIMITING_NODES = ImmutableSet.of(LimitNode.class, TopNNode.class);
+    private static final Set<Class<?>> LIMITING_NODES = ImmutableSet.of(LimitNode.class, TopNNode.class, TopNRowNumberNode.class);
 
     // TODO: We are storing duplicated information at multiple levels. Look into if we can optimize it.
     private final PlanNode plan;
