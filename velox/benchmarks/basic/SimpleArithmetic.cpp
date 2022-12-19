@@ -188,6 +188,10 @@ BENCHMARK(multiplyConstantSmall) {
   benchmark->runSmall("multiply(a, constant)");
 }
 
+BENCHMARK(multiplyLiteralSmall) {
+  benchmark->runSmall("multiply(a, cast(2 as double))");
+}
+
 BENCHMARK(multiplyNestedSmall) {
   benchmark->runSmall("multiply(multiply(a, b), b)");
 }
@@ -241,6 +245,10 @@ BENCHMARK(multiplyConstantMedium) {
   benchmark->runMedium("multiply(a, constant)");
 }
 
+BENCHMARK(multiplyLiteralMedium) {
+  benchmark->runMedium("multiply(a, cast(2 as double))");
+}
+
 BENCHMARK(multiplyNestedMedium) {
   benchmark->runMedium("multiply(multiply(a, b), b)");
 }
@@ -292,6 +300,10 @@ BENCHMARK(multiplyHalfNullLarge) {
 
 BENCHMARK(multiplyConstantLarge) {
   benchmark->runLarge("multiply(a, constant)");
+}
+
+BENCHMARK(multiplyLiteralLarge) {
+  benchmark->runLarge("multiply(a, cast(2 as double))");
 }
 
 BENCHMARK(multiplyNestedLarge) {
