@@ -17,39 +17,46 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.TopNNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.plan.InternalPlanNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Used to represent a stats equivalent plan which has a downstream Limit node.
- * We include the Limit node in the definition as it can affect its stats.
+ * Used to represent a stats equivalent plan which has a downstream limiting node, like LimitNode, TopNNode etc.
+ * We include the Limiting node in the definition as it can affect its stats.
  */
 public class StatsEquivalentPlanNodeWithLimit
         extends InternalPlanNode
 {
+    private static final Set<Class<?>> LIMITING_NODES = ImmutableSet.of(LimitNode.class, TopNNode.class);
+
     // TODO: We are storing duplicated information at multiple levels. Look into if we can optimize it.
     private final PlanNode plan;
-    private final LimitNode limit;
+    private final PlanNode limit;
 
     @JsonCreator
     public StatsEquivalentPlanNodeWithLimit(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("plan") PlanNode plan,
-            @JsonProperty("limit") LimitNode limit)
+            @JsonProperty("limit") PlanNode limit)
     {
         super(Optional.empty(), id, Optional.empty());
+        checkArgument(LIMITING_NODES.contains(limit.getClass()), "Expected %s to be a limiting node", limit.getClass());
         this.plan = requireNonNull(plan, "plan is null");
         this.limit = requireNonNull(limit, "limit is null");
     }
