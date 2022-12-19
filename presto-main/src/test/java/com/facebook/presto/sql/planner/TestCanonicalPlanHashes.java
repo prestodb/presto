@@ -292,6 +292,15 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testTopN()
+            throws Exception
+    {
+        String query = "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 1";
+        assertSamePlanHash(query, query, CONNECTOR);
+        assertDifferentPlanHash(query, "SELECT orderkey FROM orders GROUP BY 1 ORDER BY 1 DESC LIMIT 2", CONNECTOR);
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
