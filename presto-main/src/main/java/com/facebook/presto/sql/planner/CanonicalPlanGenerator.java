@@ -43,6 +43,7 @@ import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.JoinNode;
 import com.facebook.presto.sql.planner.plan.OutputNode;
+import com.facebook.presto.sql.planner.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.plan.SortNode;
 import com.facebook.presto.sql.planner.plan.TableFinishNode;
 import com.facebook.presto.sql.planner.plan.TableWriterNode;
@@ -307,6 +308,43 @@ public class CanonicalPlanGenerator
                 newCriterias,
                 newFilters,
                 outputVariables);
+        context.addPlan(node, new CanonicalPlan(result, strategy));
+        return Optional.of(result);
+    }
+
+    @Override
+    public Optional<PlanNode> visitSemiJoin(SemiJoinNode node, Context context)
+    {
+        if (strategy == DEFAULT) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> source = node.getSource().accept(this, context);
+        if (!source.isPresent()) {
+            return Optional.empty();
+        }
+
+        Optional<PlanNode> filteringSource = node.getFilteringSource().accept(this, context);
+        if (!filteringSource.isPresent()) {
+            return Optional.empty();
+        }
+
+        VariableReferenceExpression sourceJoinVariable = inlineAndCanonicalize(context.getExpressions(), node.getSourceJoinVariable());
+        VariableReferenceExpression filteringSourceJoinVariable = inlineAndCanonicalize(context.getExpressions(), node.getFilteringSourceJoinVariable());
+        VariableReferenceExpression semiJoinOutput = rename(node.getSemiJoinOutput(), "semijoinoutput", context);
+
+        PlanNode result = new SemiJoinNode(
+                Optional.empty(),
+                planNodeidAllocator.getNextId(),
+                source.get(),
+                filteringSource.get(),
+                sourceJoinVariable,
+                filteringSourceJoinVariable,
+                semiJoinOutput,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of());
         context.addPlan(node, new CanonicalPlan(result, strategy));
         return Optional.of(result);
     }

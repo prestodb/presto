@@ -263,6 +263,15 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testSemiJoin()
+            throws Exception
+    {
+        String query = "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))";
+        assertSamePlanHash(query, query, CONNECTOR);
+        assertDifferentPlanHash(query, "SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 1))", CONNECTOR);
+    }
+
+    @Test
     public void testLimit()
             throws Exception
     {
