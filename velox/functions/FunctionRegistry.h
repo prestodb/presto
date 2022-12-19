@@ -36,6 +36,25 @@ std::shared_ptr<const Type> resolveFunction(
     const std::string& functionName,
     const std::vector<TypePtr>& argTypes);
 
+/// Given a function name and argument types, returns the return type if the
+/// function exists or is a special form that supports type resolution (see
+/// resolveCallableSpecialForm), otherwise returns nullptr.
+std::shared_ptr<const Type> resolveFunctionOrCallableSpecialForm(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
+/// Given the name of a special form and argument types, returns
+/// the return type if the special form exists and is supported, otherwise
+/// returns nullptr.
+/// Special forms are not supported by this function if:
+/// 1) they cannot be invoked as a CallExpr, e.g. FieldReference.
+/// or
+/// 2) their return types cannot be inferred from their argument types, e.g.
+///    Cast.
+std::shared_ptr<const Type> resolveCallableSpecialForm(
+    const std::string& functionName,
+    const std::vector<TypePtr>& argTypes);
+
 /// Given name of simple function and argument types, returns
 /// the return type if function exists otherwise returns nullptr
 std::shared_ptr<const Type> resolveSimpleFunction(
