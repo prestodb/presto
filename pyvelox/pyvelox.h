@@ -20,6 +20,11 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 #include <velox/buffer/StringViewBufferHolder.h>
+#include <velox/expression/Expr.h>
+#include <velox/functions/prestosql/registration/RegistrationFunctions.h>
+#include <velox/parse/Expressions.h>
+#include <velox/parse/ExpressionsParser.h>
+#include <velox/parse/TypeResolver.h>
 #include <velox/type/Type.h>
 #include <velox/type/Variant.h>
 #include <velox/vector/FlatVector.h>
@@ -28,6 +33,37 @@
 namespace facebook::velox::py {
 
 namespace py = pybind11;
+
+struct PyVeloxContext {
+  static inline PyVeloxContext& getInstance() {
+    if (!instance_) {
+      instance_ = std::make_unique<PyVeloxContext>();
+    }
+    return *instance_.get();
+  }
+
+  facebook::velox::memory::MemoryPool* pool() {
+    return pool_.get();
+  }
+  facebook::velox::core::QueryCtx* queryCtx() {
+    return queryCtx_.get();
+  }
+  facebook::velox::core::ExecCtx* execCtx() {
+    return execCtx_.get();
+  }
+
+ private:
+  std::shared_ptr<facebook::velox::memory::MemoryPool> pool_ =
+      facebook::velox::memory::getDefaultMemoryPool();
+  std::shared_ptr<facebook::velox::core::QueryCtx> queryCtx_ =
+      std::make_shared<facebook::velox::core::QueryCtx>();
+  std::unique_ptr<facebook::velox::core::ExecCtx> execCtx_ =
+      std::make_unique<facebook::velox::core::ExecCtx>(
+          pool_.get(),
+          queryCtx_.get());
+
+  static inline std::unique_ptr<PyVeloxContext> instance_;
+};
 
 std::string serializeType(const std::shared_ptr<const velox::Type>& type);
 
@@ -180,6 +216,37 @@ inline void appendVectors(VectorPtr& u, VectorPtr& v) {
   u->append(v.get());
 }
 
+inline VectorPtr evaluateExpression(
+    std::shared_ptr<const facebook::velox::core::IExpr>& expr,
+    std::vector<std::string> names,
+    std::vector<VectorPtr>& inputs) {
+  using namespace facebook::velox;
+  if (names.size() != inputs.size()) {
+    throw py::value_error("Must specify the same number of names as inputs");
+  }
+  vector_size_t numRows = inputs.empty() ? 0 : inputs[0]->size();
+  std::vector<std::shared_ptr<const Type>> types;
+  types.reserve(inputs.size());
+  for (auto vector : inputs) {
+    types.push_back(vector->type());
+    if (vector->size() != numRows) {
+      throw py::value_error("Inputs must have matching number of rows");
+    }
+  }
+  auto rowType = ROW(std::move(names), std::move(types));
+  memory::MemoryPool* pool = PyVeloxContext::getInstance().pool();
+  RowVectorPtr rowVector = std::make_shared<RowVector>(
+      pool, rowType, BufferPtr{nullptr}, numRows, inputs);
+  core::TypedExprPtr typed = core::Expressions::inferTypes(expr, rowType, pool);
+  exec::ExprSet set({typed}, PyVeloxContext::getInstance().execCtx());
+  exec::EvalCtx evalCtx(
+      PyVeloxContext::getInstance().execCtx(), &set, rowVector.get());
+  SelectivityVector rows(numRows);
+  std::vector<VectorPtr> result;
+  set.eval(rows, evalCtx, result);
+  return result[0];
+}
+
 inline void addDataTypeBindings(
     py::module& m,
     bool asModuleLocalDefinitions = true) {
@@ -318,7 +385,6 @@ inline void addVectorBindings(
     py::module& m,
     bool asModuleLocalDefinitions = true) {
   using namespace facebook::velox;
-  std::shared_ptr<memory::MemoryPool> pool = memory::getDefaultMemoryPool();
 
   py::enum_<velox::VectorEncoding::Simple>(
       m, "VectorEncodingSimple", py::module_local(asModuleLocalDefinitions))
@@ -366,9 +432,83 @@ inline void addVectorBindings(
           })
       .def("encoding", &BaseVector::encoding)
       .def("append", [](VectorPtr& u, VectorPtr& v) { appendVectors(u, v); });
-  m.def("from_list", [pool](const py::list& list) mutable {
-    return pyListToVector(list, pool.get());
+  m.def("from_list", [](const py::list& list) mutable {
+    return pyListToVector(list, PyVeloxContext::getInstance().pool());
   });
+}
+
+inline void addExpressionBindings(
+    py::module& m,
+    bool asModuleLocalDefinitions = true) {
+  using namespace facebook::velox;
+  functions::prestosql::registerAllScalarFunctions();
+  parse::registerTypeResolver();
+
+  // PyBind11's classes cannot be const, but the parse functions return const
+  // shared_ptrs, so we wrap in a non-const class.
+  struct IExprWrapper {
+    std::shared_ptr<const core::IExpr> expr;
+  };
+
+  py::class_<IExprWrapper>(
+      m, "Expression", py::module_local(asModuleLocalDefinitions))
+      .def(
+          "__str__",
+          [](IExprWrapper& e) { return e.expr->toString(); },
+          "Returns the string representation of the expression")
+      .def(
+          "getInputs",
+          [](IExprWrapper& e) {
+            const std::vector<std::shared_ptr<const core::IExpr>>& inputs =
+                e.expr->getInputs();
+            std::vector<IExprWrapper> wrapped_inputs;
+            wrapped_inputs.resize(inputs.size());
+            for (const std::shared_ptr<const core::IExpr>& input : inputs) {
+              wrapped_inputs.push_back({input});
+            }
+            return wrapped_inputs;
+          },
+          "Returns a list of expressions that the inputs to this expression")
+      .def(
+          "withInputs",
+          [](IExprWrapper& e, std::vector<IExprWrapper>& i) {
+            std::vector<std::shared_ptr<const core::IExpr>> inputs;
+            inputs.reserve(i.size());
+            for (IExprWrapper& w : i) {
+              inputs.push_back(w.expr);
+            }
+            IExprWrapper result = {e.expr->withInputs(inputs)};
+            return result;
+          },
+          "Sets the inputs to the given list of expressions")
+      .def(
+          "evaluate",
+          [](IExprWrapper& e,
+             std::vector<std::string> names,
+             std::vector<VectorPtr>& inputs) {
+            return evaluateExpression(e.expr, names, inputs);
+          },
+          "Evaluates the expression for a given set of inputs. Inputs are specified with a list of names and a list of vectors, with each vector having the corresponding name")
+      .def(
+          "evaluate",
+          [](IExprWrapper& e,
+             std::unordered_map<std::string, VectorPtr> name_input_map) {
+            std::vector<std::string> names;
+            std::vector<VectorPtr> inputs;
+            names.reserve(name_input_map.size());
+            inputs.reserve(name_input_map.size());
+            for (const std::pair<std::string, VectorPtr>& pair :
+                 name_input_map) {
+              names.push_back(pair.first);
+              inputs.push_back(pair.second);
+            }
+            return evaluateExpression(e.expr, names, inputs);
+          },
+          "Evaluates the expression, taking in a map from names to input vectors")
+      .def_static("from_string", [](std::string& str) {
+        parse::ParseOptions opts;
+        return IExprWrapper{parse::parseExpr(str, opts)};
+      });
 }
 
 ///  Adds Velox Python Bindings to the module m.
@@ -388,6 +528,7 @@ inline void addVeloxBindings(
     bool asModuleLocalDefinitions = true) {
   addDataTypeBindings(m, asModuleLocalDefinitions);
   addVectorBindings(m, asModuleLocalDefinitions);
+  addExpressionBindings(m, asModuleLocalDefinitions);
 }
 
 } // namespace facebook::velox::py
