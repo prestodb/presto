@@ -301,7 +301,7 @@ class PrestoExchangeSourceTest : public testing::Test {
         dynamic_cast<memory::MemoryPoolImpl<memory::MemoryAllocator, 16>&>(
             defaultManager.getRoot());
     pool_ = &pool;
-    memory::MmapAllocatorOptions options;
+    memory::MmapAllocator::Options options;
     options.capacity = 1L << 30;
     mappedMemory_ = std::make_unique<memory::MmapAllocator>(options);
     memory::MappedMemory::setDefaultInstance(mappedMemory_.get());

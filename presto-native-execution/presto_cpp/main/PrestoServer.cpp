@@ -353,7 +353,7 @@ void PrestoServer::initializeAsyncCache() {
   }
   auto memoryBytes = memoryGb << 30;
 
-  memory::MmapAllocatorOptions options;
+  memory::MmapAllocator::Options options;
   options.capacity = memoryBytes;
   options.useMmapArena = systemConfig->useMmapArena();
   options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
