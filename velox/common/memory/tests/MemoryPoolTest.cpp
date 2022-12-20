@@ -39,7 +39,7 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
     // For duration of the test, make a local MmapAllocator that will not be
     // seen by any other test.
     if (useMmap_) {
-      MmapAllocatorOptions opts{8UL << 30};
+      MmapAllocator::Options opts{8UL << 30};
       mmapAllocator_ = std::make_unique<MmapAllocator>(opts);
       MappedMemory::setDefaultInstance(mmapAllocator_.get());
     } else {
@@ -346,7 +346,7 @@ void testMmapMemoryAllocation(
 }
 
 TEST(MemoryPoolTest, SmallMmapMemoryAllocation) {
-  MmapAllocatorOptions options;
+  MmapAllocator::Options options;
   options.capacity = 8 * GB;
   auto mmapAllocator = std::make_unique<memory::MmapAllocator>(options);
   MappedMemory::setDefaultInstance(mmapAllocator.get());
@@ -354,7 +354,7 @@ TEST(MemoryPoolTest, SmallMmapMemoryAllocation) {
 }
 
 TEST(MemoryPoolTest, BigMmapMemoryAllocation) {
-  MmapAllocatorOptions options;
+  MmapAllocator::Options options;
   options.capacity = 8 * GB;
   auto mmapAllocator = std::make_unique<memory::MmapAllocator>(options);
   MappedMemory::setDefaultInstance(mmapAllocator.get());

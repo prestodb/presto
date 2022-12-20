@@ -106,7 +106,7 @@ class TpchBenchmark {
   void initialize() {
     if (FLAGS_cache_gb) {
       int64_t memoryBytes = FLAGS_cache_gb * (1LL << 30);
-      memory::MmapAllocatorOptions options;
+      memory::MmapAllocator::Options options;
       options.capacity = memoryBytes;
       options.useMmapArena = true;
       options.mmapArenaCapacityRatio = 1;

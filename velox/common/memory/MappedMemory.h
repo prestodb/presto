@@ -53,7 +53,7 @@ struct SizeClassStats {
   /// size class.
   std::atomic<int64_t> totalBytes{0};
 
-  SizeClassStats() {}
+  SizeClassStats() = default;
   SizeClassStats(const SizeClassStats& other) {
     *this = other;
   }
@@ -76,7 +76,7 @@ struct SizeClassStats {
     return result;
   }
 
-  // Returns the total clocks for this size class.
+  /// Returns the total clocks for this size class.
   uint64_t clocks() const {
     return allocateClocks + freeClocks;
   }
@@ -142,30 +142,46 @@ struct Stats {
 
 class ScopedMappedMemory;
 
-// Denotes a number of machine pages as in mmap and related functions.
+/// Denotes a number of machine pages as in mmap and related functions.
 using MachinePageCount = uint64_t;
 
-// Base class for allocating runs of machine pages from predefined
-// size classes. An allocation that does not match a size class is
-// composed of multiple runs from different size classes. To get 11
-// pages, one could have a run of 8, one of 2 and one of 1
-// page. This is intended for all high volume allocations, like
-// caches, IO buffers and hash tables for join/group
-// by. Implementations may use malloc or mmap/madvise. Caches
-// subclass this to provide allocation that is fungible with cached
-// capacity, i.e. a cache can evict data to make space for non-cache
-// memory users. The point is to have all large allocation come from
-// a single source to have dynamic balancing between different
-// users. Proxy subclasses may provide context specific tracking
-// while delegating the allocation to a root allocator.
+/// Base class for allocating runs of machine pages from predefined size
+/// classes. An allocation that does not match a size class is composed of
+/// multiple runs from different size classes. To get 11 pages, one could have a
+/// run of 8, one of 2 and one of 1 page. This is intended for all high volume
+/// allocations, like caches, IO buffers and hash tables for join/group by.
+/// Implementations may use malloc or mmap/madvise. Caches subclass this to
+/// provide allocation that is fungible with cached capacity, i.e. a cache can
+/// evict data to make space for non-cache memory users. The point is to have
+/// all large allocation come from a single source to have dynamic balancing
+/// between different users. Proxy subclasses may provide context specific
+/// tracking while delegating the allocation to a root allocator.
 class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
  public:
+  /// Returns the process-wide default instance or an application-supplied
+  /// custom instance set via setDefaultInstance().
+  static MappedMemory* FOLLY_NONNULL getInstance();
+
+  /// Overrides the process-wide default instance. The caller keeps ownership
+  /// and must not destroy the instance until it is empty. Calling this with
+  /// nullptr restores the initial process-wide default instance.
+  static void setDefaultInstance(MappedMemory* FOLLY_NULLABLE instance);
+
+  /// Creates a default MemoryAllocator instance but does not set this to
+  /// process default.
+  static std::shared_ptr<MappedMemory> createDefaultInstance();
+
+  static void testingDestroyInstance();
+
+  MappedMemory() = default;
+  virtual ~MappedMemory() = default;
+
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
-  // Allocations smaller than 3K should  go to malloc.
+  /// Allocations smaller than 3K should  go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
 
-  // Represents a number of consecutive pages of kPageSize bytes.
+  /// Represents a number of consecutive pages of kPageSize bytes.
   class PageRun {
    public:
     static constexpr uint8_t kPointerSignificantBits = 48;
@@ -176,14 +192,14 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     PageRun(void* FOLLY_NONNULL address, MachinePageCount numPages) {
       auto word = reinterpret_cast<uint64_t>(address); // NOLINT
       if (!FLAGS_velox_use_malloc) {
-        VELOX_CHECK(
-            (word & (kPageSize - 1)) == 0,
+        VELOX_CHECK_EQ(
+            word & (kPageSize - 1),
+            0,
             "Address is not page-aligned for PageRun");
       }
-      VELOX_CHECK(numPages <= kMaxPagesInRun);
-      VELOX_CHECK(
-          (word & ~kPointerMask) == 0,
-          "A pointer must have its 16 high bits 0");
+      VELOX_CHECK_LE(numPages, kMaxPagesInRun);
+      VELOX_CHECK_EQ(
+          word & ~kPointerMask, 0, "A pointer must have its 16 high bits 0");
       data_ =
           word | (static_cast<uint64_t>(numPages) << kPointerSignificantBits);
     }
@@ -205,12 +221,12 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     uint64_t data_;
   };
 
-  // Represents a set of PageRuns that are allocated together.
+  /// Represents a set of PageRuns that are allocated together.
   class Allocation {
    public:
     explicit Allocation(MappedMemory* FOLLY_NONNULL mappedMemory)
         : mappedMemory_(mappedMemory) {
-      VELOX_CHECK(mappedMemory);
+      VELOX_CHECK_NOT_NULL(mappedMemory_);
     }
 
     ~Allocation() {
@@ -258,8 +274,8 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       numPages_ = 0;
     }
 
-    // Returns the run number and the position within the run
-    // corresponding to 'offset' from the start of 'this'.
+    /// Returns the run number and the position within the run corresponding to
+    /// 'offset' from the start of 'this'.
     void findRun(
         uint64_t offset,
         int32_t* FOLLY_NONNULL index,
@@ -271,9 +287,8 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     int32_t numPages_ = 0;
   };
 
-  // Represents a mmap'd run of contiguous pages that do not belong to
-  // any size class but are still accounted by the owning
-  // MappedMemory.
+  /// Represents a mmap'd run of contiguous pages that do not belong to any size
+  /// class but are still accounted by the owning MappedMemory.
   class ContiguousAllocation {
    public:
     ContiguousAllocation() = default;
@@ -303,7 +318,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       return reinterpret_cast<T*>(data_);
     }
 
-    // size in bytes.
+    /// size in bytes.
     uint64_t size() const {
       return size_;
     }
@@ -323,13 +338,13 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     uint64_t size_{0};
   };
 
-  // Stats on memory allocated by allocateBytes().
+  /// Stats on memory allocated by allocateBytes().
   struct AllocateBytesStats {
-    // Total size of small allocations.
+    /// Total size of small allocations.
     uint64_t totalSmall;
-    // Total size of allocations from some size class.
+    /// Total size of allocations from some size class.
     uint64_t totalInSizeClasses;
-    // Total in standalone large allocations via allocateContiguous().
+    /// Total in standalone large allocations via allocateContiguous().
     uint64_t totalLarge;
 
     AllocateBytesStats operator-(const AllocateBytesStats& other) const {
@@ -340,24 +355,6 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       return result;
     }
   };
-
-  MappedMemory() {}
-
-  virtual ~MappedMemory() {}
-
-  // Returns the process-wide default instance or an application-supplied custom
-  // instance set via setDefaultInstance().
-  static MappedMemory* FOLLY_NONNULL getInstance();
-
-  // Creates a default MappedMemory instance but does not set this to process
-  // default.
-  static std::shared_ptr<MappedMemory> createDefaultInstance();
-
-  // Overrides the process-wide default instance. The caller keeps
-  // ownership and must not destroy the instance until it is
-  // empty. Calling this with nullptr restores the initial
-  // process-wide default instance.
-  static void setDefaultInstance(MappedMemory* FOLLY_NULLABLE instance);
 
   /// Allocates one or more runs that add up to at least 'numPages', with the
   /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
@@ -378,7 +375,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       std::function<void(int64_t, bool)> userAllocCB = nullptr,
       MachinePageCount minSizeClass = 0) = 0;
 
-  // Returns the number of freed bytes.
+  /// Returns non-contiguous 'allocation'.
   virtual int64_t freeNonContiguous(Allocation& allocation) = 0;
 
   /// Makes a contiguous mmap of 'numPages'. Advises away the required number of
@@ -414,11 +411,9 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   // Frees memory allocated with allocateBytes().
   virtual void freeBytes(void* FOLLY_NONNULL p, uint64_t size) noexcept;
 
-  // Checks internal consistency of allocation data
-  // structures. Returns true if OK.
+  /// Checks internal consistency of allocation data structures. Returns true if
+  /// OK.
   virtual bool checkConsistency() const = 0;
-
-  static void destroyTestOnly();
 
   virtual MachinePageCount largestSizeClass() const {
     return sizeClassSizes_.back();
@@ -439,8 +434,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     return nullptr;
   }
 
-  // Returns static counters for allocateBytes usage.
-
+  /// Returns static counters for allocateBytes usage.
   static AllocateBytesStats allocateBytesStats() {
     return {
         totalSmallAllocateBytes_,
@@ -448,7 +442,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
         totalLargeAllocateBytes_};
   }
 
-  // clears counters to revert effect of previous tests.
+  /// Clears counters to revert effect of previous tests.
   static void testingClearAllocateBytesStats() {
     totalSmallAllocateBytes_ = 0;
     totalSizeClassAllocateBytes_ = 0;
@@ -489,21 +483,21 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
  private:
+  inline static std::mutex initMutex_;
   // Singleton instance.
-  static std::shared_ptr<MappedMemory> instance_;
+  inline static std::shared_ptr<MappedMemory> instance_;
   // Application-supplied custom implementation of MappedMemory to be returned
   // by getInstance().
-  static MappedMemory* FOLLY_NULLABLE customInstance_;
-  static std::mutex initMutex_;
+  inline static MappedMemory* FOLLY_NULLABLE customInstance_;
 
   // Static counters for STL and memoryPool users of
   // MappedMemory. Updated by allocateBytes() and freeBytes(). These
   // are intended to be exported via StatsReporter. These are
   // respectively backed by malloc, allocate from a single size class
   // and standalone mmap.
-  static std::atomic<uint64_t> totalSmallAllocateBytes_;
-  static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
-  static std::atomic<uint64_t> totalLargeAllocateBytes_;
+  inline static std::atomic<uint64_t> totalSmallAllocateBytes_;
+  inline static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
+  inline static std::atomic<uint64_t> totalLargeAllocateBytes_;
 };
 
 // Wrapper around MappedMemory for scoped tracking of activity. We

@@ -45,12 +45,12 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
   }
 
   void SetUp() override {
-    MappedMemory::destroyTestOnly();
+    MappedMemory::testingDestroyInstance();
     auto tracker = MemoryUsageTracker::create(
         MemoryUsageConfigBuilder().maxTotalMemory(kMaxMappedMemory).build());
     useMmap_ = GetParam();
     if (useMmap_) {
-      MmapAllocatorOptions options;
+      MmapAllocator::Options options;
       options.capacity = kMaxMappedMemory;
       mmapAllocator_ = std::make_shared<MmapAllocator>(options);
       MappedMemory::setDefaultInstance(mmapAllocator_.get());
@@ -62,7 +62,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
   }
 
   void TearDown() override {
-    MappedMemory::destroyTestOnly();
+    MappedMemory::testingDestroyInstance();
   }
 
   bool allocate(int32_t numPages, MappedMemory::Allocation& result) {
@@ -578,7 +578,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   // kLargeSize already in large[0], 1/2 of kLargeSize free and
   // kSmallSize given as collateral. This does not go through because
   // we inject a failure in advising away the collateral.
-  instance->injectFailure(MmapAllocator::Failure::kMadvise);
+  instance->testingInjectFailure(MmapAllocator::Failure::kMadvise);
   EXPECT_FALSE(instance->allocateContiguous(
       kLargeSize + kSmallSize, allocations.back().get(), large, trackCallback));
   EXPECT_TRUE(instance->checkConsistency());
@@ -592,7 +592,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   trackedBytes = 0;
   EXPECT_TRUE(instance->allocateContiguous(
       kLargeSize / 2, nullptr, large, trackCallback));
-  instance->injectFailure(MmapAllocator::Failure::kMmap);
+  instance->testingInjectFailure(MmapAllocator::Failure::kMmap);
   // Should go through because 1/2 of kLargeSize + kSmallSize free and 1/2 of
   // kLargeSize already in large. Fails because mmap after advise away fails.
   EXPECT_FALSE(instance->allocateContiguous(
@@ -723,10 +723,10 @@ DEBUG_ONLY_TEST_P(
   const std::string testValueStr = useMmap_
       ? "facebook::velox::memory::MmapAllocator::allocate"
       : "facebook::velox::memory::MappedMemoryImpl::allocate";
-  std::atomic<bool> injectFailureOnce{true};
+  std::atomic<bool> testingInjectFailureOnce{true};
   SCOPED_TESTVALUE_SET(
       testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
-        if (!injectFailureOnce.exchange(false)) {
+        if (!testingInjectFailureOnce.exchange(false)) {
           return;
         }
         if (useMmap_) {
@@ -758,7 +758,7 @@ TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
   std::vector<MmapAllocator::Failure> failureTypes(
       {MmapAllocator::Failure::kMadvise, MmapAllocator::Failure::kMmap});
   for (const auto& failure : failureTypes) {
-    mappedMemory->injectFailure(failure);
+    mappedMemory->testingInjectFailure(failure);
     auto tracker = MemoryUsageTracker::create();
     ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
     auto scopedMemory = mappedMemory->addChild(tracker);
@@ -770,7 +770,7 @@ TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
     ASSERT_FALSE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
-    mappedMemory->injectFailure(MmapAllocator::Failure::kNone);
+    mappedMemory->testingInjectFailure(MmapAllocator::Failure::kNone);
     ASSERT_TRUE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_GT(tracker->getCurrentUserBytes(), 0);
