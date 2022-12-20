@@ -14,6 +14,7 @@
 package com.facebook.presto.sql.planner;
 
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
@@ -44,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 public class StatsEquivalentPlanNodeWithLimit
         extends InternalPlanNode
 {
-    private static final Set<Class<?>> LIMITING_NODES = ImmutableSet.of(LimitNode.class, TopNNode.class, TopNRowNumberNode.class);
+    private static final Set<Class<?>> LIMITING_NODES = ImmutableSet.of(LimitNode.class, TopNNode.class, TopNRowNumberNode.class, DistinctLimitNode.class);
 
     // TODO: We are storing duplicated information at multiple levels. Look into if we can optimize it.
     private final PlanNode plan;
