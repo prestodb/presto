@@ -249,6 +249,12 @@ velox::variant variantAt(const ::duckdb::Value& value) {
 }
 
 template <>
+velox::variant variantAt<TypeKind::TIMESTAMP>(const ::duckdb::Value& value) {
+  return velox::variant::timestamp(
+      duckdbTimestampToVelox(value.GetValue<::duckdb::timestamp_t>()));
+}
+
+template <>
 velox::variant variantAt<TypeKind::DATE>(const ::duckdb::Value& value) {
   return velox::variant::date(
       ::duckdb::Date::EpochDays(value.GetValue<::duckdb::date_t>()));

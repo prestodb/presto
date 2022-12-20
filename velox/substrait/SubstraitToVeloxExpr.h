@@ -18,6 +18,7 @@
 
 #include "velox/core/Expressions.h"
 #include "velox/substrait/SubstraitParser.h"
+#include "velox/vector/ComplexVector.h"
 
 namespace facebook::velox::substrait {
 
@@ -63,6 +64,10 @@ class SubstraitVeloxExprConverter {
       const RowTypePtr& inputType);
 
  private:
+  /// Convert list literal to ArrayVector.
+  ArrayVectorPtr literalsToArrayVector(
+      const ::substrait::Expression::Literal& listLiteral);
+
   /// Memory pool.
   memory::MemoryPool* pool_;
 

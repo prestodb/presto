@@ -21,6 +21,7 @@
 #include "velox/substrait/SubstraitExtensionCollector.h"
 #include "velox/substrait/VeloxToSubstraitType.h"
 #include "velox/substrait/proto/substrait/algebra.pb.h"
+#include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox::substrait {
 
@@ -54,16 +55,6 @@ class VeloxToSubstraitExprConvertor {
       const std::shared_ptr<const core::ConstantTypedExpr>& constExpr,
       ::substrait::Expression_Literal_Struct* litValue = nullptr);
 
-  /// Convert Velox null value to Substrait null literal.
-  const ::substrait::Expression_Literal& toSubstraitNullLiteral(
-      google::protobuf::Arena& arena,
-      const velox::TypeKind& typeKind);
-
-  /// Convert Velox not null variant to Substrait Literal Expression.
-  const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
-      google::protobuf::Arena& arena,
-      const velox::variant& variantValue);
-
   /// Convert Velox FieldAccessTypedExpr to Substrait FieldReference Expression.
   const ::substrait::Expression_FieldReference& toSubstraitExpr(
       google::protobuf::Arena& arena,
@@ -93,6 +84,17 @@ class VeloxToSubstraitExprConvertor {
   const ::substrait::Expression_Literal& toSubstraitLiteral(
       google::protobuf::Arena& arena,
       const velox::variant& variantValue);
+
+  /// Convert values in Velox array vector to Substrait Literal List.
+  const ::substrait::Expression_Literal_List& toSubstraitLiteralList(
+      google::protobuf::Arena& arena,
+      const ArrayVector* arrayVector,
+      vector_size_t row);
+
+  /// Convert values in Velox complex vector to Substrait Literal.
+  const ::substrait::Expression_Literal& toSubstraitLiteralComplex(
+      google::protobuf::Arena& arena,
+      const std::shared_ptr<ConstantVector<ComplexType>>& constantVector);
 
   VeloxToSubstraitTypeConvertorPtr typeConvertor_;
 
