@@ -200,11 +200,17 @@ const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
 
 template <TypeKind kind>
 const ::substrait::Expression_Literal& toSubstraitNotNullLiteral(
-    google::protobuf::Arena& /* arena */,
+    google::protobuf::Arena& arena,
     const typename TypeTraits<kind>::NativeType& /* value */) {
   VELOX_UNSUPPORTED(
       "toSubstraitNotNullLiteral function doesn't support {} type",
       TypeTraits<kind>::name);
+
+  // Make compiler happy.
+  ::substrait::Expression_Literal* literalExpr =
+      google::protobuf::Arena::CreateMessage<::substrait::Expression_Literal>(
+          &arena);
+  return *literalExpr;
 }
 
 template <>
