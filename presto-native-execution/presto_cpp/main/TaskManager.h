@@ -118,6 +118,13 @@ class TaskManager {
   // in exec/Task.h).
   std::array<size_t, 5> getTaskNumbers(size_t& numTasks) const;
 
+  /// Build directory path for spilling for the given task.
+  /// Always returns non-empty string.
+  static std::string buildTaskSpillDirectoryPath(
+      const std::string& baseSpillPath,
+      const std::string& queryId,
+      const protocol::TaskId& taskId);
+
  public:
   static constexpr folly::StringPiece kMaxDriversPerTask{
       "max_drivers_per_task"};
