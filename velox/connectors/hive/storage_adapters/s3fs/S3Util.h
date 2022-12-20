@@ -35,6 +35,9 @@ constexpr std::string_view kS3Scheme{"s3://"};
 // This should not be mixed with s3 nor the s3a.
 // S3A Hadoop 3.x (previous connectors "s3" and "s3n" are deprecated).
 constexpr std::string_view kS3aScheme{"s3a://"};
+// DEPRECATED: s3n are deprecated in Hadoop 3.x but we are supporting s3n for
+// data that hasn't been migrated yet.
+constexpr std::string_view kS3nScheme{"s3n://"};
 // OSS Alibaba support S3 format, usage only with SSL.
 constexpr std::string_view kOssScheme{"oss://"};
 // From AWS documentation
@@ -49,13 +52,18 @@ inline bool isS3aFile(const std::string_view filename) {
   return filename.substr(0, kS3aScheme.size()) == kS3aScheme;
 }
 
+inline bool isS3nFile(const std::string_view filename) {
+  return filename.substr(0, kS3nScheme.size()) == kS3nScheme;
+}
+
 inline bool isOssFile(const std::string_view filename) {
   return filename.substr(0, kOssScheme.size()) == kOssScheme;
 }
 
 inline bool isS3File(const std::string_view filename) {
   // TODO: Each prefix should be implemented as its own filesystem.
-  return isS3AwsFile(filename) || isS3aFile(filename) || isOssFile(filename);
+  return isS3AwsFile(filename) || isS3aFile(filename) || isS3nFile(filename) ||
+      isOssFile(filename);
 }
 
 inline void bucketAndKeyFromS3Path(
@@ -90,6 +98,8 @@ inline std::string s3Path(const std::string_view& path) {
     return std::string(path.substr(kS3Scheme.length()));
   } else if (isS3aFile(path)) {
     return std::string(path.substr(kS3aScheme.length()));
+  } else if (isS3nFile(path)) {
+    return std::string(path.substr(kS3nScheme.length()));
   } else if (isOssFile(path)) {
     return std::string(path.substr(kOssScheme.length()));
   }

@@ -31,6 +31,7 @@ TEST(S3UtilTest, isS3File) {
   EXPECT_FALSE(isS3File("s3:/bucket"));
   EXPECT_FALSE(isS3File("file://bucket"));
   EXPECT_TRUE(isS3File("s3://bucket/file.txt"));
+  EXPECT_TRUE(isS3File("s3n://bucket/file.txt"));
 }
 
 TEST(S3UtilTest, isS3AwsFile) {
@@ -48,6 +49,14 @@ TEST(S3UtilTest, isS3aFile) {
   EXPECT_TRUE(isS3aFile("s3a://bucket/file.txt"));
 }
 
+TEST(S3UtilTest, isS3nFile) {
+  EXPECT_FALSE(isS3nFile("s3n:"));
+  EXPECT_FALSE(isS3nFile("s3n::/bucket"));
+  EXPECT_FALSE(isS3nFile("s3n:/bucket"));
+  EXPECT_FALSE(isS3nFile("S3N://bucket-name/file.txt"));
+  EXPECT_TRUE(isS3nFile("s3n://bucket/file.txt"));
+}
+
 TEST(S3UtilTest, isOssFile) {
   EXPECT_FALSE(isOssFile("oss:"));
   EXPECT_FALSE(isOssFile("oss::/bucket"));
@@ -61,9 +70,11 @@ TEST(S3UtilTest, s3Path) {
   auto path_0 = s3Path("s3://bucket/file.txt");
   auto path_1 = s3Path("oss://bucket-name/file.txt");
   auto path_2 = s3Path("S3A://bucket-NAME/sub-PATH/my-file.txt");
+  auto path_3 = s3Path("s3N://bucket-NAME/sub-PATH/my-file.txt");
   EXPECT_EQ(path_0, "bucket/file.txt");
   EXPECT_EQ(path_1, "bucket-name/file.txt");
   EXPECT_NE(path_2, "bucket-NAME/sub-PATH/my-file.txt");
+  EXPECT_NE(path_3, "bucket-NAME/sub-PATH/my-file.txt");
 }
 
 TEST(S3UtilTest, bucketAndKeyFromS3Path) {
