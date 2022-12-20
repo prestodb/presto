@@ -159,6 +159,8 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   /// Invoked to allocate a zero-filled buffer with capacity that can store
   /// 'numMembers' entries with each size of 'sizeEach'.
+  ///
+  /// NOTE: 'allocateZeroFilled' memory allocation is not aligned.
   virtual void* FOLLY_NULLABLE
   allocateZeroFilled(int64_t numMembers, int64_t sizeEach) = 0;
 
@@ -600,13 +602,13 @@ template <typename Allocator, uint16_t ALIGNMENT>
 void* FOLLY_NULLABLE MemoryPoolImpl<Allocator, ALIGNMENT>::allocateZeroFilled(
     int64_t numMembers,
     int64_t sizeEach) {
-  VELOX_USER_CHECK_EQ(sizeEach, 1);
-  auto alignedSize = sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, numMembers);
+  auto alignedSize =
+      sizeAlign<ALIGNMENT>(ALIGNER<ALIGNMENT>{}, numMembers * sizeEach);
   if (this->isMemoryCapped()) {
     VELOX_MEM_MANUAL_CAP();
   }
-  reserve(alignedSize * sizeEach);
-  return allocator_.allocZeroFilled(alignedSize, sizeEach);
+  reserve(alignedSize);
+  return allocator_.allocZeroFilled(1, alignedSize);
 }
 
 template <typename Allocator, uint16_t ALIGNMENT>

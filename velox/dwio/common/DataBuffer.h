@@ -35,7 +35,7 @@ class DataBuffer {
       : pool_(&pool),
         // Initial allocation uses calloc, to avoid memset.
         buf_(reinterpret_cast<T*>(
-            pool_->allocateZeroFilled(sizeInBytes(size), 1))),
+            pool_->allocateZeroFilled(1, sizeInBytes(size)))),
         size_(size),
         capacity_(size) {
     DWIO_ENSURE(buf_ != nullptr || size == 0);
