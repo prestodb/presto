@@ -20,6 +20,8 @@
 
 namespace facebook::velox::core {
 
+class QueryConfig;
+
 /// Gives hints on how to execute the fragment of a plan.
 enum class ExecutionStrategy {
   /// Process splits as they come in any available driver.
@@ -56,6 +58,10 @@ struct PlanFragment {
       : planNode(std::move(topNode)),
         executionStrategy(strategy),
         numSplitGroups(numberOfSplitGroups) {}
+
+  /// Returns true if the spilling is enabled and there is at least one node in
+  /// the plan, whose operator can spill. Returns false otherwise.
+  bool canSpill(const QueryConfig& queryConfig) const;
 };
 
 } // namespace facebook::velox::core
