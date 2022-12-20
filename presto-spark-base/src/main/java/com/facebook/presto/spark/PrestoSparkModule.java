@@ -125,6 +125,7 @@ import com.facebook.presto.spark.node.PrestoSparkTaskManager;
 import com.facebook.presto.spark.planner.PrestoSparkPlanFragmenter;
 import com.facebook.presto.spark.planner.PrestoSparkQueryPlanner;
 import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
+import com.facebook.presto.spark.planner.optimizers.AdaptivePlanOptimizers;
 import com.facebook.presto.spi.ConnectorMetadataUpdateHandle;
 import com.facebook.presto.spi.ConnectorTypeSerde;
 import com.facebook.presto.spi.PageIndexerFactory;
@@ -407,6 +408,7 @@ public class PrestoSparkModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);
         binder.bind(LocalExecutionPlanner.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FileFragmentResultCacheConfig.class);
