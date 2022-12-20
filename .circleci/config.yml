@@ -41,9 +41,11 @@ workflows:
       - linux-presto-fuzzer-run
       - linux-spark-fuzzer-run
       - linux-aggregate-fuzzer-run
+      - linux-join-fuzzer-run
       - docker-compose-ubuntu-cpp
       - docker-compose-centos-cpp
       - docker-compose-presto-native
+
 
   # Hourly build on weekdays
   weekday:
@@ -151,6 +153,39 @@ commands:
             fi
 
             conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
+
+  fuzzer-run:
+    parameters:
+      fuzzer_output:
+        type: string
+      fuzzer_name:
+        type: string
+      fuzzer_exe:
+        type: string
+      fuzzer_args:
+        type: string
+    steps:
+      - pre-steps
+      - run:
+          name: Build
+          command: |
+            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
+            ccache -s
+          no_output_timeout: 1h
+      - run:
+          name: "Run << parameters.fuzzer_name >> Fuzzer"
+          command: |
+            eval " << parameters.fuzzer_exe >> << parameters.fuzzer_args >> " \
+                  2>&1 | tee "<< parameters.fuzzer_output >>" || ( \
+                    tail -n 1000 "<< parameters.fuzzer_output >>" ; \
+                    echo "FAIL: << parameters.fuzzer_name >> run failed"; \
+                    exit 1; \
+                  )
+                echo -e "\n << parameters.fuzzer_name >> run finished successfully."
+          no_output_timeout: 120m
+      - store_artifacts:
+          path: << parameters.fuzzer_output >>
+      - post-steps
 
 executors:
   build:
@@ -472,116 +507,51 @@ jobs:
     executor: build
     environment:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
-      ICU_SOURCE: BUNDLED
     steps:
-      - pre-steps
-      - run:
-          name: Build
-          command: |
-            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
-            ccache -s
-          no_output_timeout: 1h
-      - run:
-          # Run Fuzzer, save the output to /tmp/fuzzer.log, and upload the file
-          # as job artifact to make it convenient for users to inspect it -
-          # these logs can also be quite large. Always prints the last 1k lines to
-          # the job output for context.
-          name: "Run Fuzzer Tests"
-          command: |
-            echo -e "The logs will be saved to \"/tmp/fuzzer.log\" and uploaded" \
-                    "as a job artifact (check the \"Artifacts\" tab above)."
-            _build/debug/velox/expression/tests/velox_expression_fuzzer_test \
-                --seed ${RANDOM} \
-                --lazy_vector_generation_ratio 0.2 \
-                --duration_sec 600 \
-                --enable_variadic_signatures \
-                --velox_fuzzer_enable_complex_types \
-                --velox_fuzzer_enable_column_reuse \
-                --velox_fuzzer_enable_expression_reuse \
-                --logtostderr=1 \
-                --minloglevel=0 \
-              2>&1 | tee /tmp/fuzzer.log || ( \
-                tail -n 1000 /tmp/fuzzer.log;
-                echo "FAIL: Fuzzer run failed";
-                exit 1; \
-              )
-            echo -e "\n\nFuzzer run finished successfully."
-          no_output_timeout: 20m
-      - store_artifacts:
-          path: '/tmp/fuzzer.log'
-      - post-steps
+      - fuzzer-run:
+          fuzzer_output: "/tmp/fuzzer.log"
+          fuzzer_name: "Expression"
+          fuzzer_exe: "_build/debug/velox/expression/tests/velox_expression_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --lazy_vector_generation_ratio 0.2 \
+          --duration_sec 600 --enable_variadic_signatures \
+          --velox_fuzzer_enable_complex_types \
+          --velox_fuzzer_enable_column_reuse \
+          --velox_fuzzer_enable_expression_reuse \
+          --logtostderr=1 --minloglevel=0 "
 
   linux-spark-fuzzer-run:
     executor: build
     environment:
       VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
-      - pre-steps
-      - run:
-          name: Build
-          command: |
-            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
-            ccache -s
-          no_output_timeout: 1h
-      - run:
-          # Run Spark Fuzzer, save the output to /tmp/spark_fuzzer.log, and upload the file
-          # as job artifact to make it convenient for users to inspect it -
-          # these logs can also be quite large. Always prints the last 1k lines to
-          # the job output for context.
-          name: "Run Spark Fuzzer Tests"
-          command: |
-            echo -e "The logs will be saved to \"/tmp/spark_fuzzer.log\" and uploaded" \
-                    "as a job artifact (check the \"Artifacts\" tab above)."
-            _build/debug/velox/expression/tests/spark_expression_fuzzer_test \
-                --seed ${RANDOM} \
-                --duration_sec 600 \
-                --logtostderr=1 \
-                --minloglevel=0 \
-              2>&1 | tee /tmp/spark_fuzzer.log || ( \
-                tail -n 1000 /tmp/spark_fuzzer.log;
-                echo "FAIL: Fuzzer run failed";
-                exit 1; \
-              )
-            echo -e "\n\nSpark Fuzzer run finished successfully."
-          no_output_timeout: 20m
-      - store_artifacts:
-          path: '/tmp/spark_fuzzer.log'
-      - post-steps
+      - fuzzer-run:
+          fuzzer_output: "/tmp/spark_fuzzer.log"
+          fuzzer_name: "Spark"
+          fuzzer_exe: "_build/debug/velox/expression/tests/spark_expression_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 600 --logtostderr=1 --minloglevel=0 "
+
 
   linux-aggregate-fuzzer-run:
     executor: build
+    environment:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
     steps:
-      - pre-steps
-      - run:
-          name: Build
-          command: |
-            make debug NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
-            ccache -s
-          no_output_timeout: 2h
-      - run:
-          # Run Aggregate Fuzzer, save the output to /tmp/aggregate_fuzzer.log, and upload the file
-          # as job artifact to make it convenient for users to inspect it -
-          # these logs can also be quite large. Always prints the last 1k lines to
-          # the job output for context.
-          name: "Run Aggregate Fuzzer Tests"
-          command: |
-            echo -e "The logs will be saved to \"/tmp/aggregate_fuzzer.log\" and uploaded" \
-                    "as a job artifact (check the \"Artifacts\" tab above)."
-            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
-                --seed ${RANDOM} \
-                --duration_sec 3600 \
-                --logtostderr=1 \
-                --minloglevel=0 \
-              2>&1 | tee /tmp/aggregate_fuzzer.log || ( \
-                tail -n 1000 /tmp/aggregate_fuzzer.log;
-                echo "FAIL: Aggregate Fuzzer run failed";
-                exit 1; \
-              )
-            echo -e "\n\nAggregate Fuzzer run finished successfully."
-          no_output_timeout: 120m
-      - store_artifacts:
-          path: '/tmp/aggregate_fuzzer.log'
-      - post-steps
+      - fuzzer-run:
+          fuzzer_output: "/tmp/aggregate_fuzzer.log"
+          fuzzer_name: "Aggregate"
+          fuzzer_exe: "_build/debug/velox/exec/tests/velox_aggregation_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 "
+
+  linux-join-fuzzer-run:
+    executor: build
+    environment:
+      VELOX_DEPENDENCY_SOURCE: SYSTEM
+    steps:
+      - fuzzer-run:
+          fuzzer_output: "/tmp/join_fuzzer.log"
+          fuzzer_name: "Join"
+          fuzzer_exe: "_build/debug/velox/exec/tests/velox_join_fuzzer_test"
+          fuzzer_args: " --seed ${RANDOM} --duration_sec 3600 --logtostderr=1 --minloglevel=0 "
 
   format-check:
     executor: check
