@@ -35,6 +35,7 @@ public class StatsCalculatorModule
         binder.bind(FilterStatsCalculator.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HistoryBasedOptimizationConfig.class);
         binder.bind(HistoryBasedPlanStatisticsManager.class).in(Scopes.SINGLETON);
+        binder.bind(FragmentStatsProvider.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -44,9 +45,10 @@ public class StatsCalculatorModule
             ScalarStatsCalculator scalarStatsCalculator,
             StatsNormalizer normalizer,
             FilterStatsCalculator filterStatsCalculator,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            FragmentStatsProvider fragmentStatsProvider)
     {
-        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator);
+        StatsCalculator delegate = createComposableStatsCalculator(metadata, scalarStatsCalculator, normalizer, filterStatsCalculator, fragmentStatsProvider);
         return historyBasedPlanStatisticsManager.getHistoryBasedPlanStatisticsCalculator(delegate);
     }
 
@@ -54,7 +56,8 @@ public class StatsCalculatorModule
             Metadata metadata,
             ScalarStatsCalculator scalarStatsCalculator,
             StatsNormalizer normalizer,
-            FilterStatsCalculator filterStatsCalculator)
+            FilterStatsCalculator filterStatsCalculator,
+            FragmentStatsProvider fragmentStatsProvider)
     {
         ImmutableList.Builder<ComposableStatsCalculator.Rule<?>> rules = ImmutableList.builder();
         rules.add(new OutputStatsRule());
@@ -77,6 +80,7 @@ public class StatsCalculatorModule
         rules.add(new SortStatsRule());
         rules.add(new SampleStatsRule(normalizer));
         rules.add(new IntersectStatsRule(normalizer));
+        rules.add(new RemoteSourceStatsRule(fragmentStatsProvider, normalizer));
 
         return new ComposableStatsCalculator(rules.build());
     }
