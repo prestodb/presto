@@ -277,6 +277,23 @@ jobs:
       - store_artifacts:
           path: '/tmp/fuzzer_repro'
       - run:
+          name: "Run Aggregate Fuzzer Tests"
+          # Run aggregation fuzzer using the built executable.
+          command: |
+            mkdir -p /tmp/aggregate_fuzzer_repro/
+            rm -rfv /tmp/aggregate_fuzzer_repro/*
+            chmod -R 777 /tmp/aggregate_fuzzer_repro
+            _build/debug/velox/exec/tests/velox_aggregation_fuzzer_test \
+                --seed 123456 \
+                --duration_sec 60 \
+                --logtostderr=1 \
+                --minloglevel=0 \
+                --repro_persist_path=/tmp/aggregate_fuzzer_repro \
+            && echo -e "\n\nAggregation fuzzer run finished successfully."
+          no_output_timeout: 5m
+      - store_artifacts:
+          path: '/tmp/aggregate_fuzzer_repro'
+      - run:
          name: "Run Example Binaries"
          command: |
            find _build/debug/velox/examples/ -maxdepth 1 -type f -executable -exec "{}" \;

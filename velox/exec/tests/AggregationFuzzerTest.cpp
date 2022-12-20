@@ -49,7 +49,9 @@ int main(int argc, char** argv) {
 
   // TODO: List of the functions that at some point crash or fail and need to
   // be fixed before we can enable.
-  std::unordered_set<std::string> skipFunctions = {};
+  std::unordered_set<std::string> skipFunctions = {
+      "stddev_pop", // https://github.com/facebookincubator/velox/issues/3493
+  };
 
   // The results of the following functions depend on the order of input
   // rows. For some functions, the result can be transformed to a value that
