@@ -14,37 +14,46 @@
 package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.common.WarningHandlingLevel;
-import com.facebook.presto.sql.parser.ParsingOptions;
+import com.facebook.presto.spi.WarningCollector;
 
 import static com.facebook.presto.common.WarningHandlingLevel.NORMAL;
+import static java.util.Objects.requireNonNull;
 
 /**
  * Various options required at different stage of query analysis.
  */
 public class AnalyzerOptions
 {
-    private final ParsingOptions parsingOptions;
+    private final boolean isParseDecimalLiteralsAsDouble;
     private final boolean isLogFormattedQueryEnabled;
     private final WarningHandlingLevel warningHandlingLevel;
+    private final WarningCollector warningCollector;
 
     private AnalyzerOptions(
-            ParsingOptions parsingOptions,
+            boolean isParseDecimalLiteralsAsDouble,
             boolean isLogFormattedQueryEnabled,
+            WarningCollector warningCollector,
             WarningHandlingLevel warningHandlingLevel)
     {
-        this.parsingOptions = parsingOptions;
+        this.isParseDecimalLiteralsAsDouble = isParseDecimalLiteralsAsDouble;
         this.isLogFormattedQueryEnabled = isLogFormattedQueryEnabled;
-        this.warningHandlingLevel = warningHandlingLevel;
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.warningHandlingLevel = requireNonNull(warningHandlingLevel, "warningHandlingLevel is null");
     }
 
-    public ParsingOptions getParsingOptions()
+    public boolean isParseDecimalLiteralsAsDouble()
     {
-        return parsingOptions;
+        return isParseDecimalLiteralsAsDouble;
     }
 
     public boolean isLogFormattedQueryEnabled()
     {
         return isLogFormattedQueryEnabled;
+    }
+
+    public WarningCollector getWarningCollector()
+    {
+        return warningCollector;
     }
 
     public WarningHandlingLevel getWarningHandlingLevel()
@@ -59,21 +68,28 @@ public class AnalyzerOptions
 
     public static class Builder
     {
-        private ParsingOptions parsingOptions = ParsingOptions.builder().build();
+        private boolean isParseDecimalLiteralsAsDouble;
         private boolean isLogFormattedQueryEnabled;
+        private WarningCollector warningCollector;
         private WarningHandlingLevel warningHandlingLevel = NORMAL;
 
         private Builder() {}
 
-        public Builder setParsingOptions(ParsingOptions parsingOptions)
+        public Builder setParseDecimalLiteralsAsDouble(boolean parseDecimalLiteralsAsDouble)
         {
-            this.parsingOptions = parsingOptions;
+            isParseDecimalLiteralsAsDouble = parseDecimalLiteralsAsDouble;
             return this;
         }
 
         public Builder setLogFormattedQueryEnabled(boolean logFormattedQueryEnabled)
         {
             isLogFormattedQueryEnabled = logFormattedQueryEnabled;
+            return this;
+        }
+
+        public Builder setWarningCollector(WarningCollector warningCollector)
+        {
+            this.warningCollector = warningCollector;
             return this;
         }
 
@@ -85,7 +101,7 @@ public class AnalyzerOptions
 
         public AnalyzerOptions build()
         {
-            return new AnalyzerOptions(parsingOptions, isLogFormattedQueryEnabled, warningHandlingLevel);
+            return new AnalyzerOptions(isParseDecimalLiteralsAsDouble, isLogFormattedQueryEnabled, warningCollector, warningHandlingLevel);
         }
     }
 }
