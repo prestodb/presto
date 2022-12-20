@@ -311,6 +311,16 @@ public class TestCanonicalPlanHashes
     }
 
     @Test
+    public void testDistinctLimit()
+            throws Exception
+    {
+        String query1 = "SELECT distinct regionkey from nation limit 2";
+        String query2 = "SELECT distinct regionkey from nation limit 3";
+        assertSamePlanHash(query1, query1, CONNECTOR);
+        assertDifferentPlanHash(query1, query2, CONNECTOR);
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {

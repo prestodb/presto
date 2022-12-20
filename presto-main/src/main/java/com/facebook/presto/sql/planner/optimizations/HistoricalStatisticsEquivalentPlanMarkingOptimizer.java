@@ -16,6 +16,7 @@ package com.facebook.presto.sql.planner.optimizations;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.DistinctLimitNode;
 import com.facebook.presto.spi.plan.LimitNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -110,6 +111,12 @@ public class HistoricalStatisticsEquivalentPlanMarkingOptimizer
 
         @Override
         public PlanNode visitTopNRowNumber(TopNRowNumberNode node, RewriteContext<Context> context)
+        {
+            return visitLimitingNode(node, context);
+        }
+
+        @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Context> context)
         {
             return visitLimitingNode(node, context);
         }
