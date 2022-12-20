@@ -536,79 +536,94 @@ std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
     const VeloxExprConverter& exprConverter) {
   auto nullAllowed = domain.nullAllowed;
-  auto sortedRangeSet =
-      std::dynamic_pointer_cast<protocol::SortedRangeSet>(domain.values);
-  VELOX_CHECK(sortedRangeSet, "Unsupported ValueSet type");
-  auto type = stringToType(sortedRangeSet->type);
-  auto ranges = sortedRangeSet->ranges;
+  if (auto sortedRangeSet =
+          std::dynamic_pointer_cast<protocol::SortedRangeSet>(domain.values)) {
+    auto type = stringToType(sortedRangeSet->type);
+    auto ranges = sortedRangeSet->ranges;
 
-  if (ranges.empty()) {
-    VELOX_CHECK(nullAllowed, "Unexpected always-false filter");
-    return std::make_unique<common::IsNull>();
-  }
-
-  if (ranges.size() == 1) {
-    // 'is not null' arrives as unbounded range with 'nulls not allowed'.
-    // We catch this case and create 'is not null' filter instead of the range
-    // filter.
-    const auto& range = ranges[0];
-    bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
-    bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
-    bool highExclusive = range.high.bound == protocol::Bound::BELOW;
-    bool highUnbounded = range.high.valueBlock == nullptr && highExclusive;
-    if (lowUnbounded && highUnbounded && !nullAllowed) {
-      return std::make_unique<common::IsNotNull>();
+    if (ranges.empty()) {
+      VELOX_CHECK(nullAllowed, "Unexpected always-false filter");
+      return std::make_unique<common::IsNull>();
     }
 
-    return toFilter(type, ranges[0], nullAllowed, exprConverter);
-  }
-
-  if (type->kind() == TypeKind::BIGINT || type->kind() == TypeKind::INTEGER ||
-      type->kind() == TypeKind::SMALLINT || type->kind() == TypeKind::TINYINT) {
-    std::vector<std::unique_ptr<common::BigintRange>> bigintFilters;
-    bigintFilters.reserve(ranges.size());
-    for (const auto& range : ranges) {
-      bigintFilters.emplace_back(
-          bigintRangeToFilter(range, nullAllowed, exprConverter, type));
-    }
-    return combineIntegerRanges(bigintFilters, nullAllowed);
-  }
-
-  if (type->kind() == TypeKind::VARCHAR) {
-    std::vector<std::unique_ptr<common::BytesRange>> bytesFilters;
-    bytesFilters.reserve(ranges.size());
-    for (const auto& range : ranges) {
-      bytesFilters.emplace_back(
-          varcharRangeToFilter(range, nullAllowed, exprConverter, type));
-    }
-    return combineBytesRanges(bytesFilters, nullAllowed);
-  }
-
-  if (type->kind() == TypeKind::BOOLEAN) {
-    VELOX_CHECK_EQ(ranges.size(), 2, "Multi bool ranges size can only be 2.");
-    std::unique_ptr<common::Filter> boolFilter;
-    for (const auto& range : ranges) {
-      auto filter = boolRangeToFilter(range, nullAllowed, exprConverter, type);
-      if (filter->kind() == common::FilterKind::kAlwaysFalse or
-          filter->kind() == common::FilterKind::kIsNull) {
-        continue;
+    if (ranges.size() == 1) {
+      // 'is not null' arrives as unbounded range with 'nulls not allowed'.
+      // We catch this case and create 'is not null' filter instead of the range
+      // filter.
+      const auto& range = ranges[0];
+      bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
+      bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
+      bool highExclusive = range.high.bound == protocol::Bound::BELOW;
+      bool highUnbounded = range.high.valueBlock == nullptr && highExclusive;
+      if (lowUnbounded && highUnbounded && !nullAllowed) {
+        return std::make_unique<common::IsNotNull>();
       }
-      VELOX_CHECK_NULL(boolFilter);
-      boolFilter = std::move(filter);
+
+      return toFilter(type, ranges[0], nullAllowed, exprConverter);
     }
 
-    VELOX_CHECK_NOT_NULL(boolFilter);
-    return boolFilter;
-  }
+    if (type->kind() == TypeKind::BIGINT || type->kind() == TypeKind::INTEGER ||
+        type->kind() == TypeKind::SMALLINT ||
+        type->kind() == TypeKind::TINYINT) {
+      std::vector<std::unique_ptr<common::BigintRange>> bigintFilters;
+      bigintFilters.reserve(ranges.size());
+      for (const auto& range : ranges) {
+        bigintFilters.emplace_back(
+            bigintRangeToFilter(range, nullAllowed, exprConverter, type));
+      }
+      return combineIntegerRanges(bigintFilters, nullAllowed);
+    }
 
-  std::vector<std::unique_ptr<common::Filter>> filters;
-  filters.reserve(ranges.size());
-  for (const auto& range : ranges) {
-    filters.emplace_back(toFilter(type, range, nullAllowed, exprConverter));
-  }
+    if (type->kind() == TypeKind::VARCHAR) {
+      std::vector<std::unique_ptr<common::BytesRange>> bytesFilters;
+      bytesFilters.reserve(ranges.size());
+      for (const auto& range : ranges) {
+        bytesFilters.emplace_back(
+            varcharRangeToFilter(range, nullAllowed, exprConverter, type));
+      }
+      return combineBytesRanges(bytesFilters, nullAllowed);
+    }
 
-  return std::make_unique<common::MultiRange>(
-      std::move(filters), nullAllowed, false);
+    if (type->kind() == TypeKind::BOOLEAN) {
+      VELOX_CHECK_EQ(ranges.size(), 2, "Multi bool ranges size can only be 2.");
+      std::unique_ptr<common::Filter> boolFilter;
+      for (const auto& range : ranges) {
+        auto filter =
+            boolRangeToFilter(range, nullAllowed, exprConverter, type);
+        if (filter->kind() == common::FilterKind::kAlwaysFalse or
+            filter->kind() == common::FilterKind::kIsNull) {
+          continue;
+        }
+        VELOX_CHECK_NULL(boolFilter);
+        boolFilter = std::move(filter);
+      }
+
+      VELOX_CHECK_NOT_NULL(boolFilter);
+      return boolFilter;
+    }
+
+    std::vector<std::unique_ptr<common::Filter>> filters;
+    filters.reserve(ranges.size());
+    for (const auto& range : ranges) {
+      filters.emplace_back(toFilter(type, range, nullAllowed, exprConverter));
+    }
+
+    return std::make_unique<common::MultiRange>(
+        std::move(filters), nullAllowed, false);
+  } else if (
+      auto equatableValueSet =
+          std::dynamic_pointer_cast<protocol::EquatableValueSet>(
+              domain.values)) {
+    VELOX_UNSUPPORTED(
+        "EquatableValueSet to Velox filter conversion is not supported yet.");
+  } else if (
+      auto allOrNoneValueSet =
+          std::dynamic_pointer_cast<protocol::AllOrNoneValueSet>(
+              domain.values)) {
+    VELOX_UNSUPPORTED(
+        "AllOrNoneValueSet to Velox filter conversion is not supported yet.");
+  }
+  VELOX_UNSUPPORTED("Unsupported filter found.");
 }
 
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
