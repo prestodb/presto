@@ -86,14 +86,14 @@ def compare_file(args, target_data, baseline_data):
         if abs(delta) > args.threshold:
             if delta > 0:
                 status = color_green("🗲 Pass")
-                passes.append(benchmark_handle)
-                faster.append(benchmark_handle)
+                passes.append((row[0], row[1], delta))
+                faster.append((row[0], row[1], delta))
             else:
                 status = color_red("✗ Fail")
-                failures.append(benchmark_handle)
+                failures.append((row[0], row[1], delta))
         else:
             status = color_green("✓ Pass")
-            passes.append(benchmark_handle)
+            passes.append((row[0], row[1], delta))
 
         suffix = "({} vs {}) {:+.2f}%".format(
             fmt_runtime(baseline_result), fmt_runtime(target_result), delta * 100
@@ -108,10 +108,13 @@ def compare_file(args, target_data, baseline_data):
 
 def find_json_files(path):
     json_files = {}
-    with os.scandir(path) as files:
-        for file_found in files:
-            if file_found.name.endswith(".json"):
-                json_files[file_found.name] = file_found.path
+    try:
+        with os.scandir(path) as files:
+            for file_found in files:
+                if file_found.name.endswith(".json"):
+                    json_files[file_found.name] = file_found.path
+    except:
+        pass
     return json_files
 
 
@@ -131,6 +134,10 @@ def compare(args):
     all_passes = []
     all_faster = []
     all_failures = []
+
+    # Keep track of benchmarks that exceeded the threshold to they can be saved
+    # to the rerun_output file.
+    rerun_log = {}
 
     # Compare json results from each file.
     for file_name, target_path in target_map.items():
@@ -154,12 +161,22 @@ def compare(args):
         all_faster += faster
         all_failures += failures
 
+        if faster or failures:
+            rerun_log[file_name] = faster + failures
+
     def print_list(names):
         for n in names:
-            print("    %s" % n)
+            print(
+                "    {} ({:+.2f}%)".format(get_benchmark_handle(n[0], n[1]), n[2] * 100)
+            )
+
+    # Write rerun log to output file.
+    if args.rerun_json_output:
+        with open(args.rerun_json_output, "w") as out_file:
+            out_file.write(json.dumps(rerun_log, indent=4))
 
     # Print a nice summary of the results:
-    print("Summary:")
+    print("Summary ({}% threshold):".format(args.threshold * 100))
     if all_passes:
         faster_summary = (
             " ({} are faster):".format(len(all_faster)) if all_faster else ""
@@ -175,15 +192,35 @@ def compare(args):
 
 
 def run(args):
-    LocalCppMicroBenchmarks().run(
-        output_dir=args.output_path or tempfile.mkdtemp(),
-        binary_path=args.binary_path,
-        binary_filter=args.binary_filter,
-        bm_filter=args.bm_filter,
-        bm_max_secs=args.bm_max_secs,
-        bm_max_trials=args.bm_max_trials,
-        bm_estimate_time=args.bm_estimate_time,
-    )
+    kwargs = {
+        "output_dir": args.output_path or tempfile.mkdtemp(),
+        "binary_path": args.binary_path,
+        "binary_filter": args.binary_filter,
+        "bm_filter": args.bm_filter,
+        "bm_max_secs": args.bm_max_secs,
+        "bm_max_trials": args.bm_max_trials,
+        "bm_estimate_time": args.bm_estimate_time,
+    }
+
+    # In case we only want to rerun failed benchmarks from rerun_json_input.
+    if args.rerun_json_input:
+        with open(args.rerun_json_input, "r") as input_file:
+            json_input = json.load(input_file)
+
+        def gen_binary_filter(json_file_name):
+            return "^{}$".format(json_file_name.rstrip(".json"))
+
+        def gen_bm_filter(bm_list):
+            return "^{}$".format("|".join([x[1] for x in bm_list]))
+
+        for file_name, bm_list in json_input.items():
+            kwargs["binary_filter"] = gen_binary_filter(file_name)
+            kwargs["bm_filter"] = gen_bm_filter(bm_list)
+            LocalCppMicroBenchmarks().run(**kwargs)
+
+    # Otherwise, run all benchmarks we can find.
+    else:
+        LocalCppMicroBenchmarks().run(**kwargs)
 
 
 def parse_args():
@@ -236,6 +273,13 @@ def parse_args():
         action="store_true",
         help="Use folly benchmark --bm_estimate_time flag.",
     )
+    parser_run.add_argument(
+        "--rerun_json_input",
+        default=None,
+        help="Only binaries and benchmark names read from this json file will "
+        "be run. This file needs to be generated using the "
+        "--rerun_json_output flag.",
+    )
     parser_run.set_defaults(func=run)
 
     # Arguments for the "compare" subparser.
@@ -261,6 +305,13 @@ def parse_args():
         help="Comparison threshold. "
         "Variations larger than this threshold will be reported as failures. "
         "Default 0.05 (5%%).",
+    )
+    parser_compare.add_argument(
+        "--rerun_json_output",
+        default=None,
+        help="File where the rerun output will be saved. Redo output contains "
+        "information about the failed benchmarks (the ones where the variation "
+        "exceeded the threshold).",
     )
     return parser.parse_args()
 

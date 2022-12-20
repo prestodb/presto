@@ -351,8 +351,9 @@ jobs:
       CONBENCH_HOST: "CircleCI-runner-dedicated"
       LINUX_DISTRO: "ubuntu"
       VELOX_DEPENDENCY_SOURCE: BUNDLED
-      BASELINE_OUTPUT_PATH: "/tmp/baseline_output/"
-      TARGET_OUTPUT_PATH: "/tmp/target_output/"
+      BASELINE_OUTPUT_PATH: "benchmark-results/baseline/"
+      TARGET_OUTPUT_PATH: "benchmark-results/target/"
+      RERUN_JSON_OUTPUT: "benchmark-results/rerun_json_output.json"
     steps:
       - checkout
       - update-submodules
@@ -362,31 +363,44 @@ jobs:
             sudo ./scripts/setup-ubuntu.sh
       - setup-environment
       - build-benchmarks
-      # TODO: For now we just compare the target binary with itself, until we
-      # stabilize benchmark runs. We should eventually have two different
-      # set of binaries.
       - run:
-          name: "Run Benchmarks - Baseline"
+          name: "Run Benchmarks - Full Round"
           command: |
-            ./scripts/benchmark-runner.py run \
-                --bm_estimate_time \
-                --bm_max_secs 10 \
-                --bm_max_trials 10000 \
-                --output_path ${BASELINE_OUTPUT_PATH}
-      - run:
-          name: "Run Benchmarks - Target"
-          command: |
-            ./scripts/benchmark-runner.py run \
-                --bm_estimate_time \
-                --bm_max_secs 10 \
-                --bm_max_trials 10000 \
-                --output_path ${TARGET_OUTPUT_PATH}
-      - run:
-          name: "Benchmark Summary"
-          command: |
+            # TODO: For now we just compare the target binary with itself, until we
+            # stabilize benchmark runs. We should eventually have two different
+            # set of binaries.
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}"
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}"
+
             ./scripts/benchmark-runner.py compare \
                 --baseline_path ${BASELINE_OUTPUT_PATH} \
-                --target_path ${TARGET_OUTPUT_PATH} || true
+                --target_path ${TARGET_OUTPUT_PATH} \
+                --rerun_json_output ${RERUN_JSON_OUTPUT} || true
+      - run:
+          name: "Run Benchmarks - Reruns"
+          command: |
+    
+            for i in 1 2 3 4 5; do
+              if [ ! -s "${RERUN_JSON_OUTPUT}" ]; then
+                echo "--> Rerun iteration ${i} found empty file. Finalizing."
+                break
+              fi
+              echo "--> Starting rerun iteration: ${i}"
+
+              make benchmarks-basic-run \
+                  EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT}"
+              make benchmarks-basic-run \
+                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT}"
+
+              ./scripts/benchmark-runner.py compare \
+                  --baseline_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ \
+                  --target_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ \
+                  --rerun_json_output ${RERUN_JSON_OUTPUT} || true
+            done
+      - store_artifacts:
+          path: "benchmark-results"
       - post-steps
 
   # Build with different options

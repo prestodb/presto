@@ -98,8 +98,11 @@ benchmarks-basic-build:
 	$(MAKE) release EXTRA_CMAKE_FLAGS="-DVELOX_BUILD_BENCHMARKS=ON"
 
 benchmarks-basic-run:
-	$(MAKE) benchmarks-basic-build
-	scripts/veloxbench/veloxbench/cpp_micro_benchmarks.py --bm_max_secs 10 --bm_max_trials 1000000
+	scripts/benchmark-runner.py run \
+			--bm_estimate_time \
+			--bm_max_secs 10 \
+			--bm_max_trials 10000 \
+			${EXTRA_BENCHMARK_FLAGS}
 
 unittest: debug			#: Build with debugging and run unit tests
 	cd $(BUILD_BASE_DIR)/debug && ctest -j ${NUM_THREADS} -VV --output-on-failure
@@ -108,11 +111,11 @@ unittest: debug			#: Build with debugging and run unit tests
 # ensure the tests are reproducible.
 fuzzertest: debug
 	$(BUILD_BASE_DIR)/debug/velox/expression/tests/velox_expression_fuzzer_test \
-		--seed $(FUZZER_SEED) \
-		--duration_sec $(FUZZER_DURATION_SEC) \
-		--repro_persist_path $(FUZZER_REPRO_PERSIST_PATH) \
-		--logtostderr=1 \
-		--minloglevel=0
+			--seed $(FUZZER_SEED) \
+			--duration_sec $(FUZZER_DURATION_SEC) \
+			--repro_persist_path $(FUZZER_REPRO_PERSIST_PATH) \
+			--logtostderr=1 \
+			--minloglevel=0
 
 format-fix: 			#: Fix formatting issues in the main branch
 	scripts/check.py format main --fix
