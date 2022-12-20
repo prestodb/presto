@@ -20,4 +20,13 @@ package com.facebook.presto.spi.statistics;
 public abstract class SourceInfo
 {
     public abstract boolean isConfident();
+
+    /**
+     * Whether to estimate size of plan output using variable statistics.
+     * If false, we will use estimated size in plan statistics itself.
+     */
+    public boolean estimateSizeUsingVariables()
+    {
+        return false;
+    }
 }
