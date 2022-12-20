@@ -195,15 +195,18 @@ public class PlanNodeStatsEstimateMath
             PlanNodeStatsEstimate right,
             RangeAdditionStrategy rangeAdder)
     {
-        if (left.isOutputRowCountUnknown() || right.isOutputRowCountUnknown()) {
+        double rowCount = left.getOutputRowCount() + right.getOutputRowCount();
+        double totalSize = left.getTotalSize() + right.getTotalSize();
+
+        if (isNaN(rowCount) && isNaN(totalSize)) {
             return PlanNodeStatsEstimate.unknown();
         }
 
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
-        double rowCount = left.getOutputRowCount() + right.getOutputRowCount();
         buildVariableStatistics(left, right, statsBuilder, rowCount, rangeAdder);
 
-        return statsBuilder.setOutputRowCount(rowCount).build();
+        return statsBuilder.setOutputRowCount(rowCount)
+                .setTotalSize(totalSize).build();
     }
 
     private static void buildVariableStatistics(
@@ -216,8 +219,11 @@ public class PlanNodeStatsEstimateMath
         concat(left.getVariablesWithKnownStatistics().stream(), right.getVariablesWithKnownStatistics().stream())
                 .distinct()
                 .forEach(symbol -> {
-                    VariableStatsEstimate symbolStats = VariableStatsEstimate.zero();
-                    if (estimatedRowCount > 0) {
+                    VariableStatsEstimate symbolStats = VariableStatsEstimate.unknown();
+                    if (estimatedRowCount <= 0) {
+                        symbolStats = VariableStatsEstimate.zero();
+                    }
+                    else if (estimatedRowCount > 0) {
                         symbolStats = addColumnStats(
                                 left.getVariableStatistics(symbol),
                                 left.getOutputRowCount(),

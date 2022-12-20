@@ -213,6 +213,11 @@ public class PlanNodeStatsEstimate
         return isNaN(outputRowCount);
     }
 
+    public boolean isTotalSizeUnknown()
+    {
+        return isNaN(totalSize);
+    }
+
     public PlanNodeStatsEstimate combineStats(PlanStatistics planStatistics, SourceInfo statsSourceInfo)
     {
         if (planStatistics.getConfidence() > 0) {
