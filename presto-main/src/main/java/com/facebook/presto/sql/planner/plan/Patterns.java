@@ -125,6 +125,11 @@ public class Patterns
         return typeOf(ProjectNode.class);
     }
 
+    public static Pattern<RemoteSourceNode> remoteSource()
+    {
+        return typeOf(RemoteSourceNode.class);
+    }
+
     public static Pattern<SampleNode> sample()
     {
         return typeOf(SampleNode.class);

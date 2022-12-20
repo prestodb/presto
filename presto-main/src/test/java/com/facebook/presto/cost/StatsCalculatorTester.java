@@ -49,6 +49,11 @@ public class StatsCalculatorTester
         return metadata;
     }
 
+    public FragmentStatsProvider getFragmentStatsProvider()
+    {
+        return queryRunner.getFragmentStatsProvider();
+    }
+
     private StatsCalculatorTester(LocalQueryRunner queryRunner)
     {
         this.statsCalculator = queryRunner.getStatsCalculator();
