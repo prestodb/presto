@@ -55,11 +55,11 @@ public class AnalyzerUtil
 
     public static AnalyzerOptions createAnalyzerOptions(Session session, WarningCollector warningCollector)
     {
-        ParsingOptions parsingOptions = createParsingOptions(session, warningCollector);
         return AnalyzerOptions.builder()
-                .setParsingOptions(parsingOptions)
+                .setParseDecimalLiteralsAsDouble(isParseDecimalLiteralsAsDouble(session))
                 .setLogFormattedQueryEnabled(isLogFormattedQueryEnabled(session))
                 .setWarningHandlingLevel(getWarningHandlingLevel(session))
+                .setWarningCollector(warningCollector)
                 .build();
     }
 }
