@@ -40,6 +40,7 @@ import static com.facebook.presto.spi.StandardErrorCode.WARNING_AS_ERROR;
 import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_PARAMETER_USAGE;
+import static com.facebook.presto.sql.analyzer.utils.AnalyzerUtil.createParsingOptions;
 import static com.facebook.presto.sql.analyzer.utils.ParameterExtractor.getParameterCount;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -63,7 +64,7 @@ public class BuiltInQueryPreparer
     public BuiltInPreparedQuery prepareQuery(AnalyzerOptions analyzerOptions, String query, Map<String, String> preparedStatements, WarningCollector warningCollector)
             throws ParsingException, PrestoException, SemanticException
     {
-        Statement wrappedStatement = sqlParser.createStatement(query, analyzerOptions.getParsingOptions());
+        Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(analyzerOptions));
         if (warningCollector.hasWarnings() && analyzerOptions.getWarningHandlingLevel() == AS_ERROR) {
             throw new PrestoException(WARNING_AS_ERROR, format("Warning handling level set to AS_ERROR. Warnings: %n %s",
                     warningCollector.getWarnings().stream()
@@ -82,7 +83,7 @@ public class BuiltInQueryPreparer
             String preparedStatementName = ((Execute) statement).getName().getValue();
             prepareSql = Optional.ofNullable(preparedStatements.get(preparedStatementName));
             String query = prepareSql.orElseThrow(() -> new PrestoException(NOT_FOUND, "Prepared statement not found: " + preparedStatementName));
-            statement = sqlParser.createStatement(query, analyzerOptions.getParsingOptions());
+            statement = sqlParser.createStatement(query, createParsingOptions(analyzerOptions));
         }
 
         if (statement instanceof Explain && ((Explain) statement).isAnalyze()) {
