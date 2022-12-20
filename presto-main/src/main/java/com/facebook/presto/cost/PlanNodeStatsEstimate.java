@@ -127,7 +127,7 @@ public class PlanNodeStatsEstimate
     {
         requireNonNull(planNode, "planNode is null");
 
-        if (sourceInfo.isConfident() && !isNaN(totalSize)) {
+        if (!sourceInfo.estimateSizeUsingVariables() && !isNaN(totalSize)) {
             return totalSize;
         }
 

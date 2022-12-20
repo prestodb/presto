@@ -49,4 +49,10 @@ public class CostBasedSourceInfo
     {
         return confident;
     }
+
+    @Override
+    public boolean estimateSizeUsingVariables()
+    {
+        return true;
+    }
 }
