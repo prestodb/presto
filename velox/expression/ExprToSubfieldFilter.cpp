@@ -58,6 +58,33 @@ const core::CallTypedExpr* asCall(const core::ITypedExpr* expr) {
   return dynamic_cast<const core::CallTypedExpr*>(expr);
 }
 
+common::Subfield toSubfield(const core::FieldAccessTypedExpr* field) {
+  std::vector<std::unique_ptr<common::Subfield::PathElement>> path;
+  for (auto* current = field;;) {
+    path.push_back(
+        std::make_unique<common::Subfield::NestedField>(current->name()));
+    if (current->inputs().empty()) {
+      break;
+    }
+    VELOX_CHECK_EQ(
+        current->inputs().size(),
+        1,
+        "Cannot convert to subfield: {}",
+        field->toString());
+    auto* parent = current->inputs()[0].get();
+    current = dynamic_cast<const core::FieldAccessTypedExpr*>(parent);
+    if (!current) {
+      VELOX_CHECK_NOT_NULL(
+          dynamic_cast<const core::InputTypedExpr*>(parent),
+          "Cannot convert to subfield: {}",
+          field->toString());
+      break;
+    }
+  }
+  std::reverse(path.begin(), path.end());
+  return common::Subfield(std::move(path));
+}
+
 common::BigintRange* asBigintRange(std::unique_ptr<common::Filter>& filter) {
   return dynamic_cast<common::BigintRange*>(filter.get());
 }
@@ -127,7 +154,7 @@ std::unique_ptr<common::Filter> makeLessThanOrEqualFilter(
     case TypeKind::DATE:
       return lessThanOrEqual(singleValue<Date>(upper).days());
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value for less than or equals filter: {} <= {}",
           upper->type()->toString(),
           upper->toString(0));
@@ -156,8 +183,8 @@ std::unique_ptr<common::Filter> makeLessThanFilter(
     case TypeKind::DATE:
       return lessThan(singleValue<Date>(upper).days());
     default:
-      VELOX_NYI(
-          "Unsupported value for less than filter: {} <= {}",
+      VELOX_UNSUPPORTED(
+          "Unsupported value for less than filter: {} < {}",
           upper->type()->toString(),
           upper->toString(0));
   }
@@ -185,7 +212,7 @@ std::unique_ptr<common::Filter> makeGreaterThanOrEqualFilter(
     case TypeKind::DATE:
       return greaterThanOrEqual(singleValue<Date>(lower).days());
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value for greater than or equals filter: {} >= {}",
           lower->type()->toString(),
           lower->toString(0));
@@ -214,7 +241,7 @@ std::unique_ptr<common::Filter> makeGreaterThanFilter(
     case TypeKind::DATE:
       return greaterThan(singleValue<Date>(lower).days());
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value for greater than filter: {} > {}",
           lower->type()->toString(),
           lower->toString(0));
@@ -241,7 +268,7 @@ std::unique_ptr<common::Filter> makeEqualFilter(
     case TypeKind::DATE:
       return equal(singleValue<Date>(value).days());
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value for equals filter: {} = {}",
           value->type()->toString(),
           value->toString(0));
@@ -326,7 +353,7 @@ std::unique_ptr<common::Filter> makeInFilter(const core::TypedExprPtr& expr) {
       return in(values);
     }
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value type for 'in' filter: {}",
           elementType->toString());
   }
@@ -353,7 +380,7 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
       return between(
           singleValue<StringView>(lower), singleValue<StringView>(upper));
     default:
-      VELOX_NYI(
+      VELOX_UNSUPPORTED(
           "Unsupported value for 'between' filter: {} BETWEEN {} AND {}",
           lower->type()->toString(),
           lower->toString(0),
@@ -362,9 +389,62 @@ std::unique_ptr<common::Filter> makeBetweenFilter(
 }
 } // namespace
 
+std::pair<common::Subfield, std::unique_ptr<common::Filter>>
+leafCallToSubfieldFilter(const core::CallTypedExpr& call) {
+  using common::Subfield;
+  if (call.name() == "eq") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeEqualFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "neq") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeNotEqualFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "lte") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeLessThanOrEqualFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "lt") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeLessThanFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "gte") {
+    if (auto field = asField(&call, 0)) {
+      return {
+          toSubfield(field), makeGreaterThanOrEqualFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "gt") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeGreaterThanFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "between") {
+    if (auto field = asField(&call, 0)) {
+      return {
+          toSubfield(field),
+          makeBetweenFilter(call.inputs()[1], call.inputs()[2])};
+    }
+  } else if (call.name() == "in") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), makeInFilter(call.inputs()[1])};
+    }
+  } else if (call.name() == "is_null") {
+    if (auto field = asField(&call, 0)) {
+      return {toSubfield(field), isNull()};
+    }
+  } else if (call.name() == "not") {
+    if (auto nestedCall = asCall(call.inputs()[0].get())) {
+      if (nestedCall->name() == "is_null") {
+        if (auto field = asField(nestedCall, 0)) {
+          return {toSubfield(field), isNotNull()};
+        }
+      }
+    }
+  }
+  VELOX_UNSUPPORTED("Unsupported call expression: {}", call.toString());
+}
+
 std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     const core::TypedExprPtr& expr) {
-  using common::Subfield;
   if (auto call = asCall(expr.get())) {
     if (call->name() == "or") {
       auto left = toSubfieldFilter(call->inputs()[0]);
@@ -373,60 +453,11 @@ std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
       return {
           std::move(left.first),
           makeOrFilter(std::move(left.second), std::move(right.second))};
-    } else if (call->name() == "eq") {
-      if (auto field = asField(call, 0)) {
-        return {Subfield(field->name()), makeEqualFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "neq") {
-      if (auto field = asField(call, 0)) {
-        return {Subfield(field->name()), makeNotEqualFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "lte") {
-      if (auto field = asField(call, 0)) {
-        return {
-            Subfield(field->name()),
-            makeLessThanOrEqualFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "lt") {
-      if (auto field = asField(call, 0)) {
-        return {Subfield(field->name()), makeLessThanFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "gte") {
-      if (auto field = asField(call, 0)) {
-        return {
-            Subfield(field->name()),
-            makeGreaterThanOrEqualFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "gt") {
-      if (auto field = asField(call, 0)) {
-        return {
-            Subfield(field->name()), makeGreaterThanFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "between") {
-      if (auto field = asField(call, 0)) {
-        return {
-            Subfield(field->name()),
-            makeBetweenFilter(call->inputs()[1], call->inputs()[2])};
-      }
-    } else if (call->name() == "in") {
-      if (auto field = asField(call, 0)) {
-        return {Subfield(field->name()), makeInFilter(call->inputs()[1])};
-      }
-    } else if (call->name() == "is_null") {
-      if (auto field = asField(call, 0)) {
-        return {Subfield(field->name()), isNull()};
-      }
-    } else if (call->name() == "not") {
-      if (auto nestedCall = asCall(call->inputs()[0].get())) {
-        if (nestedCall->name() == "is_null") {
-          if (auto field = asField(nestedCall, 0)) {
-            return {Subfield(field->name()), isNotNull()};
-          }
-        }
-      }
     }
+    return leafCallToSubfieldFilter(*call);
   }
-
-  VELOX_NYI("Unsupported expression for range filter: {}", expr->toString());
+  VELOX_UNSUPPORTED(
+      "Unsupported expression for range filter: {}", expr->toString());
 }
+
 } // namespace facebook::velox::exec

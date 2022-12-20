@@ -382,6 +382,10 @@ TEST_F(E2EFilterTest, flatMap) {
       kColumns, customize, false, {"long_val"}, numCombinations, true);
 }
 
+TEST_F(E2EFilterTest, metadataFilter) {
+  testMetadataFilter();
+}
+
 // Define main so that gflags get processed.
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

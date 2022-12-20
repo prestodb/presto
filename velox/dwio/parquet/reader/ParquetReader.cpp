@@ -498,10 +498,20 @@ ParquetRowReader::ParquetRowReader(
   filterRowGroups();
 }
 
+namespace {
+struct ParquetStatsContext : dwio::common::StatsContext {};
+} // namespace
+
 //
 void ParquetRowReader::filterRowGroups() {
   auto rowGroups = readerBase_->fileMetaData().row_groups;
   rowGroupIds_.reserve(rowGroups.size());
+
+  ParquetData::FilterRowGroupsResult res;
+  columnReader_->filterRowGroups(0, ParquetStatsContext(), res);
+  if (auto& metadataFilter = options_.getMetadataFilter()) {
+    metadataFilter->eval(res.metadataFilterResults, res.filterResult);
+  }
 
   for (auto i = 0; i < rowGroups.size(); i++) {
     VELOX_CHECK_GT(rowGroups_[i].columns.size(), 0);
@@ -514,7 +524,7 @@ void ParquetRowReader::filterRowGroups() {
          fileOffset < options_.getLimit());
     // A skipped row group is one that is in range and is in the excluded list.
     if (rowGroupInRange) {
-      if (columnReader_->rowGroupMatches(i)) {
+      if (!bits::isBitSet(res.filterResult.data(), i)) {
         rowGroupIds_.push_back(i);
       } else {
         ++skippedRowGroups_;

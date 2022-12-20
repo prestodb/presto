@@ -39,6 +39,7 @@ add_library(
   IntDecoder.cpp
   IoStatistics.cpp
   MemoryInputStream.cpp
+  MetadataFilter.cpp
   Options.cpp
   Range.cpp
   ReaderFactory.cpp
@@ -58,6 +59,7 @@ target_link_libraries(
   velox_dwio_common_encryption
   velox_dwio_common_exception
   velox_exception
+  velox_expression
   velox_memory
   Boost::regex
   ${FOLLY_WITH_DEPENDENCIES}

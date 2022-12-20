@@ -259,6 +259,17 @@ class E2EFilterTestBase : public testing::Test {
       const std::vector<std::string>& filterable,
       int32_t numCombinations);
 
+ private:
+  void testMetadataFilterImpl(
+      const std::vector<RowVectorPtr>& batches,
+      common::Subfield filterField,
+      std::unique_ptr<common::Filter> filter,
+      const std::string& remainingFilter,
+      std::function<bool(int64_t a, int64_t c)> validationFilter);
+
+ protected:
+  void testMetadataFilter();
+
   // Allows testing reading with different batch sizes.
   void resetReadBatchSizes() {
     nextReadSizeIndex_ = 0;

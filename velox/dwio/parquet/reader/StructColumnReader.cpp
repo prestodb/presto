@@ -157,4 +157,13 @@ void StructColumnReader::setNullsFromRepDefs(PageReader& pageReader) {
   formatData_->as<ParquetData>().setNulls(nullsInReadRange(), numStructs);
 }
 
+void StructColumnReader::filterRowGroups(
+    uint64_t rowGroupSize,
+    const dwio::common::StatsContext& context,
+    dwio::common::FormatData::FilterRowGroupsResult& result) const {
+  for (const auto& child : children_) {
+    child->filterRowGroups(rowGroupSize, context, result);
+  }
+}
+
 } // namespace facebook::velox::parquet

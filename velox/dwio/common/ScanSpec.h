@@ -17,6 +17,7 @@
 #pragma once
 
 #include "velox/common/base/SelectivityInfo.h"
+#include "velox/dwio/common/MetadataFilter.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Subfield.h"
 #include "velox/vector/BaseVector.h"
@@ -63,6 +64,24 @@ class ScanSpec {
   // pushed down filter, e.g. top k cutoff.
   void setFilter(std::unique_ptr<Filter> filter) {
     filter_ = std::move(filter);
+  }
+
+  void addMetadataFilter(
+      MetadataFilter::LeafNode* leaf,
+      std::unique_ptr<common::Filter> filter) {
+    metadataFilters_.emplace_back(leaf, std::move(filter));
+  }
+
+  int numMetadataFilters() const {
+    return metadataFilters_.size();
+  }
+
+  MetadataFilter::LeafNode* metadataFilterNodeAt(int i) const {
+    return metadataFilters_[i].first;
+  }
+
+  common::Filter* metadataFilterAt(int i) const {
+    return metadataFilters_[i].second.get();
   }
 
   // Returns a constant vector if 'this' corresponds to a partitioning
@@ -285,6 +304,16 @@ class ScanSpec {
   // returned as flat.
   bool makeFlat_ = false;
   std::shared_ptr<common::Filter> filter_;
+
+  // Filters that will be only used for row group filtering based on metadata.
+  // The conjunctions among these filters are tracked in MetadataFilter, with
+  // the pointers to LeafNodes are stored here.  We need to keep these pointers
+  // so that we can match the leaf node filter results and apply logical
+  // conjunctions later properly.
+  std::vector<
+      std::pair<MetadataFilter::LeafNode*, std::shared_ptr<common::Filter>>>
+      metadataFilters_;
+
   SelectivityInfo selectivity_;
   // Sort children by filtering efficiency.
   bool enableFilterReorder_ = true;

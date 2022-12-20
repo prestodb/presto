@@ -1602,6 +1602,39 @@ TEST_F(TableScanTest, remainingFilter) {
       "SELECT c1, c2 FROM tmp WHERE c1 > c0");
 }
 
+TEST_F(TableScanTest, remainingFilterSkippedStrides) {
+  auto rowType = ROW({{"c0", BIGINT()}, {"c1", BIGINT()}});
+  std::vector<RowVectorPtr> vectors(3);
+  auto filePaths = makeFilePaths(vectors.size());
+  for (int j = 0; j < vectors.size(); ++j) {
+    auto c =
+        BaseVector::create<FlatVector<int64_t>>(BIGINT(), 100, pool_.get());
+    for (int i = 0; i < c->size(); ++i) {
+      c->set(i, j);
+    }
+    vectors[j] = std::make_shared<RowVector>(
+        pool_.get(),
+        rowType,
+        nullptr,
+        c->size(),
+        std::vector<VectorPtr>({c, c}));
+    writeToFile(filePaths[j]->path, vectors[j]);
+  }
+  createDuckDbTable(vectors);
+  core::PlanNodeId tableScanNodeId;
+  auto plan = PlanBuilder()
+                  .tableScan(rowType, {}, "c0 = 0 or c1 = 2")
+                  .capturePlanNodeId(tableScanNodeId)
+                  .planNode();
+  auto task =
+      assertQuery(plan, filePaths, "SELECT * FROM tmp WHERE c0 = 0 or c1 = 2");
+  auto skippedStrides = toPlanStats(task->taskStats())
+                            .at(tableScanNodeId)
+                            .customStats.at("skippedStrides");
+  EXPECT_EQ(skippedStrides.count, 1);
+  EXPECT_EQ(skippedStrides.sum, 1);
+}
+
 /// Test the handling of constant remaining filter results which occur when
 /// filter input is a dictionary vector with all indices being the same (i.e.
 /// DictionaryVector::isConstant() == true).

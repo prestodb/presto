@@ -27,20 +27,36 @@ std::unique_ptr<dwio::common::FormatData> ParquetParams::toFormatData(
   return std::make_unique<ParquetData>(type, metaData_.row_groups, pool());
 }
 
-std::vector<uint32_t> ParquetData::filterRowGroups(
+void ParquetData::filterRowGroups(
     const common::ScanSpec& scanSpec,
     uint64_t /*rowsPerRowGroup*/,
-    const dwio::common::StatsContext& /*writerContext*/) {
-  if (!scanSpec.filter()) {
-    return {};
+    const dwio::common::StatsContext& /*writerContext*/,
+    FilterRowGroupsResult& result) {
+  result.totalCount = std::max<int>(result.totalCount, rowGroups_.size());
+  auto nwords = bits::nwords(result.totalCount);
+  if (result.filterResult.size() < nwords) {
+    result.filterResult.resize(nwords);
   }
-  std::vector<uint32_t> toSkip;
+  auto metadataFiltersStartIndex = result.metadataFilterResults.size();
+  for (int i = 0; i < scanSpec.numMetadataFilters(); ++i) {
+    result.metadataFilterResults.emplace_back(
+        scanSpec.metadataFilterNodeAt(i), std::vector<uint64_t>(nwords));
+  }
   for (auto i = 0; i < rowGroups_.size(); ++i) {
-    if (!rowGroupMatches(i, scanSpec.filter())) {
-      toSkip.push_back(i);
+    if (scanSpec.filter() && !rowGroupMatches(i, scanSpec.filter())) {
+      bits::setBit(result.filterResult.data(), i);
+      continue;
+    }
+    for (int j = 0; j < scanSpec.numMetadataFilters(); ++j) {
+      auto* metadataFilter = scanSpec.metadataFilterAt(j);
+      if (!rowGroupMatches(i, metadataFilter)) {
+        bits::setBit(
+            result.metadataFilterResults[metadataFiltersStartIndex + j]
+                .second.data(),
+            i);
+      }
     }
   }
-  return toSkip;
 }
 
 bool ParquetData::rowGroupMatches(

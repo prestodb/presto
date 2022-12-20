@@ -59,6 +59,8 @@ add_library(velox_e2e_filter_test_base E2EFilterTestBase.cpp)
 
 target_link_libraries(
   velox_e2e_filter_test_base
+  velox_functions_prestosql
+  velox_parse_parser
   ${VELOX_LINK_LIBS}
   ${FOLLY_WITH_DEPENDENCIES}
   ${FMT}

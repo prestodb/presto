@@ -92,6 +92,7 @@ class RowReaderOptions {
   ErrorTolerance errorTolerance_;
   std::shared_ptr<ColumnSelector> selector_;
   std::shared_ptr<velox::common::ScanSpec> scanSpec_ = nullptr;
+  std::shared_ptr<velox::common::MetadataFilter> metadataFilter_;
   // Node id for map column to a list of keys to be projected as a struct.
   std::unordered_map<uint32_t, std::vector<std::string>> flatmapNodeIdAsStruct_;
   // Optional executors to enable internal reader parallelism.
@@ -110,6 +111,7 @@ class RowReaderOptions {
     errorTolerance_ = other.errorTolerance_;
     selector_ = other.selector_;
     scanSpec_ = other.scanSpec_;
+    metadataFilter_ = other.metadataFilter_;
     returnFlatVector_ = other.returnFlatVector_;
     flatmapNodeIdAsStruct_ = other.flatmapNodeIdAsStruct_;
   }
@@ -230,12 +232,22 @@ class RowReaderOptions {
     return errorTolerance_;
   }
 
-  const std::shared_ptr<velox::common::ScanSpec> getScanSpec() const {
+  const std::shared_ptr<velox::common::ScanSpec>& getScanSpec() const {
     return scanSpec_;
   }
 
   void setScanSpec(std::shared_ptr<velox::common::ScanSpec> scanSpec) {
-    scanSpec_ = scanSpec;
+    scanSpec_ = std::move(scanSpec);
+  }
+
+  const std::shared_ptr<velox::common::MetadataFilter>& getMetadataFilter()
+      const {
+    return metadataFilter_;
+  }
+
+  void setMetadataFilter(
+      std::shared_ptr<velox::common::MetadataFilter> metadataFilter) {
+    metadataFilter_ = std::move(metadataFilter);
   }
 
   void setFlatmapNodeIdsAsStruct(

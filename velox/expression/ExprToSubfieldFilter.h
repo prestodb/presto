@@ -333,4 +333,10 @@ std::unique_ptr<common::MultiRange> orFilter(
 
 std::pair<common::Subfield, std::unique_ptr<common::Filter>> toSubfieldFilter(
     const core::TypedExprPtr& expr);
+
+/// Convert a leaf call expression (no conjunction like AND/OR) to subfield and
+/// filter.  Throw UNSUPPORTED exception if not supported for pushdown.
+std::pair<common::Subfield, std::unique_ptr<common::Filter>>
+leafCallToSubfieldFilter(const core::CallTypedExpr&);
+
 } // namespace facebook::velox::exec

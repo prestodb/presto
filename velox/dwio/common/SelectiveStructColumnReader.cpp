@@ -20,38 +20,14 @@
 
 namespace facebook::velox::dwio::common {
 
-std::vector<uint32_t> SelectiveStructColumnReaderBase::filterRowGroups(
+void SelectiveStructColumnReaderBase::filterRowGroups(
     uint64_t rowGroupSize,
-    const dwio::common::StatsContext& context) const {
-  auto stridesToSkip =
-      SelectiveColumnReader::filterRowGroups(rowGroupSize, context);
+    const dwio::common::StatsContext& context,
+    FormatData::FilterRowGroupsResult& result) const {
+  SelectiveColumnReader::filterRowGroups(rowGroupSize, context, result);
   for (const auto& child : children_) {
-    auto childStridesToSkip = child->filterRowGroups(rowGroupSize, context);
-    if (stridesToSkip.empty()) {
-      stridesToSkip = std::move(childStridesToSkip);
-    } else {
-      std::vector<uint32_t> merged;
-      merged.reserve(childStridesToSkip.size() + stridesToSkip.size());
-      std::merge(
-          childStridesToSkip.begin(),
-          childStridesToSkip.end(),
-          stridesToSkip.begin(),
-          stridesToSkip.end(),
-          std::back_inserter(merged));
-      stridesToSkip = std::move(merged);
-    }
+    child->filterRowGroups(rowGroupSize, context, result);
   }
-  return stridesToSkip;
-}
-
-bool SelectiveStructColumnReaderBase::rowGroupMatches(
-    uint32_t rowGroupId) const {
-  for (const auto& child : children_) {
-    if (!child->rowGroupMatches(rowGroupId)) {
-      return false;
-    }
-  }
-  return true;
 }
 
 uint64_t SelectiveStructColumnReaderBase::skip(uint64_t numValues) {

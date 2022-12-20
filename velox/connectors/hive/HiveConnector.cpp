@@ -225,6 +225,8 @@ HiveDataSource::HiveDataSource(
 
   const auto& remainingFilter = hiveTableHandle->remainingFilter();
   if (remainingFilter) {
+    metadataFilter_ =
+        std::make_shared<common::MetadataFilter>(*scanSpec_, *remainingFilter);
     remainingFilterExprSet_ = expressionEvaluator_->compile(remainingFilter);
 
     // Remaining filter may reference columns that are not used otherwise,
@@ -251,6 +253,7 @@ HiveDataSource::HiveDataSource(
   }
 
   rowReaderOpts_.setScanSpec(scanSpec_);
+  rowReaderOpts_.setMetadataFilter(metadataFilter_);
 
   ioStats_ = std::make_shared<dwio::common::IoStatistics>();
 }

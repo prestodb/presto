@@ -57,6 +57,11 @@ class StructColumnReader : public dwio::common::SelectiveStructColumnReader {
   /// positioned at the end of the last set of nulls/lengths.
   void seekToEndOfPresetNulls();
 
+  void filterRowGroups(
+      uint64_t rowGroupSize,
+      const dwio::common::StatsContext&,
+      dwio::common::FormatData::FilterRowGroupsResult&) const override;
+
  private:
   bool filterMatches(const thrift::RowGroup& rowGroup);
   dwio::common::SelectiveColumnReader* findBestLeaf();
