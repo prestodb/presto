@@ -590,11 +590,8 @@ void HashProbe::addInput(RowVectorPtr input) {
     lookup_->rows.resize(activeRows_.size());
     std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
   } else {
-    bits::forEachSetBit(
-        activeRows_.asRange().bits(),
-        0,
-        activeRows_.size(),
-        [&](vector_size_t row) { lookup_->rows.push_back(row); });
+    activeRows_.applyToSelected(
+        [&](auto row) { lookup_->rows.push_back(row); });
   }
 
   passingInputRowsInitialized_ = false;
