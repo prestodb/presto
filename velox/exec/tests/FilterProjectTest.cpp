@@ -27,14 +27,14 @@ using facebook::velox::test::BatchMaker;
 class FilterProjectTest : public OperatorTestBase {
  protected:
   void assertFilter(
-      std::vector<RowVectorPtr>&& vectors,
+      const std::vector<RowVectorPtr>& vectors,
       const std::string& filter = "c1 % 10  > 0") {
     auto plan = PlanBuilder().values(vectors).filter(filter).planNode();
 
     assertQuery(plan, "SELECT * FROM tmp WHERE " + filter);
   }
 
-  void assertProject(std::vector<RowVectorPtr>&& vectors) {
+  void assertProject(const std::vector<RowVectorPtr>& vectors) {
     auto plan = PlanBuilder()
                     .values(vectors)
                     .project({"c0", "c1", "c0 + c1"})
@@ -65,7 +65,7 @@ TEST_F(FilterProjectTest, filter) {
   }
   createDuckDbTable(vectors);
 
-  assertFilter(std::move(vectors));
+  assertFilter(vectors);
 }
 
 TEST_F(FilterProjectTest, filterOverDictionary) {
@@ -94,7 +94,7 @@ TEST_F(FilterProjectTest, filterOverDictionary) {
   }
   createDuckDbTable(vectors);
 
-  assertFilter(std::move(vectors));
+  assertFilter(vectors);
 }
 
 TEST_F(FilterProjectTest, filterOverConstant) {
@@ -116,7 +116,7 @@ TEST_F(FilterProjectTest, filterOverConstant) {
   }
   createDuckDbTable(vectors);
 
-  assertFilter(std::move(vectors));
+  assertFilter(vectors);
 }
 
 TEST_F(FilterProjectTest, project) {
@@ -128,7 +128,7 @@ TEST_F(FilterProjectTest, project) {
   }
   createDuckDbTable(vectors);
 
-  assertProject(std::move(vectors));
+  assertProject(vectors);
 }
 
 TEST_F(FilterProjectTest, projectOverDictionary) {
@@ -157,7 +157,7 @@ TEST_F(FilterProjectTest, projectOverDictionary) {
   }
   createDuckDbTable(vectors);
 
-  assertProject(std::move(vectors));
+  assertProject(vectors);
 }
 
 TEST_F(FilterProjectTest, projectOverConstant) {
@@ -179,7 +179,7 @@ TEST_F(FilterProjectTest, projectOverConstant) {
   }
   createDuckDbTable(vectors);
 
-  assertProject(std::move(vectors));
+  assertProject(vectors);
 }
 
 TEST_F(FilterProjectTest, projectOverLazy) {
