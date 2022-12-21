@@ -3150,8 +3150,8 @@ TEST_F(HashJoinTest, memory) {
   params.queryCtx->pool()->setMemoryUsageTracker(tracker);
 
   auto [taskCursor, rows] = readCursor(params, [](Task*) {});
-  EXPECT_GT(3'500, tracker->getNumAllocs());
-  EXPECT_GT(7'500'000, tracker->getCumulativeBytes());
+  EXPECT_GT(3'500, tracker->numAllocs());
+  EXPECT_GT(7'500'000, tracker->cumulativeBytes());
 }
 
 TEST_F(HashJoinTest, lazyVectors) {
@@ -3855,7 +3855,7 @@ TEST_F(HashJoinTest, memoryUsage) {
         // Verify number of memory allocations. Should not be too high if
         // hash join is able to re-use output vectors that contain
         // build-side data.
-        ASSERT_GT(40, task->pool()->getMemoryUsageTracker()->getNumAllocs());
+        ASSERT_GT(40, task->pool()->getMemoryUsageTracker()->numAllocs());
       })
       .run();
 }

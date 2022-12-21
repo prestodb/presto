@@ -69,8 +69,7 @@ TEST_F(MemoryCapExceededTest, singleDriver) {
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(
-          kMaxBytes, kMaxBytes, kMaxBytes));
+      velox::memory::MemoryUsageTracker::create(kMaxBytes));
   CursorParameters params;
   params.planNode = plan;
   params.queryCtx = queryCtx;
@@ -114,8 +113,7 @@ TEST_F(MemoryCapExceededTest, multipleDrivers) {
                   .planNode();
   auto queryCtx = std::make_shared<core::QueryCtx>(executor_.get());
   queryCtx->pool()->setMemoryUsageTracker(
-      velox::memory::MemoryUsageTracker::create(
-          kMaxBytes, kMaxBytes, kMaxBytes));
+      velox::memory::MemoryUsageTracker::create(kMaxBytes));
 
   const int32_t numDrivers = 10;
   CursorParameters params;

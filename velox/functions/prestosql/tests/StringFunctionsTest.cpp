@@ -221,12 +221,12 @@ class StringFunctionsTest : public FunctionBaseTest {
     // We expect 2 allocations: one for the values buffer and another for the
     // strings buffer. I.e. FlatVector<StringView>::values and
     // FlatVector<StringView>::stringBuffers.
-    auto numAllocsBefore = pool()->getMemoryUsageTracker()->getNumAllocs();
+    auto numAllocsBefore = pool()->getMemoryUsageTracker()->numAllocs();
 
     auto result = evaluate<FlatVector<StringView>>(
         buildConcatQuery(), makeRowVector(inputVectors));
 
-    auto numAllocsAfter = pool()->getMemoryUsageTracker()->getNumAllocs();
+    auto numAllocsAfter = pool()->getMemoryUsageTracker()->numAllocs();
     ASSERT_EQ(numAllocsAfter - numAllocsBefore, 2);
 
     auto concatStd = [](const std::vector<std::string>& inputs) {

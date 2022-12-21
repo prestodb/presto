@@ -135,8 +135,7 @@ TYPED_TEST(ApproxMostFrequentTest, emptyGroup) {
 using ApproxMostFrequentTestInt = ApproxMostFrequentTest<int>;
 
 TEST_F(ApproxMostFrequentTestInt, invalidBuckets) {
-  pool()->getMemoryUsageTracker()->updateConfig(
-      memory::MemoryUsageConfigBuilder().maxTotalMemory(1 << 21).build());
+  pool()->getMemoryUsageTracker()->testingUpdateMaxMemory(1 << 21);
   auto run = [&](int64_t buckets) {
     auto rows = makeRowVector({
         makeConstant<int64_t>(buckets, buckets),

@@ -620,8 +620,8 @@ TEST(MemoryPoolTest, childUsageTest) {
       EXPECT_EQ(tree[i]->getMaxBytes(), maxBytes[i]);
       auto tracker = tree[i]->getMemoryUsageTracker();
       ASSERT_TRUE(tracker);
-      EXPECT_GE(tracker->getCurrentUserBytes(), trackerCurrentBytes[i]);
-      EXPECT_GE(tracker->getPeakTotalBytes(), trackerMaxBytes[i]);
+      EXPECT_GE(tracker->currentBytes(), trackerCurrentBytes[i]);
+      EXPECT_GE(tracker->peakBytes(), trackerMaxBytes[i]);
     }
   };
 
@@ -702,8 +702,8 @@ TEST(MemoryPoolTest, childUsageTest) {
 
   // Verify the stats still holds the correct stats.
   for (unsigned i = 0, e = trackers.size(); i != e; ++i) {
-    ASSERT_GE(trackers[i]->getCurrentUserBytes(), expectedCurrentBytes[i]);
-    ASSERT_GE(trackers[i]->getPeakTotalBytes(), expectedMaxBytes[i]);
+    ASSERT_GE(trackers[i]->currentBytes(), expectedCurrentBytes[i]);
+    ASSERT_GE(trackers[i]->peakBytes(), expectedMaxBytes[i]);
   }
 }
 

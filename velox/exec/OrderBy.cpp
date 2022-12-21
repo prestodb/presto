@@ -157,7 +157,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
 
   auto tracker = mappedMemory_->tracker();
   VELOX_CHECK_NOT_NULL(tracker);
-  const auto currentUsage = tracker->getCurrentUserBytes();
+  const auto currentUsage = tracker->currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
         currentUsage * spillConfig.spillableReservationGrowthPct / 100;
@@ -184,7 +184,7 @@ void OrderBy::ensureInputFits(const RowVectorPtr& input) {
       data_->sizeIncrement(input->size(), outOfLineBytes ? flatInputBytes : 0);
 
   // There must be at least 2x the increment in reservation.
-  if (tracker->getAvailableReservation() > 2 * incrementBytes) {
+  if (tracker->availableReservation() > 2 * incrementBytes) {
     return;
   }
 

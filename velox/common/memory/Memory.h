@@ -341,14 +341,16 @@ class MemoryPoolImpl : public MemoryPool {
 
   ~MemoryPoolImpl() {
     if (const auto& tracker = getMemoryUsageTracker()) {
-      auto remainingBytes = tracker->getCurrentUserBytes();
+      // TODO: change to check reserved bytes which including the unused
+      // reservation.
+      auto remainingBytes = tracker->currentBytes();
       VELOX_CHECK_EQ(
           0,
           remainingBytes,
           "Memory pool should be destroyed only after all allocated memory has been freed. Remaining bytes allocated: {}, cumulative bytes allocated: {}, number of allocations: {}",
           remainingBytes,
-          tracker->getCumulativeBytes(),
-          tracker->getNumAllocs());
+          tracker->cumulativeBytes(),
+          tracker->numAllocs());
     }
   }
 

@@ -505,7 +505,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
   }
 
   auto tracker = mappedMemory_->tracker();
-  const auto currentUsage = tracker->getCurrentUserBytes();
+  const auto currentUsage = tracker->currentBytes();
   if (spillMemoryThreshold_ != 0 && currentUsage > spillMemoryThreshold_) {
     const int64_t bytesToSpill =
         currentUsage * spillConfig_->spillableReservationGrowthPct / 100;
@@ -531,7 +531,7 @@ void GroupingSet::ensureInputFits(const RowVectorPtr& input) {
       rows->sizeIncrement(input->size(), outOfLineBytes ? flatBytes : 0) +
       tableIncrement;
   // There must be at least 2x the increment in reservation.
-  if (tracker->getAvailableReservation() > 2 * increment) {
+  if (tracker->availableReservation() > 2 * increment) {
     return;
   }
   // Check if can increase reservation. The increment is the larger of

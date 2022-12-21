@@ -165,7 +165,7 @@ Operator::Operator(
           std::stringstream out;
           out << "\nFailed Operator: " << this->operatorType() << "."
               << this->operatorId() << ": "
-              << succinctBytes(tracker.getCurrentTotalBytes());
+              << succinctBytes(tracker.currentBytes());
           return out.str();
         });
   }

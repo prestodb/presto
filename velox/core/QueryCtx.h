@@ -145,9 +145,7 @@ class QueryCtx : public Context {
   void initPool(const std::string& queryId) {
     pool_ = memory::getProcessDefaultMemoryManager().getRoot().addChild(
         QueryCtx::generatePoolName(queryId));
-    static const auto kUnlimited = std::numeric_limits<int64_t>::max();
-    pool_->setMemoryUsageTracker(
-        memory::MemoryUsageTracker::create(kUnlimited, kUnlimited, kUnlimited));
+    pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;

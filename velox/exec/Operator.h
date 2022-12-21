@@ -47,15 +47,15 @@ struct MemoryStats {
   uint64_t numMemoryAllocations{0};
 
   void update(const std::shared_ptr<memory::MemoryUsageTracker>& tracker) {
-    if (!tracker) {
+    if (tracker == nullptr) {
       return;
     }
-    userMemoryReservation = tracker->getCurrentUserBytes();
-    systemMemoryReservation = tracker->getCurrentSystemBytes();
-    peakUserMemoryReservation = tracker->getPeakUserBytes();
-    peakSystemMemoryReservation = tracker->getPeakSystemBytes();
-    peakTotalMemoryReservation = tracker->getPeakTotalBytes();
-    numMemoryAllocations = tracker->getNumAllocs();
+    userMemoryReservation = tracker->currentBytes();
+    systemMemoryReservation = 0;
+    peakUserMemoryReservation = tracker->peakBytes();
+    peakSystemMemoryReservation = 0;
+    peakTotalMemoryReservation = tracker->peakBytes();
+    numMemoryAllocations = tracker->numAllocs();
   }
 
   void add(const MemoryStats& other) {

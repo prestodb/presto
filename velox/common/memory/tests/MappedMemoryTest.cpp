@@ -46,8 +46,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
 
   void SetUp() override {
     MappedMemory::testingDestroyInstance();
-    auto tracker = MemoryUsageTracker::create(
-        MemoryUsageConfigBuilder().maxTotalMemory(kMaxMappedMemory).build());
+    auto tracker = MemoryUsageTracker::create(kMaxMappedMemory);
     useMmap_ = GetParam();
     if (useMmap_) {
       MmapAllocator::Options options;
@@ -450,10 +449,9 @@ TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
     mappedMemory->allocateNonContiguous(numPages, result);
     EXPECT_GE(result.numPages(), numPages);
     EXPECT_EQ(
-        result.numPages() * MappedMemory::kPageSize,
-        tracker->getCurrentUserBytes());
+        result.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
     mappedMemory->freeNonContiguous(result);
-    EXPECT_EQ(0, tracker->getCurrentUserBytes());
+    EXPECT_EQ(0, tracker->currentBytes());
   }
 
   auto tracker = MemoryUsageTracker::create();
@@ -464,21 +462,20 @@ TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
     mappedMemory->allocateNonContiguous(numPages, result1);
     EXPECT_GE(result1.numPages(), numPages);
     EXPECT_EQ(
-        result1.numPages() * MappedMemory::kPageSize,
-        tracker->getCurrentUserBytes());
+        result1.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
 
     mappedMemory->allocateNonContiguous(numPages, result2);
     EXPECT_GE(result2.numPages(), numPages);
     EXPECT_EQ(
         (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
-        tracker->getCurrentUserBytes());
+        tracker->currentBytes());
 
     // Since allocations are still valid, usage should not change.
     EXPECT_EQ(
         (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
-        tracker->getCurrentUserBytes());
+        tracker->currentBytes());
   }
-  EXPECT_EQ(0, tracker->getCurrentUserBytes());
+  EXPECT_EQ(0, tracker->currentBytes());
 }
 
 TEST_P(MappedMemoryTest, minSizeClass) {
@@ -496,10 +493,9 @@ TEST_P(MappedMemoryTest, minSizeClass) {
     EXPECT_LE(sizeClass, result.runAt(i).numPages());
   }
   EXPECT_EQ(
-      result.numPages() * MappedMemory::kPageSize,
-      tracker->getCurrentUserBytes());
+      result.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
   mappedMemory->freeNonContiguous(result);
-  EXPECT_EQ(0, tracker->getCurrentUserBytes());
+  EXPECT_EQ(0, tracker->currentBytes());
 }
 
 TEST_P(MappedMemoryTest, externalAdvise) {
@@ -825,10 +821,10 @@ DEBUG_ONLY_TEST_P(
     MappedMemoryTest,
     nonContiguousScopedMappedMemoryAllocationFailure) {
   auto tracker = MemoryUsageTracker::create();
-  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  ASSERT_EQ(tracker->currentBytes(), 0);
   auto* mappedMemory = MappedMemory::getInstance();
   auto scopedMemory = mappedMemory->addChild(tracker);
-  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  ASSERT_EQ(tracker->currentBytes(), 0);
 
   const std::string testValueStr = useMmap_
       ? "facebook::velox::memory::MmapAllocator::allocate"
@@ -850,11 +846,11 @@ DEBUG_ONLY_TEST_P(
   std::unique_ptr<MappedMemory::Allocation> allocation(
       new MappedMemory::Allocation(scopedMemory.get()));
   ASSERT_FALSE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
-  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  ASSERT_EQ(tracker->currentBytes(), 0);
   ASSERT_TRUE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
-  ASSERT_GT(tracker->getCurrentUserBytes(), 0);
+  ASSERT_GT(tracker->currentBytes(), 0);
   allocation.reset();
-  ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  ASSERT_EQ(tracker->currentBytes(), 0);
 }
 
 TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
@@ -870,22 +866,22 @@ TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
   for (const auto& failure : failureTypes) {
     mappedMemory->testingInjectFailure(failure);
     auto tracker = MemoryUsageTracker::create();
-    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    ASSERT_EQ(tracker->currentBytes(), 0);
     auto scopedMemory = mappedMemory->addChild(tracker);
-    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    ASSERT_EQ(tracker->currentBytes(), 0);
 
     constexpr MachinePageCount kAllocSize = 8;
     std::unique_ptr<MappedMemory::ContiguousAllocation> allocation(
         new MappedMemory::ContiguousAllocation());
     ASSERT_FALSE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
-    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    ASSERT_EQ(tracker->currentBytes(), 0);
     mappedMemory->testingInjectFailure(MmapAllocator::Failure::kNone);
     ASSERT_TRUE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
-    ASSERT_GT(tracker->getCurrentUserBytes(), 0);
+    ASSERT_GT(tracker->currentBytes(), 0);
     allocation.reset();
-    ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+    ASSERT_EQ(tracker->currentBytes(), 0);
   }
 }
 

@@ -903,10 +903,10 @@ TEST_F(SimpleFunctionTest, reuseArgVector) {
 
   pool_->setMemoryUsageTracker(memory::MemoryUsageTracker::create());
 
-  auto prevAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+  auto prevAllocations = pool_->getMemoryUsageTracker()->numAllocs();
 
   evaluate(*exprSet, data);
-  auto currAllocations = pool_->getMemoryUsageTracker()->getNumAllocs();
+  auto currAllocations = pool_->getMemoryUsageTracker()->numAllocs();
 
   // Expect a single allocation for the result. Intermediate results should
   // reuse memory.

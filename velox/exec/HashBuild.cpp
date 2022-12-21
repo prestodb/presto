@@ -429,7 +429,7 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
 
   auto tracker = CHECK_NOTNULL(mappedMemory_->tracker());
   // There must be at least 2x the increments in reservation.
-  if (tracker->getAvailableReservation() > 2 * increment) {
+  if (tracker->availableReservation() > 2 * increment) {
     return true;
   }
 
@@ -438,8 +438,8 @@ bool HashBuild::reserveMemory(const RowVectorPtr& input) {
   // 'spillableReservationGrowthPct_' of the current reservation.
   auto targetIncrement = std::max<int64_t>(
       increment * 2,
-      tracker->getCurrentUserBytes() *
-          spillConfig()->spillableReservationGrowthPct / 100);
+      tracker->currentBytes() * spillConfig()->spillableReservationGrowthPct /
+          100);
   if (tracker->maybeReserve(targetIncrement)) {
     return true;
   }

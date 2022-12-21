@@ -30,22 +30,22 @@ class MemoryAllocationChecker {
  public:
   explicit MemoryAllocationChecker(memory::MemoryPool* pool)
       : tracker_{pool->getMemoryUsageTracker().get()},
-        numAllocations_{tracker_->getNumAllocs()} {}
+        numAllocations_{tracker_->numAllocs()} {}
 
   bool assertOne() {
-    bool ok = numAllocations_ + 1 == tracker_->getNumAllocs();
-    numAllocations_ = tracker_->getNumAllocs();
+    bool ok = numAllocations_ + 1 == tracker_->numAllocs();
+    numAllocations_ = tracker_->numAllocs();
     return ok;
   }
 
   bool assertAtLeastOne() {
-    bool ok = numAllocations_ < tracker_->getNumAllocs();
-    numAllocations_ = tracker_->getNumAllocs();
+    bool ok = numAllocations_ < tracker_->numAllocs();
+    numAllocations_ = tracker_->numAllocs();
     return ok;
   }
 
   ~MemoryAllocationChecker() {
-    EXPECT_EQ(numAllocations_, tracker_->getNumAllocs());
+    EXPECT_EQ(numAllocations_, tracker_->numAllocs());
   }
 
  private:
