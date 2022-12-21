@@ -122,37 +122,6 @@ commands:
             make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
 
-  run-benchmarks:
-    steps:
-      - run:
-          name: "Run Benchmarks"
-          command: |
-            # get to the directory with benchmarks
-            cd scripts/veloxbench/veloxbench
-
-            # setup .conbench file
-            touch .conbench
-            echo "url: $CONBENCH_URL" >> .conbench
-            echo "email: $CONBENCH_EMAIL" >> .conbench
-            echo "password: $CONBENCH_PASSWORD" >> .conbench
-            echo "host_name: $CONBENCH_HOST" >> .conbench
-
-            # Figure out the run name and run reason
-            if [[ $CIRCLE_BRANCH == 'main' ]]; then
-              # Currently, the names of runs to be included in Conbench history must
-              # start with 'commit:'
-              # (https://github.com/conbench/conbench/issues/350)
-              # This way we can keep track of performance over time on the main branch
-              # separately from pull request branches and manual runs.
-
-              run_name="commit: $(git rev-parse HEAD)"
-              run_reason='commit'
-            else
-              run_name="pull request $CIRCLE_PR_NUMBER: $(git rev-parse HEAD)"
-              run_reason='pull request'
-            fi
-
-            conbench cpp-micro --run-name="$run_name" --run-reason="$run_reason"
 
   fuzzer-run:
     parameters:
@@ -367,8 +336,14 @@ jobs:
           command: |
             # upgrade python to 3.8 for this job
             yum install -y python38
+            # symlink to python3 so the shebang works later
+            ln -sf python3.8 $(which python3)
             pip3.8 install -r scripts/benchmark-requirements.txt
-      - run-benchmarks
+      - run:
+          name: "Run Benchmarks - Target"
+          command: |
+            make benchmarks-basic-run \
+                EXTRA_BENCHMARK_FLAGS="--conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}"
       # TODO: Disabling conbench github notifications for now until results are more stable.
       #- run:
       #  name: "Analyze Benchmark Regressions and Post to Github"
@@ -399,6 +374,10 @@ jobs:
       - setup-environment
       - build-benchmarks
       - run:
+          name: "Install benchmark dependencies"
+          command: |
+            pip3 install -r scripts/benchmark-requirements.txt
+      - run:
           name: "Run Benchmarks - Full Round"
           command: |
             # TODO: For now we just compare the target binary with itself, until we
@@ -407,7 +386,7 @@ jobs:
             make benchmarks-basic-run \
                 EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}"
             make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}"
+                EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
 
             ./scripts/benchmark-runner.py compare \
                 --baseline_path ${BASELINE_OUTPUT_PATH} \
@@ -416,7 +395,7 @@ jobs:
       - run:
           name: "Run Benchmarks - Reruns"
           command: |
-    
+
             for i in 1 2 3 4 5; do
               if [ ! -s "${RERUN_JSON_OUTPUT}" ]; then
                 echo "--> Rerun iteration ${i} found empty file. Finalizing."
@@ -427,7 +406,7 @@ jobs:
               make benchmarks-basic-run \
                   EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT}"
               make benchmarks-basic-run \
-                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT}"
+                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
 
               ./scripts/benchmark-runner.py compare \
                   --baseline_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ \

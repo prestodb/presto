@@ -16,9 +16,13 @@
 import argparse
 import json
 import os
+import pathlib
+import re
+import subprocess
 import sys
 import tempfile
-from veloxbench.veloxbench.cpp_micro_benchmarks import LocalCppMicroBenchmarks
+import traceback
+import uuid
 
 _OUTPUT_NUM_COLS = 100
 
@@ -191,9 +195,151 @@ def compare(args):
     return 0
 
 
+def _find_binaries(binary_path: pathlib.Path):
+    print(f"Looking for binaries at '{binary_path}'")
+
+    # Must run `make benchmarks-basic-build` before this
+    binaries = [
+        path
+        for path in binary_path.glob("*")
+        if os.access(path, os.X_OK) and path.is_file()
+    ]
+    if not binaries:
+        raise ValueError(f"No binaries found at path '{binary_path.resolve()}'")
+
+    print(f"Found {len(binaries)} benchmark binaries")
+    return binaries
+
+
+def _default_binary_path():
+    repo_root = pathlib.Path(__file__).parent.parent.absolute()
+    return repo_root.joinpath("_build", "release", "velox", "benchmarks", "basic")
+
+
+def _normalize_path(binary_path: str) -> pathlib.Path:
+    path = pathlib.Path(binary_path)
+    if not path.is_absolute():
+        path = pathlib.Path.cwd().joinpath(path).resolve()
+    return path
+
+
+def run_all_benchmarks(
+    output_dir,
+    binary_path=None,
+    binary_filter=None,
+    bm_filter=None,
+    bm_max_secs=None,
+    bm_max_trials=None,
+    bm_estimate_time=False,
+):
+    if binary_path:
+        binary_path = _normalize_path(binary_path)
+    else:
+        binary_path = _default_binary_path()
+
+    binaries = _find_binaries(binary_path)
+    output_dir_path = pathlib.Path(output_dir)
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+
+    for binary_path in binaries:
+        if binary_filter and not re.search(binary_filter, binary_path.name):
+            continue
+
+        out_path = output_dir_path / f"{binary_path.name}.json"
+        print(f"Executing and dumping results for '{binary_path}' to '{out_path}':")
+        run_command = [
+            binary_path,
+            "--bm_json_verbose",
+            out_path,
+        ]
+
+        if bm_max_secs:
+            run_command.extend(["--bm_max_secs", str(bm_max_secs)])
+
+        if bm_max_trials:
+            run_command.extend(["--bm_max_trials", str(bm_max_trials)])
+
+        if bm_filter:
+            run_command.extend(["--bm_regex", bm_filter])
+
+        if bm_estimate_time:
+            run_command.append("--bm_estimate_time")
+
+        try:
+            print(run_command)
+            subprocess.run(run_command, check=True)
+        except subprocess.CalledProcessError as e:
+            print(e.stderr.decode("utf-8"))
+            raise e
+
+
+def upload_results(output_dir, run_id):
+    print(f"Uploading results from {output_dir=} to Conbench with {run_id=}")
+
+    # Check there's actually results first
+    if not list(pathlib.Path(output_dir).rglob("*.json")):
+        print("No results to upload")
+        return
+
+    # Import benchadapt inside this function so you don't need it if you're just running benchmarks
+    from benchadapt.adapters import FollyAdapter
+    from benchadapt.log import log
+
+    # Print the POSTs in the logs
+    log.setLevel("DEBUG")
+
+    # benchadapt needs these for logging in to Conbench
+    required_env_vars = {"CONBENCH_URL", "CONBENCH_EMAIL", "CONBENCH_PASSWORD"}
+    missing_env_vars = required_env_vars - set(os.environ)
+    if missing_env_vars:
+        print(
+            "Not uploading results to Conbench because these env vars are missing: "
+            f"{missing_env_vars}"
+        )
+        return
+
+    # This should work, though it would be much better to get the sha from velox
+    # directly so we know we're using the right one (see TODO below)
+    commit = os.environ["CIRCLE_SHA1"]
+
+    pr_number_env = os.getenv("CIRCLE_PR_NUMBER", "")
+    pr_number = int(pr_number_env) if pr_number_env else None
+    run_reason = "pull request" if pr_number else "commit"
+    run_name = f"{run_reason}: {commit}"
+
+    conbench_upload_callable = FollyAdapter(
+        # Since benchmarks have already run, this run command is a no-op
+        command=["ls", output_dir],
+        result_dir=output_dir,
+        result_fields_override={
+            "run_id": run_id,
+            "run_name": run_name,
+            "run_reason": run_reason,
+            "github": {
+                "repository": "https://github.com/facebookincubator/velox",
+                "pr_number": pr_number,
+                "commit": commit,
+            },
+        },
+        result_fields_append={
+            "info": {
+                # TODO: undo the hard coding with ways to get the values from velox
+                # c.f. https://github.com/ursacomputing/benchmarks/blob/033eee0951adbf41931a2de95caccbac887da6ff/benchmarks/_benchmark.py#L30-L48
+                "velox_version": "0.0.1",
+                "velox_compiler_id": None,
+                "velox_compiler_version": None,
+            },
+            "context": {"velox_compiler_flags": None},
+        },
+    )
+
+    conbench_upload_callable()
+
+
 def run(args):
+    output_dir = args.output_path or tempfile.mkdtemp()
     kwargs = {
-        "output_dir": args.output_path or tempfile.mkdtemp(),
+        "output_dir": output_dir,
         "binary_path": args.binary_path,
         "binary_filter": args.binary_filter,
         "bm_filter": args.bm_filter,
@@ -216,11 +362,18 @@ def run(args):
         for file_name, bm_list in json_input.items():
             kwargs["binary_filter"] = gen_binary_filter(file_name)
             kwargs["bm_filter"] = gen_bm_filter(bm_list)
-            LocalCppMicroBenchmarks().run(**kwargs)
+            run_all_benchmarks(**kwargs)
 
     # Otherwise, run all benchmarks we can find.
     else:
-        LocalCppMicroBenchmarks().run(**kwargs)
+        run_all_benchmarks(**kwargs)
+
+    if args.conbench_upload_run_id:
+        try:
+            upload_results(output_dir=output_dir, run_id=args.conbench_upload_run_id)
+        except Exception:
+            print("ERROR caught during uploading results:")
+            print(traceback.format_exc())
 
 
 def parse_args():
@@ -279,6 +432,14 @@ def parse_args():
         help="Only binaries and benchmark names read from this json file will "
         "be run. This file needs to be generated using the "
         "--rerun_json_output flag.",
+    )
+    parser_run.add_argument(
+        "--conbench_upload_run_id",
+        default=None,
+        help="A Conbench run ID unique to this build. If given, the run script will "
+        "upload results to Conbench upon completion. Requires the `benchadapt` package "
+        "installed and the following env vars set: CIRCLE_SHA1, CIRCLE_PR_NUMBER, "
+        "CONBENCH_URL, CONBENCH_EMAIL, CONBENCH_PASSWORD",
     )
     parser_run.set_defaults(func=run)
 
