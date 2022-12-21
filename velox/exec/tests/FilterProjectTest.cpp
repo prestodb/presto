@@ -260,8 +260,8 @@ TEST_F(FilterProjectTest, allFailedOrPassed) {
     // no row passes. c0 is flat vector. c1 is constant vector.
     int32_t value = i % 2 == 0 ? 0 : 1;
 
-    auto c0 = std::dynamic_pointer_cast<FlatVector<int32_t>>(
-        BaseVector::create(INTEGER(), 100, pool_.get()));
+    auto c0 =
+        BaseVector::create<FlatVector<int32_t>>(INTEGER(), 100, pool_.get());
     for (auto row = 0; row < c0->size(); ++row) {
       c0->set(row, value);
     }

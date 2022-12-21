@@ -47,8 +47,8 @@ class MapZipWithBenchmark : public functions::test::FunctionBenchmarkBase {
         dictionaryKeysMap_->type(), options.vectorSize, pool());
     flatKeysMap_->copy(dictionaryKeysMap_.get(), 0, 0, options.vectorSize);
 
-    auto sortedKeysMap = std::dynamic_pointer_cast<MapVector>(
-        BaseVector::create(flatKeysMap_->type(), options.vectorSize, pool()));
+    auto sortedKeysMap = BaseVector::create<MapVector>(
+        flatKeysMap_->type(), options.vectorSize, pool());
     sortedKeysMap->copy(flatKeysMap_.get(), 0, 0, options.vectorSize);
     MapVector::canonicalize(sortedKeysMap);
     sortedKeysMap_ = std::move(sortedKeysMap);

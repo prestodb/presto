@@ -309,8 +309,8 @@ class HashTableTest : public testing::TestWithParam<bool> {
             nullptr);
 
       case TypeKind::VARCHAR: {
-        auto strings = std::static_pointer_cast<FlatVector<StringView>>(
-            BaseVector::create(VARCHAR(), size, pool_.get()));
+        auto strings = BaseVector::create<FlatVector<StringView>>(
+            VARCHAR(), size, pool_.get());
         for (auto row = 0; row < size; ++row) {
           auto string = fmt::format("{}", keySpacing_ * (sequence + row));
           // Make strings that overflow the inline limit for 1/10 of

@@ -251,8 +251,8 @@ class AggregationTest : public OperatorTestBase {
     RowVectorPtr rowVector;
     for (auto count = 0; count < numRows; ++count) {
       if (count % 1000 == 0) {
-        rowVector = std::static_pointer_cast<RowVector>(BaseVector::create(
-            rowType, std::min(1000, numRows - count), pool_.get()));
+        rowVector = BaseVector::create<RowVector>(
+            rowType, std::min(1000, numRows - count), pool_.get());
         batches.push_back(rowVector);
         for (auto& child : rowVector->children()) {
           child->resize(1000);
@@ -901,8 +901,8 @@ DEBUG_ONLY_TEST_F(AggregationTest, spillWithEmptyPartition) {
     // The input batch has kNumDistinct distinct keys. The repeat count of a key
     // is given by min(1, (k % 100) - 90). The batch is repeated 3 times, each
     // time in a different order.
-    RowVectorPtr rowVector = std::static_pointer_cast<RowVector>(
-        BaseVector::create(rowType_, kNumDistinct, pool_.get()));
+    auto rowVector =
+        BaseVector::create<RowVector>(rowType_, kNumDistinct, pool_.get());
     SelectivityVector allRows(kNumDistinct);
     const TypePtr keyType = rowVector->type()->childAt(0);
     const TypePtr valueType = rowVector->type()->childAt(1);
@@ -1015,8 +1015,8 @@ TEST_F(AggregationTest, spillWithNonSpillingPartition) {
   // The input batch has kNumDistinct distinct keys. The repeat count of a key
   // is given by min(1, (k % 100) - 90). The batch is repeated 3 times, each
   // time in a different order.
-  RowVectorPtr rowVector = std::static_pointer_cast<RowVector>(
-      BaseVector::create(rowType_, kNumDistinct, pool_.get()));
+  auto rowVector =
+      BaseVector::create<RowVector>(rowType_, kNumDistinct, pool_.get());
   SelectivityVector allRows(kNumDistinct);
   const TypePtr keyType = rowVector->type()->childAt(0);
   const TypePtr valueType = rowVector->type()->childAt(1);

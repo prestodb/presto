@@ -36,9 +36,8 @@ VectorPtr fastPosition(const RowVectorPtr& inputs) {
   VectorPtr searches = inputs->childAt(1);
 
   const auto numRows = arrays->size();
-  auto result =
-      std::static_pointer_cast<FlatVector<int64_t>>(BaseVector::create(
-          CppToType<int64_t>::create(), numRows, arrays->pool()));
+  auto result = BaseVector::create<FlatVector<int64_t>>(
+      BIGINT(), numRows, arrays->pool());
 
   auto arrayVector = arrays->as<ArrayVector>();
   auto rawOffsets = arrayVector->rawOffsets();
@@ -80,9 +79,8 @@ VectorPtr fastPositionWithInstance(const RowVectorPtr& inputs) {
   VectorPtr instances = inputs->childAt(2);
 
   const auto numRows = arrays->size();
-  auto result =
-      std::static_pointer_cast<FlatVector<int64_t>>(BaseVector::create(
-          CppToType<int64_t>::create(), numRows, arrays->pool()));
+  auto result = BaseVector::create<FlatVector<int64_t>>(
+      BIGINT(), numRows, arrays->pool());
 
   auto arrayVector = arrays->as<ArrayVector>();
   auto rawOffsets = arrayVector->rawOffsets();

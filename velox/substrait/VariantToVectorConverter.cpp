@@ -26,8 +26,8 @@ VectorPtr setVectorFromVariantsByKind(
     memory::MemoryPool* pool) {
   using T = typename TypeTraits<KIND>::NativeType;
 
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<T>>(
-      BaseVector::create(CppToType<T>::create(), values.size(), pool));
+  auto flatVector = BaseVector::create<FlatVector<T>>(
+      CppToType<T>::create(), values.size(), pool);
 
   for (vector_size_t i = 0; i < values.size(); i++) {
     if (values[i].isNull()) {
@@ -50,8 +50,8 @@ template <>
 VectorPtr setVectorFromVariantsByKind<TypeKind::VARCHAR>(
     const std::vector<velox::variant>& values,
     memory::MemoryPool* pool) {
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<StringView>>(
-      BaseVector::create(VARCHAR(), values.size(), pool));
+  auto flatVector = BaseVector::create<FlatVector<StringView>>(
+      VARCHAR(), values.size(), pool);
 
   for (vector_size_t i = 0; i < values.size(); i++) {
     if (values[i].isNull()) {

@@ -58,8 +58,7 @@ RowVectorPtr EnforceSingleRow::getOutput() {
 void EnforceSingleRow::noMoreInput() {
   if (!noMoreInput_ && input_ == nullptr) {
     // We have not seen any data. Return a single row of all nulls.
-    input_ = std::dynamic_pointer_cast<RowVector>(
-        BaseVector::create(outputType_, 1, pool()));
+    input_ = BaseVector::create<RowVector>(outputType_, 1, pool());
     for (auto& child : input_->children()) {
       child->resize(1);
       child->setNull(0, true);

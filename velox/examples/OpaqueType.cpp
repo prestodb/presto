@@ -230,8 +230,8 @@ int main(int argc, char** argv) {
       variant::opaque(opaqueObj), vectorSize, execCtx.pool());
 
   // Create vector #3. The monotinically increasing flatVector<bigint>.
-  auto vector3 = std::dynamic_pointer_cast<FlatVector<int64_t>>(
-      BaseVector::create(BIGINT(), vectorSize, execCtx.pool()));
+  auto vector3 = BaseVector::create<FlatVector<int64_t>>(
+      BIGINT(), vectorSize, execCtx.pool());
   auto rawValues = vector3->mutableRawValues();
   std::iota(rawValues, rawValues + vectorSize, 0); // 0, 1, 2, 3, ...
 

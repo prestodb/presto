@@ -548,8 +548,8 @@ TEST_F(RowContainerTest, types) {
   }
   checkSizes(rows, *data);
   data->checkConsistency();
-  auto copy = std::static_pointer_cast<RowVector>(
-      BaseVector::create(batch->type(), batch->size(), pool_.get()));
+  auto copy =
+      BaseVector::create<RowVector>(batch->type(), batch->size(), pool_.get());
   for (auto column = 0; column < batch->childrenSize(); ++column) {
     testExtractColumn(*data, rows, column, batch->childAt(column));
 

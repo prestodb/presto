@@ -169,8 +169,8 @@ RowVectorPtr AssertQueryBuilder::copyResults(memory::MemoryPool* pool) {
     totalCount += result->size();
   }
 
-  auto copy = std::dynamic_pointer_cast<RowVector>(
-      BaseVector::create(results[0]->type(), totalCount, pool));
+  auto copy =
+      BaseVector::create<RowVector>(results[0]->type(), totalCount, pool);
   auto copyCount = 0;
   for (const auto& result : results) {
     copy->copy(result.get(), copyCount, 0, result->size());

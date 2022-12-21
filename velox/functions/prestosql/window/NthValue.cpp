@@ -48,8 +48,7 @@ class NthValueFunction : public exec::WindowFunction {
       return;
     }
     offsetIndex_ = args[1].index.value();
-    offsets_ = std::dynamic_pointer_cast<FlatVector<int64_t>>(
-        BaseVector::create(BIGINT(), 0, pool));
+    offsets_ = BaseVector::create<FlatVector<int64_t>>(BIGINT(), 0, pool);
   }
 
   void resetPartition(const exec::WindowPartition* partition) override {

@@ -460,8 +460,8 @@ RowVectorPtr Window::getOutput() {
 
   auto numRowsLeft = numRows_ - numProcessedRows_;
   auto numOutputRows = std::min(numRowsPerOutput_, numRowsLeft);
-  auto result = std::dynamic_pointer_cast<RowVector>(
-      BaseVector::create(outputType_, numOutputRows, operatorCtx_->pool()));
+  auto result = BaseVector::create<RowVector>(
+      outputType_, numOutputRows, operatorCtx_->pool());
 
   // Set all passthrough input columns.
   for (int i = 0; i < numInputColumns_; ++i) {

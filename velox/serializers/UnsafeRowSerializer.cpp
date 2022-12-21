@@ -112,8 +112,7 @@ void UnsafeRowVectorSerde::deserialize(
   }
 
   if (serializedRows.empty()) {
-    *result =
-        std::dynamic_pointer_cast<RowVector>(BaseVector::create(type, 0, pool));
+    *result = BaseVector::create<RowVector>(type, 0, pool);
     return;
   }
 

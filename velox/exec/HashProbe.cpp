@@ -638,8 +638,7 @@ void HashProbe::prepareOutput(vector_size_t size) {
     BaseVector::prepareForReuse(output, size);
     output_ = std::static_pointer_cast<RowVector>(output);
   } else {
-    output_ = std::static_pointer_cast<RowVector>(
-        BaseVector::create(outputType_, size, pool()));
+    output_ = BaseVector::create<RowVector>(outputType_, size, pool());
   }
 }
 
@@ -936,8 +935,7 @@ RowVectorPtr HashProbe::getOutput() {
 
 void HashProbe::fillFilterInput(vector_size_t size) {
   if (!filterInput_) {
-    filterInput_ = std::static_pointer_cast<RowVector>(
-        BaseVector::create(filterInputType_, 1, pool()));
+    filterInput_ = BaseVector::create<RowVector>(filterInputType_, 1, pool());
   }
   filterInput_->resize(size);
   for (auto projection : filterInputProjections_) {
@@ -959,8 +957,8 @@ void HashProbe::prepareFilterRowsForNullAwareAntiJoin(
     bool filterPropagateNulls) {
   VELOX_CHECK_LE(numRows, kBatchSize);
   if (filterTableInput_ == nullptr) {
-    filterTableInput_ = std::static_pointer_cast<RowVector>(
-        BaseVector::create(filterInputType_, kBatchSize, pool()));
+    filterTableInput_ =
+        BaseVector::create<RowVector>(filterInputType_, kBatchSize, pool());
   }
 
   if (filterPropagateNulls) {

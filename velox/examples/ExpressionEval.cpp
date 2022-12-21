@@ -120,8 +120,8 @@ int main(int argc, char** argv) {
   // Let's first create a single flat vector to represent the input
   // "my_col" bigint column, and manually fill some data in it:
   const size_t vectorSize = 10;
-  auto flatVector = std::dynamic_pointer_cast<FlatVector<int64_t>>(
-      BaseVector::create(BIGINT(), vectorSize, execCtx.pool()));
+  auto flatVector = BaseVector::create<FlatVector<int64_t>>(
+      BIGINT(), vectorSize, execCtx.pool());
   auto rawValues = flatVector->mutableRawValues();
   std::iota(rawValues, rawValues + vectorSize, 0); // 0, 1, 2, 3, ...
 

@@ -142,8 +142,8 @@ TaskCursor::TaskCursor(const CursorParameters& params)
         for (auto& child : vector->children()) {
           child->loadedVector();
         }
-        RowVectorPtr copy = std::dynamic_pointer_cast<RowVector>(
-            BaseVector::create(vector->type(), vector->size(), queue->pool()));
+        auto copy = BaseVector::create<RowVector>(
+            vector->type(), vector->size(), queue->pool());
         copy->copy(vector.get(), 0, 0, vector->size());
         return queue->enqueue(std::move(copy), future);
       });

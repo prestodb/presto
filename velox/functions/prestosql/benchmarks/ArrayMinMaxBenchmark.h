@@ -27,8 +27,8 @@ namespace facebook::velox::functions {
 template <typename T, typename Func>
 VectorPtr fastMinMax(const VectorPtr& in, const Func& func) {
   const auto numRows = in->size();
-  auto result = std::static_pointer_cast<FlatVector<T>>(
-      BaseVector::create(in->type()->childAt(0), numRows, in->pool()));
+  auto result = BaseVector::create<FlatVector<T>>(
+      in->type()->childAt(0), numRows, in->pool());
   auto rawResults = result->mutableRawValues();
 
   auto arrayVector = in->as<ArrayVector>();

@@ -124,8 +124,8 @@ RowVectorPtr Merge::getOutput() {
   }
 
   if (!output_) {
-    output_ = std::dynamic_pointer_cast<RowVector>(BaseVector::create(
-        outputType_, outputBatchSize_, operatorCtx_->pool()));
+    output_ = BaseVector::create<RowVector>(
+        outputType_, outputBatchSize_, operatorCtx_->pool());
     for (auto& child : output_->children()) {
       child->resize(outputBatchSize_);
     }
