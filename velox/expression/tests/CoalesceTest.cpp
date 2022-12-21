@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 
 using namespace facebook::velox;
@@ -86,4 +87,16 @@ TEST_F(CoalesceTest, strings) {
 
   auto result = evaluate<FlatVector<StringView>>("coalesce(c0, c1, c2)", input);
   assertEqualVectors(expectedResult, result);
+}
+
+TEST_F(CoalesceTest, incompatibleTypes) {
+  auto input = makeRowVector({
+      makeNullableFlatVector<StringView>(
+          {"a", std::nullopt, std::nullopt, "d", std::nullopt}),
+      makeNullableFlatVector<int32_t>({1, 2, 3, 4, 5}),
+  });
+
+  VELOX_ASSERT_THROW(
+      evaluate<FlatVector<StringView>>("coalesce(c0, c1)", input),
+      "Inputs to coalesce must have the same type. Expected VARCHAR, but got INTEGER.");
 }

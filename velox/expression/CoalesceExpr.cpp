@@ -84,8 +84,7 @@ TypePtr CoalesceExpr::resolveType(const std::vector<TypePtr>& argTypes) {
   for (auto i = 1; i < argTypes.size(); i++) {
     VELOX_USER_CHECK(
         argTypes[0]->equivalent(*argTypes[i]),
-        "Inputs to coalesce must have the same type. ",
-        "Expected {}, but got {}.",
+        "Inputs to coalesce must have the same type. Expected {}, but got {}.",
         argTypes[0]->toString(),
         argTypes[i]->toString());
   }
