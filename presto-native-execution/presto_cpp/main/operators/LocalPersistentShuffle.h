@@ -60,7 +60,7 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
   void noMoreData(bool success) override;
 
-  bool hasNext(int32_t partition) const override;
+  bool hasNext(int32_t partition) override;
 
   velox::BufferPtr next(int32_t partition, bool success) override;
 

@@ -36,7 +36,7 @@ class ShuffleReader {
 
   /// Check by the reader to see if more blocks are available for this
   /// partition.
-  virtual bool hasNext(int32_t partition) const = 0;
+  virtual bool hasNext(int32_t partition) = 0;
 
   /// Read the next block of data for this partition.
   /// @param success set to false to indicate aborted client.
