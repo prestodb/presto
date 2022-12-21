@@ -17,10 +17,10 @@ spec:
       resources:
         requests:
           memory: "8Gi"
-          cpu: "4000m"
+          cpu: "2000m"
         limits:
           memory: "8Gi"
-          cpu: "4000m"
+          cpu: "2000m"
       tty: true
       command:
       - cat

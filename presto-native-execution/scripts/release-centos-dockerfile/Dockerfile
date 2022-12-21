@@ -31,7 +31,7 @@ ENV CPU_TARGET=${CPU_TARGET}
 ENV CC=/opt/rh/gcc-toolset-9/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-9/root/bin/g++
 
-ENV PRESTODB_HOME=/opt/presto
+ENV PRESTODB_HOME=/opt/presto-server
 ENV DEPENDENCY_DIR=/opt/dependency
 ENV INSTALL_PREFIX=/usr/local
 ENV CMAKE_PREFIX_PATH=/usr/local
@@ -55,6 +55,7 @@ RUN --mount=type=ssh \
     dnf -y install openssh-clients git wget unzip make && \
     mkdir -p -m 0600 /root/.ssh && \
     ssh-keyscan github.com >> /root/.ssh/known_hosts && \
+    mkdir -p "${PRESTODB_HOME}/_repo" && \
     git clone --progress ${PRESTODB_REPOSITORY} "${PRESTODB_HOME}/_repo" && \
     git -C "${PRESTODB_HOME}/_repo" checkout "${PRESTODB_CHECKOUT}" && \
     make --directory="${PRESTODB_HOME}/_repo/presto-native-execution" submodules && \

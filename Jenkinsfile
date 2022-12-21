@@ -10,8 +10,9 @@ pipeline {
     }
 
     options {
+        disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '500'))
-        timeout(time: 2, unit: 'HOURS')
+        timeout(time: 3, unit: 'HOURS')
     }
 
     parameters {
@@ -31,9 +32,11 @@ pipeline {
             }
 
             steps {
-                sh 'apt update && apt install -y awscli git tree'
+                sh '''
+                    apt update && apt install -y awscli git tree
+                    git config --global --add safe.directory "${WORKSPACE}"
+                '''
                 sh 'unset MAVEN_CONFIG && ./mvnw versions:set -DremoveSnapshot'
-                sh 'git config --global --add safe.directory ${WORKSPACE}'
 
                 script {
                     env.PRESTO_VERSION = sh(
@@ -42,9 +45,10 @@ pipeline {
                     env.PRESTO_PKG = "presto-server-${PRESTO_VERSION}.tar.gz"
                     env.PRESTO_CLI_JAR = "presto-cli-${PRESTO_VERSION}-executable.jar"
                     env.PRESTO_BUILD_VERSION = env.PRESTO_VERSION + '-' +
-                                            sh(script: 'TZ=UTC date +%Y%m%dT%H%M%S', returnStdout: true).trim() + '-' +
-                                            sh(script: 'git rev-parse --short=7 HEAD', returnStdout: true).trim()
+                        sh(script: "git show -s --format=%cd --date=format:'%Y%m%d%H%M%S'", returnStdout: true).trim() + "-" +
+                        sh(script: "git rev-parse --short=7 HEAD", returnStdout: true).trim()
                     env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
+                    env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
                 }
                 sh 'printenv | sort'
 
@@ -77,21 +81,18 @@ pipeline {
             }
 
             stages {
-                stage('Docker') {
+                stage('Java Image') {
                     steps {
                         echo 'build docker image'
-                        sh 'apk update && apk add aws-cli bash git'
+                        sh '''
+                            apk update && apk add aws-cli bash git make
+                        '''
                         withCredentials([[
                                 $class:            'AmazonWebServicesCredentialsBinding',
                                 credentialsId:     "${AWS_CREDENTIAL_ID}",
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''#!/bin/bash -ex
-                                for dir in /home/jenkins/agent/workspace/*/; do
-                                    echo "${dir}"
-                                    git config --global --add safe.directory "${dir:0:-1}"
-                                done
-
                                 cd docker/
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_PKG}     . --no-progress
                                 aws s3 cp ${AWS_S3_PREFIX}/${PRESTO_BUILD_VERSION}/${PRESTO_CLI_JAR} . --no-progress
@@ -99,6 +100,24 @@ pipeline {
                                 echo "Building ${DOCKER_IMAGE}"
                                 docker buildx build --load --platform "linux/amd64" -t "${DOCKER_IMAGE}-amd64" \
                                     --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                            '''
+                        }
+                    }
+                }
+
+                stage('Native Image') {
+                    steps {
+                        echo "Building ${DOCKER_NATIVE_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                cd presto-native-execution/
+                                make runtime-container
+                                docker image ls
+                                docker tag presto/prestissimo-avx-centos:latest "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
@@ -125,6 +144,7 @@ pipeline {
                                 docker image ls
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
                                 docker push "${DOCKER_IMAGE}-amd64"
+                                docker push "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
