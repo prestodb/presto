@@ -287,6 +287,9 @@ class VectorFuzzer {
 
   memory::MemoryPool* pool_;
 
+  // Be careful not to call any functions that use rng_ inline as arguments to a
+  // function.  C++ does not guarantee the order in which arguments are
+  // evaluated, which can lead to inconsistent results across platforms.
   FuzzerGenerator rng_;
 };
 

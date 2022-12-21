@@ -418,13 +418,15 @@ VectorPtr VectorFuzzer::fuzzFlat(const TypePtr& type, vector_size_t size) {
   }
   // Maps.
   else if (type->isMap()) {
-    return fuzzMap(
-        opts_.normalizeMapKeys
-            ? fuzzFlatNotNull(
-                  type->asMap().keyType(), size * opts_.containerLength)
-            : fuzzFlat(type->asMap().keyType(), size * opts_.containerLength),
-        fuzzFlat(type->asMap().valueType(), size * opts_.containerLength),
-        size);
+    // Do not initialize keys and values inline in the fuzzMap call as C++ does
+    // not specify the order they'll be called in, leading to inconsistent
+    // results across platforms.
+    auto keys = opts_.normalizeMapKeys
+        ? fuzzFlatNotNull(type->asMap().keyType(), size * opts_.containerLength)
+        : fuzzFlat(type->asMap().keyType(), size * opts_.containerLength);
+    auto values =
+        fuzzFlat(type->asMap().valueType(), size * opts_.containerLength);
+    return fuzzMap(keys, values, size);
   }
   // Rows.
   else if (type->isRow()) {
@@ -480,14 +482,17 @@ VectorPtr VectorFuzzer::fuzzComplex(const TypePtr& type, vector_size_t size) {
           fuzz(type->asArray().elementType(), size * opts_.containerLength),
           size);
 
-    case TypeKind::MAP:
-      return fuzzMap(
-          opts_.normalizeMapKeys
-              ? fuzzNotNull(
-                    type->asMap().keyType(), size * opts_.containerLength)
-              : fuzz(type->asMap().keyType(), size * opts_.containerLength),
-          fuzz(type->asMap().valueType(), size * opts_.containerLength),
-          size);
+    case TypeKind::MAP: {
+      // Do not initialize keys and values inline in the fuzzMap call as C++
+      // does not specify the order they'll be called in, leading to
+      // inconsistent results across platforms.
+      auto keys = opts_.normalizeMapKeys
+          ? fuzzNotNull(type->asMap().keyType(), size * opts_.containerLength)
+          : fuzz(type->asMap().keyType(), size * opts_.containerLength);
+      auto values =
+          fuzz(type->asMap().valueType(), size * opts_.containerLength);
+      return fuzzMap(keys, values, size);
+    }
 
     default:
       VELOX_UNREACHABLE();
