@@ -82,16 +82,17 @@ public class HistoryBasedPlanStatisticsCalculator
     @Override
     public void registerPlan(PlanNode root, Session session)
     {
-        // Only precompute history based stats when plan has a join/aggregation.
-        if (!PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
-            return;
-        }
         ImmutableList.Builder<PlanNodeWithHash> planNodesWithHash = ImmutableList.builder();
         forTree(PlanNode::getSources).depthFirstPreOrder(root).forEach(plan -> {
             if (plan.getStatsEquivalentPlanNode().isPresent()) {
                 planNodesWithHash.addAll(getPlanNodeHashes(plan, session).values());
             }
         });
+
+        // Only precompute history based stats when plan has a join/aggregation.
+        if (!PlanNodeSearcher.searchFrom(root).where(node -> PRECOMPUTE_PLAN_NODES.stream().anyMatch(clazz -> clazz.isInstance(node))).matches()) {
+            return;
+        }
         try {
             historyBasedStatisticsCacheManager.getStatisticsCache(session.getQueryId(), historyBasedPlanStatisticsProvider).getAll(planNodesWithHash.build());
         }
