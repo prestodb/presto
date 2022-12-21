@@ -158,7 +158,7 @@ void LocalPersistentShuffle::noMoreData(bool success) {
   readyToRead->close();
 }
 
-bool LocalPersistentShuffle::hasNext(int32_t partition) const {
+bool LocalPersistentShuffle::hasNext(int32_t partition) {
   while (!readyForRead()) {
     // This sleep is only for testing purposes.
     // For the test cases in which the shuffle reader tasks run before shuffle
