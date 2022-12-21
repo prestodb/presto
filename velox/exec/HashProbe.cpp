@@ -1145,12 +1145,32 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   if (!filter_) {
     return numRows;
   }
+
   const bool filterPropagateNulls = filter_->expr(0)->propagatesNulls();
   auto* rawOutputProbeRowMapping =
       outputRowMapping_->asMutable<vector_size_t>();
 
-  fillFilterInput(numRows);
   filterInputRows_.resizeFill(numRows);
+
+  // For anti join, do not evaluate filter on rows without a match. Evaluating
+  // filter on rows without a match may trigger errors in filter evaluation and
+  // fail the query unnecessarily.
+  //
+  // TODO Apply to the same to left joins.
+  if (isAntiJoin(joinType_)) {
+    for (auto i = 0; i < numRows; ++i) {
+      if (outputTableRows_[i] == nullptr) {
+        filterInputRows_.setValid(i, false);
+      }
+    }
+    filterInputRows_.updateBounds();
+    if (!filterInputRows_.hasSelections()) {
+      // No row has a match. No need to evaluate the filter.
+      return numRows;
+    }
+  }
+
+  fillFilterInput(numRows);
 
   if (isNullAwareAntiJoin(joinType_)) {
     prepareFilterRowsForNullAwareAntiJoin(numRows, filterPropagateNulls);
@@ -1221,7 +1241,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     };
     for (auto i = 0; i < numRows; ++i) {
       auto probeRow = rawOutputProbeRowMapping[i];
-      bool passed = nonNullInputRows_.isValid(probeRow) && filterPassed(i);
+      bool passed = filterInputRows_.isValid(i) && filterPassed(i);
       noMatchDetector_.advance(probeRow, passed, addMiss);
     }
     if (results_.atEnd()) {

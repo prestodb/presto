@@ -1884,7 +1884,16 @@ TEST_P(MultiThreadedHashJoinTest, antiJoin) {
           "SELECT t.* FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE u.u0 = t.t0)")
       .run();
 
-  std::vector<std::string> filters({"u1 > t1", "u1 * t1 > 0"});
+  std::vector<std::string> filters({
+      "u1 > t1",
+      "u1 * t1 > 0",
+      // This filter is true on rows without a match. It should not prevent the
+      // row from being returned.
+      "coalesce(u1, t1, 0::integer) is not null",
+      // This filter throws if evaluated on rows without a match. The join
+      // should not evaluate filter on those rows and therefore should not fail.
+      "t1 / coalesce(u1, 0::integer) is not null",
+  });
   for (const std::string& filter : filters) {
     HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
         .numDrivers(numDrivers_)
