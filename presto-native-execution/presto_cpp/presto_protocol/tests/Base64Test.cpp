@@ -82,6 +82,81 @@ TEST_F(Base64Test, singleTinyint) {
   ASSERT_EQ(1, intVector->valueAt(0));
 }
 
+TEST_F(Base64Test, simpleLongDecimal) {
+  // Note: string values of block representations in following test cases (e.g.,
+  // "data0") can be obtained by reading the actual block representations of
+  // corresponding unscaled values in running services of Prestissimo.
+
+  // Unscaled value = 0
+  const std::string data0 =
+      "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+  auto vector0 = readBlock(LONG_DECIMAL(24, 2), data0, pool_.get());
+
+  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector0->typeKind());
+  ASSERT_EQ(1, vector0->size());
+  ASSERT_FALSE(vector0->isNullAt(0));
+
+  auto decimalVector0 =
+      vector0->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
+  ASSERT_EQ(UnscaledLongDecimal(0), decimalVector0->valueAt(0));
+
+  // Unscaled value = 100
+  const std::string data1 =
+      "DAAAAElOVDEyOF9BUlJBWQEAAAAAZAAAAAAAAAAAAAAAAAAAAA==";
+  auto vector1 = readBlock(LONG_DECIMAL(24, 2), data1, pool_.get());
+
+  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector1->typeKind());
+  ASSERT_EQ(1, vector1->size());
+  ASSERT_FALSE(vector1->isNullAt(0));
+
+  auto decimalVector1 =
+      vector1->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
+  ASSERT_EQ(UnscaledLongDecimal(100), decimalVector1->valueAt(0));
+
+  // Unscaled value = -100
+  const std::string data2 =
+      "DAAAAElOVDEyOF9BUlJBWQEAAAAAZAAAAAAAAAAAAAAAAAAAgA==";
+  auto vector2 = readBlock(LONG_DECIMAL(24, 2), data2, pool_.get());
+
+  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector2->typeKind());
+  ASSERT_EQ(1, vector2->size());
+  ASSERT_FALSE(vector2->isNullAt(0));
+
+  auto decimalVector2 =
+      vector2->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
+  ASSERT_EQ(UnscaledLongDecimal(-100), decimalVector2->valueAt(0));
+
+  // Unscaled value = 10^20
+  const std::string data3 =
+      "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAQYy1ex2sFAAAAAAAAAA==";
+  auto vector3 = readBlock(LONG_DECIMAL(24, 2), data3, pool_.get());
+
+  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector3->typeKind());
+  ASSERT_EQ(1, vector3->size());
+  ASSERT_FALSE(vector3->isNullAt(0));
+
+  auto decimalVector3 =
+      vector3->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
+  ASSERT_EQ(
+      UnscaledLongDecimal(DecimalUtil::kPowersOfTen[20]),
+      decimalVector3->valueAt(0));
+
+  // Unscaled value = -10^20
+  const std::string data4 =
+      "DAAAAElOVDEyOF9BUlJBWQEAAAAAAAAQYy1ex2sFAAAAAAAAgA==";
+  auto vector4 = readBlock(LONG_DECIMAL(24, 2), data4, pool_.get());
+
+  ASSERT_EQ(TypeKind::LONG_DECIMAL, vector4->typeKind());
+  ASSERT_EQ(1, vector4->size());
+  ASSERT_FALSE(vector4->isNullAt(0));
+
+  auto decimalVector4 =
+      vector4->as<FlatVector<facebook::velox::UnscaledLongDecimal>>();
+  ASSERT_EQ(
+      UnscaledLongDecimal(-DecimalUtil::kPowersOfTen[20]),
+      decimalVector4->valueAt(0));
+}
+
 TEST_F(Base64Test, singleString) {
   std::string data = "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAoAAAAACgAAADIwMTktMTEtMTA=";
 
