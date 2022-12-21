@@ -480,7 +480,7 @@ std::vector<std::pair<T, uint64_t>> KllSketch<T, A, C>::getFrequencies() const {
   for (int level = 0; level < numLevels(); ++level) {
     auto oldLen = entries.size();
     for (int i = levels_[level]; i < levels_[level + 1]; ++i) {
-      entries.emplace_back(items_[i], 1 << level);
+      entries.emplace_back(items_[i], 1ll << level);
     }
     if (oldLen > 0) {
       std::inplace_merge(

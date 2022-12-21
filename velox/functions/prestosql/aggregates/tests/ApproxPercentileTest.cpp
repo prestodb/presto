@@ -334,5 +334,25 @@ TEST_F(ApproxPercentileTest, invalidEncoding) {
       "Only flat encoding is allowed for percentile array elements");
 }
 
+TEST_F(ApproxPercentileTest, invalidWeight) {
+  constexpr int64_t kMaxWeight = (1ll << 60) - 1;
+  auto makePlan = [&](int64_t weight) {
+    auto rows = makeRowVector({
+        std::make_shared<ConstantVector<int32_t>>(pool(), 1, false, 0),
+        std::make_shared<ConstantVector<int64_t>>(
+            pool(), 1, false, int64_t(weight)),
+    });
+    return PlanBuilder()
+        .values({rows})
+        .singleAggregation({}, {"approx_percentile(c0, c1, 0.5)"})
+        .planNode();
+  };
+  assertQuery(makePlan(kMaxWeight), "SELECT 0");
+  AssertQueryBuilder assertQuery2(makePlan(kMaxWeight + 1));
+  VELOX_ASSERT_THROW(
+      assertQuery2.copyResults(pool()),
+      "value of weight must be in range [1, 2^60), got 1152921504606846976");
+}
+
 } // namespace
 } // namespace facebook::velox::aggregate::test

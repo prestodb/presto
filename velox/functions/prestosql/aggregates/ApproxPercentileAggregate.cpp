@@ -371,10 +371,11 @@ class ApproxPercentileAggregate : public exec::Aggregate {
 
         auto value = decodedValue_.valueAt<T>(row);
         auto weight = decodedWeight_.valueAt<int64_t>(row);
-        VELOX_USER_CHECK_GE(
-            weight,
-            1,
-            "The value of the weight parameter must be greater than or equal to 1.");
+        VELOX_USER_CHECK(
+            1 <= weight && weight < (1ll << 60),
+            "{}: value of weight must be in range [1, 2^60), got {}",
+            kApproxPercentile,
+            weight);
         accumulator->append(value, weight);
       });
     } else {
