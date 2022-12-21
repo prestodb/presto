@@ -1526,6 +1526,10 @@ public class SemiTransactionalHiveMetastore
 
         private void executeCleanupTasksForAbort(Collection<DeclaredIntentionToWrite> declaredIntentionsToWrite)
         {
+            if (!undoMetastoreOperationsEnabled) {
+                return;
+            }
+
             Set<String> queryIds = declaredIntentionsToWrite.stream()
                     .map(DeclaredIntentionToWrite::getQueryId)
                     .collect(toImmutableSet());
@@ -2051,7 +2055,7 @@ public class SemiTransactionalHiveMetastore
      * <p>
      * This method will not delete anything that's neither a directory nor a file.
      *
-     * @param queryIds               prefix or suffix of files that should be deleted
+     * @param queryIds prefix or suffix of files that should be deleted
      * @param deleteEmptyDirectories whether empty directories should be deleted
      */
     private static RecursiveDeleteResult recursiveDeleteFiles(HdfsEnvironment hdfsEnvironment, HdfsContext context, Path directory, Set<String> queryIds, boolean deleteEmptyDirectories)
