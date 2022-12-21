@@ -115,7 +115,7 @@ class TestShuffle : public ShuffleReader, public ShuffleWriter {
     }
   }
 
-  bool hasNext(int32_t partition) const {
+  bool hasNext(int32_t partition) {
     return !readyPartitions_[partition].empty();
   }
 
