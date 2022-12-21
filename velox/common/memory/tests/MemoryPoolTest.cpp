@@ -484,6 +484,35 @@ TEST_P(MemoryPoolTest, CapAllocation) {
   }
 }
 
+TEST_P(MemoryPoolTest, allocateZeroFilled) {
+  auto manager = getMemoryManager(8 * GB);
+  auto& root = manager->getRoot();
+
+  auto pool = root.addChild("elastic_quota");
+
+  const std::vector<int64_t> numEntriesVector({1, 2, 10});
+  const std::vector<int64_t> sizeEachVector({1, 117, 2467});
+  std::vector<void*> allocationPtrs;
+  std::vector<int64_t> allocationSizes;
+  for (const auto& numEntries : numEntriesVector) {
+    for (const auto& sizeEach : sizeEachVector) {
+      SCOPED_TRACE(
+          fmt::format("numEntries{}, sizeEach{}", numEntries, sizeEach));
+      void* ptr = pool->allocateZeroFilled(numEntries, sizeEach);
+      uint8_t* bytes = reinterpret_cast<uint8_t*>(ptr);
+      for (int32_t i = 0; i < numEntries * sizeEach; ++i) {
+        ASSERT_EQ(bytes[i], 0);
+      }
+      allocationPtrs.push_back(ptr);
+      allocationSizes.push_back(numEntries * sizeEach);
+    }
+  }
+  for (int32_t i = 0; i < allocationPtrs.size(); ++i) {
+    pool->free(allocationPtrs[i], allocationSizes[i]);
+  }
+  ASSERT_EQ(0, pool->getCurrentBytes());
+}
+
 TEST(MemoryPoolTest, MemoryCapExceptions) {
   MemoryManager<MemoryAllocator> manager{127L * MB};
   auto& root = manager.getRoot();

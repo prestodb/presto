@@ -178,8 +178,10 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
 
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
-  /// Allocations smaller than 3K should  go to malloc.
+  /// Allocations smaller than 3K should go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
+  static constexpr uint16_t kMinAlignment = alignof(max_align_t);
+  static constexpr uint16_t kMaxAlignment = 64;
 
   /// Represents a number of consecutive pages of kPageSize bytes.
   class PageRun {
@@ -397,19 +399,41 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
 
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
 
-  // Allocates 'bytes' contiguous bytes and returns the pointer to the first
-  // byte. If 'bytes' is less than 'kMaxMallocBytes', delegates the allocation
-  // to malloc. If the size is above that and below the largest size classes'
-  // size, allocates one element of the next size classes' size. If 'size' is
-  // greater than the largest size classes' size, calls allocateContiguous().
-  // Returns nullptr if there is no space. The amount to allocate is subject to
-  // the size limit of 'this'. This function is not virtual but calls the
-  // virtual functions allocate and allocateContiguous, which can track sizes
-  // and enforce caps etc.
-  virtual void* FOLLY_NULLABLE allocateBytes(uint64_t bytes);
+  /// Allocates 'bytes' contiguous bytes and returns the pointer to the first
+  /// byte. If 'bytes' is less than 'kMaxMallocBytes', delegates the allocation
+  /// to malloc. If the size is above that and below the largest size classes'
+  /// size, allocates one element of the next size classes' size. If 'size' is
+  /// greater than the largest size classes' size, calls allocateContiguous().
+  /// Returns nullptr if there is no space. The amount to allocate is subject to
+  /// the size limit of 'this'. This function is not virtual but calls the
+  /// virtual functions allocateNonContiguous and allocateContiguous, which can
+  /// track sizes and enforce caps etc. If 'alignment' is not kMinAlignment,
+  /// then 'bytes' must be a multiple of 'alignment'.
+  ///
+  /// NOTE: 'alignment' must be power of two and in range of [kMinAlignment,
+  /// kMaxAlignment].
+  virtual void* FOLLY_NULLABLE
+  allocateBytes(uint64_t bytes, uint16_t alignment = kMinAlignment) = 0;
 
-  // Frees memory allocated with allocateBytes().
-  virtual void freeBytes(void* FOLLY_NONNULL p, uint64_t size) noexcept;
+  /// Allocates a zero-filled contiguous bytes.
+  virtual void* FOLLY_NULLABLE allocateZeroFilled(uint64_t bytes);
+
+  /// Allocates 'newSize' contiguous bytes. If 'p' is not null, this function
+  /// copies std::min(size, newSize) bytes from 'p' to the newly allocated
+  /// buffer and free 'p' after that. If 'alignment' is not kMinAlignment, then
+  /// newSize must be a multiple of 'alignment'.
+  ///
+  /// NOTE: 'alignment' must be power of two and in range of [kMinAlignment,
+  /// kMaxAlignment].
+  virtual void* FOLLY_NULLABLE reallocateBytes(
+      void* FOLLY_NONNULL p,
+      int64_t size,
+      int64_t newSize,
+      uint16_t alignment = kMinAlignment);
+
+  /// Frees contiguous memory allocated by allocateBytes, allocateZeroFilled,
+  /// reallocateBytes.
+  virtual void freeBytes(void* FOLLY_NONNULL p, uint64_t size) noexcept = 0;
 
   /// Checks internal consistency of allocation data structures. Returns true if
   /// OK.
@@ -456,6 +480,15 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   virtual std::string toString() const;
 
  protected:
+  // Invoked to check if 'alignmentBytes' is valid and 'allocateBytes' is
+  // multiple of 'alignmentBytes'.
+  static void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes);
+
+  // Returns the size class size that corresponds to 'bytes'.
+  static MachinePageCount roundUpToSizeClassSize(
+      size_t bytes,
+      const std::vector<MachinePageCount>& sizes);
+
   // Represents a mix of blocks of different sizes for covering a single
   // allocation.
   struct SizeMix {
@@ -482,22 +515,22 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
- private:
-  inline static std::mutex initMutex_;
-  // Singleton instance.
-  inline static std::shared_ptr<MappedMemory> instance_;
-  // Application-supplied custom implementation of MappedMemory to be returned
-  // by getInstance().
-  inline static MappedMemory* FOLLY_NULLABLE customInstance_;
-
   // Static counters for STL and memoryPool users of
   // MappedMemory. Updated by allocateBytes() and freeBytes(). These
   // are intended to be exported via StatsReporter. These are
   // respectively backed by malloc, allocate from a single size class
   // and standalone mmap.
-  inline static std::atomic<uint64_t> totalSmallAllocateBytes_;
-  inline static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
-  inline static std::atomic<uint64_t> totalLargeAllocateBytes_;
+  static std::atomic<uint64_t> totalSmallAllocateBytes_;
+  static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
+  static std::atomic<uint64_t> totalLargeAllocateBytes_;
+
+ private:
+  // Singleton instance.
+  static std::shared_ptr<MappedMemory> instance_;
+  // Application-supplied custom implementation of MappedMemory to be returned
+  // by getInstance().
+  static MappedMemory* FOLLY_NULLABLE customInstance_;
+  static std::mutex initMutex_;
 };
 
 // Wrapper around MappedMemory for scoped tracking of activity. We
@@ -546,6 +579,14 @@ class ScopedMappedMemory final : public MappedMemory {
     if (tracker_) {
       tracker_->update(-size);
     }
+  }
+
+  void* allocateBytes(uint64_t bytes, uint16_t alignment) override {
+    return parent_->allocateBytes(bytes, alignment);
+  }
+
+  void freeBytes(void* p, uint64_t bytes) noexcept override {
+    parent_->freeBytes(p, bytes);
   }
 
   bool checkConsistency() const override {

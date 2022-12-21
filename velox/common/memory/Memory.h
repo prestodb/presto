@@ -512,6 +512,9 @@ class IMemoryManager {
   virtual bool reserve(int64_t size) = 0;
   // Subtracts from current total and regain memory quota.
   virtual void release(int64_t size) = 0;
+
+  // Returns the debug string of this memory manager.
+  virtual std::string toString() = 0;
 };
 
 // For now, users wanting multiple different allocators would need to
@@ -557,6 +560,11 @@ class MemoryManager final : public IMemoryManager {
   void release(int64_t size) final;
 
   Allocator& getAllocator();
+
+  std::string toString() final {
+    return fmt::format(
+        "memoryQuota: {}bytes, alignment: {}bytes", memoryQuota_, ALIGNMENT);
+  }
 
  private:
   VELOX_FRIEND_TEST(MemoryPoolImplTest, CapSubtree);

@@ -642,7 +642,7 @@ class AsyncDataCache : public memory::MappedMemory {
     mappedMemory_->freeContiguous(allocation);
   }
 
-  void* allocateBytes(uint64_t bytes) override;
+  void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
   void freeBytes(void* p, uint64_t size) noexcept override {
     mappedMemory_->freeBytes(p, size);

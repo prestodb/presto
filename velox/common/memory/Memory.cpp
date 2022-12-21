@@ -33,49 +33,33 @@ MmapMemoryAllocator::createDefaultAllocator() {
   return std::make_shared<MmapMemoryAllocator>();
 }
 
-void* FOLLY_NULLABLE MmapMemoryAllocator::alloc(int64_t size) {
+void* MmapMemoryAllocator::alloc(int64_t size) {
   return mappedMemory_->allocateBytes(size);
 }
 
-void* FOLLY_NULLABLE
-MmapMemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
-  auto totalBytes = numMembers * sizeEach;
-  auto* allocResult = alloc(totalBytes);
-  if (allocResult != nullptr) {
-    std::memset(allocResult, 0, totalBytes);
-  }
-  return allocResult;
+void* MmapMemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
+  return mappedMemory_->allocateBytes(size, alignment);
 }
 
-void* FOLLY_NULLABLE MmapMemoryAllocator::allocAligned(
-    uint16_t /* alignment */,
-    int64_t /* size */) {
-  // TODO: Add functionality in MappedMemory to support allocAligned
-  VELOX_UNSUPPORTED("allocAligned is not supported for MmapMemoryAllocator.");
+void* MmapMemoryAllocator::allocZeroFilled(
+    int64_t numMembers,
+    int64_t sizeEach) {
+  return mappedMemory_->allocateZeroFilled(numMembers * sizeEach);
 }
 
-void* FOLLY_NULLABLE MmapMemoryAllocator::realloc(
-    void* FOLLY_NULLABLE p,
+void* MmapMemoryAllocator::realloc(void* p, int64_t size, int64_t newSize) {
+  return mappedMemory_->reallocateBytes(p, size, newSize);
+}
+
+void* MmapMemoryAllocator::reallocAligned(
+    void* p,
+    uint16_t alignment,
     int64_t size,
     int64_t newSize) {
-  auto* newAlloc = alloc(newSize);
-  if (p == nullptr || newAlloc == nullptr) {
-    return newAlloc;
-  }
-  std::memcpy(newAlloc, p, std::min(size, newSize));
-  free(p, size);
-  return newAlloc;
+  return mappedMemory_->reallocateBytes(p, size, newSize, alignment);
 }
 
-void* FOLLY_NULLABLE MmapMemoryAllocator::reallocAligned(
-    void* FOLLY_NULLABLE /* p */,
-    uint16_t /* alignment */,
-    int64_t /* size */,
-    int64_t /* newSize */) {
-  VELOX_UNSUPPORTED("reallocAligned is not supported for MmapMemoryAllocator.");
-}
-
-void MmapMemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t size) {
+void MmapMemoryAllocator::free(void* p, int64_t size) {
   if (p == nullptr) {
     return;
   }
@@ -113,9 +97,7 @@ void* FOLLY_NULLABLE MemoryAllocator::reallocAligned(
     uint16_t alignment,
     int64_t size,
     int64_t newSize) {
-  if (newSize <= 0) {
-    return nullptr;
-  }
+  VELOX_CHECK_GT(newSize, 0);
   auto block = aligned_alloc(alignment, newSize);
   if (block) {
     memcpy(block, p, std::min(size, newSize));

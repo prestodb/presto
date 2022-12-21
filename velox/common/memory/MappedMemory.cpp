@@ -27,6 +27,13 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
+std::atomic<uint64_t> MappedMemory::totalSmallAllocateBytes_;
+std::atomic<uint64_t> MappedMemory::totalSizeClassAllocateBytes_;
+std::atomic<uint64_t> MappedMemory::totalLargeAllocateBytes_;
+std::shared_ptr<MappedMemory> MappedMemory::instance_;
+MappedMemory* MappedMemory::customInstance_;
+std::mutex MappedMemory::initMutex_;
+
 void MappedMemory::Allocation::append(uint8_t* address, int32_t numPages) {
   numPages_ += numPages;
   if (runs_.empty()) {
@@ -71,6 +78,19 @@ void MappedMemory::Allocation::findRun(
 
 MachinePageCount MappedMemory::ContiguousAllocation::numPages() const {
   return bits::roundUp(size_, kPageSize) / kPageSize;
+}
+
+// static
+void MappedMemory::alignmentCheck(
+    uint64_t allocateBytes,
+    uint16_t alignmentBytes) {
+  VELOX_CHECK_GE(alignmentBytes, kMinAlignment);
+  if (alignmentBytes == kMinAlignment) {
+    return;
+  }
+  VELOX_CHECK_LE(alignmentBytes, kMaxAlignment);
+  VELOX_CHECK_EQ(allocateBytes % alignmentBytes, 0);
+  VELOX_CHECK_EQ((alignmentBytes & (alignmentBytes - 1)), 0);
 }
 
 // static
@@ -155,6 +175,18 @@ class MappedMemoryImpl : public MappedMemory {
     stats_.recordFree(
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
+
+  void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
+
+  void* allocateZeroFilled(uint64_t bytes) override;
+
+  void* reallocateBytes(
+      void* p,
+      int64_t size,
+      int64_t newSize,
+      uint16_t alignment) override;
+
+  void freeBytes(void* p, uint64_t bytes) noexcept override;
 
   MachinePageCount numAllocated() const override {
     return numAllocated_;
@@ -349,6 +381,62 @@ void MappedMemoryImpl::freeContiguousImpl(ContiguousAllocation& allocation) {
   allocation.reset(nullptr, nullptr, 0);
 }
 
+void* MappedMemoryImpl::allocateBytes(uint64_t bytes, uint16_t alignment) {
+  alignmentCheck(bytes, alignment);
+  void* result = (alignment > kMinAlignment) ? ::aligned_alloc(alignment, bytes)
+                                             : ::malloc(bytes);
+  if (result == nullptr) {
+    LOG(ERROR) << "Failed to allocateBytes " << bytes << " bytes with "
+               << alignment << " alignment";
+  } else {
+    totalSmallAllocateBytes_ += bytes;
+  }
+  return result;
+}
+
+void* MappedMemoryImpl::allocateZeroFilled(uint64_t bytes) {
+  void* result = std::calloc(bytes, 1);
+  if (result != nullptr) {
+    totalSmallAllocateBytes_ += bytes;
+  } else {
+    LOG(ERROR) << "Failed to allocateZeroFilled " << bytes << " bytes";
+  }
+  return result;
+}
+
+void* MappedMemoryImpl::reallocateBytes(
+    void* p,
+    int64_t size,
+    int64_t newSize,
+    uint16_t alignment) {
+  VELOX_CHECK_GT(newSize, 0);
+  alignmentCheck(newSize, alignment);
+
+  void* newPtr = nullptr;
+  if (alignment <= kMinAlignment) {
+    newPtr = ::realloc(p, newSize);
+  } else {
+    newPtr = ::aligned_alloc(alignment, newSize);
+    if (newPtr != nullptr) {
+      ::memcpy(newPtr, p, std::min(size, newSize));
+      freeBytes(p, size);
+    }
+  }
+  if (newPtr == nullptr) {
+    LOG(ERROR) << "Failed to reallocateBytes " << newSize << " bytes "
+               << " with " << size << " old bytes";
+  } else {
+    totalSmallAllocateBytes_ += newSize - size;
+  }
+  return newPtr;
+}
+
+void MappedMemoryImpl::freeBytes(void* p, uint64_t bytes) noexcept {
+  ::free(p); // NOLINT
+  totalSmallAllocateBytes_ -= bytes;
+  VELOX_CHECK_GE(totalSmallAllocateBytes_, 0);
+}
+
 bool MappedMemoryImpl::checkConsistency() const {
   return true;
 }
@@ -379,14 +467,8 @@ void MappedMemory::setDefaultInstance(MappedMemory* instance) {
   customInstance_ = instance;
 }
 
-std::shared_ptr<MappedMemory> MappedMemory::addChild(
-    std::shared_ptr<MemoryUsageTracker> tracker) {
-  return std::make_shared<ScopedMappedMemory>(this, tracker);
-}
-
-namespace {
-// Returns the size class size that corresponds to 'bytes'.
-MachinePageCount roundUpToSizeClassSize(
+// static.
+MachinePageCount MappedMemory::roundUpToSizeClassSize(
     size_t bytes,
     const std::vector<MachinePageCount>& sizes) {
   auto pages =
@@ -394,40 +476,29 @@ MachinePageCount roundUpToSizeClassSize(
   VELOX_CHECK_LE(pages, sizes.back());
   return *std::lower_bound(sizes.begin(), sizes.end(), pages);
 }
-} // namespace
 
-void* FOLLY_NULLABLE MappedMemory::allocateBytes(uint64_t bytes) {
-  if (bytes <= kMaxMallocBytes) {
-    auto result = ::malloc(bytes);
-    if (result) {
-      totalSmallAllocateBytes_ += bytes;
-    }
-    return result;
+void* MappedMemory::allocateZeroFilled(uint64_t bytes) {
+  void* result = allocateBytes(bytes);
+  if (result != nullptr) {
+    ::memset(result, 0, bytes);
+  } else {
+    LOG(ERROR) << "Failed to allocateZeroFilled " << bytes << " bytes";
   }
-  if (bytes <= sizeClassSizes_.back() * kPageSize) {
-    Allocation allocation(this);
-    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
-    if (allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
-      auto run = allocation.runAt(0);
-      VELOX_CHECK_EQ(
-          1,
-          allocation.numRuns(),
-          "A size class allocateBytes must produce one run");
-      allocation.clear();
-      totalSizeClassAllocateBytes_ += numPages * kPageSize;
-      return run.data<char>();
-    }
-    return nullptr;
+  return result;
+}
+
+void* MappedMemory::reallocateBytes(
+    void* p,
+    int64_t size,
+    int64_t newSize,
+    uint16_t alignment) {
+  auto* newPtr = allocateBytes(newSize, alignment);
+  if (p == nullptr || newPtr == nullptr) {
+    return newPtr;
   }
-  ContiguousAllocation allocation;
-  auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
-  if (allocateContiguous(numPages, nullptr, allocation)) {
-    char* data = allocation.data<char>();
-    allocation.reset(nullptr, nullptr, 0);
-    totalLargeAllocateBytes_ += numPages * kPageSize;
-    return data;
-  }
-  return nullptr;
+  ::memcpy(newPtr, p, std::min(size, newSize));
+  freeBytes(p, size);
+  return newPtr;
 }
 
 void MappedMemory::freeBytes(void* FOLLY_NONNULL p, uint64_t bytes) noexcept {
@@ -450,6 +521,11 @@ void MappedMemory::freeBytes(void* FOLLY_NONNULL p, uint64_t bytes) noexcept {
   allocation.reset(this, p, bytes);
   freeContiguous(allocation);
   totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
+}
+
+std::shared_ptr<MappedMemory> MappedMemory::addChild(
+    std::shared_ptr<MemoryUsageTracker> tracker) {
+  return std::make_shared<ScopedMappedMemory>(this, tracker);
 }
 
 bool ScopedMappedMemory::allocateNonContiguous(
@@ -494,6 +570,7 @@ bool ScopedMappedMemory::allocateContiguous(
   }
   return success;
 }
+
 Stats Stats::operator-(const Stats& other) const {
   Stats result;
   for (auto i = 0; i < sizes.size(); ++i) {

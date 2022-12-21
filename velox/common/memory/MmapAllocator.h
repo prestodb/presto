@@ -90,12 +90,17 @@ class MmapAllocator : public MappedMemory {
         allocation.size(), [&]() { freeContiguousImpl(allocation); });
   }
 
-  /// Checks internal consistency of allocation data structures. Returns true if
-  /// OK. May return false if there are concurrent allocations and frees during
-  /// the consistency check. This is a false positive but not dangerous.
-  ///
-  /// Checks that the totals of mapped free and mapped and allocated pages match
-  /// the data in the bitmaps in the size classes.
+  void* FOLLY_NULLABLE
+  allocateBytes(uint64_t bytes, uint16_t alignment) override;
+
+  void freeBytes(void* p, uint64_t bytes) noexcept override;
+
+  // Checks internal consistency of allocation data structures. Returns true if
+  // OK. May return false if there are concurrent allocations and frees during
+  // the consistency check. This is a false positive but not dangerous.
+  //
+  // Checks that the totals of mapped free and mapped and allocated pages match
+  // the data in the bitmaps in the size classes.
   bool checkConsistency() const override;
 
   MachinePageCount capacity() const {

@@ -647,7 +647,7 @@ TEST_P(MappedMemoryTest, allocateBytes) {
       // If there is pre-existing data, we check that it has not been
       // overwritten.
       for (auto byte : data[index]) {
-        EXPECT_EQ(expected, byte);
+        ASSERT_EQ(expected, byte);
       }
       instance_->freeBytes(data[index].data(), data[index].size());
     }
@@ -657,22 +657,119 @@ TEST_P(MappedMemoryTest, allocateBytes) {
       byte = expected;
     }
   }
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_TRUE(instance_->checkConsistency());
   for (auto& range : data) {
     if (range.data()) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
   auto stats = MappedMemory::allocateBytesStats();
-  EXPECT_EQ(0, stats.totalSmall);
-  EXPECT_EQ(0, stats.totalInSizeClasses);
-  EXPECT_EQ(0, stats.totalLarge);
+  ASSERT_EQ(0, stats.totalSmall);
+  ASSERT_EQ(0, stats.totalInSizeClasses);
+  ASSERT_EQ(0, stats.totalLarge);
 
-  EXPECT_EQ(0, instance_->numAllocated());
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_EQ(0, instance_->numAllocated());
+  ASSERT_TRUE(instance_->checkConsistency());
 }
 
-TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
+TEST_P(MappedMemoryTest, allocateBytesWithAlignment) {
+  struct {
+    uint64_t allocateBytes;
+    uint16_t alignment;
+    bool expectSuccess;
+    std::string debugString() const {
+      return fmt::format(
+          "allocateBytes:{} alignment:{}, expectSuccess:{}",
+          allocateBytes,
+          alignment,
+          expectSuccess);
+    }
+  } testSettings[] = {
+      {MappedMemory::kPageSize / 5, MappedMemory::kMinAlignment + 1, false},
+      {MappedMemory::kPageSize / 4, MappedMemory::kMaxAlignment + 1, false},
+      {MappedMemory::kPageSize / 5, MappedMemory::kMaxAlignment * 2, false},
+      {MappedMemory::kPageSize / 4, MappedMemory::kMaxAlignment * 2, false},
+      {MappedMemory::kPageSize / 5, MappedMemory::kMaxAlignment, false},
+      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment + 1, false},
+      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment * 2, false},
+      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment, true},
+      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment / 2, true},
+      {MappedMemory::kPageSize * 2, MappedMemory::kMaxAlignment, true},
+      {MappedMemory::kPageSize * 2, MappedMemory::kMaxAlignment / 2, true},
+      {MappedMemory::kMaxAlignment, MappedMemory::kMaxAlignment, true},
+      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMaxAlignment / 2, true},
+      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMinAlignment, true},
+      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMinAlignment - 1, false},
+      {MappedMemory::kMaxAlignment / 2, 0, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(
+        fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
+
+    MappedMemory::testingClearAllocateBytesStats();
+    if (testData.expectSuccess) {
+      auto* ptr =
+          instance_->allocateBytes(testData.allocateBytes, testData.alignment);
+      ASSERT_NE(ptr, nullptr);
+      if (testData.alignment > MappedMemory::kMinAlignment) {
+        ASSERT_EQ(reinterpret_cast<uint64_t>(ptr) % testData.alignment, 0);
+      }
+      instance_->freeBytes(ptr, testData.allocateBytes);
+    } else {
+      EXPECT_ANY_THROW(
+          instance_->allocateBytes(testData.allocateBytes, testData.alignment));
+    }
+    ASSERT_TRUE(instance_->checkConsistency());
+  }
+}
+
+TEST_P(MappedMemoryTest, allocateZeroFilled) {
+  constexpr int32_t kNumAllocs = 50;
+  MappedMemory::testingClearAllocateBytesStats();
+  // Different sizes, including below minimum and above largest size class.
+  std::vector<MachinePageCount> sizes = {
+      MappedMemory::kMaxMallocBytes / 2,
+      100000,
+      1000000,
+      instance_->sizeClasses().back() * MappedMemory::kPageSize + 100000};
+  folly::Random::DefaultGenerator rng;
+  rng.seed(1);
+
+  // We fill 'data' with random size allocations. Each is filled with its index
+  // in 'data' cast to char.
+  std::vector<folly::Range<char*>> data(kNumAllocs);
+  for (auto counter = 0; counter < data.size() * 4; ++counter) {
+    int32_t index = folly::Random::rand32(rng) % kNumAllocs;
+    int32_t bytes = sizes[folly::Random::rand32() % sizes.size()];
+    if (data[index].data()) {
+      // If there is pre-existing data, we check that it has not been
+      // overwritten.
+      for (auto byte : data[index]) {
+        ASSERT_EQ(byte, 0);
+      }
+      instance_->freeBytes(data[index].data(), data[index].size());
+    }
+    data[index] = folly::Range<char*>(
+        reinterpret_cast<char*>(instance_->allocateZeroFilled(bytes)), bytes);
+    for (auto& byte : data[index]) {
+      ASSERT_EQ(byte, 0);
+    }
+  }
+  ASSERT_TRUE(instance_->checkConsistency());
+  for (auto& range : data) {
+    if (range.data()) {
+      instance_->freeBytes(range.data(), range.size());
+    }
+  }
+  auto stats = MappedMemory::allocateBytesStats();
+  ASSERT_EQ(0, stats.totalSmall);
+  ASSERT_EQ(0, stats.totalInSizeClasses);
+  ASSERT_EQ(0, stats.totalLarge);
+
+  ASSERT_EQ(0, instance_->numAllocated());
+  ASSERT_TRUE(instance_->checkConsistency());
+}
+
+TEST_P(MappedMemoryTest, StlMappedMemoryAllocator) {
   {
     std::vector<double, StlMappedMemoryAllocator<double>> data(
         0, StlMappedMemoryAllocator<double>(instance_));
@@ -686,7 +783,7 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
       if (data.capacity() != capacity) {
         capacity = data.capacity();
         auto stats = MappedMemory::allocateBytesStats();
-        EXPECT_EQ(
+        ASSERT_EQ(
             capacity * sizeof(double),
             stats.totalSmall + stats.totalInSizeClasses + stats.totalLarge);
       }
@@ -694,19 +791,32 @@ TEST_P(MappedMemoryTest, stlMappedMemoryAllocator) {
     for (auto i = 0; i < kNumDoubles; i++) {
       ASSERT_EQ(i, data[i]);
     }
-    EXPECT_EQ(512, instance_->numAllocated());
+    if (useMmap_) {
+      ASSERT_EQ(instance_->numAllocated(), 512);
+    } else {
+      // non-mmap implementation always allocate from std::malloc.
+      ASSERT_EQ(instance_->numAllocated(), 0);
+    }
     auto stats = MappedMemory::allocateBytesStats();
-    EXPECT_EQ(0, stats.totalSmall);
-    EXPECT_EQ(0, stats.totalInSizeClasses);
-    EXPECT_EQ(2 << 20, stats.totalLarge);
+    if (useMmap_) {
+      ASSERT_EQ(stats.totalSmall, 0);
+    } else {
+      ASSERT_EQ(stats.totalSmall, 2 << 20);
+    }
+    ASSERT_EQ(stats.totalInSizeClasses, 0);
+    if (useMmap_) {
+      ASSERT_EQ(stats.totalLarge, 2 << 20);
+    } else {
+      ASSERT_EQ(stats.totalLarge, 0);
+    }
   }
-  EXPECT_EQ(0, instance_->numAllocated());
-  EXPECT_TRUE(instance_->checkConsistency());
+  ASSERT_EQ(instance_->numAllocated(), 0);
+  ASSERT_TRUE(instance_->checkConsistency());
   {
     StlMappedMemoryAllocator<int64_t> alloc(instance_);
-    EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+    ASSERT_THROW(alloc.allocate(1ULL << 62), VeloxException);
     auto p = alloc.allocate(1);
-    EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
+    ASSERT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
     alloc.deallocate(p, 1);
   }
 }
@@ -776,6 +886,128 @@ TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
     ASSERT_GT(tracker->getCurrentUserBytes(), 0);
     allocation.reset();
     ASSERT_EQ(tracker->getCurrentUserBytes(), 0);
+  }
+}
+
+TEST_P(MappedMemoryTest, reallocateWithAlignment) {
+  struct {
+    uint64_t oldBytes;
+    uint64_t newBytes;
+    uint16_t alignment;
+    bool expectSuccess;
+    std::string debugString() const {
+      return fmt::format(
+          "oldBytes:{}, newBytes:{}, alignment:{}, expectSuccess:{}",
+          oldBytes,
+          newBytes,
+          alignment,
+          expectSuccess);
+    }
+  } testSettings[] = {
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMinAlignment + 1,
+       false},
+      {MappedMemory::kPageSize / 5,
+       MappedMemory::kPageSize / 7,
+       MappedMemory::kMinAlignment + 1,
+       false},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMaxAlignment,
+       false},
+      {MappedMemory::kPageSize / 5,
+       MappedMemory::kPageSize / 7,
+       MappedMemory::kMaxAlignment,
+       false},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMaxAlignment,
+       false},
+      {MappedMemory::kPageSize / 3,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMaxAlignment,
+       false},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMaxAlignment,
+       false},
+      {MappedMemory::kPageSize * 2,
+       MappedMemory::kPageSize,
+       MappedMemory::kMinAlignment + 1,
+       false},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize / 5,
+       MappedMemory::kMaxAlignment * 2,
+       false},
+      {MappedMemory::kPageSize / 5,
+       MappedMemory::kPageSize / 7,
+       MappedMemory::kMaxAlignment * 2,
+       false},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize,
+       MappedMemory::kMaxAlignment,
+       true},
+      {MappedMemory::kPageSize * 2,
+       MappedMemory::kPageSize,
+       MappedMemory::kMaxAlignment,
+       true},
+      {MappedMemory::kPageSize / 7,
+       MappedMemory::kPageSize,
+       MappedMemory::kMaxAlignment / 2,
+       true},
+      {MappedMemory::kPageSize * 2,
+       MappedMemory::kPageSize,
+       MappedMemory::kMaxAlignment / 2,
+       true},
+      {MappedMemory::kPageSize,
+       MappedMemory::kPageSize * 2,
+       MappedMemory::kMaxAlignment / 2,
+       true},
+      {MappedMemory::kPageSize * 4,
+       MappedMemory::kPageSize * 2,
+       MappedMemory::kMaxAlignment / 2,
+       true},
+      {MappedMemory::kPageSize * 4,
+       MappedMemory::kPageSize * 2,
+       MappedMemory::kMinAlignment,
+       true},
+      {MappedMemory::kPageSize * 4,
+       MappedMemory::kPageSize * 2,
+       MappedMemory::kMinAlignment - 1,
+       false},
+      {MappedMemory::kPageSize * 4, MappedMemory::kPageSize * 2, 0, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(
+        fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
+
+    MappedMemory::testingClearAllocateBytesStats();
+    auto* oldPtr = instance_->allocateBytes(testData.oldBytes);
+    char* data = reinterpret_cast<char*>(oldPtr);
+    const char value = 'o';
+    for (int32_t i = 0; i < testData.oldBytes; ++i) {
+      data[i] = value;
+    }
+    if (testData.expectSuccess) {
+      auto* newPtr = instance_->reallocateBytes(
+          oldPtr, testData.oldBytes, testData.newBytes, testData.alignment);
+      ASSERT_NE(newPtr, nullptr);
+      ASSERT_NE(oldPtr, newPtr);
+      if (testData.alignment > MappedMemory::kMinAlignment) {
+        ASSERT_EQ(reinterpret_cast<uint64_t>(newPtr) % testData.alignment, 0);
+      }
+      data = reinterpret_cast<char*>(newPtr);
+      for (int32_t i = 0; i < std::min(testData.newBytes, testData.oldBytes);
+           ++i) {
+        ASSERT_EQ(data[i], value);
+      }
+      instance_->freeBytes(newPtr, testData.newBytes);
+    } else {
+      EXPECT_ANY_THROW(instance_->reallocateBytes(
+          oldPtr, testData.oldBytes, testData.newBytes, testData.alignment));
+      instance_->freeBytes(oldPtr, testData.oldBytes);
+    }
+    ASSERT_TRUE(instance_->checkConsistency());
   }
 }
 

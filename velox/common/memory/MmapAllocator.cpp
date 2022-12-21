@@ -15,10 +15,11 @@
  */
 
 #include "velox/common/memory/MmapAllocator.h"
-#include "velox/common/base/Portability.h"
-#include "velox/common/testutil/TestValue.h"
 
 #include <sys/mman.h>
+
+#include "velox/common/base/Portability.h"
+#include "velox/common/testutil/TestValue.h"
 
 using facebook::velox::common::testutil::TestValue;
 
@@ -319,6 +320,71 @@ void MmapAllocator::freeContiguousImpl(ContiguousAllocation& allocation) {
     numAllocated_ -= allocation.numPages();
     allocation.reset(nullptr, nullptr, 0);
   }
+}
+
+void* MmapAllocator::allocateBytes(uint64_t bytes, uint16_t alignment) {
+  alignmentCheck(bytes, alignment);
+
+  if (bytes <= kMaxMallocBytes) {
+    auto* result = alignment > kMinAlignment ? ::aligned_alloc(alignment, bytes)
+                                             : ::malloc(bytes);
+    if (result != nullptr) {
+      totalSmallAllocateBytes_ += bytes;
+    } else {
+      LOG(ERROR) << "Failed to allocateBytes " << bytes << " bytes with "
+                 << alignment << " alignment";
+    }
+    return result;
+  }
+
+  if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation(this);
+    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    if (!allocateNonContiguous(numPages, allocation, nullptr, numPages)) {
+      return nullptr;
+    }
+    auto run = allocation.runAt(0);
+    VELOX_CHECK_EQ(
+        1,
+        allocation.numRuns(),
+        "A size class allocateBytes must produce one run");
+    allocation.clear();
+    totalSizeClassAllocateBytes_ += numPages * kPageSize;
+    return run.data<char>();
+  }
+
+  ContiguousAllocation allocation;
+  auto numPages = bits::roundUp(bytes, kPageSize) / kPageSize;
+  if (!allocateContiguous(numPages, nullptr, allocation)) {
+    return nullptr;
+  }
+
+  char* data = allocation.data<char>();
+  allocation.reset(nullptr, nullptr, 0);
+  totalLargeAllocateBytes_ += numPages * kPageSize;
+  return data;
+}
+
+void MmapAllocator::freeBytes(void* p, uint64_t bytes) noexcept {
+  if (bytes <= kMaxMallocBytes) {
+    ::free(p); // NOLINT
+    totalSmallAllocateBytes_ -= bytes;
+    return;
+  }
+
+  if (bytes <= sizeClassSizes_.back() * kPageSize) {
+    Allocation allocation(this);
+    auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
+    allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
+    freeNonContiguous(allocation);
+    totalSizeClassAllocateBytes_ -= numPages * kPageSize;
+    return;
+  }
+
+  ContiguousAllocation allocation;
+  allocation.reset(this, p, bytes);
+  freeContiguous(allocation);
+  totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
 }
 
 void MmapAllocator::markAllMapped(const Allocation& allocation) {
