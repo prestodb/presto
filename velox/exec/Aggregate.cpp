@@ -39,7 +39,7 @@ AggregateFunctionMap& aggregateFunctions() {
 namespace {
 std::optional<const AggregateFunctionEntry*> getAggregateFunctionEntry(
     const std::string& name) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
 
   auto& functionsMap = aggregateFunctions();
   auto it = functionsMap.find(sanitizedName);
@@ -55,7 +55,7 @@ bool registerAggregateFunction(
     const std::string& name,
     std::vector<std::shared_ptr<AggregateFunctionSignature>> signatures,
     AggregateFunctionFactory factory) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
 
   aggregateFunctions()[sanitizedName] = {
       std::move(signatures), std::move(factory)};

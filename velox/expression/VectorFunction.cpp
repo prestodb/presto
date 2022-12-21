@@ -28,7 +28,7 @@ VectorFunctionMap& vectorFunctionFactories() {
 
 std::optional<std::vector<FunctionSignaturePtr>> getVectorFunctionSignatures(
     const std::string& name) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
 
   return vectorFunctionFactories()
       .withRLock([&sanitizedName](auto& functions) -> auto {
@@ -58,7 +58,7 @@ std::shared_ptr<VectorFunction> getVectorFunction(
     const std::string& name,
     const std::vector<TypePtr>& inputTypes,
     const std::vector<VectorPtr>& constantInputs) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
 
   if (!constantInputs.empty()) {
     VELOX_CHECK_EQ(inputTypes.size(), constantInputs.size());
@@ -96,7 +96,7 @@ bool registerStatefulVectorFunction(
     VectorFunctionFactory factory,
     VectorFunctionMetadata metadata,
     bool overwrite) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
 
   if (overwrite) {
     vectorFunctionFactories().withWLock([&](auto& functionMap) {

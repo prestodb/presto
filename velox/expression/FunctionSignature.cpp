@@ -22,7 +22,7 @@
 
 namespace facebook::velox::exec {
 
-std::string sanitizeFunctionName(const std::string& name) {
+std::string sanitizeName(const std::string& name) {
   std::string sanitizedName;
   sanitizedName.resize(name.size());
   std::transform(

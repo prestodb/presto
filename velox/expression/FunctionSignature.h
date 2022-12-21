@@ -25,7 +25,7 @@
 
 namespace facebook::velox::exec {
 
-std::string sanitizeFunctionName(const std::string& name);
+std::string sanitizeName(const std::string& name);
 
 inline bool isCommonDecimalName(const std::string& typeName) {
   return (typeName == "DECIMAL");

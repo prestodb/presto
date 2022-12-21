@@ -41,7 +41,7 @@ bool registerWindowFunction(
     const std::string& name,
     std::vector<FunctionSignaturePtr> signatures,
     WindowFunctionFactory factory) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
   windowFunctions()[sanitizedName] = {
       std::move(signatures), std::move(factory)};
   return true;
@@ -49,7 +49,7 @@ bool registerWindowFunction(
 
 std::optional<std::vector<FunctionSignaturePtr>> getWindowFunctionSignatures(
     const std::string& name) {
-  auto sanitizedName = sanitizeFunctionName(name);
+  auto sanitizedName = sanitizeName(name);
   if (auto func = getWindowFunctionEntry(sanitizedName)) {
     return func.value()->signatures;
   }

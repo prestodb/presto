@@ -74,6 +74,11 @@ DEFINE_bool(
 
 DEFINE_bool(enable_cast, false, "Enable testing with cast expression.");
 
+DEFINE_bool(
+    choose_root_type_from_signature_template,
+    false,
+    "Allow choosing the top-level root type from signature templates.");
+
 DEFINE_string(
     repro_persist_path,
     "",
@@ -231,11 +236,13 @@ std::optional<CallableSignature> processSignature(
   return std::nullopt;
 }
 
-// Determine whether type is or contains typeName.
+// Determine whether type is or contains typeName. typeName should be in lower
+// case.
 bool containTypeName(
     const exec::TypeSignature& type,
     const std::string& typeName) {
-  if (type.baseName() == typeName) {
+  auto sanitizedTypeName = exec::sanitizeName(type.baseName());
+  if (sanitizedTypeName == typeName) {
     return true;
   }
   for (const auto& parameter : type.parameters()) {
@@ -247,7 +254,7 @@ bool containTypeName(
 }
 
 // Determine whether the signature has an argument or return type that contains
-// typeName.
+// typeName. typeName should be in lower case.
 bool useTypeName(
     const exec::FunctionSignature& signature,
     const std::string& typeName) {
@@ -260,6 +267,20 @@ bool useTypeName(
     }
   }
   return false;
+}
+
+bool isSupportedSignature(const exec::FunctionSignature& signature) {
+  // Not supporting lambda functions, or functions using decimal and
+  // timestamp with time zone types.
+  return !(
+      useTypeName(signature, "function") ||
+      useTypeName(signature, "long_decimal") ||
+      useTypeName(signature, "short_decimal") ||
+      useTypeName(signature, "decimal") ||
+      useTypeName(signature, "timestamp with time zone") ||
+      useTypeName(signature, "interval day to second") ||
+      (FLAGS_velox_fuzzer_enable_complex_types &&
+       useTypeName(signature, "unknown")));
 }
 
 // Randomly pick columns from the input row vector to wrap in lazy.
@@ -304,16 +325,7 @@ ExpressionFuzzer::ExpressionFuzzer(
     for (const auto& signature : function.second) {
       ++totalFunctionSignatures;
 
-      // Not supporting lambda functions, or functions using decimal and
-      // timestamp with time zone types.
-      if (useTypeName(*signature, "function") ||
-          useTypeName(*signature, "long_decimal") ||
-          useTypeName(*signature, "short_decimal") ||
-          useTypeName(*signature, "decimal") ||
-          useTypeName(*signature, "timestamp with time zone") ||
-          useTypeName(*signature, "interval day to second") ||
-          (FLAGS_velox_fuzzer_enable_complex_types &&
-           useTypeName(*signature, "unknown"))) {
+      if (!isSupportedSignature(*signature)) {
         continue;
       }
 
@@ -775,7 +787,6 @@ void ExpressionFuzzer::reset() {
 }
 
 void ExpressionFuzzer::go() {
-  VELOX_CHECK(!signatures_.empty(), "No function signatures available.");
   VELOX_CHECK(
       FLAGS_steps > 0 || FLAGS_duration_sec > 0,
       "Either --steps or --duration_sec needs to be greater than zero.")
@@ -788,10 +799,29 @@ void ExpressionFuzzer::go() {
               << " (seed: " << currentSeed_ << ")";
     reset();
 
-    // Pick a random signature to choose the root return type.
-    size_t idx = boost::random::uniform_int_distribution<uint32_t>(
-        0, signatures_.size() - 1)(rng_);
-    const auto& rootType = signatures_[idx].returnType;
+    auto chooseFromConcreteSignatures =
+        boost::random::uniform_int_distribution<uint32_t>(0, 1)(rng_);
+    chooseFromConcreteSignatures =
+        (chooseFromConcreteSignatures && !signatures_.empty()) ||
+        (!chooseFromConcreteSignatures && signatureTemplates_.empty());
+    TypePtr rootType;
+    if (!FLAGS_choose_root_type_from_signature_template ||
+        chooseFromConcreteSignatures) {
+      // Pick a random signature to choose the root return type.
+      VELOX_CHECK(!signatures_.empty(), "No function signature available.");
+      size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+          0, signatures_.size() - 1)(rng_);
+      rootType = signatures_[idx].returnType;
+    } else {
+      // Pick a random concrete return type that can bind to the return type of
+      // a chosen signature.
+      VELOX_CHECK(
+          !signatureTemplates_.empty(), "No function signature available.");
+      size_t idx = boost::random::uniform_int_distribution<uint32_t>(
+          0, signatureTemplates_.size() - 1)(rng_);
+      ArgumentTypeFuzzer typeFuzzer{*signatureTemplates_[idx].signature, rng_};
+      rootType = typeFuzzer.fuzzReturnType();
+    }
 
     // Generate expression tree and input data vectors.
     auto plan = generateExpression(rootType);

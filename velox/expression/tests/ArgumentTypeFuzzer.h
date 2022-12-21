@@ -27,7 +27,8 @@ namespace facebook::velox::test {
 /// For function signatures using type variables, generates a list of
 /// arguments types. Optionally, allows to specify a desired return type. If
 /// specified, the return type acts as a constraint on the possible set of
-/// argument types.
+/// argument types. If no return type is specified, it also allows generate a
+/// random type that can bind to the function's return type.
 class ArgumentTypeFuzzer {
  public:
   ArgumentTypeFuzzer(
@@ -52,6 +53,10 @@ class ArgumentTypeFuzzer {
   const std::vector<TypePtr>& argumentTypes() const {
     return argumentTypes_;
   }
+
+  /// Return a random type that can bind to the function signature's return
+  /// type. This is only allowed when returnType_ is not initialized.
+  TypePtr fuzzReturnType();
 
  private:
   /// Return the variables in the signature.

@@ -133,7 +133,7 @@ class FunctionRegistry {
       const std::shared_ptr<const Metadata>& metadata,
       const typename FunctionEntry<Function, Metadata>::FunctionFactory&
           factory) {
-    const auto sanitizedName = sanitizeFunctionName(name);
+    const auto sanitizedName = sanitizeName(name);
     SignatureMap& signatureMap = registeredFunctions_[sanitizedName];
     signatureMap[*metadata->signature()] =
         std::make_unique<const FunctionEntry<Function, Metadata>>(
@@ -141,7 +141,7 @@ class FunctionRegistry {
   }
 
   const SignatureMap* getSignatureMap(const std::string& name) const {
-    const auto sanitizedName = sanitizeFunctionName(name);
+    const auto sanitizedName = sanitizeName(name);
     const auto it = registeredFunctions_.find(sanitizedName);
     return it != registeredFunctions_.end() ? &it->second : nullptr;
   }
