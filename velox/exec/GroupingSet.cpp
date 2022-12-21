@@ -200,10 +200,8 @@ void GroupingSet::addInputForActiveRows(
     std::iota(lookup_->rows.begin(), lookup_->rows.end(), 0);
   } else {
     lookup_->rows.clear();
-    bits::forEachSetBit(
-        activeRows_.asRange().bits(), 0, activeRows_.size(), [&](auto row) {
-          lookup_->rows.push_back(row);
-        });
+    activeRows_.applyToSelected(
+        [&](auto row) { lookup_->rows.push_back(row); });
   }
 
   table_->groupProbe(*lookup_);
