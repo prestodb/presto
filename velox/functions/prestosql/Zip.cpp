@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string/join.hpp>
+#include <limits>
 #include "velox/expression/Expr.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/lib/LambdaFunctionUtil.h"
@@ -88,15 +89,21 @@ class ZipFunction : public exec::VectorFunction {
     // This is true if for all rows, all the arrays within a row are the same
     // size.
     bool allSameSize = true;
+    // This is true if for all rows, all the arrays within a row have the same
+    // starting offset in their elements Vector.
+    bool allSameOffsets = true;
 
     // Determine what the size of the resultant elements will be so we can
     // reserve enough space.
     auto getMaxArraySize = [&](vector_size_t row) -> vector_size_t {
       vector_size_t maxSize = 0;
+      vector_size_t offset = -1;
       for (int i = 0; i < numInputArrays; i++) {
         vector_size_t size = rawSizes[i][indices[i][row]];
         allSameSize &= i == 0 || maxSize == size;
+        allSameOffsets &= i == 0 || offset == rawOffsets[i][indices[i][row]];
         maxSize = std::max(maxSize, size);
+        offset = rawOffsets[i][indices[i][row]];
       }
       return maxSize;
     };
@@ -110,7 +117,7 @@ class ZipFunction : public exec::VectorFunction {
       rawResultArraySizes[row] = maxSize;
     });
 
-    if (allSameSize) {
+    if (allSameSize && allSameOffsets) {
       // This is true if all input vectors have the "flat" Array encoding.
       bool allFlat = true;
       for (const auto& arg : args) {
@@ -119,13 +126,20 @@ class ZipFunction : public exec::VectorFunction {
 
       if (allFlat) {
         // Fast path if all input Vectors are flat and for all rows, all arrays
-        // within a row are the same size.  In this case we don't have to add
-        // nulls, or decode the arrays, we can just pass in the element Vectors
-        // as is to be the fields of the output Rows.
+        // within a row are the same size and start at the same offset.  In this
+        // case we don't have to add nulls, or decode the arrays, we can just
+        // pass in the element Vectors as is to be the fields of the output
+        // Rows.
         std::vector<VectorPtr> elements;
         elements.reserve(args.size());
+        // Since the offsets and sizes are all the same, using the minimum size
+        // is big enough to contain all elements, while also guaranteeing all
+        // child Vectors in the RowVector are at least this big.
+        vector_size_t minElementsSize =
+            std::numeric_limits<vector_size_t>::max();
         for (const auto& arg : args) {
           elements.push_back(arg->as<ArrayVector>()->elements());
+          minElementsSize = std::min(minElementsSize, elements.back()->size());
         }
 
         auto rowType = outputType->childAt(0);
@@ -133,7 +147,7 @@ class ZipFunction : public exec::VectorFunction {
             pool,
             rowType,
             BufferPtr(nullptr),
-            resultElementsSize,
+            minElementsSize,
             std::move(elements));
 
         // Now convert these to an Array
