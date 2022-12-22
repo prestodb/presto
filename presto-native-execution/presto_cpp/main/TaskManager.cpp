@@ -120,6 +120,14 @@ void TaskManager::acknowledgeResults(
 
 namespace {
 
+std::unique_ptr<Result> createTimeOutResult(long token) {
+  auto result = std::make_unique<Result>();
+  result->sequence = result->nextSequence = token;
+  result->data = folly::IOBuf::create(0);
+  result->complete = false;
+  return result;
+}
+
 void getData(
     PromiseHolderPtr<std::unique_ptr<Result>> promiseHolder,
     const TaskId& taskId,
@@ -132,7 +140,7 @@ void getData(
     return;
   }
 
-  bufferManager.getData(
+  auto bufferFound = bufferManager.getData(
       taskId,
       bufferId,
       maxSize.getValue(protocol::DataUnit::BYTE),
@@ -174,6 +182,13 @@ void getData(
 
         promiseHolder->promise.setValue(std::move(result));
       });
+
+  if (!bufferFound) {
+    // Buffer was erased for current TaskId.
+    VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
+            << token << ", buffer not found.";
+    promiseHolder->promise.setValue(std::move(createTimeOutResult(token)));
+  }
 }
 } // namespace
 
@@ -217,6 +232,25 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateErrorTask(
   // long run. Use 'presto_native' for now.
   ss << "presto_native/" << queryId << "/" << taskId << "/";
   return ss.str();
+}
+
+void TaskManager::getDataForResultRequests(
+    const std::unordered_map<int64_t, std::shared_ptr<ResultRequest>>&
+        resultRequests) {
+  for (const auto& entry : resultRequests) {
+    auto resultRequest = entry.second.get();
+
+    VLOG(1) << "Processing pending result request for task "
+            << resultRequest->taskId << ", buffer " << resultRequest->bufferId
+            << ", sequence " << resultRequest->token;
+    getData(
+        resultRequest->promise.lock(),
+        resultRequest->taskId,
+        resultRequest->bufferId,
+        resultRequest->token,
+        resultRequest->maxSize,
+        *bufferManager_);
+  }
 }
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
@@ -297,22 +331,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTask(
     infoRequest = prestoTask->infoRequest;
   }
 
-  for (const auto& entry : resultRequests) {
-    auto resultRequest = entry.second.get();
+  getDataForResultRequests(resultRequests);
 
-    VLOG(1) << "Processing pending result request for task "
-            << resultRequest->taskId << ", buffer " << resultRequest->bufferId
-            << ", sequence " << resultRequest->token;
-
-    getData(
-        resultRequest->promise.lock(),
-        resultRequest->taskId,
-        resultRequest->bufferId,
-        resultRequest->token,
-        resultRequest->maxSize,
-        *bufferManager_);
-  }
-
+  // TODO Handle possible race condition. Refer:
+  // https://github.com/facebookincubator/velox/issues/3593
   if (outputBuffers.type == protocol::BufferType::BROADCAST) {
     execTask->updateBroadcastOutputBuffers(
         outputBuffers.buffers.size(), outputBuffers.noMoreBufferIds);
@@ -656,13 +678,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
         promise.setValue(std::move(result));
       });
 
-  auto timeoutFn = [token]() {
-    auto result = std::make_unique<Result>();
-    result->sequence = result->nextSequence = token;
-    result->data = folly::IOBuf::create(0);
-    result->complete = false;
-    return result;
-  };
+  auto timeoutFn = [this, token]() { return createTimeOutResult(token); };
 
   auto eventBase = folly::EventBaseManager::get()->getEventBase();
   try {
