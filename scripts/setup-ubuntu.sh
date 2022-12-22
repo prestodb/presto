@@ -37,6 +37,7 @@ sudo --preserve-env apt install -y \
   git \
   libssl-dev \
   libboost-all-dev \
+  libicu-dev \
   libdouble-conversion-dev \
   libgoogle-glog-dev \
   libbz2-dev \

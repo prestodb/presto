@@ -32,7 +32,7 @@ dnf_install epel-release dnf-plugins-core # For ccache, ninja
 dnf config-manager --set-enabled powertools
 dnf_install ninja-build ccache gcc-toolset-9 git wget which libevent-devel \
   openssl-devel re2-devel libzstd-devel lz4-devel double-conversion-devel \
-  libdwarf-devel curl-devel
+  libdwarf-devel curl-devel libicu-devel
 
 dnf remove -y gflags
 

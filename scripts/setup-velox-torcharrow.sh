@@ -44,6 +44,7 @@ yum -y install perl-core
 yum -y install pcre-devel
 yum -y install zlib-devel
 yum -y install flex
+yum -y install libicu-devel
 
 #Install conda
 rpm --import https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc
