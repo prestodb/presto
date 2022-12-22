@@ -581,13 +581,16 @@ class PlanBuilder {
   /// @param outputLayout Output layout consisting of columns from probe and
   /// build sides.
   /// @param joinType Type of the join: inner, left, right, full, semi, or anti.
+  /// @param nullAware Applies to semi and anti joins. Indicates whether the
+  /// join follows IN (null-aware) or EXISTS (regular) semantic.
   PlanBuilder& hashJoin(
       const std::vector<std::string>& leftKeys,
       const std::vector<std::string>& rightKeys,
       const core::PlanNodePtr& build,
       const std::string& filter,
       const std::vector<std::string>& outputLayout,
-      core::JoinType joinType = core::JoinType::kInner);
+      core::JoinType joinType = core::JoinType::kInner,
+      bool nullAware = false);
 
   /// Add a MergeJoinNode to join two inputs using one or more join keys and an
   /// optional filter. The caller is responsible to ensure that inputs are

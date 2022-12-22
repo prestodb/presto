@@ -895,7 +895,8 @@ PlanBuilder& PlanBuilder::hashJoin(
     const core::PlanNodePtr& build,
     const std::string& filter,
     const std::vector<std::string>& outputLayout,
-    core::JoinType joinType) {
+    core::JoinType joinType,
+    bool nullAware) {
   VELOX_CHECK_EQ(leftKeys.size(), rightKeys.size());
 
   auto leftType = planNode_->outputType();
@@ -929,6 +930,7 @@ PlanBuilder& PlanBuilder::hashJoin(
   planNode_ = std::make_shared<core::HashJoinNode>(
       nextPlanNodeId(),
       joinType,
+      nullAware,
       leftKeyFields,
       rightKeyFields,
       std::move(filterExpr),

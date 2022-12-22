@@ -177,7 +177,7 @@ HashProbe::HashProbe(
     isIdentityProjection_ = true;
   }
 
-  if (isNullAwareAntiJoin(joinType_)) {
+  if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
     filterTableResult_.resize(1);
   }
 }
@@ -212,7 +212,7 @@ void HashProbe::initializeFilter(
       filterTableProjections_.emplace_back(channelValue, filterChannel);
       names.emplace_back(tableType->nameOf(channelValue));
       types.emplace_back(tableType->childAt(channelValue));
-      if (isNullAwareAntiJoin(joinType_)) {
+      if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
         filterTableProjectionMap_[channelValue] = filterChannel;
       }
       ++filterChannel;
@@ -286,7 +286,7 @@ void HashProbe::asyncWaitForHashTable() {
   }
 
   if (hashBuildResult->hasNullKeys) {
-    if (isNullAwareAntiJoin(joinType_)) {
+    if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
       // Null-aware anti join with null keys on the build side without a filter
       // always returns nothing.
       // The flag must be set on the first (and only) built 'table_'.
@@ -555,10 +555,10 @@ void HashProbe::addInput(RowVectorPtr input) {
     // Build side is empty. This state is valid only for anti, left and full
     // joins.
     VELOX_CHECK(
-        isAntiJoins(joinType_) || isLeftJoin(joinType_) ||
+        isAntiJoin(joinType_) || isLeftJoin(joinType_) ||
         isFullJoin(joinType_) || isLeftSemiProjectJoin(joinType_));
     if (isLeftSemiProjectJoin(joinType_) ||
-        (isAntiJoins(joinType_) && filter_)) {
+        (isAntiJoin(joinType_) && filter_)) {
       // For anti join with filter and semi project join we need to decode the
       // join keys columns to initialize 'nonNullInputRows_'. The anti join
       // filter evaluation and semi project join output generation will access
@@ -595,8 +595,8 @@ void HashProbe::addInput(RowVectorPtr input) {
   }
 
   passingInputRowsInitialized_ = false;
-  if (isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-      isAntiJoins(joinType_) || isLeftSemiProjectJoin(joinType_)) {
+  if (isLeftJoin(joinType_) || isFullJoin(joinType_) || isAntiJoin(joinType_) ||
+      isLeftSemiProjectJoin(joinType_)) {
     // Make sure to allocate an entry in 'hits' for every input row to allow for
     // including rows without a match in the output. Also, make sure to
     // initialize all 'hits' to nullptr as HashTable::joinProbe will only
@@ -845,7 +845,7 @@ RowVectorPtr HashProbe::getOutput() {
 
   const bool isLeftSemiOrAntiJoinNoFilter = !filter_ &&
       (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
-       isAntiJoins(joinType_));
+       isAntiJoin(joinType_));
 
   const bool emptyBuildSide = (table_->numDistinct() == 0);
 
@@ -868,29 +868,32 @@ RowVectorPtr HashProbe::getOutput() {
       std::iota(mapping.begin(), mapping.end(), 0);
       std::fill(outputTableRows_.begin(), outputTableRows_.end(), nullptr);
       numOut = inputSize;
-    } else if (isNullAwareAntiJoin(joinType_) && !filter_) {
-      // When build side is not empty, anti join without a filter returns probe
-      // rows with no nulls in the join key and no match in the build side.
-      for (auto i = 0; i < inputSize; ++i) {
-        if (nonNullInputRows_.isValid(i) &&
-            (!activeRows_.isValid(i) || !lookup_->hits[i])) {
-          mapping[numOut] = i;
-          ++numOut;
-        }
-      }
     } else if (isAntiJoin(joinType_) && !filter_) {
-      for (auto i = 0; i < inputSize; ++i) {
-        if (!nonNullInputRows_.isValid(i) ||
-            (!activeRows_.isValid(i) || !lookup_->hits[i])) {
-          mapping[numOut] = i;
-          ++numOut;
+      if (joinNode_->isNullAware()) {
+        // When build side is not empty, anti join without a filter returns
+        // probe rows with no nulls in the join key and no match in the build
+        // side.
+        for (auto i = 0; i < inputSize; ++i) {
+          if (nonNullInputRows_.isValid(i) &&
+              (!activeRows_.isValid(i) || !lookup_->hits[i])) {
+            mapping[numOut] = i;
+            ++numOut;
+          }
+        }
+      } else {
+        for (auto i = 0; i < inputSize; ++i) {
+          if (!nonNullInputRows_.isValid(i) ||
+              (!activeRows_.isValid(i) || !lookup_->hits[i])) {
+            mapping[numOut] = i;
+            ++numOut;
+          }
         }
       }
     } else {
       numOut = table_->listJoinResults(
           results_,
           isLeftJoin(joinType_) || isFullJoin(joinType_) ||
-              isAntiJoins(joinType_) || isLeftSemiProjectJoin(joinType_),
+              isAntiJoin(joinType_) || isLeftSemiProjectJoin(joinType_),
           mapping,
           folly::Range(outputTableRows_.data(), outputTableRows_.size()));
     }
@@ -1152,7 +1155,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   // fail the query unnecessarily.
   //
   // TODO Apply to the same to left joins.
-  if (isAntiJoin(joinType_)) {
+  if (isAntiJoin(joinType_) && !joinNode_->isNullAware()) {
     for (auto i = 0; i < numRows; ++i) {
       if (outputTableRows_[i] == nullptr) {
         filterInputRows_.setValid(i, false);
@@ -1167,7 +1170,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 
   fillFilterInput(numRows);
 
-  if (isNullAwareAntiJoin(joinType_)) {
+  if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
     prepareFilterRowsForNullAwareAntiJoin(numRows, filterPropagateNulls);
   }
 
@@ -1227,20 +1230,22 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
     if (results_.atEnd()) {
       leftSemiProjectJoinTracker_.finish(addLast);
     }
-  } else if (isNullAwareAntiJoin(joinType_)) {
-    numPassed = evalFilterForNullAwareAntiJoin(numRows, filterPropagateNulls);
   } else if (isAntiJoin(joinType_)) {
-    auto addMiss = [&](auto row) {
-      outputTableRows_[numPassed] = nullptr;
-      rawOutputProbeRowMapping[numPassed++] = row;
-    };
-    for (auto i = 0; i < numRows; ++i) {
-      auto probeRow = rawOutputProbeRowMapping[i];
-      bool passed = filterInputRows_.isValid(i) && filterPassed(i);
-      noMatchDetector_.advance(probeRow, passed, addMiss);
-    }
-    if (results_.atEnd()) {
-      noMatchDetector_.finish(addMiss);
+    if (joinNode_->isNullAware()) {
+      numPassed = evalFilterForNullAwareAntiJoin(numRows, filterPropagateNulls);
+    } else {
+      auto addMiss = [&](auto row) {
+        outputTableRows_[numPassed] = nullptr;
+        rawOutputProbeRowMapping[numPassed++] = row;
+      };
+      for (auto i = 0; i < numRows; ++i) {
+        auto probeRow = rawOutputProbeRowMapping[i];
+        bool passed = filterInputRows_.isValid(i) && filterPassed(i);
+        noMatchDetector_.advance(probeRow, passed, addMiss);
+      }
+      if (results_.atEnd()) {
+        noMatchDetector_.finish(addMiss);
+      }
     }
   } else {
     for (auto i = 0; i < numRows; ++i) {
@@ -1256,7 +1261,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 void HashProbe::ensureLoadedIfNotAtEnd(column_index_t channel) {
   if ((!filter_ &&
        (isLeftSemiFilterJoin(joinType_) || isLeftSemiProjectJoin(joinType_) ||
-        isAntiJoins(joinType_))) ||
+        isAntiJoin(joinType_))) ||
       results_.atEnd()) {
     return;
   }

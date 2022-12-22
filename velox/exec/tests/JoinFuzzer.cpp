@@ -141,7 +141,6 @@ core::JoinType JoinFuzzer::pickJoinType() {
       core::JoinType::kLeftSemiFilter,
       core::JoinType::kLeftSemiProject,
       core::JoinType::kAnti,
-      core::JoinType::kNullAwareAnti,
   };
 
   size_t idx = randInt(0, kJoinTypes.size() - 1);
@@ -308,6 +307,7 @@ core::PlanNodePtr tryFlipJoinSides(const core::HashJoinNode& joinNode) {
   return std::make_shared<core::HashJoinNode>(
       joinNode.id(),
       flippedJoinType.value(),
+      joinNode.isNullAware(),
       joinNode.rightKeys(),
       joinNode.leftKeys(),
       joinNode.filter(),
@@ -413,16 +413,17 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
           << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
       break;
     case core::JoinType::kAnti:
-      sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
-          << equiClausesToSql(joinNode) << ")";
-      break;
-    case core::JoinType::kNullAwareAnti:
-      if (joinNode->leftKeys().size() > 1) {
-        return std::nullopt;
+      if (joinNode->isNullAware()) {
+        if (joinNode->leftKeys().size() > 1) {
+          return std::nullopt;
+        }
+        sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
+            << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
+            << " FROM u)";
+      } else {
+        sql << " FROM t WHERE NOT EXISTS (SELECT * FROM u WHERE "
+            << equiClausesToSql(joinNode) << ")";
       }
-      sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
-          << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
-          << " FROM u)";
       break;
     default:
       VELOX_UNREACHABLE();
@@ -443,6 +444,7 @@ std::vector<std::string> fieldNames(
 
 core::PlanNodePtr makeDefaultPlan(
     core::JoinType joinType,
+    bool nullAware,
     const std::vector<std::string>& probeKeys,
     const std::vector<std::string>& buildKeys,
     const std::vector<RowVectorPtr>& probeInput,
@@ -457,7 +459,8 @@ core::PlanNodePtr makeDefaultPlan(
           PlanBuilder(planNodeIdGenerator).values(buildInput).planNode(),
           "" /*filter*/,
           output,
-          joinType)
+          joinType,
+          nullAware)
       .planNode();
 }
 
@@ -509,7 +512,8 @@ void makeAlternativePlans(
                               .planNode(),
                           "" /*filter*/,
                           joinNode->outputType()->names(),
-                          joinNode->joinType())
+                          joinNode->joinType(),
+                          joinNode->isNullAware())
                       .planNode());
 
   // Use OrderBy + MergeJoin (if join type is inner or left).
@@ -601,8 +605,7 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   auto output =
       (core::isLeftSemiProjectJoin(joinType) ||
-       core::isLeftSemiFilterJoin(joinType) || core::isAntiJoin(joinType) ||
-       core::isNullAwareAntiJoin(joinType))
+       core::isLeftSemiFilterJoin(joinType) || core::isAntiJoin(joinType))
       ? asRowType(probeInput[0]->type())->names()
       : concat(
             asRowType(probeInput[0]->type()), asRowType(buildInput[0]->type()))
@@ -622,8 +625,15 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   shuffleJoinKeys(probeKeys, buildKeys);
 
+  bool nullAware = vectorFuzzer_.coinToss(0.5);
   auto plan = makeDefaultPlan(
-      joinType, probeKeys, buildKeys, probeInput, buildInput, output);
+      joinType,
+      nullAware,
+      probeKeys,
+      buildKeys,
+      probeInput,
+      buildInput,
+      output);
 
   auto expected = execute(plan, false /*injectSpill*/);
 
@@ -636,7 +646,13 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   std::vector<core::PlanNodePtr> altPlans;
   altPlans.push_back(makeDefaultPlan(
-      joinType, probeKeys, buildKeys, flatProbeInput, flatBuildInput, output));
+      joinType,
+      nullAware,
+      probeKeys,
+      buildKeys,
+      flatProbeInput,
+      flatBuildInput,
+      output));
   makeAlternativePlans(plan, probeInput, buildInput, altPlans);
   makeAlternativePlans(plan, flatProbeInput, flatBuildInput, altPlans);
 

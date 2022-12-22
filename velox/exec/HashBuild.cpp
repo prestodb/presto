@@ -102,7 +102,7 @@ HashBuild::HashBuild(
   setupTable();
   setupSpiller();
 
-  if (isAntiJoins(joinType_) && joinNode_->filter()) {
+  if (isAntiJoin(joinType_) && joinNode_->filter()) {
     setupFilterForAntiJoins(keyChannelMap);
   }
 }
@@ -138,7 +138,7 @@ void HashBuild::setupTable() {
     // there is a match. Hence, no need to store entries with duplicate keys.
     const bool dropDuplicates = !joinNode_->filter() &&
         (joinNode_->isLeftSemiFilterJoin() ||
-         joinNode_->isLeftSemiProjectJoin() || isAntiJoins(joinType_));
+         joinNode_->isLeftSemiProjectJoin() || isAntiJoin(joinType_));
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiFilterJoin();
     if (isNullAwareAntiJoinWithFilter(joinNode_)) {
@@ -305,15 +305,16 @@ void HashBuild::addInput(RowVectorPtr input) {
         *input->childAt(dependentChannels_[i])->loadedVector(), activeRows_);
   }
 
-  if (isAntiJoins(joinType_) && joinNode_->filter()) {
+  if (isAntiJoin(joinType_) && joinNode_->filter()) {
     if (filterPropagatesNulls_) {
       removeInputRowsForAntiJoinFilter();
     }
   } else if (
-      (isNullAwareAntiJoin(joinType_) || isLeftSemiProjectJoin(joinType_)) &&
+      ((isAntiJoin(joinType_) && joinNode_->isNullAware()) ||
+       isLeftSemiProjectJoin(joinType_)) &&
       activeRows_.countSelected() < input->size()) {
     joinHasNullKeys_ = true;
-    if (isNullAwareAntiJoin(joinType_)) {
+    if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
       // Null-aware anti join with no extra filter returns no rows if build side
       // has nulls in join keys. Hence, we can stop processing on first null.
       noMoreInput();
@@ -691,7 +692,7 @@ bool HashBuild::finishHashBuild() {
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   Spiller::Stats spillStats;
-  if (joinHasNullKeys_ && isNullAwareAntiJoin(joinType_)) {
+  if (joinHasNullKeys_ && (isAntiJoin(joinType_) && joinNode_->isNullAware())) {
     joinBridge_->setAntiJoinHasNullKeys();
   } else {
     for (auto& peer : peers) {
@@ -700,7 +701,7 @@ bool HashBuild::finishHashBuild() {
       VELOX_CHECK(build);
       if (build->joinHasNullKeys_) {
         joinHasNullKeys_ = true;
-        if (isNullAwareAntiJoin(joinType_)) {
+        if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
           break;
         }
       }
@@ -711,7 +712,8 @@ bool HashBuild::finishHashBuild() {
       }
     }
 
-    if (joinHasNullKeys_ && isNullAwareAntiJoin(joinType_)) {
+    if (joinHasNullKeys_ &&
+        (isAntiJoin(joinType_) && joinNode_->isNullAware())) {
       joinBridge_->setAntiJoinHasNullKeys();
     } else {
       if (spiller_ != nullptr) {

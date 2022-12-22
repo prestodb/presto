@@ -1359,7 +1359,8 @@ TpchPlan TpchQueryBuilder::getQ16Plan() const {
               supplier,
               "",
               {"ps_suppkey", "p_brand", "p_type", "p_size"},
-              core::JoinType::kNullAwareAnti)
+              core::JoinType::kAnti,
+              true /*nullAware*/)
           // Empty aggregate is used here to get the distinct count of
           // ps_suppkey.
           // approx_distinct could be used instead for getting the count of
@@ -1729,7 +1730,8 @@ TpchPlan TpchQueryBuilder::getQ21Plan() const {
               lineitem3,
               "l_suppkey_3 <> l_suppkey_1",
               {"s_name"},
-              core::JoinType::kNullAwareAnti)
+              core::JoinType::kAnti,
+              true /*nullAware*/)
           .partialAggregation({"s_name"}, {"count(1) as numwait"})
           .localPartition({})
           .finalAggregation()
@@ -1810,7 +1812,8 @@ TpchPlan TpchQueryBuilder::getQ22Plan() const {
               orders,
               "",
               {"c_acctbal", "c_phone"},
-              core::JoinType::kNullAwareAnti)
+              core::JoinType::kAnti,
+              true /*nullAware*/)
           .project({"substr(c_phone, 1, 2) AS country_code", "c_acctbal"})
           .partialAggregation(
               {"country_code"},

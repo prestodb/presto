@@ -262,6 +262,48 @@ TEST_F(PlanNodeToStringTest, hashJoin) {
   ASSERT_EQ(
       "-- HashJoin[LEFT t_c0=u_c0, filter: gt(ROW[\"t_c1\"],ROW[\"u_c1\"])] -> t_c0:SMALLINT, t_c1:INTEGER, u_c1:INTEGER\n",
       plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .values({data_})
+             .project({"c0 as t_c0", "c1 as t_c1"})
+             .hashJoin(
+                 {"t_c0"},
+                 {"u_c0"},
+                 PlanBuilder()
+                     .values({data_})
+                     .project({"c0 as u_c0", "c1 as u_c1"})
+                     .planNode(),
+                 "",
+                 {"t_c0", "t_c1"},
+                 core::JoinType::kAnti,
+                 true /*nullAware*/)
+             .planNode();
+
+  ASSERT_EQ("-- HashJoin\n", plan->toString());
+  ASSERT_EQ(
+      "-- HashJoin[ANTI t_c0=u_c0, null aware] -> t_c0:SMALLINT, t_c1:INTEGER\n",
+      plan->toString(true, false));
+
+  plan = PlanBuilder()
+             .values({data_})
+             .project({"c0 as t_c0", "c1 as t_c1"})
+             .hashJoin(
+                 {"t_c0"},
+                 {"u_c0"},
+                 PlanBuilder()
+                     .values({data_})
+                     .project({"c0 as u_c0", "c1 as u_c1"})
+                     .planNode(),
+                 "",
+                 {"t_c0", "t_c1"},
+                 core::JoinType::kAnti,
+                 false /*nullAware*/)
+             .planNode();
+
+  ASSERT_EQ("-- HashJoin\n", plan->toString());
+  ASSERT_EQ(
+      "-- HashJoin[ANTI t_c0=u_c0] -> t_c0:SMALLINT, t_c1:INTEGER\n",
+      plan->toString(true, false));
 }
 
 TEST_F(PlanNodeToStringTest, mergeJoin) {

@@ -166,7 +166,7 @@ std::optional<HashJoinBridge::SpillInput> HashJoinBridge::spillInputOrFuture(
 
 bool isNullAwareAntiJoinWithFilter(
     const std::shared_ptr<const core::HashJoinNode>& joinNode) {
-  return isNullAwareAntiJoin(joinNode->joinType()) &&
+  return isAntiJoin(joinNode->joinType()) && joinNode->isNullAware() &&
       (joinNode->filter() != nullptr);
 }
 } // namespace facebook::velox::exec

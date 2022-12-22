@@ -1001,6 +1001,7 @@ enum class JoinType {
   // this join type, cardinality of the output equals the cardinality of the
   // right side.
   kRightSemiProject,
+  // Deprecated. TODO Remove after Prestissimo is updated.
   // Return each row from the left side which has no match on the right side.
   // The handling of the rows with nulls in the join key follows NOT IN
   // semantic:
@@ -1010,8 +1011,16 @@ enum class JoinType {
   // the right side is empty.
   kNullAwareAnti,
   // Return each row from the left side which has no match on the right side.
-  // The handling of the rows with nulls in the join key follows NOT EXISTS
-  // semantic:
+  // The handling of the rows with nulls in the join key depends on the
+  // 'nullAware' boolean specified separately.
+  //
+  // Null-aware join follows NOT IN semantic:
+  // (1) return empty result if the right side contains a record with a null in
+  // the join key;
+  // (2) return left-side row with null in the join key only when
+  // the right side is empty.
+  //
+  // Regular anti join follows NOT EXISTS semantic:
   // (1) ignore right-side rows with nulls in the join keys;
   // (2) unconditionally return left side rows with nulls in the join keys.
   kAnti,
@@ -1075,16 +1084,8 @@ inline bool isRightSemiProjectJoin(JoinType joinType) {
   return joinType == JoinType::kRightSemiProject;
 }
 
-inline bool isNullAwareAntiJoin(JoinType joinType) {
-  return joinType == JoinType::kNullAwareAnti;
-}
-
 inline bool isAntiJoin(JoinType joinType) {
   return joinType == JoinType::kAnti;
-}
-
-inline bool isAntiJoins(JoinType joinType) {
-  return isAntiJoin(joinType) || isNullAwareAntiJoin(joinType);
 }
 
 /// Abstract class representing inner/outer/semi/anti joins. Used as a base
@@ -1145,10 +1146,6 @@ class AbstractJoinNode : public PlanNode {
     return joinType_ == JoinType::kRightSemiProject;
   }
 
-  bool isNullAwareAntiJoin() const {
-    return joinType_ == JoinType::kNullAwareAnti;
-  }
-
   bool isAntiJoin() const {
     return joinType_ == JoinType::kAnti;
   }
@@ -1165,7 +1162,7 @@ class AbstractJoinNode : public PlanNode {
     return filter_;
   }
 
- private:
+ protected:
   void addDetails(std::stringstream& stream) const override;
 
   const JoinType joinType_;
@@ -1183,11 +1180,16 @@ class AbstractJoinNode : public PlanNode {
 /// Represents inner/outer/semi/anti hash joins. Translates to an
 /// exec::HashBuild and exec::HashProbe. A separate pipeline is produced for the
 /// build side when generating exec::Operators.
+///
+/// 'nullAware' boolean applies to semi and anti joins. When true, the join
+/// semantic is IN / NOT IN. When false, the join semantic is EXISTS / NOT
+/// EXISTS.
 class HashJoinNode : public AbstractJoinNode {
  public:
   HashJoinNode(
       const PlanNodeId& id,
       JoinType joinType,
+      bool nullAware,
       const std::vector<FieldAccessTypedExprPtr>& leftKeys,
       const std::vector<FieldAccessTypedExprPtr>& rightKeys,
       TypedExprPtr filter,
@@ -1202,11 +1204,43 @@ class HashJoinNode : public AbstractJoinNode {
             filter,
             left,
             right,
+            outputType),
+        nullAware_{nullAware} {}
+
+#ifdef VELOX_ENABLE_BACKWARD_COMPATIBILITY
+  HashJoinNode(
+      const PlanNodeId& id,
+      JoinType joinType,
+      const std::vector<FieldAccessTypedExprPtr>& leftKeys,
+      const std::vector<FieldAccessTypedExprPtr>& rightKeys,
+      TypedExprPtr filter,
+      PlanNodePtr left,
+      PlanNodePtr right,
+      const RowTypePtr outputType)
+      : HashJoinNode(
+            id,
+            joinType == JoinType::kNullAwareAnti ? JoinType::kAnti : joinType,
+            joinType == JoinType::kNullAwareAnti ? true : false,
+            leftKeys,
+            rightKeys,
+            filter,
+            left,
+            right,
             outputType) {}
+#endif
 
   std::string_view name() const override {
     return "HashJoin";
   }
+
+  bool isNullAware() const {
+    return nullAware_;
+  }
+
+ private:
+  void addDetails(std::stringstream& stream) const override;
+
+  const bool nullAware_;
 };
 
 /// Represents inner/outer/semi/anti merge joins. Translates to an
