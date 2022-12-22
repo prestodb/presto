@@ -583,7 +583,7 @@ public class PrestoSparkTaskExecutorFactory
                 taskDescriptor.getTableWriteInfo(),
                 true,
                 ImmutableList.of(new NativeExecutionOperator.NativeExecutionOperatorTranslator(
-                        session, fragment, blockEncodingSerde, processFactory, taskFactory, shuffleWriteDescriptor)));
+                        session, fragment, blockEncodingSerde, processFactory, taskFactory, shuffleWriteDescriptor.map(shuffleInfoTranslator::createSerializedWriteInfo))));
 
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {

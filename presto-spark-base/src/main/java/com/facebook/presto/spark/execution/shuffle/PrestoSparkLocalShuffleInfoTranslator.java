@@ -64,9 +64,9 @@ public class PrestoSparkLocalShuffleInfoTranslator
     }
 
     @Override
-    public String createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo)
+    public byte[] createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo)
     {
-        return writeInfoJsonCodec.toJson((PrestoSparkLocalShuffleWriteInfo) writeInfo);
+        return writeInfoJsonCodec.toJsonBytes((PrestoSparkLocalShuffleWriteInfo) writeInfo);
     }
 
     @Override

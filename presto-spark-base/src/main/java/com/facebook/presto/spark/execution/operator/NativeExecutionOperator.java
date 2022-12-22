@@ -33,7 +33,6 @@ import com.facebook.presto.spark.execution.NativeExecutionProcess;
 import com.facebook.presto.spark.execution.NativeExecutionProcessFactory;
 import com.facebook.presto.spark.execution.NativeExecutionTask;
 import com.facebook.presto.spark.execution.NativeExecutionTaskFactory;
-import com.facebook.presto.spark.execution.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spi.UpdatablePageSource;
 import com.facebook.presto.spi.page.PagesSerde;
 import com.facebook.presto.spi.page.SerializedPage;
@@ -87,7 +86,7 @@ public class NativeExecutionOperator
     private final LocalMemoryContext systemMemoryContext;
     private final PlanFragment planFragment;
     private final TableWriteInfo tableWriteInfo;
-    private final Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo;
+    private final Optional<byte[]> shuffleWriteInfo;
     private final PagesSerde serde;
     private final NativeExecutionProcessFactory processFactory;
     private final NativeExecutionTaskFactory taskFactory;
@@ -106,7 +105,7 @@ public class NativeExecutionOperator
             PagesSerde serde,
             NativeExecutionProcessFactory processFactory,
             NativeExecutionTaskFactory taskFactory,
-            Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo)
+            Optional<byte[]> shuffleWriteInfo)
     {
         this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -209,7 +208,8 @@ public class NativeExecutionOperator
                 operatorContext.getDriverContext().getTaskId(),
                 planFragment,
                 ImmutableList.of(taskSource),
-                tableWriteInfo);
+                tableWriteInfo,
+                shuffleWriteInfo);
     }
 
     private Page processResult(SerializedPage page)
@@ -288,7 +288,7 @@ public class NativeExecutionOperator
         private final PlanNodeId planNodeId;
         private final PlanFragment planFragment;
         private final TableWriteInfo tableWriteInfo;
-        private final Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo;
+        private final Optional<byte[]> shuffleWriteInfo;
         private final PagesSerdeFactory serdeFactory;
         private final NativeExecutionProcessFactory processFactory;
         private final NativeExecutionTaskFactory taskFactory;
@@ -302,7 +302,7 @@ public class NativeExecutionOperator
                 PagesSerdeFactory serdeFactory,
                 NativeExecutionProcessFactory processFactory,
                 NativeExecutionTaskFactory taskFactory,
-                Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo)
+                Optional<byte[]> shuffleWriteInfo)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -353,7 +353,7 @@ public class NativeExecutionOperator
     {
         private final PlanFragment fragment;
         private final Session session;
-        private final Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo;
+        private final Optional<byte[]> shuffleWriteInfo;
         private final BlockEncodingSerde blockEncodingSerde;
         private final NativeExecutionProcessFactory processFactory;
         private final NativeExecutionTaskFactory taskFactory;
@@ -364,7 +364,7 @@ public class NativeExecutionOperator
                 BlockEncodingSerde blockEncodingSerde,
                 NativeExecutionProcessFactory processFactory,
                 NativeExecutionTaskFactory taskFactory,
-                Optional<PrestoSparkShuffleWriteInfo> shuffleWriteInfo)
+                Optional<byte[]> shuffleWriteInfo)
         {
             this.fragment = requireNonNull(fragment, "fragment is null");
             this.session = requireNonNull(session, "session is null");

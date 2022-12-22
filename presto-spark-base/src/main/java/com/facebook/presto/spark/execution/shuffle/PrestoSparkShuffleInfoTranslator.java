@@ -30,7 +30,7 @@ public interface PrestoSparkShuffleInfoTranslator<R1 extends PrestoSparkShuffleW
 
     R2 createShuffleReadInfo(PrestoSparkShuffleReadDescriptor readDescriptor);
 
-    String createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
+    byte[] createSerializedWriteInfo(PrestoSparkShuffleWriteInfo writeInfo);
 
     String createSerializedReadInfo(PrestoSparkShuffleReadInfo readInfo);
 }

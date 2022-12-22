@@ -119,13 +119,12 @@ public class TestBatchTaskUpdateRequest
         PrestoSparkLocalShuffleReadInfo readInfo = new PrestoSparkLocalShuffleReadInfo(0, "/dummy/read/path");
         PrestoSparkLocalShuffleWriteInfo writeInfo = new PrestoSparkLocalShuffleWriteInfo(1, 1, "/dummy/write/path");
         String stringSerializedReadInfo = shuffleTranslator.createSerializedReadInfo(readInfo);
-        String stringSerializedWriteInfo = shuffleTranslator.createSerializedWriteInfo(writeInfo);
+        byte[] serializedWriteInfo = shuffleTranslator.createSerializedWriteInfo(writeInfo);
+        String stringSerializedWriteInfo = PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC.toJson(PRESTO_SPARK_LOCAL_SHUFFLE_WRITE_INFO_JSON_CODEC.fromBytes(serializedWriteInfo));
         assertEquals(
                 stringSerializedReadInfo,
                 "{\n" +
-                        "  \"maxBytesPerPartition\" : 0,\n" +
                         "  \"numPartitions\" : 0,\n" +
-                        "  \"partitionId\" : 0,\n" +
                         "  \"rootPath\" : \"/dummy/read/path\"\n" +
                         "}");
         assertEquals(
