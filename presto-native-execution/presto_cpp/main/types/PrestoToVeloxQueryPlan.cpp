@@ -2151,23 +2151,25 @@ velox::core::PlanFragment VeloxQueryPlanConverter::toBatchVeloxQueryPlan(
     std::shared_ptr<std::string>&& serializedShuffleWriteInfo) {
   auto planFragment = toVeloxQueryPlan(fragment, tableWriteInfo, taskId);
 
-  // If the last node is a PartitionedOutputNode, it means this fragment ends
-  // with a shuffle stage. We convert the PartitionedOutputNode to a chain of
-  // following nodes:
+  // If the serializedShuffleWriteInfo is not nullptr, it means this fragment
+  // ends with a shuffle stage. We convert the PartitionedOutputNode to a
+  // chain of following nodes:
   // (1) A PartitionAndSerializeNode.
   // (2) A "gather" LocalPartitionNode that gathers results from multiple
   //     threads to one thread.
   // (3) A ShuffleWriteNode.
+  // To be noted, whether the last node of the plan is PartitionedOutputNode
+  // can't guarantee the query has shuffle stage, for example a plan with
+  // TableWriteNode can also have PartitionedOutputNode to distribute the
+  // metadata to coordinator.
+  if (serializedShuffleWriteInfo == nullptr) {
+    return planFragment;
+  }
   auto partitionedOutputNode =
       std::dynamic_pointer_cast<const core::PartitionedOutputNode>(
           planFragment.planNode);
-  VELOX_CHECK_EQ(
-      partitionedOutputNode == nullptr,
-      serializedShuffleWriteInfo == nullptr,
-      "Writer shuffle info and PartitionedOutputNode should be set together");
-  if (partitionedOutputNode == nullptr) {
-    return planFragment;
-  }
+  VELOX_CHECK(
+      partitionedOutputNode != nullptr, "PartitionedOutputNode is required");
   if (partitionedOutputNode->isBroadcast()) {
     VELOX_UNSUPPORTED(
         "Broadcast partitioned output node in batch is currently not "
