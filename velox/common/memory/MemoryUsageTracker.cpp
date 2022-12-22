@@ -53,7 +53,7 @@ void MemoryUsageTracker::update(int64_t size) {
       reservationBytes_ = newQuantized;
     }
   }
-  if (decrement > 0) {
+  if (decrement != 0) {
     decrementUsage(decrement);
   }
 }
@@ -83,7 +83,7 @@ void MemoryUsageTracker::release() {
     }
     minReservationBytes_ = 0;
   }
-  if (freeable > 0) {
+  if (freeable != 0) {
     decrementUsage(freeable);
   }
 }
@@ -194,12 +194,11 @@ void MemoryUsageTracker::maybeUpdatePeakBytes(int64_t newPeak) {
 }
 
 void MemoryUsageTracker::checkNonNegativeSizes(const char* errmsg) const {
-  VELOX_CHECK_GE(
-      currentBytes_,
-      0,
-      "Negative reserved bytes {}: {}",
-      currentBytes_,
-      errmsg);
+  // TODO: make this a CHECK failure after making usage tracker thread-safe.
+  if (currentBytes_ < 0) {
+    LOG_EVERY_N(ERROR, 100)
+        << "MEMORY: Negagtive usage " << errmsg << " " << currentBytes_;
+  }
 }
 
 std::string MemoryUsageTracker::toString() const {
