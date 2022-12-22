@@ -112,18 +112,20 @@ void TaskResource::registerUris(http::HttpServer& server) {
         return acknowledgeResults(message, pathMatch);
       });
 
-  server.registerPost(
-      R"(/v1/task/(.+))",
-      [&](proxygen::HTTPMessage* message,
-          const std::vector<std::string>& pathMatch) {
-        return createOrUpdateTask(message, pathMatch);
-      });
-
+  // task/(.+)/batch must come before the /v1/task/(.+) as it's more specific
+  // otherwise all requests will be matched with /v1/task/(.+)
   server.registerPost(
       R"(/v1/task/(.+)/batch)",
       [&](proxygen::HTTPMessage* message,
           const std::vector<std::string>& pathMatch) {
         return createOrUpdateBatchTask(message, pathMatch);
+      });
+
+  server.registerPost(
+      R"(/v1/task/(.+))",
+      [&](proxygen::HTTPMessage* message,
+          const std::vector<std::string>& pathMatch) {
+        return createOrUpdateTask(message, pathMatch);
       });
 
   server.registerDelete(
