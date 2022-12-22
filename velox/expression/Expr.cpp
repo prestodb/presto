@@ -1613,7 +1613,12 @@ ExprSet::~ExprSet() {
       std::unordered_set<const exec::Expr*> uniqueExprs;
       std::vector<std::string> sqls;
       for (const auto& expr : exprs()) {
-        sqls.emplace_back(expr->toSql());
+        try {
+          sqls.emplace_back(expr->toSql());
+        } catch (const std::exception& e) {
+          LOG_EVERY_N(WARNING, 100) << "Failed to generate SQL: " << e.what();
+          sqls.emplace_back("<failed to generate>");
+        }
         addStats(*expr, stats, uniqueExprs);
       }
 

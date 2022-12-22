@@ -213,6 +213,8 @@ void appendSqlLiteral(
       break;
     }
     default:
+      // TODO: update ExprStatsTest.exceptionPreparingStatsForListener once
+      // support for VARBINARY is added.
       VELOX_UNSUPPORTED(
           "Type not supported yet: {}", vector.type()->toString());
   }
