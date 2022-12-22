@@ -24,6 +24,9 @@ import tempfile
 import traceback
 import uuid
 
+from collections import defaultdict
+
+
 _OUTPUT_NUM_COLS = 100
 
 
@@ -61,65 +64,117 @@ def fmt_runtime(time_ns):
         return "{:.2f}ms".format(time_usec / 1000)
 
 
+def get_retry_name(args, file_name):
+    """
+    Extract the subdir name between the base path and file name, and use that
+    as the retry name. Top level files will have retry name set to "."
+    """
+    path = _normalize_path(file_name)
+    try:
+        parent_path = path.relative_to(_normalize_path(args.target_path))
+    except:
+        parent_path = path.relative_to(_normalize_path(args.baseline_path))
+    return str(parent_path.parent)
+
+
 def compare_file(args, target_data, baseline_data):
-    baseline_map = {}
-    for row in baseline_data:
-        baseline_map[get_benchmark_handle(row[0], row[1])] = row[2]
+    def preprocess_data(input_map):
+        output_map = defaultdict(dict)
+        for file_name, data in input_map.items():
+            retry = get_retry_name(args, file_name)
+            for row in data:
+                # Folly benchmark exports line separators by mistake as an entry on
+                # the json file.
+                if row[1] == "-":
+                    continue
+                output_map[(row[0], row[1])][retry] = row[2]
+        return output_map
+
+    baseline_map = preprocess_data(baseline_data)
+    target_map = preprocess_data(target_data)
 
     passes = []
     faster = []
     failures = []
 
-    for row in target_data:
-        # Folly benchmark exports line separators by mistake as an entry on
-        # the json file.
-        if row[1] == "-":
+    # Iterate over each benchmark.
+    for handle, target_values in target_map.items():
+        retries = len(baseline_map[handle])
+        if retries != len(target_values):
+            print("Wrong number of retries found. Skipping '{}'".format(handle))
             continue
 
-        benchmark_handle = get_benchmark_handle(row[0], row[1])
-        baseline_result = baseline_map[benchmark_handle]
-        target_result = row[2]
+        # Iterate over each retry. The first iteration is always the full
+        # execution, then optionally a few retries.
+        for retry, target_result in sorted(target_values.items()):
+            is_last = retry == sorted(target_values.keys())[-1]
+            is_first = retry == "."
+            baseline_result = baseline_map[handle][retry]
 
-        if baseline_result == 0 or target_result == 0:
-            delta = 0
-        elif baseline_result > target_result:
-            delta = 1 - (target_result / baseline_result)
-        else:
-            delta = (1 - (baseline_result / target_result)) * -1
-
-        if abs(delta) > args.threshold:
-            if delta > 0:
-                status = color_green("🗲 Pass")
-                passes.append((row[0], row[1], delta))
-                faster.append((row[0], row[1], delta))
+            # Calculate delta between baseline and target results.
+            if baseline_result == 0 or target_result == 0:
+                delta = 0
+            elif baseline_result > target_result:
+                delta = 1 - (target_result / baseline_result)
             else:
-                status = color_red("✗ Fail")
-                failures.append((row[0], row[1], delta))
-        else:
-            status = color_green("✓ Pass")
-            passes.append((row[0], row[1], delta))
+                delta = (1 - (baseline_result / target_result)) * -1
 
-        suffix = "({} vs {}) {:+.2f}%".format(
-            fmt_runtime(baseline_result), fmt_runtime(target_result), delta * 100
-        )
+            # Set status message based on the delta and number of retries.
+            if not is_last:
+                if delta > 0:
+                    status = color_yellow("🗲 Redo")
+                else:
+                    status = color_yellow("✗ Redo")
 
-        # Prefix length is 12 bytes (considering utf8 and invisible chars).
-        spacing = " " * (_OUTPUT_NUM_COLS - (12 + len(benchmark_handle) + len(suffix)))
-        print("    {}: {}{}{}".format(status, benchmark_handle, spacing, suffix))
+            # If there are no more retries and this exceeded the threshold.
+            elif abs(delta) > args.threshold:
+                if delta > 0:
+                    status = color_green("🗲 Pass")
+                    passes.append((handle[0], handle[1], delta))
+                    faster.append((handle[0], handle[1], delta))
+                else:
+                    status = color_red("✗ Fail")
+                    failures.append((handle[0], handle[1], delta))
+            else:
+                status = color_green("✓ Pass")
+                passes.append((handle[0], handle[1], delta))
+
+            suffix = "({} vs {}) {:+.2f}%".format(
+                fmt_runtime(baseline_result), fmt_runtime(target_result), delta * 100
+            )
+            bm_handle = get_benchmark_handle(*handle)
+
+            # Add retry information.
+            if not is_first:
+                bm_handle += " ({})".format(retry)
+                status = "  " + status
+
+            spacing = " " * (
+                _OUTPUT_NUM_COLS - (len(status) + len(bm_handle) + len(suffix) - 4)
+            )
+            print("    {}: {}{}{}".format(status, bm_handle, spacing, suffix))
 
     return passes, faster, failures
 
 
-def find_json_files(path):
-    json_files = {}
-    try:
-        with os.scandir(path) as files:
-            for file_found in files:
-                if file_found.name.endswith(".json"):
-                    json_files[file_found.name] = file_found.path
-    except:
-        pass
+def find_json_files(path: pathlib.Path, recursive=False):
+    """Finds json files in a given directory. Supports recursive searchs."""
+    pattern = "*.json"
+    files = path.rglob(pattern) if recursive else path.glob(pattern)
+    json_files = defaultdict(list)
+
+    for path in files:
+        json_files[path.name] += [path.resolve()]
     return json_files
+
+
+def read_json_files(file_names):
+    """Reads a sequence of json files and returns their contents in a dict: {file_name: content}"""
+    output_map = {}
+    for file_name in file_names:
+        with open(file_name) as f:
+            output_map[file_name] = json.load(f)
+    return output_map
 
 
 def compare(args):
@@ -132,8 +187,8 @@ def compare(args):
     print("=>    (positive means speedup; negative means regression).")
 
     # Read file lists from both directories.
-    baseline_map = find_json_files(args.baseline_path)
-    target_map = find_json_files(args.target_path)
+    baseline_map = find_json_files(pathlib.Path(args.baseline_path), args.recursive)
+    target_map = find_json_files(pathlib.Path(args.target_path), args.recursive)
 
     all_passes = []
     all_faster = []
@@ -153,12 +208,8 @@ def compare(args):
             print("WARNING: baseline file for '%s' not found. Skipping." % file_name)
             continue
 
-        # Open and read each file.
-        with open(target_path) as f:
-            target_data = json.load(f)
-
-        with open(baseline_map[file_name]) as f:
-            baseline_data = json.load(f)
+        target_data = read_json_files(target_path)
+        baseline_data = read_json_files(baseline_map[file_name])
 
         passes, faster, failures = compare_file(args, target_data, baseline_data)
         all_passes += passes
@@ -177,7 +228,8 @@ def compare(args):
     # Write rerun log to output file.
     if args.rerun_json_output:
         with open(args.rerun_json_output, "w") as out_file:
-            out_file.write(json.dumps(rerun_log, indent=4))
+            if rerun_log:
+                out_file.write(json.dumps(rerun_log, indent=4))
 
     # Print a nice summary of the results:
     print("Summary ({}% threshold):".format(args.threshold * 100))
@@ -191,7 +243,8 @@ def compare(args):
     if all_failures:
         print(color_red("  Fail: %d" % len(all_failures)))
         print_list(all_failures)
-        return 1
+        if not args.do_not_fail:
+            return 1
     return 0
 
 
@@ -473,6 +526,19 @@ def parse_args():
         help="File where the rerun output will be saved. Redo output contains "
         "information about the failed benchmarks (the ones where the variation "
         "exceeded the threshold).",
+    )
+    parser_compare.add_argument(
+        "--recursive",
+        default=False,
+        action="store_true",
+        help="Looks for json files recursively, understanding subdirs as "
+        "retries and printing the output accordingly.",
+    )
+    parser_compare.add_argument(
+        "--do_not_fail",
+        default=False,
+        action="store_true",
+        help="Do not return failure code if comparisons fail.",
     )
     return parser.parse_args()
 

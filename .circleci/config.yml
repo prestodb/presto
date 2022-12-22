@@ -363,7 +363,6 @@ jobs:
       VELOX_DEPENDENCY_SOURCE: BUNDLED
       BASELINE_OUTPUT_PATH: "benchmark-results/baseline/"
       TARGET_OUTPUT_PATH: "benchmark-results/target/"
-      RERUN_JSON_OUTPUT: "benchmark-results/rerun_json_output.json"
     steps:
       - checkout
       - update-submodules
@@ -391,28 +390,41 @@ jobs:
             ./scripts/benchmark-runner.py compare \
                 --baseline_path ${BASELINE_OUTPUT_PATH} \
                 --target_path ${TARGET_OUTPUT_PATH} \
-                --rerun_json_output ${RERUN_JSON_OUTPUT} || true
+                --rerun_json_output "benchmark-results/rerun_json_output_0.json" \
+                --do_not_fail
       - run:
           name: "Run Benchmarks - Reruns"
           command: |
 
             for i in 1 2 3 4 5; do
-              if [ ! -s "${RERUN_JSON_OUTPUT}" ]; then
+              CURRENT_JSON_RERUN="benchmark-results/rerun_json_output_$((${i} - 1)).json"
+              NEXT_JSON_RERUN="benchmark-results/rerun_json_output_${i}.json"
+
+              if [ ! -s "${CURRENT_JSON_RERUN}" ]; then
                 echo "--> Rerun iteration ${i} found empty file. Finalizing."
                 break
               fi
               echo "--> Starting rerun iteration: ${i}"
 
               make benchmarks-basic-run \
-                  EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT}"
+                  EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN}"
               make benchmarks-basic-run \
-                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${RERUN_JSON_OUTPUT} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
+                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
 
               ./scripts/benchmark-runner.py compare \
                   --baseline_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ \
                   --target_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ \
-                  --rerun_json_output ${RERUN_JSON_OUTPUT} || true
+                  --rerun_json_output ${NEXT_JSON_RERUN} \
+                  --do_not_fail
             done
+      - run:
+          name: "Run Benchmarks - Summary"
+          command: |
+            ./scripts/benchmark-runner.py compare \
+                --baseline_path ${BASELINE_OUTPUT_PATH} \
+                --target_path ${TARGET_OUTPUT_PATH} \
+                --recursive \
+                --do_not_fail
       - store_artifacts:
           path: "benchmark-results"
       - post-steps
