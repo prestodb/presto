@@ -25,12 +25,12 @@ import static java.util.Objects.requireNonNull;
 public class BatchTaskUpdateRequest
 {
     private final TaskUpdateRequest taskUpdateRequest;
-    private final Optional<byte[]> shuffleWriteInfo;
+    private final Optional<String> shuffleWriteInfo;
 
     @JsonCreator
     public BatchTaskUpdateRequest(
             @JsonProperty("taskUpdateRequest") TaskUpdateRequest taskUpdateRequest,
-            @JsonProperty("shuffleWriteInfo") Optional<byte[]> shuffleWriteInfo)
+            @JsonProperty("shuffleWriteInfo") Optional<String> shuffleWriteInfo)
     {
         this.taskUpdateRequest = requireNonNull(taskUpdateRequest, "taskUpdateRequest is null");
         this.shuffleWriteInfo = requireNonNull(shuffleWriteInfo, "shuffleWriteInfo is null");
@@ -43,7 +43,7 @@ public class BatchTaskUpdateRequest
     }
 
     @JsonProperty
-    public Optional<byte[]> getShuffleWriteInfo()
+    public Optional<String> getShuffleWriteInfo()
     {
         return shuffleWriteInfo;
     }

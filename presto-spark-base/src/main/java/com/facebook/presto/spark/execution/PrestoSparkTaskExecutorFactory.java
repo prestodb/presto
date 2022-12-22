@@ -595,7 +595,8 @@ public class PrestoSparkTaskExecutorFactory
                         fragment,
                         blockEncodingSerde,
                         processFactory,
-                        taskFactory)));
+                        taskFactory,
+                        shuffleWriteInfo.map(shuffleInfoTranslator::createSerializedWriteInfo))));
 
         taskStateMachine.addStateChangeListener(state -> {
             if (state.isDone()) {
