@@ -1088,12 +1088,6 @@ std::shared_ptr<const MapType> MAP(
     std::shared_ptr<const Type> keyType,
     std::shared_ptr<const Type> valType);
 
-std::shared_ptr<const TimestampType> TIMESTAMP();
-
-std::shared_ptr<const DateType> DATE();
-
-std::shared_ptr<const IntervalDayTimeType> INTERVAL_DAY_TIME();
-
 std::shared_ptr<const ShortDecimalType> SHORT_DECIMAL(
     uint8_t precision,
     uint8_t scale);
