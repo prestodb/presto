@@ -48,8 +48,6 @@ struct LocalShuffleInfo {
 /// this class (pointing to the same root path) to read and write shuffle data.
 class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
  public:
-  static constexpr folly::StringPiece kShuffleName{"local"};
-
   LocalPersistentShuffle(
       const std::string& rootPath,
       uint32_t numPartitions,
@@ -103,6 +101,7 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
 class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
  public:
+  static constexpr folly::StringPiece kShuffleName{"local"};
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedStr,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) override;

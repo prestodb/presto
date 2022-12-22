@@ -50,8 +50,6 @@ struct TestShuffleInfo {
 
 class TestShuffle : public ShuffleReader, public ShuffleWriter {
  public:
-  static constexpr std::string_view kShuffleName = "test-shuffle";
-
   TestShuffle(
       memory::MemoryPool* pool,
       uint32_t numPartitions,
@@ -171,6 +169,8 @@ class TestShuffle : public ShuffleReader, public ShuffleWriter {
 
 class TestShuffleFactory : public ShuffleInterfaceFactory {
  public:
+  static constexpr std::string_view kShuffleName = "test-shuffle";
+
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
@@ -252,10 +252,10 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   void registerVectorSerde() override {
     serializer::spark::UnsafeRowVectorSerde::registerVectorSerde();
     ShuffleInterfaceFactory::registerFactory(
-        std::string(TestShuffle::kShuffleName),
+        std::string(TestShuffleFactory::kShuffleName),
         std::make_unique<TestShuffleFactory>());
     ShuffleInterfaceFactory::registerFactory(
-        std::string(LocalPersistentShuffle::kShuffleName),
+        std::string(LocalPersistentShuffleFactory::kShuffleName),
         std::make_unique<LocalPersistentShuffleFactory>());
   }
 
@@ -440,7 +440,7 @@ TEST_F(UnsafeRowShuffleTest, operators) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .localPartition({})
                   .addNode(addShuffleWriteNode(
-                      std::string(TestShuffle::kShuffleName), info))
+                      std::string(TestShuffleFactory::kShuffleName), info))
                   .planNode();
 
   exec::test::CursorParameters params;
@@ -469,7 +469,7 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   TestShuffle::create(shuffleInfo, pool());
   registerExchangeSource(TestShuffle::getInstance());
   runShuffleTest(
-      std::string(TestShuffle::kShuffleName),
+      std::string(TestShuffleFactory::kShuffleName),
       shuffleInfo,
       numPartitions,
       numMapDrivers,
@@ -537,7 +537,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
       rootPath, numPartitions, 1 << 20 /* 1MB */, pool());
   registerExchangeSource(localShuffle);
   runShuffleTest(
-      std::string(LocalPersistentShuffle::kShuffleName),
+      std::string(LocalPersistentShuffleFactory::kShuffleName),
       shuffleInfo,
       numPartitions,
       numMapDrivers,
@@ -611,7 +611,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffleFuzz) {
         rootPath, numPartitions, 1 << 15, pool());
     registerExchangeSource(localShuffle);
     runShuffleTest(
-        std::string(LocalPersistentShuffle::kShuffleName),
+        std::string(LocalPersistentShuffleFactory::kShuffleName),
         shuffleInfo,
         numPartitions,
         numMapDrivers,
@@ -658,7 +658,7 @@ TEST_F(UnsafeRowShuffleTest, shuffleWriterToString) {
                   .addNode(addPartitionAndSerializeNode(4))
                   .localPartition({})
                   .addNode(addShuffleWriteNode(
-                      std::string(TestShuffle::kShuffleName),
+                      std::string(TestShuffleFactory::kShuffleName),
                       fmt::format(kTestShuffleInfoFormat, 10, 10)))
                   .planNode();
 
