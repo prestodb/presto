@@ -98,7 +98,7 @@ public class TestBatchTaskUpdateRequest
                 createInitialEmptyOutputBuffers(PARTITIONED),
                 Optional.of(new TableWriteInfo(Optional.empty(), Optional.empty(), Optional.empty())));
         String shuffleWriteInfo = "dummy-shuffle-write-info";
-        BatchTaskUpdateRequest batchUpdateRequest = new BatchTaskUpdateRequest(updateRequest, Optional.of(shuffleWriteInfo.getBytes()));
+        BatchTaskUpdateRequest batchUpdateRequest = new BatchTaskUpdateRequest(updateRequest, Optional.of(shuffleWriteInfo));
         JsonCodec<BatchTaskUpdateRequest> batchTaskUpdateRequestJsonCodec = getJsonCodec();
         byte[] batchUpdateRequestJson = batchTaskUpdateRequestJsonCodec.toBytes(batchUpdateRequest);
         BatchTaskUpdateRequest recoveredBatchUpdateRequest = batchTaskUpdateRequestJsonCodec.fromBytes(batchUpdateRequestJson);
