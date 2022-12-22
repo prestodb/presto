@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(
-  velox_hive_connector_test HivePartitionFunctionTest.cpp FileHandleTest.cpp
-                            HiveWriteProtocolTest.cpp)
+  velox_hive_connector_test
+  HivePartitionFunctionTest.cpp FileHandleTest.cpp HiveWriteProtocolTest.cpp
+  PartitionIdGeneratorTest.cpp)
 add_test(velox_hive_connector_test velox_hive_connector_test)
 
 target_link_libraries(
