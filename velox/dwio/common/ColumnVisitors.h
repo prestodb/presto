@@ -851,9 +851,17 @@ class DictionaryColumnVisitor
           dictMask,
           reinterpret_cast<const int32_t*>(filterCache() - 3),
           indices);
+#if defined(__aarch64__)
+      auto tmpCache = (cache & (kUnknown << 24)) << 1;
+      auto unknowns = simd::toBitMask(xsimd::batch_bool<int32_t>(
+          *(reinterpret_cast<uint32x4_t*>(&tmpCache))));
+      auto passed = simd::toBitMask(
+          xsimd::batch_bool<int32_t>(*(reinterpret_cast<uint32x4_t*>(&cache))));
+#else
       auto unknowns = simd::toBitMask(
           xsimd::batch_bool<int32_t>((cache & (kUnknown << 24)) << 1));
       auto passed = simd::toBitMask(xsimd::batch_bool<int32_t>(cache));
+#endif
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         // Ranges only over inputs that are in dictionary, the not in dictionary
@@ -1209,9 +1217,17 @@ class StringDictionaryColumnVisitor
       } else {
         cache = simd::gather<int32_t, int32_t, 1>(base, indices);
       }
+#if defined(__aarch64__)
+      auto tmpCache = (cache & (kUnknown << 24)) << 1;
+      auto unknowns = simd::toBitMask(xsimd::batch_bool<int32_t>(
+          *(reinterpret_cast<uint32x4_t*>(&tmpCache))));
+      auto passed = simd::toBitMask(
+          xsimd::batch_bool<int32_t>(*(reinterpret_cast<uint32x4_t*>(&cache))));
+#else
       auto unknowns = simd::toBitMask(
           xsimd::batch_bool<int32_t>((cache & (kUnknown << 24)) << 1));
       auto passed = simd::toBitMask(xsimd::batch_bool<int32_t>(cache));
+#endif
       if (UNLIKELY(unknowns)) {
         uint16_t bits = unknowns;
         while (bits) {

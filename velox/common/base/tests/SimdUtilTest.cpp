@@ -110,6 +110,14 @@ class SimdUtilTest : public testing::Test {
   folly::Random::DefaultGenerator rng_;
 };
 
+TEST_F(SimdUtilTest, setAll) {
+  auto bits = simd::setAll(true);
+  auto words = reinterpret_cast<int64_t*>(&bits);
+  for (int i = 0; i < xsimd::batch<int64_t>::size; ++i) {
+    EXPECT_EQ(words[i], -1ll);
+  }
+}
+
 TEST_F(SimdUtilTest, bitIndices) {
   testIndices(1);
   testIndices(10);
