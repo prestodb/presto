@@ -136,7 +136,7 @@ TEST_F(PlanConverterTest, scanAggBatch) {
   filesystems::registerLocalFileSystem();
   auto root = assertToBatchVeloxQueryPlan(
       "ScanAggBatch.json",
-      std::string(operators::LocalPersistentShuffle::kShuffleName),
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
       std::make_shared<std::string>(fmt::format(
           "{{\n"
           "  \"rootPath\": \"{}\",\n"
