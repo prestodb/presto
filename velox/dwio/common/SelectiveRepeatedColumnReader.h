@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "velox/dwio/common/BufferUtil.h"
-#include "velox/dwio/common/SelectiveColumnReaderInternal.h"
+#include "velox/dwio/common/SelectiveColumnReader.h"
 
 namespace facebook::velox::dwio::common {
 
@@ -54,102 +53,12 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
       int32_t numLengths,
       const uint64_t* FOLLY_NULLABLE nulls) = 0;
 
-  void makeNestedRowSet(RowSet rows) {
-    allLengths_.resize(rows.back() + 1);
-    assert(!allLengths_.empty()); // for lint only.
-    auto nulls =
-        nullsInReadRange_ ? nullsInReadRange_->as<uint64_t>() : nullptr;
-    // Reads the lengths, leaves an uninitialized gap for a null
-    // map/list. Reading these checks the null nask.
-    readLengths(allLengths_.data(), rows.back() + 1, nulls);
-    dwio::common::ensureCapacity<vector_size_t>(
-        offsets_, rows.size(), &memoryPool_);
-    dwio::common::ensureCapacity<vector_size_t>(
-        sizes_, rows.size(), &memoryPool_);
-    auto rawOffsets = offsets_->asMutable<vector_size_t>();
-    auto rawSizes = sizes_->asMutable<vector_size_t>();
-    vector_size_t nestedLength = 0;
-    for (auto row : rows) {
-      if (!nulls || !bits::isBitNull(nulls, row)) {
-        nestedLength += allLengths_[row];
-      }
-    }
-    nestedRows_.resize(nestedLength);
-    vector_size_t currentRow = 0;
-    vector_size_t nestedRow = 0;
-    vector_size_t nestedOffset = 0;
-    for (auto rowIndex = 0; rowIndex < rows.size(); ++rowIndex) {
-      auto row = rows[rowIndex];
-      // Add up the lengths of non-null rows skipped since the last
-      // non-null.
-      for (auto i = currentRow; i < row; ++i) {
-        if (!nulls || !bits::isBitNull(nulls, i)) {
-          nestedOffset += allLengths_[i];
-        }
-      }
-      currentRow = row + 1;
-      // Check if parent is null after adding up the lengths leading
-      // up to this. If null, add a null to the result and keep
-      // looping. If the null is last, the lengths will all have been
-      // added up.
-      if (nulls && bits::isBitNull(nulls, row)) {
-        rawOffsets[rowIndex] = 0;
-        rawSizes[rowIndex] = 0;
-        bits::setNull(rawResultNulls_, rowIndex);
-        anyNulls_ = true;
-        continue;
-      }
+  // Create row set for child columns based on the row set of parent column.
+  void makeNestedRowSet(RowSet rows);
 
-      auto lengthAtRow = allLengths_[row];
-      std::iota(
-          &nestedRows_[nestedRow],
-          &nestedRows_[nestedRow + lengthAtRow],
-          nestedOffset);
-      rawOffsets[rowIndex] = nestedRow;
-      rawSizes[rowIndex] = lengthAtRow;
-      nestedRow += lengthAtRow;
-      nestedOffset += lengthAtRow;
-    }
-    childTargetReadOffset_ += nestedOffset;
-  }
-
-  void compactOffsets(RowSet rows) {
-    auto rawOffsets = offsets_->asMutable<vector_size_t>();
-    auto rawSizes = sizes_->asMutable<vector_size_t>();
-    VELOX_CHECK(
-        outputRows_.empty(), "Repeated reader does not support filters");
-    RowSet rowsToCompact;
-    if (valueRows_.empty()) {
-      valueRows_.resize(rows.size());
-      rowsToCompact = inputRows_;
-    } else {
-      rowsToCompact = valueRows_;
-    }
-    if (rows.size() == rowsToCompact.size()) {
-      return;
-    }
-
-    int32_t current = 0;
-    bool moveNulls = shouldMoveNulls(rows);
-    for (int i = 0; i < rows.size(); ++i) {
-      auto row = rows[i];
-      while (rowsToCompact[current] < row) {
-        ++current;
-      }
-      VELOX_CHECK(rowsToCompact[current] == row);
-      valueRows_[i] = row;
-      rawOffsets[i] = rawOffsets[current];
-      rawSizes[i] = rawSizes[current];
-      if (moveNulls && i != current) {
-        bits::setBit(
-            rawResultNulls_, i, bits::isBitSet(rawResultNulls_, current));
-      }
-    }
-    numValues_ = rows.size();
-    valueRows_.resize(numValues_);
-    offsets_->setSize(numValues_ * sizeof(vector_size_t));
-    sizes_->setSize(numValues_ * sizeof(vector_size_t));
-  }
+  // Compact the output rows (along with the offsets and lengths) based on the
+  // current filtered rows passed in.
+  void compactOffsets(RowSet rows);
 
   // Creates a struct if '*result' is empty and 'type' is a row.
   void prepareStructResult(
@@ -159,6 +68,10 @@ class SelectiveRepeatedColumnReader : public SelectiveColumnReader {
       *result = BaseVector::create(type, 0, &memoryPool_);
     }
   }
+
+  // Apply filter on parent level.  Child filtering should be handled separately
+  // in subclasses.
+  RowSet applyFilter(RowSet rows);
 
   std::vector<int32_t> allLengths_;
   raw_vector<vector_size_t> nestedRows_;

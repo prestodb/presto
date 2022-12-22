@@ -1544,6 +1544,71 @@ TEST_F(TableScanTest, stringNotEqualFilter) {
       "SELECT * FROM tmp WHERE c1 != ''");
 }
 
+TEST_F(TableScanTest, arrayIsNullFilter) {
+  std::vector<RowVectorPtr> vectors(3);
+  auto filePaths = makeFilePaths(vectors.size());
+  for (int i = 0; i < vectors.size(); ++i) {
+    auto isNullAt = [&](vector_size_t j) {
+      // Non-nulls for first file, all nulls for second file, half nulls for
+      // third file.
+      return i == 0 ? false : i == 1 ? true : j % 2 != 0;
+    };
+    auto c0 = makeArrayVector<int64_t>(
+        100,
+        [](vector_size_t i) { return 3 + i % 3; },
+        [](vector_size_t, vector_size_t j) { return j; },
+        isNullAt);
+    vectors[i] = makeRowVector({"c0"}, {c0});
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  createDuckDbTable(vectors);
+  auto rowType = asRowType(vectors[0]->type());
+  auto makePlan = [&](const std::vector<std::string>& filters) {
+    return PlanBuilder().tableScan(rowType, filters).planNode();
+  };
+  assertQuery(
+      makePlan({"c0 is not null"}),
+      filePaths,
+      "SELECT * FROM tmp WHERE c0 is not null");
+  assertQuery(
+      makePlan({"c0 is null"}),
+      filePaths,
+      "SELECT * FROM tmp WHERE c0 is null");
+}
+
+TEST_F(TableScanTest, mapIsNullFilter) {
+  std::vector<RowVectorPtr> vectors(3);
+  auto filePaths = makeFilePaths(vectors.size());
+  for (int i = 0; i < vectors.size(); ++i) {
+    auto isNullAt = [&](vector_size_t j) {
+      // Non-nulls for first file, all nulls for second file, half nulls for
+      // third file.
+      return i == 0 ? false : i == 1 ? true : j % 2 != 0;
+    };
+    auto c0 = makeMapVector<int64_t, int64_t>(
+        100,
+        [](vector_size_t i) { return 3 + i % 3; },
+        [](vector_size_t j) { return j; },
+        [](vector_size_t j) { return 2 * j; },
+        isNullAt);
+    vectors[i] = makeRowVector({"c0"}, {c0});
+    writeToFile(filePaths[i]->path, vectors[i]);
+  }
+  createDuckDbTable(vectors);
+  auto rowType = asRowType(vectors[0]->type());
+  auto makePlan = [&](const std::vector<std::string>& filters) {
+    return PlanBuilder().tableScan(rowType, filters).planNode();
+  };
+  assertQuery(
+      makePlan({"c0 is not null"}),
+      filePaths,
+      "SELECT * FROM tmp WHERE c0 is not null");
+  assertQuery(
+      makePlan({"c0 is null"}),
+      filePaths,
+      "SELECT * FROM tmp WHERE c0 is null");
+}
+
 TEST_F(TableScanTest, remainingFilter) {
   auto rowType = ROW(
       {"c0", "c1", "c2", "c3"}, {INTEGER(), INTEGER(), DOUBLE(), BOOLEAN()});
