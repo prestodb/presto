@@ -1137,7 +1137,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
       joinType = core::JoinType::kLeftSemiFilter;
     } else if (auto notCall = isNot(node->predicate)) {
       if (equal(notCall->arguments[0], semiJoin->semiJoinOutput)) {
-        joinType = core::JoinType::kNullAwareAnti;
+        joinType = core::JoinType::kAnti;
       }
     }
 
@@ -1166,6 +1166,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
           std::make_shared<core::HashJoinNode>(
               semiJoin->id,
               core::JoinType::kLeftSemiProject,
+              false,
               leftKeys,
               rightKeys,
               nullptr, // filter
@@ -1192,6 +1193,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
         std::make_shared<core::HashJoinNode>(
             semiJoin->id,
             joinType.value(),
+            joinType == core::JoinType::kAnti ? true : false,
             leftKeys,
             rightKeys,
             nullptr, // filter
@@ -1598,6 +1600,7 @@ core::PlanNodePtr VeloxQueryPlanConverter::toVeloxQueryPlan(
   return std::make_shared<core::HashJoinNode>(
       node->id,
       joinType,
+      false,
       leftKeys,
       rightKeys,
       node->filter ? exprConverter_.toVeloxExpr(*node->filter) : nullptr,
