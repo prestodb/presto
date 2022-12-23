@@ -65,7 +65,3 @@ target_link_libraries(velox_like_functions_benchmark ${velox_benchmark_deps}
 add_executable(velox_benchmark_basic_vector_fuzzer VectorFuzzer.cpp)
 target_link_libraries(velox_benchmark_basic_vector_fuzzer
                       ${velox_benchmark_deps} velox_vector_test_lib)
-
-add_executable(velox_memory_alloc_benchmark MemoryAllocationBenchmark.cpp)
-target_link_libraries(velox_memory_alloc_benchmark ${velox_benchmark_deps}
-                      velox_memory pthread)
