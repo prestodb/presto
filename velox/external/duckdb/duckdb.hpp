@@ -1030,7 +1030,7 @@ struct LogicalType {
 	inline LogicalType& operator=(LogicalType&& other) noexcept {
 		id_ = other.id_;
 		physical_type_ = other.physical_type_;
-		type_info_ = move(other.type_info_);
+		type_info_ = std::move(other.type_info_);
 		return *this;
 	}
 
@@ -1245,7 +1245,7 @@ bool ApproxEqual(float l, float r);
 bool ApproxEqual(double l, double r);
 
 struct aggregate_state_t {
-	aggregate_state_t(string function_name_p, LogicalType return_type_p, vector<LogicalType> bound_argument_types_p) : function_name(move(function_name_p)), return_type(move(return_type_p)), bound_argument_types(move(bound_argument_types_p)) {
+	aggregate_state_t(string function_name_p, LogicalType return_type_p, vector<LogicalType> bound_argument_types_p) : function_name(std::move(function_name_p)), return_type(std::move(return_type_p)), bound_argument_types(std::move(bound_argument_types_p)) {
 	}
 
 	string function_name;
@@ -2220,7 +2220,7 @@ struct SelectionVector {
 		Initialize(sel_vector);
 	}
 	explicit SelectionVector(buffer_ptr<SelectionData> data) {
-		Initialize(move(data));
+		Initialize(std::move(data));
 	}
 
 public:
@@ -2233,7 +2233,7 @@ public:
 		sel_vector = selection_data->owned_data.get();
 	}
 	void Initialize(buffer_ptr<SelectionData> data) {
-		selection_data = move(data);
+		selection_data = std::move(data);
 		sel_vector = selection_data->owned_data.get();
 	}
 	void Initialize(const SelectionVector &other) {
@@ -3706,7 +3706,7 @@ public:
 		}
 	}
 	explicit VectorBuffer(unique_ptr<data_t[]> data_p)
-	    : buffer_type(VectorBufferType::STANDARD_BUFFER), data(move(data_p)) {
+	    : buffer_type(VectorBufferType::STANDARD_BUFFER), data(std::move(data_p)) {
 	}
 	virtual ~VectorBuffer() {
 	}
@@ -3719,7 +3719,7 @@ public:
 	}
 
 	void SetData(unique_ptr<data_t[]> new_data) {
-		data = move(new_data);
+		data = std::move(new_data);
 	}
 
 	VectorAuxiliaryData *GetAuxiliaryData() {
@@ -3727,7 +3727,7 @@ public:
 	}
 
 	void SetAuxiliaryData(unique_ptr<VectorAuxiliaryData> aux_data_p) {
-		aux_data = move(aux_data_p);
+		aux_data = std::move(aux_data_p);
 	}
 
 	static buffer_ptr<VectorBuffer> CreateStandardVector(PhysicalType type, idx_t capacity = STANDARD_VECTOR_SIZE);
@@ -3757,7 +3757,7 @@ public:
 	    : VectorBuffer(VectorBufferType::DICTIONARY_BUFFER), sel_vector(sel) {
 	}
 	explicit DictionaryBuffer(buffer_ptr<SelectionData> data)
-	    : VectorBuffer(VectorBufferType::DICTIONARY_BUFFER), sel_vector(move(data)) {
+	    : VectorBuffer(VectorBufferType::DICTIONARY_BUFFER), sel_vector(std::move(data)) {
 	}
 	explicit DictionaryBuffer(idx_t count = STANDARD_VECTOR_SIZE)
 	    : VectorBuffer(VectorBufferType::DICTIONARY_BUFFER), sel_vector(count) {
@@ -3797,7 +3797,7 @@ public:
 	}
 
 	void AddHeapReference(buffer_ptr<VectorBuffer> heap) {
-		references.push_back(move(heap));
+		references.push_back(std::move(heap));
 	}
 
 private:
@@ -4042,7 +4042,7 @@ protected:
 //! The DictionaryBuffer holds a selection vector
 class VectorChildBuffer : public VectorBuffer {
 public:
-	VectorChildBuffer(Vector vector) : VectorBuffer(VectorBufferType::VECTOR_CHILD_BUFFER), data(move(vector)) {
+	VectorChildBuffer(Vector vector) : VectorBuffer(VectorBufferType::VECTOR_CHILD_BUFFER), data(std::move(vector)) {
 	}
 
 public:
@@ -6366,7 +6366,7 @@ struct QualifiedName {
 struct QualifiedColumnName {
 	QualifiedColumnName() {
 	}
-	QualifiedColumnName(string table_p, string column_p) : table(move(table_p)), column(move(column_p)) {
+	QualifiedColumnName(string table_p, string column_p) : table(std::move(table_p)), column(std::move(column_p)) {
 	}
 
 	string schema;
@@ -7966,7 +7966,7 @@ public:
 //! Single node in ORDER BY statement
 struct OrderByNode {
 	OrderByNode(OrderType type, OrderByNullType null_order, unique_ptr<ParsedExpression> expression)
-	    : type(type), null_order(null_order), expression(move(expression)) {
+	    : type(type), null_order(null_order), expression(std::move(expression)) {
 	}
 
 	//! Sort order, ASC or DESC
@@ -9735,7 +9735,7 @@ public:
 	                                                 bind_aggregate_function_t bind = nullptr,
 	                                                 aggregate_destructor_t destructor = nullptr) {
 
-		AggregateFunction aggr_function(move(name), move(arguments), move(return_type), state_size, initialize, update,
+		AggregateFunction aggr_function(std::move(name), std::move(arguments), std::move(return_type), state_size, initialize, update,
 		                                combine, finalize, simple_update, bind, destructor);
 		return aggr_function;
 	}
@@ -10105,7 +10105,7 @@ public:
 			return nullptr;
 		}
 
-		auto res = move(chunks[0]);
+		auto res = std::move(chunks[0]);
 		chunks.erase(chunks.begin() + 0);
 		return res;
 	}
