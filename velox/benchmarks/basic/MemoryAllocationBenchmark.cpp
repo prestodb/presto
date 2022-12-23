@@ -95,7 +95,7 @@ class MemoryPoolAllocationBenchMark {
 
   void allocateZeroFilled() {
     const size_t size = allocSize();
-    const size_t numEntries = 1 + folly::Random().rand32() % size;
+    const size_t numEntries = 1 + folly::Random::rand32(size, rng_);
     const size_t sizeEach = size / numEntries;
     allocations_.emplace_back(
         pool_->allocateZeroFilled(numEntries, sizeEach), numEntries * sizeEach);
@@ -129,7 +129,7 @@ class MemoryPoolAllocationBenchMark {
   }
 
   size_t allocSize() {
-    return minSize_ + folly::Random().rand32(maxSize_ - minSize_ + 1);
+    return minSize_ + folly::Random::rand32(maxSize_ - minSize_ + 1, rng_);
   }
 
   const Type type_;

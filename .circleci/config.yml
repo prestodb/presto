@@ -25,7 +25,6 @@ workflows:
       - format-check
       - header-check
       - linux-benchmarks-basic
-      - linux-benchmarks-basic-dedicated
 
   # Daily documentation update
   nightly:
@@ -115,13 +114,19 @@ commands:
           path: '/tmp/test_xml_output/'
 
   build-benchmarks:
+    parameters:
+      binary_output:
+        type: string
+      benchmark_class:
+        type: string
     steps:
       - run:
-          name: "Build Benchmarks"
+          name: "Build Benchmarks - << parameters.benchmark_class >>"
           command: |
             make benchmarks-basic-build NUM_THREADS=16 MAX_HIGH_MEM_JOBS=8 MAX_LINK_JOBS=8
             ccache -s
-
+            mkdir -p << parameters.binary_output >>
+            cp -r --verbose _build/release/velox/benchmarks/basic/* << parameters.binary_output >>
 
   fuzzer-run:
     parameters:
@@ -321,38 +326,6 @@ jobs:
       - post-steps
 
   linux-benchmarks-basic:
-    executor: build
-    environment:
-      CONBENCH_URL: "https://velox-conbench.voltrondata.run/"
-      CONBENCH_HOST: "CircleCI-runner"
-      LINUX_DISTRO: "centos"
-      VELOX_DEPENDENCY_SOURCE: SYSTEM
-      ICU_SOURCE: BUNDLED
-    steps:
-      - pre-steps
-      - build-benchmarks
-      - run:
-          name: "Install benchmark dependencies"
-          command: |
-            # upgrade python to 3.8 for this job
-            yum install -y python38
-            # symlink to python3 so the shebang works later
-            ln -sf python3.8 $(which python3)
-            pip3.8 install -r scripts/benchmark-requirements.txt
-      - run:
-          name: "Run Benchmarks - Target"
-          command: |
-            make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}"
-      # TODO: Disabling conbench github notifications for now until results are more stable.
-      #- run:
-      #  name: "Analyze Benchmark Regressions and Post to Github"
-      #    command: |
-      #      export GITHUB_APP_PRIVATE_KEY=$(echo $GITHUB_APP_PRIVATE_KEY_ENCODED | base64 -d)
-      #      python3.8 scripts/benchmark-github-status.py --z-score-threshold 50
-      - post-steps
-
-  linux-benchmarks-basic-dedicated:
     machine:
       image: ubuntu-2004:current
     resource_class: 2xlarge
@@ -371,7 +344,26 @@ jobs:
           command: |
             sudo ./scripts/setup-ubuntu.sh
       - setup-environment
-      - build-benchmarks
+
+      # First we checkout main to build the baseline version of the benchmarks. 
+      - run:
+          name: "Checkout Main"
+          command: |
+            git checkout $(git merge-base origin/main HEAD)
+      - build-benchmarks:
+          benchmark_class: "Baseline"
+          binary_output: "_build/benchmarks/baseline/"
+
+      # Then we checkout the current PR branch to build the target (contender).
+      - run:
+          name: "Checkout Target"
+          command: |
+            git checkout -
+      - build-benchmarks:
+          benchmark_class: "Target"
+          binary_output: "_build/benchmarks/target/"
+
+      # Now we go ahead and run.
       - run:
           name: "Install benchmark dependencies"
           command: |
@@ -383,9 +375,9 @@ jobs:
             # stabilize benchmark runs. We should eventually have two different
             # set of binaries.
             make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}"
+                EXTRA_BENCHMARK_FLAGS="--binary_path _build/benchmarks/baseline/ --output_path ${BASELINE_OUTPUT_PATH}"
             make benchmarks-basic-run \
-                EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
+                EXTRA_BENCHMARK_FLAGS="--binary_path _build/benchmarks/target/ --output_path ${TARGET_OUTPUT_PATH} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
 
             ./scripts/benchmark-runner.py compare \
                 --baseline_path ${BASELINE_OUTPUT_PATH} \
@@ -407,9 +399,9 @@ jobs:
               echo "--> Starting rerun iteration: ${i}"
 
               make benchmarks-basic-run \
-                  EXTRA_BENCHMARK_FLAGS="--output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN}"
+                  EXTRA_BENCHMARK_FLAGS="--binary_path _build/benchmarks/baseline/ --output_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN}"
               make benchmarks-basic-run \
-                  EXTRA_BENCHMARK_FLAGS="--output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
+                  EXTRA_BENCHMARK_FLAGS="--binary_path _build/benchmarks/target/ --output_path ${TARGET_OUTPUT_PATH}/rerun-${i}/ --rerun_json_input ${CURRENT_JSON_RERUN} --conbench_upload_run_id CircleCI-${CIRCLE_BUILD_NUM}-dedicated"
 
               ./scripts/benchmark-runner.py compare \
                   --baseline_path ${BASELINE_OUTPUT_PATH}/rerun-${i}/ \
