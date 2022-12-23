@@ -55,7 +55,7 @@ HashBuild::HashBuild(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillConfig_(
-          isSpillAllowed()
+          joinNode_->canSpill(driverCtx->queryConfig())
               ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinBuild)
               : std::nullopt),
       spillGroup_(

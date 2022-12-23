@@ -43,7 +43,7 @@ HashAggregation::HashAggregation(
       maxExtendedPartialAggregationMemoryUsage_(
           driverCtx->queryConfig().maxExtendedPartialAggregationMemoryUsage()),
       spillConfig_(
-          isSpillAllowed(aggregationNode)
+          aggregationNode->canSpill(driverCtx->queryConfig())
               ? operatorCtx_->makeSpillConfig(Spiller::Type::kAggregate)
               : std::nullopt),
       maxPartialAggregationMemoryUsage_(
@@ -164,11 +164,6 @@ HashAggregation::HashAggregation(
       isRawInput(aggregationNode->step()),
       spillConfig_.has_value() ? &spillConfig_.value() : nullptr,
       operatorCtx_.get());
-}
-
-bool HashAggregation::isSpillAllowed(
-    const std::shared_ptr<const core::AggregationNode>& node) const {
-  return !isDistinct_ && node->preGroupedKeys().empty();
 }
 
 void HashAggregation::addInput(RowVectorPtr input) {

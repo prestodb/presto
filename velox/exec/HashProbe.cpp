@@ -129,7 +129,7 @@ HashProbe::HashProbe(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
       spillConfig_(
-          isSpillAllowed()
+          joinNode_->canSpill(driverCtx->queryConfig())
               ? operatorCtx_->makeSpillConfig(Spiller::Type::kHashJoinProbe)
               : std::nullopt),
       probeType_(joinNode_->sources()[0]->outputType()),

@@ -13,8 +13,8 @@
 # limitations under the License.
 
 add_executable(
-  velox_core_test TestPlanFragment.cpp TestPlanNode.cpp TestQueryConfig.cpp
-                  TestString.cpp TestTypeAnalysis.cpp)
+  velox_core_test PlanFragmentTest.cpp PlanNodeTest.cpp QueryConfigTest.cpp
+                  StringTest.cpp TypeAnalysisTest.cpp)
 
 add_test(velox_core_test velox_core_test)
 

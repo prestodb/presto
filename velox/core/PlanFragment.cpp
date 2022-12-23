@@ -22,30 +22,10 @@ bool PlanFragment::canSpill(const QueryConfig& queryConfig) const {
   if (not queryConfig.spillEnabled()) {
     return false;
   }
-
-  const bool aggregationSpillEnabled = queryConfig.aggregationSpillEnabled();
-  const bool orderBySpillEnabled = queryConfig.orderBySpillEnabled();
-  const bool joinSpillEnabled = queryConfig.joinSpillEnabled();
-
-  const auto canNodeSpillFunc = [&](const core::PlanNode* node) {
-    if (aggregationSpillEnabled) {
-      if (const auto* aggregationNode =
-              dynamic_cast<const core::AggregationNode*>(node)) {
-        if (aggregationNode->isFinal() || aggregationNode->isSingle()) {
-          return true;
-        }
-      }
-    }
-    if (orderBySpillEnabled && dynamic_cast<const core::OrderByNode*>(node)) {
-      return true;
-    }
-    if (joinSpillEnabled && dynamic_cast<const core::HashJoinNode*>(node)) {
-      return true;
-    }
-    return false;
-  };
-
-  return PlanNode::findFirstNode(planNode.get(), canNodeSpillFunc) != nullptr;
+  return PlanNode::findFirstNode(
+             planNode.get(), [&](const core::PlanNode* node) {
+               return node->canSpill(queryConfig);
+             }) != nullptr;
 }
 
 } // namespace facebook::velox::core

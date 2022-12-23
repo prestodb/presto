@@ -52,14 +52,6 @@ class HashAggregation : public Operator {
   }
 
  private:
-  // Checks if the spilling is allowed for this hash aggregation. As for now, we
-  // don't allow spilling for distinct aggregation
-  // (https://github.com/facebookincubator/velox/issues/3263) and pre-grouped
-  // aggregation (https://github.com/facebookincubator/velox/issues/3264). We
-  // will add support later to re-enable.
-  bool isSpillAllowed(
-      const std::shared_ptr<const core::AggregationNode>& node) const;
-
   void prepareOutput(vector_size_t size);
 
   // Invoked to reset partial aggregation state if it was full and has been

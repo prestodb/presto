@@ -99,29 +99,6 @@ std::optional<Spiller::Config> OperatorCtx::makeSpillConfig(
   if (driverCtx_->task->spillDirectory().empty()) {
     return std::nullopt;
   }
-  switch (type) {
-    case Spiller::Type::kOrderBy:
-      if (!queryConfig.orderBySpillEnabled()) {
-        return std::nullopt;
-      }
-      break;
-    case Spiller::Type::kAggregate:
-      if (!queryConfig.aggregationSpillEnabled()) {
-        return std::nullopt;
-      }
-      break;
-    case Spiller::Type::kHashJoinBuild:
-      FOLLY_FALLTHROUGH;
-    case Spiller::Type::kHashJoinProbe:
-      if (!queryConfig.joinSpillEnabled()) {
-        return std::nullopt;
-      }
-      break;
-    default:
-      LOG(ERROR) << "Unknown spiller type: " << Spiller::typeName(type);
-      return std::nullopt;
-  }
-
   return Spiller::Config(
       makeOperatorSpillPath(
           driverCtx_->task->spillDirectory(),

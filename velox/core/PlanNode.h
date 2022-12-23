@@ -18,6 +18,7 @@
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/WriteProtocol.h"
 #include "velox/core/Expressions.h"
+#include "velox/core/QueryConfig.h"
 
 namespace facebook::velox::core {
 
@@ -103,6 +104,12 @@ class PlanNode {
   /// require splits, but TableScanNode and ExchangeNode are leaf nodes that
   /// require splits.
   virtual bool requiresSplits() const {
+    return false;
+  }
+
+  /// Returns true if this plan node operator is spillable and 'queryConfig' has
+  /// enabled it.
+  virtual bool canSpill(const QueryConfig& queryConfig) const {
     return false;
   }
 
@@ -533,6 +540,15 @@ class AggregationNode : public PlanNode {
 
   std::string_view name() const override {
     return "Aggregation";
+  }
+
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    // NOTE: as for now, we don't allow spilling for distinct aggregation
+    // (https://github.com/facebookincubator/velox/issues/3263) and pre-grouped
+    // aggregation (https://github.com/facebookincubator/velox/issues/3264). We
+    // will add support later to re-enable.
+    return (isFinal() || isSingle()) && !(aggregates().empty()) &&
+        preGroupedKeys().empty() && queryConfig.aggregationSpillEnabled();
   }
 
   bool isFinal() const {
@@ -1233,6 +1249,15 @@ class HashJoinNode : public AbstractJoinNode {
     return "HashJoin";
   }
 
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    // NOTE: as for now, we don't allow spilling for null-aware anti-join with
+    // filter set. It requires to cross join the null-key probe rows with all
+    // the build-side rows for filter evaluation which is not supported under
+    // spilling.
+    return !(isAntiJoin() && nullAware_ && filter() != nullptr) &&
+        queryConfig.joinSpillEnabled();
+  }
+
   bool isNullAware() const {
     return nullAware_;
   }
@@ -1329,6 +1354,10 @@ class OrderByNode : public PlanNode {
 
   const std::vector<SortOrder>& sortingOrders() const {
     return sortingOrders_;
+  }
+
+  bool canSpill(const QueryConfig& queryConfig) const override {
+    return queryConfig.orderBySpillEnabled();
   }
 
   const RowTypePtr& outputType() const override {
