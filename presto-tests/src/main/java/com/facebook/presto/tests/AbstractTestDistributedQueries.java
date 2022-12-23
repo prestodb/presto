@@ -155,6 +155,10 @@ public abstract class AbstractTestDistributedQueries
                 "SELECT transform(x.f3, col -> col.ff1) from test_subfield",
                 privilege("x.f3.ff2", SELECT_COLUMN));
 
+        assertAccessAllowed(session,
+                "SELECT cardinality(x.f3) from test_subfield",
+                privilege("x.f3", SELECT_COLUMN));
+
         assertUpdate("DROP TABLE test_subfield");
     }
 

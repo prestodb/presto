@@ -41,6 +41,7 @@ import static java.util.Collections.reverse;
 public class FunctionArgumentCheckerForAccessControlUtils
 {
     private static final QualifiedName TRANSFORM = QualifiedName.of("transform");
+    private static final QualifiedName CARDINALITY = QualifiedName.of("cardinality");
 
     private FunctionArgumentCheckerForAccessControlUtils() {}
 
@@ -53,6 +54,10 @@ public class FunctionArgumentCheckerForAccessControlUtils
     {
         if (node.getName().equals(TRANSFORM)) {
             checkState(node.getArguments().size() == 2);
+            return argumentIndex == 0;
+        }
+        if (node.getName().equals(CARDINALITY)) {
+            checkState(node.getArguments().size() == 1);
             return argumentIndex == 0;
         }
         return false;
