@@ -88,7 +88,7 @@ function install_conda {
   mkdir -p conda && cd conda
   wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
   MINICONDA_PATH=/opt/miniconda-for-velox
-  sh Miniconda3-latest-Linux-x86_64.sh -b -p $MINICONDA_PATH
+  bash Miniconda3-latest-Linux-x86_64.sh -b -p $MINICONDA_PATH
 }
 
 function install_velox_deps {
