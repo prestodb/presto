@@ -39,6 +39,18 @@ public class TestColumnAndSubfieldAnalyzer
         extends AbstractAnalyzerTest
 {
     @Test
+    public void testCardinality()
+    {
+        assertTableColumns(
+                "SELECT cardinality(a) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+
+        assertTableColumns(
+                "SELECT transform(b.x, yo -> cardinality(yo)) FROM tpch.s1.t11",
+                ImmutableMap.of(QualifiedObjectName.valueOf("tpch.s1.t11"), ImmutableSet.of()));
+    }
+
+    @Test
     public void testTransform()
     {
         assertTableColumns(
