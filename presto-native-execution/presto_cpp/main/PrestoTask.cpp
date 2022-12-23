@@ -183,11 +183,11 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   info.taskStatus.state = toPrestoTaskState(task->state());
 
   auto tracker = task->pool()->getMemoryUsageTracker();
-  info.taskStatus.memoryReservationInBytes = tracker->getCurrentUserBytes();
-  info.taskStatus.systemMemoryReservationInBytes =
-      tracker->getCurrentSystemBytes();
+  info.taskStatus.memoryReservationInBytes = tracker->currentBytes();
+  info.taskStatus.systemMemoryReservationInBytes = 0;
   info.taskStatus.peakNodeTotalMemoryReservationInBytes =
-      task->queryCtx()->pool()->getMemoryUsageTracker()->getPeakTotalBytes();
+      task->queryCtx()->pool()->getMemoryUsageTracker()->peakBytes();
+  ;
 
   if (task->error() && info.taskStatus.failures.empty()) {
     info.taskStatus.failures.emplace_back(toPrestoError(task->error()));
@@ -229,18 +229,17 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   }
 
   auto tracker = task->pool()->getMemoryUsageTracker();
-  prestoTaskStats.userMemoryReservationInBytes = tracker->getCurrentUserBytes();
-  prestoTaskStats.systemMemoryReservationInBytes =
-      tracker->getCurrentSystemBytes();
-  prestoTaskStats.peakUserMemoryInBytes = tracker->getPeakUserBytes();
-  prestoTaskStats.peakTotalMemoryInBytes = tracker->getPeakTotalBytes();
+  prestoTaskStats.userMemoryReservationInBytes = tracker->currentBytes();
+  prestoTaskStats.systemMemoryReservationInBytes = 0;
+  prestoTaskStats.peakUserMemoryInBytes = tracker->peakBytes();
+  prestoTaskStats.peakTotalMemoryInBytes = tracker->peakBytes();
 
   // TODO(venkatra): Populate these memory stats as well.
   prestoTaskStats.revocableMemoryReservationInBytes = {};
   prestoTaskStats.cumulativeUserMemory = {};
 
   prestoTaskStats.peakNodeTotalMemoryInBytes =
-      task->queryCtx()->pool()->getMemoryUsageTracker()->getPeakTotalBytes();
+      task->queryCtx()->pool()->getMemoryUsageTracker()->peakBytes();
 
   prestoTaskStats.rawInputPositions = 0;
   prestoTaskStats.rawInputDataSizeInBytes = 0;
