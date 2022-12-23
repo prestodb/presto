@@ -614,8 +614,15 @@ std::unique_ptr<common::Filter> toFilter(
       auto equatableValueSet =
           std::dynamic_pointer_cast<protocol::EquatableValueSet>(
               domain.values)) {
+    if (equatableValueSet->entries.empty()) {
+      if (nullAllowed) {
+        return std::make_unique<common::IsNull>();
+      } else {
+        return std::make_unique<common::IsNotNull>();
+      }
+    }
     VELOX_UNSUPPORTED(
-        "EquatableValueSet to Velox filter conversion is not supported yet.");
+        "EquatableValueSet (with non-empty entries) to Velox filter conversion is not supported yet.");
   } else if (
       auto allOrNoneValueSet =
           std::dynamic_pointer_cast<protocol::AllOrNoneValueSet>(
