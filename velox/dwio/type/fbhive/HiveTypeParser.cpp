@@ -75,8 +75,11 @@ std::shared_ptr<const Type> HiveTypeParser::parse(const std::string& ser) {
   remaining_ = folly::StringPiece(ser);
   Result result = parseType();
   VELOX_CHECK(
-      !(remaining_.size() != 0 && (TokenType::EndOfStream != lookAhead())),
-      "Input remaining after type parsing");
+      remaining_.size() == 0 || TokenType::EndOfStream == lookAhead(),
+      "Input remaining after parsing the Hive type \"{}\"\n"
+      "Remaining: \"{}\"",
+      ser,
+      remaining_);
   return result.type;
 }
 
