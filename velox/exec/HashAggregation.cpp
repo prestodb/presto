@@ -179,12 +179,24 @@ void HashAggregation::addInput(RowVectorPtr input) {
   groupingSet_->addInput(input, mayPushdown_);
   numInputRows_ += input->size();
   {
-    auto spillStats = groupingSet_->spilledStats();
+    const auto spillStats = groupingSet_->spilledStats();
+    const auto hashTableStats = groupingSet_->hashTableStats();
     auto lockedStats = stats_.wlock();
     lockedStats->spilledBytes = spillStats.spilledBytes;
     lockedStats->spilledRows = spillStats.spilledRows;
     lockedStats->spilledPartitions = spillStats.spilledPartitions;
     lockedStats->spilledFiles = spillStats.spilledFiles;
+
+    lockedStats->runtimeStats["hashtable.capacity"] =
+        RuntimeMetric(hashTableStats.capacity);
+    lockedStats->runtimeStats["hashtable.numRehashes"] =
+        RuntimeMetric(hashTableStats.numRehashes);
+    lockedStats->runtimeStats["hashtable.numDistinct"] =
+        RuntimeMetric(hashTableStats.numDistinct);
+    if (hashTableStats.numTombstones != 0) {
+      lockedStats->runtimeStats["hashtable.numTombstones"] =
+          RuntimeMetric(hashTableStats.numTombstones);
+    }
   }
 
   // NOTE: we should not trigger partial output flush in case of global

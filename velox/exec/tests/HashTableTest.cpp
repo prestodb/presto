@@ -649,6 +649,7 @@ TEST_P(HashTableTest, arrayProbeNormalizedKey) {
     rows.setValidRange(5'000, 10'000, true);
     rows.updateBounds();
     insertGroups(*data, rows, *lookup, *table);
+    EXPECT_LE(table->stats().numDistinct, table->rehashSize());
   }
 
   ASSERT_EQ(table->hashMode(), BaseHashTable::HashMode::kNormalizedKey);

@@ -82,6 +82,11 @@ class GroupingSet {
     return spiller_ != nullptr ? spiller_->stats() : Spiller::Stats{};
   }
 
+  /// Returns the hashtable stats.
+  HashTableStats hashTableStats() const {
+    return table_ ? table_->stats() : HashTableStats{};
+  }
+
   /// Return the number of rows kept in memory.
   int64_t numRows() const {
     return table_ ? table_->rows()->numRows() : 0;

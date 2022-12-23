@@ -48,6 +48,14 @@ struct HashLookup {
   std::vector<vector_size_t> newGroups;
 };
 
+struct HashTableStats {
+  int64_t capacity{0};
+  int64_t numRehashes{0};
+  int64_t numDistinct{0};
+  /// Counts the number of tombstone table slots.
+  int64_t numTombstones{0};
+};
+
 class BaseHashTable {
  public:
   using normalized_key_t = uint64_t;
@@ -175,6 +183,10 @@ class BaseHashTable {
   /// Returns the number of rows in a group by or hash join build
   /// side. This is used for sizing the internal hash table.
   virtual uint64_t numDistinct() const = 0;
+
+  /// Return a number of current stats that can help with debugging and
+  /// profiling.
+  virtual HashTableStats stats() const = 0;
 
   /// Returns table growth in bytes after adding 'numNewDistinct' distinct
   /// entries. This only concerns the hash table, not the payload rows.
@@ -368,7 +380,7 @@ class HashTable : public BaseHashTable {
   int64_t allocatedBytes() const override {
     // for each row: 1 byte per tag + sizeof(Entry) per table entry + memory
     // allocated with MappedMemory for fixed-width rows and strings.
-    return (1 + sizeof(char*)) * size_ + rows_->allocatedBytes();
+    return (1 + sizeof(char*)) * capacity_ + rows_->allocatedBytes();
   }
 
   HashStringAllocator* FOLLY_NULLABLE stringAllocator() override {
@@ -376,11 +388,16 @@ class HashTable : public BaseHashTable {
   }
 
   uint64_t capacity() const override {
-    return size_;
+    return capacity_;
   }
 
   uint64_t numDistinct() const override {
     return numDistinct_;
+  }
+
+  HashTableStats stats() const override {
+    return HashTableStats{
+        capacity_, numRehashes_, numDistinct_, numTombstones_};
   }
 
   bool hasDuplicateKeys() const override {
@@ -413,13 +430,13 @@ class HashTable : public BaseHashTable {
     if (numDistinct_ + numNewDistinct > rehashSize()) {
       // If rehashed, the table adds size_ entries (i.e. doubles),
       // adding one pointer and one tag byte for each new position.
-      return size_ * (sizeof(void*) + 1);
+      return capacity_ * (sizeof(void*) + 1);
     }
     return 0;
   }
 
   uint64_t rehashSize() const {
-    return rehashSize(size_ - numTombstones_);
+    return rehashSize(capacity_ - numTombstones_);
   }
 
   std::string toString() override;
@@ -639,11 +656,13 @@ class HashTable : public BaseHashTable {
   uint8_t* FOLLY_NULLABLE tags_ = nullptr;
   char* FOLLY_NULLABLE* FOLLY_NULLABLE table_ = nullptr;
   memory::MappedMemory::ContiguousAllocation tableAllocation_;
-  int64_t size_ = 0;
-  int64_t sizeMask_ = 0;
-  int64_t numDistinct_ = 0;
-  // Counts the number of tombstone table slots.
-  int64_t numTombstones_ = 0;
+  int64_t capacity_{0};
+  int64_t sizeMask_{0};
+  int64_t numDistinct_{0};
+  /// Counts the number of tombstone table slots.
+  int64_t numTombstones_{0};
+  /// Counts the number of rehash() calls.
+  int64_t numRehashes_{0};
   HashMode hashMode_ = HashMode::kArray;
   // Owns the memory of multiple build side hash join tables that are
   // combined into a single probe hash table.
