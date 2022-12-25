@@ -63,7 +63,7 @@ void Destination::serialize(
     vector_size_t begin,
     vector_size_t end) {
   if (!current_) {
-    current_ = std::make_unique<VectorStreamGroup>(memory_);
+    current_ = std::make_unique<VectorStreamGroup>(allocator_);
     auto rowType = std::dynamic_pointer_cast<const RowType>(output->type());
     vector_size_t numRows = 0;
     for (vector_size_t i = begin; i < end; i++) {
@@ -84,7 +84,7 @@ BlockingReason Destination::flush(
   constexpr int32_t kMinMessageSize = 128;
   auto listener = bufferManager.newListener();
   IOBufOutputStream stream(
-      *current_->mappedMemory(),
+      *current_->allocator(),
       listener.get(),
       std::max<int64_t>(kMinMessageSize, current_->size()));
   current_->flush(&stream);
@@ -124,7 +124,7 @@ PartitionedOutput::PartitionedOutput(
       maxBufferedBytes_(ctx->task->queryCtx()
                             ->queryConfig()
                             .maxPartitionedOutputBufferSize()),
-      mappedMemory_{operatorCtx_->mappedMemory()} {
+      allocator_{operatorCtx_->allocator()} {
   if (numDestinations_ == 1 || planNode->isBroadcast()) {
     VELOX_CHECK(keyChannels_.empty());
     VELOX_CHECK_NULL(partitionFunction_);
@@ -157,7 +157,7 @@ void PartitionedOutput::initializeDestinations() {
     auto taskId = operatorCtx_->taskId();
     for (int i = 0; i < numDestinations_; ++i) {
       destinations_.push_back(
-          std::make_unique<Destination>(taskId, i, mappedMemory_));
+          std::make_unique<Destination>(taskId, i, allocator_));
     }
   }
 }

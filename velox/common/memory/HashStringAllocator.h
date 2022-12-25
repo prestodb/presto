@@ -24,17 +24,17 @@
 
 namespace facebook::velox {
 
-// Implements an arena backed by MappedMemory::Allocation. This is for backing
-// ByteStream or for allocating single blocks. Blocks can be individually freed.
-// Adjacent frees are coalesced and free blocks are kept in a free list.
-// Allocated blocks are prefixed with a Header. This has a size and flags.
-// kContinue means that last 8 bytes are a pointer to another Header after which
-// the contents of this allocation continue. kFree means the block is free. A
-// free block has pointers to the next and previous free block via a
+// Implements an arena backed by MemoryAllocator::Allocation. This is for
+// backing ByteStream or for allocating single blocks. Blocks can be
+// individually freed. Adjacent frees are coalesced and free blocks are kept in
+// a free list. Allocated blocks are prefixed with a Header. This has a size and
+// flags. kContinue means that last 8 bytes are a pointer to another Header
+// after which the contents of this allocation continue. kFree means the block
+// is free. A free block has pointers to the next and previous free block via a
 // CompactDoubleList struct immediately after the header. The last 4 bytes of a
 // free block contain its length. kPreviousFree means that the block immediately
 // below is free. In this case the uint32_t below the header has the size of the
-// previous free block. The last word of a MappedMemory::PageRun backing a
+// previous free block. The last word of a MemoryAllocator::PageRun backing a
 // HashStringAllocator is set to kArenaEnd.
 class HashStringAllocator : public StreamArena {
  public:
@@ -130,8 +130,8 @@ class HashStringAllocator : public StreamArena {
     char* FOLLY_NULLABLE position;
   };
 
-  explicit HashStringAllocator(memory::MappedMemory* FOLLY_NONNULL mappedMemory)
-      : StreamArena(mappedMemory), pool_(mappedMemory) {}
+  explicit HashStringAllocator(memory::MemoryAllocator* FOLLY_NONNULL allocator)
+      : StreamArena(allocator), pool_(allocator) {}
 
   // Copies a StringView at 'offset' in 'group' to storage owned by
   // the hash table. Updates the StringView.
@@ -269,8 +269,8 @@ class HashStringAllocator : public StreamArena {
     pool_.clear();
   }
 
-  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const {
-    return pool_.mappedMemory();
+  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
+    return pool_.allocator();
   }
 
   uint64_t cumulativeBytes() const {
@@ -282,11 +282,11 @@ class HashStringAllocator : public StreamArena {
   void checkConsistency() const;
 
  private:
-  static constexpr int32_t kUnitSize = 16 * memory::MappedMemory::kPageSize;
+  static constexpr int32_t kUnitSize = 16 * memory::MemoryAllocator::kPageSize;
   static constexpr int32_t kMinContiguous = 48;
 
   // Adds 'bytes' worth of contiguous space to the free list. This
-  // grows the footprint in MappedMemory but does not allocate
+  // grows the footprint in MemoryAllocator but does not allocate
   // anything yet. Throws if fails to grow. The caller typically knows
   // a cap on memory to allocate and uses this and freeSpace() to make
   // sure that there is space to accommodate the expected need before
@@ -391,7 +391,7 @@ struct StlAllocator {
   template <class U>
   explicit StlAllocator(const StlAllocator<U>& allocator)
       : allocator_{allocator.allocator()} {
-    VELOX_CHECK(allocator_);
+    VELOX_CHECK_NOT_NULL(allocator_);
   }
 
   T* FOLLY_NONNULL allocate(std::size_t n) {

@@ -18,98 +18,9 @@
 
 #include "velox/common/base/BitUtil.h"
 
-DEFINE_bool(
-    use_mmap_allocator_for_memory_pool,
-    false,
-    "If true, use MmapMemoryAllocator to allocate memory for MemoryPool");
-
 namespace facebook {
 namespace velox {
 namespace memory {
-
-/* static */
-std::shared_ptr<MmapMemoryAllocator>
-MmapMemoryAllocator::createDefaultAllocator() {
-  return std::make_shared<MmapMemoryAllocator>();
-}
-
-void* MmapMemoryAllocator::alloc(int64_t size) {
-  return mappedMemory_->allocateBytes(size);
-}
-
-void* MmapMemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
-  return mappedMemory_->allocateBytes(size, alignment);
-}
-
-void* MmapMemoryAllocator::allocZeroFilled(
-    int64_t numMembers,
-    int64_t sizeEach) {
-  return mappedMemory_->allocateZeroFilled(numMembers * sizeEach);
-}
-
-void* MmapMemoryAllocator::realloc(void* p, int64_t size, int64_t newSize) {
-  return mappedMemory_->reallocateBytes(p, size, newSize);
-}
-
-void* MmapMemoryAllocator::reallocAligned(
-    void* p,
-    uint16_t alignment,
-    int64_t size,
-    int64_t newSize) {
-  return mappedMemory_->reallocateBytes(p, size, newSize, alignment);
-}
-
-void MmapMemoryAllocator::free(void* p, int64_t size) {
-  if (p == nullptr) {
-    return;
-  }
-  mappedMemory_->freeBytes(p, size);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::alloc(int64_t size) {
-  return std::malloc(size);
-}
-
-/* static */
-std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultAllocator() {
-  return std::make_shared<MemoryAllocator>();
-}
-
-void* FOLLY_NULLABLE
-MemoryAllocator::allocZeroFilled(int64_t numMembers, int64_t sizeEach) {
-  return std::calloc(numMembers, sizeEach);
-}
-
-void* FOLLY_NULLABLE
-MemoryAllocator::allocAligned(uint16_t alignment, int64_t size) {
-  return aligned_alloc(alignment, size);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::realloc(
-    void* FOLLY_NULLABLE p,
-    int64_t /* size */,
-    int64_t newSize) {
-  return std::realloc(p, newSize);
-}
-
-void* FOLLY_NULLABLE MemoryAllocator::reallocAligned(
-    void* FOLLY_NULLABLE p,
-    uint16_t alignment,
-    int64_t size,
-    int64_t newSize) {
-  VELOX_CHECK_GT(newSize, 0);
-  auto block = aligned_alloc(alignment, newSize);
-  if (block) {
-    memcpy(block, p, std::min(size, newSize));
-    std::free(p);
-  }
-  return block;
-}
-
-void MemoryAllocator::free(void* FOLLY_NULLABLE p, int64_t /* size */) {
-  std::free(p);
-}
-
 MemoryPool::MemoryPool(
     const std::string& name,
     std::shared_ptr<MemoryPool> parent)
@@ -190,10 +101,7 @@ size_t MemoryPool::getPreferredSize(size_t size) {
 }
 
 IMemoryManager& getProcessDefaultMemoryManager() {
-  if (FLAGS_use_mmap_allocator_for_memory_pool) {
-    return MemoryManager<MmapMemoryAllocator>::getProcessDefaultManager();
-  }
-  return MemoryManager<MemoryAllocator>::getProcessDefaultManager();
+  return MemoryManager<>::getProcessDefaultManager();
 }
 
 std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap) {

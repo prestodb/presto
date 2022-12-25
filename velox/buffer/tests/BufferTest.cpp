@@ -44,8 +44,7 @@ class BufferTest : public testing::Test {
     pool_ = memoryManager_.getChild();
   }
 
-  memory::MemoryManager<memory::MemoryAllocator, AlignedBuffer::kAlignment>
-      memoryManager_;
+  memory::MemoryManager<AlignedBuffer::kAlignment> memoryManager_;
   std::shared_ptr<memory::MemoryPool> pool_;
 };
 

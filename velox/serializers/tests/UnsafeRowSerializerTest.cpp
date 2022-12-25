@@ -36,7 +36,7 @@ class UnsafeRowSerializerTest : public ::testing::Test {
     }
 
     auto arena =
-        std::make_unique<StreamArena>(memory::MappedMemory::getInstance());
+        std::make_unique<StreamArena>(memory::MemoryAllocator::getInstance());
     auto rowType = std::dynamic_pointer_cast<const RowType>(rowVector->type());
     auto serializer = serde_->createSerializer(rowType, numRows, arena.get());
 

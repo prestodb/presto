@@ -104,7 +104,7 @@ Spiller::Spiller(
           sortCompareFlags,
           targetFileSize,
           pool,
-          spillMappedMemory()),
+          allocator()),
       pool_(pool),
       executor_(executor) {
   TestValue::adjust(
@@ -115,7 +115,7 @@ Spiller::Spiller(
   VELOX_CHECK((type_ != Type::kOrderBy) || (state_.maxPartitions() == 1));
   spillRuns_.reserve(state_.maxPartitions());
   for (int i = 0; i < state_.maxPartitions(); ++i) {
-    spillRuns_.emplace_back(spillMappedMemory());
+    spillRuns_.emplace_back(allocator());
   }
 }
 
@@ -497,7 +497,7 @@ Spiller::SpillRows Spiller::finishSpill() {
   spillFinalized_ = true;
 
   SpillRows rowsFromNonSpillingPartitions(
-      0, memory::StlMappedMemoryAllocator<char*>(&spillMappedMemory()));
+      0, memory::StlMemoryAllocator<char*>(&allocator()));
   if (type_ != Spiller::Type::kHashJoinProbe) {
     fillSpillRuns(&rowsFromNonSpillingPartitions);
   }
@@ -650,12 +650,12 @@ void Spiller::fillSpillRuns(std::vector<SpillableStats>& statsList) {
 }
 
 // static
-memory::MappedMemory& Spiller::spillMappedMemory() {
+memory::MemoryAllocator& Spiller::allocator() {
   // Return the top level instance. Since this too may be full,
   // another possibility is to return an emergency instance that
   // delegates to the process wide one and makes a file-backed mmap
   // if the allocation fails.
-  return *memory::MappedMemory::getInstance();
+  return *memory::MemoryAllocator::getInstance();
 }
 
 // static

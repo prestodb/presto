@@ -29,7 +29,7 @@
 #include "velox/common/caching/ScanTracker.h"
 #include "velox/common/caching/StringIdMap.h"
 #include "velox/common/file/File.h"
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox::cache {
 
@@ -147,11 +147,11 @@ class AsyncDataCacheEntry {
   //  hold no memory when calling this.
   void initialize(FileCacheKey key);
 
-  memory::MappedMemory::Allocation& data() {
+  memory::MemoryAllocator::Allocation& data() {
     return data_;
   }
 
-  const memory::MappedMemory::Allocation& data() const {
+  const memory::MemoryAllocator::Allocation& data() const {
     return data_;
   }
 
@@ -267,10 +267,10 @@ class AsyncDataCacheEntry {
   CacheShard* const shard_;
 
   // The data being cached.
-  memory::MappedMemory::Allocation data_;
+  memory::MemoryAllocator::Allocation data_;
 
-  // Contains the cached data if this is much smaller than a MappedMemory page
-  // (kTinyDataSize).
+  // Contains the cached data if this is much smaller than a MemoryAllocator
+  // page (kTinyDataSize).
   std::string tinyData_;
 
   std::unique_ptr<folly::SharedPromise<bool>> promise_;
@@ -591,15 +591,15 @@ class CacheShard {
   // Sum of evict scores. This divided by 'numEvict_' correlates to
   // time data stays in cache.
   uint64_t sumEvictScore_{};
-  // Tracker of time spent in allocating/freeing MappedMemory space
+  // Tracker of time spent in allocating/freeing MemoryAllocator space
   // for backing cached data.
   std::atomic<uint64_t> allocClocks_;
 };
 
-class AsyncDataCache : public memory::MappedMemory {
+class AsyncDataCache : public memory::MemoryAllocator {
  public:
   AsyncDataCache(
-      const std::shared_ptr<memory::MappedMemory>& mappedMemory,
+      const std::shared_ptr<memory::MemoryAllocator>& MemoryAllocator,
       uint64_t maxBytes,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
@@ -629,7 +629,7 @@ class AsyncDataCache : public memory::MappedMemory {
       memory::MachinePageCount minSizeClass = 0) override;
 
   int64_t freeNonContiguous(Allocation& allocation) override {
-    return mappedMemory_->freeNonContiguous(allocation);
+    return MemoryAllocator_->freeNonContiguous(allocation);
   }
 
   bool allocateContiguous(
@@ -639,29 +639,29 @@ class AsyncDataCache : public memory::MappedMemory {
       std::function<void(int64_t, bool)> beforeAllocCB = nullptr) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override {
-    mappedMemory_->freeContiguous(allocation);
+    MemoryAllocator_->freeContiguous(allocation);
   }
 
   void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
   void freeBytes(void* p, uint64_t size) noexcept override {
-    mappedMemory_->freeBytes(p, size);
+    MemoryAllocator_->freeBytes(p, size);
   }
 
   bool checkConsistency() const override {
-    return mappedMemory_->checkConsistency();
+    return MemoryAllocator_->checkConsistency();
   }
 
   const std::vector<memory::MachinePageCount>& sizeClasses() const override {
-    return mappedMemory_->sizeClasses();
+    return MemoryAllocator_->sizeClasses();
   }
 
   memory::MachinePageCount numAllocated() const override {
-    return mappedMemory_->numAllocated();
+    return MemoryAllocator_->numAllocated();
   }
 
   memory::MachinePageCount numMapped() const override {
-    return mappedMemory_->numMapped();
+    return MemoryAllocator_->numMapped();
   }
 
   CacheStats refreshStats() const;
@@ -737,7 +737,7 @@ class AsyncDataCache : public memory::MappedMemory {
   }
 
   memory::Stats stats() const override {
-    return mappedMemory_->stats();
+    return MemoryAllocator_->stats();
   }
 
  private:
@@ -758,7 +758,7 @@ class AsyncDataCache : public memory::MappedMemory {
       memory::MachinePageCount numPages,
       std::function<bool()> allocate);
 
-  std::shared_ptr<memory::MappedMemory> mappedMemory_;
+  std::shared_ptr<memory::MemoryAllocator> MemoryAllocator_;
   std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   std::atomic<int32_t> shardCounter_{0};

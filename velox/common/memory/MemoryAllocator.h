@@ -126,10 +126,10 @@ struct Stats {
   /// allocate exact sizes.
   static int32_t sizeIndex(int64_t size) {
     constexpr int32_t kPageSize = 4096;
-    if (!size) {
+    if (size == 0) {
       return 0;
     }
-    int64_t power = bits::nextPowerOfTwo(size / kPageSize);
+    const auto power = bits::nextPowerOfTwo(size / kPageSize);
     return std::min(kNumSizes - 1, 63 - bits::countLeadingZeros(power));
   }
 
@@ -140,7 +140,7 @@ struct Stats {
   int64_t numAdvise{0};
 };
 
-class ScopedMappedMemory;
+class ScopedMemoryAllocator;
 
 /// Denotes a number of machine pages as in mmap and related functions.
 using MachinePageCount = uint64_t;
@@ -156,25 +156,25 @@ using MachinePageCount = uint64_t;
 /// all large allocation come from a single source to have dynamic balancing
 /// between different users. Proxy subclasses may provide context specific
 /// tracking while delegating the allocation to a root allocator.
-class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
+class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
  public:
   /// Returns the process-wide default instance or an application-supplied
   /// custom instance set via setDefaultInstance().
-  static MappedMemory* FOLLY_NONNULL getInstance();
+  static MemoryAllocator* FOLLY_NONNULL getInstance();
 
   /// Overrides the process-wide default instance. The caller keeps ownership
   /// and must not destroy the instance until it is empty. Calling this with
   /// nullptr restores the initial process-wide default instance.
-  static void setDefaultInstance(MappedMemory* FOLLY_NULLABLE instance);
+  static void setDefaultInstance(MemoryAllocator* FOLLY_NULLABLE instance);
 
   /// Creates a default MemoryAllocator instance but does not set this to
   /// process default.
-  static std::shared_ptr<MappedMemory> createDefaultInstance();
+  static std::shared_ptr<MemoryAllocator> createDefaultInstance();
 
   static void testingDestroyInstance();
 
-  MappedMemory() = default;
-  virtual ~MappedMemory() = default;
+  MemoryAllocator() = default;
+  virtual ~MemoryAllocator() = default;
 
   static constexpr uint64_t kPageSize = 4096;
   static constexpr int32_t kMaxSizeClasses = 12;
@@ -226,19 +226,19 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   /// Represents a set of PageRuns that are allocated together.
   class Allocation {
    public:
-    explicit Allocation(MappedMemory* FOLLY_NONNULL mappedMemory)
-        : mappedMemory_(mappedMemory) {
-      VELOX_CHECK_NOT_NULL(mappedMemory_);
+    explicit Allocation(MemoryAllocator* FOLLY_NONNULL MemoryAllocator)
+        : allocator_(MemoryAllocator) {
+      VELOX_CHECK_NOT_NULL(allocator_);
     }
 
     ~Allocation() {
-      mappedMemory_->freeNonContiguous(*this);
+      allocator_->freeNonContiguous(*this);
     }
 
     Allocation(const Allocation& other) = delete;
 
     Allocation(Allocation&& other) noexcept {
-      mappedMemory_ = other.mappedMemory_;
+      allocator_ = other.allocator_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
@@ -247,7 +247,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     void operator=(const Allocation& other) = delete;
 
     void operator=(Allocation&& other) {
-      mappedMemory_ = other.mappedMemory_;
+      allocator_ = other.allocator_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
@@ -284,33 +284,29 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
         int32_t* FOLLY_NONNULL offsetInRun) const;
 
    private:
-    MappedMemory* FOLLY_NONNULL mappedMemory_;
+    MemoryAllocator* FOLLY_NONNULL allocator_;
     std::vector<PageRun> runs_;
     int32_t numPages_ = 0;
   };
 
   /// Represents a mmap'd run of contiguous pages that do not belong to any size
-  /// class but are still accounted by the owning MappedMemory.
+  /// class but are still accounted by the owning MemoryAllocator.
   class ContiguousAllocation {
    public:
     ContiguousAllocation() = default;
     ~ContiguousAllocation() {
-      if (data_ && mappedMemory_) {
-        mappedMemory_->freeContiguous(*this);
+      if (data_ && allocator_) {
+        allocator_->freeContiguous(*this);
       }
       data_ = nullptr;
     }
 
     ContiguousAllocation(ContiguousAllocation&& other) noexcept {
-      mappedMemory_ = other.mappedMemory_;
+      allocator_ = other.allocator_;
       data_ = other.data_;
       size_ = other.size_;
       other.data_ = nullptr;
       other.size_ = 0;
-    }
-
-    MappedMemory* FOLLY_NULLABLE mappedMemory() const {
-      return mappedMemory_;
     }
 
     MachinePageCount numPages() const;
@@ -326,16 +322,16 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
     }
 
     void reset(
-        MappedMemory* FOLLY_NULLABLE mappedMemory,
+        MemoryAllocator* FOLLY_NULLABLE allocator,
         void* FOLLY_NULLABLE data,
         uint64_t size) {
-      mappedMemory_ = mappedMemory;
+      allocator_ = allocator;
       data_ = data;
       size_ = size;
     }
 
    private:
-    MappedMemory* FOLLY_NULLABLE mappedMemory_{nullptr};
+    MemoryAllocator* FOLLY_NULLABLE allocator_{nullptr};
     void* FOLLY_NULLABLE data_{nullptr};
     uint64_t size_{0};
   };
@@ -366,7 +362,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
   /// called for pre-allocation or post-allocation failure. The flag is true for
   /// pre-allocation call and false for post-allocation failure call. The latter
   /// is to let user have a chance to rollback if needed. For instance,
-  /// 'ScopedMappedMemory' object will make memory counting reservation in
+  /// 'ScopedMemoryAllocator' object will make memory counting reservation in
   /// 'userAllocCB' before the actual memory allocation so it needs to release
   /// the reservation if the actual allocation fails. The function returns true
   /// if the allocation succeeded. If returning false, 'out' references no
@@ -451,7 +447,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
 
   virtual MachinePageCount numMapped() const = 0;
 
-  virtual std::shared_ptr<MappedMemory> addChild(
+  virtual std::shared_ptr<MemoryAllocator> addChild(
       std::shared_ptr<MemoryUsageTracker> tracker);
 
   virtual MemoryUsageTracker* FOLLY_NULLABLE tracker() const {
@@ -516,7 +512,7 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
 
   // Static counters for STL and memoryPool users of
-  // MappedMemory. Updated by allocateBytes() and freeBytes(). These
+  // MemoryAllocator. Updated by allocateBytes() and freeBytes(). These
   // are intended to be exported via StatsReporter. These are
   // respectively backed by malloc, allocate from a single size class
   // and standalone mmap.
@@ -526,28 +522,28 @@ class MappedMemory : public std::enable_shared_from_this<MappedMemory> {
 
  private:
   // Singleton instance.
-  static std::shared_ptr<MappedMemory> instance_;
-  // Application-supplied custom implementation of MappedMemory to be returned
-  // by getInstance().
-  static MappedMemory* FOLLY_NULLABLE customInstance_;
+  static std::shared_ptr<MemoryAllocator> instance_;
+  // Application-supplied custom implementation of MemoryAllocator to be
+  // returned by getInstance().
+  static MemoryAllocator* FOLLY_NULLABLE customInstance_;
   static std::mutex initMutex_;
 };
 
-// Wrapper around MappedMemory for scoped tracking of activity. We
+// Wrapper around MemoryAllocator for scoped tracking of activity. We
 // expect a single level of wrappers around the process root
-// MappedMemory. Each will have its own MemoryUsageTracker that will
+// MemoryAllocator. Each will have its own MemoryUsageTracker that will
 // be a child of the Driver/Task level tracker. in this way
-// MappedMemory activity can be attributed to individual operators and
+// MemoryAllocator activity can be attributed to individual operators and
 // these operators can be requested to spill or limit their memory utilization.
-class ScopedMappedMemory final : public MappedMemory {
+class ScopedMemoryAllocator final : public MemoryAllocator {
  public:
-  ScopedMappedMemory(
-      MappedMemory* FOLLY_NONNULL parent,
+  ScopedMemoryAllocator(
+      MemoryAllocator* FOLLY_NONNULL parent,
       std::shared_ptr<MemoryUsageTracker> tracker)
       : parent_(parent), tracker_(std::move(tracker)) {}
 
-  ScopedMappedMemory(
-      std::shared_ptr<ScopedMappedMemory> parent,
+  ScopedMemoryAllocator(
+      std::shared_ptr<ScopedMemoryAllocator> parent,
       std::shared_ptr<MemoryUsageTracker> tracker)
       : parentPtr_(std::move(parent)),
         parent_(parentPtr_.get()),
@@ -605,9 +601,9 @@ class ScopedMappedMemory final : public MappedMemory {
     return parent_->numMapped();
   }
 
-  std::shared_ptr<MappedMemory> addChild(
+  std::shared_ptr<MemoryAllocator> addChild(
       std::shared_ptr<MemoryUsageTracker> tracker) override {
-    return std::make_shared<ScopedMappedMemory>(this, tracker);
+    return std::make_shared<ScopedMemoryAllocator>(this, tracker);
   }
 
   MemoryUsageTracker* FOLLY_NULLABLE tracker() const override {
@@ -619,26 +615,25 @@ class ScopedMappedMemory final : public MappedMemory {
   }
 
  private:
-  std::shared_ptr<MappedMemory> parentPtr_;
-  MappedMemory* FOLLY_NONNULL parent_;
+  std::shared_ptr<MemoryAllocator> parentPtr_;
+  MemoryAllocator* FOLLY_NONNULL parent_;
   std::shared_ptr<MemoryUsageTracker> tracker_;
 };
 
-// An Allocator backed by MappedMemory for for STL containers.
+// An Allocator backed by MemoryAllocator for for STL containers.
 template <class T>
-struct StlMappedMemoryAllocator {
+struct StlMemoryAllocator {
   using value_type = T;
 
-  explicit StlMappedMemoryAllocator(MappedMemory* FOLLY_NONNULL allocator)
+  explicit StlMemoryAllocator(MemoryAllocator* FOLLY_NONNULL allocator)
       : allocator_{allocator} {
-    VELOX_CHECK(allocator);
+    VELOX_CHECK_NOT_NULL(allocator);
   }
 
   template <class U>
-  explicit StlMappedMemoryAllocator(
-      const StlMappedMemoryAllocator<U>& allocator)
+  explicit StlMemoryAllocator(const StlMemoryAllocator<U>& allocator)
       : allocator_{allocator.allocator()} {
-    VELOX_CHECK(allocator_);
+    VELOX_CHECK_NOT_NULL(allocator_);
   }
 
   T* FOLLY_NONNULL allocate(std::size_t n) {
@@ -650,23 +645,23 @@ struct StlMappedMemoryAllocator {
     allocator_->freeBytes(p, checkedMultiply(n, sizeof(T)));
   }
 
-  MappedMemory* FOLLY_NONNULL allocator() const {
+  MemoryAllocator* FOLLY_NONNULL allocator() const {
     return allocator_;
   }
 
   friend bool operator==(
-      const StlMappedMemoryAllocator& lhs,
-      const StlMappedMemoryAllocator& rhs) {
+      const StlMemoryAllocator& lhs,
+      const StlMemoryAllocator& rhs) {
     return lhs.allocator_ == rhs.allocator_;
   }
   friend bool operator!=(
-      const StlMappedMemoryAllocator& lhs,
-      const StlMappedMemoryAllocator& rhs) {
+      const StlMemoryAllocator& lhs,
+      const StlMemoryAllocator& rhs) {
     return !(lhs == rhs);
   }
 
  private:
-  MappedMemory* FOLLY_NONNULL allocator_;
+  MemoryAllocator* FOLLY_NONNULL allocator_;
 };
 
 } // namespace facebook::velox::memory

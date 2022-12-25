@@ -18,22 +18,22 @@
 
 namespace facebook::velox {
 
-StreamArena::StreamArena(memory::MappedMemory* mappedMemory)
-    : mappedMemory_(mappedMemory->shared_from_this()),
-      allocation_(mappedMemory) {}
+StreamArena::StreamArena(memory::MemoryAllocator* allocator)
+    : allocator_(allocator->shared_from_this()), allocation_(allocator) {}
 
 void StreamArena::newRange(int32_t bytes, ByteRange* range) {
   VELOX_CHECK(bytes > 0);
   memory::MachinePageCount numPages =
-      bits::roundUp(bytes, memory::MappedMemory::kPageSize) /
-      memory::MappedMemory::kPageSize;
+      bits::roundUp(bytes, memory::MemoryAllocator::kPageSize) /
+      memory::MemoryAllocator::kPageSize;
   int32_t numRuns = allocation_.numRuns();
   if (currentRun_ >= numRuns) {
     if (numRuns) {
-      allocations_.push_back(std::make_unique<memory::MappedMemory::Allocation>(
-          std::move(allocation_)));
+      allocations_.push_back(
+          std::make_unique<memory::MemoryAllocator::Allocation>(
+              std::move(allocation_)));
     }
-    if (!mappedMemory_->allocateNonContiguous(
+    if (!allocator_->allocateNonContiguous(
             std::max(allocationQuantum_, numPages), allocation_)) {
       throw std::bad_alloc();
     }
@@ -43,9 +43,10 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
   }
   auto run = allocation_.runAt(currentRun_);
   int32_t available = run.numPages() - currentPage_;
-  range->buffer = run.data() + memory::MappedMemory::kPageSize * currentPage_;
-  range->size =
-      std::min<int32_t>(numPages, available) * memory::MappedMemory::kPageSize;
+  range->buffer =
+      run.data() + memory::MemoryAllocator::kPageSize * currentPage_;
+  range->size = std::min<int32_t>(numPages, available) *
+      memory::MemoryAllocator::kPageSize;
   range->position = 0;
   currentPage_ += std::min<int32_t>(available, numPages);
   if (currentPage_ == run.numPages()) {

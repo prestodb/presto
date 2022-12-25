@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #include "velox/common/memory/ByteStream.h"
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapAllocator.h"
 
 #include <gflags/gflags.h>
@@ -26,16 +26,16 @@ using namespace facebook::velox::memory;
 class ByteStreamTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
-    constexpr uint64_t kMaxMappedMemory = 64 << 20;
+    constexpr uint64_t kMaxMemoryAllocator = 64 << 20;
     MmapAllocator::Options options;
-    options.capacity = kMaxMappedMemory;
+    options.capacity = kMaxMemoryAllocator;
     mmapAllocator_ = std::make_shared<MmapAllocator>(options);
-    MappedMemory::setDefaultInstance(mmapAllocator_.get());
+    MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
   }
 
   void TearDown() override {
-    MappedMemory::testingDestroyInstance();
-    MappedMemory::setDefaultInstance(nullptr);
+    MemoryAllocator::testingDestroyInstance();
+    MemoryAllocator::setDefaultInstance(nullptr);
   }
 
   std::shared_ptr<MmapAllocator> mmapAllocator_;

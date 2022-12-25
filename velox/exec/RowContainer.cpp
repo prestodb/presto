@@ -54,15 +54,15 @@ RowContainer::RowContainer(
     bool isJoinBuild,
     bool hasProbedFlag,
     bool hasNormalizedKeys,
-    memory::MappedMemory* mappedMemory,
+    memory::MemoryAllocator* allocator,
     const RowSerde& serde)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
       aggregates_(aggregates),
       isJoinBuild_(isJoinBuild),
       hasNormalizedKeys_(hasNormalizedKeys),
-      rows_(mappedMemory),
-      stringAllocator_(mappedMemory),
+      rows_(allocator),
+      stringAllocator_(allocator),
       serde_(serde) {
   // Compute the layout of the payload row.  The row has keys, null
   // flags, accumulators, dependent fields. All fields are fixed
@@ -565,7 +565,7 @@ int64_t RowContainer::sizeIncrement(
     vector_size_t numRows,
     int64_t variableLengthBytes) const {
   constexpr int32_t kAllocUnit =
-      AllocationPool::kMinPages * memory::MappedMemory::kPageSize;
+      AllocationPool::kMinPages * memory::MemoryAllocator::kPageSize;
   int32_t needRows = std::max<int64_t>(0, numRows - numFreeRows_);
   int64_t needBytes =
       std::min<int64_t>(0, variableLengthBytes - stringAllocator_.freeSpace());
@@ -630,8 +630,7 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
 
 RowPartitions& RowContainer::partitions() {
   if (!partitions_) {
-    partitions_ =
-        std::make_unique<RowPartitions>(numRows_, *rows_.mappedMemory());
+    partitions_ = std::make_unique<RowPartitions>(numRows_, *rows_.allocator());
   }
   return *partitions_;
 }
@@ -708,11 +707,11 @@ int32_t RowContainer::listPartitionRows(
 
 RowPartitions::RowPartitions(
     int32_t numRows,
-    memory::MappedMemory& mappedMemory)
-    : capacity_(numRows), allocation_(&mappedMemory) {
-  auto numPages = bits::roundUp(capacity_, memory::MappedMemory::kPageSize) /
-      memory::MappedMemory::kPageSize;
-  if (!mappedMemory.allocateNonContiguous(numPages, allocation_)) {
+    memory::MemoryAllocator& allocator)
+    : capacity_(numRows), allocation_(&allocator) {
+  auto numPages = bits::roundUp(capacity_, memory::MemoryAllocator::kPageSize) /
+      memory::MemoryAllocator::kPageSize;
+  if (!allocator.allocateNonContiguous(numPages, allocation_)) {
     VELOX_FAIL(
         "Failed to allocate RowContainer partitions: {} pages", numPages);
   }

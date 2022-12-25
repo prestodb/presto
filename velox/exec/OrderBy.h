@@ -78,7 +78,7 @@ class OrderBy : public Operator {
   // in a paused state and off thread.
   void spill(int64_t targetRows, int64_t targetBytes);
 
-  memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
+  memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
 
   const int32_t numSortKeys_;
 

@@ -25,7 +25,7 @@
 #include <unordered_set>
 
 #include "velox/common/base/SimdUtil.h"
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/memory/MmapArena.h"
 
 namespace facebook::velox::memory {
@@ -34,7 +34,7 @@ namespace facebook::velox::memory {
 /// size class dependent number of consecutive machine pages.
 using ClassPageCount = int32_t;
 
-/// Implementation of MappedMemory with mmap and madvise. Each size class is
+/// Implementation of MemoryAllocator with mmap and madvise. Each size class is
 /// mmapped for the whole capacity. Each size class has a bitmap of allocated
 /// entries and entries that are backed by memory. If a size class does not have
 /// an entry that is free and backed by memory, we allocate an entry that is
@@ -44,7 +44,7 @@ using ClassPageCount = int32_t;
 /// to be allocated that does not correspond to size classes, we advise away
 /// enough pages from other size classes to cover for it and then make a new
 /// mmap of the requested size (ContiguousAllocation).
-class MmapAllocator : public MappedMemory {
+class MmapAllocator : public MemoryAllocator {
  public:
   struct Options {
     ///  Capacity in bytes, default 512MB
@@ -154,7 +154,7 @@ class MmapAllocator : public MappedMemory {
     bool allocate(
         ClassPageCount numPages,
         MachinePageCount& numUnmapped,
-        MappedMemory::Allocation& out);
+        MemoryAllocator::Allocation& out);
 
     // Frees all pages of 'allocation' that fall in this size
     // class. Erases the corresponding runs from 'allocation'.
@@ -177,7 +177,7 @@ class MmapAllocator : public MappedMemory {
     void setAllMapped(const Allocation& allocation, bool value);
 
     // Sets the mapped flag for the class pages in 'run' to 'value'
-    void setMappedBits(const MappedMemory::PageRun run, bool value);
+    void setMappedBits(const MemoryAllocator::PageRun run, bool value);
 
     // True if 'ptr' is in the address range of 'this'. Checks that ptr is at a
     // size class page boundary.
@@ -202,7 +202,7 @@ class MmapAllocator : public MappedMemory {
     bool allocateLocked(
         ClassPageCount numPages,
         MachinePageCount* FOLLY_NULLABLE numUnmapped,
-        MappedMemory::Allocation& out);
+        MemoryAllocator::Allocation& out);
 
     // Returns the bit offset of the first bit of a 512 bit group in
     // 'pageAllocated_'/'pageMapped_'  that contains at least one mapped free

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/Operator.h"
 #include "velox/exec/RowContainer.h"
@@ -312,12 +312,12 @@ class HashTable : public BaseHashTable {
       bool allowDuplicates,
       bool isJoinBuild,
       bool hasProbedFlag,
-      memory::MappedMemory* FOLLY_NULLABLE memory);
+      memory::MemoryAllocator* FOLLY_NULLABLE memory);
 
   static std::unique_ptr<HashTable> createForAggregation(
       std::vector<std::unique_ptr<VectorHasher>>&& hashers,
       const std::vector<std::unique_ptr<Aggregate>>& aggregates,
-      memory::MappedMemory* FOLLY_NULLABLE memory) {
+      memory::MemoryAllocator* FOLLY_NULLABLE memory) {
     return std::make_unique<HashTable>(
         std::move(hashers),
         aggregates,
@@ -333,7 +333,7 @@ class HashTable : public BaseHashTable {
       const std::vector<TypePtr>& dependentTypes,
       bool allowDuplicates,
       bool hasProbedFlag,
-      memory::MappedMemory* FOLLY_NULLABLE memory) {
+      memory::MemoryAllocator* FOLLY_NULLABLE memory) {
     static const std::vector<std::unique_ptr<Aggregate>> kNoAggregates;
     return std::make_unique<HashTable>(
         std::move(hashers),
@@ -379,7 +379,7 @@ class HashTable : public BaseHashTable {
 
   int64_t allocatedBytes() const override {
     // for each row: 1 byte per tag + sizeof(Entry) per table entry + memory
-    // allocated with MappedMemory for fixed-width rows and strings.
+    // allocated with MemoryAllocator for fixed-width rows and strings.
     return (1 + sizeof(char*)) * capacity_ + rows_->allocatedBytes();
   }
 
@@ -655,7 +655,7 @@ class HashTable : public BaseHashTable {
   int32_t nextOffset_;
   uint8_t* FOLLY_NULLABLE tags_ = nullptr;
   char* FOLLY_NULLABLE* FOLLY_NULLABLE table_ = nullptr;
-  memory::MappedMemory::ContiguousAllocation tableAllocation_;
+  memory::MemoryAllocator::ContiguousAllocation tableAllocation_;
   int64_t capacity_{0};
   int64_t sizeMask_{0};
   int64_t numDistinct_{0};

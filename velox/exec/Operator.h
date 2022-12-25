@@ -197,7 +197,7 @@ class OperatorCtx {
     return operatorType_;
   }
 
-  memory::MappedMemory* FOLLY_NONNULL mappedMemory() const;
+  memory::MemoryAllocator* FOLLY_NONNULL allocator() const;
 
   core::ExecCtx* FOLLY_NONNULL execCtx() const;
 
@@ -220,7 +220,7 @@ class OperatorCtx {
   velox::memory::MemoryPool* const FOLLY_NONNULL pool_;
 
   // These members are created on demand.
-  mutable memory::MappedMemory* FOLLY_NULLABLE mappedMemory_{nullptr};
+  mutable memory::MemoryAllocator* FOLLY_NULLABLE allocator_{nullptr};
   mutable std::unique_ptr<core::ExecCtx> execCtx_;
   mutable std::unique_ptr<connector::ExpressionEvaluator> expressionEvaluator_;
 };

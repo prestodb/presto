@@ -50,8 +50,8 @@ class Merge : public SourceOperator {
     return outputType_;
   }
 
-  memory::MappedMemory* mappedMemory() const {
-    return operatorCtx_->mappedMemory();
+  memory::MemoryAllocator* allocator() const {
+    return operatorCtx_->allocator();
   }
 
  protected:

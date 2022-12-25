@@ -26,7 +26,7 @@ using facebook::velox::common::testutil::TestValue;
 namespace facebook::velox::memory {
 
 MmapAllocator::MmapAllocator(const Options& options)
-    : MappedMemory(),
+    : MemoryAllocator(),
       numAllocated_(0),
       numMapped_(0),
       capacity_(bits::roundUp(
@@ -491,7 +491,7 @@ std::string MmapAllocator::SizeClass::toString() const {
     mappedFreeCount +=
         __builtin_popcountll(~pageAllocated_[i] & pageMapped_[i]);
   }
-  auto mb = (count * MappedMemory::kPageSize * unitSize_) >> 20;
+  auto mb = (count * MemoryAllocator::kPageSize * unitSize_) >> 20;
   out << "[size " << unitSize_ << ": " << count << "(" << mb << "MB) allocated "
       << mappedCount << " mapped";
   if (mappedFreeCount != numMappedFreePages_) {
@@ -720,7 +720,7 @@ void MmapAllocator::SizeClass::adviseAway(const Allocation& allocation) {
 }
 
 void MmapAllocator::SizeClass::setMappedBits(
-    const MappedMemory::PageRun run,
+    const MemoryAllocator::PageRun run,
     bool value) {
   const uint8_t* runAddress = run.data();
   const int firstBit = (runAddress - address_) / (unitSize_ * kPageSize);
@@ -734,7 +734,7 @@ void MmapAllocator::SizeClass::setMappedBits(
 }
 
 MachinePageCount MmapAllocator::SizeClass::free(
-    MappedMemory::Allocation& allocation) {
+    MemoryAllocator::Allocation& allocation) {
   MachinePageCount numFreed = 0;
   int firstRunInClass = -1;
   // Check if there are any runs in 'this' outside of 'mutex_'.

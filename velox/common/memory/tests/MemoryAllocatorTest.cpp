@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/MmapAllocator.h"
@@ -34,37 +34,37 @@ using namespace facebook::velox::common::testutil;
 
 namespace facebook::velox::memory {
 
-static constexpr uint64_t kMaxMappedMemory = 128UL * 1024 * 1024;
+static constexpr uint64_t kMaxMemoryAllocator = 128UL * 1024 * 1024;
 static constexpr MachinePageCount kCapacity =
-    (kMaxMappedMemory / MappedMemory::kPageSize);
+    (kMaxMemoryAllocator / MemoryAllocator::kPageSize);
 
-class MappedMemoryTest : public testing::TestWithParam<bool> {
+class MemoryAllocatorTest : public testing::TestWithParam<bool> {
  protected:
   static void SetUpTestCase() {
     TestValue::enable();
   }
 
   void SetUp() override {
-    MappedMemory::testingDestroyInstance();
-    auto tracker = MemoryUsageTracker::create(kMaxMappedMemory);
+    MemoryAllocator::testingDestroyInstance();
+    auto tracker = MemoryUsageTracker::create(kMaxMemoryAllocator);
     useMmap_ = GetParam();
     if (useMmap_) {
       MmapAllocator::Options options;
-      options.capacity = kMaxMappedMemory;
+      options.capacity = kMaxMemoryAllocator;
       mmapAllocator_ = std::make_shared<MmapAllocator>(options);
-      MappedMemory::setDefaultInstance(mmapAllocator_.get());
+      MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
     } else {
-      MappedMemory::setDefaultInstance(nullptr);
+      MemoryAllocator::setDefaultInstance(nullptr);
     }
-    instancePtr_ = MappedMemory::getInstance()->addChild(tracker);
+    instancePtr_ = MemoryAllocator::getInstance()->addChild(tracker);
     instance_ = instancePtr_.get();
   }
 
   void TearDown() override {
-    MappedMemory::testingDestroyInstance();
+    MemoryAllocator::testingDestroyInstance();
   }
 
-  bool allocate(int32_t numPages, MappedMemory::Allocation& result) {
+  bool allocate(int32_t numPages, MemoryAllocator::Allocation& result) {
     try {
       if (!instance_->allocateNonContiguous(numPages, result)) {
         EXPECT_EQ(result.numRuns(), 0);
@@ -79,14 +79,14 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     return true;
   }
 
-  void initializeContents(MappedMemory::Allocation& alloc) {
+  void initializeContents(MemoryAllocator::Allocation& alloc) {
     auto sequence = sequence_.fetch_add(1);
     bool first = true;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MappedMemory::PageRun run = alloc.runAt(i);
+      MemoryAllocator::PageRun run = alloc.runAt(i);
       void** ptr = reinterpret_cast<void**>(run.data());
       int32_t numWords =
-          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
+          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           ptr[offset] = reinterpret_cast<void*>(sequence);
@@ -98,14 +98,14 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     }
   }
 
-  void checkContents(MappedMemory::Allocation& alloc) {
+  void checkContents(MemoryAllocator::Allocation& alloc) {
     bool first = true;
     long sequence;
     for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MappedMemory::PageRun run = alloc.runAt(i);
+      MemoryAllocator::PageRun run = alloc.runAt(i);
       void** ptr = reinterpret_cast<void**>(run.data());
       int32_t numWords =
-          run.numPages() * MappedMemory::kPageSize / sizeof(void*);
+          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
       for (int32_t offset = 0; offset < numWords; offset++) {
         if (first) {
           sequence = reinterpret_cast<long>(ptr[offset]);
@@ -117,7 +117,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     }
   }
 
-  void initializeContents(MappedMemory::ContiguousAllocation& alloc) {
+  void initializeContents(MemoryAllocator::ContiguousAllocation& alloc) {
     long sequence = sequence_.fetch_add(1);
     bool first = true;
     void** ptr = reinterpret_cast<void**>(alloc.data());
@@ -132,7 +132,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     }
   }
 
-  void checkContents(MappedMemory::ContiguousAllocation& alloc) {
+  void checkContents(MemoryAllocator::ContiguousAllocation& alloc) {
     bool first = true;
     long sequence;
     void** ptr = reinterpret_cast<void**>(alloc.data());
@@ -147,7 +147,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     }
   }
 
-  void free(MappedMemory::Allocation& alloc) {
+  void free(MemoryAllocator::Allocation& alloc) {
     checkContents(alloc);
     instance_->freeNonContiguous(alloc);
   }
@@ -155,27 +155,27 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
   void allocateMultiple(
       MachinePageCount numPages,
       int32_t numAllocs,
-      std::vector<std::unique_ptr<MappedMemory::Allocation>>& allocations) {
+      std::vector<std::unique_ptr<MemoryAllocator::Allocation>>& allocations) {
     allocations.clear();
     allocations.reserve(numAllocs);
     allocations.push_back(
-        std::make_unique<MappedMemory::Allocation>(instance_));
+        std::make_unique<MemoryAllocator::Allocation>(instance_));
     bool largeTested = false;
     for (int32_t i = 0; i < numAllocs; ++i) {
       if (allocate(numPages, *allocations.back().get())) {
         allocations.push_back(
-            std::make_unique<MappedMemory::Allocation>(instance_));
+            std::make_unique<MemoryAllocator::Allocation>(instance_));
         int available = kCapacity - instance_->numAllocated();
 
         // Try large allocations after half the capacity is used.
         if (available <= kCapacity / 2 && !largeTested) {
           largeTested = true;
-          MappedMemory::ContiguousAllocation large;
+          MemoryAllocator::ContiguousAllocation large;
           if (!allocateContiguous(available / 2, nullptr, large)) {
             FAIL() << "Could not allocate half the available";
             return;
           }
-          MappedMemory::Allocation small(instance_);
+          MemoryAllocator::Allocation small(instance_);
           if (!instance_->allocateNonContiguous(available / 4, small)) {
             FAIL() << "Could not allocate 1/4 of available";
             return;
@@ -212,8 +212,8 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
 
   bool allocateContiguous(
       int numPages,
-      MappedMemory::Allocation* FOLLY_NULLABLE collateral,
-      MappedMemory::ContiguousAllocation& allocation) {
+      MemoryAllocator::Allocation* FOLLY_NULLABLE collateral,
+      MemoryAllocator::ContiguousAllocation& allocation) {
     bool success =
         instance_->allocateContiguous(numPages, collateral, allocation);
     if (success) {
@@ -222,7 +222,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     return success;
   }
 
-  void free(MappedMemory::ContiguousAllocation& allocation) {
+  void free(MemoryAllocator::ContiguousAllocation& allocation) {
     checkContents(allocation);
     instance_->freeContiguous(allocation);
   }
@@ -231,7 +231,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
       MachinePageCount startSize,
       MachinePageCount endSize,
       int32_t repeat,
-      std::vector<std::unique_ptr<MappedMemory::Allocation>>& allocations) {
+      std::vector<std::unique_ptr<MemoryAllocator::Allocation>>& allocations) {
     int32_t hand = 0;
     for (int32_t count = 0; count < repeat;) {
       for (auto size = startSize; size < endSize;
@@ -252,7 +252,7 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
 
   bool makeSpace(
       int32_t size,
-      std::vector<std::unique_ptr<MappedMemory::Allocation>>& allocations,
+      std::vector<std::unique_ptr<MemoryAllocator::Allocation>>& allocations,
       int32_t* hand) {
     int numIterations = 0;
     while (kCapacity - instance_->numAllocated() < size) {
@@ -268,25 +268,25 @@ class MappedMemoryTest : public testing::TestWithParam<bool> {
     return true;
   }
 
-  std::vector<std::unique_ptr<MappedMemory::Allocation>> makeEmptyAllocations(
-      int32_t size) {
-    std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
+  std::vector<std::unique_ptr<MemoryAllocator::Allocation>>
+  makeEmptyAllocations(int32_t size) {
+    std::vector<std::unique_ptr<MemoryAllocator::Allocation>> allocations;
     allocations.reserve(size);
     for (int32_t i = 0; i < size; i++) {
       allocations.push_back(
-          std::make_unique<MappedMemory::Allocation>(instance_));
+          std::make_unique<MemoryAllocator::Allocation>(instance_));
     }
     return allocations;
   }
 
   bool useMmap_;
   std::shared_ptr<MmapAllocator> mmapAllocator_;
-  std::shared_ptr<MappedMemory> instancePtr_;
-  MappedMemory* instance_;
+  std::shared_ptr<MemoryAllocator> instancePtr_;
+  MemoryAllocator* instance_;
   std::atomic<int32_t> sequence_ = {};
 };
 
-TEST_P(MappedMemoryTest, allocationPoolTest) {
+TEST_P(MemoryAllocatorTest, allocationPoolTest) {
   const size_t kNumLargeAllocPages = instance_->largestSizeClass() * 2;
   AllocationPool pool(instance_);
 
@@ -295,7 +295,7 @@ TEST_P(MappedMemoryTest, allocationPoolTest) {
   EXPECT_EQ(pool.currentRunIndex(), 0);
   EXPECT_EQ(pool.currentOffset(), 10);
 
-  pool.allocateFixed(kNumLargeAllocPages * MappedMemory::kPageSize);
+  pool.allocateFixed(kNumLargeAllocPages * MemoryAllocator::kPageSize);
   EXPECT_EQ(pool.numTotalAllocations(), 2);
   EXPECT_EQ(pool.currentRunIndex(), 0);
   EXPECT_EQ(pool.currentOffset(), 10);
@@ -323,9 +323,9 @@ TEST_P(MappedMemoryTest, allocationPoolTest) {
   pool.clear();
 }
 
-TEST_P(MappedMemoryTest, allocationTest) {
-  const int32_t kPageSize = MappedMemory::kPageSize;
-  MappedMemory::Allocation allocation(instance_);
+TEST_P(MemoryAllocatorTest, allocationTest) {
+  const int32_t kPageSize = MemoryAllocator::kPageSize;
+  MemoryAllocator::Allocation allocation(instance_);
   uint8_t* pages = reinterpret_cast<uint8_t*>(malloc(kPageSize * 20));
   // We append different pieces of 'pages' to 'allocation'.
   // 4 last pages.
@@ -347,7 +347,7 @@ TEST_P(MappedMemoryTest, allocationTest) {
   EXPECT_EQ(offsetInRun, 10 * kPageSize + 2000);
   EXPECT_EQ(allocation.runAt(1).data(), pages + 15 * kPageSize);
 
-  MappedMemory::Allocation moved(std::move(allocation));
+  MemoryAllocator::Allocation moved(std::move(allocation));
   EXPECT_EQ(allocation.numRuns(), 0);
   EXPECT_EQ(allocation.numPages(), 0);
   EXPECT_EQ(moved.numRuns(), 3);
@@ -359,10 +359,10 @@ TEST_P(MappedMemoryTest, allocationTest) {
   ::free(pages);
 }
 
-TEST_P(MappedMemoryTest, singleAllocationTest) {
+TEST_P(MemoryAllocatorTest, singleAllocationTest) {
   const std::vector<MachinePageCount>& sizes = instance_->sizeClasses();
   MachinePageCount capacity = kCapacity;
-  std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
+  std::vector<std::unique_ptr<MemoryAllocator::Allocation>> allocations;
   for (auto i = 0; i < sizes.size(); ++i) {
     auto size = sizes[i];
     allocateMultiple(size, capacity / size + 10, allocations);
@@ -375,7 +375,7 @@ TEST_P(MappedMemoryTest, singleAllocationTest) {
 
     auto stats = instance_->stats();
     EXPECT_LT(0, stats.sizes[i].clocks());
-    EXPECT_GE(stats.sizes[i].totalBytes, capacity * MappedMemory::kPageSize);
+    EXPECT_GE(stats.sizes[i].totalBytes, capacity * MemoryAllocator::kPageSize);
     EXPECT_GE(stats.sizes[i].numAllocations, capacity / size);
 
     if (useMmap_) {
@@ -400,8 +400,8 @@ TEST_P(MappedMemoryTest, singleAllocationTest) {
   }
 }
 
-TEST_P(MappedMemoryTest, increasingSizeTest) {
-  std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations =
+TEST_P(MemoryAllocatorTest, increasingSizeTest) {
+  std::vector<std::unique_ptr<MemoryAllocator::Allocation>> allocations =
       makeEmptyAllocations(10'000);
   allocateIncreasing(10, 1'000, 2'000, allocations);
   EXPECT_TRUE(instance_->checkConsistency());
@@ -412,9 +412,9 @@ TEST_P(MappedMemoryTest, increasingSizeTest) {
   EXPECT_EQ(instance_->numAllocated(), 0);
 }
 
-TEST_P(MappedMemoryTest, increasingSizeWithThreadsTest) {
+TEST_P(MemoryAllocatorTest, increasingSizeWithThreadsTest) {
   const int32_t numThreads = 20;
-  std::vector<std::vector<std::unique_ptr<MappedMemory::Allocation>>>
+  std::vector<std::vector<std::unique_ptr<MemoryAllocator::Allocation>>>
       allocations;
   allocations.reserve(numThreads);
   std::vector<std::thread> threads;
@@ -438,78 +438,81 @@ TEST_P(MappedMemoryTest, increasingSizeWithThreadsTest) {
   EXPECT_EQ(instance_->numAllocated(), 0);
 }
 
-TEST_P(MappedMemoryTest, scopedMemoryUsageTracking) {
+TEST_P(MemoryAllocatorTest, scopedMemoryUsageTracking) {
   const int32_t numPages = 32;
   {
     auto tracker = MemoryUsageTracker::create();
-    auto mappedMemory = instance_->addChild(tracker);
+    auto MemoryAllocator = instance_->addChild(tracker);
 
-    MappedMemory::Allocation result(mappedMemory.get());
+    MemoryAllocator::Allocation result(MemoryAllocator.get());
 
-    mappedMemory->allocateNonContiguous(numPages, result);
+    MemoryAllocator->allocateNonContiguous(numPages, result);
     EXPECT_GE(result.numPages(), numPages);
     EXPECT_EQ(
-        result.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
-    mappedMemory->freeNonContiguous(result);
+        result.numPages() * MemoryAllocator::kPageSize,
+        tracker->currentBytes());
+    MemoryAllocator->freeNonContiguous(result);
     EXPECT_EQ(0, tracker->currentBytes());
   }
 
   auto tracker = MemoryUsageTracker::create();
-  auto mappedMemory = instance_->addChild(tracker);
+  auto MemoryAllocator = instance_->addChild(tracker);
   {
-    MappedMemory::Allocation result1(mappedMemory.get());
-    MappedMemory::Allocation result2(mappedMemory.get());
-    mappedMemory->allocateNonContiguous(numPages, result1);
+    MemoryAllocator::Allocation result1(MemoryAllocator.get());
+    MemoryAllocator::Allocation result2(MemoryAllocator.get());
+    MemoryAllocator->allocateNonContiguous(numPages, result1);
     EXPECT_GE(result1.numPages(), numPages);
     EXPECT_EQ(
-        result1.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
+        result1.numPages() * MemoryAllocator::kPageSize,
+        tracker->currentBytes());
 
-    mappedMemory->allocateNonContiguous(numPages, result2);
+    MemoryAllocator->allocateNonContiguous(numPages, result2);
     EXPECT_GE(result2.numPages(), numPages);
     EXPECT_EQ(
-        (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
+        (result1.numPages() + result2.numPages()) * MemoryAllocator::kPageSize,
         tracker->currentBytes());
 
     // Since allocations are still valid, usage should not change.
     EXPECT_EQ(
-        (result1.numPages() + result2.numPages()) * MappedMemory::kPageSize,
+        (result1.numPages() + result2.numPages()) * MemoryAllocator::kPageSize,
         tracker->currentBytes());
   }
   EXPECT_EQ(0, tracker->currentBytes());
 }
 
-TEST_P(MappedMemoryTest, minSizeClass) {
+TEST_P(MemoryAllocatorTest, minSizeClass) {
   auto tracker = MemoryUsageTracker::create();
-  auto mappedMemory = instance_->addChild(tracker);
+  auto MemoryAllocator = instance_->addChild(tracker);
 
-  MappedMemory::Allocation result(mappedMemory.get());
+  MemoryAllocator::Allocation result(MemoryAllocator.get());
 
-  int32_t sizeClass = mappedMemory->sizeClasses().back();
+  int32_t sizeClass = MemoryAllocator->sizeClasses().back();
   int32_t numPages = sizeClass + 1;
-  mappedMemory->allocateNonContiguous(numPages, result, nullptr, sizeClass);
+  MemoryAllocator->allocateNonContiguous(numPages, result, nullptr, sizeClass);
   EXPECT_GE(result.numPages(), sizeClass * 2);
   // All runs have to be at least the minimum size.
   for (auto i = 0; i < result.numRuns(); ++i) {
     EXPECT_LE(sizeClass, result.runAt(i).numPages());
   }
   EXPECT_EQ(
-      result.numPages() * MappedMemory::kPageSize, tracker->currentBytes());
-  mappedMemory->freeNonContiguous(result);
+      result.numPages() * MemoryAllocator::kPageSize, tracker->currentBytes());
+  MemoryAllocator->freeNonContiguous(result);
   EXPECT_EQ(0, tracker->currentBytes());
 }
 
-TEST_P(MappedMemoryTest, externalAdvise) {
+TEST_P(MemoryAllocatorTest, externalAdvise) {
   if (!useMmap_) {
     return;
   }
   constexpr int32_t kSmallSize = 16;
   constexpr int32_t kLargeSize = 32 * kSmallSize + 1;
-  auto instance = dynamic_cast<MmapAllocator*>(MappedMemory::getInstance());
-  std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
+  auto instance = dynamic_cast<MmapAllocator*>(MemoryAllocator::getInstance());
+  std::vector<std::unique_ptr<MemoryAllocator::Allocation>> allocations;
   auto numAllocs = kCapacity / kSmallSize;
   allocations.reserve(numAllocs);
   for (int32_t i = 0; i < numAllocs; ++i) {
-    allocations.push_back(std::make_unique<MappedMemory::Allocation>(instance));
+    allocations.push_back(
+        std::make_unique<MemoryAllocator::Allocation>(instance));
     EXPECT_TRUE(allocate(kSmallSize, *allocations.back().get()));
   }
   // We allocated and mapped the capacity. Now free half, leaving the memory
@@ -518,7 +521,7 @@ TEST_P(MappedMemoryTest, externalAdvise) {
   EXPECT_TRUE(instance->checkConsistency());
   EXPECT_EQ(instance->numMapped(), numAllocs * kSmallSize);
   EXPECT_EQ(instance->numAllocated(), numAllocs / 2 * kSmallSize);
-  std::vector<MappedMemory::ContiguousAllocation> large(2);
+  std::vector<MemoryAllocator::ContiguousAllocation> large(2);
   EXPECT_TRUE(instance->allocateContiguous(kLargeSize, nullptr, large[0]));
   // The same number are mapped but some got advised away to back the large
   // allocation. One kSmallSize got advised away but not fully used because
@@ -540,15 +543,15 @@ TEST_P(MappedMemoryTest, externalAdvise) {
   EXPECT_TRUE(instance->checkConsistency());
 }
 
-TEST_P(MappedMemoryTest, allocContiguousFail) {
+TEST_P(MemoryAllocatorTest, allocContiguousFail) {
   if (!useMmap_) {
     return;
   }
   // Covers edge cases of
   constexpr int32_t kSmallSize = 16;
   constexpr int32_t kLargeSize = kCapacity / 2;
-  auto instance = dynamic_cast<MmapAllocator*>(MappedMemory::getInstance());
-  std::vector<std::unique_ptr<MappedMemory::Allocation>> allocations;
+  auto instance = dynamic_cast<MmapAllocator*>(MemoryAllocator::getInstance());
+  std::vector<std::unique_ptr<MemoryAllocator::Allocation>> allocations;
   auto numAllocs = kCapacity / kSmallSize;
   int64_t trackedBytes = 0;
   auto trackCallback = [&](int64_t delta, bool preAlloc) {
@@ -556,7 +559,8 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   };
   allocations.reserve(numAllocs);
   for (int32_t i = 0; i < numAllocs; ++i) {
-    allocations.push_back(std::make_unique<MappedMemory::Allocation>(instance));
+    allocations.push_back(
+        std::make_unique<MemoryAllocator::Allocation>(instance));
     EXPECT_TRUE(allocate(kSmallSize, *allocations.back().get()));
   }
   // We allocated and mapped the capacity. Now free half, leaving the memory
@@ -565,7 +569,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   EXPECT_TRUE(instance->checkConsistency());
   EXPECT_EQ(instance->numMapped(), numAllocs * kSmallSize);
   EXPECT_EQ(instance->numAllocated(), numAllocs / 2 * kSmallSize);
-  MappedMemory::ContiguousAllocation large;
+  MemoryAllocator::ContiguousAllocation large;
   EXPECT_TRUE(instance->allocateContiguous(
       kLargeSize / 2, nullptr, large, trackCallback));
   EXPECT_TRUE(instance->checkConsistency());
@@ -581,7 +585,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   // large and allocations.back() were both freed and nothing was allocated.
   EXPECT_EQ(kSmallSize * (allocations.size() - 1), instance->numAllocated());
   // An extra kSmallSize were freed.
-  EXPECT_EQ(-kSmallSize * MappedMemory::kPageSize, trackedBytes);
+  EXPECT_EQ(-kSmallSize * MemoryAllocator::kPageSize, trackedBytes);
   // Remove the cleared item from the end.
   allocations.pop_back();
 
@@ -598,7 +602,7 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
       trackCallback));
   // large and allocations.back() were both freed and nothing was allocated.
   EXPECT_EQ(kSmallSize * (allocations.size() - 1), instance->numAllocated());
-  EXPECT_EQ(-kSmallSize * MappedMemory::kPageSize, trackedBytes);
+  EXPECT_EQ(-kSmallSize * MemoryAllocator::kPageSize, trackedBytes);
   allocations.pop_back();
   EXPECT_TRUE(instance->checkConsistency());
 
@@ -616,19 +620,19 @@ TEST_P(MappedMemoryTest, allocContiguousFail) {
   // Size grew by kLargeSize + 2 * kSmallSize (one kSmallSize item was freed, so
   // no not 3 x kSmallSize).
   EXPECT_EQ(
-      (kLargeSize + 2 * kSmallSize) * MappedMemory::kPageSize, trackedBytes);
+      (kLargeSize + 2 * kSmallSize) * MemoryAllocator::kPageSize, trackedBytes);
   EXPECT_TRUE(instance->checkConsistency());
 }
 
-TEST_P(MappedMemoryTest, allocateBytes) {
+TEST_P(MemoryAllocatorTest, allocateBytes) {
   constexpr int32_t kNumAllocs = 50;
-  MappedMemory::testingClearAllocateBytesStats();
+  MemoryAllocator::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
   std::vector<MachinePageCount> sizes = {
-      MappedMemory::kMaxMallocBytes / 2,
+      MemoryAllocator::kMaxMallocBytes / 2,
       100000,
       1000000,
-      instance_->sizeClasses().back() * MappedMemory::kPageSize + 100000};
+      instance_->sizeClasses().back() * MemoryAllocator::kPageSize + 100000};
   folly::Random::DefaultGenerator rng;
   rng.seed(1);
 
@@ -659,7 +663,7 @@ TEST_P(MappedMemoryTest, allocateBytes) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
-  auto stats = MappedMemory::allocateBytesStats();
+  auto stats = MemoryAllocator::allocateBytesStats();
   ASSERT_EQ(0, stats.totalSmall);
   ASSERT_EQ(0, stats.totalInSizeClasses);
   ASSERT_EQ(0, stats.totalLarge);
@@ -668,7 +672,7 @@ TEST_P(MappedMemoryTest, allocateBytes) {
   ASSERT_TRUE(instance_->checkConsistency());
 }
 
-TEST_P(MappedMemoryTest, allocateBytesWithAlignment) {
+TEST_P(MemoryAllocatorTest, allocateBytesWithAlignment) {
   struct {
     uint64_t allocateBytes;
     uint16_t alignment;
@@ -681,32 +685,48 @@ TEST_P(MappedMemoryTest, allocateBytesWithAlignment) {
           expectSuccess);
     }
   } testSettings[] = {
-      {MappedMemory::kPageSize / 5, MappedMemory::kMinAlignment + 1, false},
-      {MappedMemory::kPageSize / 4, MappedMemory::kMaxAlignment + 1, false},
-      {MappedMemory::kPageSize / 5, MappedMemory::kMaxAlignment * 2, false},
-      {MappedMemory::kPageSize / 4, MappedMemory::kMaxAlignment * 2, false},
-      {MappedMemory::kPageSize / 5, MappedMemory::kMaxAlignment, false},
-      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment + 1, false},
-      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment * 2, false},
-      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment, true},
-      {MappedMemory::kPageSize, MappedMemory::kMaxAlignment / 2, true},
-      {MappedMemory::kPageSize * 2, MappedMemory::kMaxAlignment, true},
-      {MappedMemory::kPageSize * 2, MappedMemory::kMaxAlignment / 2, true},
-      {MappedMemory::kMaxAlignment, MappedMemory::kMaxAlignment, true},
-      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMaxAlignment / 2, true},
-      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMinAlignment, true},
-      {MappedMemory::kMaxAlignment / 2, MappedMemory::kMinAlignment - 1, false},
-      {MappedMemory::kMaxAlignment / 2, 0, false}};
+      {MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMinAlignment + 1,
+       false},
+      {MemoryAllocator::kPageSize / 4,
+       MemoryAllocator::kMaxAlignment + 1,
+       false},
+      {MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment * 2,
+       false},
+      {MemoryAllocator::kPageSize / 4,
+       MemoryAllocator::kMaxAlignment * 2,
+       false},
+      {MemoryAllocator::kPageSize / 5, MemoryAllocator::kMaxAlignment, false},
+      {MemoryAllocator::kPageSize, MemoryAllocator::kMaxAlignment + 1, false},
+      {MemoryAllocator::kPageSize, MemoryAllocator::kMaxAlignment * 2, false},
+      {MemoryAllocator::kPageSize, MemoryAllocator::kMaxAlignment, true},
+      {MemoryAllocator::kPageSize, MemoryAllocator::kMaxAlignment / 2, true},
+      {MemoryAllocator::kPageSize * 2, MemoryAllocator::kMaxAlignment, true},
+      {MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kMaxAlignment / 2,
+       true},
+      {MemoryAllocator::kMaxAlignment, MemoryAllocator::kMaxAlignment, true},
+      {MemoryAllocator::kMaxAlignment / 2,
+       MemoryAllocator::kMaxAlignment / 2,
+       true},
+      {MemoryAllocator::kMaxAlignment / 2,
+       MemoryAllocator::kMinAlignment,
+       true},
+      {MemoryAllocator::kMaxAlignment / 2,
+       MemoryAllocator::kMinAlignment - 1,
+       false},
+      {MemoryAllocator::kMaxAlignment / 2, 0, false}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(
         fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
 
-    MappedMemory::testingClearAllocateBytesStats();
+    MemoryAllocator::testingClearAllocateBytesStats();
     if (testData.expectSuccess) {
       auto* ptr =
           instance_->allocateBytes(testData.allocateBytes, testData.alignment);
       ASSERT_NE(ptr, nullptr);
-      if (testData.alignment > MappedMemory::kMinAlignment) {
+      if (testData.alignment > MemoryAllocator::kMinAlignment) {
         ASSERT_EQ(reinterpret_cast<uint64_t>(ptr) % testData.alignment, 0);
       }
       instance_->freeBytes(ptr, testData.allocateBytes);
@@ -718,15 +738,15 @@ TEST_P(MappedMemoryTest, allocateBytesWithAlignment) {
   }
 }
 
-TEST_P(MappedMemoryTest, allocateZeroFilled) {
+TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
   constexpr int32_t kNumAllocs = 50;
-  MappedMemory::testingClearAllocateBytesStats();
+  MemoryAllocator::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
   std::vector<MachinePageCount> sizes = {
-      MappedMemory::kMaxMallocBytes / 2,
+      MemoryAllocator::kMaxMallocBytes / 2,
       100000,
       1000000,
-      instance_->sizeClasses().back() * MappedMemory::kPageSize + 100000};
+      instance_->sizeClasses().back() * MemoryAllocator::kPageSize + 100000};
   folly::Random::DefaultGenerator rng;
   rng.seed(1);
 
@@ -756,7 +776,7 @@ TEST_P(MappedMemoryTest, allocateZeroFilled) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
-  auto stats = MappedMemory::allocateBytesStats();
+  auto stats = MemoryAllocator::allocateBytesStats();
   ASSERT_EQ(0, stats.totalSmall);
   ASSERT_EQ(0, stats.totalInSizeClasses);
   ASSERT_EQ(0, stats.totalLarge);
@@ -765,10 +785,10 @@ TEST_P(MappedMemoryTest, allocateZeroFilled) {
   ASSERT_TRUE(instance_->checkConsistency());
 }
 
-TEST_P(MappedMemoryTest, StlMappedMemoryAllocator) {
+TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
   {
-    std::vector<double, StlMappedMemoryAllocator<double>> data(
-        0, StlMappedMemoryAllocator<double>(instance_));
+    std::vector<double, StlMemoryAllocator<double>> data(
+        0, StlMemoryAllocator<double>(instance_));
     // The contiguous size goes to 2MB, covering malloc, size
     // Allocation from classes and ContiguousAllocation outside size
     // classes.
@@ -778,8 +798,8 @@ TEST_P(MappedMemoryTest, StlMappedMemoryAllocator) {
       data.push_back(i);
       if (data.capacity() != capacity) {
         capacity = data.capacity();
-        auto stats = MappedMemory::allocateBytesStats();
-        ASSERT_EQ(
+        auto stats = MemoryAllocator::allocateBytesStats();
+        EXPECT_EQ(
             capacity * sizeof(double),
             stats.totalSmall + stats.totalInSizeClasses + stats.totalLarge);
       }
@@ -788,47 +808,46 @@ TEST_P(MappedMemoryTest, StlMappedMemoryAllocator) {
       ASSERT_EQ(i, data[i]);
     }
     if (useMmap_) {
-      ASSERT_EQ(instance_->numAllocated(), 512);
+      EXPECT_EQ(512, instance_->numAllocated());
     } else {
-      // non-mmap implementation always allocate from std::malloc.
-      ASSERT_EQ(instance_->numAllocated(), 0);
+      EXPECT_EQ(0, instance_->numAllocated());
     }
-    auto stats = MappedMemory::allocateBytesStats();
+    auto stats = MemoryAllocator::allocateBytesStats();
     if (useMmap_) {
-      ASSERT_EQ(stats.totalSmall, 0);
+      EXPECT_EQ(0, stats.totalSmall);
     } else {
-      ASSERT_EQ(stats.totalSmall, 2 << 20);
+      EXPECT_EQ(2097152, stats.totalSmall);
     }
-    ASSERT_EQ(stats.totalInSizeClasses, 0);
+    EXPECT_EQ(0, stats.totalInSizeClasses);
     if (useMmap_) {
-      ASSERT_EQ(stats.totalLarge, 2 << 20);
+      EXPECT_EQ(2 << 20, stats.totalLarge);
     } else {
-      ASSERT_EQ(stats.totalLarge, 0);
+      EXPECT_EQ(0, stats.totalLarge);
     }
   }
-  ASSERT_EQ(instance_->numAllocated(), 0);
-  ASSERT_TRUE(instance_->checkConsistency());
+  EXPECT_EQ(0, instance_->numAllocated());
+  EXPECT_TRUE(instance_->checkConsistency());
   {
-    StlMappedMemoryAllocator<int64_t> alloc(instance_);
-    ASSERT_THROW(alloc.allocate(1ULL << 62), VeloxException);
+    StlMemoryAllocator<int64_t> alloc(instance_);
+    EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
     auto p = alloc.allocate(1);
-    ASSERT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
+    EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
     alloc.deallocate(p, 1);
   }
 }
 
 DEBUG_ONLY_TEST_P(
-    MappedMemoryTest,
-    nonContiguousScopedMappedMemoryAllocationFailure) {
+    MemoryAllocatorTest,
+    nonContiguousScopedMemoryAllocatorAllocationFailure) {
   auto tracker = MemoryUsageTracker::create();
   ASSERT_EQ(tracker->currentBytes(), 0);
-  auto* mappedMemory = MappedMemory::getInstance();
-  auto scopedMemory = mappedMemory->addChild(tracker);
+  auto* MemoryAllocator = MemoryAllocator::getInstance();
+  auto scopedMemory = MemoryAllocator->addChild(tracker);
   ASSERT_EQ(tracker->currentBytes(), 0);
 
   const std::string testValueStr = useMmap_
       ? "facebook::velox::memory::MmapAllocator::allocate"
-      : "facebook::velox::memory::MappedMemoryImpl::allocate";
+      : "facebook::velox::memory::MemoryAllocatorImpl::allocate";
   std::atomic<bool> testingInjectFailureOnce{true};
   SCOPED_TESTVALUE_SET(
       testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
@@ -843,8 +862,8 @@ DEBUG_ONLY_TEST_P(
       }));
 
   constexpr MachinePageCount kAllocSize = 8;
-  std::unique_ptr<MappedMemory::Allocation> allocation(
-      new MappedMemory::Allocation(scopedMemory.get()));
+  std::unique_ptr<MemoryAllocator::Allocation> allocation(
+      new MemoryAllocator::Allocation(scopedMemory.get()));
   ASSERT_FALSE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
   ASSERT_EQ(tracker->currentBytes(), 0);
   ASSERT_TRUE(scopedMemory->allocateNonContiguous(kAllocSize, *allocation));
@@ -853,30 +872,30 @@ DEBUG_ONLY_TEST_P(
   ASSERT_EQ(tracker->currentBytes(), 0);
 }
 
-TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
+TEST_P(MemoryAllocatorTest, contiguousScopedMemoryAllocatorAllocationFailure) {
   if (!useMmap_) {
-    // This test doesn't apply for MappedMemoryImpl which doesn't have memory
+    // This test doesn't apply for MemoryAllocatorImpl which doesn't have memory
     // allocation failure rollback code path.
     return;
   }
-  auto* mappedMemory =
-      dynamic_cast<MmapAllocator*>(MappedMemory::getInstance());
+  auto* MemoryAllocator =
+      dynamic_cast<MmapAllocator*>(MemoryAllocator::getInstance());
   std::vector<MmapAllocator::Failure> failureTypes(
       {MmapAllocator::Failure::kMadvise, MmapAllocator::Failure::kMmap});
   for (const auto& failure : failureTypes) {
-    mappedMemory->testingInjectFailure(failure);
+    MemoryAllocator->testingInjectFailure(failure);
     auto tracker = MemoryUsageTracker::create();
     ASSERT_EQ(tracker->currentBytes(), 0);
-    auto scopedMemory = mappedMemory->addChild(tracker);
+    auto scopedMemory = MemoryAllocator->addChild(tracker);
     ASSERT_EQ(tracker->currentBytes(), 0);
 
     constexpr MachinePageCount kAllocSize = 8;
-    std::unique_ptr<MappedMemory::ContiguousAllocation> allocation(
-        new MappedMemory::ContiguousAllocation());
+    std::unique_ptr<MemoryAllocator::ContiguousAllocation> allocation(
+        new MemoryAllocator::ContiguousAllocation());
     ASSERT_FALSE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_EQ(tracker->currentBytes(), 0);
-    mappedMemory->testingInjectFailure(MmapAllocator::Failure::kNone);
+    MemoryAllocator->testingInjectFailure(MmapAllocator::Failure::kNone);
     ASSERT_TRUE(
         scopedMemory->allocateContiguous(kAllocSize, nullptr, *allocation));
     ASSERT_GT(tracker->currentBytes(), 0);
@@ -885,7 +904,7 @@ TEST_P(MappedMemoryTest, contiguousScopedMappedMemoryAllocationFailure) {
   }
 }
 
-TEST_P(MappedMemoryTest, reallocateWithAlignment) {
+TEST_P(MemoryAllocatorTest, reallocateWithAlignment) {
   struct {
     uint64_t oldBytes;
     uint64_t newBytes;
@@ -900,84 +919,87 @@ TEST_P(MappedMemoryTest, reallocateWithAlignment) {
           expectSuccess);
     }
   } testSettings[] = {
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMinAlignment + 1,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMinAlignment + 1,
        false},
-      {MappedMemory::kPageSize / 5,
-       MappedMemory::kPageSize / 7,
-       MappedMemory::kMinAlignment + 1,
+      {MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kMinAlignment + 1,
        false},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment,
        false},
-      {MappedMemory::kPageSize / 5,
-       MappedMemory::kPageSize / 7,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kMaxAlignment,
        false},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment,
        false},
-      {MappedMemory::kPageSize / 3,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 3,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment,
        false},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment,
        false},
-      {MappedMemory::kPageSize * 2,
-       MappedMemory::kPageSize,
-       MappedMemory::kMinAlignment + 1,
+      {MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kPageSize,
+       MemoryAllocator::kMinAlignment + 1,
        false},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize / 5,
-       MappedMemory::kMaxAlignment * 2,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kMaxAlignment * 2,
        false},
-      {MappedMemory::kPageSize / 5,
-       MappedMemory::kPageSize / 7,
-       MappedMemory::kMaxAlignment * 2,
+      {MemoryAllocator::kPageSize / 5,
+       MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kMaxAlignment * 2,
        false},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize,
+       MemoryAllocator::kMaxAlignment,
        true},
-      {MappedMemory::kPageSize * 2,
-       MappedMemory::kPageSize,
-       MappedMemory::kMaxAlignment,
+      {MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kPageSize,
+       MemoryAllocator::kMaxAlignment,
        true},
-      {MappedMemory::kPageSize / 7,
-       MappedMemory::kPageSize,
-       MappedMemory::kMaxAlignment / 2,
+      {MemoryAllocator::kPageSize / 7,
+       MemoryAllocator::kPageSize,
+       MemoryAllocator::kMaxAlignment / 2,
        true},
-      {MappedMemory::kPageSize * 2,
-       MappedMemory::kPageSize,
-       MappedMemory::kMaxAlignment / 2,
+      {MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kPageSize,
+       MemoryAllocator::kMaxAlignment / 2,
        true},
-      {MappedMemory::kPageSize,
-       MappedMemory::kPageSize * 2,
-       MappedMemory::kMaxAlignment / 2,
+      {MemoryAllocator::kPageSize,
+       MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kMaxAlignment / 2,
        true},
-      {MappedMemory::kPageSize * 4,
-       MappedMemory::kPageSize * 2,
-       MappedMemory::kMaxAlignment / 2,
+      {MemoryAllocator::kPageSize * 4,
+       MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kMaxAlignment / 2,
        true},
-      {MappedMemory::kPageSize * 4,
-       MappedMemory::kPageSize * 2,
-       MappedMemory::kMinAlignment,
+      {MemoryAllocator::kPageSize * 4,
+       MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kMinAlignment,
        true},
-      {MappedMemory::kPageSize * 4,
-       MappedMemory::kPageSize * 2,
-       MappedMemory::kMinAlignment - 1,
+      {MemoryAllocator::kPageSize * 4,
+       MemoryAllocator::kPageSize * 2,
+       MemoryAllocator::kMinAlignment - 1,
        false},
-      {MappedMemory::kPageSize * 4, MappedMemory::kPageSize * 2, 0, false}};
+      {MemoryAllocator::kPageSize * 4,
+       MemoryAllocator::kPageSize * 2,
+       0,
+       false}};
   for (const auto& testData : testSettings) {
     SCOPED_TRACE(
         fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
 
-    MappedMemory::testingClearAllocateBytesStats();
+    MemoryAllocator::testingClearAllocateBytesStats();
     auto* oldPtr = instance_->allocateBytes(testData.oldBytes);
     char* data = reinterpret_cast<char*>(oldPtr);
     const char value = 'o';
@@ -989,7 +1011,7 @@ TEST_P(MappedMemoryTest, reallocateWithAlignment) {
           oldPtr, testData.oldBytes, testData.newBytes, testData.alignment);
       ASSERT_NE(newPtr, nullptr);
       ASSERT_NE(oldPtr, newPtr);
-      if (testData.alignment > MappedMemory::kMinAlignment) {
+      if (testData.alignment > MemoryAllocator::kMinAlignment) {
         ASSERT_EQ(reinterpret_cast<uint64_t>(newPtr) % testData.alignment, 0);
       }
       data = reinterpret_cast<char*>(newPtr);
@@ -1008,8 +1030,8 @@ TEST_P(MappedMemoryTest, reallocateWithAlignment) {
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(
-    MappedMemoryTests,
-    MappedMemoryTest,
+    MemoryAllocatorTests,
+    MemoryAllocatorTest,
     testing::Values(true, false));
 
 class MmapArenaTest : public testing::Test {

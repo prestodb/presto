@@ -74,7 +74,7 @@ class ValueListTest : public functions::test::FunctionBaseTest {
 
   std::unique_ptr<HashStringAllocator> allocator_{
       std::make_unique<HashStringAllocator>(
-          memory::MappedMemory::getInstance())};
+          memory::MemoryAllocator::getInstance())};
 };
 
 TEST_F(ValueListTest, empty) {

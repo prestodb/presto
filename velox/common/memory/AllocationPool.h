@@ -15,10 +15,10 @@
  */
 #pragma once
 
-#include "velox/common/memory/MappedMemory.h"
+#include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox {
-// A set of MappedMemory::Allocations holding the fixed width payload
+// A set of MemoryAllocator::Allocations holding the fixed width payload
 // rows. The Runs are filled to the end except for the last one. This
 // is used for iterating over the payload for rehashing, returning
 // results etc. This is used via HashStringAllocator for variable length
@@ -29,8 +29,8 @@ class AllocationPool {
  public:
   static constexpr int32_t kMinPages = 16;
 
-  explicit AllocationPool(memory::MappedMemory* mappedMemory)
-      : mappedMemory_(mappedMemory), allocation_(mappedMemory) {}
+  explicit AllocationPool(memory::MemoryAllocator* allocator)
+      : allocator_(allocator), allocation_(allocator) {}
 
   ~AllocationPool() = default;
 
@@ -54,12 +54,12 @@ class AllocationPool {
     return largeAllocations_.size();
   }
 
-  const memory::MappedMemory::Allocation* allocationAt(int32_t index) const {
+  const memory::MemoryAllocator::Allocation* allocationAt(int32_t index) const {
     return index == allocations_.size() ? &allocation_
                                         : allocations_[index].get();
   }
 
-  const memory::MappedMemory::ContiguousAllocation* largeAllocationAt(
+  const memory::MemoryAllocator::ContiguousAllocation* largeAllocationAt(
       int32_t index) const {
     return largeAllocations_[index].get();
   }
@@ -80,7 +80,7 @@ class AllocationPool {
     for (auto& largeAllocation : largeAllocations_) {
       totalPages += largeAllocation->numPages();
     }
-    return totalPages * memory::MappedMemory::kPageSize;
+    return totalPages * memory::MemoryAllocator::kPageSize;
   }
 
   // Returns number of bytes left at the end of the current run.
@@ -107,22 +107,23 @@ class AllocationPool {
     currentOffset_ = offset;
   }
 
-  memory::MappedMemory* mappedMemory() const {
-    return mappedMemory_;
+  memory::MemoryAllocator* allocator() const {
+    return allocator_;
   }
 
  private:
-  memory::MappedMemory::PageRun currentRun() const {
+  memory::MemoryAllocator::PageRun currentRun() const {
     return allocation_.runAt(currentRun_);
   }
 
   void newRunImpl(memory::MachinePageCount numPages);
 
-  memory::MappedMemory* mappedMemory_;
-  std::vector<std::unique_ptr<memory::MappedMemory::Allocation>> allocations_;
-  std::vector<std::unique_ptr<memory::MappedMemory::ContiguousAllocation>>
+  memory::MemoryAllocator* allocator_;
+  std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
+      allocations_;
+  std::vector<std::unique_ptr<memory::MemoryAllocator::ContiguousAllocation>>
       largeAllocations_;
-  memory::MappedMemory::Allocation allocation_;
+  memory::MemoryAllocator::Allocation allocation_;
   int32_t currentRun_ = 0;
   int32_t currentOffset_ = 0;
 };

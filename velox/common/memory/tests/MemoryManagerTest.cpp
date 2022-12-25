@@ -27,7 +27,7 @@ namespace memory {
 
 TEST(MemoryManagerTest, Ctor) {
   {
-    MemoryManager<MemoryAllocator> manager{};
+    MemoryManager<> manager{};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), root.cap());
@@ -37,7 +37,7 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManager<MemoryAllocator> manager{8L * 1024 * 1024};
+    MemoryManager<> manager{8L * 1024 * 1024};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(8L * 1024 * 1024, root.cap());
@@ -46,7 +46,7 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
-  { ASSERT_ANY_THROW(MemoryManager<MemoryAllocator> manager{-1}); }
+  { ASSERT_ANY_THROW(MemoryManager<> manager{-1}); }
 }
 
 // TODO: when run sequentially, e.g. `buck run dwio/memory/...`, this has side
@@ -73,7 +73,7 @@ TEST(MemoryManagerTest, GlobalMemoryManager) {
 
 TEST(MemoryManagerTest, Reserve) {
   {
-    MemoryManager<MemoryAllocator> manager{};
+    MemoryManager<> manager{};
     ASSERT_TRUE(manager.reserve(0));
     ASSERT_EQ(0, manager.getTotalBytes());
     manager.release(0);
@@ -86,7 +86,7 @@ TEST(MemoryManagerTest, Reserve) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManager<MemoryAllocator> manager{42};
+    MemoryManager<> manager{42};
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(2));

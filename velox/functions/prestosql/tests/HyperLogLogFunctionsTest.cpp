@@ -62,7 +62,7 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
     return signatureStrings;
   }
 
-  HashStringAllocator allocator_{memory::MappedMemory::getInstance()};
+  HashStringAllocator allocator_{memory::MemoryAllocator::getInstance()};
 };
 
 TEST_F(HyperLogLogFunctionsTest, cardinalitySignatures) {

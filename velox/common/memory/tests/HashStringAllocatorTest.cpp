@@ -34,7 +34,7 @@ class HashStringAllocatorTest : public testing::Test {
  protected:
   void SetUp() override {
     instance_ = std::make_unique<HashStringAllocator>(
-        memory::MappedMemory::getInstance());
+        memory::MemoryAllocator::getInstance());
     rng_.seed(1);
   }
 

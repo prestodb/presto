@@ -36,7 +36,7 @@ namespace facebook::velox::exec::test {
 std::shared_ptr<cache::AsyncDataCache> OperatorTestBase::asyncDataCache_;
 
 OperatorTestBase::OperatorTestBase() {
-  using memory::MappedMemory;
+  using memory::MemoryAllocator;
   facebook::velox::exec::ExchangeSource::registerFactory();
   parse::registerTypeResolver();
 }
@@ -46,8 +46,8 @@ void OperatorTestBase::registerVectorSerde() {
 }
 
 OperatorTestBase::~OperatorTestBase() {
-  // Revert to default process-wide MappedMemory.
-  memory::MappedMemory::setDefaultInstance(nullptr);
+  // Revert to default process-wide MemoryAllocator.
+  memory::MemoryAllocator::setDefaultInstance(nullptr);
 }
 
 void OperatorTestBase::TearDownTestCase() {
@@ -55,13 +55,13 @@ void OperatorTestBase::TearDownTestCase() {
 }
 
 void OperatorTestBase::SetUp() {
-  // Sets the process default MappedMemory to an async cache of up
-  // to 4GB backed by a default MappedMemory
+  // Sets the process default MemoryAllocator to an async cache of up
+  // to 4GB backed by a default MemoryAllocator
   if (!asyncDataCache_) {
     asyncDataCache_ = std::make_shared<cache::AsyncDataCache>(
-        memory::MappedMemory::createDefaultInstance(), 4UL << 30);
+        memory::MemoryAllocator::createDefaultInstance(), 4UL << 30);
   }
-  memory::MappedMemory::setDefaultInstance(asyncDataCache_.get());
+  memory::MemoryAllocator::setDefaultInstance(asyncDataCache_.get());
   if (!isRegisteredVectorSerde()) {
     this->registerVectorSerde();
   }
