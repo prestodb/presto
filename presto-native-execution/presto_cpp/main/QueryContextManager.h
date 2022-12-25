@@ -127,8 +127,6 @@ class QueryContextManager {
 
   static constexpr const char* kQueryMaxMemoryPerNode =
       "query.max-memory-per-node";
-  static constexpr const char* kQueryMaxTotalMemoryPerNode =
-      "query.max-total-memory-per-node";
   static constexpr int64_t kDefaultMaxMemoryPerNode =
       std::numeric_limits<int64_t>::max();
 
