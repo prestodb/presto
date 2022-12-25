@@ -476,6 +476,7 @@ class TaskManagerTest : public testing::Test {
     } else {
       auto resultsOrFailures =
           fetchAllResults(outputTaskInfo->taskId, finalOutputType, allTaskIds);
+      EXPECT_TRUE(resultsOrFailures.status != nullptr);
       EXPECT_EQ(resultsOrFailures.status->state, protocol::TaskState::FAILED);
       for (const auto& taskId : allTaskIds) {
         taskManager_->deleteTask(taskId, true);
@@ -512,13 +513,10 @@ class TaskManagerTest : public testing::Test {
         taskInfo->stats.peakTotalMemoryInBytes);
   }
 
-  void setMemoryLimits(uint64_t userMax, uint64_t totalMax) {
+  void setMemoryLimits(uint64_t maxMemory) {
     taskManager_->getQueryContextManager()->overrideProperties(
         QueryContextManager::kQueryMaxMemoryPerNode,
-        fmt::format("{}B", userMax));
-    taskManager_->getQueryContextManager()->overrideProperties(
-        QueryContextManager::kQueryMaxTotalMemoryPerNode,
-        fmt::format("{}B", totalMax));
+        fmt::format("{}B", maxMemory));
   }
 
   // Setup the temporary spilling directory and initialize the system config
@@ -696,15 +694,11 @@ TEST_F(TaskManagerTest, outOfQueryUserMemory) {
 
   auto [peakUser, peakTotal] = testCountAggregation("initial", filePaths);
 
-  setMemoryLimits(peakUser - 1, 20 * kGB);
+  setMemoryLimits(peakUser - 1);
   testCountAggregation("max-memory", filePaths, {}, true);
 
-  // Verify query.max-total-memory-per-node is respected.
-  setMemoryLimits(20 * kGB, peakTotal - 1);
-  testCountAggregation("max-total-memory", filePaths, {}, true);
-
   // Verify the query is successful with some limits.
-  setMemoryLimits(20 * kGB, 20 * kGB);
+  setMemoryLimits(20 * kGB);
   testCountAggregation("test-count-aggr", filePaths);
 
   // Wait a little to allow for futures to complete.
