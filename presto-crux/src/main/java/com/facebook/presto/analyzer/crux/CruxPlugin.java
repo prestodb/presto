@@ -13,33 +13,16 @@
  */
 package com.facebook.presto.analyzer.crux;
 
+import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.analyzer.AnalyzerProvider;
-import com.facebook.presto.spi.analyzer.QueryPreparer;
-import com.google.inject.Inject;
+import com.google.common.collect.ImmutableList;
 
-public class CruxAnalyzerProvider
-        implements AnalyzerProvider
+public class CruxPlugin
+        implements Plugin
 {
-    private static final String PROVIDER_NAME = "CRUX";
-
-    private final CruxQueryPreparer queryPreparer;
-
-    // TODO inject using CruxModule
-    @Inject
-    public CruxAnalyzerProvider(CruxQueryPreparer queryPreparer)
-    {
-        this.queryPreparer = queryPreparer;
-    }
-
     @Override
-    public String getType()
+    public Iterable<AnalyzerProvider> getAnalyzerProviders()
     {
-        return PROVIDER_NAME;
-    }
-
-    @Override
-    public QueryPreparer getQueryPreparer()
-    {
-        return queryPreparer;
+        return ImmutableList.of(new CruxAnalyzerProvider(new CruxQueryPreparer()));
     }
 }
