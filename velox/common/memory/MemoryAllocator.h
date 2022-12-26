@@ -521,12 +521,14 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   static std::atomic<uint64_t> totalLargeAllocateBytes_;
 
  private:
+  static std::mutex initMutex_;
+
   // Singleton instance.
   static std::shared_ptr<MemoryAllocator> instance_;
+
   // Application-supplied custom implementation of MemoryAllocator to be
   // returned by getInstance().
   static MemoryAllocator* FOLLY_NULLABLE customInstance_;
-  static std::mutex initMutex_;
 };
 
 // Wrapper around MemoryAllocator for scoped tracking of activity. We

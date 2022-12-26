@@ -95,6 +95,7 @@ void MemoryAllocator::alignmentCheck(
 
 // static
 void MemoryAllocator::testingDestroyInstance() {
+  std::lock_guard<std::mutex> l(initMutex_);
   instance_ = nullptr;
 }
 
@@ -443,14 +444,11 @@ bool MemoryAllocatorImpl::checkConsistency() const {
 
 // static
 MemoryAllocator* MemoryAllocator::getInstance() {
-  if (customInstance_) {
+  std::lock_guard<std::mutex> l(initMutex_);
+  if (customInstance_ != nullptr) {
     return customInstance_;
   }
-  if (instance_) {
-    return instance_.get();
-  }
-  std::lock_guard<std::mutex> l(initMutex_);
-  if (instance_) {
+  if (instance_ != nullptr) {
     return instance_.get();
   }
   instance_ = createDefaultInstance();
@@ -464,6 +462,7 @@ std::shared_ptr<MemoryAllocator> MemoryAllocator::createDefaultInstance() {
 
 // static
 void MemoryAllocator::setDefaultInstance(MemoryAllocator* instance) {
+  std::lock_guard<std::mutex> l(initMutex_);
   customInstance_ = instance;
 }
 
