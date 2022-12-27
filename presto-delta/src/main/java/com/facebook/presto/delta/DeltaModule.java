@@ -15,10 +15,8 @@ package com.facebook.presto.delta;
 
 import com.facebook.presto.cache.CacheConfig;
 import com.facebook.presto.cache.CacheFactory;
-import com.facebook.presto.cache.CacheManager;
 import com.facebook.presto.cache.CacheStats;
 import com.facebook.presto.cache.ForCachingFileSystem;
-import com.facebook.presto.cache.NoOpCacheManager;
 import com.facebook.presto.cache.filemerge.FileMergeCacheConfig;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
@@ -141,13 +139,6 @@ public class DeltaModule
         {
             return typeManager.getType(parseTypeSignature(value));
         }
-    }
-
-    @Singleton
-    @Provides
-    public CacheManager createCacheManager(CacheConfig cacheConfig, FileMergeCacheConfig fileMergeCacheConfig, CacheStats cacheStats)
-    {
-        return new NoOpCacheManager();
     }
 
     @ForCachingHiveMetastore
