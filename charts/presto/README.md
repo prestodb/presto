@@ -8,9 +8,9 @@
 ## Installation
 Install the chart with `my-presto` release name:
 ```shell
-helm install my-presto helm/presto
+helm install my-presto charts/presto
 ```
 Use `helm template` to check rendered templates with custom configuration, for example:
 ```shell
-helm template my-presto helm/presto --set mode=single
+helm template my-presto charts/presto --set ingress.enabled=true
 ```
