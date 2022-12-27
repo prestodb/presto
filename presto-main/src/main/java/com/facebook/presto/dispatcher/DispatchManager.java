@@ -261,7 +261,7 @@ public class DispatchManager
 
     /**
      * Creates and registers a dispatch query with the query tracker.  This method will never fail to register a query with the query
-     * tracker.  If an error occurs while, creating a dispatch query a failed dispatch will be created and registered.
+     * tracker. If an error occurs while creating a dispatch query, a failed dispatch will be created and registered.
      */
     private <C> void createQueryInternal(QueryId queryId, String slug, int retryCount, SessionContext sessionContext, String query, ResourceGroupManager<C> resourceGroupManager)
     {

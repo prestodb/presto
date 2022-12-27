@@ -37,6 +37,10 @@ import java.util.function.Consumer;
 
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Tracks a query that is being executed on the cluster. Provides methods to start, cancel or observe the execution of the query
+ * See also {@link QueryManager} for operations related to query lifecycle.
+ */
 public interface QueryExecution
         extends TrackedQuery
 {
@@ -92,6 +96,7 @@ public interface QueryExecution
      * Add a listener for the final query info.  This notification is guaranteed to be fired only once.
      * Listener is always notified asynchronously using a dedicated notification thread pool so, care should
      * be taken to avoid leaking {@code this} when adding a listener in a constructor.
+     * @param stateChangeListener The listener to add.
      */
     void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener);
 
