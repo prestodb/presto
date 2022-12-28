@@ -27,9 +27,6 @@ using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::memory {
 
-std::atomic<uint64_t> MemoryAllocator::totalSmallAllocateBytes_;
-std::atomic<uint64_t> MemoryAllocator::totalSizeClassAllocateBytes_;
-std::atomic<uint64_t> MemoryAllocator::totalLargeAllocateBytes_;
 std::shared_ptr<MemoryAllocator> MemoryAllocator::instance_;
 MemoryAllocator* MemoryAllocator::customInstance_;
 std::mutex MemoryAllocator::initMutex_;
@@ -386,20 +383,16 @@ void* MemoryAllocatorImpl::allocateBytes(uint64_t bytes, uint16_t alignment) {
   alignmentCheck(bytes, alignment);
   void* result = (alignment > kMinAlignment) ? ::aligned_alloc(alignment, bytes)
                                              : ::malloc(bytes);
-  if (result == nullptr) {
+  if (FOLLY_UNLIKELY(result == nullptr)) {
     LOG(ERROR) << "Failed to allocateBytes " << bytes << " bytes with "
                << alignment << " alignment";
-  } else {
-    totalSmallAllocateBytes_ += bytes;
   }
   return result;
 }
 
 void* MemoryAllocatorImpl::allocateZeroFilled(uint64_t bytes) {
-  void* result = std::calloc(bytes, 1);
-  if (result != nullptr) {
-    totalSmallAllocateBytes_ += bytes;
-  } else {
+  void* result = std::calloc(1, bytes);
+  if (FOLLY_UNLIKELY(result == nullptr)) {
     LOG(ERROR) << "Failed to allocateZeroFilled " << bytes << " bytes";
   }
   return result;
@@ -423,19 +416,15 @@ void* MemoryAllocatorImpl::reallocateBytes(
       freeBytes(p, size);
     }
   }
-  if (newPtr == nullptr) {
+  if (FOLLY_UNLIKELY(newPtr == nullptr)) {
     LOG(ERROR) << "Failed to reallocateBytes " << newSize << " bytes "
                << " with " << size << " old bytes";
-  } else {
-    totalSmallAllocateBytes_ += newSize - size;
   }
   return newPtr;
 }
 
 void MemoryAllocatorImpl::freeBytes(void* p, uint64_t bytes) noexcept {
   ::free(p); // NOLINT
-  totalSmallAllocateBytes_ -= bytes;
-  VELOX_CHECK_GE(totalSmallAllocateBytes_, 0);
 }
 
 bool MemoryAllocatorImpl::checkConsistency() const {
@@ -505,7 +494,6 @@ void MemoryAllocator::freeBytes(
     uint64_t bytes) noexcept {
   if (bytes <= kMaxMallocBytes) {
     ::free(p); // NOLINT
-    totalSmallAllocateBytes_ -= bytes;
     return;
   }
 
@@ -514,14 +502,12 @@ void MemoryAllocator::freeBytes(
     auto numPages = roundUpToSizeClassSize(bytes, sizeClassSizes_);
     allocation.append(reinterpret_cast<uint8_t*>(p), numPages);
     freeNonContiguous(allocation);
-    totalSizeClassAllocateBytes_ -= numPages * kPageSize;
     return;
   }
 
   ContiguousAllocation allocation;
   allocation.reset(this, p, bytes);
   freeContiguous(allocation);
-  totalLargeAllocateBytes_ -= bits::roundUp(bytes, kPageSize);
 }
 
 std::shared_ptr<MemoryAllocator> MemoryAllocator::addChild(

@@ -626,7 +626,6 @@ TEST_P(MemoryAllocatorTest, allocContiguousFail) {
 
 TEST_P(MemoryAllocatorTest, allocateBytes) {
   constexpr int32_t kNumAllocs = 50;
-  MemoryAllocator::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
   std::vector<MachinePageCount> sizes = {
       MemoryAllocator::kMaxMallocBytes / 2,
@@ -663,10 +662,6 @@ TEST_P(MemoryAllocatorTest, allocateBytes) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
-  auto stats = MemoryAllocator::allocateBytesStats();
-  ASSERT_EQ(0, stats.totalSmall);
-  ASSERT_EQ(0, stats.totalInSizeClasses);
-  ASSERT_EQ(0, stats.totalLarge);
 
   ASSERT_EQ(0, instance_->numAllocated());
   ASSERT_TRUE(instance_->checkConsistency());
@@ -721,7 +716,6 @@ TEST_P(MemoryAllocatorTest, allocateBytesWithAlignment) {
     SCOPED_TRACE(
         fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
 
-    MemoryAllocator::testingClearAllocateBytesStats();
     if (testData.expectSuccess) {
       auto* ptr =
           instance_->allocateBytes(testData.allocateBytes, testData.alignment);
@@ -740,7 +734,6 @@ TEST_P(MemoryAllocatorTest, allocateBytesWithAlignment) {
 
 TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
   constexpr int32_t kNumAllocs = 50;
-  MemoryAllocator::testingClearAllocateBytesStats();
   // Different sizes, including below minimum and above largest size class.
   std::vector<MachinePageCount> sizes = {
       MemoryAllocator::kMaxMallocBytes / 2,
@@ -776,10 +769,6 @@ TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
       instance_->freeBytes(range.data(), range.size());
     }
   }
-  auto stats = MemoryAllocator::allocateBytesStats();
-  ASSERT_EQ(0, stats.totalSmall);
-  ASSERT_EQ(0, stats.totalInSizeClasses);
-  ASSERT_EQ(0, stats.totalLarge);
 
   ASSERT_EQ(0, instance_->numAllocated());
   ASSERT_TRUE(instance_->checkConsistency());
@@ -796,13 +785,6 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
     size_t capacity = 0;
     for (auto i = 0; i < kNumDoubles; i++) {
       data.push_back(i);
-      if (data.capacity() != capacity) {
-        capacity = data.capacity();
-        auto stats = MemoryAllocator::allocateBytesStats();
-        EXPECT_EQ(
-            capacity * sizeof(double),
-            stats.totalSmall + stats.totalInSizeClasses + stats.totalLarge);
-      }
     }
     for (auto i = 0; i < kNumDoubles; i++) {
       ASSERT_EQ(i, data[i]);
@@ -811,18 +793,6 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
       EXPECT_EQ(512, instance_->numAllocated());
     } else {
       EXPECT_EQ(0, instance_->numAllocated());
-    }
-    auto stats = MemoryAllocator::allocateBytesStats();
-    if (useMmap_) {
-      EXPECT_EQ(0, stats.totalSmall);
-    } else {
-      EXPECT_EQ(2097152, stats.totalSmall);
-    }
-    EXPECT_EQ(0, stats.totalInSizeClasses);
-    if (useMmap_) {
-      EXPECT_EQ(2 << 20, stats.totalLarge);
-    } else {
-      EXPECT_EQ(0, stats.totalLarge);
     }
   }
   EXPECT_EQ(0, instance_->numAllocated());
@@ -999,7 +969,6 @@ TEST_P(MemoryAllocatorTest, reallocateWithAlignment) {
     SCOPED_TRACE(
         fmt::format("UseMmap: {}, {}", useMmap_, testData.debugString()));
 
-    MemoryAllocator::testingClearAllocateBytesStats();
     auto* oldPtr = instance_->allocateBytes(testData.oldBytes);
     char* data = reinterpret_cast<char*>(oldPtr);
     const char value = 'o';

@@ -406,7 +406,6 @@ TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
     std::memcpy(iobuf->writableData(), payload.data(), payload.size());
 
     EXPECT_EQ(0, pool_->getCurrentBytes());
-    EXPECT_EQ(allocator->allocateBytesStats().totalSmall, kBufferSize);
     {
       auto serializedPage = std::make_shared<SerializedPage>(
           std::move(iobuf), pool_.get(), [allocator, kBufferSize](auto& iobuf) {
@@ -415,7 +414,6 @@ TEST_F(PartitionedOutputBufferManagerTest, serializedPage) {
       EXPECT_EQ(kBufferSize, pool_->getCurrentBytes());
     }
     EXPECT_EQ(0, pool_->getCurrentBytes());
-    EXPECT_EQ(allocator->allocateBytesStats().totalSmall, 0);
   }
 }
 

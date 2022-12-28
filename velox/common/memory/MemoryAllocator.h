@@ -454,21 +454,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     return nullptr;
   }
 
-  /// Returns static counters for allocateBytes usage.
-  static AllocateBytesStats allocateBytesStats() {
-    return {
-        totalSmallAllocateBytes_,
-        totalSizeClassAllocateBytes_,
-        totalLargeAllocateBytes_};
-  }
-
-  /// Clears counters to revert effect of previous tests.
-  static void testingClearAllocateBytesStats() {
-    totalSmallAllocateBytes_ = 0;
-    totalSizeClassAllocateBytes_ = 0;
-    totalLargeAllocateBytes_ = 0;
-  }
-
   virtual Stats stats() const {
     return Stats();
   }
@@ -510,15 +495,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   // of increasing size.
   const std::vector<MachinePageCount>
       sizeClassSizes_{1, 2, 4, 8, 16, 32, 64, 128, 256};
-
-  // Static counters for STL and memoryPool users of
-  // MemoryAllocator. Updated by allocateBytes() and freeBytes(). These
-  // are intended to be exported via StatsReporter. These are
-  // respectively backed by malloc, allocate from a single size class
-  // and standalone mmap.
-  static std::atomic<uint64_t> totalSmallAllocateBytes_;
-  static std::atomic<uint64_t> totalSizeClassAllocateBytes_;
-  static std::atomic<uint64_t> totalLargeAllocateBytes_;
 
  private:
   static std::mutex initMutex_;
