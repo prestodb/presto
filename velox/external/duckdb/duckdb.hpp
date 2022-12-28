@@ -12199,7 +12199,7 @@ public:
 		result->max_value = max_value;
 		result->start_value = start_value;
 		result->cycle = cycle;
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -13578,7 +13578,7 @@ namespace duckdb {
 class BoundExpression : public ParsedExpression {
 public:
 	BoundExpression(unique_ptr<Expression> expr)
-	    : ParsedExpression(ExpressionType::INVALID, ExpressionClass::BOUND_EXPRESSION), expr(move(expr)) {
+	    : ParsedExpression(ExpressionType::INVALID, ExpressionClass::BOUND_EXPRESSION), expr(std::move(expr)) {
 	}
 
 	unique_ptr<Expression> expr;
@@ -13638,7 +13638,7 @@ struct BindResult {
 	}
 	explicit BindResult(string error) : error(error) {
 	}
-	explicit BindResult(unique_ptr<Expression> expr) : expression(move(expr)) {
+	explicit BindResult(unique_ptr<Expression> expr) : expression(std::move(expr)) {
 	}
 
 	bool HasError() {
@@ -14359,7 +14359,7 @@ struct CorrelatedColumnInfo {
 	idx_t depth;
 
 	CorrelatedColumnInfo(ColumnBinding binding, LogicalType type_p, string name_p, idx_t depth)
-	    : binding(binding), type(move(type_p)), name(move(name_p)), depth(depth) {
+	    : binding(binding), type(std::move(type_p)), name(std::move(name_p)), depth(depth) {
 	}
 	explicit CorrelatedColumnInfo(BoundColumnRefExpression &expr)
 	    : CorrelatedColumnInfo(expr.binding, expr.return_type, expr.GetName(), expr.depth) {
@@ -18437,19 +18437,19 @@ public:
 	void CreateScalarFunction(const string &name, vector<LogicalType> args, LogicalType ret_type,
 	                          TR (*udf_func)(Args...)) {
 		scalar_function_t function =
-		    UDFWrapper::CreateScalarFunction<TR, Args...>(name, args, move(ret_type), udf_func);
+		    UDFWrapper::CreateScalarFunction<TR, Args...>(name, args, std::move(ret_type), udf_func);
 		UDFWrapper::RegisterFunction(name, args, ret_type, function, *context);
 	}
 
 	template <typename TR, typename... Args>
 	void CreateVectorizedFunction(const string &name, scalar_function_t udf_func,
 	                              LogicalType varargs = LogicalType::INVALID) {
-		UDFWrapper::RegisterFunction<TR, Args...>(name, udf_func, *context, move(varargs));
+		UDFWrapper::RegisterFunction<TR, Args...>(name, udf_func, *context, std::move(varargs));
 	}
 
 	DUCKDB_API void CreateVectorizedFunction(const string &name, vector<LogicalType> args, LogicalType ret_type,
 	                                         scalar_function_t udf_func, LogicalType varargs = LogicalType::INVALID) {
-		UDFWrapper::RegisterFunction(name, move(args), move(ret_type), udf_func, *context, move(varargs));
+		UDFWrapper::RegisterFunction(name, std::move(args), std::move(ret_type), udf_func, *context, std::move(varargs));
 	}
 
 	//------------------------------------- Aggreate Functions ----------------------------------------//
@@ -18564,7 +18564,7 @@ typedef unique_ptr<TableFunctionRef> (*replacement_scan_t)(ClientContext &contex
 //! This allows you to do e.g. SELECT * FROM 'filename.csv', and automatically convert this into a CSV scan
 struct ReplacementScan {
 	explicit ReplacementScan(replacement_scan_t function, unique_ptr<ReplacementScanData> data_p = nullptr)
-	    : function(function), data(move(data_p)) {
+	    : function(function), data(std::move(data_p)) {
 	}
 
 	replacement_scan_t function;
@@ -18701,10 +18701,10 @@ struct ParserExtensionParseResult {
 	ParserExtensionParseResult() : type(ParserExtensionResultType::DISPLAY_ORIGINAL_ERROR) {
 	}
 	ParserExtensionParseResult(string error_p)
-	    : type(ParserExtensionResultType::DISPLAY_EXTENSION_ERROR), error(move(error_p)) {
+	    : type(ParserExtensionResultType::DISPLAY_EXTENSION_ERROR), error(std::move(error_p)) {
 	}
 	ParserExtensionParseResult(unique_ptr<ParserExtensionParseData> parse_data_p)
-	    : type(ParserExtensionResultType::PARSE_SUCCESSFUL), parse_data(move(parse_data_p)) {
+	    : type(ParserExtensionResultType::PARSE_SUCCESSFUL), parse_data(std::move(parse_data_p)) {
 	}
 
 	//! Whether or not parsing was successful
@@ -18789,7 +18789,7 @@ typedef void (*set_option_callback_t)(ClientContext &context, SetScope scope, Va
 
 struct ExtensionOption {
 	ExtensionOption(string description_p, LogicalType type_p, set_option_callback_t set_function_p)
-	    : description(move(description_p)), type(move(type_p)), set_function(set_function_p) {
+	    : description(std::move(description_p)), type(std::move(type_p)), set_function(set_function_p) {
 	}
 
 	string description;
@@ -19755,19 +19755,19 @@ public:
 
 class ScalarFunctionSet : public FunctionSet<ScalarFunction> {
 public:
-	explicit ScalarFunctionSet(string name) : FunctionSet(move(name)) {
+	explicit ScalarFunctionSet(string name) : FunctionSet(std::move(name)) {
 	}
 };
 
 class AggregateFunctionSet : public FunctionSet<AggregateFunction> {
 public:
-	explicit AggregateFunctionSet(string name) : FunctionSet(move(name)) {
+	explicit AggregateFunctionSet(string name) : FunctionSet(std::move(name)) {
 	}
 };
 
 class TableFunctionSet : public FunctionSet<TableFunction> {
 public:
-	explicit TableFunctionSet(string name) : FunctionSet(move(name)) {
+	explicit TableFunctionSet(string name) : FunctionSet(std::move(name)) {
 	}
 };
 
@@ -19778,7 +19778,7 @@ namespace duckdb {
 
 struct CreateTableFunctionInfo : public CreateFunctionInfo {
 	explicit CreateTableFunctionInfo(TableFunctionSet set)
-	    : CreateFunctionInfo(CatalogType::TABLE_FUNCTION_ENTRY), functions(move(set.functions)) {
+	    : CreateFunctionInfo(CatalogType::TABLE_FUNCTION_ENTRY), functions(std::move(set.functions)) {
 		this->name = set.name;
 	}
 	explicit CreateTableFunctionInfo(TableFunction function) : CreateFunctionInfo(CatalogType::TABLE_FUNCTION_ENTRY) {
