@@ -118,6 +118,7 @@ class CMakeBuild(build_ext):
         exec_path = sys.executable
 
         cmake_args = [
+            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
             f"-DCMAKE_BUILD_TYPE={cfg}",
             f"-DCMAKE_INSTALL_PREFIX={extdir}",
             "-DCMAKE_VERBOSE_MAKEFILE=ON",
@@ -126,7 +127,7 @@ class CMakeBuild(build_ext):
             "-DVELOX_CODEGEN_SUPPORT=OFF",
             "-DVELOX_BUILD_MINIMAL=ON",
         ]
-        build_args = ["--target", "install"]
+        build_args = []
 
         # Default to Ninja
         if "CMAKE_GENERATOR" not in os.environ:

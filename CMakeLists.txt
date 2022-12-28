@@ -281,20 +281,34 @@ message("FINAL CMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(Boost_USE_MULTITHREADED TRUE)
-find_package(
-  Boost
-  1.66.0
-  REQUIRED
-  program_options
-  context
-  filesystem
-  regex
-  thread
-  system
-  date_time
-  atomic)
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+set_source(Boost)
+set_source(ICU)
+
+if(CMAKE_SYSTEM_NAME MATCHES "Darwin" OR ${Boost_SOURCE} STREQUAL "BUNDLED")
+  if(${ICU_SOURCE} STREQUAL "BUNDLED")
+    resolve_dependency(ICU)
+    include_directories(${ICU_INCLUDE_DIRS})
+    link_directories(${ICU_LIBRARIES})
+  else()
+    if(ON_APPLE_M1)
+      set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c" ${CMAKE_PREFIX_PATH})
+    else()
+      set(CMAKE_PREFIX_PATH "/usr/local/opt/icu4c" ${CMAKE_PREFIX_PATH})
+    endif()
+  endif()
+endif()
+
+set(BOOST_INCLUDE_LIBRARIES
+    atomic
+    context
+    date_time
+    filesystem
+    program_options
+    regex
+    system
+    thread)
+
+resolve_dependency(Boost 1.66.0 COMPONENTS ${BOOST_INCLUDE_LIBRARIES})
 
 # Range-v3 will be enable when the codegen code actually lands keeping it here
 # for reference. find_package(range-v3)
@@ -309,40 +323,33 @@ find_library(EVENT event)
 
 find_library(DOUBLE_CONVERSION double-conversion)
 
+# Required for boost.
+find_package(ZLIB)
+
 if(NOT ${VELOX_BUILD_MINIMAL})
   find_library(LZ4 lz4)
   find_library(LZO lzo2)
   find_library(ZSTD zstd)
-  find_package(ZLIB)
   find_library(SNAPPY snappy)
 endif()
 
 find_library(RE2 re2 REQUIRED)
 
-set_source(ICU)
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-  if(${ICU_SOURCE} STREQUAL "BUNDLED")
-    resolve_dependency(ICU)
-    include_directories(${ICU_INCLUDE_DIRS})
-    link_directories(${ICU_LIBRARIES})
-  else()
-    if(ON_APPLE_M1)
-      set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/icu4c" ${CMAKE_PREFIX_PATH})
-    else()
-      set(CMAKE_PREFIX_PATH "/usr/local/opt/icu4c" ${CMAKE_PREFIX_PATH})
-    endif()
-  endif()
-endif()
-
 if(${VELOX_BUILD_PYTHON_PACKAGE})
   set(pybind11_SOURCE AUTO)
-  resolve_dependency(pybind11 REQUIRED_VERSION 2.10.0)
+  resolve_dependency(pybind11 2.10.0)
   add_subdirectory(pyvelox)
 endif()
 
 # Locate or build folly.
 set_source(folly)
 resolve_dependency(folly)
+
+# If we use BUNDLED boost we need to set this manually AFTER folly is configured
+if(NOT DEFINED Boost_LIBRARIES)
+  set(Boost_LIBRARIES ${BOOST_INCLUDE_LIBRARIES})
+  list(TRANSFORM Boost_LIBRARIES PREPEND Boost::)
+endif()
 
 set(FOLLY_WITH_DEPENDENCIES
     ${FOLLY_LIBRARIES}
@@ -371,7 +378,8 @@ include_directories(SYSTEM ${FOLLY_INCLUDE_DIRS})
 if(NOT ${VELOX_BUILD_MINIMAL})
   # Locate or build protobuf.
   set_source(Protobuf)
-  resolve_dependency(Protobuf REQUIRED_VERSION 3.21.4)
+  resolve_dependency(Protobuf 3.21.4)
+  include_directories(${Protobuf_INCLUDE_DIRS})
 endif()
 
 # GCC needs to link a library to enable std::filesystem.

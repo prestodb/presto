@@ -28,7 +28,7 @@ NPROC=$(getconf _NPROCESSORS_ONLN)
 DEPENDENCY_DIR=${DEPENDENCY_DIR:-$(pwd)}
 
 # Install all velox and folly dependencies.
-sudo --preserve-env apt install -y \
+sudo --preserve-env apt update && apt install -y \
   g++ \
   cmake \
   ccache \

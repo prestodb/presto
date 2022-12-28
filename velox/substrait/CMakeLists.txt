@@ -35,7 +35,7 @@ add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND
     ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${PROJECT_SOURCE_DIR}/
-    --proto_path ${Protobuf_INCLUDE_DIR} --cpp_out ${PROJECT_SOURCE_DIR}
+    --proto_path ${Protobuf_INCLUDE_DIRS} --cpp_out ${PROJECT_SOURCE_DIR}
     ${PROTO_FILES}
   DEPENDS ${PROTO_DIR}
   COMMENT "Running PROTO compiler"

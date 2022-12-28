@@ -34,7 +34,7 @@ add_custom_command(
   OUTPUT ${PROTO_OUTPUT_FILES}
   COMMAND
     ${Protobuf_PROTOC_EXECUTABLE} --proto_path ${CMAKE_SOURCE_DIR}/ --proto_path
-    ${Protobuf_INCLUDE_DIR} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
+    ${Protobuf_INCLUDE_DIRS} --cpp_out ${CMAKE_BINARY_DIR} ${PROTO_FILES_FULL}
   DEPENDS ${Protobuf_PROTOC_EXECUTABLE}
   COMMENT "Running PROTO compiler"
   VERBATIM)
