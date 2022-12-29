@@ -222,8 +222,6 @@ public class HiveClientConfig
     private DataSize thriftBufferSize = new DataSize(128, BYTE);
     private boolean isReadNullMaskedParquetEncryptedValueEnabled;
 
-    private boolean copyOnFirstWriteConfigurationEnabled = true;
-
     private boolean partitionFilteringFromMetastoreEnabled = true;
 
     @Min(0)
@@ -1859,19 +1857,6 @@ public class HiveClientConfig
     {
         this.thriftBufferSize = thriftBufferSize;
         return this;
-    }
-
-    @Config("hive.copy-on-first-write-configuration-enabled")
-    @ConfigDescription("Optimize the number of configuration copies by enabling copy-on-write technique")
-    public HiveClientConfig setCopyOnFirstWriteConfigurationEnabled(boolean copyOnFirstWriteConfigurationEnabled)
-    {
-        this.copyOnFirstWriteConfigurationEnabled = copyOnFirstWriteConfigurationEnabled;
-        return this;
-    }
-
-    public boolean isCopyOnFirstWriteConfigurationEnabled()
-    {
-        return copyOnFirstWriteConfigurationEnabled;
     }
 
     public boolean isPartitionFilteringFromMetastoreEnabled()
