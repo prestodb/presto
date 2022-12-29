@@ -88,13 +88,13 @@ public class HiveCachingHdfsConfiguration
         return config;
     }
 
-    public static class CachingJobConf
+    private static class CachingJobConf
             extends WrapperJobConf
             implements FileSystemFactory
     {
         private final BiFunction<Configuration, URI, FileSystem> factory;
 
-        public CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory, Configuration config)
+        private CachingJobConf(BiFunction<Configuration, URI, FileSystem> factory, Configuration config)
         {
             super(config);
             this.factory = requireNonNull(factory, "factory is null");
