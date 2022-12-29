@@ -14,8 +14,8 @@ spec:
       tty: true
       resources:
         requests:
-          memory: "4Gi"
-          cpu: "2000m"
+          memory: "16Gi"
+          cpu: "4000m"
         limits:
-          memory: "4Gi"
-          cpu: "2000m"
+          memory: "16Gi"
+          cpu: "4000m"
