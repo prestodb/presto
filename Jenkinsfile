@@ -10,6 +10,7 @@ pipeline {
     }
 
     options {
+        disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '500'))
         timeout(time: 2, unit: 'HOURS')
     }
@@ -52,7 +53,6 @@ pipeline {
                                 env.GIT_COMMIT.substring(0, 7)
                             env.DOCKER_IMAGE = env.AWS_ECR + "/oss-presto/presto:${PRESTO_BUILD_VERSION}"
                             env.DOCKER_NATIVE_IMAGE = env.AWS_ECR + "/oss-presto/presto-native:${PRESTO_BUILD_VERSION}"
-
                         }
                         sh 'printenv | sort'
 
@@ -114,11 +114,29 @@ pipeline {
                     }
                 }
 
+                stage('Docker Native Build') {
+                    steps {
+                        echo "Building ${DOCKER_NATIVE_IMAGE}"
+                        withCredentials([[
+                                $class:            'AmazonWebServicesCredentialsBinding',
+                                credentialsId:     "${AWS_CREDENTIAL_ID}",
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -ex
+                                aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
+                                docker buildx build -f Dockerfile-native --load --platform "linux/amd64" -t "${DOCKER_NATIVE_IMAGE}-amd64" \
+                                    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" .
+                            '''
+                        }
+                    }
+                }
+
                 stage('Publish Docker') {
                     when {
                         anyOf {
                             expression { params.PUBLISH_ARTIFACTS_ON_CURRENT_BRANCH }
                             branch "master"
+                            branch "ahana"
                         }
                         beforeAgent true
                     }
@@ -135,6 +153,7 @@ pipeline {
                                 docker image ls
                                 aws ecr get-login-password | docker login --username AWS --password-stdin ${AWS_ECR}
                                 docker push "${DOCKER_IMAGE}-amd64"
+                                docker push "${DOCKER_NATIVE_IMAGE}-amd64"
                             '''
                         }
                     }
