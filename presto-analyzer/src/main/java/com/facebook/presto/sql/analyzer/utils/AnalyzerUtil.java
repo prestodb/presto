@@ -14,7 +14,7 @@
 package com.facebook.presto.sql.analyzer.utils;
 
 import com.facebook.presto.spi.PrestoWarning;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.spi.StandardWarningCode.PARSER_WARNING;

@@ -220,7 +220,7 @@ public class FeaturesConfig
     private boolean queryOptimizationWithMaterializedViewEnabled;
 
     private AggregationIfToFilterRewriteStrategy aggregationIfToFilterRewriteStrategy = AggregationIfToFilterRewriteStrategy.DISABLED;
-    private AnalyzerType analyzerType = AnalyzerType.BUILTIN;
+    private String analyzerType = "BUILTIN";
     private boolean verboseRuntimeStatsEnabled;
 
     private boolean streamingForPartialAggregationEnabled;
@@ -2081,14 +2081,14 @@ public class FeaturesConfig
         return this;
     }
 
-    public AnalyzerType getAnalyzerType()
+    public String getAnalyzerType()
     {
         return analyzerType;
     }
 
     @Config("analyzer-type")
     @ConfigDescription("Set the analyzer type for parsing and analyzing.")
-    public FeaturesConfig setAnalyzerType(AnalyzerType analyzerType)
+    public FeaturesConfig setAnalyzerType(String analyzerType)
     {
         this.analyzerType = analyzerType;
         return this;
