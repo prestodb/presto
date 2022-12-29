@@ -460,11 +460,11 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
   virtual std::string toString() const;
 
- protected:
-  // Invoked to check if 'alignmentBytes' is valid and 'allocateBytes' is
-  // multiple of 'alignmentBytes'.
+  /// Invoked to check if 'alignmentBytes' is valid and 'allocateBytes' is
+  /// multiple of 'alignmentBytes'.
   static void alignmentCheck(uint64_t allocateBytes, uint16_t alignmentBytes);
 
+ protected:
   // Returns the size class size that corresponds to 'bytes'.
   static MachinePageCount roundUpToSizeClassSize(
       size_t bytes,

@@ -53,7 +53,13 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
   }
 
   std::shared_ptr<IMemoryManager> getMemoryManager(int64_t quota) {
-    return std::make_shared<MemoryManager<>>(quota);
+    return std::make_shared<MemoryManager>(
+        IMemoryManager::Options{.capacity = quota});
+  }
+
+  std::shared_ptr<IMemoryManager> getMemoryManager(
+      const IMemoryManager::Options& options) {
+    return std::make_shared<MemoryManager>(options);
   }
 
   const bool useMmap_;
@@ -62,17 +68,17 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
 
 TEST(MemoryPoolTest, Ctor) {
   constexpr uint16_t kAlignment = 64;
-  MemoryManager<kAlignment> manager{8 * GB};
+  MemoryManager manager{{.alignment = kAlignment, .capacity = 8 * GB}};
   // While not recommended, the root allocator should be valid.
-  auto& root = dynamic_cast<MemoryPoolImpl<64>&>(manager.getRoot());
+  auto& root = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
   ASSERT_EQ(8 * GB, root.cap_);
   ASSERT_EQ(0, root.getCurrentBytes());
   ASSERT_EQ(root.parent(), nullptr);
 
   {
-    auto fakeRoot = std::make_shared<MemoryPoolImpl<64>>(
-        manager, "fake_root", nullptr, 4 * GB);
+    auto fakeRoot = std::make_shared<MemoryPoolImpl>(
+        manager, "fake_root", nullptr, MemoryPool::Options{.capacity = 4 * GB});
     ASSERT_EQ("fake_root", fakeRoot->name());
     ASSERT_EQ(4 * GB, fakeRoot->cap_);
     ASSERT_EQ(&root.allocator_, &fakeRoot->allocator_);
@@ -82,7 +88,7 @@ TEST(MemoryPoolTest, Ctor) {
   {
     auto child = root.addChild("favorite_child");
     ASSERT_EQ(child->parent(), &root);
-    auto& favoriteChild = dynamic_cast<MemoryPoolImpl<kAlignment>&>(*child);
+    auto& favoriteChild = dynamic_cast<MemoryPoolImpl&>(*child);
     ASSERT_EQ("favorite_child", favoriteChild.name());
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), favoriteChild.cap_);
     ASSERT_EQ(&root.allocator_, &favoriteChild.allocator_);
@@ -91,7 +97,7 @@ TEST(MemoryPoolTest, Ctor) {
   {
     auto child = root.addChild("naughty_child", 3 * GB);
     ASSERT_EQ(child->parent(), &root);
-    auto& naughtyChild = dynamic_cast<MemoryPoolImpl<kAlignment>&>(*child);
+    auto& naughtyChild = dynamic_cast<MemoryPoolImpl&>(*child);
     ASSERT_EQ("naughty_child", naughtyChild.name());
     ASSERT_EQ(3 * GB, naughtyChild.cap_);
     ASSERT_EQ(&root.allocator_, &naughtyChild.allocator_);
@@ -100,7 +106,7 @@ TEST(MemoryPoolTest, Ctor) {
 }
 
 TEST(MemoryPoolTest, AddChild) {
-  MemoryManager<> manager{};
+  MemoryManager manager{};
   auto& root = manager.getRoot();
 
   ASSERT_EQ(0, root.getChildCount());
@@ -125,7 +131,7 @@ TEST(MemoryPoolTest, AddChild) {
 }
 
 TEST_P(MemoryPoolTest, dropChild) {
-  MemoryManager<> manager{};
+  MemoryManager manager{};
   auto& root = manager.getRoot();
   ASSERT_EQ(root.parent(), nullptr);
 
@@ -164,9 +170,10 @@ TEST_P(MemoryPoolTest, dropChild) {
   grandChild2.reset();
   ASSERT_EQ(0, root.getChildCount());
 }
+//!!!!
 
 TEST(MemoryPoolTest, CapSubtree) {
-  MemoryManager<> manager{};
+  MemoryManager manager{};
   auto& root = manager.getRoot();
 
   // left subtree.
@@ -208,7 +215,7 @@ TEST(MemoryPoolTest, CapSubtree) {
 }
 
 TEST(MemoryPoolTest, UncapMemory) {
-  MemoryManager<> manager{};
+  MemoryManager manager{};
   auto& root = manager.getRoot();
 
   auto node_a = root.addChild("node_a");
@@ -259,7 +266,7 @@ TEST(MemoryPoolTest, UncapMemory) {
 
 // Mainly tests how it tracks externally allocated memory.
 TEST(MemoryPoolTest, ReserveTest) {
-  MemoryManager<> manager{8 * GB};
+  MemoryManager manager{{.capacity = 8 * GB}};
   auto& root = manager.getRoot();
 
   auto child = root.addChild("elastic_quota");
@@ -298,7 +305,7 @@ void testMmapMemoryAllocation(
     const MmapAllocator* mmapAllocator,
     MachinePageCount allocPages,
     size_t allocCount) {
-  MemoryManager<> manager(8 * GB);
+  MemoryManager manager({.capacity = 8 * GB});
   const auto kPageSize = 4 * KB;
 
   auto& root = manager.getRoot();
@@ -357,6 +364,7 @@ TEST(MemoryPoolTest, BigMmapMemoryAllocation) {
   MemoryAllocator::setDefaultInstance(mmapAllocator.get());
   testMmapMemoryAllocation(
       mmapAllocator.get(), mmapAllocator->sizeClasses().back() + 56, 20);
+  MemoryAllocator::setDefaultInstance(nullptr);
 }
 
 // Mainly tests how it updates the memory usage in Memorypool->
@@ -510,8 +518,52 @@ TEST_P(MemoryPoolTest, allocateZeroFilled) {
   ASSERT_EQ(0, pool->getCurrentBytes());
 }
 
+TEST_P(MemoryPoolTest, alignmentCheck) {
+  std::vector<uint16_t> alignments = {
+      0,
+      MemoryAllocator::kMinAlignment,
+      MemoryAllocator::kMinAlignment * 2,
+      MemoryAllocator::kMaxAlignment};
+  for (const auto& alignment : alignments) {
+    SCOPED_TRACE(fmt::format("alignment:{}", alignment));
+    IMemoryManager::Options options;
+    options.capacity = 8 * GB;
+    options.alignment = alignment;
+    auto manager =
+        getMemoryManager({.alignment = alignment, .capacity = 8 * GB});
+    auto& root = manager->getRoot();
+    ASSERT_EQ(
+        root.getAlignment(),
+        alignment == 0 ? MemoryAllocator::kMinAlignment : alignment);
+    const int32_t kTestIterations = 10;
+    for (int32_t i = 0; i < 10; ++i) {
+      const int64_t bytesToAlloc = 1 + folly::Random::rand32() % (1 << 20);
+      void* ptr = root.allocate(bytesToAlloc);
+      if (alignment != 0) {
+        ASSERT_EQ(reinterpret_cast<uint64_t>(ptr) % alignment, 0);
+      }
+      root.free(ptr, bytesToAlloc);
+    }
+    ASSERT_EQ(0, root.getCurrentBytes());
+
+    auto child = manager->getChild();
+    ASSERT_EQ(
+        child->getAlignment(),
+        alignment == 0 ? MemoryAllocator::kMinAlignment : alignment);
+    for (int32_t i = 0; i < 10; ++i) {
+      const int64_t bytesToAlloc = 1 + folly::Random::rand32() % (1 << 20);
+      void* ptr = child->allocate(bytesToAlloc);
+      if (alignment != 0) {
+        ASSERT_EQ(reinterpret_cast<uint64_t>(ptr) % alignment, 0);
+      }
+      child->free(ptr, bytesToAlloc);
+    }
+    ASSERT_EQ(0, child->getCurrentBytes());
+  }
+}
+
 TEST(MemoryPoolTest, MemoryCapExceptions) {
-  MemoryManager<> manager{127L * MB};
+  MemoryManager manager{{.capacity = 127L * MB}};
   auto& root = manager.getRoot();
 
   auto pool = root.addChild("static_quota", 63L * MB);
@@ -564,16 +616,18 @@ TEST(MemoryPoolTest, MemoryCapExceptions) {
 
 TEST(MemoryPoolTest, GetAlignment) {
   {
-    EXPECT_EQ(kNoAlignment, MemoryManager<>{32 * MB}.getRoot().getAlignment());
+    EXPECT_EQ(
+        MemoryAllocator::kMaxAlignment,
+        MemoryManager{{.capacity = 32 * MB}}.getRoot().getAlignment());
   }
   {
-    MemoryManager<64> manager{32 * MB};
+    MemoryManager manager{{.alignment = 64, .capacity = 32 * MB}};
     EXPECT_EQ(64, manager.getRoot().getAlignment());
   }
 }
 
 TEST(MemoryPoolTest, MemoryManagerGlobalCap) {
-  MemoryManager<> manager{32 * MB};
+  MemoryManager manager{{.capacity = 32 * MB}};
 
   auto& root = manager.getRoot();
   auto pool = root.addChild("unbounded");
@@ -596,7 +650,7 @@ TEST(MemoryPoolTest, MemoryManagerGlobalCap) {
 // and what it returns for getCurrentBytes()/getMaxBytes and
 // with memoryUsageTracker.
 TEST(MemoryPoolTest, childUsageTest) {
-  MemoryManager<> manager{8 * GB};
+  MemoryManager manager{{.capacity = 8 * GB}};
   auto& root = manager.getRoot();
 
   auto pool = root.addChild("main_pool");
@@ -654,35 +708,35 @@ TEST(MemoryPoolTest, childUsageTest) {
   void* p3Chunk0 = tree[3]->allocate(16);
   verifyUsage(
       tree,
-      {0, 0, 0, 16, 0, 0, 0},
-      {0, 0, 0, 16, 0, 0, 0},
-      {16, 16, 0, 16, 0, 0, 0},
-      {16, 16, 0, 16, 0, 0, 0});
+      {0, 0, 0, 64, 0, 0, 0},
+      {0, 0, 0, 64, 0, 0, 0},
+      {64, 64, 0, 64, 0, 0, 0},
+      {64, 64, 0, 64, 0, 0, 0});
 
   void* p5Chunk0 = tree[5]->allocate(64);
   verifyUsage(
       tree,
-      {0, 0, 0, 16, 0, 64, 0},
-      {0, 0, 0, 16, 0, 64, 0},
-      {80, 16, 64, 16, 0, 64, 0},
-      {80, 16, 64, 16, 0, 64, 0});
+      {0, 0, 0, 64, 0, 64, 0},
+      {0, 0, 0, 64, 0, 64, 0},
+      {128, 64, 64, 64, 0, 64, 0},
+      {128, 64, 64, 64, 0, 64, 0});
 
   tree[3]->free(p3Chunk0, 16);
 
   verifyUsage(
       tree,
       {0, 0, 0, 0, 0, 64, 0},
-      {0, 0, 0, 16, 0, 64, 0},
+      {0, 0, 0, 64, 0, 64, 0},
       {64, 0, 64, 0, 0, 64, 0},
-      {80, 16, 64, 16, 0, 64, 0});
+      {128, 64, 64, 64, 0, 64, 0});
 
   tree[5]->free(p5Chunk0, 64);
   verifyUsage(
       tree,
       {0, 0, 0, 0, 0, 0, 0},
-      {0, 0, 0, 16, 0, 64, 0},
+      {0, 0, 0, 64, 0, 64, 0},
       {0, 0, 0, 0, 0, 0, 0},
-      {80, 16, 64, 16, 0, 64, 0});
+      {128, 64, 64, 64, 0, 64, 0});
 
   std::vector<std::shared_ptr<MemoryUsageTracker>> trackers;
   for (unsigned i = 0, e = tree.size(); i != e; ++i) {
@@ -693,7 +747,7 @@ TEST(MemoryPoolTest, childUsageTest) {
   tree.clear();
 
   std::vector<int64_t> expectedCurrentBytes({0, 0, 0, 0, 0, 0, 0});
-  std::vector<int64_t> expectedMaxBytes({80, 16, 64, 16, 0, 64, 0});
+  std::vector<int64_t> expectedMaxBytes({128, 64, 64, 64, 0, 64, 0});
 
   // Verify the stats still holds the correct stats.
   for (unsigned i = 0, e = trackers.size(); i != e; ++i) {
@@ -703,8 +757,8 @@ TEST(MemoryPoolTest, childUsageTest) {
 }
 
 TEST(MemoryPoolTest, getPreferredSize) {
-  MemoryManager<64> manager{};
-  auto& pool = dynamic_cast<MemoryPoolImpl<64>&>(manager.getRoot());
+  MemoryManager manager;
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
   // size < 8
   EXPECT_EQ(8, pool.getPreferredSize(1));
@@ -720,16 +774,16 @@ TEST(MemoryPoolTest, getPreferredSize) {
 }
 
 TEST(MemoryPoolTest, getPreferredSizeOverflow) {
-  MemoryManager<64> manager{};
-  auto& pool = dynamic_cast<MemoryPoolImpl<64>&>(manager.getRoot());
+  MemoryManager manager;
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
   EXPECT_EQ(1ULL << 32, pool.getPreferredSize((1ULL << 32) - 1));
   EXPECT_EQ(1ULL << 63, pool.getPreferredSize((1ULL << 62) - 1 + (1ULL << 62)));
 }
 
 TEST(MemoryPoolTest, allocatorOverflow) {
-  MemoryManager<64> manager{};
-  auto& pool = dynamic_cast<MemoryPoolImpl<64>&>(manager.getRoot());
+  MemoryManager manager{};
+  auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
   Allocator<int64_t> alloc(pool);
   EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
   EXPECT_THROW(alloc.deallocate(nullptr, 1ULL << 62), VeloxException);

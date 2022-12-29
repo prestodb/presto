@@ -37,7 +37,8 @@ class MockMemoryPool : public velox::memory::MemoryPool {
       const std::string& name,
       std::shared_ptr<MemoryPool> parent,
       int64_t cap = std::numeric_limits<int64_t>::max())
-      : MemoryPool{name, parent}, cap_{cap} {}
+      : MemoryPool{name, parent, {.alignment = velox::memory::MemoryAllocator::kMinAlignment}},
+        cap_{cap} {}
 
   // Methods not usually exposed by MemoryPool interface to
   // allow for manipulation.
@@ -62,9 +63,10 @@ class MockMemoryPool : public velox::memory::MemoryPool {
     updateLocalMemoryUsage(size);
     return allocator_->allocateBytes(size);
   }
-  void* allocateZeroFilled(int64_t numMembers, int64_t sizeEach) override {
-    updateLocalMemoryUsage(numMembers * sizeEach);
-    return allocator_->allocateZeroFilled(numMembers * sizeEach);
+
+  void* allocateZeroFilled(int64_t numEntries, int64_t sizeEach) override {
+    updateLocalMemoryUsage(numEntries * sizeEach);
+    return allocator_->allocateZeroFilled(numEntries * sizeEach);
   }
 
   // No-op for attempts to shrink buffer.

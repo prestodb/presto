@@ -27,7 +27,7 @@ namespace memory {
 
 TEST(MemoryManagerTest, Ctor) {
   {
-    MemoryManager<> manager{};
+    MemoryManager manager{};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), root.cap());
@@ -35,9 +35,10 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(0, root.getCurrentBytes());
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), manager.getMemoryQuota());
     ASSERT_EQ(0, manager.getTotalBytes());
+    ASSERT_EQ(manager.alignment(), MemoryAllocator::kMaxAlignment);
   }
   {
-    MemoryManager<> manager{8L * 1024 * 1024};
+    MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(8L * 1024 * 1024, root.cap());
@@ -46,15 +47,26 @@ TEST(MemoryManagerTest, Ctor) {
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
     ASSERT_EQ(0, manager.getTotalBytes());
   }
-  { ASSERT_ANY_THROW(MemoryManager<> manager{-1}); }
+  {
+    MemoryManager manager{{.alignment = 0, .capacity = 8L * 1024 * 1024}};
+    const auto& root = manager.getRoot();
+
+    ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
+    ASSERT_EQ(8L * 1024 * 1024, root.cap());
+    ASSERT_EQ(0, root.getChildCount());
+    ASSERT_EQ(0, root.getCurrentBytes());
+    ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
+    ASSERT_EQ(0, manager.getTotalBytes());
+  }
+  { ASSERT_ANY_THROW(MemoryManager manager{{.capacity = -1}}); }
 }
 
 // TODO: when run sequentially, e.g. `buck run dwio/memory/...`, this has side
 // effects for other tests using process singleton memory manager. Might need to
 // use folly::Singleton for isolation by tag.
 TEST(MemoryManagerTest, GlobalMemoryManager) {
-  auto& manager = MemoryManager<>::getProcessDefaultManager();
-  auto& managerII = MemoryManager<>::getProcessDefaultManager();
+  auto& manager = MemoryManager::getInstance();
+  auto& managerII = MemoryManager::getInstance();
 
   auto& root = manager.getRoot();
   auto child = root.addChild("some_child", 42);
@@ -73,7 +85,7 @@ TEST(MemoryManagerTest, GlobalMemoryManager) {
 
 TEST(MemoryManagerTest, Reserve) {
   {
-    MemoryManager<> manager{};
+    MemoryManager manager{};
     ASSERT_TRUE(manager.reserve(0));
     ASSERT_EQ(0, manager.getTotalBytes());
     manager.release(0);
@@ -86,7 +98,7 @@ TEST(MemoryManagerTest, Reserve) {
     ASSERT_EQ(0, manager.getTotalBytes());
   }
   {
-    MemoryManager<> manager{42};
+    MemoryManager manager{{.capacity = 42}};
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(1));
     ASSERT_TRUE(manager.reserve(2));
@@ -107,13 +119,50 @@ TEST(MemoryManagerTest, Reserve) {
 }
 
 TEST(MemoryManagerTest, GlobalMemoryManagerQuota) {
-  auto& manager = MemoryManager<>::getProcessDefaultManager();
+  auto& manager = MemoryManager::getInstance();
   ASSERT_THROW(
-      MemoryManager<>::getProcessDefaultManager(42, true),
+      MemoryManager::getInstance({.capacity = 42}, true),
       velox::VeloxUserError);
 
-  auto& coercedManager = MemoryManager<>::getProcessDefaultManager(42);
+  auto& coercedManager = MemoryManager::getInstance({.capacity = 42});
   ASSERT_EQ(manager.getMemoryQuota(), coercedManager.getMemoryQuota());
+}
+
+TEST(MemoryManagerTest, alignmentOptionCheck) {
+  struct {
+    uint16_t alignment;
+    bool expectedSuccess;
+
+    std::string debugString() const {
+      return fmt::format(
+          "alignment:{}, expectedSuccess:{}", alignment, expectedSuccess);
+    }
+  } testSettings[] = {
+      {0, true},
+      {MemoryAllocator::kMinAlignment - 1, true},
+      {MemoryAllocator::kMinAlignment, true},
+      {MemoryAllocator::kMinAlignment * 2, true},
+      {MemoryAllocator::kMinAlignment + 1, false},
+      {MemoryAllocator::kMaxAlignment - 1, false},
+      {MemoryAllocator::kMaxAlignment, true},
+      {MemoryAllocator::kMaxAlignment + 1, false},
+      {MemoryAllocator::kMaxAlignment * 2, false}};
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    IMemoryManager::Options options;
+    options.alignment = testData.alignment;
+    if (!testData.expectedSuccess) {
+      ASSERT_THROW(MemoryManager{options}, VeloxRuntimeError);
+      continue;
+    }
+    MemoryManager manager{options};
+    ASSERT_EQ(
+        manager.alignment(),
+        std::max(testData.alignment, MemoryAllocator::kMinAlignment));
+    ASSERT_EQ(
+        manager.getRoot().getAlignment(),
+        std::max(testData.alignment, MemoryAllocator::kMinAlignment));
+  }
 }
 } // namespace memory
 } // namespace velox
