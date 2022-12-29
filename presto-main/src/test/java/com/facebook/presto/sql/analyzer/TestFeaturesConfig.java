@@ -33,7 +33,6 @@ import java.util.Map;
 
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static com.facebook.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
-import static com.facebook.presto.sql.analyzer.AnalyzerType.NATIVE;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.LEGACY;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy.TOP_DOWN;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -196,7 +195,7 @@ public class TestFeaturesConfig
                 .setQueryOptimizationWithMaterializedViewEnabled(false)
                 .setVerboseRuntimeStatsEnabled(false)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.DISABLED)
-                .setAnalyzerType(AnalyzerType.BUILTIN)
+                .setAnalyzerType("BUILTIN")
                 .setStreamingForPartialAggregationEnabled(false)
                 .setMaxStageCountForEagerScheduling(25)
                 .setHyperloglogStandardErrorWarningThreshold(0.004)
@@ -356,7 +355,7 @@ public class TestFeaturesConfig
                 .put("materialized-view-data-consistency-enabled", "false")
                 .put("consider-query-filters-for-materialized-view-partitions", "false")
                 .put("query-optimization-with-materialized-view-enabled", "true")
-                .put("analyzer-type", NATIVE.name())
+                .put("analyzer-type", "CRUX")
                 .put("verbose-runtime-stats-enabled", "true")
                 .put("optimizer.aggregation-if-to-filter-rewrite-strategy", "filter_with_if")
                 .put("streaming-for-partial-aggregation-enabled", "true")
@@ -518,7 +517,7 @@ public class TestFeaturesConfig
                 .setQueryOptimizationWithMaterializedViewEnabled(true)
                 .setVerboseRuntimeStatsEnabled(true)
                 .setAggregationIfToFilterRewriteStrategy(AggregationIfToFilterRewriteStrategy.FILTER_WITH_IF)
-                .setAnalyzerType(NATIVE)
+                .setAnalyzerType("CRUX")
                 .setStreamingForPartialAggregationEnabled(true)
                 .setMaxStageCountForEagerScheduling(123)
                 .setHyperloglogStandardErrorWarningThreshold(0.02)

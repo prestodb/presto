@@ -15,6 +15,7 @@ package com.facebook.presto.dispatcher;
 
 import com.facebook.airlift.concurrent.BoundedExecutor;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
@@ -34,14 +35,14 @@ import com.facebook.presto.server.SessionSupplier;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.facebook.presto.spi.resourceGroups.SelectionCriteria;
 import com.facebook.presto.spi.security.AccessControlContext;
 import com.facebook.presto.spi.security.AuthorizedIdentity;
 import com.facebook.presto.spi.security.Identity;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
-import com.facebook.presto.sql.analyzer.AnalyzerProvider;
-import com.facebook.presto.sql.analyzer.PreparedQuery;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -71,7 +72,6 @@ import static java.util.Objects.requireNonNull;
 public class DispatchManager
 {
     private final QueryIdGenerator queryIdGenerator;
-    private final AnalyzerProvider analyzerProvider;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final WarningCollectorFactory warningCollectorFactory;
     private final DispatchQueryFactory dispatchQueryFactory;
@@ -93,6 +93,7 @@ public class DispatchManager
     private final QueryManagerStats stats = new QueryManagerStats();
 
     private final SecurityConfig securityConfig;
+    private final AnalyzerProviderManager analyzerProviderManager;
 
     /**
      * Dispatch Manager is used for the pre-queuing part of queries prior to the query execution phase.
@@ -100,7 +101,7 @@ public class DispatchManager
      * Dispatch Manager object is instantiated when the presto server is launched by server bootstrap time. It is a critical component in resource management section of the query.
      *
      * @param queryIdGenerator query ID generator for generating a new query ID when a query is created
-     * @param analyzerProvider analyzer provider provides an interface for query preparer when a dispatch query is created and registered
+     * @param analyzerProviderManager provides access to registered analyzer providers
      * @param resourceGroupManager the resource group manager to select corresponding resource group for query to retrieve basic information from session context for selection context
      * @param warningCollectorFactory the warning collector factory to collect presto warning in a query session
      * @param dispatchQueryFactory the dispatch query factory is used to create a {@link DispatchQuery} object.  The dispatch query is submitted to the {@link ResourceGroupManager} which enqueues the query.
@@ -116,7 +117,7 @@ public class DispatchManager
     @Inject
     public DispatchManager(
             QueryIdGenerator queryIdGenerator,
-            AnalyzerProvider analyzerProvider,
+            AnalyzerProviderManager analyzerProviderManager,
             @SuppressWarnings("rawtypes") ResourceGroupManager resourceGroupManager,
             WarningCollectorFactory warningCollectorFactory,
             DispatchQueryFactory dispatchQueryFactory,
@@ -132,7 +133,7 @@ public class DispatchManager
             Optional<ClusterQueryTrackerService> clusterQueryTrackerService)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
-        this.analyzerProvider = requireNonNull(analyzerProvider, "analyzerClient is null");
+        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.warningCollectorFactory = requireNonNull(warningCollectorFactory, "warningCollectorFactory is null");
         this.dispatchQueryFactory = requireNonNull(dispatchQueryFactory, "dispatchQueryFactory is null");
@@ -284,7 +285,8 @@ public class DispatchManager
 
             // prepare query
             AnalyzerOptions analyzerOptions = createAnalyzerOptions(session, session.getWarningCollector());
-            preparedQuery = analyzerProvider.getQueryPreparer(getAnalyzerType(session)).prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
+            AnalyzerProvider analyzerProvider = analyzerProviderManager.getAnalyzerProvider(getAnalyzerType(session));
+            preparedQuery = analyzerProvider.getQueryPreparer().prepareQuery(analyzerOptions, query, session.getPreparedStatements(), session.getWarningCollector());
             query = preparedQuery.getFormattedQuery().orElse(query);
 
             // select resource group

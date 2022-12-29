@@ -80,10 +80,6 @@ import com.facebook.presto.server.remotetask.HttpRemoteTaskFactory;
 import com.facebook.presto.server.remotetask.RemoteTaskStats;
 import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
 import com.facebook.presto.spi.security.SelectedRole;
-import com.facebook.presto.sql.analyzer.AnalyzerModule;
-import com.facebook.presto.sql.analyzer.AnalyzerProvider;
-import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
-import com.facebook.presto.sql.analyzer.NativeQueryPreparer;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
 import com.facebook.presto.sql.planner.PlanFragmenter;
 import com.facebook.presto.sql.planner.PlanOptimizers;
@@ -180,11 +176,6 @@ public class CoordinatorModule
         binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
         binder.bind(QueryManager.class).to(SqlQueryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryManager.class).withGeneratedName();
-
-        binder.install(new AnalyzerModule());
-        binder.bind(AnalyzerProvider.class).in(Scopes.SINGLETON);
-        binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
-        binder.bind(NativeQueryPreparer.class).in(Scopes.SINGLETON);
 
         binder.bind(SessionSupplier.class).to(QuerySessionSupplier.class).in(Scopes.SINGLETON);
         binder.bind(InternalResourceGroupManager.class).in(Scopes.SINGLETON);

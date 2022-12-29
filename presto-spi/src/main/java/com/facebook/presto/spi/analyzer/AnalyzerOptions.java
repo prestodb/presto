@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.sql.analyzer;
+package com.facebook.presto.spi.analyzer;
 
 import com.facebook.presto.common.WarningHandlingLevel;
 import com.facebook.presto.spi.WarningCollector;
@@ -70,7 +70,7 @@ public class AnalyzerOptions
     {
         private boolean isParseDecimalLiteralsAsDouble;
         private boolean isLogFormattedQueryEnabled;
-        private WarningCollector warningCollector;
+        private WarningCollector warningCollector = WarningCollector.NOOP;
         private WarningHandlingLevel warningHandlingLevel = NORMAL;
 
         private Builder() {}
