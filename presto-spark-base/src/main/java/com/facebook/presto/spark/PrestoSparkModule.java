@@ -152,6 +152,8 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionDeserializer;
 import com.facebook.presto.sql.Serialization.VariableReferenceExpressionSerializer;
 import com.facebook.presto.sql.SqlEnvironmentConfig;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
+import com.facebook.presto.sql.analyzer.BuiltInAnalyzerProvider;
 import com.facebook.presto.sql.analyzer.BuiltInQueryPreparer;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.QueryExplainer;
@@ -403,6 +405,11 @@ public class PrestoSparkModule
         binder.bind(PlanChecker.class).in(Scopes.SINGLETON);
         binder.bind(SqlParser.class).in(Scopes.SINGLETON);
         binder.bind(SqlParserOptions.class).toInstance(sqlParserOptions);
+
+        // analyzer
+        binder.bind(BuiltInQueryPreparer.class).in(Scopes.SINGLETON);
+        binder.bind(BuiltInAnalyzerProvider.class).in(Scopes.SINGLETON);
+        binder.bind(AnalyzerProviderManager.class).in(Scopes.SINGLETON);
 
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);

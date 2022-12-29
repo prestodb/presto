@@ -16,7 +16,7 @@ package com.facebook.presto.util;
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.sql.analyzer.AnalyzerOptions;
+import com.facebook.presto.spi.analyzer.AnalyzerOptions;
 import com.facebook.presto.sql.parser.ParsingOptions;
 
 import static com.facebook.presto.SystemSessionProperties.getWarningHandlingLevel;

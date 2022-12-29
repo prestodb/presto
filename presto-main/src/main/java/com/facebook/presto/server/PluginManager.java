@@ -28,6 +28,7 @@ import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.security.AccessControlManager;
 import com.facebook.presto.server.security.PasswordAuthenticatorManager;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.spi.analyzer.AnalyzerProvider;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
@@ -42,6 +43,7 @@ import com.facebook.presto.spi.storage.TempStorageFactory;
 import com.facebook.presto.spi.tracing.TracerProvider;
 import com.facebook.presto.spi.ttl.ClusterTtlProviderFactory;
 import com.facebook.presto.spi.ttl.NodeTtlFetcherFactory;
+import com.facebook.presto.sql.analyzer.AnalyzerProviderManager;
 import com.facebook.presto.storage.TempStorageManager;
 import com.facebook.presto.tracing.TracerProviderManager;
 import com.facebook.presto.ttl.clusterttlprovidermanagers.ClusterTtlProviderManager;
@@ -120,6 +122,7 @@ public class PluginManager
     private final ImmutableSet<String> disabledConnectors;
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final TracerProviderManager tracerProviderManager;
+    private final AnalyzerProviderManager analyzerProviderManager;
 
     @Inject
     public PluginManager(
@@ -128,6 +131,7 @@ public class PluginManager
             ConnectorManager connectorManager,
             Metadata metadata,
             ResourceGroupManager<?> resourceGroupManager,
+            AnalyzerProviderManager analyzerProviderManager,
             AccessControlManager accessControlManager,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             EventListenerManager eventListenerManager,
@@ -167,6 +171,7 @@ public class PluginManager
         this.disabledConnectors = requireNonNull(config.getDisabledConnectors(), "disabledConnectors is null");
         this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
+        this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
     }
 
     public void loadPlugins()
@@ -306,6 +311,11 @@ public class PluginManager
         for (TracerProvider tracerProvider : plugin.getTracerProviders()) {
             log.info("Registering tracer provider %s", tracerProvider.getName());
             tracerProviderManager.addTracerProviderFactory(tracerProvider);
+        }
+
+        for (AnalyzerProvider analyzerProvider : plugin.getAnalyzerProviders()) {
+            log.info("Registering analyzer provider %s", analyzerProvider.getType());
+            analyzerProviderManager.addAnalyzerProvider(analyzerProvider);
         }
     }
 
