@@ -1201,6 +1201,45 @@ TEST_F(StringFunctionsTest, sha512) {
   EXPECT_EQ(std::nullopt, sha512(std::nullopt));
 }
 
+TEST_F(StringFunctionsTest, HmacSha1) {
+  const auto hmacSha1 = [&](std::optional<std::string> arg,
+                            std::optional<std::string> key) {
+    return evaluateOnce<std::string, std::string>(
+        "hmac_sha1(c0, c1)", {arg, key}, {VARBINARY(), VARBINARY()});
+  };
+  // Use python hmac lib results as the expected value.
+  // >>> import hmac
+  // >>> def sha1(data, key):
+  //         print(hmac.new(key, data, digestmod='sha1').hexdigest())
+  // >>> sha1(b"hashme", b"velox")
+  // d49c944625bdde6c47ad93ea63952bfcf16a630a
+  // >>> sha1(b"Infinity", b"velox")
+  // c19b6b753fe4ac28579c7e84d18feb29760a0d1c
+  // >>> sha1(b"", b"velox")
+  // d0569c4a4f3df995b04ec497b12872c4a2f97517
+  // >>> sha1(b"12345abcde54321", b"velox")
+  // 183054bdaf8c83320fee4376e76ffd7e773a650f
+  // sha1(b"velox", b"")
+  // 3ec5ea98df0f5ddb139231ecee2c8a9810a82e08
+  EXPECT_EQ(
+      hexToDec("d49c944625bdde6c47ad93ea63952bfcf16a630a"),
+      hmacSha1("hashme", "velox"));
+  EXPECT_EQ(
+      hexToDec("c19b6b753fe4ac28579c7e84d18feb29760a0d1c"),
+      hmacSha1("Infinity", "velox"));
+  EXPECT_EQ(
+      hexToDec("d0569c4a4f3df995b04ec497b12872c4a2f97517"),
+      hmacSha1("", "velox"));
+  EXPECT_EQ(std::nullopt, hmacSha1(std::nullopt, "velox"));
+  EXPECT_EQ(
+      hexToDec("183054bdaf8c83320fee4376e76ffd7e773a650f"),
+      hmacSha1("12345abcde54321", "velox"));
+  EXPECT_EQ(
+      hexToDec("3ec5ea98df0f5ddb139231ecee2c8a9810a82e08"),
+      hmacSha1("velox", ""));
+  EXPECT_EQ(std::nullopt, hmacSha1("velox", std::nullopt));
+}
+
 TEST_F(StringFunctionsTest, HmacSha256) {
   const auto hmacSha256 = [&](std::optional<std::string> arg,
                               std::optional<std::string> key) {

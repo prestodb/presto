@@ -22,6 +22,10 @@ Binary Functions
 
     Computes the SHA-512 hash of ``binary``.
 
+.. function:: hmac_sha1(binary, key) -> varbinary
+
+    Computes the HMAC with sha1 of ``binary`` with the given ``key``.
+
 .. function:: hmac_sha256(binary, key) -> varbinary
 
     Computes the HMAC with sha256 of ``binary`` with the given ``key``.

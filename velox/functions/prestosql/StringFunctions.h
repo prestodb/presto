@@ -118,6 +118,18 @@ struct Sha512Function {
   }
 };
 
+/// hmac_sha1(varbinary) -> varbinary
+template <typename T>
+struct HmacSha1Function {
+  VELOX_DEFINE_FUNCTION_TYPES(T);
+
+  template <typename TOuput, typename TInput>
+  FOLLY_ALWAYS_INLINE void
+  call(TOuput& result, const TInput& data, const TInput& key) {
+    stringImpl::hmacSha1(result, key, data);
+  }
+};
+
 /// hmac_sha256(varbinary) -> varbinary
 template <typename T>
 struct HmacSha256Function {
@@ -126,7 +138,7 @@ struct HmacSha256Function {
   template <typename TTo, typename TFrom>
   FOLLY_ALWAYS_INLINE void
   call(TTo& result, const TFrom& data, const TFrom& key) {
-    stringImpl::HmacSha256(result, key, data);
+    stringImpl::hmacSha256(result, key, data);
   }
 };
 
@@ -138,7 +150,7 @@ struct HmacSha512Function {
   template <typename TTo, typename TFrom>
   FOLLY_ALWAYS_INLINE void
   call(TTo& result, const TFrom& data, const TFrom& key) {
-    stringImpl::HmacSha512(result, key, data);
+    stringImpl::hmacSha512(result, key, data);
   }
 };
 
