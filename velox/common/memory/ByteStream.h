@@ -401,11 +401,11 @@ inline Date ByteStream::read<Date>() {
 class IOBufOutputStream : public OutputStream {
  public:
   explicit IOBufOutputStream(
-      memory::MemoryAllocator& MemoryAllocator,
+      memory::MemoryPool& pool,
       OutputStreamListener* listener = nullptr,
       int32_t initialSize = memory::MemoryAllocator::kPageSize)
       : OutputStream(listener),
-        arena_(std::make_shared<StreamArena>(&MemoryAllocator)),
+        arena_(std::make_shared<StreamArena>(&pool)),
         out_(std::make_unique<ByteStream>(arena_.get())) {
     out_->startWrite(initialSize);
   }

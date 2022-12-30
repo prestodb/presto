@@ -43,6 +43,28 @@ struct Request {
 };
 
 class AsyncDataCacheTest : public testing::Test {
+ public:
+  // Deterministically fills 'allocation'  based on 'sequence'
+  static void initializeContents(
+      int64_t sequence,
+      MemoryAllocator::Allocation& alloc) {
+    bool first = true;
+    for (int32_t i = 0; i < alloc.numRuns(); ++i) {
+      MemoryAllocator::PageRun run = alloc.runAt(i);
+      int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
+      int32_t numWords =
+          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
+      for (int32_t offset = 0; offset < numWords; offset++) {
+        if (first) {
+          ptr[offset] = sequence;
+          first = false;
+        } else {
+          ptr[offset] = offset + sequence;
+        }
+      }
+    }
+  }
+
  protected:
   static constexpr int32_t kNumFiles = 100;
 
@@ -133,28 +155,6 @@ class AsyncDataCacheTest : public testing::Test {
     }
   }
 
- public:
-  // Deterministically fills 'allocation'  based on 'sequence'
-  static void initializeContents(
-      int64_t sequence,
-      MemoryAllocator::Allocation& alloc) {
-    bool first = true;
-    for (int32_t i = 0; i < alloc.numRuns(); ++i) {
-      MemoryAllocator::PageRun run = alloc.runAt(i);
-      int64_t* ptr = reinterpret_cast<int64_t*>(run.data());
-      int32_t numWords =
-          run.numPages() * MemoryAllocator::kPageSize / sizeof(void*);
-      for (int32_t offset = 0; offset < numWords; offset++) {
-        if (first) {
-          ptr[offset] = sequence;
-          first = false;
-        } else {
-          ptr[offset] = offset + sequence;
-        }
-      }
-    }
-  }
-
   // Checks that the contents are consistent with what is set in
   // initializeContents.
   static void checkContents(const AsyncDataCacheEntry& entry) {
@@ -201,7 +201,6 @@ class AsyncDataCacheTest : public testing::Test {
     };
   }
 
- protected:
   folly::IOThreadPoolExecutor* FOLLY_NONNULL executor() {
     static std::mutex mutex;
     std::lock_guard<std::mutex> l(mutex);
@@ -211,6 +210,13 @@ class AsyncDataCacheTest : public testing::Test {
       executor_ = std::make_unique<folly::IOThreadPoolExecutor>(20);
     }
     return executor_.get();
+  }
+
+  void clearAllocations(std::deque<MemoryAllocator::Allocation>& allocations) {
+    while (!allocations.empty()) {
+      cache_->freeNonContiguous(allocations.front());
+      allocations.pop_front();
+    }
   }
 
   std::shared_ptr<exec::test::TempDirectoryPath> tempDirectory_;
@@ -562,17 +568,16 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
     }
     pins.pop_front();
   }
-  MemoryAllocator::Allocation allocation(cache_.get());
-  EXPECT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
+  MemoryAllocator::Allocation allocation;
+  ASSERT_FALSE(cache_->allocateNonContiguous(kSizeInPages, allocation));
   // One 4 page entry below the max size of 4K 4 page entries in 16MB of
   // capacity.
-  EXPECT_EQ(4092, cache_->incrementCachedPages(0));
-  EXPECT_EQ(4092, cache_->incrementPrefetchPages(0));
+  ASSERT_EQ(4092, cache_->incrementCachedPages(0));
+  ASSERT_EQ(4092, cache_->incrementPrefetchPages(0));
   pins.clear();
 
   // We allocate the full capacity and expect the cache entries to go.
   for (;;) {
-    MemoryAllocator::Allocation(cache_.get());
     if (!cache_->allocateNonContiguous(kSizeInPages, allocation)) {
       break;
     }
@@ -581,6 +586,7 @@ TEST_F(AsyncDataCacheTest, outOfCapacity) {
   EXPECT_EQ(0, cache_->incrementCachedPages(0));
   EXPECT_EQ(0, cache_->incrementPrefetchPages(0));
   EXPECT_EQ(4092, cache_->numAllocated());
+  clearAllocations(allocations);
 }
 
 namespace {

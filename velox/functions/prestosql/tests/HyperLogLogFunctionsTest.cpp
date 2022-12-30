@@ -62,7 +62,8 @@ class HyperLogLogFunctionsTest : public functions::test::FunctionBaseTest {
     return signatureStrings;
   }
 
-  HashStringAllocator allocator_{memory::MemoryAllocator::getInstance()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  HashStringAllocator allocator_{pool_.get()};
 };
 
 TEST_F(HyperLogLogFunctionsTest, cardinalitySignatures) {

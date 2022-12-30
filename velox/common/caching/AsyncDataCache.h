@@ -141,6 +141,7 @@ class AsyncDataCacheEntry {
   static constexpr int32_t kTinyDataSize = 2048;
 
   explicit AsyncDataCacheEntry(CacheShard* FOLLY_NONNULL shard);
+  ~AsyncDataCacheEntry();
 
   // Sets the key and allocates the entry's memory.  Resets
   //  all other state. The entry must be held exclusively and must
@@ -561,6 +562,9 @@ class CacheShard {
 
   CachePin initEntry(RawFileCacheKey key, AsyncDataCacheEntry* entry);
 
+  void freeAllocations(
+      std::vector<memory::MemoryAllocator::Allocation>& allocations);
+
   mutable std::mutex mutex_;
   folly::F14FastMap<RawFileCacheKey, AsyncDataCacheEntry*> entryMap_;
   // Entries associated to a key.
@@ -599,7 +603,7 @@ class CacheShard {
 class AsyncDataCache : public memory::MemoryAllocator {
  public:
   AsyncDataCache(
-      const std::shared_ptr<memory::MemoryAllocator>& MemoryAllocator,
+      const std::shared_ptr<memory::MemoryAllocator>& allocator,
       uint64_t maxBytes,
       std::unique_ptr<SsdCache> ssdCache = nullptr);
 
@@ -625,43 +629,43 @@ class AsyncDataCache : public memory::MemoryAllocator {
   bool allocateNonContiguous(
       memory::MachinePageCount numPages,
       Allocation& out,
-      std::function<void(int64_t, bool)> beforeAllocCB = nullptr,
+      ReservationCallback reservationCB = nullptr,
       memory::MachinePageCount minSizeClass = 0) override;
 
   int64_t freeNonContiguous(Allocation& allocation) override {
-    return MemoryAllocator_->freeNonContiguous(allocation);
+    return allocator_->freeNonContiguous(allocation);
   }
 
   bool allocateContiguous(
       memory::MachinePageCount numPages,
-      Allocation* collateral,
+      Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t, bool)> beforeAllocCB = nullptr) override;
+      ReservationCallback reservationCB = nullptr) override;
 
   void freeContiguous(ContiguousAllocation& allocation) override {
-    MemoryAllocator_->freeContiguous(allocation);
+    allocator_->freeContiguous(allocation);
   }
 
   void* allocateBytes(uint64_t bytes, uint16_t alignment) override;
 
   void freeBytes(void* p, uint64_t size) noexcept override {
-    MemoryAllocator_->freeBytes(p, size);
+    allocator_->freeBytes(p, size);
   }
 
   bool checkConsistency() const override {
-    return MemoryAllocator_->checkConsistency();
+    return allocator_->checkConsistency();
   }
 
   const std::vector<memory::MachinePageCount>& sizeClasses() const override {
-    return MemoryAllocator_->sizeClasses();
+    return allocator_->sizeClasses();
   }
 
   memory::MachinePageCount numAllocated() const override {
-    return MemoryAllocator_->numAllocated();
+    return allocator_->numAllocated();
   }
 
   memory::MachinePageCount numMapped() const override {
-    return MemoryAllocator_->numMapped();
+    return allocator_->numMapped();
   }
 
   CacheStats refreshStats() const;
@@ -737,7 +741,7 @@ class AsyncDataCache : public memory::MemoryAllocator {
   }
 
   memory::Stats stats() const override {
-    return MemoryAllocator_->stats();
+    return allocator_->stats();
   }
 
  private:
@@ -758,7 +762,7 @@ class AsyncDataCache : public memory::MemoryAllocator {
       memory::MachinePageCount numPages,
       std::function<bool()> allocate);
 
-  std::shared_ptr<memory::MemoryAllocator> MemoryAllocator_;
+  std::shared_ptr<memory::MemoryAllocator> allocator_;
   std::unique_ptr<SsdCache> ssdCache_;
   std::vector<std::unique_ptr<CacheShard>> shards_;
   std::atomic<int32_t> shardCounter_{0};

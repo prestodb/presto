@@ -58,9 +58,9 @@ Window::Window(
       numInputColumns_(windowNode->sources()[0]->outputType()->size()),
       data_(std::make_unique<RowContainer>(
           windowNode->sources()[0]->outputType()->children(),
-          operatorCtx_->allocator())),
+          pool())),
       decodedInputVectors_(numInputColumns_),
-      stringAllocator_(operatorCtx_->allocator()) {
+      stringAllocator_(pool()) {
   auto inputType = windowNode->sources()[0]->outputType();
   initKeyInfo(inputType, windowNode->partitionKeys(), {}, partitionKeyInfo_);
   initKeyInfo(
@@ -460,8 +460,8 @@ RowVectorPtr Window::getOutput() {
 
   auto numRowsLeft = numRows_ - numProcessedRows_;
   auto numOutputRows = std::min(numRowsPerOutput_, numRowsLeft);
-  auto result = BaseVector::create<RowVector>(
-      outputType_, numOutputRows, operatorCtx_->pool());
+  auto result = std::dynamic_pointer_cast<RowVector>(
+      BaseVector::create(outputType_, numOutputRows, operatorCtx_->pool()));
 
   // Set all passthrough input columns.
   for (int i = 0; i < numInputColumns_; ++i) {

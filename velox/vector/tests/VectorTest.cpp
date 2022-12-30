@@ -96,7 +96,6 @@ int NonPOD::alive = 0;
 class VectorTest : public testing::Test, public test::VectorTestBase {
  protected:
   void SetUp() override {
-    allocator_ = memory::MemoryAllocator::getInstance();
     if (!isRegisteredVectorSerde()) {
       facebook::velox::serializer::presto::PrestoVectorSerde::
           registerVectorSerde();
@@ -757,10 +756,10 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     auto sourceRow = makeRowVector({"c"}, {source});
     auto sourceRowType = asRowType(sourceRow->type());
 
-    VectorStreamGroup even(allocator_);
+    VectorStreamGroup even(pool_.get());
     even.createStreamTree(sourceRowType, source->size() / 4);
 
-    VectorStreamGroup odd(allocator_);
+    VectorStreamGroup odd(pool_.get());
     odd.createStreamTree(sourceRowType, source->size() / 3);
 
     std::vector<IndexRange> evenIndices;
@@ -866,8 +865,6 @@ class VectorTest : public testing::Test, public test::VectorTestBase {
     slice->mutableSizes(slice->size());
     EXPECT_NE(slice->rawSizes(), sizes);
   }
-
-  memory::MemoryAllocator* allocator_;
 
   size_t vectorSize_{100};
   size_t numIterations_{3};

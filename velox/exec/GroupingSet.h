@@ -184,8 +184,6 @@ class GroupingSet {
 
   const bool ignoreNullKeys_;
 
-  memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
-
   // The maximum memory usage that a final aggregation can hold before spilling.
   // If it is zero, then there is no such limit.
   const uint64_t spillMemoryThreshold_;
@@ -253,6 +251,7 @@ class GroupingSet {
 
   // Index of first in 'nonSpilledRows_' that has not been added to output.
   size_t nonSpilledIndex_ = 0;
+
   // Pool of the OperatorCtx. Used for spilling.
   memory::MemoryPool& pool_;
 

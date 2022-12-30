@@ -209,14 +209,6 @@ std::optional<uint32_t> Operator::maxDrivers(
   return std::nullopt;
 }
 
-memory::MemoryAllocator* OperatorCtx::allocator() const {
-  if (!allocator_) {
-    allocator_ =
-        driverCtx_->task->addOperatorMemory(pool_->getMemoryUsageTracker());
-  }
-  return allocator_;
-}
-
 const std::string& OperatorCtx::taskId() const {
   return driverCtx_->task->taskId();
 }

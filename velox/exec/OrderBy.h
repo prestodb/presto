@@ -78,8 +78,6 @@ class OrderBy : public Operator {
   // in a paused state and off thread.
   void spill(int64_t targetRows, int64_t targetBytes);
 
-  memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
-
   const int32_t numSortKeys_;
 
   // The maximum memory usage that an order by can hold before spilling.

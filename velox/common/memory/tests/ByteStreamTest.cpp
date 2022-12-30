@@ -26,24 +26,28 @@ using namespace facebook::velox::memory;
 class ByteStreamTest : public testing::TestWithParam<bool> {
  protected:
   void SetUp() override {
-    constexpr uint64_t kMaxMemoryAllocator = 64 << 20;
+    constexpr uint64_t kMaxMappedMemory = 64 << 20;
     MmapAllocator::Options options;
-    options.capacity = kMaxMemoryAllocator;
+    options.capacity = kMaxMappedMemory;
     mmapAllocator_ = std::make_shared<MmapAllocator>(options);
     MemoryAllocator::setDefaultInstance(mmapAllocator_.get());
+    memoryManager_ = std::make_unique<MemoryManager>(IMemoryManager::Options{
+        .capacity = kMaxMemory, .allocator = MemoryAllocator::getInstance()});
+    pool_ = memoryManager_->getChild();
   }
 
   void TearDown() override {
-    MemoryAllocator::testingDestroyInstance();
+    MmapAllocator::testingDestroyInstance();
     MemoryAllocator::setDefaultInstance(nullptr);
   }
 
   std::shared_ptr<MmapAllocator> mmapAllocator_;
+  std::unique_ptr<MemoryManager> memoryManager_;
+  std::shared_ptr<memory::MemoryPool> pool_;
 };
 
 TEST_F(ByteStreamTest, outputStream) {
-  auto out =
-      std::make_unique<IOBufOutputStream>(*mmapAllocator_, nullptr, 10000);
+  auto out = std::make_unique<IOBufOutputStream>(*pool_, nullptr, 10000);
   std::stringstream referenceSStream;
   auto reference = std::make_unique<OStreamOutputStream>(&referenceSStream);
   for (auto i = 0; i < 100; ++i) {

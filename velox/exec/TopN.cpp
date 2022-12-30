@@ -29,9 +29,7 @@ TopN::TopN(
           topNNode->id(),
           "TopN"),
       count_(topNNode->count()),
-      data_(std::make_unique<RowContainer>(
-          outputType_->children(),
-          operatorCtx_->allocator())),
+      data_(std::make_unique<RowContainer>(outputType_->children(), pool())),
       comparator_(
           outputType_,
           topNNode->sortingKeys(),

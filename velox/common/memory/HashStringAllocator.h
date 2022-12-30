@@ -19,18 +19,19 @@
 #include "velox/common/memory/AllocationPool.h"
 #include "velox/common/memory/ByteStream.h"
 #include "velox/common/memory/CompactDoubleList.h"
+#include "velox/common/memory/Memory.h"
 #include "velox/common/memory/StreamArena.h"
 #include "velox/type/StringView.h"
 
 namespace facebook::velox {
 
-// Implements an arena backed by MemoryAllocator::Allocation. This is for
-// backing ByteStream or for allocating single blocks. Blocks can be
-// individually freed. Adjacent frees are coalesced and free blocks are kept in
-// a free list. Allocated blocks are prefixed with a Header. This has a size and
-// flags. kContinue means that last 8 bytes are a pointer to another Header
-// after which the contents of this allocation continue. kFree means the block
-// is free. A free block has pointers to the next and previous free block via a
+// Implements an arena backed by MappedMemory::Allocation. This is for backing
+// ByteStream or for allocating single blocks. Blocks can be individually freed.
+// Adjacent frees are coalesced and free blocks are kept in a free list.
+// Allocated blocks are prefixed with a Header. This has a size and flags.
+// kContinue means that last 8 bytes are a pointer to another Header after which
+// the contents of this allocation continue. kFree means the block is free. A
+// free block has pointers to the next and previous free block via a
 // CompactDoubleList struct immediately after the header. The last 4 bytes of a
 // free block contain its length. kPreviousFree means that the block immediately
 // below is free. In this case the uint32_t below the header has the size of the
@@ -130,8 +131,8 @@ class HashStringAllocator : public StreamArena {
     char* FOLLY_NULLABLE position;
   };
 
-  explicit HashStringAllocator(memory::MemoryAllocator* FOLLY_NONNULL allocator)
-      : StreamArena(allocator), pool_(allocator) {}
+  explicit HashStringAllocator(memory::MemoryPool* FOLLY_NONNULL pool)
+      : StreamArena(pool), pool_(pool) {}
 
   // Copies a StringView at 'offset' in 'group' to storage owned by
   // the hash table. Updates the StringView.
@@ -269,8 +270,8 @@ class HashStringAllocator : public StreamArena {
     pool_.clear();
   }
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
-    return pool_.allocator();
+  memory::MemoryPool* FOLLY_NONNULL pool() const {
+    return pool_.pool();
   }
 
   uint64_t cumulativeBytes() const {

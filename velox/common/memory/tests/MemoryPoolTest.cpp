@@ -20,9 +20,10 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/memory/Memory.h"
 #include "velox/common/memory/MmapAllocator.h"
-#include "velox/exec/HashBitRange.h"
+#include "velox/common/testutil/TestValue.h"
 
 using namespace ::testing;
+using namespace facebook::velox::common::testutil;
 
 constexpr int64_t KB = 1024L;
 constexpr int64_t MB = 1024L * KB;
@@ -34,6 +35,11 @@ namespace memory {
 
 class MemoryPoolTest : public testing::TestWithParam<bool> {
  protected:
+ protected:
+  static void SetUpTestCase() {
+    TestValue::enable();
+  }
+
   MemoryPoolTest() : useMmap_(GetParam()) {}
 
   void SetUp() override {
@@ -46,6 +52,10 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
     } else {
       MemoryAllocator::setDefaultInstance(nullptr);
     }
+    const auto seed =
+        std::chrono::system_clock::now().time_since_epoch().count();
+    rng_.seed(seed);
+    LOG(INFO) << "Random seed: " << seed;
   }
 
   void TearDown() override {
@@ -63,6 +73,7 @@ class MemoryPoolTest : public testing::TestWithParam<bool> {
   }
 
   const bool useMmap_;
+  folly::Random::DefaultGenerator rng_;
   std::shared_ptr<MmapAllocator> mmapAllocator_;
 };
 
@@ -170,7 +181,6 @@ TEST_P(MemoryPoolTest, dropChild) {
   grandChild2.reset();
   ASSERT_EQ(0, root.getChildCount());
 }
-//!!!!
 
 TEST(MemoryPoolTest, CapSubtree) {
   MemoryManager manager{};
@@ -377,6 +387,7 @@ TEST_P(MemoryPoolTest, AllocTest) {
   const int64_t kChunkSize{32L * MB};
 
   void* oneChunk = child->allocate(kChunkSize);
+  ASSERT_EQ(reinterpret_cast<uint64_t>(oneChunk) % child->getAlignment(), 0);
   ASSERT_EQ(kChunkSize, child->getCurrentBytes());
   ASSERT_EQ(kChunkSize, child->getMaxBytes());
 
@@ -562,7 +573,7 @@ TEST_P(MemoryPoolTest, alignmentCheck) {
   }
 }
 
-TEST(MemoryPoolTest, MemoryCapExceptions) {
+TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   MemoryManager manager{{.capacity = 127L * MB}};
   auto& root = manager.getRoot();
 
@@ -626,7 +637,7 @@ TEST(MemoryPoolTest, GetAlignment) {
   }
 }
 
-TEST(MemoryPoolTest, MemoryManagerGlobalCap) {
+TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
   MemoryManager manager{{.capacity = 32 * MB}};
 
   auto& root = manager.getRoot();
@@ -649,7 +660,7 @@ TEST(MemoryPoolTest, MemoryManagerGlobalCap) {
 // Tests how child updates itself and its parent's memory usage
 // and what it returns for getCurrentBytes()/getMaxBytes and
 // with memoryUsageTracker.
-TEST(MemoryPoolTest, childUsageTest) {
+TEST_P(MemoryPoolTest, childUsageTest) {
   MemoryManager manager{{.capacity = 8 * GB}};
   auto& root = manager.getRoot();
 
@@ -756,7 +767,7 @@ TEST(MemoryPoolTest, childUsageTest) {
   }
 }
 
-TEST(MemoryPoolTest, getPreferredSize) {
+TEST_P(MemoryPoolTest, getPreferredSize) {
   MemoryManager manager;
   auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
@@ -773,7 +784,7 @@ TEST(MemoryPoolTest, getPreferredSize) {
   EXPECT_EQ(1024 * 1024 * 2, pool.getPreferredSize(1024 * 1536 + 1));
 }
 
-TEST(MemoryPoolTest, getPreferredSizeOverflow) {
+TEST_P(MemoryPoolTest, getPreferredSizeOverflow) {
   MemoryManager manager;
   auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
@@ -781,12 +792,273 @@ TEST(MemoryPoolTest, getPreferredSizeOverflow) {
   EXPECT_EQ(1ULL << 63, pool.getPreferredSize((1ULL << 62) - 1 + (1ULL << 62)));
 }
 
-TEST(MemoryPoolTest, allocatorOverflow) {
-  MemoryManager manager{};
+TEST_P(MemoryPoolTest, allocatorOverflow) {
+  MemoryManager manager;
   auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
   Allocator<int64_t> alloc(pool);
   EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
   EXPECT_THROW(alloc.deallocate(nullptr, 1ULL << 62), VeloxException);
+}
+
+TEST_P(MemoryPoolTest, contiguousAllocate) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  const auto largestSizeClass =
+      MemoryAllocator::getInstance()->largestSizeClass();
+  struct {
+    MachinePageCount numAllocPages;
+    std::string debugString() const {
+      return fmt::format("numAllocPages:{}", numAllocPages);
+    }
+  } testSettings[] = {
+      {largestSizeClass},
+      {largestSizeClass + 1},
+      {largestSizeClass / 10},
+      {1},
+      {largestSizeClass * 2},
+      {largestSizeClass * 3 + 1}};
+  std::vector<MemoryAllocator::ContiguousAllocation> allocations;
+  const char c('M');
+  for (const auto& testData : testSettings) {
+    SCOPED_TRACE(testData.debugString());
+    MemoryAllocator::ContiguousAllocation allocation;
+    ASSERT_TRUE(allocation.empty());
+    ASSERT_TRUE(pool->allocateContiguous(testData.numAllocPages, allocation));
+    ASSERT_FALSE(allocation.empty());
+    ASSERT_EQ(allocation.pool(), pool.get());
+    ASSERT_EQ(allocation.numPages(), testData.numAllocPages);
+    ASSERT_EQ(
+        allocation.size(), testData.numAllocPages * MemoryAllocator::kPageSize);
+    for (int32_t i = 0; i < allocation.size(); ++i) {
+      allocation.data()[i] = c;
+    }
+    allocations.push_back(std::move(allocation));
+  }
+  // Verify data.
+  for (auto& allocation : allocations) {
+    for (int32_t i = 0; i < allocation.size(); ++i) {
+      ASSERT_EQ(allocation.data()[i], c);
+    }
+  }
+  allocations.clear();
+
+  // Random tests.
+  const int32_t numIterations = 100;
+  const MachinePageCount kMaxAllocationPages = 32 << 10; // Total 128MB
+  int32_t numAllocatedPages = 0;
+  for (int32_t i = 0; i < numIterations; ++i) {
+    const MachinePageCount pagesToAllocate =
+        1 + folly::Random().rand32() % kMaxAllocationPages;
+    MemoryAllocator::ContiguousAllocation allocation;
+    if (folly::Random().oneIn(2) && !allocations.empty()) {
+      const int32_t freeAllocationIdx =
+          folly::Random().rand32() % allocations.size();
+      allocation = std::move(allocations[freeAllocationIdx]);
+      numAllocatedPages -= allocation.numPages();
+      ASSERT_GE(numAllocatedPages, 0);
+      allocations.erase(allocations.begin() + freeAllocationIdx);
+    }
+    const MachinePageCount minSizeClass = folly::Random().oneIn(4)
+        ? 0
+        : std::min(
+              MemoryAllocator::getInstance()->largestSizeClass(),
+              folly::Random().rand32() % kMaxAllocationPages);
+    ASSERT_TRUE(pool->allocateContiguous(pagesToAllocate, allocation));
+    numAllocatedPages += allocation.numPages();
+    for (int32_t j = 0; j < allocation.size(); ++j) {
+      allocation.data()[j] = c;
+    }
+    allocations.push_back(std::move(allocation));
+    while (numAllocatedPages > kMaxAllocationPages) {
+      numAllocatedPages -= allocations.back().numPages();
+      ASSERT_GE(numAllocatedPages, 0);
+      allocations.pop_back();
+    }
+  }
+  // Verify data.
+  for (auto& allocation : allocations) {
+    for (int32_t i = 0; i < allocation.size(); ++i) {
+      ASSERT_EQ(allocation.data()[i], c);
+    }
+  }
+}
+
+TEST_P(MemoryPoolTest, contiguousAllocateExceedLimit) {
+  const MachinePageCount kMaxNumPages = 1 << 10;
+  const auto kMemoryCapBytes = kMaxNumPages * MemoryAllocator::kPageSize;
+  auto manager = getMemoryManager(kMemoryCapBytes);
+  auto pool = manager->getChild();
+  auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
+  pool->setMemoryUsageTracker(tracker);
+  MemoryAllocator::ContiguousAllocation allocation;
+  ASSERT_TRUE(pool->allocateContiguous(kMaxNumPages, allocation));
+  ASSERT_THROW(
+      pool->allocateContiguous(2 * kMaxNumPages, allocation),
+      VeloxRuntimeError);
+  ASSERT_TRUE(allocation.empty());
+  ASSERT_THROW(
+      pool->allocateContiguous(2 * kMaxNumPages, allocation),
+      VeloxRuntimeError);
+  ASSERT_TRUE(allocation.empty());
+}
+
+DEBUG_ONLY_TEST_P(MemoryPoolTest, contiguousAllocateError) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  if (useMmap_) {
+    auto instance =
+        dynamic_cast<MmapAllocator*>(MemoryAllocator::getInstance());
+    instance->testingInjectFailure(MmapAllocator::Failure::kMmap);
+  }
+  std::atomic<bool> testingInjectFailureOnce{true};
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::memory::MemoryAllocatorImpl::allocateContiguousImpl",
+      std::function<void(bool*)>([&](bool* testFlag) {
+        if (!testingInjectFailureOnce.exchange(false)) {
+          return;
+        }
+        *testFlag = true;
+      }));
+  constexpr MachinePageCount kAllocSize = 8;
+  std::unique_ptr<MemoryAllocator::ContiguousAllocation> allocation(
+      new MemoryAllocator::ContiguousAllocation());
+  ASSERT_FALSE(pool->allocateContiguous(kAllocSize, *allocation));
+  ASSERT_TRUE(pool->allocateContiguous(kAllocSize, *allocation));
+  pool->freeContiguous(*allocation);
+  ASSERT_TRUE(allocation->empty());
+}
+
+TEST_P(MemoryPoolTest, nonContiguousAllocate) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  const auto& sizeClasses = MemoryAllocator::getInstance()->sizeClasses();
+  for (const auto& sizeClass : sizeClasses) {
+    SCOPED_TRACE(fmt::format("sizeClass:{}", sizeClass));
+    struct {
+      MachinePageCount numAllocPages;
+      MachinePageCount minSizeClass;
+      std::string debugString() const {
+        return fmt::format(
+            "numAllocPages:{}, minSizeClass:{}", numAllocPages, minSizeClass);
+      }
+    } testSettings[] = {
+        {sizeClass, 0},
+        {sizeClass, 1},
+        {sizeClass, 10},
+        {sizeClass, sizeClass},
+        {sizeClass, sizeClass + 1},
+        {sizeClass, sizeClass * 2},
+        {sizeClass + 10, 0},
+        {sizeClass + 10, 1},
+        {sizeClass + 10, 10},
+        {sizeClass + 10, sizeClass},
+        {sizeClass + 10, sizeClass + 1},
+        {sizeClass + 10, sizeClass * 2},
+        {sizeClass * 2, 0},
+        {sizeClass * 2, 1},
+        {sizeClass * 2, 10},
+        {sizeClass * 2, sizeClass},
+        {sizeClass * 2, sizeClass + 1},
+        {sizeClass * 2, sizeClass + 10},
+        {sizeClass * 2, sizeClass * 2},
+        {sizeClass * 2, sizeClass * 2 + 1},
+        {sizeClass * 2, sizeClass * 2 * 2}};
+    std::vector<MemoryAllocator::Allocation> allocations;
+    for (const auto& testData : testSettings) {
+      SCOPED_TRACE(testData.debugString());
+      MemoryAllocator::Allocation allocation;
+      ASSERT_TRUE(allocation.empty());
+      ASSERT_TRUE(pool->allocateNonContiguous(
+          testData.numAllocPages,
+          allocation,
+          std::min(
+              testData.minSizeClass,
+              MemoryAllocator::getInstance()->largestSizeClass())));
+      ASSERT_FALSE(allocation.empty());
+      ASSERT_EQ(allocation.pool(), pool.get());
+      ASSERT_GT(allocation.numRuns(), 0);
+      ASSERT_GE(allocation.numPages(), testData.numAllocPages);
+    }
+  }
+  // Random tests.
+  const int32_t numIterations = 100;
+  const MachinePageCount kMaxAllocationPages = 32 << 10; // Total 128MB
+  int32_t numAllocatedPages = 0;
+  std::vector<MemoryAllocator::Allocation> allocations;
+  for (int32_t i = 0; i < numIterations; ++i) {
+    const MachinePageCount pagesToAllocate =
+        1 + folly::Random().rand32() % kMaxAllocationPages;
+    MemoryAllocator::Allocation allocation;
+    if (folly::Random().oneIn(2) && !allocations.empty()) {
+      const int32_t freeAllocationIdx =
+          folly::Random().rand32() % allocations.size();
+      allocation = std::move(allocations[freeAllocationIdx]);
+      numAllocatedPages -= allocation.numPages();
+      ASSERT_GE(numAllocatedPages, 0);
+      allocations.erase(allocations.begin() + freeAllocationIdx);
+    }
+    const MachinePageCount minSizeClass = folly::Random().oneIn(4)
+        ? 0
+        : std::min(
+              MemoryAllocator::getInstance()->largestSizeClass(),
+              folly::Random().rand32() % kMaxAllocationPages);
+    ASSERT_TRUE(
+        pool->allocateNonContiguous(pagesToAllocate, allocation, minSizeClass));
+    numAllocatedPages += allocation.numPages();
+    allocations.push_back(std::move(allocation));
+    while (numAllocatedPages > kMaxAllocationPages) {
+      numAllocatedPages -= allocations.back().numPages();
+      ASSERT_GE(numAllocatedPages, 0);
+      allocations.pop_back();
+    }
+  }
+}
+
+TEST_P(MemoryPoolTest, nonContiguousAllocateExceedLimit) {
+  const MachinePageCount kMaxNumPages = 1 << 10;
+  const auto kMemoryCapBytes = kMaxNumPages * MemoryAllocator::kPageSize;
+  auto manager = getMemoryManager(kMemoryCapBytes);
+  auto pool = manager->getChild();
+  auto tracker = MemoryUsageTracker::create(kMemoryCapBytes);
+  pool->setMemoryUsageTracker(tracker);
+  MemoryAllocator::Allocation allocation;
+  ASSERT_TRUE(pool->allocateNonContiguous(kMaxNumPages, allocation));
+  ASSERT_THROW(
+      pool->allocateNonContiguous(2 * kMaxNumPages, allocation),
+      VeloxRuntimeError);
+  ASSERT_TRUE(allocation.empty());
+  ASSERT_THROW(
+      pool->allocateNonContiguous(2 * kMaxNumPages, allocation),
+      VeloxRuntimeError);
+  ASSERT_TRUE(allocation.empty());
+}
+
+DEBUG_ONLY_TEST_P(MemoryPoolTest, nonContiguousAllocateError) {
+  auto manager = getMemoryManager(8 * GB);
+  auto pool = manager->getChild();
+  const std::string testValueStr = useMmap_
+      ? "facebook::velox::memory::MmapAllocator::allocateNonContiguous"
+      : "facebook::velox::memory::MemoryAllocatorImpl::allocateNonContiguous";
+  std::atomic<bool> testingInjectFailureOnce{true};
+  SCOPED_TESTVALUE_SET(
+      testValueStr, std::function<void(bool*)>([&](bool* testFlag) {
+        if (!testingInjectFailureOnce.exchange(false)) {
+          return;
+        }
+        if (useMmap_) {
+          *testFlag = false;
+        } else {
+          *testFlag = true;
+        }
+      }));
+
+  constexpr MachinePageCount kAllocSize = 8;
+  std::unique_ptr<MemoryAllocator::Allocation> allocation(
+      new MemoryAllocator::Allocation());
+  ASSERT_FALSE(pool->allocateNonContiguous(kAllocSize, *allocation));
+  ASSERT_TRUE(pool->allocateNonContiguous(kAllocSize, *allocation));
+  pool->freeNonContiguous(*allocation);
+  ASSERT_TRUE(allocation->empty());
 }
 
 VELOX_INSTANTIATE_TEST_SUITE_P(

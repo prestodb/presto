@@ -100,7 +100,8 @@ class DenseHllTest : public ::testing::TestWithParam<int8_t> {
         expected.cardinality());
   }
 
-  HashStringAllocator allocator_{memory::MemoryAllocator::getInstance()};
+  std::shared_ptr<memory::MemoryPool> pool_{memory::getDefaultMemoryPool()};
+  HashStringAllocator allocator_{pool_.get()};
 };
 
 TEST_P(DenseHllTest, basic) {

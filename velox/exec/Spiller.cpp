@@ -22,8 +22,9 @@
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
-
-constexpr int kLogEveryN = 32;
+namespace {
+constexpr int32_t kLogEveryN = 32;
+}
 
 Spiller::Spiller(
     Type type,
@@ -103,8 +104,7 @@ Spiller::Spiller(
           numSortingKeys,
           sortCompareFlags,
           targetFileSize,
-          pool,
-          allocator()),
+          pool),
       pool_(pool),
       executor_(executor) {
   TestValue::adjust(

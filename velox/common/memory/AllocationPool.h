@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "velox/common/memory/MemoryAllocator.h"
+#include "velox/common/memory/Memory.h"
 
 namespace facebook::velox {
 // A set of MemoryAllocator::Allocations holding the fixed width payload
@@ -29,14 +29,14 @@ class AllocationPool {
  public:
   static constexpr int32_t kMinPages = 16;
 
-  explicit AllocationPool(memory::MemoryAllocator* allocator)
-      : allocator_(allocator), allocation_(allocator) {}
+  explicit AllocationPool(memory::MemoryPool* FOLLY_NONNULL pool)
+      : pool_(pool) {}
 
   ~AllocationPool() = default;
 
   void clear();
 
-  char* allocateFixed(uint64_t bytes);
+  char* FOLLY_NONNULL allocateFixed(uint64_t bytes);
 
   // Starts a new run for variable length allocation. The actual size
   // is at least one machine page. Throws std::bad_alloc if no space.
@@ -54,13 +54,14 @@ class AllocationPool {
     return largeAllocations_.size();
   }
 
-  const memory::MemoryAllocator::Allocation* allocationAt(int32_t index) const {
+  const memory::MemoryAllocator::Allocation* FOLLY_NONNULL
+  allocationAt(int32_t index) const {
     return index == allocations_.size() ? &allocation_
                                         : allocations_[index].get();
   }
 
-  const memory::MemoryAllocator::ContiguousAllocation* largeAllocationAt(
-      int32_t index) const {
+  const memory::MemoryAllocator::ContiguousAllocation* FOLLY_NONNULL
+  largeAllocationAt(int32_t index) const {
     return largeAllocations_[index].get();
   }
 
@@ -92,13 +93,13 @@ class AllocationPool {
   }
 
   // Returns pointer to first unallocated byte in the current run.
-  char* firstFreeInRun() {
+  char* FOLLY_NONNULL firstFreeInRun() {
     VELOX_DCHECK(availableInRun() > 0);
     return currentRun().data<char>() + currentOffset_;
   }
 
   // Sets the first free position in the current run.
-  void setFirstFreeInRun(const char* firstFree) {
+  void setFirstFreeInRun(const char* FOLLY_NONNULL firstFree) {
     auto run = currentRun();
     auto offset = firstFree - run.data<char>();
     VELOX_CHECK(
@@ -107,8 +108,8 @@ class AllocationPool {
     currentOffset_ = offset;
   }
 
-  memory::MemoryAllocator* allocator() const {
-    return allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool() const {
+    return pool_;
   }
 
  private:
@@ -118,7 +119,7 @@ class AllocationPool {
 
   void newRunImpl(memory::MachinePageCount numPages);
 
-  memory::MemoryAllocator* allocator_;
+  memory::MemoryPool* FOLLY_NONNULL pool_;
   std::vector<std::unique_ptr<memory::MemoryAllocator::Allocation>>
       allocations_;
   std::vector<std::unique_ptr<memory::MemoryAllocator::ContiguousAllocation>>

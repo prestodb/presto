@@ -54,15 +54,15 @@ RowContainer::RowContainer(
     bool isJoinBuild,
     bool hasProbedFlag,
     bool hasNormalizedKeys,
-    memory::MemoryAllocator* allocator,
+    memory::MemoryPool* pool,
     const RowSerde& serde)
     : keyTypes_(keyTypes),
       nullableKeys_(nullableKeys),
       aggregates_(aggregates),
       isJoinBuild_(isJoinBuild),
       hasNormalizedKeys_(hasNormalizedKeys),
-      rows_(allocator),
-      stringAllocator_(allocator),
+      rows_(pool),
+      stringAllocator_(pool),
       serde_(serde) {
   // Compute the layout of the payload row.  The row has keys, null
   // flags, accumulators, dependent fields. All fields are fixed
@@ -630,7 +630,7 @@ void RowContainer::skip(RowContainerIterator& iter, int32_t numRows) {
 
 RowPartitions& RowContainer::partitions() {
   if (!partitions_) {
-    partitions_ = std::make_unique<RowPartitions>(numRows_, *rows_.allocator());
+    partitions_ = std::make_unique<RowPartitions>(numRows_, *rows_.pool());
   }
   return *partitions_;
 }
@@ -705,13 +705,11 @@ int32_t RowContainer::listPartitionRows(
   return numResults;
 }
 
-RowPartitions::RowPartitions(
-    int32_t numRows,
-    memory::MemoryAllocator& allocator)
-    : capacity_(numRows), allocation_(&allocator) {
+RowPartitions::RowPartitions(int32_t numRows, memory::MemoryPool& pool)
+    : capacity_(numRows) {
   auto numPages = bits::roundUp(capacity_, memory::MemoryAllocator::kPageSize) /
       memory::MemoryAllocator::kPageSize;
-  if (!allocator.allocateNonContiguous(numPages, allocation_)) {
+  if (!pool.allocateNonContiguous(numPages, allocation_)) {
     VELOX_FAIL(
         "Failed to allocate RowContainer partitions: {} pages", numPages);
   }

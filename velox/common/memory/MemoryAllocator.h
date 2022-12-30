@@ -140,13 +140,15 @@ struct Stats {
   int64_t numAdvise{0};
 };
 
-class ScopedMemoryAllocator;
+class MemoryPool;
 
 /// Denotes a number of machine pages as in mmap and related functions.
 using MachinePageCount = uint64_t;
 
-/// Base class for allocating runs of machine pages from predefined size
-/// classes. An allocation that does not match a size class is composed of
+/// This class provides interface for the actual memory allocations from memory
+/// pool. It allocates runs of machine pages from predefined size classes, and
+/// supports both contiguous and non-contiguous memory allocations. An
+/// non-contiguous allocation that does not match a size class is composed of
 /// multiple runs from different size classes. To get 11 pages, one could have a
 /// run of 8, one of 2 and one of 1 page. This is intended for all high volume
 /// allocations, like caches, IO buffers and hash tables for join/group by.
@@ -181,6 +183,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// Allocations smaller than 3K should go to malloc.
   static constexpr int32_t kMaxMallocBytes = 3072;
   static constexpr uint16_t kMinAlignment = alignof(max_align_t);
+  ;
   static constexpr uint16_t kMaxAlignment = 64;
 
   /// Represents a number of consecutive pages of kPageSize bytes.
@@ -226,31 +229,29 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// Represents a set of PageRuns that are allocated together.
   class Allocation {
    public:
-    explicit Allocation(MemoryAllocator* FOLLY_NONNULL MemoryAllocator)
-        : allocator_(MemoryAllocator) {
-      VELOX_CHECK_NOT_NULL(allocator_);
-    }
-
-    ~Allocation() {
-      allocator_->freeNonContiguous(*this);
-    }
+    Allocation() = default;
+    ~Allocation();
 
     Allocation(const Allocation& other) = delete;
 
     Allocation(Allocation&& other) noexcept {
-      allocator_ = other.allocator_;
+      pool_ = other.pool_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
+      other.runs_.clear();
+      other.pool_ = nullptr;
+      sanityCheck();
     }
 
     void operator=(const Allocation& other) = delete;
 
     void operator=(Allocation&& other) {
-      allocator_ = other.allocator_;
+      pool_ = other.pool_;
       runs_ = std::move(other.runs_);
       numPages_ = other.numPages_;
       other.numPages_ = 0;
+      other.pool_ = nullptr;
     }
 
     MachinePageCount numPages() const {
@@ -271,42 +272,75 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
     void append(uint8_t* FOLLY_NONNULL address, int32_t numPages);
 
+    void setPool(MemoryPool* FOLLY_NONNULL pool) {
+      VELOX_CHECK_NOT_NULL(pool);
+      VELOX_CHECK_NULL(pool_);
+      pool_ = pool;
+    }
+
+    MemoryPool* FOLLY_NULLABLE pool() const {
+      return pool_;
+    }
+
     void clear() {
       runs_.clear();
       numPages_ = 0;
+      pool_ = nullptr;
     }
 
-    /// Returns the run number and the position within the run corresponding to
-    /// 'offset' from the start of 'this'.
+    /// Returns the run number in 'runs_' and the position within the run
+    /// corresponding to 'offset' from the start of 'this'.
     void findRun(
         uint64_t offset,
         int32_t* FOLLY_NONNULL index,
         int32_t* FOLLY_NONNULL offsetInRun) const;
 
+    /// Returns if this allocation is empty.
+    bool empty() const {
+      sanityCheck();
+      return numPages_ == 0;
+    }
+
+    std::string toString() const;
+
    private:
-    MemoryAllocator* FOLLY_NONNULL allocator_;
+    FOLLY_ALWAYS_INLINE void sanityCheck() const {
+      VELOX_CHECK_EQ(numPages_ == 0, runs_.empty());
+      VELOX_CHECK(numPages_ != 0 || pool_ == nullptr);
+    }
+
+    MemoryPool* FOLLY_NULLABLE pool_{nullptr};
     std::vector<PageRun> runs_;
     int32_t numPages_ = 0;
   };
 
-  /// Represents a mmap'd run of contiguous pages that do not belong to any size
-  /// class but are still accounted by the owning MemoryAllocator.
+  /// Represents a run of contiguous pages that do not belong to any size class.
   class ContiguousAllocation {
    public:
     ContiguousAllocation() = default;
-    ~ContiguousAllocation() {
-      if (data_ && allocator_) {
-        allocator_->freeContiguous(*this);
-      }
-      data_ = nullptr;
+    ~ContiguousAllocation();
+
+    ContiguousAllocation(const ContiguousAllocation& other) = delete;
+
+    ContiguousAllocation& operator=(ContiguousAllocation&& other) {
+      pool_ = other.pool_;
+      data_ = other.data_;
+      size_ = other.size_;
+      other.pool_ = nullptr;
+      other.data_ = nullptr;
+      other.size_ = 0;
+      sanityCheck();
+      return *this;
     }
 
     ContiguousAllocation(ContiguousAllocation&& other) noexcept {
-      allocator_ = other.allocator_;
+      pool_ = other.pool_;
       data_ = other.data_;
       size_ = other.size_;
+      other.pool_ = nullptr;
       other.data_ = nullptr;
       other.size_ = 0;
+      sanityCheck();
     }
 
     MachinePageCount numPages() const;
@@ -321,17 +355,32 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
       return size_;
     }
 
-    void reset(
-        MemoryAllocator* FOLLY_NULLABLE allocator,
-        void* FOLLY_NULLABLE data,
-        uint64_t size) {
-      allocator_ = allocator;
-      data_ = data;
-      size_ = size;
+    void setPool(MemoryPool* FOLLY_NONNULL pool) {
+      VELOX_CHECK_NOT_NULL(pool);
+      VELOX_CHECK_NULL(pool_);
+      pool_ = pool;
+    }
+    MemoryPool* FOLLY_NULLABLE pool() const {
+      return pool_;
     }
 
+    bool empty() const {
+      sanityCheck();
+      return size_ == 0;
+    }
+
+    void set(void* FOLLY_NULLABLE data, uint64_t size);
+    void clear();
+
+    std::string toString() const;
+
    private:
-    MemoryAllocator* FOLLY_NULLABLE allocator_{nullptr};
+    FOLLY_ALWAYS_INLINE void sanityCheck() const {
+      VELOX_CHECK_EQ(size_ == 0, data_ == nullptr);
+      VELOX_CHECK(size_ != 0 || pool_ == nullptr);
+    }
+
+    MemoryPool* FOLLY_NULLABLE pool_{nullptr};
     void* FOLLY_NULLABLE data_{nullptr};
     uint64_t size_{0};
   };
@@ -354,26 +403,32 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     }
   };
 
+  using ReservationCallback = std::function<void(int64_t, bool)>;
+
   /// Allocates one or more runs that add up to at least 'numPages', with the
   /// smallest run being at least 'minSizeClass' pages. 'minSizeClass' must be
   /// <= the size of the largest size class. The new memory is returned in 'out'
-  /// and any memory formerly referenced by 'out' is freed. 'userAllocCB' is
+  /// and any memory formerly referenced by 'out' is freed. 'reservationCB' is
   /// called with the actual allocation bytes and a flag indicating if it is
   /// called for pre-allocation or post-allocation failure. The flag is true for
   /// pre-allocation call and false for post-allocation failure call. The latter
   /// is to let user have a chance to rollback if needed. For instance,
-  /// 'ScopedMemoryAllocator' object will make memory counting reservation in
-  /// 'userAllocCB' before the actual memory allocation so it needs to release
+  /// 'MemoryPoolImpl' object will make memory counting reservation in
+  /// 'reservationCB' before the actual memory allocation so it needs to release
   /// the reservation if the actual allocation fails. The function returns true
   /// if the allocation succeeded. If returning false, 'out' references no
   /// memory and any partially allocated memory is freed.
+  ///
+  /// NOTE: user needs to explicitly release allocation 'out' by calling
+  /// 'freeNonContiguous' on the same memory allocator object.
   virtual bool allocateNonContiguous(
       MachinePageCount numPages,
       Allocation& out,
-      std::function<void(int64_t, bool)> userAllocCB = nullptr,
+      ReservationCallback reservationCB = nullptr,
       MachinePageCount minSizeClass = 0) = 0;
 
-  /// Returns non-contiguous 'allocation'.
+  /// Frees non-contiguous 'allocation'. 'allocation' is empty on return. The
+  /// function returns the actual freed bytes.
   virtual int64_t freeNonContiguous(Allocation& allocation) = 0;
 
   /// Makes a contiguous mmap of 'numPages'. Advises away the required number of
@@ -384,15 +439,19 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// collateral and allocation together cover the new size of allocation.
   /// 'allocation' is newly mapped and hence zeroed. The contents of
   /// 'allocation' and 'collateral' are freed in all cases, also if the
-  /// allocation fails. 'userAllocCB' is used in the same way as allocate does.
-  /// It may throw and the end state will be consistent, with no new allocation
-  /// and 'allocation' and 'collateral' cleared.
+  /// allocation fails. 'reservationCB' is used in the same way as allocate
+  /// does. It may throw and the end state will be consistent, with no new
+  /// allocation and 'allocation' and 'collateral' cleared.
+  ///
+  /// NOTE: user needs to explicitly release allocation 'out' by calling
+  /// 'freeContiguous' on the same memory allocator object.
   virtual bool allocateContiguous(
       MachinePageCount numPages,
       Allocation* FOLLY_NULLABLE collateral,
       ContiguousAllocation& allocation,
-      std::function<void(int64_t, bool)> userAllocCB = nullptr) = 0;
+      ReservationCallback reservationCB = nullptr) = 0;
 
+  /// Frees contiguous 'allocation'. 'allocation' is empty on return.
   virtual void freeContiguous(ContiguousAllocation& allocation) = 0;
 
   /// Allocates 'bytes' contiguous bytes and returns the pointer to the first
@@ -435,6 +494,7 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   /// OK.
   virtual bool checkConsistency() const = 0;
 
+  /// Returns the largest class size.
   virtual MachinePageCount largestSizeClass() const {
     return sizeClassSizes_.back();
   }
@@ -446,13 +506,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   virtual MachinePageCount numAllocated() const = 0;
 
   virtual MachinePageCount numMapped() const = 0;
-
-  virtual std::shared_ptr<MemoryAllocator> addChild(
-      std::shared_ptr<MemoryUsageTracker> tracker);
-
-  virtual MemoryUsageTracker* FOLLY_NULLABLE tracker() const {
-    return nullptr;
-  }
 
   virtual Stats stats() const {
     return Stats();
@@ -484,9 +537,9 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     int32_t totalPages{0};
   };
 
-  // Returns a mix of standard sizes and allocation counts for
-  // covering 'numPages' worth of memory. 'minSizeClass' is the size
-  // of the smallest usable size class.
+  /// Returns a mix of standard sizes and allocation counts for covering
+  /// 'numPages' worth of memory. 'minSizeClass' is the size of the smallest
+  /// usable size class.
   SizeMix allocationSize(
       MachinePageCount numPages,
       MachinePageCount minSizeClass) const;
@@ -498,114 +551,21 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
 
  private:
   static std::mutex initMutex_;
-
   // Singleton instance.
   static std::shared_ptr<MemoryAllocator> instance_;
-
   // Application-supplied custom implementation of MemoryAllocator to be
   // returned by getInstance().
   static MemoryAllocator* FOLLY_NULLABLE customInstance_;
 };
 
-// Wrapper around MemoryAllocator for scoped tracking of activity. We
-// expect a single level of wrappers around the process root
-// MemoryAllocator. Each will have its own MemoryUsageTracker that will
-// be a child of the Driver/Task level tracker. in this way
-// MemoryAllocator activity can be attributed to individual operators and
-// these operators can be requested to spill or limit their memory utilization.
-class ScopedMemoryAllocator final : public MemoryAllocator {
- public:
-  ScopedMemoryAllocator(
-      MemoryAllocator* FOLLY_NONNULL parent,
-      std::shared_ptr<MemoryUsageTracker> tracker)
-      : parent_(parent), tracker_(std::move(tracker)) {}
-
-  ScopedMemoryAllocator(
-      std::shared_ptr<ScopedMemoryAllocator> parent,
-      std::shared_ptr<MemoryUsageTracker> tracker)
-      : parentPtr_(std::move(parent)),
-        parent_(parentPtr_.get()),
-        tracker_(std::move(tracker)) {}
-
-  bool allocateNonContiguous(
-      MachinePageCount numPages,
-      Allocation& out,
-      std::function<void(int64_t, bool)> userAllocCB,
-      MachinePageCount minSizeClass) override;
-
-  int64_t freeNonContiguous(Allocation& allocation) override {
-    int64_t freed = parent_->freeNonContiguous(allocation);
-    if (tracker_) {
-      tracker_->update(-freed);
-    }
-    return freed;
-  }
-
-  bool allocateContiguous(
-      MachinePageCount numPages,
-      Allocation* FOLLY_NULLABLE collateral,
-      ContiguousAllocation& allocation,
-      std::function<void(int64_t, bool)> userAllocCB = nullptr) override;
-
-  void freeContiguous(ContiguousAllocation& allocation) override {
-    int64_t size = allocation.size();
-    parent_->freeContiguous(allocation);
-    if (tracker_) {
-      tracker_->update(-size);
-    }
-  }
-
-  void* allocateBytes(uint64_t bytes, uint16_t alignment) override {
-    return parent_->allocateBytes(bytes, alignment);
-  }
-
-  void freeBytes(void* p, uint64_t bytes) noexcept override {
-    parent_->freeBytes(p, bytes);
-  }
-
-  bool checkConsistency() const override {
-    return parent_->checkConsistency();
-  }
-
-  const std::vector<MachinePageCount>& sizeClasses() const override {
-    return parent_->sizeClasses();
-  }
-
-  MachinePageCount numAllocated() const override {
-    return parent_->numAllocated();
-  }
-
-  MachinePageCount numMapped() const override {
-    return parent_->numMapped();
-  }
-
-  std::shared_ptr<MemoryAllocator> addChild(
-      std::shared_ptr<MemoryUsageTracker> tracker) override {
-    return std::make_shared<ScopedMemoryAllocator>(this, tracker);
-  }
-
-  MemoryUsageTracker* FOLLY_NULLABLE tracker() const override {
-    return tracker_.get();
-  }
-
-  Stats stats() const override {
-    return parent_->stats();
-  }
-
- private:
-  std::shared_ptr<MemoryAllocator> parentPtr_;
-  MemoryAllocator* FOLLY_NONNULL parent_;
-  std::shared_ptr<MemoryUsageTracker> tracker_;
-};
-
-// An Allocator backed by MemoryAllocator for for STL containers.
+/// An Allocator backed by MemoryAllocator for STL containers.
 template <class T>
 struct StlMemoryAllocator {
   using value_type = T;
 
   explicit StlMemoryAllocator(MemoryAllocator* FOLLY_NONNULL allocator)
       : allocator_{allocator} {
-    VELOX_CHECK_NOT_NULL(allocator);
+    VELOX_CHECK_NOT_NULL(allocator_);
   }
 
   template <class U>
@@ -639,7 +599,7 @@ struct StlMemoryAllocator {
   }
 
  private:
-  MemoryAllocator* FOLLY_NONNULL allocator_;
+  MemoryAllocator* FOLLY_NONNULL const allocator_;
 };
 
 } // namespace facebook::velox::memory

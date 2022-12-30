@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "velox/common/memory/AllocationPool.h"
-#include <velox/common/base/Exceptions.h>
-#include <velox/common/memory/MemoryAllocator.h>
 #include "velox/common/base/BitUtil.h"
+#include "velox/common/base/Exceptions.h"
+#include "velox/common/memory/MemoryAllocator.h"
 
 namespace facebook::velox {
 
@@ -35,11 +36,10 @@ char* AllocationPool::allocateFixed(uint64_t bytes) {
       memory::MemoryAllocator::kPageSize;
 
   // Use contiguous allocations from mapped memory if allocation size is large
-  if (numPages > allocator_->largestSizeClass()) {
+  if (numPages > pool_->largestSizeClass()) {
     auto largeAlloc =
         std::make_unique<memory::MemoryAllocator::ContiguousAllocation>();
-    largeAlloc->reset(allocator_, nullptr, 0);
-    if (!allocator_->allocateContiguous(numPages, nullptr, *largeAlloc)) {
+    if (!pool_->allocateContiguous(numPages, *largeAlloc)) {
       throw std::bad_alloc();
     }
     largeAllocations_.emplace_back(std::move(largeAlloc));
@@ -67,11 +67,8 @@ void AllocationPool::newRunImpl(memory::MachinePageCount numPages) {
           std::make_unique<memory::MemoryAllocator::Allocation>(
               std::move(allocation_)));
     }
-    if (!allocator_->allocateNonContiguous(
-            std::max<int32_t>(kMinPages, numPages),
-            allocation_,
-            nullptr,
-            numPages)) {
+    if (!pool_->allocateNonContiguous(
+            std::max<int32_t>(kMinPages, numPages), allocation_, numPages)) {
       throw std::bad_alloc();
     }
     currentRun_ = 0;

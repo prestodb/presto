@@ -50,10 +50,6 @@ class Merge : public SourceOperator {
     return outputType_;
   }
 
-  memory::MemoryAllocator* allocator() const {
-    return operatorCtx_->allocator();
-  }
-
  protected:
   virtual BlockingReason addMergeSources(ContinueFuture* future) = 0;
 

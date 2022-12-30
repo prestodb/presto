@@ -18,11 +18,10 @@
 
 namespace facebook::velox {
 
-StreamArena::StreamArena(memory::MemoryAllocator* allocator)
-    : allocator_(allocator->shared_from_this()), allocation_(allocator) {}
+StreamArena::StreamArena(memory::MemoryPool* pool) : pool_(pool) {}
 
 void StreamArena::newRange(int32_t bytes, ByteRange* range) {
-  VELOX_CHECK(bytes > 0);
+  VELOX_CHECK_GT(bytes, 0);
   memory::MachinePageCount numPages =
       bits::roundUp(bytes, memory::MemoryAllocator::kPageSize) /
       memory::MemoryAllocator::kPageSize;
@@ -33,7 +32,7 @@ void StreamArena::newRange(int32_t bytes, ByteRange* range) {
           std::make_unique<memory::MemoryAllocator::Allocation>(
               std::move(allocation_)));
     }
-    if (!allocator_->allocateNonContiguous(
+    if (!pool_->allocateNonContiguous(
             std::max(allocationQuantum_, numPages), allocation_)) {
       throw std::bad_alloc();
     }

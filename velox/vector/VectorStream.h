@@ -77,8 +77,8 @@ bool isRegisteredVectorSerde();
 
 class VectorStreamGroup : public StreamArena {
  public:
-  explicit VectorStreamGroup(memory::MemoryAllocator* MemoryAllocator)
-      : StreamArena(MemoryAllocator) {}
+  explicit VectorStreamGroup(memory::MemoryPool* FOLLY_NONNULL pool)
+      : StreamArena(pool) {}
 
   void createStreamTree(
       RowTypePtr type,

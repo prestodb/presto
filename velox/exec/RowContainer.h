@@ -22,6 +22,7 @@
 #include "velox/exec/Spill.h"
 #include "velox/vector/FlatVector.h"
 #include "velox/vector/VectorTypeUtils.h"
+
 namespace facebook::velox::exec {
 
 using normalized_key_t = uint64_t;
@@ -65,7 +66,7 @@ struct RowContainerIterator {
 class RowPartitions {
  public:
   /// Initializes this to hold up to 'numRows'.
-  RowPartitions(int32_t numRows, memory::MemoryAllocator& MemoryAllocator);
+  RowPartitions(int32_t numRows, memory::MemoryPool& pool);
 
   /// Appends 'partitions' to the end of 'this'. Throws if adding more than the
   /// capacity given at construction.
@@ -131,17 +132,17 @@ class RowContainer {
   static constexpr uint64_t kUnlimited = std::numeric_limits<uint64_t>::max();
   using Eraser = std::function<void(folly::Range<char**> rows)>;
 
-  // 'keyTypes' gives the type of row and use 'MemoryAllocator' for bulk
+  // 'keyTypes' gives the type of row and use 'allocator' for bulk
   // allocation.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
-      memory::MemoryAllocator* FOLLY_NONNULL MemoryAllocator)
-      : RowContainer(keyTypes, std::vector<TypePtr>{}, MemoryAllocator) {}
+      memory::MemoryPool* FOLLY_NONNULL pool)
+      : RowContainer(keyTypes, std::vector<TypePtr>{}, pool) {}
 
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
       const std::vector<TypePtr>& dependentTypes,
-      memory::MemoryAllocator* FOLLY_NONNULL MemoryAllocator)
+      memory::MemoryPool* FOLLY_NONNULL pool)
       : RowContainer(
             keyTypes,
             true, // nullableKeys
@@ -151,7 +152,7 @@ class RowContainer {
             false, // isJoinBuild
             false, // hasProbedFlag
             false, // hasNormalizedKey
-            MemoryAllocator,
+            pool,
             ContainerRowSerde::instance()) {}
 
   // 'keyTypes' gives the type of the key of each row. For a group by,
@@ -168,7 +169,7 @@ class RowContainer {
   // join. 'hasNormalizedKey' specifies that an extra word is left
   // below each row for a normalized key that collapses all parts
   // into one word for faster comparison. The bulk allocation is done
-  // from 'MemoryAllocator'.  'serde_' is used for serializing complex
+  // from 'allocator'.  'serde_' is used for serializing complex
   // type values into the container.
   RowContainer(
       const std::vector<TypePtr>& keyTypes,
@@ -179,7 +180,7 @@ class RowContainer {
       bool isJoinBuild,
       bool hasProbedFlag,
       bool hasNormalizedKey,
-      memory::MemoryAllocator* FOLLY_NONNULL MemoryAllocator,
+      memory::MemoryPool* FOLLY_NONNULL pool,
       const RowSerde& serde);
 
   // Allocates a new row and initializes possible aggregates to null.
@@ -569,8 +570,8 @@ class RowContainer {
     }
   }
 
-  memory::MemoryAllocator* FOLLY_NONNULL allocator() const {
-    return stringAllocator_.allocator();
+  memory::MemoryPool* FOLLY_NONNULL pool() const {
+    return stringAllocator_.pool();
   }
 
   // Returns the types of all non-aggregate columns of 'this', keys first.

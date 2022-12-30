@@ -111,7 +111,6 @@ class AggregationTest : public OperatorTestBase {
   void SetUp() override {
     OperatorTestBase::SetUp();
     filesystems::registerLocalFileSystem();
-    allocator_ = memory::MemoryAllocator::getInstance();
     registerSumNonPODAggregate("sumnonpod");
   }
 
@@ -341,7 +340,7 @@ class AggregationTest : public OperatorTestBase {
         false,
         true,
         true,
-        allocator_,
+        pool_.get(),
         ContainerRowSerde::instance());
   }
 
@@ -355,7 +354,6 @@ class AggregationTest : public OperatorTestBase {
            DOUBLE(),
            VARCHAR()})};
   folly::Random::DefaultGenerator rng_;
-  memory::MemoryAllocator* allocator_;
 };
 
 template <>
