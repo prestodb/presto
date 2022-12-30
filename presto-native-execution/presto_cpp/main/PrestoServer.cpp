@@ -359,9 +359,9 @@ void PrestoServer::initializeAsyncCache() {
   options.mmapArenaCapacityRatio = systemConfig->mmapArenaCapacityRatio();
 
   auto allocator = std::make_shared<memory::MmapAllocator>(options);
-  mappedMemory_ = std::make_shared<cache::AsyncDataCache>(
+  allocator_ = std::make_shared<cache::AsyncDataCache>(
       allocator, memoryBytes, std::move(ssd));
-  memory::MappedMemory::setDefaultInstance(mappedMemory_.get());
+  memory::MemoryAllocator::setDefaultInstance(allocator_.get());
 }
 
 void PrestoServer::stop() {
@@ -487,8 +487,7 @@ std::shared_ptr<velox::connector::Connector> PrestoServer::connectorWithCache(
     const std::string& connectorName,
     const std::string& catalogName,
     std::shared_ptr<const velox::Config> properties) {
-  VELOX_CHECK_NOT_NULL(
-      dynamic_cast<cache::AsyncDataCache*>(mappedMemory_.get()));
+  VELOX_CHECK_NOT_NULL(dynamic_cast<cache::AsyncDataCache*>(allocator_.get()));
   LOG(INFO) << "STARTUP: Using AsyncDataCache";
   return facebook::velox::connector::getConnectorFactory(connectorName)
       ->newConnector(
