@@ -6156,7 +6156,9 @@ public abstract class AbstractTestQueries
                 "   approx_percentile(totalprice, 2, 0.5)," +
                 "   approx_percentile(totalprice, 2, 0.8)," +
                 "   approx_percentile(totalprice, 2, 0.4, 0.001)," +
-                "   approx_percentile(totalprice, 2, 0.7, 0.001)\n" +
+                "   approx_percentile(totalprice, 2, 0.7, 0.001)," +
+                "   approx_percentile(orderkey, 0.9)," +
+                "   approx_percentile(orderkey, 0.8+0.1)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
@@ -6172,6 +6174,8 @@ public abstract class AbstractTestQueries
             Double totalPrice08Weighted = (Double) row.getField(8);
             Double totalPrice04WeightedAccuracy = (Double) row.getField(9);
             Double totalPrice07WeightedAccuracy = (Double) row.getField(10);
+            Long orderKey09v1 = ((Number) row.getField(11)).longValue();
+            Long orderKey09v2 = ((Number) row.getField(12)).longValue();
 
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
             List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
@@ -6206,6 +6210,12 @@ public abstract class AbstractTestQueries
 
             assertTrue(totalPrice07WeightedAccuracy >= totalPrices.get((int) (0.69 * totalPrices.size())));
             assertTrue(totalPrice07WeightedAccuracy <= totalPrices.get((int) (0.71 * totalPrices.size())));
+
+            assertTrue(orderKey09v1 >= orderKeys.get((int) (0.89 * orderKeys.size())));
+            assertTrue(orderKey09v1 <= orderKeys.get((int) (0.91 * orderKeys.size())));
+
+            assertTrue(orderKey09v2 >= orderKeys.get((int) (0.89 * orderKeys.size())));
+            assertTrue(orderKey09v2 <= orderKeys.get((int) (0.91 * orderKeys.size())));
         }
     }
 
