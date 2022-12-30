@@ -35,7 +35,7 @@ inline std::string createShuffleFileName(
 const static std::string kReadyForReadFilename = "readyForRead";
 }; // namespace
 
-LocalPersistentShuffle::LocalPersistentShuffle(
+LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     const std::string& rootPath,
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
@@ -50,22 +50,18 @@ LocalPersistentShuffle::LocalPersistentShuffle(
   inProgressPartitions_.assign(numPartitions_, nullptr);
   inProgressSizes_.resize(numPartitions_);
   inProgressSizes_.assign(numPartitions_, 0);
-  readPartitionsFileIndex_.resize(numPartitions_);
-  readPartitionsFileIndex_.assign(numPartitions_, 0);
-  readPartitionFiles_.resize(numPartitions_);
-  readPartitionFiles_.assign(numPartitions_, {});
   fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-std::unique_ptr<velox::WriteFile> LocalPersistentShuffle::getNextOutputFile(
-    int32_t partition) {
+std::unique_ptr<velox::WriteFile>
+LocalPersistentShuffleWriter::getNextOutputFile(int32_t partition) {
   auto fileCount = getWritePartitionFilesCount(partition);
   const std::string filename =
       createShuffleFileName(rootPath_, partition, fileCount, threadId_);
   return fileSystem_->openFileForWrite(filename);
 }
 
-int LocalPersistentShuffle::getWritePartitionFilesCount(
+int LocalPersistentShuffleWriter::getWritePartitionFilesCount(
     int32_t partition) const {
   int fileCount = 0;
   // TODO: consider to maintain the next to create file count in memory as we
@@ -81,28 +77,7 @@ int LocalPersistentShuffle::getWritePartitionFilesCount(
   return fileCount;
 }
 
-std::vector<std::string> LocalPersistentShuffle::getReadPartitionFiles(
-    int32_t partition) const {
-  // Get rid of excess '/' characters in the path.
-  auto trimmedRootPath = rootPath_;
-  while (trimmedRootPath.length() > 0 &&
-         trimmedRootPath[trimmedRootPath.length() - 1] == '/') {
-    trimmedRootPath.erase(trimmedRootPath.length() - 1, 1);
-  }
-
-  std::string partitionFilePrefix =
-      fmt::format("{}/{}_", trimmedRootPath, partition);
-  std::vector<std::string> partitionFiles;
-  auto files = fileSystem_->list(rootPath_);
-  for (auto& file : files) {
-    if (file.find(partitionFilePrefix) == 0) {
-      partitionFiles.push_back(file);
-    }
-  }
-  return partitionFiles;
-}
-
-void LocalPersistentShuffle::storePartitionBlock(int32_t partition) {
+void LocalPersistentShuffleWriter::storePartitionBlock(int32_t partition) {
   auto& buffer = inProgressPartitions_[partition];
   auto file = getNextOutputFile(partition);
   file->append(
@@ -112,7 +87,9 @@ void LocalPersistentShuffle::storePartitionBlock(int32_t partition) {
   inProgressSizes_[partition] = 0;
 }
 
-void LocalPersistentShuffle::collect(int32_t partition, std::string_view data) {
+void LocalPersistentShuffleWriter::collect(
+    int32_t partition,
+    std::string_view data) {
   auto& buffer = inProgressPartitions_[partition];
 
   // Check if there is enough space in the buffer.
@@ -142,7 +119,7 @@ void LocalPersistentShuffle::collect(int32_t partition, std::string_view data) {
   inProgressSizes_[partition] += sizeof(size_t) + data.size();
 }
 
-void LocalPersistentShuffle::noMoreData(bool success) {
+void LocalPersistentShuffleWriter::noMoreData(bool success) {
   // Delete all shuffle files on failure.
   if (!success) {
     cleanup();
@@ -158,41 +135,68 @@ void LocalPersistentShuffle::noMoreData(bool success) {
   readyToRead->close();
 }
 
-bool LocalPersistentShuffle::hasNext(int32_t partition) {
+LocalPersistentShuffleReader::LocalPersistentShuffleReader(
+    const std::string& rootPath,
+    const int32_t partition,
+    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    : rootPath_(std::move(rootPath)), partition_(partition), pool_(pool) {
+  fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
+}
+
+bool LocalPersistentShuffleReader::hasNext() {
   while (!readyForRead()) {
     // This sleep is only for testing purposes.
     // For the test cases in which the shuffle reader tasks run before shuffle
     // writer tasks finish.
     sleep(1);
   }
-  return readPartitionsFileIndex_[partition] <
-      getReadPartitionFiles(partition).size();
+  return readPartitionFileIndex_ < getReadPartitionFiles().size();
 }
 
-BufferPtr LocalPersistentShuffle::next(int32_t partition, bool success) {
-  // On failure, reset the index of the files to be read for that partition
+BufferPtr LocalPersistentShuffleReader::next(bool success) {
+  // On failure, reset the index of the files to be read.
   if (!success) {
-    readPartitionsFileIndex_[partition] = 0;
+    readPartitionFileIndex_ = 0;
   }
-  if (readPartitionFiles_[partition].empty()) {
-    readPartitionFiles_[partition] = getReadPartitionFiles(partition);
+  if (readPartitionFiles_.empty()) {
+    readPartitionFiles_ = getReadPartitionFiles();
   }
 
-  auto filename =
-      readPartitionFiles_[partition][readPartitionsFileIndex_[partition]];
+  auto filename = readPartitionFiles_[readPartitionFileIndex_];
   auto file = fileSystem_->openFileForRead(filename);
   auto buffer = AlignedBuffer::allocate<char>(file->size(), pool_, 0);
   file->pread(0, file->size(), buffer->asMutable<void>());
-  ++readPartitionsFileIndex_[partition];
+  ++readPartitionFileIndex_;
   return buffer;
 }
 
-bool LocalPersistentShuffle::readyForRead() const {
+std::vector<std::string> LocalPersistentShuffleReader::getReadPartitionFiles()
+    const {
+  // Get rid of excess '/' characters in the path.
+  auto trimmedRootPath = rootPath_;
+  while (trimmedRootPath.length() > 0 &&
+         trimmedRootPath[trimmedRootPath.length() - 1] == '/') {
+    trimmedRootPath.erase(trimmedRootPath.length() - 1, 1);
+  }
+
+  const std::string partitionFilePrefix =
+      fmt::format("{}/{}_", trimmedRootPath, partition_);
+  std::vector<std::string> partitionFiles;
+  auto files = fileSystem_->list(rootPath_);
+  for (auto& file : files) {
+    if (file.find(partitionFilePrefix) == 0) {
+      partitionFiles.push_back(file);
+    }
+  }
+  return partitionFiles;
+}
+
+bool LocalPersistentShuffleReader::readyForRead() const {
   return fileSystem_->openFileForRead(
              fmt::format("{}/{}", rootPath_, kReadyForReadFilename)) != nullptr;
 }
 
-void LocalPersistentShuffle::cleanup() {
+void LocalPersistentShuffleWriter::cleanup() {
   auto files = fileSystem_->list(rootPath_);
   for (auto& file : files) {
     fileSystem_->remove(file);
@@ -212,13 +216,14 @@ LocalShuffleInfo LocalShuffleInfo::deserialize(const std::string& info) {
 
 std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
+    const int32_t partition,
     velox::memory::MemoryPool* pool) {
   static const uint64_t maxBytesPerPartition =
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
   const operators::LocalShuffleInfo readInfo =
       operators::LocalShuffleInfo::deserialize(serializedStr);
-  return std::make_shared<operators::LocalPersistentShuffle>(
-      readInfo.rootPath, readInfo.numPartitions, maxBytesPerPartition, pool);
+  return std::make_shared<operators::LocalPersistentShuffleReader>(
+      readInfo.rootPath, partition, pool);
 }
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
@@ -228,7 +233,7 @@ std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
   const operators::LocalShuffleInfo writeInfo =
       operators::LocalShuffleInfo::deserialize(serializedStr);
-  return std::make_shared<operators::LocalPersistentShuffle>(
+  return std::make_shared<operators::LocalPersistentShuffleWriter>(
       writeInfo.rootPath, writeInfo.numPartitions, maxBytesPerPartition, pool);
 }
 
