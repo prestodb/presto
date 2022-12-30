@@ -16,7 +16,7 @@
 #include <proxygen/lib/http/HTTPConnector.h>
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include <velox/common/memory/MappedMemory.h>
+#include <velox/common/memory/MemoryAllocator.h>
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "velox/common/base/Exceptions.h"
 
@@ -26,7 +26,7 @@ class HttpResponse {
  public:
   explicit HttpResponse(std::unique_ptr<proxygen::HTTPMessage> headers)
       : headers_(std::move(headers)),
-        mappedMemory_(velox::memory::MappedMemory::getInstance()) {}
+        allocator_(velox::memory::MemoryAllocator::getInstance()) {}
 
   ~HttpResponse();
 
@@ -49,15 +49,15 @@ class HttpResponse {
     return std::move(bodyChain_);
   }
 
-  velox::memory::MappedMemory* FOLLY_NONNULL mappedMemory() {
-    return mappedMemory_;
+  velox::memory::MemoryAllocator* FOLLY_NONNULL allocator() {
+    return allocator_;
   }
 
   std::string dumpBodyChain() const;
 
  private:
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
-  velox::memory::MappedMemory* FOLLY_NONNULL const mappedMemory_;
+  velox::memory::MemoryAllocator* FOLLY_NONNULL const allocator_;
 
   std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
 };
