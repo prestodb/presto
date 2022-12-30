@@ -46,9 +46,9 @@ struct LocalShuffleInfo {
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
 /// this class (pointing to the same root path) to read and write shuffle data.
-class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
+class LocalPersistentShuffleWriter : public ShuffleWriter {
  public:
-  LocalPersistentShuffle(
+  LocalPersistentShuffleWriter(
       const std::string& rootPath,
       uint32_t numPartitions,
       uint64_t maxBytesPerPartition,
@@ -58,10 +58,6 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
 
   void noMoreData(bool success) override;
 
-  bool hasNext(int32_t partition) override;
-
-  velox::BufferPtr next(int32_t partition, bool success) override;
-
  private:
   // Finds and creates the next file for writing the next block of the
   // given 'partition'.
@@ -70,13 +66,8 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
   // Returns the number of stored files for a given partition.
   int getWritePartitionFilesCount(int32_t partition) const;
 
-  // Returns all created shuffle files for a given partition.
-  std::vector<std::string> getReadPartitionFiles(int32_t partition) const;
-
   // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
-
-  bool readyForRead() const;
 
   // Deletes all the files in the root directory.
   void cleanup();
@@ -88,10 +79,6 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
   /// The latest written block buffers and sizes.
   std::vector<velox::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
-  // The latest read block index of each partition.
-  std::vector<size_t> readPartitionsFileIndex_;
-  // List of generated files for each partition.
-  std::vector<std::vector<std::string>> readPartitionFiles_;
   // The top directory of the shuffle files and its file system.
   std::string rootPath_;
   std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
@@ -99,11 +86,43 @@ class LocalPersistentShuffle : public ShuffleReader, public ShuffleWriter {
   std::thread::id threadId_;
 };
 
+class LocalPersistentShuffleReader : public ShuffleReader {
+ public:
+  LocalPersistentShuffleReader(
+      const std::string& rootPath,
+      const int32_t partition,
+      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+
+  bool hasNext() override;
+
+  velox::BufferPtr next(bool success) override;
+
+  bool readyForRead() const;
+
+ private:
+  // Returns all created shuffle files for 'partition_'.
+  std::vector<std::string> getReadPartitionFiles() const;
+
+  std::string rootPath_;
+  int32_t partition_;
+  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+
+  // Latest read block (file) index in 'readPartitionFiles_' for 'partition_'.
+  size_t readPartitionFileIndex_{0};
+
+  // List of generated files for 'partition_'.
+  std::vector<std::string> readPartitionFiles_;
+
+  // The top directory of the shuffle files and its file system.
+  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+};
+
 class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
  public:
   static constexpr folly::StringPiece kShuffleName{"local"};
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedStr,
+      const int32_t partition,
       velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
 
   std::shared_ptr<ShuffleWriter> createWriter(
