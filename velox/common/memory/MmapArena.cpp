@@ -19,17 +19,20 @@
 #include "velox/common/base/BitUtil.h"
 
 namespace facebook::velox::memory {
+namespace {
+constexpr int32_t kLogEveryN = 32;
+}
 
 uint64_t MmapArena::roundBytes(uint64_t bytes) {
   return bits::nextPowerOfTwo(bytes);
 }
 
 MmapArena::MmapArena(size_t capacityBytes) : byteSize_(capacityBytes) {
-  VELOX_CHECK(
-      byteSize_ % kMinGrainSizeBytes == 0,
-      "Arena must have a multiple of ",
-      kMinGrainSizeBytes,
-      " bytes capacity.");
+  VELOX_CHECK_EQ(
+      byteSize_ % kMinGrainSizeBytes,
+      0,
+      "Arena must have a multiple of {} bytes capacity.",
+      kMinGrainSizeBytes);
   void* ptr = mmap(
       nullptr,
       capacityBytes,
@@ -37,11 +40,12 @@ MmapArena::MmapArena(size_t capacityBytes) : byteSize_(capacityBytes) {
       MAP_PRIVATE | MAP_ANONYMOUS,
       -1,
       0);
-  if (ptr == MAP_FAILED || !ptr) {
+  if (ptr == MAP_FAILED || ptr == nullptr) {
     VELOX_FAIL(
         "Could not allocate working memory"
-        "mmap failed with errno {}",
-        errno);
+        "mmap failed with errno {} with capacity bytes {}",
+        folly::errnoStr(errno),
+        capacityBytes);
   }
   address_ = reinterpret_cast<uint8_t*>(ptr);
   addFreeBlock(reinterpret_cast<uint64_t>(address_), byteSize_);
@@ -52,7 +56,7 @@ MmapArena::~MmapArena() {
   munmap(address_, byteSize_);
 }
 
-void* FOLLY_NULLABLE MmapArena::allocate(uint64_t bytes) {
+void* MmapArena::allocate(uint64_t bytes) {
   if (bytes == 0) {
     return nullptr;
   }
@@ -61,11 +65,13 @@ void* FOLLY_NULLABLE MmapArena::allocate(uint64_t bytes) {
   // First match in the list that can give this many bytes
   auto lookupItr = freeLookup_.lower_bound(bytes);
   if (lookupItr == freeLookup_.end()) {
-    LOG(ERROR) << "Cannot find a free block that is large enough to allocate "
-               << bytes << " bytes. Current arena freeBytes " << freeBytes_
-               << " & lookup table" << freeLookupStr();
+    LOG_EVERY_N(WARNING, kLogEveryN)
+        << "Cannot find a free block that is large enough to allocate " << bytes
+        << " bytes. Current arena freeBytes " << freeBytes_ << " & lookup table"
+        << freeLookupStr();
     return nullptr;
   }
+
   freeBytes_ -= bytes;
   auto address = *(lookupItr->second.begin());
   auto curFreeBytes = lookupItr->first;
@@ -85,36 +91,35 @@ void MmapArena::free(void* FOLLY_NONNULL address, uint64_t bytes) {
   }
   bytes = roundBytes(bytes);
 
-  madvise(address, bytes, MADV_DONTNEED);
+  ::madvise(address, bytes, MADV_DONTNEED);
   freeBytes_ += bytes;
-  auto curAddr = reinterpret_cast<uint64_t>(address);
 
+  const auto curAddr = reinterpret_cast<uint64_t>(address);
+  auto curIter = addFreeBlock(curAddr, bytes);
+  auto prevIter = freeList_.end();
+  uint64_t prevAddr;
+  uint64_t prevBytes;
   bool mergePrev = false;
-  bool mergeNext = false;
-
-  auto currentIter = addFreeBlock(curAddr, bytes);
-  auto previousIter = freeList_.end();
-  uint64_t previousAddress;
-  uint64_t previousBytes;
-  if (currentIter != freeList_.begin()) {
-    previousIter = std::prev(currentIter);
-    previousAddress = previousIter->first;
-    previousBytes = previousIter->second;
-    auto prevEndAddr = previousAddress + previousBytes;
+  if (curIter != freeList_.begin()) {
+    prevIter = std::prev(curIter);
+    prevAddr = prevIter->first;
+    prevBytes = prevIter->second;
+    auto prevEndAddr = prevAddr + prevBytes;
     VELOX_CHECK_LE(
         prevEndAddr,
         curAddr,
         "New free node (addr:{} size:{}) overlaps with previous free node (addr:{} size:{}) in free list",
         curAddr,
         bytes,
-        previousAddress,
-        previousBytes);
+        prevAddr,
+        prevBytes);
     mergePrev = prevEndAddr == curAddr;
   }
 
-  auto nextItr = std::next(currentIter);
+  auto nextItr = std::next(curIter);
   uint64_t nextAddr;
   uint64_t nextBytes;
+  bool mergeNext = false;
   if (nextItr != freeList_.end()) {
     nextAddr = nextItr->first;
     nextBytes = nextItr->second;
@@ -127,32 +132,32 @@ void MmapArena::free(void* FOLLY_NONNULL address, uint64_t bytes) {
         bytes,
         nextAddr,
         nextBytes);
-    mergeNext = curEndAddr == nextAddr;
+    mergeNext = (curEndAddr == nextAddr);
   }
 
   if (!mergePrev && !mergeNext) {
     return;
   }
+
   if (mergePrev) {
-    removeFreeBlock(currentIter);
+    removeFreeBlock(curIter);
+    removeFromLookup(prevAddr, prevBytes);
+    auto newFreeSize = curAddr - prevAddr + bytes;
     if (mergeNext) {
-      removeFromLookup(previousAddress, previousBytes);
-      auto newFreeSize = nextAddr - previousAddress + nextBytes;
-      freeList_[previousIter->first] = newFreeSize;
-      freeLookup_[newFreeSize].emplace(previousAddress);
       removeFreeBlock(nextItr);
-      return;
+      newFreeSize = nextAddr - prevAddr + nextBytes;
     }
-    removeFromLookup(previousAddress, previousBytes);
-    previousIter->second = curAddr - previousAddress + bytes;
-    freeLookup_[previousIter->second].emplace(previousAddress);
+    freeList_[prevIter->first] = newFreeSize;
+    freeLookup_[newFreeSize].emplace(prevAddr);
     return;
   }
+
   if (mergeNext) {
+    VELOX_DCHECK(!mergePrev);
     removeFreeBlock(nextItr);
     removeFromLookup(curAddr, bytes);
-    auto newFreeSize = nextAddr - curAddr + nextBytes;
-    freeList_[currentIter->first] = newFreeSize;
+    const auto newFreeSize = nextAddr - curAddr + nextBytes;
+    freeList_[curIter->first] = newFreeSize;
     freeLookup_[newFreeSize].emplace(curAddr);
   }
 }
@@ -273,7 +278,7 @@ ManagedMmapArenas::ManagedMmapArenas(uint64_t singleArenaCapacity)
 
 void* FOLLY_NULLABLE ManagedMmapArenas::allocate(uint64_t bytes) {
   auto* result = currentArena_->allocate(bytes);
-  if (result) {
+  if (result != nullptr) {
     return result;
   }
 
@@ -287,17 +292,17 @@ void* FOLLY_NULLABLE ManagedMmapArenas::allocate(uint64_t bytes) {
 }
 
 void ManagedMmapArenas::free(void* FOLLY_NONNULL address, uint64_t bytes) {
-  uint64_t addressUint64 = reinterpret_cast<uint64_t>(address);
-  auto iter = arenas_.lower_bound(addressUint64);
+  const uint64_t addressU64 = reinterpret_cast<uint64_t>(address);
+  auto iter = arenas_.lower_bound(addressU64);
   if (iter == arenas_.end()) {
     return;
   }
-  if (iter->first == addressUint64) {
+  if (iter->first == addressU64) {
     iter->second->free(address, bytes);
   } else if (iter == arenas_.begin()) {
     return;
   } else {
-    iter--;
+    --iter;
     iter->second->free(address, bytes);
   }
 
