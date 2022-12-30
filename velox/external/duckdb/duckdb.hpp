@@ -19783,7 +19783,7 @@ struct CreateTableFunctionInfo : public CreateFunctionInfo {
 	}
 	explicit CreateTableFunctionInfo(TableFunction function) : CreateFunctionInfo(CatalogType::TABLE_FUNCTION_ENTRY) {
 		this->name = function.name;
-		functions.push_back(move(function));
+		functions.push_back(std::move(function));
 	}
 
 	//! The table functions
@@ -19793,9 +19793,9 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		TableFunctionSet set(name);
 		set.functions = functions;
-		auto result = make_unique<CreateTableFunctionInfo>(move(set));
+		auto result = make_unique<CreateTableFunctionInfo>(std::move(set));
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -19944,7 +19944,7 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		auto result = make_unique<CreateCopyFunctionInfo>(function);
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -19985,7 +19985,7 @@ struct CreateScalarFunctionInfo : public CreateFunctionInfo {
 		functions.push_back(function);
 	}
 	explicit CreateScalarFunctionInfo(ScalarFunctionSet set)
-	    : CreateFunctionInfo(CatalogType::SCALAR_FUNCTION_ENTRY), functions(move(set.functions)) {
+	    : CreateFunctionInfo(CatalogType::SCALAR_FUNCTION_ENTRY), functions(std::move(set.functions)) {
 		this->name = set.name;
 		for (auto &func : functions) {
 			func.name = set.name;
@@ -19998,9 +19998,9 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		ScalarFunctionSet set(name);
 		set.functions = functions;
-		auto result = make_unique<CreateScalarFunctionInfo>(move(set));
+		auto result = make_unique<CreateScalarFunctionInfo>(std::move(set));
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -20067,7 +20067,7 @@ public:
 		if (query) {
 			result->query = unique_ptr_cast<SQLStatement, SelectStatement>(query->Copy());
 		}
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -20132,7 +20132,7 @@ public:
 	virtual ~SegmentBase() {
 		// destroy the chain of segments iteratively (rather than recursively)
 		while (next && next->next) {
-			next = move(next->next);
+			next = std::move(next->next);
 		}
 	}
 
@@ -20667,7 +20667,7 @@ namespace duckdb {
 class CatalogEntry;
 
 struct BoundCreateTableInfo {
-	explicit BoundCreateTableInfo(unique_ptr<CreateInfo> base_p) : base(move(base_p)) {
+	explicit BoundCreateTableInfo(unique_ptr<CreateInfo> base_p) : base(std::move(base_p)) {
 		D_ASSERT(base);
 	}
 
@@ -21743,7 +21743,7 @@ public:
 	void AddIndex(unique_ptr<Index> index) {
 		D_ASSERT(index);
 		lock_guard<mutex> lock(indexes_lock);
-		indexes.push_back(move(index));
+		indexes.push_back(std::move(index));
 	}
 
 	void RemoveIndex(Index *index) {
@@ -21779,7 +21779,7 @@ private:
 
 struct DataTableInfo {
 	DataTableInfo(DatabaseInstance &db, string schema, string table)
-	    : db(db), cardinality(0), schema(move(schema)), table(move(table)) {
+	    : db(db), cardinality(0), schema(std::move(schema)), table(std::move(table)) {
 	}
 
 	//! The database instance of the table
@@ -22211,7 +22211,7 @@ public:
 
 	void Put(string key, shared_ptr<ObjectCacheEntry> value) {
 		lock_guard<mutex> glock(lock);
-		cache[key] = move(value);
+		cache[key] = std::move(value);
 	}
 
 	static ObjectCache &GetObjectCache(ClientContext &context);
@@ -23993,11 +23993,11 @@ struct CreateAggregateFunctionInfo : public CreateFunctionInfo {
 	explicit CreateAggregateFunctionInfo(AggregateFunction function)
 	    : CreateFunctionInfo(CatalogType::AGGREGATE_FUNCTION_ENTRY), functions(function.name) {
 		this->name = function.name;
-		functions.AddFunction(move(function));
+		functions.AddFunction(std::move(function));
 	}
 
 	explicit CreateAggregateFunctionInfo(AggregateFunctionSet set)
-	    : CreateFunctionInfo(CatalogType::AGGREGATE_FUNCTION_ENTRY), functions(move(set)) {
+	    : CreateFunctionInfo(CatalogType::AGGREGATE_FUNCTION_ENTRY), functions(std::move(set)) {
 		this->name = functions.name;
 		for (auto &func : functions.functions) {
 			func.name = functions.name;
@@ -24010,7 +24010,7 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		auto result = make_unique<CreateAggregateFunctionInfo>(functions);
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24032,9 +24032,9 @@ namespace duckdb {
 
 struct CreateCollationInfo : public CreateInfo {
 	CreateCollationInfo(string name_p, ScalarFunction function_p, bool combinable_p, bool not_required_for_equality_p)
-	    : CreateInfo(CatalogType::COLLATION_ENTRY), function(move(function_p)), combinable(combinable_p),
+	    : CreateInfo(CatalogType::COLLATION_ENTRY), function(std::move(function_p)), combinable(combinable_p),
 	      not_required_for_equality(not_required_for_equality_p) {
-		this->name = move(name_p);
+		this->name = std::move(name_p);
 	}
 
 	//! The name of the collation
