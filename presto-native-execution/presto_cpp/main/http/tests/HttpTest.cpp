@@ -77,9 +77,9 @@ std::string bodyAsString(http::HttpResponse& response) {
   auto iobufs = response.consumeBody();
   for (auto& body : iobufs) {
     oss << std::string((const char*)body->data(), body->length());
-    response.mappedMemory()->freeBytes(body->writableData(), body->length());
+    response.allocator()->freeBytes(body->writableData(), body->length());
   }
-  EXPECT_EQ(response.mappedMemory()->numAllocated(), 0);
+  EXPECT_EQ(response.allocator()->numAllocated(), 0);
   return oss.str();
 }
 
