@@ -34,13 +34,12 @@ class ShuffleReader {
  public:
   virtual ~ShuffleReader() = default;
 
-  /// Check by the reader to see if more blocks are available for this
-  /// partition.
-  virtual bool hasNext(int32_t partition) = 0;
+  /// Check by the reader to see if more blocks are available
+  virtual bool hasNext() = 0;
 
-  /// Read the next block of data for this partition.
+  /// Read the next block of data.
   /// @param success set to false to indicate aborted client.
-  virtual velox::BufferPtr next(int32_t partition, bool success) = 0;
+  virtual velox::BufferPtr next(bool success) = 0;
 };
 
 class ShuffleInterfaceFactory {
@@ -49,6 +48,7 @@ class ShuffleInterfaceFactory {
 
   virtual std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
+      const int32_t partition,
       velox::memory::MemoryPool* pool) = 0;
 
   virtual std::shared_ptr<ShuffleWriter> createWriter(

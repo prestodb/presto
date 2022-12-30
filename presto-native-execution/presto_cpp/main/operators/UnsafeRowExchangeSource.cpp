@@ -22,13 +22,13 @@ namespace facebook::presto::operators {
 void UnsafeRowExchangeSource::request() {
   std::lock_guard<std::mutex> l(queue_->mutex());
 
-  if (!shuffle_->hasNext(destination_)) {
+  if (!shuffle_->hasNext()) {
     atEnd_ = true;
     queue_->enqueue(nullptr);
     return;
   }
 
-  auto buffer = shuffle_->next(destination_, true);
+  auto buffer = shuffle_->next(true);
 
   auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
   // NOTE: SerializedPage's onDestructionCb_ captures one reference on 'buffer'
@@ -77,7 +77,8 @@ UnsafeRowExchangeSource::createExchangeSource(
       uri.host(),
       destination,
       std::move(queue),
-      shuffleFactory->createReader(serializedShuffleInfo.value(), pool),
+      shuffleFactory->createReader(
+          serializedShuffleInfo.value(), destination, pool),
       pool);
 }
 }; // namespace facebook::presto::operators
