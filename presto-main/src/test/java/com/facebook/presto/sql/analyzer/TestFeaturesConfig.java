@@ -212,7 +212,8 @@ public class TestFeaturesConfig
                 .setOptimizeConditionalAggregationEnabled(false)
                 .setRemoveRedundantDistinctAggregationEnabled(true)
                 .setInPredicatesAsInnerJoinsEnabled(false)
-                .setPushAggregationBelowJoinByteReductionThreshold(1));
+                .setPushAggregationBelowJoinByteReductionThreshold(1)
+                .setRemoveRedundantOrderByInWindowEnabled(true));
     }
 
     @Test
@@ -375,6 +376,7 @@ public class TestFeaturesConfig
                 .put("optimizer.remove-redundant-distinct-aggregation-enabled", "false")
                 .put("optimizer.in-predicates-as-inner-joins-enabled", "true")
                 .put("optimizer.push-aggregation-below-join-byte-reduction-threshold", "0.9")
+                .put("optimizer.remove-redundant-orderby-in-window-enabled", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -534,7 +536,8 @@ public class TestFeaturesConfig
                 .setOptimizeConditionalAggregationEnabled(true)
                 .setRemoveRedundantDistinctAggregationEnabled(false)
                 .setInPredicatesAsInnerJoinsEnabled(true)
-                .setPushAggregationBelowJoinByteReductionThreshold(0.9);
+                .setPushAggregationBelowJoinByteReductionThreshold(0.9)
+                .setRemoveRedundantOrderByInWindowEnabled(false);
         assertFullMapping(properties, expected);
     }
 
