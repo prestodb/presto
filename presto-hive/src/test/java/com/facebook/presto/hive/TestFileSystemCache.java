@@ -33,10 +33,9 @@ public class TestFileSystemCache
             throws IOException
     {
         ImpersonatingHdfsAuthentication auth = new ImpersonatingHdfsAuthentication(new SimpleHadoopAuthentication());
-        HiveClientConfig hiveClientConfig = new HiveClientConfig();
         HdfsEnvironment environment =
                 new HdfsEnvironment(
-                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(hiveClientConfig, new MetastoreClientConfig()), ImmutableSet.of(), hiveClientConfig),
+                        new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HiveClientConfig(), new MetastoreClientConfig()), ImmutableSet.of()),
                         new MetastoreClientConfig(),
                         auth);
         FileSystem fs1 = getFileSystem(environment, "user");
