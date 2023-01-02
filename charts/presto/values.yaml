@@ -32,11 +32,11 @@ serviceAccount:
 env: []
 envFrom: []
 
-# Common volumes
+# Common volumes (templated)
 volumes: []
 volumeMounts: []
 
-# Common extra and init containers
+# Common extra and init containers (templated)
 containers: []
 initContainers: []
 
@@ -86,10 +86,10 @@ coordinator:
   # Additional coordinator environment variables (templated)
   env: []
   envFrom: []
-  # Additional coordinator volumes
+  # Additional coordinator volumes (templated)
   volumes: []
   volumeMounts: []
-  # Additional coordinator extra and init containers
+  # Additional coordinator extra and init containers (templated)
   containers: []
   initContainers: []
   # Coordinator liveness and readiness probes
@@ -129,10 +129,10 @@ worker:
   # Additional worker environment variables (templated)
   env: []
   envFrom: []
-  # Additional worker volumes
+  # Additional worker volumes (templated)
   volumes: []
   volumeMounts: []
-  # Additional worker extra and init containers
+  # Additional worker extra and init containers (templated)
   containers: []
   initContainers: []
   # Worker liveness and readiness probes

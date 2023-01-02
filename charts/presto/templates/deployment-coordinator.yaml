@@ -45,7 +45,7 @@ spec:
       serviceAccountName: {{ .Release.Name }}
       {{- end }}
       {{- with $initContainers }}
-      initContainers: {{- toYaml . | nindent 8 }}
+      initContainers: {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
       containers:
         - name: coordinator
@@ -93,10 +93,10 @@ spec:
             - mountPath: {{ .Values.home }}/etc/catalog
               name: catalog
             {{- with $volumeMounts }}
-              {{- toYaml . | nindent 12 }}
+              {{- tpl (toYaml .) $ | nindent 12 }}
             {{- end }}
         {{- with $containers }}
-          {{- toYaml . | nindent 8 }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       volumes:
         - name: config
@@ -106,7 +106,7 @@ spec:
           configMap:
             name: {{ .Release.Name }}-catalog
         {{- with $volumes }}
-          {{- toYaml . | nindent 8 }}
+          {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with $nodeSelector }}
       nodeSelector: {{- toYaml . | nindent 8 }}
