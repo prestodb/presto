@@ -423,7 +423,7 @@ static void CreateTPCHTable(ClientContext &context, string schema, string suffix
 		info->constraints.push_back(make_unique<NotNullConstraint>(i));
 	}
 	auto &catalog = Catalog::GetCatalog(context);
-	catalog.CreateTable(context, move(info));
+	catalog.CreateTable(context, std::move(info));
 }
 
 void DBGenWrapper::CreateTPCHSchema(ClientContext &context, string schema, string suffix) {

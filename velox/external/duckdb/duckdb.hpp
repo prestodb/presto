@@ -24052,7 +24052,7 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		auto result = make_unique<CreateCollationInfo>(name, function, combinable, not_required_for_equality);
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24140,7 +24140,7 @@ public:
 		for (auto &expr : expressions) {
 			result->expressions.push_back(expr->Copy());
 		}
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24224,7 +24224,7 @@ public:
 		result->function = function->Copy();
 		result->name = name;
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24247,11 +24247,11 @@ namespace duckdb {
 struct CreatePragmaFunctionInfo : public CreateFunctionInfo {
 	explicit CreatePragmaFunctionInfo(PragmaFunction function)
 	    : CreateFunctionInfo(CatalogType::PRAGMA_FUNCTION_ENTRY) {
-		functions.push_back(move(function));
+		functions.push_back(std::move(function));
 		this->name = function.name;
 	}
 	CreatePragmaFunctionInfo(string name, vector<PragmaFunction> functions_)
-	    : CreateFunctionInfo(CatalogType::PRAGMA_FUNCTION_ENTRY), functions(move(functions_)) {
+	    : CreateFunctionInfo(CatalogType::PRAGMA_FUNCTION_ENTRY), functions(std::move(functions_)) {
 		this->name = name;
 		for (auto &function : functions) {
 			function.name = name;
@@ -24264,7 +24264,7 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		auto result = make_unique<CreatePragmaFunctionInfo>(functions[0].name, functions);
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24291,7 +24291,7 @@ public:
 	unique_ptr<CreateInfo> Copy() const override {
 		auto result = make_unique<CreateSchemaInfo>();
 		CopyProperties(*result);
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24329,7 +24329,7 @@ public:
 		CopyProperties(*result);
 		result->name = name;
 		result->type = type;
-		return move(result);
+		return std::move(result);
 	}
 };
 
@@ -24372,7 +24372,7 @@ public:
 		result->aliases = aliases;
 		result->types = types;
 		result->query = unique_ptr_cast<SQLStatement, SelectStatement>(query->Copy());
-		return move(result);
+		return std::move(result);
 	}
 };
 
