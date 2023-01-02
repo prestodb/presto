@@ -58,7 +58,8 @@ class BaseDuckWrapperTest : public testing::Test {
       const std::string& query,
       const std::vector<T>& expectedOutput) {
     std::vector<bool> nulls(expectedOutput.size(), false);
-    verifyUnaryResult<T>(move(query), move(expectedOutput), move(nulls));
+    verifyUnaryResult<T>(
+        std::move(query), std::move(expectedOutput), std::move(nulls));
   }
 
   template <class T>

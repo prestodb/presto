@@ -428,7 +428,8 @@ struct DuckDBFunctionData {
 
 class DuckDBFunction : public exec::VectorFunction {
  public:
-  explicit DuckDBFunction(std::vector<ScalarFunction> set) : set_(move(set)) {
+  explicit DuckDBFunction(std::vector<ScalarFunction> set)
+      : set_(std::move(set)) {
     assert(set_.size() > 0);
   }
 
@@ -449,7 +450,7 @@ class DuckDBFunction : public exec::VectorFunction {
     }
 
     duckdb::VeloxPoolAllocator duckDBAllocator(*context.pool());
-    auto state = initializeState(move(inputTypes), duckDBAllocator);
+    auto state = initializeState(std::move(inputTypes), duckDBAllocator);
     assert(state->functionIndex < set_.size());
     auto& function = set_[state->functionIndex];
     idx_t nrow = rows.size();
@@ -601,7 +602,7 @@ class DuckDBFunction : public exec::VectorFunction {
       duckdb::VeloxPoolAllocator& duckDBAllocator) const {
     assert(set_.size() > 0);
     auto result = std::make_unique<DuckDBFunctionData>();
-    result->inputTypes = move(inputTypes);
+    result->inputTypes = std::move(inputTypes);
     std::string error;
     bool castParameters;
     result->functionIndex = ::duckdb::Function::BindFunction(
@@ -740,7 +741,7 @@ void registerDuckDBFunction(CatalogEntry* entry, const std::string& prefix) {
   exec::registerVectorFunction(
       prefix + name,
       signatures,
-      std::make_unique<DuckDBFunction>(move(functions)));
+      std::make_unique<DuckDBFunction>(std::move(functions)));
 }
 
 void registerDuckdbFunctions(const std::string& prefix) {
