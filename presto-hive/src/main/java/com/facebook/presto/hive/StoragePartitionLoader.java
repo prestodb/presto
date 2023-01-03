@@ -137,6 +137,7 @@ public class StoragePartitionLoader
 
 
         Optional<DirectoryLister> directoryListerOverride = Optional.empty();
+
         if (!isNullOrEmpty(table.getStorage().getLocation())) {
             Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, new Path(table.getStorage().getLocation()));
             InputFormat<?, ?> inputFormat = getInputFormat(configuration, table.getStorage().getStorageFormat().getInputFormat(), false);
