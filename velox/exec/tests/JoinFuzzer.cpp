@@ -409,8 +409,13 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
       if (joinNode->leftKeys().size() > 1) {
         return std::nullopt;
       }
-      sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
-          << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
+      if (joinNode->isNullAware()) {
+        sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
+            << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
+      } else {
+        sql << ", EXISTS (SELECT * FROM u WHERE " << equiClausesToSql(joinNode)
+            << ") FROM t";
+      }
       break;
     case core::JoinType::kAnti:
       if (joinNode->isNullAware()) {
@@ -625,7 +630,8 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   shuffleJoinKeys(probeKeys, buildKeys);
 
-  bool nullAware = vectorFuzzer_.coinToss(0.5);
+  const bool nullAware =
+      isNullAwareSupported(joinType) && vectorFuzzer_.coinToss(0.5);
   auto plan = makeDefaultPlan(
       joinType,
       nullAware,

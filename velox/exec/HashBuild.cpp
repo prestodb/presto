@@ -50,6 +50,7 @@ HashBuild::HashBuild(
     : Operator(driverCtx, nullptr, operatorId, joinNode->id(), "HashBuild"),
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
+      nullAware_{joinNode_->isNullAware()},
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
@@ -308,12 +309,9 @@ void HashBuild::addInput(RowVectorPtr input) {
     if (filterPropagatesNulls_) {
       removeInputRowsForAntiJoinFilter();
     }
-  } else if (
-      ((isAntiJoin(joinType_) && joinNode_->isNullAware()) ||
-       isLeftSemiProjectJoin(joinType_)) &&
-      activeRows_.countSelected() < input->size()) {
+  } else if (nullAware_ && activeRows_.countSelected() < input->size()) {
     joinHasNullKeys_ = true;
-    if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+    if (isAntiJoin(joinType_)) {
       // Null-aware anti join with no extra filter returns no rows if build side
       // has nulls in join keys. Hence, we can stop processing on first null.
       noMoreInput();
@@ -691,7 +689,7 @@ bool HashBuild::finishHashBuild() {
   otherTables.reserve(peers.size());
   SpillPartitionSet spillPartitions;
   Spiller::Stats spillStats;
-  if (joinHasNullKeys_ && (isAntiJoin(joinType_) && joinNode_->isNullAware())) {
+  if (joinHasNullKeys_ && (isAntiJoin(joinType_) && nullAware_)) {
     joinBridge_->setAntiJoinHasNullKeys();
   } else {
     for (auto& peer : peers) {
@@ -700,7 +698,7 @@ bool HashBuild::finishHashBuild() {
       VELOX_CHECK(build);
       if (build->joinHasNullKeys_) {
         joinHasNullKeys_ = true;
-        if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+        if (isAntiJoin(joinType_) && nullAware_) {
           break;
         }
       }
@@ -711,8 +709,7 @@ bool HashBuild::finishHashBuild() {
       }
     }
 
-    if (joinHasNullKeys_ &&
-        (isAntiJoin(joinType_) && joinNode_->isNullAware())) {
+    if (joinHasNullKeys_ && (isAntiJoin(joinType_) && nullAware_)) {
       joinBridge_->setAntiJoinHasNullKeys();
     } else {
       if (spiller_ != nullptr) {

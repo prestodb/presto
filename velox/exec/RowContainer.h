@@ -307,14 +307,15 @@ class RowContainer {
 
   /// Copies the 'probed' flags for the specified rows into 'result'.
   /// The 'result' is expected to be flat vector of type boolean.
-  /// Sets null in 'result' for rows with null keys.
-  /// If 'replaceFalseWithNull' is true, replaces the false probed
-  /// flag with null in 'result' for rows with no null keys. This is used for
-  /// right semi project join type when probe side has nulls in the join keys.
+  /// For rows with null keys, sets null in 'result' if 'setNullForNullKeysRow'
+  /// is true and false otherwise. For rows with 'false' probed flag, sets null
+  /// in 'result' if 'setNullForNonProbedRow' is true and false otherwise. This
+  /// is used for null aware and regular right semi project join types.
   void extractProbedFlags(
       const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
       int32_t numRows,
-      bool replaceFalseWithNull,
+      bool setNullForNullKeysRow,
+      bool setNullForNonProbedRow,
       const VectorPtr& result);
 
   static inline int32_t nullByte(int32_t nullOffset) {

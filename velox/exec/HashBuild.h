@@ -231,6 +231,8 @@ class HashBuild final : public Operator {
 
   const core::JoinType joinType_;
 
+  const bool nullAware_;
+
   const std::shared_ptr<HashJoinBridge> joinBridge_;
 
   const std::optional<Spiller::Config> spillConfig_;

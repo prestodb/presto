@@ -119,6 +119,9 @@ class HashProbe : public Operator {
   // Populate output columns.
   void fillOutput(vector_size_t size);
 
+  // Populate 'match' output column for the left semi join project,
+  void fillLeftSemiProjectMatchColumn(vector_size_t size);
+
   // Clears the columns of 'output_' that are projected from
   // 'input_'. This should be done when preparing to produce a next
   // batch of output to drop any lingering references to row
@@ -252,6 +255,8 @@ class HashProbe : public Operator {
   const std::shared_ptr<const core::HashJoinNode> joinNode_;
 
   const core::JoinType joinType_;
+
+  const bool nullAware_;
 
   const std::shared_ptr<HashJoinBridge> joinBridge_;
 

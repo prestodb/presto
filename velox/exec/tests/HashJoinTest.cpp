@@ -2951,7 +2951,8 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
   createDuckDbTable("t", probeVectors);
   createDuckDbTable("u", buildVectors);
 
-  auto makePlan = [&](const std::string& probeFilter = "",
+  auto makePlan = [&](bool nullAware,
+                      const std::string& probeFilter = "",
                       const std::string& buildFilter = "") {
     auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
     return PlanBuilder(planNodeIdGenerator)
@@ -2966,12 +2967,27 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
                 .planNode(),
             "",
             {"t0", "t1", "match"},
-            core::JoinType::kLeftSemiProject)
+            core::JoinType::kLeftSemiProject,
+            nullAware)
         .planNode();
   };
 
   // Null join keys on both sides.
-  auto plan = makePlan();
+  auto plan = makePlan(false /*nullAware*/);
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0) FROM t")
+      .run();
+
+  plan = makePlan(true /*nullAware*/);
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .planNode(plan)
@@ -2984,7 +3000,21 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
       .run();
 
   // Null join keys on build side-only.
-  plan = makePlan("t0 IS NOT NULL");
+  plan = makePlan(false /*nullAware*/, "t0 IS NOT NULL");
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0) FROM t WHERE t0 IS NOT NULL")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0) FROM t WHERE t0 IS NOT NULL")
+      .run();
+
+  plan = makePlan(true /*nullAware*/, "t0 IS NOT NULL");
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .planNode(plan)
@@ -2999,7 +3029,21 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
       .run();
 
   // Null join keys on probe side-only.
-  plan = makePlan("", "u0 IS NOT NULL");
+  plan = makePlan(false /*nullAware*/, "", "u0 IS NOT NULL");
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(plan)
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0 AND u0 IS NOT NULL) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
+      .planNode(flipJoinSides(plan))
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0 AND u0 IS NOT NULL) FROM t")
+      .run();
+
+  plan = makePlan(true /*nullAware*/, "", "u0 IS NOT NULL");
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, driverExecutor_.get())
       .planNode(plan)
@@ -3014,7 +3058,23 @@ TEST_F(HashJoinTest, semiProjectWithNullKeys) {
       .run();
 
   // Empty build side.
-  plan = makePlan("", "u0 < 0");
+  plan = makePlan(false /*nullAware*/, "", "u0 < 0");
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(plan)
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0 AND u0 < 0) FROM t")
+      .run();
+
+  HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
+      .planNode(flipJoinSides(plan))
+      .checkSpillStats(false)
+      .referenceQuery(
+          "SELECT t0, t1, EXISTS (SELECT * FROM u WHERE u0 = t0 AND u0 < 0) FROM t")
+      .run();
+
+  plan = makePlan(true /*nullAware*/, "", "u0 < 0");
 
   HashJoinBuilder(*pool_, duckDbQueryRunner_, executor_.get())
       .planNode(plan)

@@ -528,7 +528,8 @@ void RowContainer::setProbedFlag(char** rows, int32_t numRows) {
 void RowContainer::extractProbedFlags(
     const char* FOLLY_NONNULL const* FOLLY_NONNULL rows,
     int32_t numRows,
-    bool replaceFalseWithNull,
+    bool setNullForNullKeysRow,
+    bool setNullForNonProbedRow,
     const VectorPtr& result) {
   result->resize(numRows);
   result->clearAllNulls();
@@ -536,23 +537,23 @@ void RowContainer::extractProbedFlags(
   auto* rawValues = flatResult->mutableRawValues<uint64_t>();
   for (auto i = 0; i < numRows; ++i) {
     // Check if this row has null keys.
-    bool hasNullKey = false;
-    if (nullableKeys_) {
+    bool nullResult = false;
+    if (setNullForNullKeysRow && nullableKeys_) {
       for (auto c = 0; c < keyTypes_.size(); ++c) {
         bool isNull =
             isNullAt(rows[i], columnAt(c).nullByte(), columnAt(c).nullMask());
         if (isNull) {
-          hasNullKey = true;
+          nullResult = true;
           break;
         }
       }
     }
 
-    if (hasNullKey) {
+    if (nullResult) {
       flatResult->setNull(i, true);
     } else {
       bool probed = bits::isBitSet(rows[i], probedFlagOffset_);
-      if (replaceFalseWithNull && !probed) {
+      if (setNullForNonProbedRow && !probed) {
         flatResult->setNull(i, true);
       } else {
         bits::setBit(rawValues, i, probed);

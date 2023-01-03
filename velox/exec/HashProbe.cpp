@@ -125,6 +125,7 @@ HashProbe::HashProbe(
       outputBatchSize_{driverCtx->queryConfig().preferredOutputBatchSize()},
       joinNode_(std::move(joinNode)),
       joinType_{joinNode_->joinType()},
+      nullAware_{joinNode_->isNullAware()},
       joinBridge_(operatorCtx_->task()->getHashJoinBridgeLocked(
           operatorCtx_->driverCtx()->splitGroupId,
           planNodeId())),
@@ -177,7 +178,7 @@ HashProbe::HashProbe(
     isIdentityProjection_ = true;
   }
 
-  if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+  if (isAntiJoin(joinType_) && nullAware_) {
     filterTableResult_.resize(1);
   }
 }
@@ -212,7 +213,7 @@ void HashProbe::initializeFilter(
       filterTableProjections_.emplace_back(channelValue, filterChannel);
       names.emplace_back(tableType->nameOf(channelValue));
       types.emplace_back(tableType->childAt(channelValue));
-      if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+      if (isAntiJoin(joinType_) && nullAware_) {
         filterTableProjectionMap_[channelValue] = filterChannel;
       }
       ++filterChannel;
@@ -286,7 +287,7 @@ void HashProbe::asyncWaitForHashTable() {
   }
 
   if (hashBuildResult->hasNullKeys) {
-    if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+    if (isAntiJoin(joinType_) && nullAware_) {
       // Null-aware anti join with null keys on the build side without a filter
       // always returns nothing.
       // The flag must be set on the first (and only) built 'table_'.
@@ -639,6 +640,40 @@ void HashProbe::prepareOutput(vector_size_t size) {
   }
 }
 
+void HashProbe::fillLeftSemiProjectMatchColumn(vector_size_t size) {
+  if (emptyBuildSide()) {
+    // Build side is empty. All rows should return 'match = false', even ones
+    // with a null join key.
+    matchColumn() = BaseVector::createConstant(false, size, pool());
+  } else {
+    auto flatMatch = matchColumn()->as<FlatVector<bool>>();
+    flatMatch->resize(size);
+    auto rawValues = flatMatch->mutableRawValues<uint64_t>();
+    for (auto i = 0; i < size; ++i) {
+      if (!nonNullInputRows_.isValid(i)) {
+        // Probe key is null.
+        if (nullAware_) {
+          flatMatch->setNull(i, true);
+        } else {
+          bits::setBit(rawValues, i, false);
+        }
+      } else {
+        // Probe key is not null.
+        bool hasMatch = outputTableRows_[i] != nullptr;
+        if (nullAware_ && buildSideHasNullKeys_) {
+          if (!hasMatch) {
+            flatMatch->setNull(i, true);
+          } else {
+            bits::setBit(rawValues, i, true);
+          }
+        } else {
+          bits::setBit(rawValues, i, hasMatch);
+        }
+      }
+    }
+  }
+}
+
 void HashProbe::fillOutput(vector_size_t size) {
   prepareOutput(size);
 
@@ -653,28 +688,7 @@ void HashProbe::fillOutput(vector_size_t size) {
   }
 
   if (isLeftSemiProjectJoin(joinType_)) {
-    // Populate 'match' column.
-    if (emptyBuildSide()) {
-      // Build side is empty. All rows should return 'match = false', even ones
-      // with a null join key.
-      matchColumn() = BaseVector::createConstant(false, size, pool());
-    } else {
-      auto flatMatch = matchColumn()->as<FlatVector<bool>>();
-      flatMatch->resize(size);
-      auto rawValues = flatMatch->mutableRawValues<uint64_t>();
-      for (auto i = 0; i < size; ++i) {
-        if (!nonNullInputRows_.isValid(i)) {
-          flatMatch->setNull(i, true);
-        } else {
-          bool hasMatch = outputTableRows_[i] != nullptr;
-          if (!hasMatch && buildSideHasNullKeys_) {
-            flatMatch->setNull(i, true);
-          } else {
-            bits::setBit(rawValues, i, hasMatch);
-          }
-        }
-      }
-    }
+    fillLeftSemiProjectMatchColumn(size);
   } else {
     extractColumns(
         table_.get(),
@@ -737,7 +751,8 @@ RowVectorPtr HashProbe::getBuildSideOutput() {
       table_->rows()->extractProbedFlags(
           outputTableRows_.data(),
           numOut,
-          probeSideHasNullKeys_,
+          nullAware_,
+          nullAware_ && probeSideHasNullKeys_,
           matchColumn());
     }
   }
@@ -869,7 +884,7 @@ RowVectorPtr HashProbe::getOutput() {
       std::fill(outputTableRows_.begin(), outputTableRows_.end(), nullptr);
       numOut = inputSize;
     } else if (isAntiJoin(joinType_) && !filter_) {
-      if (joinNode_->isNullAware()) {
+      if (nullAware_) {
         // When build side is not empty, anti join without a filter returns
         // probe rows with no nulls in the join key and no match in the build
         // side.
@@ -1154,8 +1169,8 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
   // filter on rows without a match may trigger errors in filter evaluation and
   // fail the query unnecessarily.
   //
-  // TODO Apply to the same to left joins.
-  if (isAntiJoin(joinType_) && !joinNode_->isNullAware()) {
+  // TODO Apply the same to left joins.
+  if (isAntiJoin(joinType_) && !nullAware_) {
     for (auto i = 0; i < numRows; ++i) {
       if (outputTableRows_[i] == nullptr) {
         filterInputRows_.setValid(i, false);
@@ -1170,7 +1185,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 
   fillFilterInput(numRows);
 
-  if (isAntiJoin(joinType_) && joinNode_->isNullAware()) {
+  if (isAntiJoin(joinType_) && nullAware_) {
     prepareFilterRowsForNullAwareAntiJoin(numRows, filterPropagateNulls);
   }
 
@@ -1231,7 +1246,7 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
       leftSemiProjectJoinTracker_.finish(addLast);
     }
   } else if (isAntiJoin(joinType_)) {
-    if (joinNode_->isNullAware()) {
+    if (nullAware_) {
       numPassed = evalFilterForNullAwareAntiJoin(numRows, filterPropagateNulls);
     } else {
       auto addMiss = [&](auto row) {
