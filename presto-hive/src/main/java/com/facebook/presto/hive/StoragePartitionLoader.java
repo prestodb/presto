@@ -135,6 +135,7 @@ public class StoragePartitionLoader
         this.schedulerUsesHostAddresses = schedulerUsesHostAddresses;
         this.partialAggregationsPushedDown = partialAggregationsPushedDown;
 
+
         Optional<DirectoryLister> directoryListerOverride = Optional.empty();
         if (!isNullOrEmpty(table.getStorage().getLocation())) {
             Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, new Path(table.getStorage().getLocation()));
