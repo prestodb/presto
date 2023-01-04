@@ -1,0 +1,19 @@
+The chart has been installed!
+Please keep in mind that some time is needed for the release to be fully deployed.
+
+In order to check the release status, use:
+  helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+    or for more detailed info
+  helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+To access {{ .Release.Name }} service within the cluster, use the following URL:
+  {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
+{{- if eq .Values.service.type "ClusterIP" }}
+To access {{ .Release.Name }} service from outside the cluster, run the following command:
+  kubectl port-forward svc/{{ .Release.Name }} {{ .Values.service.port }}:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+    and then open the browser on 127.0.0.1:{{ .Values.service.port }}
+{{- end }}
+{{- if .Values.ingress.enabled }}
+To access {{ .Release.Name }} service from outside the cluster through defined Ingress, use the following URL:
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+{{- end }}
