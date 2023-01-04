@@ -1855,12 +1855,14 @@ VeloxQueryPlanConverter::toVeloxQueryPlan(
 
   std::vector<core::FieldAccessTypedExprPtr> sortFields;
   std::vector<core::SortOrder> sortOrders;
-  auto nodeSpecOrdering = node->specification.orderingScheme->orderBy;
-  sortFields.reserve(nodeSpecOrdering.size());
-  sortOrders.reserve(nodeSpecOrdering.size());
-  for (const auto& spec : nodeSpecOrdering) {
-    sortFields.emplace_back(exprConverter_.toVeloxExpr(spec.variable));
-    sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+  if (node->specification.orderingScheme) {
+    auto nodeSpecOrdering = node->specification.orderingScheme->orderBy;
+    sortFields.reserve(nodeSpecOrdering.size());
+    sortOrders.reserve(nodeSpecOrdering.size());
+    for (const auto& spec : nodeSpecOrdering) {
+      sortFields.emplace_back(exprConverter_.toVeloxExpr(spec.variable));
+      sortOrders.emplace_back(toVeloxSortOrder(spec.sortOrder));
+    }
   }
 
   std::vector<std::string> windowNames;
