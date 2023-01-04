@@ -32,6 +32,7 @@ add_library(
   FromUnixTime.cpp
   GreatestLeast.cpp
   InPredicate.cpp
+  JsonFunctions.cpp
   Map.cpp
   MapEntries.cpp
   MapKeysAndValues.cpp

@@ -58,6 +58,48 @@ class JsonFunctionsTest : public functions::test::FunctionBaseTest {
   }
 };
 
+TEST_F(JsonFunctionsTest, jsonFormat) {
+  const auto jsonFormat = [&](std::optional<std::string> value) {
+    return evaluateOnce<std::string, std::string>(
+        "json_format(c0)", {value}, {JSON()});
+  };
+
+  EXPECT_EQ(jsonFormat(std::nullopt), std::nullopt);
+  EXPECT_EQ(jsonFormat(R"(true)"), "true");
+  EXPECT_EQ(jsonFormat(R"(null)"), "null");
+  EXPECT_EQ(jsonFormat(R"(42)"), "42");
+  EXPECT_EQ(jsonFormat(R"("abc")"), "\"abc\"");
+  EXPECT_EQ(jsonFormat(R"([1, 2, 3])"), "[1, 2, 3]");
+  EXPECT_EQ(jsonFormat(R"({"k1":"v1"})"), "{\"k1\":\"v1\"}");
+
+  auto data = makeRowVector({makeFlatVector<StringView>(
+      {"This is a long sentence", "This is some other sentence"})});
+
+  auto result = evaluate("json_format(c0)", data);
+  auto expected = makeFlatVector<StringView>(
+      {"This is a long sentence", "This is some other sentence"});
+  facebook::velox::test::assertEqualVectors(expected, result);
+
+  data = makeRowVector({makeConstant("apple", 2)});
+  result = evaluate("json_format(c0)", data);
+  expected = makeFlatVector<StringView>({{"apple", "apple"}});
+
+  facebook::velox::test::assertEqualVectors(expected, result);
+
+  data = makeRowVector(
+      {makeFlatVector<bool>({true, false}),
+       makeFlatVector<StringView>(
+           {"This is a long sentence", "This is some other sentence"})});
+
+  result = evaluate("if(c0, 'foo', json_format(c1))", data);
+  expected = makeFlatVector<StringView>({"foo", "This is some other sentence"});
+  facebook::velox::test::assertEqualVectors(expected, result);
+
+  result = evaluate("if(c0, json_format(c1), 'bar')", data);
+  expected = makeFlatVector<StringView>({"This is a long sentence", "bar"});
+  facebook::velox::test::assertEqualVectors(expected, result);
+}
+
 TEST_F(JsonFunctionsTest, isJsonScalarSignatures) {
   auto signatures = getSignatureStrings("is_json_scalar");
   ASSERT_EQ(1, signatures.size());

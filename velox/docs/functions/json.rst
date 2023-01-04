@@ -124,6 +124,13 @@ JSON Functions
 
         SELECT json_array_contains('[1, 2, 3]', 2);
 
+.. function:: json_format(json) -> varchar
+
+    Serializes the input JSON value to JSON text conforming to RFC 7159.
+    The JSON value can be a JSON object, a JSON array, a JSON string, a JSON number, true, false or null.
+
+        SELECT json_format(JSON '{"a": 1, "b": 2}')
+
 .. function:: json_size(json, value) -> bigint
 
     Returns the size of the ``value``. For ``objects`` or ``arrays``, the size
