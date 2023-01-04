@@ -385,24 +385,6 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
     uint64_t size_{0};
   };
 
-  /// Stats on memory allocated by allocateBytes().
-  struct AllocateBytesStats {
-    /// Total size of small allocations.
-    uint64_t totalSmall;
-    /// Total size of allocations from some size class.
-    uint64_t totalInSizeClasses;
-    /// Total in standalone large allocations via allocateContiguous().
-    uint64_t totalLarge;
-
-    AllocateBytesStats operator-(const AllocateBytesStats& other) const {
-      auto result = *this;
-      result.totalSmall -= other.totalSmall;
-      result.totalInSizeClasses -= other.totalInSizeClasses;
-      result.totalLarge -= other.totalLarge;
-      return result;
-    }
-  };
-
   using ReservationCallback = std::function<void(int64_t, bool)>;
 
   /// Allocates one or more runs that add up to at least 'numPages', with the
