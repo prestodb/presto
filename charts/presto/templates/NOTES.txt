@@ -6,14 +6,19 @@ In order to check the release status, use:
     or for more detailed info
   helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
 
-To access {{ .Release.Name }} service within the cluster, use the following URL:
-  {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
-{{- if eq .Values.service.type "ClusterIP" }}
-To access {{ .Release.Name }} service from outside the cluster, run the following command:
-  kubectl port-forward svc/{{ .Release.Name }} {{ .Values.service.port }}:{{ .Values.service.port }} -n {{ .Release.Namespace }}
-    and then open the browser on 127.0.0.1:{{ .Values.service.port }}
+Accessing deployed release:
+- To access {{ .Release.Name }} service within the cluster, use the following URL:
+    {{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local
+- To access {{ .Release.Name }} service from outside the cluster for debugging, run the following command:
+    kubectl port-forward svc/{{ .Release.Name }} {{ .Values.service.port }}:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  and then open the browser on 127.0.0.1:{{ .Values.service.port }}
+{{- if eq .Values.service.type "NodePort" }}
+- To access {{ .Release.Name }} service from outside the cluster through configured NodePort, run the following commands:
+    export NODE_PORT=$(kubectl get service {{ .Release.Name }} -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}")
+    export NODE_IP=$(kubectl get nodes -n {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+    echo http://$NODE_IP:$NODE_PORT
 {{- end }}
 {{- if .Values.ingress.enabled }}
-To access {{ .Release.Name }} service from outside the cluster through defined Ingress, use the following URL:
-  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
+- To access {{ .Release.Name }} service from outside the cluster through configured Ingress, use the following URL:
+    http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}{{ .Values.ingress.path }}
 {{- end }}
