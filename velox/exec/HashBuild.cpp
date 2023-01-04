@@ -732,10 +732,14 @@ bool HashBuild::finishHashBuild() {
         }
       }
 
-      const bool hasOthers = !otherTables.empty();
+      // TODO: re-enable parallel join build with spilling triggered after
+      // https://github.com/facebookincubator/velox/issues/3567 is fixed.
+      const bool allowPrallelJoinBuild =
+          !otherTables.empty() && spillPartitions.empty();
       table_->prepareJoinTable(
           std::move(otherTables),
-          hasOthers ? operatorCtx_->task()->queryCtx()->executor() : nullptr);
+          allowPrallelJoinBuild ? operatorCtx_->task()->queryCtx()->executor()
+                                : nullptr);
 
       addRuntimeStats();
       if (joinBridge_->setHashTable(
