@@ -15,8 +15,10 @@
  */
 
 #include <gtest/gtest.h>
+#include <fstream>
 
 #include "velox/common/memory/HashStringAllocator.h"
+#include "velox/dwio/common/tests/utils/DataFiles.h"
 #include "velox/functions/lib/KllSketch.h"
 
 namespace facebook::velox::functions::kll::test {
@@ -34,6 +36,23 @@ std::vector<double> linspace(int len) {
     out[i] = i * step;
   }
   return out;
+}
+
+std::string getDataFilePath(const std::string& name) {
+  return velox::test::getDataFilePath(
+      "velox/functions/lib/tests", fmt::format("data/{}", name));
+}
+
+void insertRandomData(int seed, int n, KllSketch<double>& kll, double* values) {
+  std::default_random_engine gen(seed);
+  std::normal_distribution<> dist;
+  for (int i = 0; i < n; ++i) {
+    auto v = dist(gen);
+    kll.insert(v);
+    if (values) {
+      values[i] = v;
+    }
+  }
 }
 
 TEST(KllSketchTest, oneItem) {
@@ -88,13 +107,8 @@ TEST(KllSketchTest, randomInput) {
   constexpr int N = 1e5;
   constexpr int M = 1001;
   KllSketch<double> kll(kDefaultK, {}, 0);
-  std::default_random_engine gen(0);
-  std::normal_distribution<> dist;
   double values[N];
-  for (int i = 0; i < N; ++i) {
-    values[i] = dist(gen);
-    kll.insert(values[i]);
-  }
+  insertRandomData(0, N, kll, values);
   EXPECT_EQ(kll.totalCount(), N);
   kll.finish();
   std::sort(std::begin(values), std::end(values));
@@ -207,18 +221,49 @@ TEST(KllSketchTest, kFromEpsilon) {
 TEST(KllSketchTest, serialize) {
   constexpr int N = 1e5;
   constexpr int M = 1001;
-  KllSketch<double> kll;
-  for (int i = 0; i < N; ++i) {
-    kll.insert(i);
-  }
-  kll.finish();
+  KllSketch<double> kll(kDefaultK, {}, 0);
+  insertRandomData(0, N, kll, nullptr);
+  kll.compact();
   std::vector<char> data(kll.serializedByteSize());
   kll.serialize(data.data());
+#if 0
+  // Enable this to write serialization to a file for backward compatibility
+  // test.
+  auto path = getDataFilePath(fmt::format("kll-ver-{}", detail::kVersion));
+  std::ofstream output(path);
+  output.write(data.data(), data.size());
+  ASSERT_FALSE(output.fail());
+#endif
   auto kll2 = KllSketch<double>::deserialize(data.data());
   auto q = linspace(M);
   auto v = kll.estimateQuantiles(folly::Range(q.begin(), q.end()));
   auto v2 = kll2.estimateQuantiles(folly::Range(q.begin(), q.end()));
   EXPECT_EQ(v, v2);
+}
+
+TEST(KllSketchTest, deserialize) {
+  constexpr int N = 1e5;
+  constexpr int M = 1001;
+  auto readFile = [](const std::string& path) {
+    std::ifstream input(path);
+    VELOX_CHECK(!input.fail());
+    std::stringstream buf;
+    buf << input.rdbuf();
+    auto data = buf.str();
+    return KllSketch<double>::deserialize(data.data());
+  };
+  auto currentVersion =
+      readFile(getDataFilePath(fmt::format("kll-ver-{}", detail::kVersion)));
+  for (int version = 1; version < detail::kVersion; ++version) {
+    auto path = getDataFilePath(fmt::format("kll-ver-{}", version));
+    SCOPED_TRACE(path);
+    auto oldVersion = readFile(path);
+    auto q = linspace(M);
+    auto v = oldVersion.estimateQuantiles(folly::Range(q.begin(), q.end()));
+    auto v2 =
+        currentVersion.estimateQuantiles(folly::Range(q.begin(), q.end()));
+    EXPECT_EQ(v, v2);
+  }
 }
 
 TEST(KllSketchTest, compact) {

@@ -23,7 +23,10 @@ add_executable(
   Re2FunctionsTest.cpp
   ZetaDistributionTest.cpp)
 
-add_test(velox_functions_lib_test velox_functions_lib_test)
+add_test(
+  NAME velox_functions_lib_test
+  COMMAND velox_functions_lib_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
   velox_functions_lib_test
@@ -33,6 +36,7 @@ target_link_libraries(
   velox_exec_test_lib
   velox_expression
   velox_memory
+  velox_dwio_common_test_utils
   gtest
   gtest_main
   gmock

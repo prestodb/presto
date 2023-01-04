@@ -140,6 +140,7 @@ struct KllSketch {
   /// Get frequencies of items being tracked.  The result is sorted by item.
   std::vector<std::pair<T, uint64_t>> getFrequencies() const;
 
+  /// Internal API, do not use outside Velox.
   struct View {
     uint32_t k;
     size_t n;
@@ -159,8 +160,10 @@ struct KllSketch {
     void deserialize(const char* FOLLY_NONNULL);
   };
 
+  /// Internal API, do not use outside Velox.
   void mergeViews(const folly::Range<const View*>& views);
 
+  /// Internal API, do not use outside Velox.
   View toView() const;
 
  private:
