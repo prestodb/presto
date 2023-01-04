@@ -101,7 +101,7 @@ class ValueWriter {
       : sequence_{sequence},
         keyInfo_{keyInfo},
         inMap_{createBooleanRleEncoder(context.newStream(
-            {type.id, sequence, 0, StreamKind::StreamKind_IN_MAP}))},
+            {type.id, sequence, type.column, StreamKind::StreamKind_IN_MAP}))},
         columnWriter_{BaseColumnWriter::create(
             context,
             type,
