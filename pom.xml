@@ -95,7 +95,6 @@
         <module>presto-atop</module>
         <module>presto-spi</module>
         <module>presto-analyzer</module>
-        <module>presto-crux</module>
         <module>presto-cache</module>
         <module>presto-jmx</module>
         <module>presto-record-decoder</module>
