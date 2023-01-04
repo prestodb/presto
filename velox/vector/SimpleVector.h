@@ -172,6 +172,7 @@ class SimpleVector : public BaseVector {
   using BaseVector::toString;
 
   std::string toString(vector_size_t index) const override {
+    VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
     std::stringstream out;
     if (isNullAt(index)) {
       out << "null";

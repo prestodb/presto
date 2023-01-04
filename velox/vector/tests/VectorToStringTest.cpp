@@ -302,4 +302,10 @@ TEST_F(VectorToStringTest, printIndices) {
   EXPECT_EQ(
       printIndices(indices), "5 unique indices out of 6: 34, 79, 11, 0, 0, 33");
 }
+
+TEST_F(VectorToStringTest, indexOverflow) {
+  // No nulls.
+  auto flat = makeFlatVector<int32_t>({1, 2, 3});
+  ASSERT_THROW(flat->toString(4), VeloxException);
+}
 } // namespace facebook::velox::test

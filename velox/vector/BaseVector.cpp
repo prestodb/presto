@@ -502,6 +502,7 @@ std::string BaseVector::toString(bool recursive) const {
 }
 
 std::string BaseVector::toString(vector_size_t index) const {
+  VELOX_CHECK_LT(index, length_, "Vector index should be less than length.");
   std::stringstream out;
   if (!nulls_) {
     out << "no nulls";
