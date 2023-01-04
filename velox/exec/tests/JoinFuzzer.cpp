@@ -41,7 +41,7 @@ DEFINE_double(
     "Chance of adding a null value in a vector "
     "(expressed as double from 0 to 1).");
 
-DEFINE_bool(enable_spill, false, "Whether to test plans with spilling enabled");
+DEFINE_bool(enable_spill, true, "Whether to test plans with spilling enabled");
 
 namespace facebook::velox::exec::test {
 
