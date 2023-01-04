@@ -22,22 +22,33 @@ import java.util.List;
 public class TestHiveWindowQueries
         extends AbstractTestHiveQueries
 {
+    private static final List<String> OVER_CLAUSES_WITH_ORDER_BY = Arrays.asList(
+            "PARTITION BY orderkey ORDER BY totalprice",
+            "PARTITION BY custkey, orderkey ORDER BY totalprice",
+            "PARTITION BY orderdate ORDER BY orderkey asc, totalprice desc",
+            "PARTITION BY orderkey, custkey ORDER BY orderdate asc nulls first, totalprice asc, shippriority desc",
+            "PARTITION BY custkey, orderkey, shippriority ORDER BY orderdate, totalprice asc nulls first",
+            "PARTITION BY orderkey, orderdate ORDER BY totalprice asc nulls first",
+            "ORDER BY orderdate desc, totalprice asc, shippriority desc nulls first");
+
+    private static final List<String> OVER_CLAUSES_WITHOUT_ORDER_BY = Arrays.asList(
+            "PARTITION BY orderkey",
+            "PARTITION BY custkey, orderkey",
+            "PARTITION BY orderdate",
+            "PARTITION BY orderkey, orderdate",
+            "PARTITION BY custkey, orderkey, shippriority",
+            "PARTITION BY orderkey, custkey");
+
     public TestHiveWindowQueries()
     {
         super(true);
     }
 
-    protected List<String> getRankingQueries(String rankingFunction)
+    protected List<String> getRankingQueries(String rankingFunction, boolean orderBy)
     {
         ImmutableList.Builder<String> queries = ImmutableList.builder();
         List<String> columnProjections = Arrays.asList("orderkey, orderdate, totalprice");
-        List<String> overClauses = Arrays.asList("PARTITION BY orderkey ORDER BY totalprice",
-                "PARTITION BY custkey, orderkey ORDER BY totalprice",
-                "PARTITION BY orderdate ORDER BY orderkey asc, totalprice desc",
-                "PARTITION BY orderkey, orderdate ORDER BY totalprice asc nulls first",
-                "PARTITION BY orderkey, custkey ORDER BY orderdate asc nulls first, totalprice asc, shippriority desc",
-                "PARTITION BY custkey, orderkey, shippriority ORDER BY orderdate, totalprice asc nulls first",
-                "ORDER BY orderdate desc, totalprice asc, shippriority desc nulls first");
+        List<String> overClauses = orderBy ? OVER_CLAUSES_WITH_ORDER_BY : OVER_CLAUSES_WITHOUT_ORDER_BY;
 
         for (String columnProjection : columnProjections) {
             for (String overClause : overClauses) {
@@ -47,9 +58,9 @@ public class TestHiveWindowQueries
         return queries.build();
     }
 
-    protected void testRankingFunction(String functionName)
+    protected void testRankingFunction(String functionName, boolean orderBy)
     {
-        List<String> queries = getRankingQueries(functionName);
+        List<String> queries = getRankingQueries(functionName, orderBy);
         for (String query : queries) {
             assertQuery(query);
         }
@@ -58,30 +69,35 @@ public class TestHiveWindowQueries
     @Test
     public void testCumeDist()
     {
-        testRankingFunction("cume_dist()");
+        testRankingFunction("cume_dist()", true);
+        testRankingFunction("cume_dist()", false);
     }
 
     @Test
     public void testDenseRank()
     {
-        testRankingFunction("dense_rank()");
+        testRankingFunction("dense_rank()", true);
+        testRankingFunction("dense_rank()", false);
     }
 
     @Test
     public void testPercentRank()
     {
-        testRankingFunction("percent_rank()");
+        testRankingFunction("percent_rank()", true);
+        testRankingFunction("percent_rank()", false);
     }
 
     @Test
     public void testRank()
     {
-        testRankingFunction("rank()");
+        testRankingFunction("rank()", true);
+        testRankingFunction("rank()", false);
     }
 
     @Test
     public void testRowNumber()
     {
-        testRankingFunction("row_number()");
+        // `row_number() over (partition by key1)` will use `RowNumberNode` which hasn't been implemented yet.
+        testRankingFunction("row_number()", true);
     }
 }
