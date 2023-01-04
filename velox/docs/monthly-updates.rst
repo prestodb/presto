@@ -5,6 +5,7 @@ Monthly Updates
 .. toctree::
     :maxdepth: 1
 
+    monthly-updates/december-2022
     monthly-updates/november-2022
     monthly-updates/october-2022
     monthly-updates/september-2022
