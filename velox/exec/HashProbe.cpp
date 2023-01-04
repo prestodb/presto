@@ -642,9 +642,12 @@ void HashProbe::prepareOutput(vector_size_t size) {
 
 void HashProbe::fillLeftSemiProjectMatchColumn(vector_size_t size) {
   if (emptyBuildSide()) {
-    // Build side is empty. All rows should return 'match = false', even ones
-    // with a null join key.
-    matchColumn() = BaseVector::createConstant(false, size, pool());
+    // Build side is empty or all rows have null join keys.
+    if (nullAware_ && buildSideHasNullKeys_) {
+      matchColumn() = BaseVector::createNullConstant(BOOLEAN(), size, pool());
+    } else {
+      matchColumn() = BaseVector::createConstant(false, size, pool());
+    }
   } else {
     auto flatMatch = matchColumn()->as<FlatVector<bool>>();
     flatMatch->resize(size);
