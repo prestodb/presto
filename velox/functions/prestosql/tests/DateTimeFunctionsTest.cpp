@@ -223,6 +223,12 @@ class DateTimeFunctionsTest : public functions::test::FunctionBaseTest {
     }
     return signatureStrings;
   }
+
+  Date parseDate(const std::string& dateStr) {
+    Date returnDate;
+    parseTo(dateStr, returnDate);
+    return returnDate;
+  }
 };
 
 bool operator==(
@@ -483,6 +489,76 @@ TEST_F(DateTimeFunctionsTest, yearTimestampWithTimezone) {
       std::nullopt,
       evaluateWithTimestampWithTimezone<int64_t>(
           "year(c0)", std::nullopt, std::nullopt));
+}
+
+TEST_F(DateTimeFunctionsTest, weekDate) {
+  const auto weekDate = [&](const char* dateString) {
+    auto date = std::make_optional(parseDate(dateString));
+    auto week = evaluateOnce<int64_t>("week(c0)", date).value();
+    auto weekOfYear = evaluateOnce<int64_t>("week_of_year(c0)", date).value();
+    VELOX_CHECK_EQ(
+        week, weekOfYear, "week and week_of_year must return the same value");
+    return week;
+  };
+
+  EXPECT_EQ(1, weekDate("1919-12-31"));
+  EXPECT_EQ(1, weekDate("1920-01-01"));
+  EXPECT_EQ(1, weekDate("1920-01-04"));
+  EXPECT_EQ(2, weekDate("1920-01-05"));
+  EXPECT_EQ(53, weekDate("1960-01-01"));
+  EXPECT_EQ(53, weekDate("1960-01-03"));
+  EXPECT_EQ(1, weekDate("1960-01-04"));
+  EXPECT_EQ(1, weekDate("1969-12-31"));
+  EXPECT_EQ(1, weekDate("1970-01-01"));
+  EXPECT_EQ(1, weekDate("0001-01-01"));
+  EXPECT_EQ(52, weekDate("9999-12-31"));
+}
+
+TEST_F(DateTimeFunctionsTest, week) {
+  const auto weekTimestamp = [&](const char* time) {
+    auto timestampInSeconds = util::fromTimeString(time) / 1'000'000;
+    auto timestamp =
+        std::make_optional(Timestamp(timestampInSeconds * 100'000'000, 0));
+    auto week = evaluateOnce<int64_t>("week(c0)", timestamp).value();
+    auto weekOfYear =
+        evaluateOnce<int64_t>("week_of_year(c0)", timestamp).value();
+    VELOX_CHECK_EQ(
+        week, weekOfYear, "week and week_of_year must return the same value");
+    return week;
+  };
+
+  EXPECT_EQ(1, weekTimestamp("00:00:00"));
+  EXPECT_EQ(10, weekTimestamp("11:59:59"));
+  EXPECT_EQ(51, weekTimestamp("06:01:01"));
+  EXPECT_EQ(24, weekTimestamp("06:59:59"));
+  EXPECT_EQ(27, weekTimestamp("12:00:01"));
+  EXPECT_EQ(7, weekTimestamp("12:59:59"));
+}
+
+TEST_F(DateTimeFunctionsTest, weekTimestampWithTimezone) {
+  const auto weekTimestampTimezone = [&](const char* time,
+                                         const char* timezone) {
+    auto timestampInSeconds = util::fromTimeString(time) / 1'000'000;
+    auto timestamp = timestampInSeconds * 100'000'000;
+    auto week = evaluateWithTimestampWithTimezone<int64_t>(
+                    "week(c0)", timestamp, timezone)
+                    .value();
+    auto weekOfYear = evaluateWithTimestampWithTimezone<int64_t>(
+                          "week_of_year(c0)", timestamp, timezone)
+                          .value();
+    VELOX_CHECK_EQ(
+        week, weekOfYear, "week and week_of_year must return the same value");
+    return week;
+  };
+
+  EXPECT_EQ(1, weekTimestampTimezone("00:00:00", "-12:00"));
+  EXPECT_EQ(1, weekTimestampTimezone("00:00:00", "+12:00"));
+  EXPECT_EQ(47, weekTimestampTimezone("11:59:59", "-12:00"));
+  EXPECT_EQ(47, weekTimestampTimezone("11:59:59", "+12:00"));
+  EXPECT_EQ(33, weekTimestampTimezone("06:01:01", "-12:00"));
+  EXPECT_EQ(34, weekTimestampTimezone("06:01:01", "+12:00"));
+  EXPECT_EQ(47, weekTimestampTimezone("12:00:01", "-12:00"));
+  EXPECT_EQ(47, weekTimestampTimezone("12:00:01", "+12:00"));
 }
 
 TEST_F(DateTimeFunctionsTest, quarter) {
@@ -1393,12 +1469,6 @@ TEST_F(DateTimeFunctionsTest, dateAddDate) {
         fmt::format("date_add('{}', c0, c1)", unit), value, date);
   };
 
-  const auto parseDate = [&](const std::string& strDate) -> Date {
-    Date result;
-    parseTo(strDate, result);
-    return result;
-  };
-
   // Check null behaviors
   EXPECT_EQ(std::nullopt, dateAdd("day", 1, std::nullopt));
   EXPECT_EQ(std::nullopt, dateAdd("month", std::nullopt, Date(0)));
@@ -1730,12 +1800,6 @@ TEST_F(DateTimeFunctionsTest, dateDiffDate) {
                             std::optional<Date> date2) {
     return evaluateOnce<int64_t>(
         fmt::format("date_diff('{}', c0, c1)", unit), date1, date2);
-  };
-
-  const auto parseDate = [&](const std::string& strDate) -> Date {
-    Date result;
-    parseTo(strDate, result);
-    return result;
   };
 
   // Check null behaviors

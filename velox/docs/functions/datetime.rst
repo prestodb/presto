@@ -193,6 +193,15 @@ These functions support TIMESTAMP, DATE, and TIMESTAMP WITH TIME ZONE input type
 
     Returns the second of the minute from ``x``.
 
+.. function:: week(x) -> bigint
+
+    Returns the `ISO-Week`_ of the year from x. The value ranges from ``1`` to ``53``.
+    .. _ISO-Week: https://en.wikipedia.org/wiki/ISO_week_date
+
+.. function:: week_of_year(x) -> bigint
+
+    This is an alias for ``week()``.
+
 .. function:: year(x) -> bigint
 
     Returns the year from ``x``.
