@@ -148,15 +148,16 @@ class MemoryUsageTracker
   }
 
   int64_t maxMemory() const {
-    return maxMemory_;
+    return parent_ != nullptr ? parent_->maxMemory() : maxMemory_;
   }
 
-  virtual std::shared_ptr<MemoryUsageTracker> addChild(
-      int64_t maxMemory = kMaxMemory) {
-    return create(shared_from_this(), maxMemory);
+  virtual std::shared_ptr<MemoryUsageTracker> addChild() {
+    return create(shared_from_this());
   }
 
   void setGrowCallback(GrowCallback func) {
+    VELOX_CHECK_NULL(
+        parent_, "Only root tracker allows to set memory grow callback");
     growCallback_ = func;
   }
 
@@ -175,12 +176,15 @@ class MemoryUsageTracker
 
   static std::shared_ptr<MemoryUsageTracker> create(
       const std::shared_ptr<MemoryUsageTracker>& parent,
-      int64_t maxMemory);
+      int64_t maxMemory = kMaxMemory);
 
   MemoryUsageTracker(
       const std::shared_ptr<MemoryUsageTracker>& parent,
       int64_t maxMemory)
-      : parent_(parent), maxMemory_{maxMemory} {}
+      : parent_(parent), maxMemory_{maxMemory} {
+    // NOTE: only the root memory tracker enforces the memory limit check.
+    VELOX_CHECK(parent_ == nullptr || maxMemory_ == kMaxMemory);
+  }
 
   void maybeUpdatePeakBytes(int64_t newPeak);
 

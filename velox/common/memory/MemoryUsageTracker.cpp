@@ -134,7 +134,7 @@ void MemoryUsageTracker::incrementUsage(int64_t size) {
   const auto newUsage =
       currentBytes_.fetch_add(size, std::memory_order_relaxed) + size;
   // Enforce the limit.
-  if (newUsage > maxMemory_) {
+  if (parent_ == nullptr && newUsage > maxMemory_) {
     if ((growCallback_ == nullptr) || !growCallback_(size, *this)) {
       // Exceeded the limit.  revert the change to current usage.
       decrementUsage(size);

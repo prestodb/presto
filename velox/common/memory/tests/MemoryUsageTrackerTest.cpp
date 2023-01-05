@@ -28,7 +28,7 @@ TEST(MemoryUsageTrackerTest, constructor) {
   auto tracker = MemoryUsageTracker::create();
   trackers.push_back(tracker);
   trackers.push_back(tracker->addChild());
-  trackers.push_back(tracker->addChild(true));
+  trackers.push_back(tracker->addChild());
 
   for (unsigned i = 0; i < trackers.size(); ++i) {
     EXPECT_EQ(0, trackers[i]->currentBytes());
@@ -224,22 +224,26 @@ TEST(MemoryUsageTrackerTest, grow) {
   auto child = parent->addChild();
   child->testingUpdateMaxMemory(5 * kMB);
   int64_t parentLimit = 100 * kMB;
-  int64_t childLimit = 150 * kMB;
   parent->setGrowCallback([&](int64_t size, MemoryUsageTracker& tracker) {
     return grow(size, parentLimit, tracker);
   });
-  child->setGrowCallback([&](int64_t size, MemoryUsageTracker& tracker) {
-    return grow(size, childLimit, tracker);
-  });
+  int64_t childLimit = 150 * kMB;
+  ASSERT_THROW(
+      child->setGrowCallback([&](int64_t size, MemoryUsageTracker& tracker) {
+        return grow(size, childLimit, tracker);
+      }),
+      VeloxRuntimeError);
 
   child->update(10 * kMB);
-  EXPECT_EQ(10 * kMB, parent->currentBytes());
-  EXPECT_EQ(10 * kMB, child->maxMemory());
-  EXPECT_THROW(child->update(100 * kMB), VeloxRuntimeError);
-  EXPECT_EQ(10 * kMB, child->currentBytes());
+  ASSERT_EQ(parent->currentBytes(), 10 * kMB);
+  ASSERT_EQ(child->maxMemory(), 10 * kMB);
+  ASSERT_THROW(child->update(100 * kMB), VeloxRuntimeError);
+  ASSERT_EQ(child->currentBytes(), 10 * kMB);
   // The parent failed to increase limit, the child'd limit should be unchanged.
-  EXPECT_EQ(10 * kMB, child->maxMemory());
-  EXPECT_EQ(10 * kMB, parent->maxMemory());
+  ASSERT_EQ(child->maxMemory(), 10 * kMB);
+  ASSERT_EQ(parent->maxMemory(), 10 * kMB);
+  ASSERT_THROW(child->update(100 * kMB);, VeloxException);
+  ASSERT_EQ(child->currentBytes(), 10 * kMB);
 
   // We pass the parent limit but fail te child limit. leaves a raised
   // limit on the parent. Rolling back the increment of parent limit
@@ -247,14 +251,14 @@ TEST(MemoryUsageTrackerTest, grow) {
   // time. Lowering a tracker's limits requires stopping the threads
   // that may be using the tracker.  Expected uses have one level of
   // trackers with a limit but we cover this for documentation.
-  parentLimit = 200 * kMB;
-  EXPECT_THROW(child->update(160 * kMB);, VeloxException);
-  EXPECT_EQ(10 * kMB, parent->currentBytes());
-  EXPECT_EQ(10 * kMB, child->currentBytes());
-  // The child limit could not be raised.
-  EXPECT_EQ(10 * kMB, child->maxMemory());
-  // The parent limit got set to 170, rounded up to 176
-  EXPECT_EQ(176 * kMB, parent->maxMemory());
+  parentLimit = 176 * kMB;
+  child->update(160 * kMB);
+  ASSERT_EQ(child->currentBytes(), 170 * kMB);
+  ASSERT_EQ(child->reservedBytes(), 176 * kMB);
+  ASSERT_EQ(parent->currentBytes(), 176 * kMB);
+  // The parent limit got set to 170, rounded up to 176.
+  ASSERT_EQ(parent->maxMemory(), parentLimit);
+  ASSERT_EQ(child->maxMemory(), parentLimit);
 }
 
 TEST(MemoryUsageTrackerTest, maybeReserve) {
