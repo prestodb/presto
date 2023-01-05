@@ -141,9 +141,9 @@ void HashBuild::setupTable() {
          joinNode_->isLeftSemiProjectJoin() || isAntiJoin(joinType_));
     // Right semi join needs to tag build rows that were probed.
     const bool needProbedFlag = joinNode_->isRightSemiFilterJoin();
-    if (isNullAwareAntiJoinWithFilter(joinNode_)) {
+    if (isLeftNullAwareJoinWithFilter(joinNode_)) {
       // We need to check null key rows in build side in case of null-aware anti
-      // join with filter set.
+      // or left semi project join with filter set.
       table_ = HashTable<false>::createForJoin(
           std::move(keyHashers),
           dependentTypes,
@@ -296,7 +296,7 @@ void HashBuild::addInput(RowVectorPtr input) {
 
   if (!isRightJoin(joinType_) && !isFullJoin(joinType_) &&
       !isRightSemiProjectJoin(joinType_) &&
-      !isNullAwareAntiJoinWithFilter(joinNode_)) {
+      !isLeftNullAwareJoinWithFilter(joinNode_)) {
     deselectRowsWithNulls(hashers, activeRows_);
   }
 

@@ -130,7 +130,8 @@ class HashJoinBridge : public JoinBridge {
   SpillPartitionSet spillPartitionSets_;
 };
 
-// Indicates if 'joinNode' is null-aware anti-join type and has filter set.
-bool isNullAwareAntiJoinWithFilter(
+// Indicates if 'joinNode' is null-aware anti or left semi project join type and
+// has filter set.
+bool isLeftNullAwareJoinWithFilter(
     const std::shared_ptr<const core::HashJoinNode>& joinNode);
 } // namespace facebook::velox::exec

@@ -178,7 +178,7 @@ HashProbe::HashProbe(
     isIdentityProjection_ = true;
   }
 
-  if (isAntiJoin(joinType_) && nullAware_) {
+  if (nullAware_) {
     filterTableResult_.resize(1);
   }
 }
@@ -213,7 +213,7 @@ void HashProbe::initializeFilter(
       filterTableProjections_.emplace_back(channelValue, filterChannel);
       names.emplace_back(tableType->nameOf(channelValue));
       types.emplace_back(tableType->childAt(channelValue));
-      if (isAntiJoin(joinType_) && nullAware_) {
+      if (nullAware_) {
         filterTableProjectionMap_[channelValue] = filterChannel;
       }
       ++filterChannel;
@@ -653,25 +653,32 @@ void HashProbe::fillLeftSemiProjectMatchColumn(vector_size_t size) {
     flatMatch->resize(size);
     auto rawValues = flatMatch->mutableRawValues<uint64_t>();
     for (auto i = 0; i < size; ++i) {
-      if (!nonNullInputRows_.isValid(i)) {
-        // Probe key is null.
-        if (nullAware_) {
-          flatMatch->setNull(i, true);
-        } else {
-          bits::setBit(rawValues, i, false);
-        }
-      } else {
-        // Probe key is not null.
-        bool hasMatch = outputTableRows_[i] != nullptr;
-        if (nullAware_ && buildSideHasNullKeys_) {
-          if (!hasMatch) {
+      if (nullAware_) {
+        // Null-aware join may produce TRUE, FALSE or NULL.
+        if (filter_) {
+          if (leftSemiProjectIsNull_.isValid(i)) {
             flatMatch->setNull(i, true);
           } else {
-            bits::setBit(rawValues, i, true);
+            bool hasMatch = outputTableRows_[i] != nullptr;
+            bits::setBit(rawValues, i, hasMatch);
           }
         } else {
-          bits::setBit(rawValues, i, hasMatch);
+          if (!nonNullInputRows_.isValid(i)) {
+            // Probe key is null.
+            flatMatch->setNull(i, true);
+          } else {
+            // Probe key is not null.
+            bool hasMatch = outputTableRows_[i] != nullptr;
+            if (!hasMatch && buildSideHasNullKeys_) {
+              flatMatch->setNull(i, true);
+            } else {
+              bits::setBit(rawValues, i, hasMatch);
+            }
+          }
         }
+      } else {
+        bool hasMatch = outputTableRows_[i] != nullptr;
+        bits::setBit(rawValues, i, hasMatch);
       }
     }
   }
@@ -970,7 +977,7 @@ void HashProbe::fillFilterInput(vector_size_t size) {
       filterInput_);
 }
 
-void HashProbe::prepareFilterRowsForNullAwareAntiJoin(
+void HashProbe::prepareFilterRowsForNullAwareJoin(
     vector_size_t numRows,
     bool filterPropagateNulls) {
   VELOX_CHECK_LE(numRows, kBatchSize);
@@ -999,19 +1006,23 @@ void HashProbe::prepareFilterRowsForNullAwareAntiJoin(
 
   // NOTE: for null-aware anti join, we will skip filtering on the probe rows
   // with null join key columns(s) as we can apply filtering after they cross
-  // join with the table rows later.g
+  // join with the table rows later.
   if (!nonNullInputRows_.isAllSelected()) {
     auto* rawMapping = outputRowMapping_->asMutable<vector_size_t>();
     for (int i = 0; i < numRows; ++i) {
-      filterInputRows_.setValid(i, nonNullInputRows_.isValid(rawMapping[i]));
+      if (filterInputRows_.isValid(i) &&
+          !nonNullInputRows_.isValid(rawMapping[i])) {
+        filterInputRows_.setValid(i, false);
+      }
     }
     filterInputRows_.updateBounds();
   }
 }
 
-void HashProbe::applyFilterOnTableRowsForNullAwareAntiJoin(
-    SelectivityVector& rows,
-    bool nullKeyRowsOnly) {
+void HashProbe::applyFilterOnTableRowsForNullAwareJoin(
+    const SelectivityVector& rows,
+    bool nullKeyRowsOnly,
+    SelectivityVector& filterPassedRows) {
   if (!rows.hasSelections()) {
     return;
   }
@@ -1082,21 +1093,30 @@ void HashProbe::applyFilterOnTableRowsForNullAwareAntiJoin(
                 !decodedFilterTableResult_.valueAt<bool>(j);
           });
       if (passed) {
-        rows.setValid(row, false);
+        filterPassedRows.setValid(row, true);
       }
     });
   }
-  rows.updateBounds();
+
+  filterPassedRows.updateBounds();
 }
 
-vector_size_t HashProbe::evalFilterForNullAwareAntiJoin(
+SelectivityVector HashProbe::evalFilterForNullAwareJoin(
     vector_size_t numRows,
     const bool filterPropagateNulls) {
   auto* rawOutputProbeRowMapping =
       outputRowMapping_->asMutable<vector_size_t>();
 
-  SelectivityVector filterPassedRows(numRows, false);
+  // Subset of probe-side rows with a match that passed the filter.
+  SelectivityVector filterPassedRows(input_->size(), false);
+
+  // Subset of probe-side rows with non-null probe key and either no match or no
+  // match that passed the filter. We need to combine these with all build-side
+  // rows with null keys to see if a filter passes on any of these.
   SelectivityVector nullKeyProbeRows(input_->size(), false);
+
+  // Subset of probe-sie rows with null probe key. We need to combine these with
+  // all build-side rows to see if a filter passes on any of these.
   SelectivityVector crossJoinProbeRows(input_->size(), false);
 
   for (auto i = 0; i < numRows; ++i) {
@@ -1108,7 +1128,7 @@ vector_size_t HashProbe::evalFilterForNullAwareAntiJoin(
     const auto probeRow = rawOutputProbeRowMapping[i];
     if (nonNullInputRows_.isValid(probeRow)) {
       if (filterPassed(i)) {
-        filterPassedRows.setValid(i, true);
+        filterPassedRows.setValid(probeRow, true);
       } else {
         nullKeyProbeRows.setValid(probeRow, true);
       }
@@ -1116,45 +1136,23 @@ vector_size_t HashProbe::evalFilterForNullAwareAntiJoin(
       crossJoinProbeRows.setValid(probeRow, true);
     }
   }
+  filterPassedRows.updateBounds();
+  nullKeyProbeRows.updateBounds();
+  crossJoinProbeRows.updateBounds();
 
   // Skip filtering on the probe rows which have passed the filter on any one of
   // its matched row with the build side.
-  filterPassedRows.updateBounds();
-  filterPassedRows.applyToSelected([&](vector_size_t row) {
-    auto probeRow = rawOutputProbeRowMapping[row];
-    nullKeyProbeRows.setValid(probeRow, false);
-    crossJoinProbeRows.setValid(probeRow, false);
-  });
+  nullKeyProbeRows.deselect(filterPassedRows);
+  crossJoinProbeRows.deselect(filterPassedRows);
 
-  // TODO: consider to combine the two filter processes into one to avoid scan
-  // the table rows twice.
-  nullKeyProbeRows.updateBounds();
-  applyFilterOnTableRowsForNullAwareAntiJoin(nullKeyProbeRows, true);
+  // TODO: consider to combine the two filter processes into one to avoid
+  // scanning the build table twice.
+  applyFilterOnTableRowsForNullAwareJoin(
+      nullKeyProbeRows, true, filterPassedRows);
+  applyFilterOnTableRowsForNullAwareJoin(
+      crossJoinProbeRows, false, filterPassedRows);
 
-  crossJoinProbeRows.updateBounds();
-  applyFilterOnTableRowsForNullAwareAntiJoin(crossJoinProbeRows, false);
-
-  vector_size_t numPassed = 0;
-  auto addMiss = [&](auto row) {
-    outputTableRows_[numPassed] = nullptr;
-    rawOutputProbeRowMapping[numPassed++] = row;
-  };
-  for (auto i = 0; i < numRows; ++i) {
-    auto probeRow = rawOutputProbeRowMapping[i];
-    bool passed;
-    if (filterPropagateNulls && nullFilterInputRows_.isValid(i)) {
-      passed = false;
-    } else if (nonNullInputRows_.isValid(probeRow)) {
-      passed = filterPassed(i) || !nullKeyProbeRows.isValid(probeRow);
-    } else {
-      passed = !crossJoinProbeRows.isValid(probeRow);
-    }
-    noMatchDetector_.advance(probeRow, passed, addMiss);
-  }
-  if (results_.atEnd()) {
-    noMatchDetector_.finish(addMiss);
-  }
-  return numPassed;
+  return filterPassedRows;
 }
 
 int32_t HashProbe::evalFilter(int32_t numRows) {
@@ -1168,28 +1166,24 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
 
   filterInputRows_.resizeFill(numRows);
 
-  // For anti join, do not evaluate filter on rows without a match. Evaluating
-  // filter on rows without a match may trigger errors in filter evaluation and
-  // fail the query unnecessarily.
-  //
+  // Do not evaluate filter on rows with no match to (1) avoid
+  // false-positives when filter evaluates to true for rows with NULLs on the
+  // build side; (2) avoid errors in filter evaluation that would fail the query
+  // unnecessarily.
   // TODO Apply the same to left joins.
-  if (isAntiJoin(joinType_) && !nullAware_) {
+  if (isAntiJoin(joinType_) || isLeftSemiProjectJoin(joinType_)) {
     for (auto i = 0; i < numRows; ++i) {
       if (outputTableRows_[i] == nullptr) {
         filterInputRows_.setValid(i, false);
       }
     }
     filterInputRows_.updateBounds();
-    if (!filterInputRows_.hasSelections()) {
-      // No row has a match. No need to evaluate the filter.
-      return numRows;
-    }
   }
 
   fillFilterInput(numRows);
 
-  if (isAntiJoin(joinType_) && nullAware_) {
-    prepareFilterRowsForNullAwareAntiJoin(numRows, filterPropagateNulls);
+  if (nullAware_) {
+    prepareFilterRowsForNullAwareJoin(numRows, filterPropagateNulls);
   }
 
   EvalCtx evalCtx(operatorCtx_->execCtx(), filter_.get(), filterInput_.get());
@@ -1231,39 +1225,77 @@ int32_t HashProbe::evalFilter(int32_t numRows) {
       leftSemiFilterJoinTracker_.finish(addLastMatch);
     }
   } else if (isLeftSemiProjectJoin(joinType_)) {
-    auto addLast = [&](auto row, bool passed) {
-      // NOTE: Set output table row to point to a fake string to indicate there
-      // is a match for this probe 'row'. 'fillOutput' populates the match
-      // column based on the nullable of this pointer.
-      static const char* kPassed = "passed";
+    // NOTE: Set output table row to point to a fake string to indicate there
+    // is a match for this probe 'row'. 'fillOutput' populates the match
+    // column based on the nullable of this pointer.
+    static const char* kPassed = "passed";
 
-      outputTableRows_[numPassed] =
-          passed ? const_cast<char*>(kPassed) : nullptr;
-      rawOutputProbeRowMapping[numPassed++] = row;
-    };
-    for (auto i = 0; i < numRows; ++i) {
-      leftSemiProjectJoinTracker_.advance(
-          rawOutputProbeRowMapping[i], filterPassed(i), addLast);
-    }
-    if (results_.atEnd()) {
-      leftSemiProjectJoinTracker_.finish(addLast);
-    }
-  } else if (isAntiJoin(joinType_)) {
     if (nullAware_) {
-      numPassed = evalFilterForNullAwareAntiJoin(numRows, filterPropagateNulls);
+      leftSemiProjectIsNull_.resize(numRows);
+      leftSemiProjectIsNull_.clearAll();
+
+      auto addLast = [&](auto row, std::optional<bool> passed) {
+        if (passed.has_value()) {
+          outputTableRows_[numPassed] =
+              passed.value() ? const_cast<char*>(kPassed) : nullptr;
+        } else {
+          leftSemiProjectIsNull_.setValid(numPassed, true);
+        }
+        rawOutputProbeRowMapping[numPassed++] = row;
+      };
+
+      auto passedRows =
+          evalFilterForNullAwareJoin(numRows, filterPropagateNulls);
+      for (auto i = 0; i < numRows; ++i) {
+        // filterPassed(i) -> TRUE
+        // else passed -> NULL
+        // else FALSE
+        auto probeRow = rawOutputProbeRowMapping[i];
+        std::optional<bool> passed = filterPassed(i)
+            ? std::optional(true)
+            : (passedRows.isValid(probeRow) ? std::nullopt
+                                            : std::optional(false));
+        leftSemiProjectJoinTracker_.advance(probeRow, passed, addLast);
+      }
+      leftSemiProjectIsNull_.updateBounds();
+      if (results_.atEnd()) {
+        leftSemiProjectJoinTracker_.finish(addLast);
+      }
     } else {
-      auto addMiss = [&](auto row) {
-        outputTableRows_[numPassed] = nullptr;
+      auto addLast = [&](auto row, std::optional<bool> passed) {
+        outputTableRows_[numPassed] =
+            passed.value() ? const_cast<char*>(kPassed) : nullptr;
         rawOutputProbeRowMapping[numPassed++] = row;
       };
       for (auto i = 0; i < numRows; ++i) {
-        auto probeRow = rawOutputProbeRowMapping[i];
-        bool passed = filterInputRows_.isValid(i) && filterPassed(i);
-        noMatchDetector_.advance(probeRow, passed, addMiss);
+        leftSemiProjectJoinTracker_.advance(
+            rawOutputProbeRowMapping[i], filterPassed(i), addLast);
       }
       if (results_.atEnd()) {
-        noMatchDetector_.finish(addMiss);
+        leftSemiProjectJoinTracker_.finish(addLast);
       }
+    }
+  } else if (isAntiJoin(joinType_)) {
+    auto addMiss = [&](auto row) {
+      outputTableRows_[numPassed] = nullptr;
+      rawOutputProbeRowMapping[numPassed++] = row;
+    };
+    if (nullAware_) {
+      auto passedRows =
+          evalFilterForNullAwareJoin(numRows, filterPropagateNulls);
+      for (auto i = 0; i < numRows; ++i) {
+        auto probeRow = rawOutputProbeRowMapping[i];
+        bool passed = passedRows.isValid(probeRow);
+        noMatchDetector_.advance(probeRow, passed, addMiss);
+      }
+    } else {
+      for (auto i = 0; i < numRows; ++i) {
+        auto probeRow = rawOutputProbeRowMapping[i];
+        noMatchDetector_.advance(probeRow, filterPassed(i), addMiss);
+      }
+    }
+    if (results_.atEnd()) {
+      noMatchDetector_.finish(addMiss);
     }
   } else {
     for (auto i = 0; i < numRows; ++i) {

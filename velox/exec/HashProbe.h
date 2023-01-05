@@ -140,31 +140,35 @@ class HashProbe : public Operator {
   vector_size_t evalFilter(vector_size_t numRows);
 
   inline bool filterPassed(vector_size_t row) {
-    return !decodedFilterResult_.isNullAt(row) &&
+    return filterInputRows_.isValid(row) &&
+        !decodedFilterResult_.isNullAt(row) &&
         decodedFilterResult_.valueAt<bool>(row);
   }
 
   // Populate filter input columns.
   void fillFilterInput(vector_size_t size);
 
-  // Prepare filter row selectivity for null-aware anti join. 'numRows'
+  // Prepare filter row selectivity for null-aware join. 'numRows'
   // specifies the number of rows in 'filterInputRows_' to process. If
   // 'filterPropagateNulls' is true, the probe input row which has null in any
   // probe filter column can't pass the filter.
-  void prepareFilterRowsForNullAwareAntiJoin(
+  void prepareFilterRowsForNullAwareJoin(
       vector_size_t numRows,
       bool filterPropagateNulls);
 
-  vector_size_t evalFilterForNullAwareAntiJoin(
+  // Evaluate the filter for null-aware anti or left semi project join.
+  SelectivityVector evalFilterForNullAwareJoin(
       vector_size_t numRows,
       bool filterPropagateNulls);
 
-  // Apply the filter on table rows joined with selected 'rows' from probe
-  // input for null-aware anti-join processing. Only keep the rows not passing
-  // the filter in 'rows'.
-  void applyFilterOnTableRowsForNullAwareAntiJoin(
-      SelectivityVector& rows,
-      bool nullKeyRowsOnly);
+  // Combine the selected probe-side rows with all (nullKeyRowsOnly = false) or
+  // null-join-key (nullKeyRowsOnly = true) build side rows and evaluate the
+  // filter. Mark probe rows that pass the filter in 'filterPassedRows'. Used in
+  // null-aware join processing.
+  void applyFilterOnTableRowsForNullAwareJoin(
+      const SelectivityVector& rows,
+      bool nullKeyRowsOnly,
+      SelectivityVector& filterPassedRows);
 
   void ensureLoadedIfNotAtEnd(column_index_t channel);
 
@@ -373,6 +377,10 @@ class HashProbe : public Operator {
   // Rows of table found by join probe, later filtered by 'filter_'.
   std::vector<char*> outputTableRows_;
 
+  // Indicates probe-side rows which should produce a NULL in left semi project
+  // with filter.
+  SelectivityVector leftSemiProjectIsNull_;
+
   // Tracks probe side rows which had one or more matches on the build side, but
   // didn't pass the filter.
   class NoMatchDetector {
@@ -453,16 +461,23 @@ class HashProbe : public Operator {
     // Expects that probe side rows with multiple matches are next to each
     // other. Calls onLast just once for each probe side row.
     template <typename TOnLast>
-    void advance(vector_size_t row, bool passed, TOnLast onLast) {
+    void
+    advance(vector_size_t row, std::optional<bool> passed, TOnLast onLast) {
       if (currentRow != row) {
         if (currentRow != -1) {
           onLast(currentRow, currentRowPassed);
         }
         currentRow = row;
-        currentRowPassed = false;
+        currentRowPassed = std::nullopt;
       }
 
-      currentRowPassed |= passed;
+      if (passed.has_value()) {
+        if (currentRowPassed.has_value()) {
+          currentRowPassed = currentRowPassed.value() | passed.value();
+        } else {
+          currentRowPassed = passed;
+        }
+      }
     }
 
     // Called when all rows from the current input batch were processed. Calls
@@ -474,7 +489,7 @@ class HashProbe : public Operator {
       }
 
       currentRow = -1;
-      currentRowPassed = false;
+      currentRowPassed = std::nullopt;
     }
 
    private:
@@ -482,7 +497,7 @@ class HashProbe : public Operator {
     vector_size_t currentRow{-1};
 
     // True if currentRow has a match.
-    bool currentRowPassed{false};
+    std::optional<bool> currentRowPassed;
   };
 
   BaseHashTable::RowsIterator lastProbeIterator_;
