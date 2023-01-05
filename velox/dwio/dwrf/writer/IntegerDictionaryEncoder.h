@@ -115,7 +115,7 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
             17,
             folly::transparent<DictIntegerHash<Integer>>(*this),
             folly::transparent<DictIntegerEquality<Integer>>(*this),
-            memory::Allocator<DictIntegerId<Integer>>{generalPool_}},
+            memory::StlAllocator<DictIntegerId<Integer>>{generalPool_}},
         keys_{dictionaryDataPool},
         counts_{dictionaryDataPool},
         totalCount_{0},
@@ -304,7 +304,7 @@ class IntegerDictionaryEncoder : public AbstractIntegerDictionaryEncoder {
       DictIntegerId<Integer>,
       folly::transparent<DictIntegerHash<Integer>>,
       folly::transparent<DictIntegerEquality<Integer>>,
-      memory::Allocator<DictIntegerId<Integer>>>
+      memory::StlAllocator<DictIntegerId<Integer>>>
       keyIndex_;
   // key index -> key.
   dwio::common::DataBuffer<Integer> keys_;

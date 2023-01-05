@@ -106,7 +106,7 @@ class Spiller {
     int32_t testSpillPct;
   };
 
-  using SpillRows = std::vector<char*, memory::StlMemoryAllocator<char*>>;
+  using SpillRows = std::vector<char*, memory::StlAllocator<char*>>;
 
   // The constructor without specifying hash bits which will only use one
   // partition by default. It is only used by kOrderBy spiller type as for now.
@@ -326,8 +326,8 @@ class Spiller {
   // goes empty this is refilled from the RowContainer for the next
   // spill run from the same partition.
   struct SpillRun {
-    explicit SpillRun(memory::MemoryAllocator& MemoryAllocator)
-        : rows(0, memory::StlMemoryAllocator<char*>(&MemoryAllocator)) {}
+    explicit SpillRun(memory::MemoryPool& pool)
+        : rows(0, memory::StlAllocator<char*>(pool)) {}
     // Spillable rows from the RowContainer.
     SpillRows rows;
     // The total byte size of rows referenced from 'rows'.
@@ -400,9 +400,6 @@ class Spiller {
   // based on the spiller type. As for now, we need to sort spill data for any
   // non hash join types of spilling.
   bool needSort() const;
-
-  // Invoked when finish spill
-  void recordStats();
 
   const Type type_;
   // NOTE: for hash join probe type, there is no associated row container for

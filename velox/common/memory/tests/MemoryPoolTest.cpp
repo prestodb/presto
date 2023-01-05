@@ -795,7 +795,7 @@ TEST_P(MemoryPoolTest, getPreferredSizeOverflow) {
 TEST_P(MemoryPoolTest, allocatorOverflow) {
   MemoryManager manager;
   auto& pool = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
-  Allocator<int64_t> alloc(pool);
+  StlAllocator<int64_t> alloc(pool);
   EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
   EXPECT_THROW(alloc.deallocate(nullptr, 1ULL << 62), VeloxException);
 }

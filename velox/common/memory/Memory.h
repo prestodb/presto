@@ -506,17 +506,17 @@ IMemoryManager& getProcessDefaultMemoryManager();
 /// set to the input value provided.
 std::shared_ptr<MemoryPool> getDefaultMemoryPool(int64_t cap = kMaxMemory);
 
-/// Allocator that uses passed in memory pool to allocate memory.
+/// An Allocator backed by a memory pool for STL containers.
 template <typename T>
-class Allocator {
+class StlAllocator {
  public:
   typedef T value_type;
   MemoryPool& pool;
 
-  /* implicit */ Allocator(MemoryPool& pool) : pool{pool} {}
+  /* implicit */ StlAllocator(MemoryPool& pool) : pool{pool} {}
 
   template <typename U>
-  /* implicit */ Allocator(const Allocator<U>& a) : pool{a.pool} {}
+  /* implicit */ StlAllocator(const StlAllocator<U>& a) : pool{a.pool} {}
 
   T* FOLLY_NULLABLE allocate(size_t n) {
     return static_cast<T*>(pool.allocate(checkedMultiply(n, sizeof(T))));
@@ -527,7 +527,7 @@ class Allocator {
   }
 
   template <typename T1>
-  bool operator==(const Allocator<T1>& rhs) const {
+  bool operator==(const StlAllocator<T1>& rhs) const {
     if constexpr (std::is_same_v<T, T1>) {
       return &this->pool == &rhs.pool;
     }
@@ -535,7 +535,7 @@ class Allocator {
   }
 
   template <typename T1>
-  bool operator!=(const Allocator<T1>& rhs) const {
+  bool operator!=(const StlAllocator<T1>& rhs) const {
     return !(*this == rhs);
   }
 };

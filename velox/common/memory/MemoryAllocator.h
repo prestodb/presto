@@ -539,49 +539,4 @@ class MemoryAllocator : public std::enable_shared_from_this<MemoryAllocator> {
   // returned by getInstance().
   static MemoryAllocator* FOLLY_NULLABLE customInstance_;
 };
-
-/// An Allocator backed by MemoryAllocator for STL containers.
-template <class T>
-struct StlMemoryAllocator {
-  using value_type = T;
-
-  explicit StlMemoryAllocator(MemoryAllocator* FOLLY_NONNULL allocator)
-      : allocator_{allocator} {
-    VELOX_CHECK_NOT_NULL(allocator_);
-  }
-
-  template <class U>
-  explicit StlMemoryAllocator(const StlMemoryAllocator<U>& allocator)
-      : allocator_{allocator.allocator()} {
-    VELOX_CHECK_NOT_NULL(allocator_);
-  }
-
-  T* FOLLY_NONNULL allocate(std::size_t n) {
-    return reinterpret_cast<T*>(
-        allocator_->allocateBytes(checkedMultiply(n, sizeof(T))));
-  }
-
-  void deallocate(T* FOLLY_NONNULL p, std::size_t n) {
-    allocator_->freeBytes(p, checkedMultiply(n, sizeof(T)));
-  }
-
-  MemoryAllocator* FOLLY_NONNULL allocator() const {
-    return allocator_;
-  }
-
-  friend bool operator==(
-      const StlMemoryAllocator& lhs,
-      const StlMemoryAllocator& rhs) {
-    return lhs.allocator_ == rhs.allocator_;
-  }
-  friend bool operator!=(
-      const StlMemoryAllocator& lhs,
-      const StlMemoryAllocator& rhs) {
-    return !(lhs == rhs);
-  }
-
- private:
-  MemoryAllocator* FOLLY_NONNULL const allocator_;
-};
-
 } // namespace facebook::velox::memory

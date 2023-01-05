@@ -975,8 +975,8 @@ TEST_P(MemoryAllocatorTest, allocateZeroFilled) {
 
 TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
   {
-    std::vector<double, StlMemoryAllocator<double>> data(
-        0, StlMemoryAllocator<double>(instance_));
+    std::vector<double, StlAllocator<double>> data(
+        0, StlAllocator<double>(*pool_));
     // The contiguous size goes to 2MB, covering malloc, size
     // Allocation from classes and ContiguousAllocation outside size
     // classes.
@@ -997,7 +997,7 @@ TEST_P(MemoryAllocatorTest, StlMemoryAllocator) {
   EXPECT_EQ(0, instance_->numAllocated());
   EXPECT_TRUE(instance_->checkConsistency());
   {
-    StlMemoryAllocator<int64_t> alloc(instance_);
+    StlAllocator<int64_t> alloc(*pool_);
     EXPECT_THROW(alloc.allocate(1ULL << 62), VeloxException);
     auto p = alloc.allocate(1);
     EXPECT_THROW(alloc.deallocate(p, 1ULL << 62), VeloxException);
