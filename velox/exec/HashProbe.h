@@ -473,7 +473,7 @@ class HashProbe : public Operator {
 
       if (passed.has_value()) {
         if (currentRowPassed.has_value()) {
-          currentRowPassed = currentRowPassed.value() | passed.value();
+          currentRowPassed = currentRowPassed.value() || passed.value();
         } else {
           currentRowPassed = passed;
         }
