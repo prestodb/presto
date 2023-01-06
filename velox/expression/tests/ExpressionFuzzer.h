@@ -18,6 +18,7 @@
 
 #include "velox/core/ITypedExpr.h"
 #include "velox/core/QueryCtx.h"
+#include "velox/expression/Expr.h"
 #include "velox/expression/tests/ExpressionVerifier.h"
 #include "velox/expression/tests/FuzzerToolkit.h"
 #include "velox/functions/FunctionRegistry.h"
@@ -48,6 +49,44 @@ class ExpressionFuzzer {
   core::TypedExprPtr generateExpression(const TypePtr& returnType);
 
  private:
+  struct ExprUsageStats {
+    // Num of times the expression was randomly selected.
+    int numTimesSelected = 0;
+    // Num of rows processed by the expression.
+    int numProcessedRows = 0;
+  };
+
+  // A utility class used to keep track of stats relevant to the fuzzer.
+  class ExprStatsListener : public exec::ExprSetListener {
+   public:
+    explicit ExprStatsListener(
+        std::unordered_map<std::string, ExprUsageStats>& exprNameToStats)
+        : exprNameToStats_(exprNameToStats) {}
+
+    void onCompletion(
+        const std::string& /*uuid*/,
+        const exec::ExprSetCompletionEvent& event) override {
+      for (auto& [funcName, stats] : event.stats) {
+        auto itr = exprNameToStats_.find(funcName);
+        if (itr == exprNameToStats_.end()) {
+          // Skip expressions like FieldReference and ConstantExpr
+          continue;
+        }
+        itr->second.numProcessedRows += stats.numProcessedRows;
+      }
+    }
+
+    // A no-op since we cannot tie errors directly to functions where they
+    // occurred.
+    void onError(
+        const SelectivityVector& /*rows*/,
+        const ::facebook::velox::exec::EvalCtx::ErrorVector& /*errors*/)
+        override {}
+
+   private:
+    std::unordered_map<std::string, ExprUsageStats>& exprNameToStats_;
+  };
+
   const std::string kTypeParameterName = "T";
 
   enum ArgumentKind { kArgConstant = 0, kArgColumn = 1, kArgExpression = 2 };
@@ -137,6 +176,20 @@ class ExpressionFuzzer {
   /// iteration.
   void reset();
 
+  /// Should be called whenever a function is selected by the fuzzer.
+  void markSelected(const std::string& funcName) {
+    exprNameToStats_[funcName].numTimesSelected++;
+  }
+
+  /// Called at the end of a successful fuzzer run. It logs the top and bottom
+  /// 10 functions based on the num of rows processed by them. Also logs a full
+  /// list of all functions sorted in descending order by the num of times they
+  /// were selected by the fuzzer. Every logged function contains the
+  /// information in the following format which can be easily exported to a
+  /// spreadsheet for further analysis: functionName numTimesSelected
+  /// proportionOfTimesSelected numProcessedRows.
+  void logStats();
+
   FuzzerGenerator rng_;
   size_t currentSeed_{0};
 
@@ -192,6 +245,9 @@ class ExpressionFuzzer {
   /// TODO: add support for sharing multi-level expressions.
   std::unordered_map<std::string, std::vector<core::TypedExprPtr>>
       typeToExpressions_;
+
+  std::shared_ptr<ExprStatsListener> statListener_;
+  std::unordered_map<std::string, ExprUsageStats> exprNameToStats_;
 };
 
 } // namespace facebook::velox::test

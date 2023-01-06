@@ -24,9 +24,7 @@
 #include "velox/expression/Expr.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/ReverseSignatureBinder.h"
-#include "velox/expression/SignatureBinder.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
-#include "velox/expression/VectorFunction.h"
 #include "velox/expression/tests/ArgumentTypeFuzzer.h"
 #include "velox/expression/tests/ExpressionFuzzer.h"
 
@@ -316,7 +314,7 @@ ExpressionFuzzer::ExpressionFuzzer(
 
   size_t totalFunctions = 0;
   size_t totalFunctionSignatures = 0;
-  size_t supportedFunctions = 0;
+  std::vector<std::string> supportedFunctions;
   size_t supportedFunctionSignatures = 0;
   // Process each available signature for every function.
   for (const auto& function : signatureMap) {
@@ -353,11 +351,11 @@ ExpressionFuzzer::ExpressionFuzzer(
     }
 
     if (atLeastOneSupported) {
-      ++supportedFunctions;
+      supportedFunctions.push_back(function.first);
     }
   }
 
-  auto unsupportedFunctions = totalFunctions - supportedFunctions;
+  auto unsupportedFunctions = totalFunctions - supportedFunctions.size();
   auto unsupportedFunctionSignatures =
       totalFunctionSignatures - supportedFunctionSignatures;
   LOG(INFO) << fmt::format(
@@ -366,8 +364,8 @@ ExpressionFuzzer::ExpressionFuzzer(
       totalFunctionSignatures);
   LOG(INFO) << fmt::format(
       "Functions with at least one supported signature: {} ({:.2f}%)",
-      supportedFunctions,
-      (double)supportedFunctions / totalFunctions * 100);
+      supportedFunctions.size(),
+      (double)supportedFunctions.size() / totalFunctions * 100);
   LOG(INFO) << fmt::format(
       "Functions with no supported signature: {} ({:.2f}%)",
       unsupportedFunctions,
@@ -419,6 +417,15 @@ ExpressionFuzzer::ExpressionFuzzer(
   registerFuncOverride(
       &ExpressionFuzzer::generateRegexpReplaceArgs, "regexp_replace");
   registerFuncOverride(&ExpressionFuzzer::generateSwitchArgs, "switch");
+
+  // Init stats and register listener.
+  for (auto& name : supportedFunctions) {
+    exprNameToStats_.insert({name, ExprUsageStats()});
+  }
+  statListener_ = std::make_shared<ExprStatsListener>(exprNameToStats_);
+  if (!exec::registerExprSetListener(statListener_)) {
+    LOG(WARNING) << "Listener should only be registered once.";
+  }
 }
 
 template <typename TFunc>
@@ -677,6 +684,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromConcreteSignatures(
       0, eligible.size() - 1)(rng_);
   const auto& chosen = eligible[idx];
 
+  markSelected(chosen->name);
   return getCallExprFromCallable(*chosen);
 }
 
@@ -726,6 +734,7 @@ core::TypedExprPtr ExpressionFuzzer::generateExpressionFromSignatureTemplate(
 
   CallableSignature callable{chosen->name, argumentTypes, false, returnType};
 
+  markSelected(chosen->name);
   return getCallExprFromCallable(callable);
 }
 
@@ -784,6 +793,61 @@ void ExpressionFuzzer::reset() {
   VELOX_CHECK(inputRowNames_.empty());
   typeToColumnNames_.clear();
   typeToExpressions_.clear();
+}
+
+void ExpressionFuzzer::logStats() {
+  std::vector<std::pair<std::string, ExprUsageStats>> entries;
+  uint64_t totalSelections = 0;
+  for (auto& elem : exprNameToStats_) {
+    totalSelections += elem.second.numTimesSelected;
+    entries.push_back(elem);
+  }
+
+  // sort by numProcessedRows
+  std::sort(entries.begin(), entries.end(), [](auto& left, auto& right) {
+    return left.second.numProcessedRows > right.second.numProcessedRows;
+  });
+  int maxEntriesLimit = std::min<size_t>(10, entries.size());
+  LOG(INFO) << "==============================> Top " << maxEntriesLimit
+            << " by number of rows processed";
+  LOG(INFO)
+      << "Format: functionName numTimesSelected proportionOfTimesSelected "
+         "numProcessedRows";
+  for (int i = 0; i < maxEntriesLimit; i++) {
+    LOG(INFO) << entries[i].first << " " << entries[i].second.numTimesSelected
+              << " " << std::fixed << std::setprecision(2)
+              << (entries[i].second.numTimesSelected * 100.00) / totalSelections
+              << "% " << entries[i].second.numProcessedRows;
+  }
+
+  LOG(INFO) << "==============================> Bottom " << maxEntriesLimit
+            << " by number of rows processed";
+  LOG(INFO)
+      << "Format: functionName numTimesSelected proportionOfTimesSelected "
+         "numProcessedRows";
+  for (int i = entries.size() - 1; i >= entries.size() - maxEntriesLimit; i--) {
+    LOG(INFO) << entries[i].first << " " << entries[i].second.numTimesSelected
+              << " " << std::fixed << std::setprecision(2)
+              << (entries[i].second.numTimesSelected * 100.00) / totalSelections
+              << "% " << entries[i].second.numProcessedRows;
+  }
+
+  // sort by numTimesSelected
+  std::sort(entries.begin(), entries.end(), [](auto& left, auto& right) {
+    return left.second.numTimesSelected > right.second.numTimesSelected;
+  });
+
+  LOG(INFO) << "==============================> All stats sorted by number "
+               "of times the function was chosen";
+  LOG(INFO)
+      << "Format: functionName numTimesSelected proportionOfTimesSelected "
+         "numProcessedRows";
+  for (auto& elem : entries) {
+    LOG(INFO) << elem.first << " " << elem.second.numTimesSelected << " "
+              << std::fixed << std::setprecision(2)
+              << (elem.second.numTimesSelected * 100.00) / totalSelections
+              << "% " << elem.second.numProcessedRows;
+  }
 }
 
 void ExpressionFuzzer::go() {
@@ -865,6 +929,7 @@ void ExpressionFuzzer::go() {
     reSeed();
     ++i;
   }
+  logStats();
 }
 
 void expressionFuzzer(FunctionSignatureMap signatureMap, size_t seed) {
