@@ -3184,6 +3184,25 @@ TEST_F(HashJoinTest, semiProjectWithFilter) {
   }
 }
 
+TEST_F(HashJoinTest, nullAwareRightSemiProjectWithFilterNotAllowed) {
+  auto probe = makeRowVector(ROW({"t0", "t1"}, {INTEGER(), BIGINT()}), 10);
+  auto build = makeRowVector(ROW({"u0", "u1"}, {INTEGER(), BIGINT()}), 10);
+
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  VELOX_ASSERT_THROW(
+      PlanBuilder(planNodeIdGenerator)
+          .values({probe})
+          .hashJoin(
+              {"t0"},
+              {"u0"},
+              PlanBuilder(planNodeIdGenerator).values({build}).planNode(),
+              "t1 > u1",
+              {"u0", "u1", "match"},
+              core::JoinType::kRightSemiProject,
+              true /* nullAware */),
+      "Null-aware right semi project join doesn't support extra filter");
+}
+
 TEST_F(HashJoinTest, nullAwareMultiKeyNotAllowed) {
   auto probe = makeRowVector(
       ROW({"t0", "t1", "t2"}, {INTEGER(), BIGINT(), VARCHAR()}), 10);
