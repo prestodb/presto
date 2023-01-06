@@ -62,8 +62,6 @@ int main(int argc, char** argv) {
       "element_at",
       "width_bucket",
       "array_intersect",
-      // TODO: Remove after fixing issue #3625
-      "subscript",
   };
   size_t initialSeed = FLAGS_seed == 0 ? std::time(nullptr) : FLAGS_seed;
   return FuzzerRunner::run(

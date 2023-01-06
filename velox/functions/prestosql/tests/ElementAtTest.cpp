@@ -15,6 +15,7 @@
  */
 
 #include <optional>
+#include "velox/common/base/tests/GTestUtils.h"
 #include "velox/expression/Expr.h"
 #include "velox/functions/lib/SubscriptUtil.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
@@ -201,6 +202,7 @@ TEST_F(ElementAtTest, constantInputArray) {
 // #2 - allow out of bounds access for array and map.
 // #3 - allow negative indices.
 TEST_F(ElementAtTest, allFlavors1) {
+  // Case 1: Simple arrays and maps
   auto arrayVector = makeArrayVector<int64_t>({{10, 11, 12}});
   auto mapVector = getSimpleMapVector();
 
@@ -226,6 +228,122 @@ TEST_F(ElementAtTest, allFlavors1) {
   EXPECT_EQ(elementAtSimple("element_at(C0, -2)", {arrayVector}), 11);
   EXPECT_EQ(elementAtSimple("element_at(C0, -3)", {arrayVector}), 10);
   EXPECT_EQ(elementAtSimple("element_at(C0, -4)", {arrayVector}), std::nullopt);
+
+  // Case 2: Empty values vector
+  auto emptyValues = makeFlatVector<int64_t>({});
+  auto emptyKeys = makeFlatVector<int64_t>(std::vector<int64_t>{1});
+  auto offsets = allocateOffsets(1, pool());
+  auto sizes = allocateSizes(1, pool());
+  auto emptyValuesArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 1, offsets, sizes, emptyValues);
+  auto emptyValuesMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      1,
+      offsets,
+      sizes,
+      emptyKeys,
+      emptyValues);
+  // #1
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("element_at(C0, 0)", {emptyValuesArray}); },
+      "SQL array indices start at 1");
+
+  // #2
+  EXPECT_EQ(
+      elementAtSimple("element_at(C0, 4)", {emptyValuesArray}), std::nullopt);
+  EXPECT_EQ(
+      elementAtSimple("element_at(C0, 1001)", {emptyValuesMap}), std::nullopt);
+
+  // #3
+  EXPECT_EQ(
+      elementAtSimple("element_at(C0, -1)", {emptyValuesArray}), std::nullopt);
+
+  // Case 3: Empty individual arrays/maps and non-empty values vector
+  auto nonEmptyValues = makeFlatVector<int64_t>(std::vector<int64_t>{2});
+  auto nonEmptyKeys = makeFlatVector<int64_t>(std::vector<int64_t>{1});
+  auto emptyContainerNonEmptyValuesArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 1, offsets, sizes, nonEmptyValues);
+  auto emptyContainerNonEmptyValuesMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      1,
+      offsets,
+      sizes,
+      nonEmptyKeys,
+      nonEmptyValues);
+
+  // #1
+  assertUserInvalidArgument(
+      [&]() {
+        elementAtSimple(
+            "element_at(C0, 0)", {emptyContainerNonEmptyValuesArray});
+      },
+      "SQL array indices start at 1");
+
+  // #2
+  EXPECT_EQ(
+      elementAtSimple("element_at(C0, 4)", {emptyContainerNonEmptyValuesArray}),
+      std::nullopt);
+  EXPECT_EQ(
+      elementAtSimple(
+          "element_at(C0, 1001)", {emptyContainerNonEmptyValuesMap}),
+      std::nullopt);
+
+  // #3
+  EXPECT_EQ(
+      elementAtSimple("element_at(C0, -1)", {emptyContainerNonEmptyValuesMap}),
+      std::nullopt);
+
+  // Case 4: Intermittently empty individual arrays/maps and non-empty values
+  // vector
+  offsets = allocateOffsets(2, pool());
+  sizes = allocateSizes(2, pool());
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+  rawSizes[0] = 0;
+  rawSizes[1] = 1;
+
+  auto partiallyEmptyArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, nonEmptyValues);
+  auto partiallyEmptyMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      2,
+      offsets,
+      sizes,
+      nonEmptyKeys,
+      nonEmptyValues);
+  // Input vector has 2 elements, but we only evaluate on the first, this way
+  // the elements aren't empty though the collection we're evaluating on is.
+  SelectivityVector rows(1);
+  VectorPtr result;
+
+  // #1
+  VELOX_ASSERT_THROW(
+      evaluate<SimpleVector<int64_t>>(
+          "element_at(c0, 0)",
+          makeRowVector({partiallyEmptyArray}),
+          rows,
+          result),
+      "SQL array indices start at 1");
+
+  // #2
+  auto expected = makeNullConstant(TypeKind::BIGINT, 1);
+  evaluate<SimpleVector<int64_t>>(
+      "element_at(C0, 4)", makeRowVector({partiallyEmptyArray}), rows, result);
+  test::assertEqualVectors(expected, result);
+
+  evaluate<SimpleVector<int64_t>>(
+      "element_at(C0, 1001)", makeRowVector({partiallyEmptyMap}), rows, result);
+  test::assertEqualVectors(expected, result);
+
+  // #3
+  evaluate<SimpleVector<int64_t>>(
+      "element_at(C0, -1)", makeRowVector({partiallyEmptyArray}), rows, result);
+  test::assertEqualVectors(expected, result);
 }
 
 // Second flavor - the regular subscript ("a[1]") behavior:
@@ -233,6 +351,7 @@ TEST_F(ElementAtTest, allFlavors1) {
 // #2 - do not allow out of bounds access for arrays.
 // #3 - do not allow negative indices.
 TEST_F(ElementAtTest, allFlavors2) {
+  // Case 1: Simple arrays and maps
   auto arrayVector = makeArrayVector<int64_t>({{10, 11, 12}});
   auto mapVector = getSimpleMapVector();
 
@@ -271,6 +390,127 @@ TEST_F(ElementAtTest, allFlavors2) {
 
   EXPECT_EQ(elementAtSimple("try(C0[-1])", {arrayVector}), std::nullopt);
   EXPECT_EQ(elementAtSimple("try(C0[-4])", {arrayVector}), std::nullopt);
+
+  // Case 2: Empty values vector
+  auto emptyValues = makeFlatVector<int64_t>({});
+  auto emptyKeys = makeFlatVector<int64_t>(std::vector<int64_t>{1});
+  auto offsets = allocateOffsets(1, pool());
+  auto sizes = allocateSizes(1, pool());
+  auto emptyValuesArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 1, offsets, sizes, emptyValues);
+  auto emptyValuesMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      1,
+      offsets,
+      sizes,
+      emptyKeys,
+      emptyValues);
+  // #1
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[0]", {emptyValuesArray}); },
+      "SQL array indices start at 1");
+
+  // #2
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[4]", {arrayVector}); },
+      "Array subscript out of bounds.");
+  EXPECT_EQ(elementAtSimple("try(C0[4])", {emptyValuesArray}), std::nullopt);
+  // Maps are ok.
+  EXPECT_EQ(elementAtSimple("C0[1001]", {emptyValuesMap}), std::nullopt);
+
+  // #3
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[-1]", {arrayVector}); },
+      "Array subscript is negative.");
+
+  // Case 3: Empty individual arrays/maps and non-empty values vector
+  auto nonEmptyValues = makeFlatVector<int64_t>(std::vector<int64_t>{2});
+  auto nonEmptyKeys = makeFlatVector<int64_t>(std::vector<int64_t>{1});
+  auto emptyContainerNonEmptyValuesArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 1, offsets, sizes, nonEmptyValues);
+  auto emptyContainerNonEmptyValuesMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      1,
+      offsets,
+      sizes,
+      nonEmptyKeys,
+      nonEmptyValues);
+
+  // #1
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[0]", {emptyContainerNonEmptyValuesArray}); },
+      "SQL array indices start at 1");
+
+  // #2
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[4]", {emptyContainerNonEmptyValuesArray}); },
+      "Array subscript out of bounds.");
+  EXPECT_EQ(
+      elementAtSimple("try(C0[4])", {emptyContainerNonEmptyValuesArray}),
+      std::nullopt);
+  // Maps are ok.
+  EXPECT_EQ(
+      elementAtSimple("C0[1001]", {emptyContainerNonEmptyValuesMap}),
+      std::nullopt);
+
+  // #3
+  assertUserInvalidArgument(
+      [&]() { elementAtSimple("C0[-1]", {emptyContainerNonEmptyValuesArray}); },
+      "Array subscript is negative.");
+
+  // Case 4: Intermittently empty individual arrays/maps and non-empty values
+  // vector
+  offsets = allocateOffsets(2, pool());
+  sizes = allocateSizes(2, pool());
+  auto rawSizes = sizes->asMutable<vector_size_t>();
+  rawSizes[0] = 0;
+  rawSizes[1] = 1;
+
+  auto partiallyEmptyArray = std::make_shared<ArrayVector>(
+      pool(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, nonEmptyValues);
+  auto partiallyEmptyMap = std::make_shared<MapVector>(
+      pool(),
+      MAP(BIGINT(), BIGINT()),
+      nullptr,
+      2,
+      offsets,
+      sizes,
+      nonEmptyKeys,
+      nonEmptyValues);
+  // Input vector has 2 elements, but we only evaluate on the first, this way
+  // the elements aren't empty though the collection we're evaluating on is.
+  SelectivityVector rows(1);
+  VectorPtr result;
+
+  // #1
+  VELOX_ASSERT_THROW(
+      evaluate<SimpleVector<int64_t>>(
+          "C0[0]", makeRowVector({partiallyEmptyArray}), rows, result),
+      "SQL array indices start at 1");
+
+  // #2
+  VELOX_ASSERT_THROW(
+      evaluate<SimpleVector<int64_t>>(
+          "C0[4]", makeRowVector({partiallyEmptyArray}), rows, result),
+      "Array subscript out of bounds.");
+  auto expected = makeNullConstant(TypeKind::BIGINT, 1);
+  evaluate<SimpleVector<int64_t>>(
+      "try(C0[4])", makeRowVector({partiallyEmptyArray}), rows, result);
+  test::assertEqualVectors(expected, result);
+  // Maps are ok.
+  evaluate<SimpleVector<int64_t>>(
+      "C0[1001]", makeRowVector({partiallyEmptyMap}), rows, result);
+  test::assertEqualVectors(expected, result);
+
+  // #3
+  VELOX_ASSERT_THROW(
+      evaluate<SimpleVector<int64_t>>(
+          "C0[-1]", makeRowVector({partiallyEmptyArray}), rows, result),
+      "Array subscript is negative.");
 }
 
 // Third flavor:
@@ -543,108 +783,4 @@ TEST_F(ElementAtTest, errorStatesArray) {
       {arrayVector, indicesVector},
       expectedValueAt,
       [](auto row) { return row == 40; });
-}
-
-TEST_F(ElementAtTest, emptyElementVector) {
-  auto keys = makeFlatVector<int64_t>({});
-  auto values = makeFlatVector<int64_t>({});
-
-  auto offsets = allocateOffsets(2, pool());
-  auto rawOffsets = offsets->asMutable<vector_size_t>();
-
-  auto sizes = allocateSizes(2, pool());
-  auto rawSizes = sizes->asMutable<vector_size_t>();
-
-  SelectivityVector rows(2);
-  rows.setValid(0, false);
-  rows.updateBounds();
-
-  VectorPtr result;
-
-  // Test map vector.
-  {
-    auto map = std::make_shared<MapVector>(
-        pool(),
-        MAP(BIGINT(), BIGINT()),
-        nullptr,
-        2,
-        offsets,
-        sizes,
-        keys,
-        values);
-    auto expected = makeNullConstant(TypeKind::BIGINT, 2);
-
-    evaluate<SimpleVector<int64_t>>(
-        "element_at(c0, 1)", makeRowVector({map}), rows, result);
-    test::assertEqualVectors(expected, result);
-    evaluate<SimpleVector<int64_t>>(
-        "c0[1]", makeRowVector({map}), rows, result);
-    test::assertEqualVectors(expected, result);
-  }
-
-  // Test array vector.
-  {
-    auto array = std::make_shared<ArrayVector>(
-        pool(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, values);
-    auto expected = makeNullConstant(TypeKind::BIGINT, 2);
-
-    evaluate<SimpleVector<int64_t>>(
-        "element_at(c0, 1)", makeRowVector({array}), rows, result);
-    test::assertEqualVectors(expected, result);
-  }
-}
-
-TEST_F(ElementAtTest, emptyContainer) {
-  // Accessing an element in an empty container should always return NULL,
-  // regardless of the index value.
-  auto keys = makeFlatVector<int64_t>(std::vector<int64_t>{1});
-  auto values = makeFlatVector<int64_t>(std::vector<int64_t>{2});
-
-  auto offsets = allocateOffsets(2, pool());
-  auto rawOffsets = offsets->asMutable<vector_size_t>();
-  rawOffsets[0] = 0;
-  rawOffsets[1] = 0;
-
-  auto sizes = allocateSizes(2, pool());
-  auto rawSizes = sizes->asMutable<vector_size_t>();
-  rawSizes[0] = 0;
-  rawSizes[1] = 1;
-
-  // Our Vectors have 2 elements but we only evaluate on the first, this way the
-  // elements aren't empty though the collection we're evaluating on is.
-  SelectivityVector rows(1);
-
-  VectorPtr result;
-
-  // Test map vector.
-  {
-    auto map = std::make_shared<MapVector>(
-        pool(),
-        MAP(BIGINT(), BIGINT()),
-        nullptr,
-        2,
-        offsets,
-        sizes,
-        keys,
-        values);
-    auto expected = makeNullConstant(TypeKind::BIGINT, 1);
-
-    evaluate<SimpleVector<int64_t>>(
-        "element_at(c0, -1)", makeRowVector({map}), rows, result);
-    test::assertEqualVectors(expected, result);
-    evaluate<SimpleVector<int64_t>>(
-        "c0[-1]", makeRowVector({map}), rows, result);
-    test::assertEqualVectors(expected, result);
-  }
-
-  // Test array vector.
-  {
-    auto array = std::make_shared<ArrayVector>(
-        pool(), ARRAY(BIGINT()), nullptr, 2, offsets, sizes, values);
-    auto expected = makeNullConstant(TypeKind::BIGINT, 1);
-
-    evaluate<SimpleVector<int64_t>>(
-        "element_at(c0, -1)", makeRowVector({array}), rows, result);
-    test::assertEqualVectors(expected, result);
-  }
 }
