@@ -3184,6 +3184,56 @@ TEST_F(HashJoinTest, semiProjectWithFilter) {
   }
 }
 
+TEST_F(HashJoinTest, nullAwareMultiKeyNotAllowed) {
+  auto probe = makeRowVector(
+      ROW({"t0", "t1", "t2"}, {INTEGER(), BIGINT(), VARCHAR()}), 10);
+  auto build = makeRowVector(
+      ROW({"u0", "u1", "u2"}, {INTEGER(), BIGINT(), VARCHAR()}), 10);
+
+  // Null-aware left semi project join.
+  auto planNodeIdGenerator = std::make_shared<core::PlanNodeIdGenerator>();
+  VELOX_ASSERT_THROW(
+      PlanBuilder(planNodeIdGenerator)
+          .values({probe})
+          .hashJoin(
+              {"t0", "t1"},
+              {"u0", "u1"},
+              PlanBuilder(planNodeIdGenerator).values({build}).planNode(),
+              "",
+              {"t0", "t1", "match"},
+              core::JoinType::kLeftSemiProject,
+              true /* nullAware */),
+      "Null-aware joins allow only one join key");
+
+  // Null-aware right semi project join.
+  VELOX_ASSERT_THROW(
+      PlanBuilder(planNodeIdGenerator)
+          .values({probe})
+          .hashJoin(
+              {"t0", "t1"},
+              {"u0", "u1"},
+              PlanBuilder(planNodeIdGenerator).values({build}).planNode(),
+              "",
+              {"u0", "u1", "match"},
+              core::JoinType::kRightSemiProject,
+              true /* nullAware */),
+      "Null-aware joins allow only one join key");
+
+  // Null-aware anti join.
+  VELOX_ASSERT_THROW(
+      PlanBuilder(planNodeIdGenerator)
+          .values({probe})
+          .hashJoin(
+              {"t0", "t1"},
+              {"u0", "u1"},
+              PlanBuilder(planNodeIdGenerator).values({build}).planNode(),
+              "",
+              {"t0", "t1"},
+              core::JoinType::kAnti,
+              true /* nullAware */),
+      "Null-aware joins allow only one join key");
+}
+
 TEST_F(HashJoinTest, semiProjectOverLazyVectors) {
   auto probeVectors = makeBatches(1, [&](auto /*unused*/) {
     return makeRowVector(

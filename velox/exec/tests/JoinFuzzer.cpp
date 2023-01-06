@@ -78,8 +78,8 @@ class JoinFuzzer {
 
   void verify(core::JoinType joinType);
 
-  /// Returns a list of up to 5 randomly generated join key types.
-  std::vector<TypePtr> generateJoinKeyTypes();
+  /// Returns a list of randomly generated join key types.
+  std::vector<TypePtr> generateJoinKeyTypes(int32_t numKeys);
 
   /// Returns randomly generated probe input with upto 3 additional payload
   /// columns.
@@ -147,8 +147,7 @@ core::JoinType JoinFuzzer::pickJoinType() {
   return kJoinTypes[idx];
 }
 
-std::vector<TypePtr> JoinFuzzer::generateJoinKeyTypes() {
-  auto numKeys = randInt(1, 5);
+std::vector<TypePtr> JoinFuzzer::generateJoinKeyTypes(int32_t numKeys) {
   std::vector<TypePtr> types;
   types.reserve(numKeys);
   for (auto i = 0; i < numKeys; ++i) {
@@ -406,9 +405,6 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
           << " FROM u)";
       break;
     case core::JoinType::kLeftSemiProject:
-      if (joinNode->leftKeys().size() > 1) {
-        return std::nullopt;
-      }
       if (joinNode->isNullAware()) {
         sql << ", " << joinKeysToSql(joinNode->leftKeys()) << " IN (SELECT "
             << joinKeysToSql(joinNode->rightKeys()) << " FROM u) FROM t";
@@ -419,9 +415,6 @@ std::optional<MaterializedRowMultiset> JoinFuzzer::computeDuckDbResult(
       break;
     case core::JoinType::kAnti:
       if (joinNode->isNullAware()) {
-        if (joinNode->leftKeys().size() > 1) {
-          return std::nullopt;
-        }
         sql << " FROM t WHERE " << joinKeysToSql(joinNode->leftKeys())
             << " NOT IN (SELECT " << joinKeysToSql(joinNode->rightKeys())
             << " FROM u)";
@@ -584,8 +577,13 @@ RowTypePtr concat(const RowTypePtr& a, const RowTypePtr& b) {
 }
 
 void JoinFuzzer::verify(core::JoinType joinType) {
+  const bool nullAware =
+      isNullAwareSupported(joinType) && vectorFuzzer_.coinToss(0.5);
+
+  const auto numKeys = nullAware ? 1 : randInt(1, 5);
+
   // Pick number and types of join keys.
-  std::vector<TypePtr> keyTypes = generateJoinKeyTypes();
+  std::vector<TypePtr> keyTypes = generateJoinKeyTypes(numKeys);
   std::vector<std::string> probeKeys = makeNames("t", keyTypes.size());
   std::vector<std::string> buildKeys = makeNames("u", keyTypes.size());
 
@@ -630,8 +628,6 @@ void JoinFuzzer::verify(core::JoinType joinType) {
 
   shuffleJoinKeys(probeKeys, buildKeys);
 
-  const bool nullAware =
-      isNullAwareSupported(joinType) && vectorFuzzer_.coinToss(0.5);
   auto plan = makeDefaultPlan(
       joinType,
       nullAware,
