@@ -30,12 +30,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskHandle
 {
+    private volatile boolean destroyed;
     private final TaskId taskId;
     private final DoubleSupplier utilizationSupplier;
     private final TaskPriorityTracker priorityTracker;
@@ -47,8 +47,6 @@ public class TaskHandle
     protected final List<PrioritizedSplitRunner> runningLeafSplits = new ArrayList<>(10);
     @GuardedBy("this")
     protected final List<PrioritizedSplitRunner> runningIntermediateSplits = new ArrayList<>(10);
-    @GuardedBy("this")
-    private boolean destroyed;
     @GuardedBy("this")
     protected final SplitConcurrencyController concurrencyController;
 
@@ -82,7 +80,7 @@ public class TaskHandle
         return priorityTracker.resetLevelPriority();
     }
 
-    public synchronized boolean isDestroyed()
+    public boolean isDestroyed()
     {
         return destroyed;
     }
@@ -107,7 +105,7 @@ public class TaskHandle
     {
         destroyed = true;
 
-        ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builder();
+        ImmutableList.Builder<PrioritizedSplitRunner> builder = ImmutableList.builderWithExpectedSize(runningIntermediateSplits.size() + runningLeafSplits.size() + queuedLeafSplits.size());
         builder.addAll(runningIntermediateSplits);
         builder.addAll(runningLeafSplits);
         builder.addAll(queuedLeafSplits);
@@ -117,16 +115,22 @@ public class TaskHandle
         return builder.build();
     }
 
-    public synchronized void enqueueSplit(PrioritizedSplitRunner split)
+    public synchronized boolean enqueueSplit(PrioritizedSplitRunner split)
     {
-        checkState(!destroyed, "Cannot add split to destroyed task handle");
+        if (destroyed) {
+            return false;
+        }
         queuedLeafSplits.add(split);
+        return true;
     }
 
-    public synchronized void recordIntermediateSplit(PrioritizedSplitRunner split)
+    public synchronized boolean recordIntermediateSplit(PrioritizedSplitRunner split)
     {
-        checkState(!destroyed, "Cannot add split to destroyed task handle");
+        if (destroyed) {
+            return false;
+        }
         runningIntermediateSplits.add(split);
+        return true;
     }
 
     synchronized int getRunningLeafSplits()
