@@ -351,7 +351,7 @@ public class TaskExecutor
         checkArgument(!maxDriversPerTask.isPresent() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
-        log.debug("Task scheduled " + taskId);
+        log.debug("Task scheduled %s", taskId);
 
         TaskHandle taskHandle = new TaskHandle(
                 taskId,
@@ -398,7 +398,7 @@ public class TaskExecutor
         long threadUsageNanos = taskHandle.getScheduledNanos();
         completedTasksPerLevel.incrementAndGet(computeLevel(threadUsageNanos));
 
-        log.debug("Task finished or failed " + taskHandle.getTaskId());
+        log.debug("Task finished or failed %s", taskHandle.getTaskId());
     }
 
     public List<ListenableFuture<?>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits)
@@ -608,7 +608,10 @@ public class TaskExecutor
                         }
 
                         if (split.isFinished()) {
-                            log.debug("%s is finished", split.getInfo());
+                            // Avoid calling split.getInfo() when debug logging is not enabled
+                            if (log.isDebugEnabled()) {
+                                log.debug("%s is finished", split.getInfo());
+                            }
                             splitFinished(split);
                         }
                         else {
