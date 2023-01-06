@@ -166,3 +166,7 @@ worker:
 catalog:
   jmx: |-
     connector.name=jmx
+  tpch: |-
+    connector.name=tpch
+  tpcds: |-
+    connector.name=tpcds
