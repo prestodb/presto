@@ -45,33 +45,6 @@ FlushDecision DefaultFlushPolicy::shouldFlushDictionary(
           .getCurrentBytes());
 }
 
-StaticBudgetFlushPolicy::StaticBudgetFlushPolicy(
-    uint64_t stripeSizeThreshold,
-    uint64_t dictionarySizeThreshold)
-    : defaultFlushPolicy_{stripeSizeThreshold, dictionarySizeThreshold} {}
-
-FlushDecision StaticBudgetFlushPolicy::shouldFlushDictionary(
-    bool stripeProgressDecision,
-    bool overMemoryBudget,
-    int64_t dictionaryMemoryUsage) {
-  if (overMemoryBudget && !stripeProgressDecision) {
-    return FlushDecision::ABANDON_DICTIONARY;
-  }
-  return defaultFlushPolicy_.shouldFlushDictionary(
-      stripeProgressDecision, overMemoryBudget, dictionaryMemoryUsage);
-}
-
-FlushDecision StaticBudgetFlushPolicy::shouldFlushDictionary(
-    bool stripeProgressDecision,
-    bool overMemoryBudget,
-    const WriterContext& context) {
-  return shouldFlushDictionary(
-      stripeProgressDecision,
-      overMemoryBudget,
-      context.getMemoryUsage(MemoryUsageCategory::DICTIONARY)
-          .getCurrentBytes());
-}
-
 RowsPerStripeFlushPolicy::RowsPerStripeFlushPolicy(
     std::vector<uint64_t> rowsPerStripe)
     : rowsPerStripe_{std::move(rowsPerStripe)} {

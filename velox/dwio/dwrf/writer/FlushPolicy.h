@@ -74,36 +74,6 @@ class DefaultFlushPolicy : public DWRFFlushPolicy {
   const uint64_t dictionarySizeThreshold_;
 };
 
-class StaticBudgetFlushPolicy : public DWRFFlushPolicy {
- public:
-  explicit StaticBudgetFlushPolicy(
-      uint64_t stripeSizeThreshold,
-      uint64_t dictionarySizeThreshold);
-  virtual ~StaticBudgetFlushPolicy() override = default;
-
-  bool shouldFlush(
-      const dwio::common::StripeProgress& stripeProgress) override {
-    return defaultFlushPolicy_.shouldFlush(stripeProgress);
-  }
-
-  FlushDecision shouldFlushDictionary(
-      bool stripeProgressDecision,
-      bool overMemoryBudget,
-      int64_t dictionaryMemoryUsage);
-
-  FlushDecision shouldFlushDictionary(
-      bool stripeProgressDecision,
-      bool overMemoryBudget,
-      const WriterContext& context) override;
-
-  void onClose() override {
-    // No-op
-  }
-
- private:
-  DefaultFlushPolicy defaultFlushPolicy_;
-};
-
 class RowsPerStripeFlushPolicy : public DWRFFlushPolicy {
  public:
   explicit RowsPerStripeFlushPolicy(std::vector<uint64_t> rowsPerStripe);
