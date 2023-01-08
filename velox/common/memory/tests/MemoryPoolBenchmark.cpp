@@ -80,21 +80,6 @@ BENCHMARK(SingleNodeAlloc, iters) {
     pool->free(p, dataSize);
   }
 }
-// Should be the same.
-BENCHMARK(SingleNodeAllocWithCap, iters) {
-  folly::BenchmarkSuspender suspender;
-  MemoryManager manager{};
-  auto pool = manager.getRoot().addChild(
-      "pride_of_higara", iters * kMemoryFootprintIncrement);
-
-  for (size_t i = 0; i < iters; ++i) {
-    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
-    suspender.dismiss();
-    auto p = pool->allocate(dataSize);
-    suspender.rehire();
-    pool->free(p, dataSize);
-  }
-}
 
 BENCHMARK(SingleNodeFree, iters) {
   folly::BenchmarkSuspender suspender;
@@ -141,25 +126,6 @@ BENCHMARK(SingleNodeAlignedAlloc, iters) {
   }
 }
 
-BENCHMARK(SingleNodeAlignedAllocWithCap, iters) {
-  folly::BenchmarkSuspender suspender;
-  MemoryManager manager{};
-  auto unalignedTotal = iters * kMemoryFootprintIncrement;
-  auto alignedCap = unalignedTotal % MemoryAllocator::kMaxAlignment == 0
-      ? unalignedTotal
-      : (unalignedTotal / MemoryAllocator::kMaxAlignment + 1) *
-          MemoryAllocator::kMaxAlignment;
-  auto pool = manager.getRoot().addChild("pride_of_higara", alignedCap);
-
-  for (size_t i = 0; i < iters; ++i) {
-    auto dataSize = (i + 1) * kMemoryFootprintIncrement;
-    suspender.dismiss();
-    auto p = pool->allocate(dataSize);
-    suspender.rehire();
-    pool->free(p, dataSize);
-  }
-}
-
 BENCHMARK(SingleNodeAlignedRealloc, iters) {
   folly::BenchmarkSuspender suspender;
   MemoryManager manager{};
@@ -178,12 +144,9 @@ BENCHMARK(SingleNodeAlignedRealloc, iters) {
 }
 
 namespace {
-void addNLeaves(
-    MemoryPool& pool,
-    size_t n,
-    int64_t cap = std::numeric_limits<int64_t>::max()) {
+void addNLeaves(MemoryPool& pool, size_t n) {
   for (size_t i = 0; i < n; ++i) {
-    pool.addChild(pool.name() + ".leaf_" + folly::to<std::string>(i), cap);
+    pool.addChild(pool.name() + ".leaf_" + folly::to<std::string>(i));
   }
 }
 } // namespace

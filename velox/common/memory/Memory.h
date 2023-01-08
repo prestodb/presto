@@ -133,9 +133,7 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
 
   /// Invoked to create a named child memory pool from this with specified
   /// 'cap'.
-  virtual std::shared_ptr<MemoryPool> addChild(
-      const std::string& name,
-      int64_t cap = kMaxMemory);
+  virtual std::shared_ptr<MemoryPool> addChild(const std::string& name);
 
   /// Allocates a buffer with specified 'size'.
   virtual void* FOLLY_NULLABLE allocate(int64_t size) = 0;
@@ -219,9 +217,6 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
   virtual const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
       const = 0;
 
-  /// Used for external aggregation.
-  virtual void setSubtreeMemoryUsage(int64_t size) = 0;
-
   virtual int64_t updateSubtreeMemoryUsage(int64_t size) = 0;
 
   /// Tracks the externally allocated memory usage without doing a new
@@ -237,27 +232,12 @@ class MemoryPool : public std::enable_shared_from_this<MemoryPool> {
     VELOX_NYI("release() needs to be implemented in derived memory pool.");
   }
 
-  /// Get the cap for the memory node and its subtree.
-  virtual int64_t cap() const = 0;
-
-  /// Called by MemoryManager and MemoryPool upon memory usage updates and
-  /// propagates down the subtree recursively.
-  virtual void capMemoryAllocation() = 0;
-
-  /// Called by MemoryManager and propagates down recursively if applicable.
-  virtual void uncapMemoryAllocation() = 0;
-
-  /// We might need to freeze memory allocating operations under severe global
-  /// memory pressure.
-  virtual bool isMemoryCapped() const = 0;
-
  protected:
   /// Invoked by addChild() to create a child memory pool object. 'parent' is
   /// a shared pointer created from this.
   virtual std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
-      const std::string& name,
-      int64_t cap) = 0;
+      const std::string& name) = 0;
 
   /// Invoked only on destruction to remove this memory pool from its parent's
   /// child memory pool tracking.
@@ -289,9 +269,7 @@ class MemoryPoolImpl : public MemoryPool {
 
   // Actual memory allocation operations. Can be delegated.
   // Access global MemoryManager to check usage of current node and enforce
-  // memory cap accordingly. Since MemoryManager walks the MemoryPoolImpl
-  // tree periodically, this is slightly stale and we have to reserve our own
-  // overhead.
+  // memory cap accordingly.
   void* FOLLY_NULLABLE allocate(int64_t size) override;
 
   void* FOLLY_NULLABLE
@@ -333,25 +311,12 @@ class MemoryPoolImpl : public MemoryPool {
 
   const std::shared_ptr<MemoryUsageTracker>& getMemoryUsageTracker()
       const override;
-
-  void setSubtreeMemoryUsage(int64_t size) override;
-
   int64_t updateSubtreeMemoryUsage(int64_t size) override;
-
-  int64_t cap() const override;
-
   uint16_t getAlignment() const override;
-
-  void capMemoryAllocation() override;
-
-  void uncapMemoryAllocation() override;
-
-  bool isMemoryCapped() const override;
 
   std::shared_ptr<MemoryPool> genChild(
       std::shared_ptr<MemoryPool> parent,
-      const std::string& name,
-      int64_t cap) override;
+      const std::string& name) override;
 
   // Gets the memory allocation stats of the MemoryPoolImpl attached to the
   // current MemoryPoolImpl. Not to be confused with total memory usage of the
@@ -378,7 +343,6 @@ class MemoryPoolImpl : public MemoryPool {
       std::function<void(const MemoryUsage&)> visitor) const;
   void updateSubtreeMemoryUsage(std::function<void(MemoryUsage&)> visitor);
 
-  const int64_t cap_;
   MemoryManager& memoryManager_;
 
   // Memory allocated attributed to the memory node.
@@ -386,7 +350,6 @@ class MemoryPoolImpl : public MemoryPool {
   std::shared_ptr<MemoryUsageTracker> memoryUsageTracker_;
   mutable folly::SharedMutex subtreeUsageMutex_;
   MemoryUsage subtreeMemoryUsage_;
-  std::atomic_bool capped_{false};
 
   MemoryAllocator& allocator_;
 };
@@ -484,12 +447,7 @@ class MemoryManager final : public IMemoryManager {
   MemoryAllocator& getAllocator();
 
  private:
-  VELOX_FRIEND_TEST(MemoryPoolImplTest, CapSubtree);
-  VELOX_FRIEND_TEST(MemoryPoolImplTest, CapAllocation);
-  VELOX_FRIEND_TEST(MemoryPoolImplTest, UncapMemory);
   VELOX_FRIEND_TEST(MemoryPoolImplTest, MemoryManagerGlobalCap);
-  VELOX_FRIEND_TEST(MultiThreadingUncappingTest, Flat);
-  VELOX_FRIEND_TEST(MultiThreadingUncappingTest, SimpleTree);
 
   const std::shared_ptr<MemoryAllocator> allocator_;
   const int64_t memoryQuota_;

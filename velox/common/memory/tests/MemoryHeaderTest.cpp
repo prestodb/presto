@@ -41,9 +41,8 @@ TEST(MemoryHeaderTest, getDefaultMemoryPool) {
   ASSERT_EQ(0, manager.getRoot().getChildCount());
   {
     auto poolA = getDefaultMemoryPool();
-    auto poolB = getDefaultMemoryPool(42);
+    auto poolB = getDefaultMemoryPool();
     EXPECT_EQ(2, manager.getRoot().getChildCount());
-    EXPECT_EQ(42, poolB->cap());
     {
       auto poolC = getDefaultMemoryPool();
       EXPECT_EQ(3, manager.getRoot().getChildCount());

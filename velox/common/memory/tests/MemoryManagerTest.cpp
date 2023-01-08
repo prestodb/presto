@@ -30,7 +30,6 @@ TEST(MemoryManagerTest, Ctor) {
     MemoryManager manager{};
     const auto& root = manager.getRoot();
 
-    ASSERT_EQ(std::numeric_limits<int64_t>::max(), root.cap());
     ASSERT_EQ(0, root.getChildCount());
     ASSERT_EQ(0, root.getCurrentBytes());
     ASSERT_EQ(std::numeric_limits<int64_t>::max(), manager.getMemoryQuota());
@@ -41,7 +40,6 @@ TEST(MemoryManagerTest, Ctor) {
     MemoryManager manager{{.capacity = 8L * 1024 * 1024}};
     const auto& root = manager.getRoot();
 
-    ASSERT_EQ(8L * 1024 * 1024, root.cap());
     ASSERT_EQ(0, root.getChildCount());
     ASSERT_EQ(0, root.getCurrentBytes());
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
@@ -52,7 +50,8 @@ TEST(MemoryManagerTest, Ctor) {
     const auto& root = manager.getRoot();
 
     ASSERT_EQ(manager.alignment(), MemoryAllocator::kMinAlignment);
-    ASSERT_EQ(8L * 1024 * 1024, root.cap());
+    // TODO: replace with root pool memory tracker quota check.
+    // ASSERT_EQ(8L * 1024 * 1024, root.cap());
     ASSERT_EQ(0, root.getChildCount());
     ASSERT_EQ(0, root.getCurrentBytes());
     ASSERT_EQ(8L * 1024 * 1024, manager.getMemoryQuota());
@@ -69,7 +68,7 @@ TEST(MemoryManagerTest, GlobalMemoryManager) {
   auto& managerII = MemoryManager::getInstance();
 
   auto& root = manager.getRoot();
-  auto child = root.addChild("some_child", 42);
+  auto child = root.addChild("some_child");
   ASSERT_EQ(1, root.getChildCount());
 
   auto& rootII = managerII.getRoot();
@@ -80,7 +79,6 @@ TEST(MemoryManagerTest, GlobalMemoryManager) {
   ASSERT_EQ(1, pools.size());
   auto& pool = *pools.back();
   ASSERT_EQ("some_child", pool.name());
-  ASSERT_EQ(42, pool.cap());
 }
 
 TEST(MemoryManagerTest, Reserve) {

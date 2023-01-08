@@ -172,11 +172,9 @@ class Writer : public WriterBase {
       : Writer{
             options,
             std::move(sink),
-            parentPool.addChild(
-                fmt::format(
-                    "writer_node_{}",
-                    folly::to<std::string>(folly::Random::rand64())),
-                std::min(options.memoryBudget, parentPool.cap()))} {}
+            parentPool.addChild(fmt::format(
+                "writer_node_{}",
+                folly::to<std::string>(folly::Random::rand64())))} {}
 
   ~Writer() override = default;
 

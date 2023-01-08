@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <limits>
 #include "velox/common/base/GTestMacros.h"
 #include "velox/common/time/CpuWallTimer.h"
 #include "velox/dwio/dwrf/common/Compression.h"
@@ -245,7 +246,9 @@ class WriterContext : public CompressionBufferPool {
   }
 
   int64_t getMemoryBudget() const {
-    return pool_->cap();
+    auto memoryUsageTracker = pool_->getMemoryUsageTracker();
+    return memoryUsageTracker ? memoryUsageTracker->maxMemory()
+                              : std::numeric_limits<int64_t>::max();
   }
 
   const encryption::EncryptionHandler& getEncryptionHandler() const {

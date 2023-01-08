@@ -83,36 +83,24 @@ TEST(MemoryPoolTest, Ctor) {
   // While not recommended, the root allocator should be valid.
   auto& root = dynamic_cast<MemoryPoolImpl&>(manager.getRoot());
 
-  ASSERT_EQ(8 * GB, root.cap_);
   ASSERT_EQ(0, root.getCurrentBytes());
   ASSERT_EQ(root.parent(), nullptr);
 
   {
-    auto fakeRoot = std::make_shared<MemoryPoolImpl>(
-        manager, "fake_root", nullptr, MemoryPool::Options{.capacity = 4 * GB});
+    auto fakeRoot =
+        std::make_shared<MemoryPoolImpl>(manager, "fake_root", nullptr);
     ASSERT_EQ("fake_root", fakeRoot->name());
-    ASSERT_EQ(4 * GB, fakeRoot->cap_);
     ASSERT_EQ(&root.allocator_, &fakeRoot->allocator_);
     ASSERT_EQ(0, fakeRoot->getCurrentBytes());
     ASSERT_EQ(fakeRoot->parent(), nullptr);
   }
   {
-    auto child = root.addChild("favorite_child");
+    auto child = root.addChild("child");
     ASSERT_EQ(child->parent(), &root);
     auto& favoriteChild = dynamic_cast<MemoryPoolImpl&>(*child);
-    ASSERT_EQ("favorite_child", favoriteChild.name());
-    ASSERT_EQ(std::numeric_limits<int64_t>::max(), favoriteChild.cap_);
+    ASSERT_EQ("child", favoriteChild.name());
     ASSERT_EQ(&root.allocator_, &favoriteChild.allocator_);
     ASSERT_EQ(0, favoriteChild.getCurrentBytes());
-  }
-  {
-    auto child = root.addChild("naughty_child", 3 * GB);
-    ASSERT_EQ(child->parent(), &root);
-    auto& naughtyChild = dynamic_cast<MemoryPoolImpl&>(*child);
-    ASSERT_EQ("naughty_child", naughtyChild.name());
-    ASSERT_EQ(3 * GB, naughtyChild.cap_);
-    ASSERT_EQ(&root.allocator_, &naughtyChild.allocator_);
-    ASSERT_EQ(0, naughtyChild.getCurrentBytes());
   }
 }
 
@@ -122,7 +110,7 @@ TEST(MemoryPoolTest, AddChild) {
 
   ASSERT_EQ(0, root.getChildCount());
   auto childOne = root.addChild("child_one");
-  auto childTwo = root.addChild("child_two", 4L * 1024L * 1024L);
+  auto childTwo = root.addChild("child_two");
 
   std::vector<MemoryPool*> nodes{};
   ASSERT_EQ(2, root.getChildCount());
@@ -134,11 +122,6 @@ TEST(MemoryPoolTest, AddChild) {
   // We no longer care about name uniqueness.
   auto childTree = root.addChild("child_one");
   EXPECT_EQ(3, root.getChildCount());
-
-  // Adding child while capped.
-  root.capMemoryAllocation();
-  auto childFour = root.addChild("child_four");
-  EXPECT_TRUE(childFour->isMemoryCapped());
 }
 
 TEST_P(MemoryPoolTest, dropChild) {
@@ -149,7 +132,7 @@ TEST_P(MemoryPoolTest, dropChild) {
   ASSERT_EQ(0, root.getChildCount());
   auto childOne = root.addChild("child_one");
   ASSERT_EQ(childOne->parent(), &root);
-  auto childTwo = root.addChild("child_two", 4L * 1024L * 1024L);
+  auto childTwo = root.addChild("child_two");
   ASSERT_EQ(childTwo->parent(), &root);
   ASSERT_EQ(2, root.getChildCount());
 
@@ -180,98 +163,6 @@ TEST_P(MemoryPoolTest, dropChild) {
   ASSERT_EQ(1, rawChild->getChildCount());
   grandChild2.reset();
   ASSERT_EQ(0, root.getChildCount());
-}
-
-TEST(MemoryPoolTest, CapSubtree) {
-  MemoryManager manager{};
-  auto& root = manager.getRoot();
-
-  // left subtree.
-  auto node_a = root.addChild("node_a");
-  auto node_aa = node_a->addChild("node_aa");
-  auto node_ab = node_a->addChild("node_ab");
-  auto node_aba = node_ab->addChild("node_aba");
-
-  // right subtree
-  auto node_b = root.addChild("node_b");
-  auto node_ba = node_b->addChild("node_ba");
-  auto node_bb = node_b->addChild("node_bb");
-  auto node_bc = node_b->addChild("node_bc");
-
-  // Cap left subtree and check that right subtree is not impacted.
-  node_a->capMemoryAllocation();
-  ASSERT_TRUE(node_a->isMemoryCapped());
-  ASSERT_TRUE(node_aa->isMemoryCapped());
-  ASSERT_TRUE(node_ab->isMemoryCapped());
-  ASSERT_TRUE(node_aba->isMemoryCapped());
-
-  ASSERT_FALSE(root.isMemoryCapped());
-  ASSERT_FALSE(node_b->isMemoryCapped());
-  ASSERT_FALSE(node_ba->isMemoryCapped());
-  ASSERT_FALSE(node_bb->isMemoryCapped());
-  ASSERT_FALSE(node_bc->isMemoryCapped());
-
-  // Cap the entire tree.
-  root.capMemoryAllocation();
-  ASSERT_TRUE(root.isMemoryCapped());
-  ASSERT_TRUE(node_a->isMemoryCapped());
-  ASSERT_TRUE(node_aa->isMemoryCapped());
-  ASSERT_TRUE(node_ab->isMemoryCapped());
-  ASSERT_TRUE(node_aba->isMemoryCapped());
-  ASSERT_TRUE(node_b->isMemoryCapped());
-  ASSERT_TRUE(node_ba->isMemoryCapped());
-  ASSERT_TRUE(node_bb->isMemoryCapped());
-  ASSERT_TRUE(node_bc->isMemoryCapped());
-}
-
-TEST(MemoryPoolTest, UncapMemory) {
-  MemoryManager manager{};
-  auto& root = manager.getRoot();
-
-  auto node_a = root.addChild("node_a");
-  auto node_aa = node_a->addChild("node_aa");
-  auto node_ab = node_a->addChild("node_ab", 31);
-  auto node_aba = node_ab->addChild("node_aba");
-
-  auto node_b = root.addChild("node_b");
-  auto node_ba = node_b->addChild("node_ba");
-  auto node_bb = node_b->addChild("node_bb");
-  auto node_bc = node_b->addChild("node_bc");
-
-  // Uncap should be recursive.
-  node_a->capMemoryAllocation();
-  node_b->capMemoryAllocation();
-  ASSERT_FALSE(root.isMemoryCapped());
-  ASSERT_TRUE(node_a->isMemoryCapped());
-  ASSERT_TRUE(node_aa->isMemoryCapped());
-  ASSERT_TRUE(node_ab->isMemoryCapped());
-  ASSERT_TRUE(node_aba->isMemoryCapped());
-  ASSERT_TRUE(node_b->isMemoryCapped());
-  ASSERT_TRUE(node_ba->isMemoryCapped());
-  ASSERT_TRUE(node_bb->isMemoryCapped());
-  ASSERT_TRUE(node_bc->isMemoryCapped());
-
-  node_a->uncapMemoryAllocation();
-  ASSERT_FALSE(root.isMemoryCapped());
-  ASSERT_FALSE(node_a->isMemoryCapped());
-  ASSERT_FALSE(node_aa->isMemoryCapped());
-  ASSERT_FALSE(node_ab->isMemoryCapped());
-  ASSERT_FALSE(node_aba->isMemoryCapped());
-
-  ASSERT_TRUE(node_b->isMemoryCapped());
-  ASSERT_TRUE(node_ba->isMemoryCapped());
-  ASSERT_TRUE(node_bb->isMemoryCapped());
-  ASSERT_TRUE(node_bc->isMemoryCapped());
-
-  // Cannot uncap a node when parent is still capped.
-  ASSERT_TRUE(node_b->isMemoryCapped());
-  ASSERT_TRUE(node_bb->isMemoryCapped());
-  node_bb->uncapMemoryAllocation();
-  ASSERT_TRUE(node_b->isMemoryCapped());
-  ASSERT_TRUE(node_bb->isMemoryCapped());
-
-  // Don't uncap if the local cap is exceeded when intermediate
-  // caps are supported again.
 }
 
 // Mainly tests how it tracks externally allocated memory.
@@ -468,38 +359,6 @@ TEST_P(MemoryPoolTest, ReallocTestLower) {
   EXPECT_EQ(3 * kChunkSize, pool->getMaxBytes());
 }
 
-TEST_P(MemoryPoolTest, CapAllocation) {
-  auto manager = getMemoryManager(8 * GB);
-  auto& root = manager->getRoot();
-
-  auto pool = root.addChild("static_quota", 64L * MB);
-
-  // Capping malloc.
-  {
-    ASSERT_EQ(0, pool->getCurrentBytes());
-    ASSERT_FALSE(pool->isMemoryCapped());
-    void* oneChunk = pool->allocate(32L * MB);
-    ASSERT_EQ(32L * MB, pool->getCurrentBytes());
-    EXPECT_THROW(pool->allocate(34L * MB), velox::VeloxRuntimeError);
-    EXPECT_FALSE(pool->isMemoryCapped());
-
-    pool->free(oneChunk, 32L * MB);
-  }
-  // Capping realloc.
-  {
-    ASSERT_EQ(0, pool->getCurrentBytes());
-    ASSERT_FALSE(pool->isMemoryCapped());
-    void* oneChunk = pool->allocate(32L * MB);
-    ASSERT_EQ(32L * MB, pool->getCurrentBytes());
-    EXPECT_THROW(
-        pool->reallocate(oneChunk, 32L * MB, 66L * MB),
-        velox::VeloxRuntimeError);
-    EXPECT_FALSE(pool->isMemoryCapped());
-
-    pool->free(oneChunk, 32L * MB);
-  }
-}
-
 TEST_P(MemoryPoolTest, allocateZeroFilled) {
   auto manager = getMemoryManager(8 * GB);
   auto& root = manager->getRoot();
@@ -577,28 +436,11 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
   MemoryManager manager{{.capacity = 127L * MB}};
   auto& root = manager.getRoot();
 
-  auto pool = root.addChild("static_quota", 63L * MB);
+  auto pool = root.addChild("static_quota");
 
-  // Capping locally.
-  {
-    ASSERT_EQ(0, pool->getCurrentBytes());
-    ASSERT_FALSE(pool->isMemoryCapped());
-    try {
-      pool->allocate(64L * MB);
-    } catch (const velox::VeloxRuntimeError& ex) {
-      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
-      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
-      EXPECT_TRUE(ex.isRetriable());
-      EXPECT_EQ(
-          "Exceeded memory cap of 63.00MB when requesting 64.00MB",
-          ex.message());
-    }
-    ASSERT_FALSE(pool->isMemoryCapped());
-  }
   // Capping memory manager.
   {
     ASSERT_EQ(0, pool->getCurrentBytes());
-    ASSERT_FALSE(pool->isMemoryCapped());
     try {
       pool->allocate(128L * MB);
     } catch (const velox::VeloxRuntimeError& ex) {
@@ -606,21 +448,6 @@ TEST_P(MemoryPoolTest, MemoryCapExceptions) {
       EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
       EXPECT_TRUE(ex.isRetriable());
       EXPECT_EQ("Exceeded memory manager cap of 127 MB", ex.message());
-    }
-    ASSERT_FALSE(pool->isMemoryCapped());
-  }
-  // Capping manually.
-  {
-    ASSERT_EQ(0, pool->getCurrentBytes());
-    pool->capMemoryAllocation();
-    ASSERT_TRUE(pool->isMemoryCapped());
-    try {
-      pool->allocate(8L * MB);
-    } catch (const velox::VeloxRuntimeError& ex) {
-      EXPECT_EQ(error_source::kErrorSourceRuntime.c_str(), ex.errorSource());
-      EXPECT_EQ(error_code::kMemCapExceeded.c_str(), ex.errorCode());
-      EXPECT_TRUE(ex.isRetriable());
-      EXPECT_EQ("Memory allocation manually capped", ex.message());
     }
   }
 }
@@ -644,13 +471,9 @@ TEST_P(MemoryPoolTest, MemoryManagerGlobalCap) {
   auto pool = root.addChild("unbounded");
   auto child = pool->addChild("unbounded");
   void* oneChunk = child->allocate(32L * MB);
-  ASSERT_FALSE(root.isMemoryCapped());
   ASSERT_EQ(0L, root.getCurrentBytes());
-  ASSERT_FALSE(child->isMemoryCapped());
   EXPECT_THROW(child->allocate(32L * MB), velox::VeloxRuntimeError);
-  ASSERT_FALSE(root.isMemoryCapped());
   ASSERT_EQ(0L, root.getCurrentBytes());
-  ASSERT_FALSE(child->isMemoryCapped());
   EXPECT_THROW(
       child->reallocate(oneChunk, 32L * MB, 64L * MB),
       velox::VeloxRuntimeError);
