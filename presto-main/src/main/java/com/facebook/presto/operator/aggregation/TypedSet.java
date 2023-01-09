@@ -149,7 +149,7 @@ public class TypedSet
                 containNullElements = true;
             }
             addNewElement(hashPosition, block, position);
-            return blockPositionByHash.getInt(hashPosition);
+            return blockPositionByHash.getInt(getHashPositionOfElement(block, position));
         }
 
         return currentPosition;
