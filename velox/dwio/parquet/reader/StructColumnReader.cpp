@@ -44,7 +44,8 @@ StructColumnReader::StructColumnReader(
     auto child = childForRepDefs_;
     for (;;) {
       assert(child);
-      if (child->type()->kind() == TypeKind::ARRAY) {
+      if (child->type()->kind() == TypeKind::ARRAY ||
+          child->type()->kind() == TypeKind::MAP) {
         levelMode_ = LevelMode::kStructOverLists;
         break;
       }
@@ -99,6 +100,8 @@ void StructColumnReader::enqueueRowGroup(
       structChild->enqueueRowGroup(index, input);
     } else if (auto listChild = dynamic_cast<ListColumnReader*>(child)) {
       listChild->enqueueRowGroup(index, input);
+    } else if (auto mapChild = dynamic_cast<MapColumnReader*>(child)) {
+      mapChild->enqueueRowGroup(index, input);
     } else {
       child->formatData().as<ParquetData>().enqueueRowGroup(index, input);
     }

@@ -43,6 +43,14 @@ PageReader* FOLLY_NULLABLE readLeafRepDefs(
     list->setLengthsFromRepDefs(*pageReader);
     return pageReader;
   }
+  if (type.type->kind() == TypeKind::MAP) {
+    pageReader = readLeafRepDefs(children[0], numTop, true);
+    readLeafRepDefs(children[1], numTop, false);
+    auto map = dynamic_cast<MapColumnReader*>(reader);
+    assert(map);
+    map->setLengthsFromRepDefs(*pageReader);
+    return pageReader;
+  }
   if (auto structReader = dynamic_cast<StructColumnReader*>(reader)) {
     pageReader = readLeafRepDefs(structReader->childForRepDefs(), numTop, true);
     assert(pageReader);
@@ -66,6 +74,8 @@ void skipUnreadLengthsAndNulls(dwio::common::SelectiveColumnReader& reader) {
     reinterpret_cast<ListColumnReader*>(&reader)->skipUnreadLengths();
   } else if (reader.type()->kind() == TypeKind::ROW) {
     reinterpret_cast<StructColumnReader*>(&reader)->seekToEndOfPresetNulls();
+  } else if (reader.type()->kind() == TypeKind::MAP) {
+    reinterpret_cast<MapColumnReader*>(&reader)->skipUnreadLengths();
   } else {
     VELOX_UNREACHABLE();
   }
@@ -96,6 +106,99 @@ void ensureRepDefs(
     skipUnreadLengthsAndNulls(reader);
     readLeafRepDefs(&reader, numTop, true);
   }
+}
+
+MapColumnReader::MapColumnReader(
+    std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+    ParquetParams& params,
+    common::ScanSpec& scanSpec)
+    : dwio::common::SelectiveMapColumnReader(
+          requestedType,
+          requestedType,
+          params,
+          scanSpec) {
+  auto& keyChildType = requestedType->childAt(0);
+  auto& elementChildType = requestedType->childAt(1);
+  keyReader_ =
+      ParquetColumnReader::build(keyChildType, params, *scanSpec.children()[0]);
+  elementReader_ = ParquetColumnReader::build(
+      elementChildType, params, *scanSpec.children()[1]);
+  reinterpret_cast<const ParquetTypeWithId*>(requestedType.get())
+      ->makeLevelInfo(levelInfo_);
+  children_ = {keyReader_.get(), elementReader_.get()};
+}
+
+void MapColumnReader::enqueueRowGroup(
+    uint32_t index,
+    dwio::common::BufferedInput& input) {
+  enqueueChildren(this, index, input);
+}
+
+void MapColumnReader::seekToRowGroup(uint32_t index) {
+  SelectiveColumnReader::seekToRowGroup(index);
+  readOffset_ = 0;
+  childTargetReadOffset_ = 0;
+  BufferPtr noBuffer;
+  formatData_->as<ParquetData>().setNulls(noBuffer, 0);
+  lengths_.setLengths(nullptr);
+  keyReader_->seekToRowGroup(index);
+  elementReader_->seekToRowGroup(index);
+}
+
+void MapColumnReader::skipUnreadLengths() {
+  auto& previousLengths = lengths_.lengths();
+  if (previousLengths) {
+    auto numPreviousLengths =
+        (previousLengths->size() / sizeof(vector_size_t)) -
+        lengths_.nextLengthIndex();
+    if (numPreviousLengths) {
+      skip(numPreviousLengths);
+    }
+  }
+}
+
+void MapColumnReader::setLengthsFromRepDefs(PageReader& pageReader) {
+  auto repDefRange = pageReader.repDefRange();
+  int32_t numRepDefs = repDefRange.second - repDefRange.first;
+  BufferPtr lengths = std::move(lengths_.lengths());
+  dwio::common::ensureCapacity<int32_t>(lengths, numRepDefs, &memoryPool_);
+  memset(lengths->asMutable<uint64_t>(), 0, lengths->size());
+  dwio::common::ensureCapacity<uint64_t>(
+      nullsInReadRange_, bits::nwords(numRepDefs), &memoryPool_);
+  auto numLists = pageReader.getLengthsAndNulls(
+      LevelMode::kList,
+      levelInfo_,
+      repDefRange.first,
+      repDefRange.second,
+      numRepDefs,
+      lengths->asMutable<int32_t>(),
+      nullsInReadRange()->asMutable<uint64_t>(),
+      0);
+  lengths->setSize(numLists * sizeof(int32_t));
+  formatData_->as<ParquetData>().setNulls(nullsInReadRange(), numLists);
+  setLengths(std::move(lengths));
+}
+
+void MapColumnReader::read(
+    vector_size_t offset,
+    RowSet rows,
+    const uint64_t* incomingNulls) {
+  // The topmost list reader reads the repdefs for the left subtree.
+  ensureRepDefs(*this, offset + rows.back() + 1 - readOffset_);
+  SelectiveMapColumnReader::read(offset, rows, incomingNulls);
+
+  // The child should be at the end of the range provided to this
+  // read() so that it can receive new repdefs for the next set of top
+  // level rows. The end of the range is not the end of unused lengths
+  // because all lengths maty have been used but the last one might
+  // have been 0.  If the last list was 0 and the previous one was not
+  // in 'rows' we will be at the end of the last non-zero list in
+  // 'rows', which is not the end of the lengths. ORC can seek to this
+  // point on next read, Parquet needs to seek here because new
+  // repdefs will be scanned and new lengths provided, overwriting the
+  // previous ones before the next read().
+  keyReader_->seekTo(childTargetReadOffset_, false);
+  elementReader_->seekTo(childTargetReadOffset_, false);
 }
 
 ListColumnReader::ListColumnReader(

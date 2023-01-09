@@ -480,6 +480,23 @@ TEST_F(E2EFilterTest, metadataFilter) {
   testMetadataFilter();
 }
 
+TEST_F(E2EFilterTest, map) {
+  // Break up the leaf data in small pages to cover coalescing repdefs.
+  writerProperties_ =
+      ::parquet::WriterProperties::Builder().data_pagesize(4 * 1024)->build();
+  batchCount_ = 2;
+  batchSize_ = 12000;
+  testWithTypes(
+      "long_val:bigint,"
+      "map_val:map<int, int>,"
+      "nested_map:map<int, map<int, bigint>>,"
+      "struct_map: struct<m: map<int, struct<k:int, v:int, vm: map<bigint, smallint>>>>",
+      nullptr,
+      false,
+      {"long_val"},
+      10);
+}
+
 // Define main so that gflags get processed.
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

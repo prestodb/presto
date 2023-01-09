@@ -66,10 +66,12 @@ std::unique_ptr<dwio::common::SelectiveColumnReader> ParquetColumnReader::build(
     case TypeKind::ARRAY:
       return std::make_unique<ListColumnReader>(dataType, params, scanSpec);
 
-    case TypeKind::BOOLEAN:
     case TypeKind::MAP:
+      return std::make_unique<MapColumnReader>(dataType, params, scanSpec);
 
+    case TypeKind::BOOLEAN:
       VELOX_UNSUPPORTED("Type is not supported: ", dataType->type->kind());
+
     default:
       VELOX_FAIL(
           "buildReader unhandled type: " +

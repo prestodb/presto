@@ -53,6 +53,56 @@ class RepeatedLengths {
   int32_t nextLengthIndex_{0};
 };
 
+class MapColumnReader : public dwio::common::SelectiveMapColumnReader {
+ public:
+  MapColumnReader(
+      std::shared_ptr<const dwio::common::TypeWithId> requestedType,
+      ParquetParams& params,
+      common::ScanSpec& scanSpec);
+
+  void prepareRead(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE incomingNulls) {
+    // The prepare is done by the topmost list/map/struct.
+  }
+
+  void seekToRowGroup(uint32_t index) override;
+
+  void enqueueRowGroup(uint32_t index, dwio::common::BufferedInput& input);
+
+  void read(
+      vector_size_t offset,
+      RowSet rows,
+      const uint64_t* FOLLY_NULLABLE /*incomingNulls*/) override;
+
+  void setLengths(BufferPtr lengths) {
+    lengths_.setLengths(lengths);
+  }
+  void readLengths(
+      int32_t* FOLLY_NONNULL lengths,
+      int32_t numLengths,
+      const uint64_t* FOLLY_NULLABLE /*nulls*/) override {
+    lengths_.readLengths(lengths, numLengths);
+  }
+
+  /// Sets nulls and lengths of 'this' for the range of top level rows for which
+  /// these have been decoded in 'leaf'.
+  void setLengthsFromRepDefs(PageReader& leaf);
+
+  /// advances 'this' to the end of the previously provided lengths/nulls. This
+  /// is needed if lists are conditionally read from different structs that all
+  /// end at different positions. Repeated children must use all lengths
+  /// supplied before receiving new lengths.
+  void skipUnreadLengths();
+
+ private:
+  RepeatedLengths lengths_;
+  RepeatedLengths keyLengths_;
+  RepeatedLengths elementLengths_;
+  ::parquet::internal::LevelInfo levelInfo_;
+};
+
 class ListColumnReader : public dwio::common::SelectiveListColumnReader {
  public:
   ListColumnReader(

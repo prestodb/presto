@@ -54,13 +54,15 @@ LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
   int16_t repeatedAncestor = 0;
   for (auto parent = parquetParent(); parent;
        parent = parent->parquetParent()) {
-    if (parent->type->kind() == TypeKind::ARRAY) {
+    if (parent->type->kind() == TypeKind::ARRAY ||
+        parent->type->kind() == TypeKind::MAP) {
       repeatedAncestor = parent->maxDefine_;
       break;
     }
   }
   bool isList = type->kind() == TypeKind::ARRAY;
   bool isStruct = type->kind() == TypeKind::ROW;
+  bool isMap = type->kind() == TypeKind::MAP;
   bool hasList = false;
   if (isStruct) {
     bool isAllLists = true;
@@ -77,6 +79,13 @@ LevelMode ParquetTypeWithId::makeLevelInfo(LevelInfo& info) const {
     new (&info) LevelInfo(1, maxDefine_ + 1, maxRepeat_, repeatedAncestor);
     return LevelMode::kList;
   }
+
+  if (isMap) {
+    // the definition level is the level of a present element.
+    new (&info) LevelInfo(1, maxDefine_ + 1, maxRepeat_, repeatedAncestor);
+    return LevelMode::kList;
+  }
+
   if (isStruct) {
     new (&info) LevelInfo(1, maxDefine_, maxRepeat_, repeatedAncestor);
     return hasList ? LevelMode::kStructOverLists : LevelMode::kNulls;
