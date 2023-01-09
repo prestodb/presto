@@ -629,13 +629,13 @@ public final class SqlStageExecution
         return stageTaskRecoveryCallback.isPresent() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
     }
 
-    public boolean noMoreRetry()
+    public synchronized boolean noMoreRetry()
     {
         if (failedTasks.isEmpty()) {
             List<HttpRemoteTask> idleRunningHttpRemoteTasks = getAllTasks().stream()
                     .filter(task -> task instanceof HttpRemoteTask)
                     .map(task -> (HttpRemoteTask) task)
-                    .filter(task -> task.getUnprocessedSplits().values().stream().allMatch(Map::isEmpty))
+                    .filter(HttpRemoteTask::isAllSplitsRun)
                     .collect(toList());
             return idleRunningHttpRemoteTasks.size() == allTasks.size();
         }
@@ -644,7 +644,7 @@ public final class SqlStageExecution
                     .filter(task -> task instanceof HttpRemoteTask)
                     .map(task -> (HttpRemoteTask) task)
                     .filter(task -> task.getTaskStatus().getState() == TaskState.RUNNING)
-                    .filter(task -> task.getUnprocessedSplits().values().stream().allMatch(Map::isEmpty))
+                    .filter(HttpRemoteTask::isAllSplitsRun)
                     .collect(toList());
             return idleRunningHttpRemoteTasks.size() == allTasks.size() - failedTasks.size() && failedTasks.size() < allTasks.size() * maxFailedTaskPercentage;
         }

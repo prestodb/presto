@@ -328,20 +328,21 @@ public class SectionExecutionFactory
 
                     Collections.shuffle(httpRemoteTasks);
 
-                    checkState(remoteTask.getUnprocessedSplits().keySet().size() == 1
-                                    && remoteTask.getUnprocessedSplits().keySet().iterator().next().equals(planNodeId),
-                            "Unexpected plan node id");
-                    Iterator<List<Split>> splits = Iterables.partition(
-                            Iterables.transform(remoteTask.getUnprocessedSplits().get(planNodeId).values(), ScheduledSplit::getSplit),
-                            SPLIT_RETRY_BATCH_SIZE).iterator();
+                    synchronized (stageExecution) {
+                        checkState(remoteTask.isOnlyOneSplitLeft(planNodeId),
+                                "Unexpected plan node id");
+                        Iterator<List<Split>> splits = Iterables.partition(
+                                Iterables.transform(remoteTask.getAllSplits(planNodeId), ScheduledSplit::getSplit),
+                                SPLIT_RETRY_BATCH_SIZE).iterator();
 
-                    while (splits.hasNext()) {
-                        for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
-                            HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
-                            List<Split> scheduledSplit = splits.next();
-                            Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
-                            splitsToAdd.putAll(planNodeId, scheduledSplit);
-                            httpRemoteTask.addSplits(splitsToAdd);
+                        while (splits.hasNext()) {
+                            for (int i = 0; i < httpRemoteTasks.size() && splits.hasNext(); i++) {
+                                HttpRemoteTask httpRemoteTask = httpRemoteTasks.get(i);
+                                List<Split> scheduledSplit = splits.next();
+                                Multimap<PlanNodeId, Split> splitsToAdd = HashMultimap.create();
+                                splitsToAdd.putAll(planNodeId, scheduledSplit);
+                                httpRemoteTask.addSplits(splitsToAdd);
+                            }
                         }
                     }
                 });
