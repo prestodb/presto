@@ -6247,4 +6247,10 @@ public abstract class AbstractTestQueries
         assertQuery("select cardinality(map_subset(map(array[1,2,3,4], array['a', 'b', 'c', 'd']), array[10,20]))", "select 0");
         assertQuery("select cardinality(map_subset(map(), array[10,20]))", "select 0");
     }
+
+    @Test
+    public void testMultiMapFromEntriesWihTransform()
+    {
+        assertQuerySucceeds("select multimap_from_entries(x) from (select zip(array[orderkey], array[array[custkey, custkey]]) x from (select 1 orderkey, 1 custkey))");
+    }
 }
