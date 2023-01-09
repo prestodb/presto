@@ -56,7 +56,7 @@ void ReaderBase::loadFileMetaData() {
 
   uint32_t footerLength =
       *(reinterpret_cast<const uint32_t*>(copy.data() + readSize - 8));
-  VELOX_CHECK_LT(footerLength + 12, fileLength_);
+  VELOX_CHECK_LE(footerLength + 12, fileLength_);
   int32_t footerOffsetInBuffer = readSize - 8 - footerLength;
   if (footerLength > readSize - 8) {
     footerOffsetInBuffer = 0;
